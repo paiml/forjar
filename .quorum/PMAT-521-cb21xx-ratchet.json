@@ -1,0 +1,139 @@
+{
+ "kind": "code",
+ "issue": "PMAT-521 — pmat 3.40 added six comply checks this repository has never satisfied and gate B, a release blocker, went red on main between the 1.28.0 cut (green, 2026-09-10) and the 1.29.0 one: CB-2110 49 NO-FRONT-MATTER, CB-2111 49 UNJUDGEABLE, CB-2112 34 (NO-ISSUE 24, TAIL-MISMATCH 10), CB-2113 branch-local, CB-2114 34 NO-RELEASE, CB-2115 43. Not one is a regression from any ticket in that window. The doctrine forbids a skip; it does not forbid RECORDING what is true and refusing to let it get worse, which is what CB-200 does one arm above. scripts/ratchets/cb21xx-baseline.json records a ceiling per check, Arm 1 exempts exactly five ids, and Arm 7 enforces them from the SAME comply run Arm 1 made. Two tickets were minted for this release and the counts did NOT grow — the convention that makes that true was measured: the issue first, the id tail IS the issue number, the issue on the release milestone, and release: the BARE version string.",
+ "branch": "PMAT-521-cb21xx-ratchet",
+ "base": "5c361bd4",
+ "base_commit": "5c361bd4fc74c9ade3a45f54bfc622ff06ce94ec",
+ "diff_sha256": "541ba77b07ace6f69f1a00a22bf6478d97f8e107",
+ "recorded_at": "after the round in which all six claims fell, and the re-run that reproduced every one",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-7e0f92e2)",
+   "lane 2 (conv-7e1df0bf)",
+   "lane 3 (conv-bb34c7af)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes on 72d11508 with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 509s/687s/443s, verdicts 3/3 FAIL. Every one of the six claims put to them was REFUTED — a round where every claim falls is not a failed round, it is the round doing its job on a change whose author had reviewed it only against himself.",
+  "kill_rule": "the brief named six things to attack IN ORDER: is anything asserted less than before; can the exemption widen by accident; does the arm fail closed in every unmeasurable direction; are the recorded numbers true; do the cases falsify; is CB-2113 correctly excluded. Five of the six produced a finding that changed the code. The brief also told the lanes this host was inside a GitHub secondary rate limit and to report a GitHub-dependent check as a finding rather than retrying — which is why claim 4 reads as unmeasurable rather than as three lanes confirming numbers they could not see.",
+  "claims_confirmed": 0,
+  "claims_refuted": 6,
+  "refuted_claims": [
+   "That a check exempt from Arm 1 is necessarily owned by Arm 7 — a check in the array and absent from the baseline is skipped by both, waived entirely by nobody, in two files that each read correctly alone. The worst outcome this design had. The arm refuses the mismatch itself now.",
+   "That Arm 7 says which unmeasurable state it is in — `sys.exit(\"message\")` writes to stderr, `$( )` captures stdout, and the verdict printed `the CB-2110..CB-2115 ratchet (Arm 7): ` and stopped. Red and mute is worse than green and wrong.",
+   "That a check's count is read once — a second roster entry under one id replaced the first, so a later Pass could erase an earlier Fail. 172 checks and no duplicate id today, so latent rather than observed; a ratchet that can lose a finding to dictionary assignment is not one.",
+   "That the falsifier measures the arm rather than its own copy — the harness defined CB21XX_BASE itself and merged stderr into stdout, which would have hidden the mute-verdict finding exactly. The same pattern refuted an earlier ticket in this session, which is why the brief asked.",
+   "That the five counts could be re-measured independently — three of them take a `gh` snapshot, so on a host that cannot reach GitHub they are UNMEASURED. A property of the gate, not a lane error, and now a named gap: gate B cannot run in a clean room without a token.",
+   "That CB-2113 was satisfied on this branch — it was not. The commit's Pmat-Ticket named a row that lived on a different branch. The reading of CB-2113 as branch-local and satisfiable was right; the claim that this branch satisfied it was not."
+  ],
+  "lane_errors": [
+   "The delegate stopped at its 30-turn limit while summarising, AFTER all three lanes completed and reduce.json was written. Third occurrence in this session at exactly that point — a pattern that deserves a ticket rather than a third workaround.",
+   "Lane 2 confirmed claims 1, 2 and 3 that the other two refuted. Recorded as it fell rather than averaged; what decides each claim is that the refutation reproduces, and all six did."
+  ]
+ },
+ "falsification": {
+  "test": "nine cases over synthetic comply output: at the ceiling is green and names every number; one finding over is a REGRESSION naming the check, the count and the ceiling; fewer is green; a check that has LEFT the roster is UNMEASURED rather than zero findings; a check reporting Fail with no count is UNMEASURED; a check exempt but not ratcheted is refused BY THE GATE; every verdict the arm reaches arrives with words on stdout; the exemption list and the ceiling map are the same set; and CB-2113 is in neither",
+  "test_file": "tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs",
+  "cargo_test_target": "falsification_cb21xx_ratchet_holds_the_ceiling",
+  "reverted": "origin/main's scripts/dogfood/comply.sh checked out over this branch, then restored",
+  "observed_failure": "with origin/main's gate: GATE B FAIL naming CB-2115, CB-2112, CB-2114, CB-2110 and CB-2111, exit 1. At HEAD: GATE B PASS with `ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=34/34 CB-2114=34/34 CB-2115=43/43 held`. Both in docs/audits/logs/PMAT-521-gate-b.log, measured against the live repository rather than a fixture. `bash scripts/ratchets/comply-count.sh CB-9999` — a rotted id — exits 1 saying so rather than printing the zero that would read as perfection.",
+  "still_green_when_reverted": "the four cases of falsification_cb200_ratchet_measures_this_tree and the four of falsification_dogfood_scripts_declare_mutations, which drive the neighbouring ratchet and the mutation registry through the same gate"
+ },
+ "crux": {
+  "systems": [
+   "Rust (deny-by-default lint levels and `cargo fix --edition`)",
+   "Kubernetes (deprecated API removal windows)",
+   "Debian (Lintian severity and overrides)"
+  ],
+  "verdict": "accept(every surveyed system faces the same problem — a tooling upgrade that adds a rule over a corpus that predates it — and each answers it with a RECORDED, DATED, REVIEWABLE allowance rather than a switch: Rust turns a new lint on as warn before deny, Kubernetes gives a deprecated API a named removal release, Debian requires an override file naming the tag and the reason. None of them answers it by disabling the check, and none by failing the release the upgrade did not break. A per-check ceiling in a committed file, enforced by the gate and lowerable only, is that same answer. [X] all three, documentation memory.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false with the no-write rule stated FIRST, --not-before pinned to the dispatch instant; all three returned and the repository was verified intact",
+  "verdict": "3/3 FAIL; six refutations, every one re-run by the orchestrator and every one reproduced",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-521",
+  "tools": [
+   "pmat comply check --format json",
+   "pmat comply ratchet (tried; recurses)",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat work sync --direction github-to-yaml (tried; reverted)",
+   "bashrs lint",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/dogfood/comply.sh",
+   "scripts/ratchets/comply-count.sh",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "route.sh",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. None of the nine new cases appears.",
+  "bashrs": "0 errors on scripts/dogfood/comply.sh and scripts/ratchets/comply-count.sh.",
+  "quality_gate": "9 + 4 + 4 green at HEAD; gate B red on origin/main and green here, measured against the live repository. Nothing under src/ changes, so gate F's mutation arm has no diff to mutate.",
+  "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
+  "tool_defects_found": [
+   "pmat comply ratchet: a .pmat-ratchet.toml metric whose `command` runs `pmat comply check` re-enters CB-2102, which runs every metric's command again, without bound. A single comply run is 3 seconds; five such metrics did not finish in ten minutes. The file was removed before it was committed, so no CB-2102 'deleted' finding was created.",
+   "pmat work sync --direction github-to-yaml: the documented writer of `release:` is a full YAML round-trip that dropped 20 of the roadmap's 57 `kind:` fields and reflowed 369 lines. `kind:` is what paiml-implement's kind-gate reads, so the sync silently removes a gate's input. Measured, then reverted; both fields written textually instead."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/gate-b-cb21xx-judges.md",
+  "total_bytes": 10868,
+  "files": [
+   {
+    "path": ".quorum/evidence/gate-b-cb21xx-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2139,
+    "sha256": "c9c580f4614799ddf9ab28a6e96e7407087f49992e2772a790599cbddad45eca",
+    "blob": "d06a1a0fcf47308cf3d63090be0779a25986e9ff"
+   },
+   {
+    "path": ".quorum/evidence/gate-b-cb21xx-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1563,
+    "sha256": "7ec27dbe6347d1427bf7ca622fc035453f8e11cc0207280426f8fc3a173d5387",
+    "blob": "013034b8e3dd907898620ac728f67e178ebcb6eb"
+   },
+   {
+    "path": ".quorum/evidence/gate-b-cb21xx-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 4565,
+    "sha256": "e78852dc55ccd640675496bfe12da7f8d1a5199241cb0db4711d8f7a6aaaa869",
+    "blob": "4a93c04ede2180c5bd92a4ffcdaa6b052d488980"
+   },
+   {
+    "path": ".quorum/evidence/gate-b-cb21xx-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 894,
+    "sha256": "fe6f869455e1c4d5f0063b5c8a6b6da0cf99b56a94af3b9fcbcdf0dfd7620977",
+    "blob": "8ae33f103ee1b2ba86342cac24857b6279e0dbe6"
+   },
+   {
+    "path": ".quorum/evidence/gate-b-cb21xx-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1707,
+    "sha256": "99c5135cb00785216a574073ea7428279395b54654b4966ccb2f94cade3ae35e",
+    "blob": "b4007e9bc845de6d6e99714c6f90d14f932fbbd6"
+   }
+  ]
+ }
+}
