@@ -1,0 +1,125 @@
+{
+  "kind": "code",
+  "issue": "PMAT-236 + PMAT-238 + PMAT-239 — three arms of gate T, all three found by running it. PMAT-236: T2 and T4 reconcile the ledger and the release:<tag> labels and neither looked at status, so the roadmap said none of the 1.28.0 work had started on the day it shipped; a new arm checks every ticket a tagged row names and every ticket merged since the newest tag, and it fired on PMAT-232 the moment it existed — the drift recurring within a day of PMAT-235's backfill. PMAT-238: the verdict line said '8 of 7 PR(s)' because one PR carried two tickets; it now says 'N ticket(s) from M PR(s)'. PMAT-239: printf | grep -q took SIGPIPE under pipefail and the gate called a readable registry UNMEASURED on one run in three; three such pipelines are rewritten as one process each and a rule refuses the pattern in the three files this branch owns.",
+  "branch": "PMAT-236-gate-t-checks-status",
+  "base": "cc339449",
+  "base_commit": "cc33944917448a93dc4573b5748bea290728d655",
+  "diff_sha256": "e57f37c395b9b205d4322a5edd5e255ff809a41e",
+  "recorded_at": "after the round, the three refutations, and the class the third of them opened",
+  "quorum": {
+    "lanes": [
+      "lane 1 (conv-660c1af8)",
+      "lane 2 (conv-3a06ac22)",
+      "lane 3 (conv-919980f0)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed lanes on 7faabf52 with the base pinned at cc339449: 3/3 FAIL, all three returning, and the repository intact afterwards — the previous round's brief put the no-write rule at the end and a lane created branches in the working tree and left HEAD on one; this brief opened with that incident.",
+    "kill_rule": "the brief fixed the ORDER of the attack — the ref the statuses are read at, then the SIGPIPE class across the whole of scripts/ rather than the one instance, then whether ten runs can distinguish a fix from luck — and each of those three produced a finding. The one that mattered most is the one the ticket had not thought to ask: the class, not the instance. Every refutation was re-run before it was acted on, and the one that does not reproduce is recorded as a lane error rather than dropped.",
+    "claims_confirmed": 8,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "That no pipeline in these scripts can return 141 — refuted 3/3 and right three times over: `git tag … | head -1` in dogfood_prev_tag, and `git tag … | grep -v … | head -1` in both tagged.sh and release-goal.sh. All three are one capture plus one awk or a parameter expansion now. The same grep found a NINETEENTH site this branch had just introduced (grep | head -1 | cut in the new status reader, one line from the defect being fixed), now one awk. Eighteen further sites elsewhere are filed as PMAT-240 with the census committed.",
+      "The ten-run loop as evidence — refuted 1/3: at one flake in three, ten passes have a 1.7% chance of being luck. Replaced by the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe, which refuses the PATTERN in the three files this branch owns, ignores comments, and is red when one leaky pipeline is appended to any of them. The loop is kept as a weaker companion and the receipt no longer leans on it.",
+      "The red/green measurement, reported 'backwards' by two lanes — it does NOT reproduce. Re-run with main's two scripts checked out over this branch's tests: three cases fail (14 passed, 4 failed) and all pass at HEAD (18 passed), recorded in docs/audits/logs/PMAT-236-gate-tests.log. Two lanes agreeing is not a measurement."
+    ],
+    "lane_errors": [
+      "Two of three lanes reported the red/green halves the wrong way round. The orchestrator re-ran both and recorded the result rather than taking the majority."
+    ]
+  },
+  "falsification": {
+    "test": "a_shipped_ticket_whose_row_says_planned_is_named_and_red and a_merged_ticket_whose_row_says_planned_is_named_and_red drive both halves of the status arm; the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe refuses the SIGPIPE pattern in the three files this branch owns; the_same_tree_gives_the_same_verdict_every_time runs the gate ten times and refuses any 141",
+    "test_file": "tests/falsification_release_goals_are_measured.rs",
+    "cargo_test_target": "falsification_release_goals_are_measured",
+    "reverted": "main's scripts/dogfood/tagged.sh and scripts/dogfood/lib/window.sh checked out over this branch's tests, then restored; and separately one leaky pipeline appended to scripts/release-goal.sh",
+    "observed_failure": "with main's scripts: 14 passed, 4 failed — both status cases, the pattern rule and the green fixture whose assertion quotes the corrected sentence; 18 passed with them restored (docs/audits/logs/PMAT-236-gate-tests.log). With one leaky pipeline appended: the pattern rule fails naming the file, the line and the flag (docs/audits/logs/PMAT-239-sigpipe-census.log). the_same_tree_gives_the_same_verdict_every_time is GREEN against main too and is recorded as a weak companion rather than a falsifier: the flake was one run in three, so ten passes have a 1.7% chance of being luck.",
+    "still_green_when_reverted": "the nineteen cases of falsification_dogfood_harness_and_quorum, which drive gates A and E through the same library and prove the change is confined to gate T"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/gate-t-status-judges.md",
+    "total_bytes": 14717,
+    "files": [
+      {
+        "path": ".quorum/evidence/gate-t-status-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2559,
+        "sha256": "bff5ce172050bee2e7b846448403efd6be44f4f0f4d90bc0425c8f239da6139c",
+        "blob": "e297e76ad10c84fdab60bcb77cb8c238c899df1d"
+      },
+      {
+        "path": ".quorum/evidence/gate-t-status-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2824,
+        "sha256": "70e8127a6c586c0bc2ebe1e3d9504ac3360c10cd7347f71ff2b0afd96eb569fe",
+        "blob": "da06b9dfb7bbbe0c38a650c66e4b32247c52afbc"
+      },
+      {
+        "path": ".quorum/evidence/gate-t-status-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 5958,
+        "sha256": "615a81f6b7c37a47c422cd54fc8f70dd81c81ccabd2a83d04cc31ab3583ef9b4",
+        "blob": "0c5690628a3d6f1a12daf02ed6bc00bac1758c46"
+      },
+      {
+        "path": ".quorum/evidence/gate-t-status-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1548,
+        "sha256": "f186cfebc064d23d0c2ce9c05b98b11aab44e432510c03a3f4ea00295f5172c7",
+        "blob": "74c3aa5fe1b87a6ed4ba0137edcb9fca1a515c94"
+      },
+      {
+        "path": ".quorum/evidence/gate-t-status-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1828,
+        "sha256": "4f7daf8b396ab526bca104ce595c45c7a8b37d87075758bdb831ff2525ab416b",
+        "blob": "0e3f2fd611cf878e8b4dd9a2c4b79af9887be704"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Chef",
+      "Terraform",
+      "Ansible"
+    ],
+    "verdict": "accept(docs/audits/crux-1.28.0.md row 1 found that every surveyed project records a change's release impact at merge and reconciles it at the cut, and none of them keeps a second hand-maintained status field beside that link — which is precisely the field that drifted here for sixteen tickets across five releases while the machine-checked half stayed correct. The fix is the one those projects imply: make the second field machine-checked too, rather than add a third source of truth. No new comparison was run; this branch adds no behaviour a user can see.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed lanes, review-only, base pinned by SHA, writes=false with the rule stated first after the previous round's damage; all three returned and the repository was verified intact",
+    "verdict": "3/3 FAIL; three refutations, two reproduce and are fixed, one does not and is recorded"
+  },
+  "pmat": {
+    "ticket": "PMAT-236",
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared the round)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat work add --id (the tool now refuses max(id)+1)",
+      "pmat work edit -s (three tickets to completed)",
+      "pmat work validate",
+      "cargo test --no-fail-fast",
+      "scripts/dogfood/tagged.sh",
+      "scripts/release-goal.sh show",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 45 of 4735 tests examined flagged tree-wide; 0 in either touched test file.",
+    "quality_gate": "19 + 2 + 18 green at HEAD; three cases red against main's scripts; the pattern rule red under an appended leaky pipeline; gate T green against the live repository. Nothing under src/ changes, so gate F's mutation arm measures zero. Coverage is not gated and was measured at 95.69% on the branch that introduced the split.",
+    "limit": "the pattern rule covers three files; eighteen sites elsewhere are PMAT-240 and until that lands another gate can still report UNMEASURED at random. The status arm accepts `cancelled` as well as `completed`, so a ticket that shipped and was later cancelled is not distinguished. PMAT-234 is still open: gate R's verdict line still says pre-tag after every successful release, which is PMAT-238's defect in a different gate."
+  }
+}
