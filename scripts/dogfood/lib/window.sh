@@ -151,7 +151,12 @@ dogfood_prs_between() {
     prev_rc=0
     git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?
     if [ "$prev_rc" -eq 0 ]; then
-      echo "  #${num} ${oid} is inside ${lower} (the previous release) — not counted"
+      # PMAT-228: STDERR. This is a diagnostic about a PR that is NOT in the
+      # window, and `release-goal.sh cut` captures this function's stdout to
+      # build the row it writes into docs/roadmaps/releases.yaml — where the
+      # v1.28.0 booking carried this very line, made a YAML comment by the
+      # accident of its leading `#`, which is why nothing complained.
+      echo "  #${num} ${oid} is inside ${lower} (the previous release) — not counted" >&2
       DOGFOOD_PR_PREVIOUS=$((DOGFOOD_PR_PREVIOUS + 1))
       i=$((i + 1))
       continue
@@ -164,7 +169,8 @@ dogfood_prs_between() {
     case "$arc" in
       0) keep="$(printf '%s' "$keep" | jq -c --arg o "$oid" '. + [$o]')" ;;
       1)
-        echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted"
+        # PMAT-228: stderr, for the same reason as the note above.
+        echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted" >&2
         DOGFOOD_PR_OUTSIDE=$((DOGFOOD_PR_OUTSIDE + 1))
         ;;
       *) fail "git merge-base --is-ancestor ${oid} ${upper} exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
