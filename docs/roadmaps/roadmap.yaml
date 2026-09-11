@@ -3405,3 +3405,91 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:release — a release blocker, found by the v1.28.0 cut. dist-artifacts died with `/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or `--skip-existing` to skip file)`, leaving the release a draft prerelease with 13 assets and no installer. The file is a leftover from a PREVIOUS release on the same non-ephemeral clean-room runner. The repository already learned this exact lesson one job over: the checksums job carries the comment `THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL` and clears /tmp/release-assets first, after v1.18.0 shipped a 10-line SHA256SUMS with four lines belonging to 1.17.0. dist-artifacts and homebrew download into /tmp and /tmp/checksums with no guard at all. --skip-existing must be refused as well as absent: it would satisfy the step`s `test -s` guard with the PREVIOUS release`s checksums and embed them in install.sh, which is the v1.18.0 failure again with a friendlier exit code.'
+- id: PMAT-231
+  kind: triage
+  github_issue: null
+  item_type: task
+  title: 'record the v1.28.0 release: the receipt, gate R, and the two release-workflow defects that shipping it exposed'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T23:57:30Z
+  updated: 2026-09-10T23:57:33Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/audits/release-1.28.0-receipt.md records the tag, the published release and its 14 assets, crates.io, docs.rs, every gate measured on the tagged sha, and the by-hand step with its reason'
+  - 'scripts/dogfood/release-check.sh (gate R) passes on the published release, and make dogfood-published VERSION=1.28.0 is recorded with its verdict'
+  - 'the two defects shipping the release exposed are filed as roadmap rows with their measurements, and every new row carries release:v1.29.0 from the moment it is minted'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — the closing record of the 1.28.0 release. The release was published by hand with `gh release edit --draft=false --prerelease` because publish-release declined to (PMAT-232), and promoted to a full release after `make dogfood-published VERSION=1.28.0` passed, which is the operator step the workflow names; everything else was done by the workflow. Sixth-plus ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user''s verbatim instruction quoted on PMAT-226. Three quorum lanes refuted three facts in the first draft of the receipt — a rounded crates.io timestamp, a miscounted cancellation, and this very notes field, which a row-patching bug had left null — and all three were corrected.'
+- id: PMAT-232
+  kind: code
+  github_issue: null
+  item_type: task
+  title: publish-release cannot un-draft a release a previous run created, so a re-dispatch leaves the release a draft for ever
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T23:57:31Z
+  updated: 2026-09-10T23:57:33Z
+  spec: null
+  acceptance_criteria:
+  - 'release.yml publish-release un-drafts the release whenever every asset job succeeded, not only when THIS run created it: a workflow_dispatch re-run over a release a previous run created must publish it'
+  - 'the assertion that the release is prerelease=true draft=false runs on the same condition, so an un-draft that did not happen is a failure rather than a skip'
+  - 'a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-10 on run 34530301814, the re-dispatch that carried PMAT-230''s fix: every asset job succeeded, publish-release reported success, and the release stayed draft=true — because the step is guarded by `if [ "${{ needs.create-release.outputs.created }}" = "true" ]` and this run did not create the release, the earlier failed run did. The assertion that would have caught it is behind the same guard, so the job passes while doing nothing. A release whose creating run fails after create-release can therefore never be published by the workflow; v1.28.0 was un-drafted by hand.'
+- id: PMAT-233
+  kind: code
+  github_issue: null
+  item_type: task
+  title: the homebrew job's tap push has an empty GH_TOKEN, so it fails authentication on every release
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T23:57:32Z
+  updated: 2026-09-10T23:57:33Z
+  spec: null
+  acceptance_criteria:
+  - 'the homebrew job''s Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication'
+  - 'the tap URL never carries a secret that is not set: an empty ${GH_TOKEN} produces a URL that authenticates as nobody'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-10 on run 34530301814: the step reached `Cloning into /tmp/tap` for the first time — PMAT-230''s fixes carried it past the checksums download and the leftover directory — and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step log shows `GH_TOKEN:` with an empty value while every other step in the job shows `GH_TOKEN: ***`, so the secret is not wired into this step. The homebrew job is not on publish-release''s needs, so this has never blocked a release; it has simply never worked.'
+- id: PMAT-234
+  kind: code
+  github_issue: null
+  item_type: task
+  title: gate R's verdict line says PASS pre-tag and PENDING until the tag is cut whenever ANY arm is pending, so after every successful release it reports the opposite of the truth
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T00:00:33Z
+  updated: 2026-09-11T00:00:34Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/release-check.sh distinguishes the arms that are pending BECAUSE THE TAG DOES NOT EXIST from every other pending note: after a published release its verdict line names the tag, the release, crates.io and docs.rs as measured, and lists any remaining pending note as what it actually is'
+  - 'the summary never says pre-tag when origin serves the tag, and never says PENDING until the tag is cut about a note that has nothing to do with the tag'
+  - 'a falsification case drives the script over a fixture where the tag exists and one non-tag arm is pending, and asserts the verdict line says neither'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-10 immediately after v1.28.0 was published: `GATE R PASS pre-tag: 13 PR(s) since v1.27.0 … PENDING until the tag is cut: no docs/audits/crux-1.28.0.md: Cargo.toml is still at v1.28.0''s version (1.28.0), no release is being cut`. Every word after the semicolon is wrong: the tag is on origin (arm 1 found it, which is why the four tag-dependent PENDING notes are absent), the crux document exists and gate H reconciled it during the cut, and the pending note is arm 6 saying no NEW release is being prepared — the correct post-release state. The wording comes from one branch at the end of the script that assumes any pending note means pre-tag. This repository''s doctrine is that the single line a gate prints must be true; it is the only line the operator is told to read.'

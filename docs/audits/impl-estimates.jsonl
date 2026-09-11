@@ -38,3 +38,5 @@
 {"repo": "forjar", "ticket": "PMAT-230", "phase": "0-frame + rule 9 + the workflow fix", "mode": "direct", "est": 2, "actual": 3, "basis": "k 210 -> 226 [U]; one commit refused by the complexity hook and re-done"}
 {"repo": "forjar", "ticket": "PMAT-230", "phase": "2-review round 1 + fixes", "mode": "delegate:agy quorum x3", "est": 2, "actual": 3, "basis": "k 226 -> 236 [U]; 0/3 PASS, three findings, all acted on"}
 {"repo": "forjar", "ticket": "PMAT-230", "phase": "2-review round 2 + the token rewrite + the seven-case battery", "mode": "delegate:agy quorum x3", "est": 2, "actual": 3, "basis": "k 236 -> 246 [U]; 1/3 PASS, four more findings, all closed and measured"}
+{"repo": "forjar", "ticket": "PMAT-231", "phase": "0-publish the release by hand + dogfood-published + gate R", "mode": "direct", "est": 2, "actual": 2, "basis": "k 246 -> 256 [U]"}
+{"repo": "forjar", "ticket": "PMAT-231", "phase": "1-receipt, three filed defects, two quorum rounds, five corrections", "mode": "delegate:agy quorum x3, x3", "est": 3, "actual": 4, "basis": "k 256 -> 270 [U]; round 1 0/3 with three factual refutations, round 2 1/3 with two honesty findings"}
