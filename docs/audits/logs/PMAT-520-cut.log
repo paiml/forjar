@@ -18,3 +18,30 @@ cut in flight: Cargo.toml is at 1.29.0
 ### with main's 1.28.0 in the working tree, the gate still reports 1.29.0 — it is
 ### reading the commit, which is the correct behaviour and makes a working-tree
 ### revert useless as evidence about it.
+
+### T9 — the arm this cut's own defect called for (PMAT-520)
+###
+### Proven in a SCRATCH CLONE, not in this repository. Gate T reads the
+### CHANGELOG at HEAD, so the red half needs a COMMIT carrying the wrong count,
+### and making one here would mean a commit-and-reset in a proof script. Two of
+### those have already destroyed work in this session.
+
+### RED — the CHANGELOG as it was written at 3875e2de, thirteen over twelve:
+GATE T FAIL CHANGELOG [1.29.0] claims "Thirteen PRs across sixteen tickets" and
+the window measures "Twelve PRs across Fifteen tickets": 12 PR(s) merged since
+v1.28.0 carrying 15 ticket(s). A cut's own PR has not merged when the sentence
+is written, and counting it is the error this arm exists for (PMAT-520)
+
+### GREEN — at 80c2ffbf, with the count corrected:
+GATE T PASS 6 tagged release(s) since v1.25.0 reconcile with git and GitHub and
+26 ticket(s) carry their tag and say they shipped; 15 ticket(s) from 12 PR(s)
+merged since v1.28.0 carry release:v1.29.0; cut in flight: Cargo.toml is at
+1.29.0
+
+### the five cases
+test a_changelog_that_counts_its_own_pr_is_named_and_red ... ok
+test the_measured_count_passes_in_either_case ... ok
+test a_section_that_makes_no_claim_is_not_failed_for_silence ... ok
+test a_neighbouring_release_section_is_not_this_ones_claim ... ok
+test between_releases_a_stale_count_is_not_this_gates_business ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
