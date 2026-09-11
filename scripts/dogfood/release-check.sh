@@ -71,6 +71,25 @@ fi
 TAG="v${version}"
 CRUX="docs/audits/crux-${version}.md"
 
+# TWO KINDS OF PENDING, AND THEY ARE NOT THE SAME SENTENCE (PMAT-234).
+#
+# There was one flat `pending` string, and the verdict read
+# `PASS pre-tag: … PENDING until the tag is cut: …` whenever ANY note was in
+# it. Arm 6 adds a note after EVERY SUCCESSFUL RELEASE — Cargo.toml is back at
+# the tag's version, so no cut is in flight and no crux document is owed — so
+# the line said `pre-tag` and `until the tag is cut` about a release that was
+# tagged, published, on crates.io and rendered on docs.rs. A verdict that says
+# the opposite of the truth at the one moment a reader most wants to believe it
+# is worse than no verdict.
+#
+# `note_pretag` is for the arms whose obligation does not exist YET because the
+# tag does not: the tag, the GitHub release, crates.io, docs.rs. `note_pending`
+# is for everything else — a note about the tree, true whether or not a tag
+# exists — and it never licenses the words `pre-tag`.
+pretag=""
+note_pretag() {
+  pretag="${pretag}${1}, "
+}
 pending=""
 note_pending() {
   pending="${pending}${1}, "
@@ -103,13 +122,13 @@ fi
 
 if [ "$remote_tagged" -eq 0 ]; then
   if [ "$local_tagged" -eq 1 ]; then
-    note_pending "tag ${TAG} exists only in this checkout and was never pushed"
+    note_pretag "tag ${TAG} exists only in this checkout and was never pushed"
   else
-    note_pending "tag ${TAG} not cut"
+    note_pretag "tag ${TAG} not cut"
   fi
-  note_pending "no GitHub release"
-  note_pending "not on crates.io"
-  note_pending "not on docs.rs"
+  note_pretag "no GitHub release"
+  note_pretag "not on crates.io"
+  note_pretag "not on docs.rs"
 else
   if [ "$local_tagged" -eq 0 ]; then
     fail "origin serves ${TAG} ($(printf '%s\n' "$remote_ls" | awk 'NR == 1 {print $1}')) and this checkout does not have it, so nothing about the released commit can be examined here — UNMEASURED (run: git fetch --tags origin), and a version the remote already carries is never reported as not-yet-cut"
@@ -349,10 +368,20 @@ else
   fi
 fi
 
+# The words `pre-tag` and `until the tag is cut` are spoken ONLY when the tag
+# is genuinely not there. Any other note is reported as what it is, on either
+# side of that line, so a reader is never told a published release is pending.
 if [ -n "$pending" ]; then
-  echo "GATE R PASS pre-tag: ${n_prs} PR(s) since ${prev_tag} (GitHub reports ${n_returned} merged in that window, ${n_after} of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: ${pending%, }"
+  also="; also pending: ${pending%, }"
+  post="; also pending: ${pending%, }"
 else
-  echo "GATE R PASS ${TAG} is on main and on origin; GitHub release published (prerelease=${prerelease}); crates.io serves ${CRATE} ${published}; docs.rs built the docs; ${n_prs} PR(s) since ${prev_tag} (of ${n_returned} GitHub reports merged in that window) all carry receipt=ok; ${CRUX} present"
+  also=""
+  post="; ${CRUX} present"
+fi
+if [ -n "$pretag" ]; then
+  echo "GATE R PASS pre-tag: ${n_prs} PR(s) since ${prev_tag} (GitHub reports ${n_returned} merged in that window, ${n_after} of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: ${pretag%, }${also}"
+else
+  echo "GATE R PASS ${TAG} is on main and on origin; GitHub release published (prerelease=${prerelease}); crates.io serves ${CRATE} ${published}; docs.rs built the docs; ${n_prs} PR(s) since ${prev_tag} (of ${n_returned} GitHub reports merged in that window) all carry receipt=ok${post}"
 fi
 
 # mutation: change `if [ "$status" != "ok" ]` below the report loop to
