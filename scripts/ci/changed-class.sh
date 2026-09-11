@@ -20,12 +20,20 @@
 # direction costs forty minutes of CI, being wrong in the other ships untested
 # code, and those are not the same mistake.
 #
-# THE THREE THAT LOOK HARMLESS AND ARE NOT:
-#   README.md                      gate D runs every fenced `forjar …` block in it
-#   docs/audits/surface_audit.csv  gate C diffs the live surface against it
-#   contracts/**                   gate G validates the corpus and its citations
-# All three live under paths whose siblings ARE harmless, which is exactly how
-# a classifier of this kind goes wrong.
+# THE ONES THAT LOOK HARMLESS AND ARE NOT. Every path in the first group of the
+# case below is read BY NAME by something the PR lane runs, and every one of
+# them lives under a prefix whose siblings ARE harmless — which is exactly how a
+# classifier of this kind goes wrong. The list was not guessed: it is every
+# `CARGO_MANIFEST_DIR`-joined path under `docs/` or `.quorum/` found in `tests/`
+# and `src/`, and a case in the falsification suite re-derives it, so a test that
+# starts reading a new record file turns the suite red rather than blinding
+# itself.
+#
+# MEASURED, AND SMALLER THAN IT LOOKS. Of the ten most recently merged PRs,
+# eight touched no `src/` — but only THREE are confined to the record and would
+# skip the heavy jobs; the rest also changed scripts, tests or workflows, which
+# are code. Three in ten is the honest figure, and it is the one the receipt
+# carries.
 set -euo pipefail
 
 code=false
@@ -39,8 +47,23 @@ while IFS= read -r f || [ -n "$f" ]; do
   [ -n "$f" ] || continue
   seen=true
   case "$f" in
-    README.md|docs/audits/surface_audit.csv|contracts/*) code=true ;;
-    docs/*|.quorum/*|CHANGELOG.md) ;;
+    # Read BY NAME by something the PR lane runs. Listed before the harmless
+    # prefixes they live under, because that is exactly how a classifier of
+    # this kind goes wrong: the siblings are harmless and these are not.
+    README.md) code=true ;;                        # gate D runs its fenced forjar blocks
+    CHANGELOG.md) code=true ;;                     # the crux-gate tests read it
+    contracts/*) code=true ;;                      # gate G validates the corpus
+    docs/audits/surface_audit.csv) code=true ;;    # gate C diffs the live surface against it
+    docs/audits/crux-*) code=true ;;               # falsification_crux_audit_shape reads them
+    docs/specifications/*) code=true ;;            # read by name from a test
+    docs/book/*) code=true ;;                      # the book is asserted against the live surface
+    docs/mcp-schema.json) code=true ;;             # the checked-in-copy test names it
+    .quorum/enforce.json) code=true ;;             # the quorum gate reads it
+    # The record: roadmap rows, the release ledger, receipts, logs, evidence
+    # and per-branch quorum artifacts. Nothing the PR lane runs reads any of
+    # them, and a case in the falsification suite re-derives this exclusion
+    # list from the tree so that it stays true as the suite grows.
+    docs/*|.quorum/*) ;;
     *) code=true ;;
   esac
 done

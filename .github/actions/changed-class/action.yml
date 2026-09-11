@@ -41,7 +41,12 @@ runs:
         fi
         echo "Comparing against $BASE"
 
-        changed="$(git diff --name-only "$BASE"...HEAD)"
+        # `--no-renames`: a rename is reported as its NEW path alone, so
+        # moving `src/thing.rs` to `docs/thing.rs` would list one harmless path
+        # while deleting a source file. Splitting it into a delete and an add
+        # makes the deletion visible, and the deletion is code. Found by a
+        # review lane.
+        changed="$(git diff --name-only --no-renames "$BASE"...HEAD)"
         printf '%s\n' "$changed" | sed 's/^/  /'
 
         # ONE DECISION, IN ONE PLACE. The classifier is a script so that a

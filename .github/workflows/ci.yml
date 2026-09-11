@@ -275,6 +275,21 @@ jobs:
           # that fails at statement level exits the step under `bash -e` before
           # the message is printed, and a gate that fails silently is half a
           # gate.
+          # THE CLASS ITSELF MUST HAVE BEEN MEASURED (PMAT-237).
+          #
+          # If `classify` fails or is cancelled its output is EMPTY, every heavy
+          # job's `if` is false so they all skip, and a gate that read an empty
+          # class as "not code" would pass over a change nothing tested. A
+          # review lane found exactly that. An unmeasured class is code.
+          if [ "${{ needs.classify.result }}" != "success" ]; then
+            echo "::error::classify did not run (${{ needs.classify.result }}), so nothing knows what this change can break"
+            exit 1
+          fi
+          if [ -z "$CODE" ]; then
+            echo "::error::the class is empty — treating it as code and refusing"
+            exit 1
+          fi
+
           ok() {
             case "$2" in
               success) return 0 ;;

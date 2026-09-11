@@ -114,6 +114,101 @@ fn the_paths_that_look_harmless_and_are_not() {
         &["contracts/forjar-dogfood-coverage-v1.yaml"],
         "gate G validates the corpus",
     );
+    assert_code(&["CHANGELOG.md"], "the crux-gate tests read the changelog");
+    assert_code(
+        &["docs/audits/crux-1.26.0.md"],
+        "falsification_crux_audit_shape reads it by name",
+    );
+    assert_code(
+        &["docs/specifications/forjar-state-generation-ownership.md"],
+        "a test reads that specification by name",
+    );
+    assert_code(
+        &["docs/book/src/06-mcp.md"],
+        "the book is asserted against the live surface",
+    );
+    assert_code(&[".quorum/enforce.json"], "the quorum gate reads it");
+}
+
+/// THE RULE THAT KEEPS THE LIST TRUE.
+///
+/// The exclusions above were not guessed: they are every `CARGO_MANIFEST_DIR`-
+/// joined path under `docs/` or `.quorum/` that appears in `tests/` or `src/`.
+/// This case re-derives that set from the tree and asserts the classifier calls
+/// every one of them code. A test that starts reading a new record file turns
+/// this red rather than blinding itself, which is the only way an allow-list of
+/// this kind stays honest as the suite grows.
+#[test]
+fn every_record_path_a_test_reads_is_classified_as_code() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut named: Vec<String> = Vec::new();
+    for dir in ["tests", "src"] {
+        collect_manifest_joins(&root.join(dir), &mut named);
+    }
+    named.sort();
+    named.dedup();
+    assert!(
+        !named.is_empty(),
+        "PMAT-237: found no CARGO_MANIFEST_DIR-joined record path at all, so this \
+         rule is matching nothing and passing for the wrong reason"
+    );
+    for path in &named {
+        assert_eq!(
+            class_of(&[path]),
+            "code=true",
+            "PMAT-237: `{path}` is read by name from tests/ or src/ and the \
+             classifier calls it harmless — a change to it would skip the very \
+             suite that reads it. Add it to the first group of the case in \
+             scripts/ci/changed-class.sh."
+        );
+    }
+}
+
+/// Every string literal under `docs/` or `.quorum/` within four lines of a
+/// `CARGO_MANIFEST_DIR` in the same file: the shape a test uses to read the
+/// real tree rather than to write a fixture.
+fn collect_manifest_joins(dir: &Path, out: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            collect_manifest_joins(&p, out);
+        } else if p.extension().and_then(|x| x.to_str()) == Some("rs") {
+            record_paths_in(&p, out);
+        }
+    }
+}
+
+/// The record paths one Rust file reads from the real tree.
+fn record_paths_in(file: &Path, out: &mut Vec<String>) {
+    let Ok(text) = std::fs::read_to_string(file) else {
+        return;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        if line.contains("CARGO_MANIFEST_DIR") {
+            out.extend(
+                lines
+                    .iter()
+                    .skip(i)
+                    .take(4)
+                    .flat_map(|p| record_literals(p)),
+            );
+        }
+    }
+}
+
+/// The string literals in one line that name a record path.
+fn record_literals(line: &str) -> Vec<String> {
+    line.split('"')
+        .skip(1)
+        .step_by(2)
+        .filter(|lit| lit.starts_with("docs/") || lit.starts_with(".quorum/"))
+        .filter(|lit| !lit.contains('{') && !lit.ends_with('/'))
+        .map(|lit| lit.to_string())
+        .collect()
 }
 
 #[test]
@@ -133,10 +228,6 @@ fn the_record_is_harmless() {
     assert_harmless(
         &[".quorum/PMAT-237-x.json"],
         "a quorum artifact changes no behaviour",
-    );
-    assert_harmless(
-        &["CHANGELOG.md"],
-        "the changelog is read by gate H, which is a release gate",
     );
     assert_harmless(
         &[
@@ -266,5 +357,48 @@ fn a_skip_is_refused_when_the_change_is_code() {
         "PMAT-237: proofs.yml's aggregator reads every skip as `not selected`. \
          ledger-replay is now skipped by CLASS, and a class-driven skip on a code \
          change must fail it."
+    );
+}
+
+/// PMAT-237: an unmeasured class is code.
+///
+/// If the `classify` job fails or is cancelled its output is empty, every heavy
+/// job's `if` is false so they all skip, and a gate that read an empty class as
+/// "not code" would pass over a change nothing tested. A review lane found
+/// exactly that, and it is the worst outcome this design has.
+#[test]
+fn a_class_that_was_not_measured_is_refused() {
+    let ci = workflow(".github/workflows/ci.yml");
+    assert!(
+        ci.contains("needs.classify.result") && ci.contains("classify did not run"),
+        "PMAT-237: ci.yml's gate does not check that classify SUCCEEDED. A failed \
+         classifier skips every heavy job, and a gate that does not notice passes \
+         over a change nothing tested."
+    );
+    assert!(
+        ci.contains("the class is empty"),
+        "PMAT-237: ci.yml's gate does not refuse an empty class:\n"
+    );
+    let proofs = workflow(".github/workflows/proofs.yml");
+    assert!(
+        proofs.contains("${CODE:-true}"),
+        "PMAT-237: proofs.yml's aggregator defaults an absent class to permissive. \
+         An absent class means nothing measured it, which is code."
+    );
+}
+
+/// PMAT-237: a rename out of the source tree is a deletion, and deletions are code.
+#[test]
+fn a_rename_cannot_hide_a_deleted_source_file() {
+    let action = workflow(".github/actions/changed-class/action.yml");
+    assert!(
+        action.contains("--no-renames"),
+        "PMAT-237: the class is computed from a rename-detecting diff, which \
+         reports `src/thing.rs -> docs/thing.rs` as the new path alone. The \
+         harmless path would then stand for a deleted source file."
+    );
+    assert_code(
+        &["docs/thing.rs", "src/thing.rs"],
+        "a rename split into a delete and an add is code",
     );
 }

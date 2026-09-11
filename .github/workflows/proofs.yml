@@ -358,7 +358,9 @@ jobs:
                 # reach the job. kani is skipped by event; ledger-replay is
                 # skipped by class, and if the class says `code` then a skip
                 # there is a hole, not a saving.
-                if [ "$name" = "ledger-replay" ] && [ "${CODE:-}" = "true" ]; then
+                # An EMPTY class means classify did not run, so nothing knows
+                # what this change can break: treat it as code (PMAT-237).
+                if [ "$name" = "ledger-replay" ] && [ "${CODE:-true}" != "false" ]; then
                   echo "$name FAILED: skipped on a change the classifier called code" >&2
                   rc=1
                 else
