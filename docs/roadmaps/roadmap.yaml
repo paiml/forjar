@@ -2875,7 +2875,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token.'
+  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token. SUPERSEDES PMAT-233 (2026-09-11): the mechanism is now measured, not inferred. On run 34530301814 the homebrew job reached `Cloning into /tmp/tap` for the first time -- PMAT-230''s fixes carried it past two earlier failures -- and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step''s log shows `GH_TOKEN:` with an empty value while every other step in the same job shows `GH_TOKEN: ***`, which is this ticket''s missing secret seen from the inside. The homebrew job is not on publish-release''s needs, so it has never blocked a release; it has simply never worked.'
 - id: PMAT-205
   kind: code
   github_issue: null
@@ -3427,7 +3427,8 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'release.yml publish-release un-drafts the release whenever every asset job succeeded, not only when THIS run created it: a workflow_dispatch re-run over a release a previous run created must publish it'
-  - 'the assertion that the release is prerelease=true draft=false runs on the same condition, so an un-draft that did not happen is a failure rather than a skip'
+  - 'the assertion runs UNCONDITIONALLY and asserts only that the release is not a draft, so an un-draft that did not happen is a failure rather than a skip; prerelease=true is deliberately not asserted, because a re-dispatch over a release an operator has promoted to a full release must leave it promoted, and rule 4 already asserts prerelease=true draft=true for a run that creates one'
+  - 'the edit is conditional on the release BEING a draft, so that same re-dispatch cannot demote a published release back to a prerelease'
   - 'a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today'
   phases: []
   subtasks: []
@@ -3437,18 +3438,17 @@ roadmap:
   - release:v1.29.0
   notes: 'Measured 2026-09-10 on run 34530301814, the re-dispatch that carried PMAT-230''s fix: every asset job succeeded, publish-release reported success, and the release stayed draft=true — because the step is guarded by `if [ "${{ needs.create-release.outputs.created }}" = "true" ]` and this run did not create the release, the earlier failed run did. The assertion that would have caught it is behind the same guard, so the job passes while doing nothing. A release whose creating run fails after create-release can therefore never be published by the workflow; v1.28.0 was un-drafted by hand.'
 - id: PMAT-233
-  kind: code
   github_issue: null
   item_type: task
   title: the homebrew job's tap push has an empty GH_TOKEN, so it fails authentication on every release
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:32Z
-  updated: 2026-09-10T23:57:33Z
+  updated: 2026-09-11T06:29:10Z
   spec: null
   acceptance_criteria:
-  - 'the homebrew job''s Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication'
+  - the homebrew job's Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication
   - 'the tap URL never carries a secret that is not set: an empty ${GH_TOKEN} produces a URL that authenticates as nobody'
   phases: []
   subtasks: []
