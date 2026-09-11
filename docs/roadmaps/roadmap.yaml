@@ -3659,17 +3659,16 @@ roadmap:
   github_issue: 521
   item_type: task
   title: 'pmat 3.40 added six comply checks (CB-2110..CB-2115) this repository has never satisfied and gate B is red on main: 24 roadmap items with no GitHub issue, 34 with no release binding, 49 specs with no front-matter and no review'
-  release: 1.29.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-11T14:20:00Z
-  updated: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T15:56:37Z
   spec: null
   acceptance_criteria:
-  - 'the six checks are measured on main with the count per check recorded in a dated baseline, the way scripts/ratchets/cb200-baseline.json records CB-200''s'
-  - 'a ratchet script enforces that ceiling, may only see it shrink, and is an arm of gate B — so the disables in .pmat.yaml are a change of instrument and not a reduction in what is asserted'
-  - 'gate B is green again on main and the ratchet is red when any of the six counts grows by one'
+  - the six checks are measured on main with the count per check recorded in a dated baseline, the way scripts/ratchets/cb200-baseline.json records CB-200's
+  - a ratchet script enforces that ceiling, may only see it shrink, and is an arm of gate B — so the disables in .pmat.yaml are a change of instrument and not a reduction in what is asserted
+  - gate B is green again on main and the ratchet is red when any of the six counts grows by one
   - 'the id-convention question is ANSWERED rather than assumed: CB-2112 wants a ticket id''s tail to be its GitHub issue number (pmat#1240) and all 241 existing ids predate that; `pmat work add` no longer accepts --id'
   phases: []
   subtasks: []
@@ -3679,3 +3678,30 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'Measured 2026-09-11 on origin/main with pmat 3.40.0, and green on 2026-09-10 when 1.28.0 was cut: CB-2110 49 NO-FRONT-MATTER, CB-2111 49 UNJUDGEABLE (downstream of CB-2110), CB-2112 35 (NO-ISSUE 25, TAIL-MISMATCH 10), CB-2113 branch-local, CB-2114 35 NO-RELEASE, CB-2115 43 (ORPHAN-ROADMAP 25, ORPHAN-GITHUB 8, DRIFT 10). Gate B is a release blocker and the doctrine forbids a skip, so the release cannot proceed until either the checks pass or the ratchet exists. This is NOT a regression from any ticket in this window — it is a new obligation from a pmat upgrade, and the honest response is to record the measured state and refuse any growth.'
+  release: 1.29.0
+- id: PMAT-522
+  kind: code
+  github_issue: 522
+  item_type: task
+  title: 'a ratchet measurement that runs `pmat comply check` re-enters the ratchet: 9,740 processes and load 3,026 on an idle 48-core box'
+  release: 1.29.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T16:10:00Z
+  updated: 2026-09-11T16:10:00Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/ratchets/comply-count.sh refuses to run under its own sentinel, exits non-zero and prints NO count — a 0 would read as the check reporting no findings'
+  - 'the sentinel is exported, so the child `pmat comply check` sees it, and it is tested before it is set'
+  - 'a process cap bounds a cycle nobody anticipated, measured in THREADS because RLIMIT_NPROC is per-user and counts threads: a fixed cap and a process-derived one each killed the script on a machine already running 226 processes and 2,352 threads'
+  - 'no committed ratchet config may name this script or run `pmat comply`, so the declaration that opens the loop is refused too'
+  - 'four falsification cases drive all four, and the measurement still works with the cap on'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'Caused by this session, on 2026-09-11, while trying pmat''s own .pmat-ratchet.toml mechanism for PMAT-521 before switching to the gate B arm. `pmat comply check` evaluates .pmat-ratchet.toml and runs every measurement command; one of those commands ran `pmat comply check`. Measured by the operator: 9,740 processes, 5,781 comply-count.sh, 1,462 pmat comply check, load average 379 peaking at 3,026, CPU pressure some/10s 83%. Killed by renicing the set to 19 then SIGKILL on the root. The .pmat-ratchet.toml was never committed and is not on disk, so the cycle cannot occur here today — the absence of an input is not a safeguard. pmat has no recursion guard either; that half is upstream.'
