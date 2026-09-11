@@ -1,0 +1,20 @@
+== scripts/dogfood/release-check.sh (gate R) on the published v1.28.0
+#510 PMAT-230-release-download-clobber receipt=ok
+#509 PMAT-227-book-v1.28.0 receipt=ok
+#508 PMAT-226-release-1.28.0 receipt=ok
+#507 PMAT-225-release-goals receipt=ok
+#505 PMAT-224-quorum-gate-triage-shape receipt=ok
+#504 PMAT-223-io-hash-answers-for-its-machine receipt=ok
+#502 PMAT-222-probe-keyed-by-machine receipt=ok
+#500 PMAT-221-planner-names-what-it-did-not-probe receipt=ok
+#498 PMAT-220-one-definition-of-local receipt=ok
+#496 PMAT-218-details-content-hash-asks-the-machine receipt=ok
+#494 PMAT-217-contracts-test-reaches-outside-the-repo receipt=ok
+#493 PMAT-215-drift-evaluates-broken-entries receipt=ok
+#490 release-1.27.0-fleet-p0 receipt=ok
+GATE R PASS pre-tag: 13 PR(s) since v1.27.0 (GitHub reports 13 merged in that window, 0 of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: no docs/audits/crux-1.28.0.md: Cargo.toml is still at v1.28.0's version (1.28.0), no release is being cut
+
+== make dogfood-published VERSION=1.28.0 — the two gates run against what crates.io serves, not against this tree
+GATE C PASS 211 CLI name(s), 12 MCP tool(s), 12 HTTP verb(s); every declared name is live and every live name declared; matches docs/audits/surface_audit.csv; CLI/verb/MCP agree on the fixture
+GATE D PASS 18 documented invocation(s) from README.md run or parse against the fixtures (1 pinned as known-broken above); version claims reconcile with Cargo.toml; 98 cookbook config(s) validate
+rc=0
