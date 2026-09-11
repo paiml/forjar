@@ -379,14 +379,40 @@ for c in d.get("checks", []) or []:
         continue
     seen[cid] = int(m.group(1))
 
+absent = []
 for cid, cap in sorted(ceiling.items()):
     if cid not in seen and not any(cid in u for u in unmeasured):
-        unmeasured.append("%s is not in the comply roster this run — an id that has "
-                          "rotted reports nothing, which is spelled the same as zero "
-                          "findings" % cid)
+        absent.append(cid)
     elif seen.get(cid, 0) > cap:
         over.append("%s: %d finding(s), ceiling %d (recorded %s)"
                     % (cid, seen[cid], cap, base["recorded"]))
+
+# ABSENT FROM THE ROSTER: TWO CAUSES, ONE VERDICT, TWO DIFFERENT REPAIRS.
+#
+# Both are UNMEASURED and both are red — a check that reports nothing is spelled
+# the same as a check reporting zero findings, and this arm must never read the
+# second into the first. But WHY it is absent decides what a reader does next,
+# and the two are distinguishable: if the whole family is gone, the installed
+# tool does not carry these checks; if one of several is gone, that id rotted.
+#
+# Measured 2026-09-11: the family was in the roster at 14:00 and gone at 18:34,
+# with `pmat --version` reading 3.40.0 both times. The binary had been rebuilt
+# from a different source state — its banner went from a commit hash and
+# `worktree: clean` to `commit: unknown` — and CB-148, which the earlier build
+# reported as "RETIRED, superseded by CB-2110", was live again. A ratchet whose
+# subject can leave the roster on a local rebuild has to say so in those words,
+# or the next reader spends an hour looking for the rot.
+if absent and len(absent) == len(ceiling):
+    unmeasured.append("NONE of %s is in the comply roster this pmat carries (%d checks). The "
+                      "installed tool does not run the checks this ratchet owns -- the family was "
+                      "in the roster earlier the same day under the same version string, so "
+                      "compare `pmat --version` and its build against the instrument field of %s "
+                      "before looking for a rotted id"
+                      % (", ".join(absent), len(d.get("checks", []) or []), base_path))
+elif absent:
+    unmeasured.append("%s not in the comply roster this run, while the rest of the family is — "
+                      "an id that has rotted reports nothing, which is spelled the same as zero "
+                      "findings" % ", ".join(absent))
 
 if unmeasured:
     die("UNMEASURED: " + "; ".join(unmeasured), 2)

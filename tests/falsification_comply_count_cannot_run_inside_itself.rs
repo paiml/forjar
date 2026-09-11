@@ -205,15 +205,59 @@ fn the_process_cap_is_applied_and_fails_closed() {
 /// A guard that stops the thing it guards is not a guard. This is the case
 /// that would have caught `ulimit -u 256`, which killed the script's own fork
 /// on a host already running 2,352 threads.
+///
+/// The check it measures is DISCOVERED from the installed tool rather than
+/// named here. A fixed id made this case depend on the roster: `CB-2110` was
+/// in it at 14:00 on 2026-09-11 and gone at 18:34, after pmat was rebuilt
+/// locally from a different source state under the same version string, and
+/// the case then failed for a reason that had nothing to do with the guard.
+/// Refusing a rotted id is the script's job and is asserted elsewhere; here
+/// the subject is the guard, so the id is taken from what the tool carries.
 #[test]
 fn the_guarded_script_still_measures_on_this_machine() {
-    let (code, stdout, stderr) = run(&[], &["CB-2110"]);
+    let out = Command::new("pmat")
+        .args(["comply", "check", "--format", "json"])
+        .current_dir(repo())
+        .output()
+        .expect("pmat must run");
+    let text = String::from_utf8_lossy(&out.stdout);
+    let start = match text.find('{') {
+        Some(i) => i,
+        None => panic!("pmat comply check --format json printed no JSON object"),
+    };
+    let doc: serde_json::Value =
+        serde_json::from_str(&text[start..]).expect("comply output must parse");
+    // A check this script can actually count: one that PASSES (which it reads
+    // as zero findings) or one whose message opens with a finding count. A
+    // `Warn` carrying prose is refused by design, and picking one of those
+    // would test the refusal rather than the guard.
+    let id = doc["checks"]
+        .as_array()
+        .expect("checks must be an array")
+        .iter()
+        .filter(|c| {
+            let status = c["status"].as_str().unwrap_or("").to_ascii_lowercase();
+            let msg = c["message"].as_str().unwrap_or("");
+            status == "pass"
+                || msg
+                    .split_whitespace()
+                    .next()
+                    .is_some_and(|w| w.parse::<i64>().is_ok())
+        })
+        .filter_map(|c| c["name"].as_str())
+        .filter_map(|n| n.split(':').next())
+        .find(|n| n.starts_with("CB-"))
+        .expect("the roster must carry at least one countable CB check")
+        .to_string();
+
+    let (code, stdout, stderr) = run(&[], &[&id]);
     assert_eq!(
         code, 0,
-        "the guard stopped the measurement:\n{stdout}\n{stderr}"
+        "the guard stopped the measurement of {id}, which this pmat does carry:\n\
+         {stdout}\n{stderr}"
     );
     assert!(
         stdout.trim().parse::<i64>().is_ok(),
-        "the measurement printed {stdout:?}, which is not a count"
+        "measuring {id} printed {stdout:?}, which is not a count"
     );
 }
