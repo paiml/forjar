@@ -1,0 +1,30 @@
+== the drift, as measured before the sync (git show main:docs/roadmaps/roadmap.yaml against docs/roadmaps/releases.yaml)
+   13 of the 25 tickets named by a tagged release, plus the 3 merged since v1.28.0, read planned or inprogress:
+   PMAT-137 v1.25.2 planned / PMAT-159 v1.25.2 inprogress / PMAT-162 v1.26.0 planned / PMAT-204 v1.26.0 inprogress / PMAT-208 v1.27.0 inprogress
+   PMAT-215 217 219 220 221 222 223 224 v1.28.0 planned / PMAT-227 230 231 (merged since v1.28.0) planned
+
+== the tool refuses the illegal transition
+$ pmat work edit PMAT-215 -s completed
+Error: Invalid transition: Planned → Completed. See work-dbc-v1.yaml §work_lifecycle for valid transitions.
+
+== the legal path, applied to all 16
+$ pmat work edit <id> -s inprogress && pmat work edit <id> -s completed   ->  status: completed
+
+== what the tool changed, classified over the whole file
+   16 status, 16 updated, 14 top-level 'kind:' fields dropped, 29 list items requoted, 2 notes requoted; 183 rows in, 183 rows out
+   semantic diffs outside status/updated/kind: 0
+   every dropped kind: field is duplicated by a kind:* label: True
+   release label census unchanged: v1.25.0=1 v1.25.2=2 v1.26.0=9 v1.27.0=4 v1.28.0=10 v1.29.0=10
+
+== pmat work validate
+
+✓ Validation passed
+
+== gate T after the sync
+GATE T v1.25.0 cut 2026-09-04T00:13:32Z: 27 PR(s), 1 ticket(s) labelled release:v1.25.0 ok
+GATE T v1.25.1 cut 2026-09-04T02:07:29Z: 1 PR(s), 0 ticket(s) labelled release:v1.25.1 ok
+GATE T v1.25.2 cut 2026-09-05T16:25:29Z: 7 PR(s), 2 ticket(s) labelled release:v1.25.2 ok
+GATE T v1.26.0 cut 2026-09-08T12:02:13Z: 10 PR(s), 9 ticket(s) labelled release:v1.26.0 ok
+GATE T v1.27.0 cut 2026-09-08T22:10:01Z: 2 PR(s), 4 ticket(s) labelled release:v1.27.0 ok
+GATE T v1.28.0 cut 2026-09-10T16:07:14Z: 10 PR(s), 10 ticket(s) labelled release:v1.28.0 ok
+GATE T PASS 6 tagged release(s) since v1.25.0 reconcile with git and GitHub and 26 ticket(s) carry their tag; 3 of 3 PR(s) merged since v1.28.0 carry release:v1.29.0; due 2026-09-12T16:07:14Z, 34h left
