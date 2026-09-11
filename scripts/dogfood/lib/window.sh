@@ -300,9 +300,13 @@ dogfood_roadmap_rows() {
 dogfood_row_status() {
   local rc=0 hit
   dogfood_roadmap_rows
-  hit="$(grep -E "^$1 " <<< "$DOGFOOD_ROW_STATUSES" | head -1 | cut -d' ' -f2-)" || rc=$?
-  if [ "$rc" -gt 1 ]; then
-    fail "grep exited ${rc} reading the status of $1 — UNMEASURED"
+  # ONE PROCESS. `grep … | head -1` is the same defect one line over: head
+  # exits after the first line, grep takes SIGPIPE, and pipefail reports 141 —
+  # which is exactly what PMAT-239 is about. awk matches, prints and exits by
+  # itself, with nothing to signal.
+  hit="$(awk -v id="$1" '$1 == id { print $2; exit }' <<< "$DOGFOOD_ROW_STATUSES")" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "awk exited ${rc} reading the status of $1 — UNMEASURED"
   fi
   DOGFOOD_ROW_STATUS="$hit"
 }

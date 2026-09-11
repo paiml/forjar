@@ -3544,3 +3544,65 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:state — measured 2026-09-11 on the ten most recently merged PRs: EIGHT touched no src/ at all, and every one still paid about 131 job-minutes — ledger-replay 34, dogfood 26, bench 18, the workspace suite 14, coverage 12, ci/lint 7, ci/coverage 7, examples-validate 6. The critical path was about 50 minutes per PR on a fleet of 20 runners shared with every other paiml repository, which is why a docs-only booking PR waited ninety minutes for a runner during the v1.28.0 release. The release gate is not touched and still runs everything; what changes is what a PR pays for what it changed. The allow-list direction is the whole safety argument: being wrong costs forty minutes of CI one way and ships untested code the other, and those are not the same mistake.'
+- id: PMAT-238
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'gate T''s verdict line counted tickets against PRs: two tickets in one PR printed 8 of 7 PR(s) merged'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T10:36:28Z
+  spec: null
+  acceptance_criteria:
+  - 'gate T''s verdict line says how many TICKETS carry the next tag and how many PRs they came from, never one count of the other'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `8 of 7 PR(s) merged since v1.28.0 carry release:v1.29.0`, because PR #515 carried two tickets (PMAT-228 and PMAT-229) while the arm counts tickets and the sentence said PRs. Harmless arithmetic, and the single line an operator is told to read said something impossible.'
+- id: PMAT-239
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'gate T dies with grep exited 141 at random: a pipe into grep -q takes SIGPIPE under pipefail, so a passing gate reports UNMEASURED'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T10:36:28Z
+  spec: null
+  acceptance_criteria:
+  - 'no pipeline in scripts/dogfood/lib/window.sh feeds a process that exits early (grep -q, head) from a printf, so no pipeline can return 141 under set -o pipefail'
+  - 'gate T run repeatedly against the same tree reports the same verdict every time'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `GATE T FAIL grep exited 141 looking PMAT-225 up in the ticket registry — UNMEASURED` on one run, PASS on the next two. 141 is 128+13, SIGPIPE: `printf … | grep -q` has grep exit at the first match and close the pipe, printf takes the signal, and pipefail makes that the pipeline''s status. The gate was right to refuse an unmeasured read; the read should not have been unmeasurable.'
+- id: PMAT-240
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'the SIGPIPE class is repository-wide: 18 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T11:03:11Z
+  updated: 2026-09-11T11:03:11Z
+  spec: null
+  acceptance_criteria:
+  - 'every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood'
+  - 'a rule refuses a new one: no script under scripts/ that sets pipefail may pipe printf, cat, sed or git into grep -q, grep -m, head or jq -e'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236''s own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed.'
