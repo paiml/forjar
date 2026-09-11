@@ -1,0 +1,35 @@
+{
+  "checks": "CB-2110, CB-2111, CB-2112, CB-2114, CB-2115",
+  "name": "the six comply checks pmat 3.40 added",
+  "recorded": "2026-09-11",
+  "recorded_at_commit": "5c361bd4fc74c9ade3a45f54bfc622ff06ce94ec",
+  "instrument": "pmat 3.40.0, `pmat comply check --format json`, read by scripts/dogfood/comply.sh Arm 7 from the SAME run Arm 1 makes. The finding count is the leading integer of each check's own message; the gate never recounts it from the sample, which is truncated to a handful of lines.",
+  "rule": "MAY ONLY SHRINK. A run reporting more findings than the ceiling for any check is a regression and fails gate B by name. Lowering a number is the only permitted edit; raising one is not.",
+  "unit": "findings reported by the check",
+  "ceiling": {
+    "CB-2110": 49,
+    "CB-2111": 49,
+    "CB-2112": 34,
+    "CB-2114": 34,
+    "CB-2115": 43
+  },
+  "reproduce": "bash scripts/ratchets/comply-count.sh CB-2110 (and each other id) \u2014 one integer per check, and a non-zero exit for every unmeasurable outcome",
+  "why": [
+    "Gate B was GREEN when 1.28.0 was cut on 2026-09-10 and RED on main on 2026-09-11, with pmat 3.40.0 reporting six checks that did not exist in the roster before. Not one of them is a regression from any ticket in that window: they are a NEW OBLIGATION arriving with a tool upgrade, over a backlog that has been there all along.",
+    "The doctrine here forbids a skip \u2014 never --skip, never || true on a measurement, never lower a floor, and UNMEASURED is FAIL. It does not forbid RECORDING what is true and refusing to let it get worse. That is the shape scripts/ratchets/cb200-baseline.json already uses for CB-200, and this is the same shape for the same reason: 'Record a dated baseline in the crate rather than weakening a gate.'",
+    "CB-2113 (Commit Traceability) is NOT ratcheted and is NOT exempt. It is branch-local \u2014 it reads the commits between the base and HEAD \u2014 so it is satisfiable by every branch and was satisfied by this one: a commit's Pmat-Ticket must name an OPEN roadmap item, which is why a cut ticket is now marked completed by the next PR rather than its own.",
+    "CB-2111 is bounded below by CB-2110: every one of its 49 findings is UNJUDGEABLE because the spec's front-matter does not parse, so nothing can lower it except fixing CB-2110 first. CB-2114 is bounded below by CB-2112's NO-ISSUE half for the same reason: `pmat work sync --direction github-to-yaml` projects release: from the issue's milestone and is its only writer, so an item with no issue cannot have one.",
+    "What each count is made of, measured 2026-09-11: CB-2110 49 NO-FRONT-MATTER; CB-2111 49 UNJUDGEABLE; CB-2112 34 (NO-ISSUE 24, TAIL-MISMATCH 10); CB-2114 34 NO-RELEASE; CB-2115 44 (ORPHAN-ROADMAP 24, ORPHAN-GITHUB 10, DRIFT 10).",
+    "pmat's OWN ratchet mechanism (.pmat-ratchet.toml, CB-2102) was tried first and cannot be used for these: a metric whose `command` runs `pmat comply check` re-enters CB-2102, which runs every metric's command again, without bound. Measured \u2014 a single comply run takes 3 seconds and five such metrics did not finish in ten minutes. That is a pmat defect worth reporting; it is not a reason to leave gate B red.",
+    "2026-09-11, same day: 44 -> 43. Two tickets were minted for this release and the counts did NOT grow, which is the whole question a ratchet has to answer about new work. The convention that makes it hold was measured rather than assumed: (1) the GitHub issue is created FIRST and the roadmap id's TAIL IS THE ISSUE NUMBER \u2014 PMAT-520 for issue 520 \u2014 because with the old convention (PMAT-242 against issue 520) CB-2112 read 36 against a ceiling of 34, one TAIL-MISMATCH per new ticket, and a ceiling that must rise on every ticket is a treadmill, not a ratchet; (2) the issue goes on the release MILESTONE, because `release:` is projected from it and an item with no milestone is a NO-RELEASE, one per new ticket; (3) `release:` is the BARE version string, `1.29.0` and not `v1.29.0`, and the milestone's title must equal it exactly \u2014 a `v` prefix is its own finding class, PREFIXED, which is how that was found. With all three, CB-2112 and CB-2114 hold at 34 and CB-2115 falls to 43.",
+    "`pmat work sync --direction github-to-yaml` is the documented writer of `release:` and MUST NOT be used here: it is a full YAML round-trip that dropped 20 of the 57 `kind:` fields and reflowed 369 lines (measured, then reverted). `kind:` is what the paiml-implement kind-gate reads, so the sync silently removes a gate's input. The two fields are written textually instead, from the milestone the issues are actually on."
+  ],
+  "not_a_bypass": "pmat comply check still reports all five as failing, and gate B still prints the number it measured for each. This records the numbers so they cannot silently grow. The backlog is owned by PMAT-243 and visible in this file rather than waived.",
+  "sample": {
+    "CB-2110": "NO-FRONT-MATTER docs/specifications/forjar-spec.md: the file does not begin with a --- front-matter block",
+    "CB-2111": "UNJUDGEABLE docs/specifications/forjar-spec.md: its front-matter does not parse, so the roles its review needs cannot be read",
+    "CB-2112": "NO-ISSUE PMAT-130: github_issue is null",
+    "CB-2114": "NO-RELEASE PMAT-130: release is null",
+    "CB-2115": "ORPHAN-ROADMAP PMAT-130: no issue"
+  }
+}

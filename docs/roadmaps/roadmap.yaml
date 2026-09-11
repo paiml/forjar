@@ -3628,3 +3628,54 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:release — measured 2026-09-11: paiml/forjar-cookbook master is 7c100454, dated 2026-08-29T15:05:21Z, and ten v* tags have been cut since (v1.22.0 through v1.28.0, counted in seconds from the tagger dates). Gate D validates its 98 configs against the built artifact on every dogfood run and `make dogfood-published VERSION=` does it against what crates.io serves, so the cookbook IS exercised — but nothing recorded which cookbook, and nothing required it to move. cookbook_floor is v1.29.0 rather than the existing floor: retrofitting the ten releases whose cookbook commit nobody recorded would be inventing the record, not keeping it.'
+- id: PMAT-520
+  kind: code
+  github_issue: 520
+  item_type: task
+  title: 'cut v1.29.0: version, CHANGELOG, the crux audit, the dogfood receipt and the tag'
+  release: 1.29.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T14:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Cargo.toml and Cargo.lock are bumped together, which PR CI''s lockfile-preflight enforces'
+  - 'the ten behaviour bullets of this window are written under CHANGELOG [1.29.0] — [Unreleased] was EMPTY with twelve tickets merged behind it'
+  - 'docs/audits/crux-1.29.0.md reconciles every one of those bullets with >= 3 named systems, and says where forjar is WORSE than the default'
+  - '`make dogfood-release` exits 0 and docs/audits/dogfood-1.29.0-receipt.md records the nine GATE lines verbatim'
+  - 'the ledger row is booked by `scripts/release-goal.sh cut v1.29.0 --next v1.30.0` and names the paiml/forjar-cookbook commit the release was qualified against (PMAT-241)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — the cut is due 2026-09-12T16:07:14Z under cadence_days 2. Left OPEN in its own PR: CB-2113 (Commit Traceability, new in pmat 3.40) refuses a commit whose Pmat-Ticket names a ticket already completed, so a cut ticket is marked completed by the NEXT PR rather than its own.'
+- id: PMAT-521
+  kind: code
+  github_issue: 521
+  item_type: task
+  title: 'pmat 3.40 added six comply checks (CB-2110..CB-2115) this repository has never satisfied and gate B is red on main: 24 roadmap items with no GitHub issue, 34 with no release binding, 49 specs with no front-matter and no review'
+  release: 1.29.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T14:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'the six checks are measured on main with the count per check recorded in a dated baseline, the way scripts/ratchets/cb200-baseline.json records CB-200''s'
+  - 'a ratchet script enforces that ceiling, may only see it shrink, and is an arm of gate B — so the disables in .pmat.yaml are a change of instrument and not a reduction in what is asserted'
+  - 'gate B is green again on main and the ratchet is red when any of the six counts grows by one'
+  - 'the id-convention question is ANSWERED rather than assumed: CB-2112 wants a ticket id''s tail to be its GitHub issue number (pmat#1240) and all 241 existing ids predate that; `pmat work add` no longer accepts --id'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on origin/main with pmat 3.40.0, and green on 2026-09-10 when 1.28.0 was cut: CB-2110 49 NO-FRONT-MATTER, CB-2111 49 UNJUDGEABLE (downstream of CB-2110), CB-2112 35 (NO-ISSUE 25, TAIL-MISMATCH 10), CB-2113 branch-local, CB-2114 35 NO-RELEASE, CB-2115 43 (ORPHAN-ROADMAP 25, ORPHAN-GITHUB 8, DRIFT 10). Gate B is a release blocker and the doctrine forbids a skip, so the release cannot proceed until either the checks pass or the ratchet exists. This is NOT a regression from any ticket in this window — it is a new obligation from a pmat upgrade, and the honest response is to record the measured state and refuse any growth.'
