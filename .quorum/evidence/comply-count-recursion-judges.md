@@ -1,11 +1,13 @@
 # PMAT-522 — adjudicated claims
 
-**No agy round was dispatched.** The defect was a live hazard on a shared
-machine, already measured and filed by the operator, and the fix was written
-against those measurements directly. The adjudication below is this session's
-own claims, each tested against what the machine actually did — which is the
-stronger instrument here than three lanes reading a diff, and is recorded as
-what it is rather than dressed up as a quorum.
+One round of three sandboxed agy quorum lanes, 3/3 FAIL. The round was nearly
+skipped — see `comply-count-recursion-lanes.md` — and the quorum gate refused
+the one-lane receipt that would have shipped without it.
+
+The digest carries two kinds of refutation and marks which is which: the ones
+this session found by measuring against the machine before any lane ran, and
+the ones the lanes found that this session had not. Every refutation of either
+kind was re-run by the orchestrator before it was acted on.
 
 ## CONFIRMED
 
@@ -58,3 +60,41 @@ what it is rather than dressed up as a quorum.
      refused cycle.
    - corrected: a test refuses any committed ratchet config that names this
      script or runs `pmat comply`, so the loop cannot be re-declared.
+
+5. [fail-open] That the process cap bounds a cycle whatever happens.
+   - evidence: **refuted by the lanes, not by this session.** Under `set -euo
+     pipefail`, `threads="$(ps … | wc -l)" || threads=""` leaves `threads`
+     EMPTY when `ps` cannot answer, and the script then printed a warning on
+     stderr and ran the measurement unbounded. Reproduced directly:
+     `threads=[]`, and with a stubbed `ps` that exits 1 the old script measured
+     anyway. In a gate whose caller captures stdout, a warning on stderr is
+     indistinguishable from no cap at all — and this repository has now
+     measured what no cap costs.
+   - corrected: an unreadable count or a refused `ulimit` REFUSES the
+     measurement, exit 4, saying it is refusing rather than proceeding. A red
+     gate is the cheaper of the two failures by a factor of 9,740.
+
+6. [ceiling] That CB-2115's ceiling could be lowered from 43 to 42.
+   - evidence: **refuted by a lane**, and gate B was RED on this branch because
+     of it: `GATE B FAIL … REGRESSION: CB-2115: 43 finding(s), ceiling 42`. The
+     42 was read from the WORKING TREE mid-edit, between marking PMAT-521
+     completed and committing it — a transient state no one else would ever
+     see. The committed tree, which is the tree the gate reads, measures 43.
+   - corrected: put back to 43, with the rule written into the baseline: a
+     ceiling may only be lowered from a measurement of the COMMITTED tree. The
+     ratchet catching its own author's error inside a day is the cheapest
+     possible demonstration that it is not decorative.
+
+7. [spelling] That the cap's falsifier tested the cap.
+   - evidence: **refuted by all three lanes.** `the_process_cap_counts_threads_
+     and_is_relative` asserted that the script's TEXT contained `ps -L` and a
+     particular `ulimit` expression. A correct refactor would have failed it; a
+     broken cap with the right words would have passed. That is the vacuity
+     this repository's whole falsification discipline exists to refuse, written
+     into a file named `falsification_*`.
+   - corrected: the cap is DRIVEN. A stubbed `ps` reporting one thread puts the
+     cap at 513 against an account running 2,424, and the case asserts the
+     script's own fork fails — the only proof the `ulimit` took effect. A
+     stubbed `ps` that exits 1 must produce exit 4 and no count. A third case
+     runs the real script on the real machine and asserts it still measures,
+     which is what would have caught `ulimit -u 256`.

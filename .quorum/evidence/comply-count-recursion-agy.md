@@ -1,12 +1,21 @@
 # PMAT-522 — agy delegation record
 
-**No dispatch.** See `comply-count-recursion-lanes.md` for why: the defect was
-measured and filed by the operator, the machine had just been recovered from a
-fork storm by hand, and the fix is four assertions against observable behaviour
-on that same machine.
+One `paiml-agy-delegate` dispatch, `lane=quorum`, `width=3`, `writes=false`,
+opus, foreground, `out_dir` keyed by ticket AND session id, `--not-before`
+pinned to the dispatch instant.
 
-Slot accounting: zero Claude subagents and zero agy lanes, against a floor of
-three. No hook denial.
+All three lanes returned structured output against the quorum schema, exits
+0/0/0, durations 494s, 339s and 317s. Verdicts 3/3 FAIL.
 
-This is the only ticket in the 1.29.0 window with no review round, and the
-receipt says so in its own words rather than leaving the reader to notice.
+**The dispatch happened only because the quorum gate refused a one-lane
+receipt.** See `comply-count-recursion-lanes.md`: the round was nearly skipped
+on the argument that the defect was already measured and the machine had just
+been recovered, and the round then found three defects that argument would have
+shipped.
+
+The delegate stopped at its 30-turn limit while summarising, AFTER all three
+lanes had completed and `reduce.json` was written. Fourth occurrence in this
+session at exactly that point.
+
+Slot accounting: at most one Claude subagent live at any instant, against a
+floor of three. No hook denial.

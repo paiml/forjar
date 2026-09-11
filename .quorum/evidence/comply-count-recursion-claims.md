@@ -1,11 +1,9 @@
 # PMAT-522 — the claims, and where each is anchored
 
-No review round was dispatched for this ticket, and that is recorded rather
-than papered over: the finding was a LIVE HAZARD on a shared machine, filed by
-the operator after killing 9,740 processes, and the fix went in directly. What
-stands in for the round is that every claim below is driven by a case that runs
-the real script on the real machine, and that the operator's own measurements
-are the input rather than this session's.
+Six claims, one round of three sandboxed lanes, all three FAIL, five of the six
+REFUTED. The round was nearly skipped and the quorum gate refused that; see
+`comply-count-recursion-lanes.md`. Every claim below is anchored in a file at
+the branch tip, and every refutation was re-run before it was accepted.
 
 1. **A re-entry is refused, exits non-zero, and prints no count.**
    `tests/falsification_comply_count_cannot_run_inside_itself.rs:1`. Measured:
@@ -29,6 +27,7 @@ are the input rather than this session's.
    `tests/falsification_comply_count_cannot_run_inside_itself.rs:1`.
 
 The adjudicated tally in `comply-count-recursion-judges.md` is **1 CONFIRMED,
-4 REFUTED** — the refutations are this session's own three failed attempts at
-the cap plus its misreading of the timeout, adjudicated against the operator's
-measurements rather than against a lane's opinion.
+7 REFUTED**: this session's own three failed attempts at the cap and its
+misreading of the timeout, plus the three the lanes found — the cap failing
+open, a ceiling lowered to a number the committed tree does not measure, and a
+test that asserted on spelling rather than behaviour.

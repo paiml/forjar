@@ -4,8 +4,13 @@
 
 `pmat analyze vacuous-tests` over the whole tree: **400 of 19650 `#[test]` fns
 cannot fail (2.0%) across 2164 parsed files; 3 more skip silently when a fixture
-is missing.** None of the four cases in
+is missing.** None of the five cases in
 `tests/falsification_comply_count_cannot_run_inside_itself.rs` appears.
+
+The scan does not catch the vacuity that mattered here. One of those cases
+asserted on the SCRIPT'S TEXT rather than its behaviour — a test of spelling,
+which runs, can fail, and proves nothing about the cap. Three review lanes
+caught it and the analyzer did not, which is worth knowing about the analyzer.
 
 ## The guard, measured
 
@@ -26,6 +31,8 @@ reporting no findings.
 | threads at the peak of one comply run | 2,486 |
 | threads one comply run costs | ~134 |
 | cap applied | threads + 512 |
+| cap with a stubbed `ps` reporting 1 | 513 — the script's own fork fails, which is the proof it took effect |
+| `ps` unable to answer | exit 4, no count: the cap fails CLOSED |
 
 ## The ratchet, still held
 
@@ -35,12 +42,17 @@ reporting no findings.
 | CB-2111 | 49 | 49 |
 | CB-2112 | 34 | 34 |
 | CB-2114 | 34 | 34 |
-| CB-2115 | 42 | 42 |
+| CB-2115 | 43 | 43 |
 
-CB-2115 fell from 43 to 42 when PMAT-522 was minted under the new convention —
-issue first, id tail = issue number, on the release milestone, bare `release:` —
-so the ceiling was lowered again. Three tickets, three measurements, no ceiling
-raised.
+CB-2115 was lowered to 42 on a WORKING-TREE measurement taken mid-edit and put
+back to 43, which is what the committed tree measures. Gate B was red against
+its own baseline in between, and a review lane named it. The rule is now in the
+baseline: a ceiling may only be lowered from a measurement of the committed
+tree, because that is the tree the gate reads.
+
+Three tickets have been minted under the new convention — issue first, id tail
+= issue number, on the release milestone, bare `release:` — and no ceiling has
+been RAISED.
 
 ## bashrs
 
@@ -49,7 +61,7 @@ raised.
 ## Gates on this branch
 
 `GATE B PASS … ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=34/34 CB-2114=34/34
-CB-2115=42/42 held …`
+CB-2115=43/43 held …`
 
 `GATE T PASS 6 tagged release(s) … 14 ticket(s) from 11 PR(s) merged since
 v1.28.0 carry release:v1.29.0; due 2026-09-12T16:07:14Z`

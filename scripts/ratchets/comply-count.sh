@@ -66,13 +66,23 @@ export COMPLY_COUNT_ACTIVE=1
 # plus room for several comply runs and no more. A cycle then dies within its
 # first level or two instead of at 9,740 processes.
 #
-# An unreadable count or a refused ulimit is ANNOUNCED rather than swallowed:
-# the measurement still runs, and the reader is told it is unbounded.
+# AND IT FAILS CLOSED. An unreadable thread count or a refused `ulimit` used to
+# print a warning and run the measurement anyway. Three review lanes refuted
+# that, and they are right: a warning on stderr, in a gate whose caller captures
+# stdout, is indistinguishable from no cap at all — and this repository has now
+# measured what no cap costs. An unbounded run is an UNGUARDED run, and a red
+# gate is the cheaper of the two failures by a factor of 9,740.
 threads="$(ps -u "$(id -un)" -L --no-headers 2>/dev/null | wc -l)" || threads=""
 case "$threads" in
-  ''|0|*[!0-9]*) echo "comply-count: cannot read this account's thread count, so a runaway cycle would not be bounded" >&2 ;;
-  *) ulimit -u $((threads + 512)) 2>/dev/null || echo "comply-count: ulimit -u refused, so a runaway cycle would not be bounded" >&2 ;;
+  ''|0|*[!0-9]*)
+    echo "comply-count: cannot read this account's thread count (ps), so a runaway cycle could not be bounded — refusing to measure rather than run unguarded (forjar#522)" >&2
+    exit 4
+    ;;
 esac
+if ! ulimit -u $((threads + 512)) 2>/dev/null; then
+  echo "comply-count: ulimit -u refused at $((threads + 512)), so a runaway cycle could not be bounded — refusing to measure rather than run unguarded (forjar#522)" >&2
+  exit 4
+fi
 
 want="${1:?usage: comply-count.sh CB-NNNN}"
 

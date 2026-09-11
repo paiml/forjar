@@ -120,31 +120,97 @@ fn no_committed_ratchet_config_names_this_script() {
     }
 }
 
-/// The process cap is measured in the unit the kernel compares.
+/// The process cap is REALLY APPLIED, and it fails closed.
 ///
-/// `ulimit -u` is RLIMIT_NPROC: per USER, counting THREADS. A fixed cap and a
-/// process-derived one were each tried and each killed the script's own fork on
-/// a machine already running 226 processes and 2,352 threads. A cap that fails
-/// on a busy box is the gate going red for the wrong reason.
+/// The first version of this case asserted on the script's TEXT — that it
+/// contained `ps -L` and a particular `ulimit` expression. Three review lanes
+/// refuted it as a test of spelling rather than behaviour: a correct refactor
+/// would fail it and a broken cap with the right words would pass. So the cap
+/// is driven instead, with a stubbed `ps` first on `PATH`:
+///
+/// | stub says | expected |
+/// |---|---|
+/// | one thread | the cap lands at 513, far below this account's real thread count, and the script's OWN fork fails — which is the only proof the `ulimit` took effect |
+/// | nothing (exit 1) | refused, exit 4, no count |
+/// | a normal count | measures |
+///
+/// The fail-closed half is the lanes' other finding: an unreadable count used
+/// to print a warning on stderr and run unbounded anyway, which in a gate whose
+/// caller captures stdout is indistinguishable from no cap at all.
 #[test]
-fn the_process_cap_counts_threads_and_is_relative() {
-    let body = std::fs::read_to_string(repo().join("scripts/ratchets/comply-count.sh"))
-        .expect("the script must exist");
-    assert!(
-        body.contains("ps -u \"$(id -un)\" -L --no-headers"),
-        "the cap is not derived from the THREAD count (`ps -L`), and RLIMIT_NPROC compares \
-         threads — a process-derived cap kills the script on any busy machine"
+fn the_process_cap_is_applied_and_fails_closed() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let bin = dir.path();
+    let stub = bin.join("ps");
+
+    let with_stub = |body: &str, args: &[&str]| {
+        std::fs::write(&stub, body).expect("write stub");
+        let mut perms = std::fs::metadata(&stub).expect("stat").permissions();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            perms.set_mode(0o755);
+        }
+        std::fs::set_permissions(&stub, perms).expect("chmod");
+        let path = format!(
+            "{}:{}",
+            bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let out = Command::new("bash")
+            .arg(repo().join("scripts/ratchets/comply-count.sh"))
+            .args(args)
+            .current_dir(repo())
+            .env("PATH", path)
+            .output()
+            .expect("bash must run");
+        (
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stdout).into_owned(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    };
+
+    // A thread count of 1 puts the cap at 513, far below what this account is
+    // really running. If the ulimit took effect the script cannot fork; if it
+    // did not, the measurement would sail through. This is the case that
+    // distinguishes an applied cap from a written one.
+    let (code, stdout, stderr) = with_stub("#!/usr/bin/env bash\nprintf 'x\\n'\n", &["CB-2110"]);
+    assert_ne!(
+        code, 0,
+        "with the cap at 513 the script measured anyway, so `ulimit -u` never took effect:\n         stdout={stdout}\nstderr={stderr}"
     );
     assert!(
-        body.contains("ulimit -u $((threads + 512))"),
-        "the cap is not relative to the measured thread count with headroom for a comply run \
-         (measured: one run costs about 134 threads)"
+        stdout.trim().parse::<i64>().is_err(),
+        "a capped run printed {stdout:?}, which a caller reads as the check's finding count"
     );
-    // And the script still measures, on this very machine, with the cap on.
-    let (code, stdout, _) = run(&[], &["CB-2110"]);
+
+    // A `ps` that cannot answer must REFUSE, not warn and run unbounded.
+    let (code, stdout, stderr) = with_stub("#!/usr/bin/env bash\nexit 1\n", &["CB-2110"]);
+    assert_eq!(
+        code, 4,
+        "an unreadable thread count must refuse the measurement:\nstdout={stdout}\nstderr={stderr}"
+    );
+    assert!(
+        stdout.trim().is_empty(),
+        "a refused measurement printed {stdout:?} on stdout"
+    );
+    assert!(
+        stderr.contains("refusing to measure rather than run unguarded"),
+        "the refusal does not say it is refusing rather than proceeding:\n{stderr}"
+    );
+}
+
+/// And with no stub at all, on this machine, the guarded script still measures.
+///
+/// A guard that stops the thing it guards is not a guard. This is the case
+/// that would have caught `ulimit -u 256`, which killed the script's own fork
+/// on a host already running 2,352 threads.
+#[test]
+fn the_guarded_script_still_measures_on_this_machine() {
+    let (code, stdout, stderr) = run(&[], &["CB-2110"]);
     assert_eq!(
         code, 0,
-        "the cap must not stop the measurement it guards; it printed {stdout:?}"
+        "the guard stopped the measurement:\n{stdout}\n{stderr}"
     );
     assert!(
         stdout.trim().parse::<i64>().is_ok(),
