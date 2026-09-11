@@ -30,9 +30,12 @@ kind was re-run by the orchestrator before it was acted on.
      that arithmetic was available at the time. The approach was changed for
      the right reason — the recursion WAS inferred — but nothing was checked to
      see whether anything was still running, and it was.
-   - corrected: nothing in the code. Recorded here because the fix addresses
-     the cycle and not the reading of the signal, and the second is the part
-     that let it run.
+   - corrected: nothing in the code, and nothing can be. Recorded here because
+     the fix addresses the cycle and not the reading of the signal, and the
+     second is the part that let it run. The nearest mechanical guard is the
+     refusal at
+     tests/falsification_comply_count_cannot_run_inside_itself.rs:59, which
+     turns the re-entry into an exit 3 a reader cannot mistake for slowness.
 
 2. [cap] That `ulimit -u 256` bounds a runaway cycle.
    - evidence: it killed the script's own fork immediately. `ulimit -u` is
@@ -40,7 +43,10 @@ kind was re-run by the orchestrator before it was acted on.
      this account at the moment of the attempt: 226 processes, **2,352
      threads**. A fixed cap below the account's standing thread count is a gate
      that fails on any busy machine.
-   - corrected: the cap is relative to a measured count.
+   - corrected: the cap is relative to a measured count, and
+     tests/falsification_comply_count_cannot_run_inside_itself.rs:209 asserts
+     the guarded script still measures on this machine — the case a fixed cap
+     would fail.
 
 3. [unit] That a cap derived from the PROCESS count is the right relative one.
    - evidence: `processes + 64` failed identically, because the kernel compares
@@ -58,21 +64,24 @@ kind was re-run by the orchestrator before it was acted on.
      be committed, reviewed as config, and the guard would then turn every
      ratchet run into an exit 3 that reads as a broken gate rather than as a
      refused cycle.
-   - corrected: a test refuses any committed ratchet config that names this
-     script or runs `pmat comply`, so the loop cannot be re-declared.
+   - corrected: tests/falsification_comply_count_cannot_run_inside_itself.rs:106
+     refuses any committed ratchet config that names this script or runs
+     `pmat comply`, so the loop cannot be re-declared directly.
 
 5. [fail-open] That the process cap bounds a cycle whatever happens.
-   - evidence: **refuted by the lanes, not by this session.** Under `set -euo
-     pipefail`, `threads="$(ps … | wc -l)" || threads=""` leaves `threads`
-     EMPTY when `ps` cannot answer, and the script then printed a warning on
+   - evidence: **refuted by the lanes, not by this session.** The script runs
+     under strict mode, and there the capture `threads="$(ps … | wc -l)"`
+     followed by `|| threads=""` leaves `threads` EMPTY when `ps` cannot answer, and the script then printed a warning on
      stderr and ran the measurement unbounded. Reproduced directly:
      `threads=[]`, and with a stubbed `ps` that exits 1 the old script measured
      anyway. In a gate whose caller captures stdout, a warning on stderr is
      indistinguishable from no cap at all — and this repository has now
      measured what no cap costs.
    - corrected: an unreadable count or a refused `ulimit` REFUSES the
-     measurement, exit 4, saying it is refusing rather than proceeding. A red
-     gate is the cheaper of the two failures by a factor of 9,740.
+     measurement, exit 4, saying it is refusing rather than proceeding, driven
+     at tests/falsification_comply_count_cannot_run_inside_itself.rs:141 with a
+     stubbed `ps` that exits 1. A red gate is the cheaper of the two failures
+     by a factor of 9,740.
 
 6. [ceiling] That CB-2115's ceiling could be lowered from 43 to 42.
    - evidence: **refuted by a lane**, and gate B was RED on this branch because
@@ -86,15 +95,17 @@ kind was re-run by the orchestrator before it was acted on.
      possible demonstration that it is not decorative.
 
 7. [spelling] That the cap's falsifier tested the cap.
-   - evidence: **refuted by all three lanes.** `the_process_cap_counts_threads_
-     and_is_relative` asserted that the script's TEXT contained `ps -L` and a
+   - evidence: **refuted by all three lanes.** The case named for the cap
+     asserted that the script's TEXT contained a `ps -L` invocation and a
      particular `ulimit` expression. A correct refactor would have failed it; a
      broken cap with the right words would have passed. That is the vacuity
      this repository's whole falsification discipline exists to refuse, written
      into a file named `falsification_*`.
-   - corrected: the cap is DRIVEN. A stubbed `ps` reporting one thread puts the
-     cap at 513 against an account running 2,424, and the case asserts the
-     script's own fork fails — the only proof the `ulimit` took effect. A
-     stubbed `ps` that exits 1 must produce exit 4 and no count. A third case
-     runs the real script on the real machine and asserts it still measures,
-     which is what would have caught `ulimit -u 256`.
+   - corrected: the cap is DRIVEN at
+     tests/falsification_comply_count_cannot_run_inside_itself.rs:141. A stubbed
+     `ps` reporting one thread puts the cap at 513 against an account running
+     2,424, and the case asserts the script's own fork fails — the only proof
+     the `ulimit` took effect. A third case at
+     tests/falsification_comply_count_cannot_run_inside_itself.rs:209 runs the
+     real script on the real machine and asserts it still measures, which is
+     what would have caught `ulimit -u 256`.

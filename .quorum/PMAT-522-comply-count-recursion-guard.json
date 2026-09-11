@@ -4,32 +4,40 @@
  "branch": "PMAT-522-comply-count-recursion-guard",
  "base": "d64a57cc",
  "base_commit": "d64a57ccdb23f395088a1a2bed9ec45d8bb35776",
- "diff_sha256": "f88946ff9ebb7c9ae4ec984fa9ff23c45187c4a5",
+ "diff_sha256": "6794da047988d5d8ad38068d26ef37c756215812",
  "recorded_at": "after the operator's measurements, the three failed caps and the one that works",
  "quorum": {
   "lanes": [
-   "no agy round — see .quorum/evidence/comply-count-recursion-lanes.md"
+   "lane 1 (conv-01fd646a)",
+   "lane 2 (conv-65ec47aa)",
+   "lane 3 (conv-daac3694)"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
-  "rounds": "NONE, deliberately, and recorded as such rather than left as an absence. The defect was already measured and filed by the OPERATOR, on the machine it happened to, with numbers no lane could produce from a diff. The box had just been recovered by hand from a fork storm, and three lanes each spawn processes. The fix is four assertions against observable behaviour, each of which runs the real script on the real machine. The adversary's role is filled by the operator, who found the whole thing, and by a judges digest that adjudicates this session's own failures rather than only its success.",
-  "kill_rule": "the standing adversary here is the machine. Every claim is driven by a case that runs the real script on the real host: the refusal is measured (exit 3, empty stdout), the cap is measured in the unit the kernel compares (2,352 threads against 226 processes, and 134 threads per comply run), and the fourth case asserts the guard does not stop the measurement it guards. Three attempts at the cap FAILED against that adversary before one held, and all three are in the digest.",
+  "rounds": "one round of three sandboxed agy quorum lanes on 8ef9f844 with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 494s/339s/317s, verdicts 3/3 FAIL. THE ROUND WAS NEARLY SKIPPED: the first receipt carried one 'lane' and a document explaining why none was needed — the defect was already measured by the operator, and three lanes each spawn processes on a box recovered by hand from a fork storm twenty minutes earlier. The quorum gate refused it (`quorum had 1 evidence lanes, floor is 3`) and it was right to: that is an argument for skipping a rule, made by the person the rule constrains, about a change that person had just written. The round then found three defects that argument would have shipped.",
+  "kill_rule": "the brief carried one instruction no other round in this window needed — do NOT run `pmat comply ratchet` and do NOT create a `.pmat-ratchet.toml`, with the safe way to exercise the guard named instead — because the subject IS a fork storm. All three respected it and load stayed at 5. Beyond that the standing adversary is the machine: every claim is driven by a case that runs the real script on the real host, and three attempts at the cap failed against it before one held.",
   "claims_confirmed": 1,
-  "claims_refuted": 4,
+  "claims_refuted": 7,
   "refuted_claims": [
    "That the ten-minute timeout this session saw was slowness — a single `pmat comply check` is 3 seconds, so five metrics cannot exceed ten minutes without recursion. The arithmetic was available at the time. The approach was changed for the right reason but nothing was checked to see whether anything was still running, and it was.",
    "That `ulimit -u 256` bounds a runaway cycle — it killed the script's own fork at once. RLIMIT_NPROC is per USER and counts THREADS; this account was at 226 processes and 2,352 threads.",
    "That a cap derived from the PROCESS count is the right relative one — `processes + 64` failed identically, because the kernel compares against threads and the two differ by a factor of ten here.",
-   "That the sentinel alone closes this — it stops the second ENTRY into the loop, not the DECLARATION that opens it, and the declaration is the half a future contributor writes."
+   "That the sentinel alone closes this — it stops the second ENTRY into the loop, not the DECLARATION that opens it, and the declaration is the half a future contributor writes.",
+   "That the process cap bounds a cycle whatever happens — refuted by the lanes. Under `set -euo pipefail` an unreadable `ps` left `threads` EMPTY and the script warned on stderr and ran unbounded; in a gate whose caller captures stdout that is indistinguishable from no cap. Now exit 4.",
+   "That CB-2115's ceiling could be lowered from 43 to 42 — refuted by a lane, and gate B was RED on this branch because of it. The 42 was read from the WORKING TREE mid-edit; the committed tree measures 43. Put back, with the rule added to the baseline.",
+   "That the cap's falsifier tested the cap — refuted by all three lanes. It asserted on the script's TEXT: a correct refactor would fail it and a broken cap with the right words would pass. The cap is driven now, with a stubbed `ps` that puts it at 513 against an account running 2,424."
   ],
-  "lane_errors": []
+  "lane_errors": [
+   "Two lanes wrote pmat_output.json, stdout.log and stderr.log into the repository root despite the no-write rule opening the brief. Removed by the orchestrator and recorded in the evidence. Second incident of lane writes in this repository; the brief already opened with the rule, so the rule is not the missing part.",
+   "The delegate stopped at its 30-turn limit while summarising, AFTER all three lanes completed and reduce.json was written. Fourth occurrence in this session at exactly that point."
+  ]
  },
  "falsification": {
-  "test": "a_recursive_invocation_is_refused_and_prints_no_count asserts exit 3 with an EMPTY stdout, because a 0 there is read as the check's finding count; the_sentinel_reaches_the_child_process asserts it is exported and tested before it is set, so the child pmat run sees it and the first call is not refused; no_committed_ratchet_config_names_this_script refuses the declaration that opens the loop; the_process_cap_counts_threads_and_is_relative asserts the cap is derived from `ps -L` with headroom AND runs the real script on the real machine to prove the guard does not stop the measurement",
+  "test": "five cases: a_recursive_invocation_is_refused_and_prints_no_count asserts exit 3 with an EMPTY stdout, because a 0 there is read as the check's finding count; the_sentinel_reaches_the_child_process asserts it is exported and tested before it is set; no_committed_ratchet_config_names_this_script refuses the declaration that opens the loop; the_process_cap_is_applied_and_fails_closed DRIVES the cap with a stubbed `ps` reporting one thread, so the cap lands at 513 against an account running 2,424 and the script's own fork must fail — the only proof the ulimit took effect — and with a `ps` that exits 1, which must refuse with exit 4 and no count; and the_guarded_script_still_measures_on_this_machine, which is what would have caught `ulimit -u 256`",
   "test_file": "tests/falsification_comply_count_cannot_run_inside_itself.rs",
   "cargo_test_target": "falsification_comply_count_cannot_run_inside_itself",
   "reverted": "the guard block removed from scripts/ratchets/comply-count.sh, and separately `ulimit -u 256` and `ulimit -u $((procs + 64))` each tried in place of the thread-relative cap",
-  "observed_failure": "without the sentinel, `COMPLY_COUNT_ACTIVE=1 bash scripts/ratchets/comply-count.sh CB-2110` runs the full comply check and prints 49 — the exact re-entry that produced 9,740 processes. With `ulimit -u 256` and with `processes + 64`, the script dies on its own fork: `fork: retry: Resource temporarily unavailable` five times then exit 254, measured on a host at 226 processes and 2,352 threads. With the thread-relative cap it prints 49 and exits 0. All in docs/audits/logs/PMAT-522-recursion.log.",
+  "observed_failure": "without the sentinel, `COMPLY_COUNT_ACTIVE=1 bash scripts/ratchets/comply-count.sh CB-2110` runs the full comply check and prints 49 — the exact re-entry that produced 9,740 processes. With `ulimit -u 256` and with `processes + 64`, the script dies on its own fork: `fork: retry: Resource temporarily unavailable` five times then exit 254, on a host at 226 processes and 2,352 threads. With a stubbed `ps` reporting one thread the cap lands at 513 and the fork fails, which is the proof it is applied. With a stubbed `ps` that exits 1 the OLD script measured anyway (fail-open) and the new one exits 4. And with the ceiling at 42, `GATE B FAIL … REGRESSION: CB-2115: 43 finding(s), ceiling 42`. All in docs/audits/logs/PMAT-522-recursion.log.",
   "still_green_when_reverted": "the nine cases of falsification_cb21xx_ratchet_holds_the_ceiling, which drive the gate B arm this script feeds and prove the guard is confined to the script"
  },
  "crux": {
@@ -41,14 +49,14 @@
   "verdict": "accept(every surveyed system treats unbounded recursion in a build or unit graph as a structural error to be REFUSED rather than survived: Bazel refuses a cyclic dependency at load time and names the cycle [X]; Nix refuses an infinite recursion during evaluation with a stack depth limit rather than exhausting the machine [X]; systemd refuses an ordering cycle between units and breaks it at a named edge, logging which [X]. None of them relies on the operator noticing the load average. forjar's ratchet had neither a cycle check nor a resource bound, and now has both — a sentinel that names the re-entry and a cap in the unit the kernel compares. Where forjar remains WORSE: all three refuse the cycle at DECLARATION time from the graph itself, while this refuses it at run time plus a test over the committed config, and pmat's own side still has no guard at all. [X] all three, documentation memory.)"
  },
  "agy_teamwork": {
-  "ran": false,
-  "mode": "no round dispatched — a live hazard on a shared machine, already measured and filed by the operator, fixed directly against those measurements",
-  "verdict": "not applicable; the adversary was the machine, and three attempts at the process cap failed against it before one held",
-  "rounds": 0,
-  "lanes_per_round": 0,
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with an explicit instruction not to run `pmat comply ratchet` or create a .pmat-ratchet.toml because the subject is a fork storm; all three respected it and load stayed at 5",
+  "verdict": "3/3 FAIL; three refutations this session had not found, every one re-run and every one reproduced",
+  "rounds": 1,
+  "lanes_per_round": 3,
   "writes": false,
   "sandbox": true,
-  "out_dir": "none"
+  "out_dir": "keyed by ticket AND session id"
  },
  "pmat": {
   "ticket": "PMAT-522",
@@ -69,9 +77,9 @@
    "ps -L (the thread count the kernel compares)"
   ],
   "vacuous_tests_in_touched_paths": 0,
-  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. None of the four new cases appears.",
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. None of the five new cases appears — and the analyzer did NOT catch the vacuity that mattered here, a case asserting on the script's text rather than its behaviour, which three review lanes did catch. Worth knowing about the analyzer.",
   "bashrs": "0 errors on scripts/ratchets/comply-count.sh.",
-  "quality_gate": "4 + 9 green at HEAD; GATE B PASS with the ratchet at CB-2110=49/49 CB-2111=49/49 CB-2112=34/34 CB-2114=34/34 CB-2115=42/42; GATE T PASS with 14 tickets from 11 PRs carrying release:v1.29.0; GATE A PASS 11 of 11. Nothing under src/ changes.",
+  "quality_gate": "5 + 9 green at HEAD; GATE B PASS with the ratchet at CB-2110=49/49 CB-2111=49/49 CB-2112=34/34 CB-2114=34/34 CB-2115=43/43, after being RED at 42 on this same branch until a lane named it; GATE T PASS with 14 tickets from 11 PRs carrying release:v1.29.0; GATE A PASS 11 of 11. Nothing under src/ changes.",
   "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
   "tool_defects_found": [
    "pmat comply check runs a .pmat-ratchet.toml measurement command that itself runs pmat comply check, at any depth, with no recursion guard. That half is upstream and unfixed."
@@ -79,52 +87,52 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/comply-count-recursion-judges.md",
-  "total_bytes": 8973,
+  "total_bytes": 14132,
   "files": [
    {
     "path": ".quorum/evidence/comply-count-recursion-claims.md",
     "roles": [
      "claims"
     ],
-    "bytes": 1884,
-    "sha256": "07d901c7216c4ac81b9caaca8737c9b0173caa73493f68294c6e9700870092c9",
-    "blob": "a5fbb1f8c23e1f877192fba198805825c5dc92cb"
+    "bytes": 1830,
+    "sha256": "0d91e4d51db907883378ac9ddd81a11116ca9726a211143560ec4995f389c548",
+    "blob": "4634c13506890721980df2fd021a4b68c4239d94"
    },
    {
     "path": ".quorum/evidence/comply-count-recursion-lanes.md",
     "roles": [
      "lanes"
     ],
-    "bytes": 1414,
-    "sha256": "2719035c5e579bcfe2287f2337aa996d03265959fd11ae9093c5d060eb112041",
-    "blob": "69505a430c5cef66bd75d89a19a4055abd2cbe3d"
+    "bytes": 2118,
+    "sha256": "eae0bdab34e8d9feaffbed9f142a5e4c37bd3df9f779eaeb0f27930e2192a43e",
+    "blob": "869c1ef82643cadb5b24937ccdf5624148aacb5c"
    },
    {
     "path": ".quorum/evidence/comply-count-recursion-judges.md",
     "roles": [
      "judges"
     ],
-    "bytes": 3479,
-    "sha256": "0cb70682636fb2228737413276500c627e39eacd6eb477df4f9b21973118e0d6",
-    "blob": "04920f42f90ac4f1831c228f6ef725d25276b172"
+    "bytes": 6795,
+    "sha256": "d3f2d47aedb9778d9e207fc62f8d878483906618278ef0fa70729ff93d947ef8",
+    "blob": "b074ab4a80b58b35f883488eaf3a1044eaf85700"
    },
    {
     "path": ".quorum/evidence/comply-count-recursion-agy.md",
     "roles": [
      "agy"
     ],
-    "bytes": 551,
-    "sha256": "c577127836c162eddf73adfbe00d34ca837978d7eea6dfc2d36c7f812f9b6a31",
-    "blob": "0fdcf4ca44b2363d88d532ee0470630f27b0b82d"
+    "bytes": 970,
+    "sha256": "5a749ca77bf262fcd8d5d76e589e3533b55dcc2ba956dbb05f8f5944aae28445",
+    "blob": "6541407ef64dabd2b7a30c8ab5de241a3bd33dc4"
    },
    {
     "path": ".quorum/evidence/comply-count-recursion-pmat.md",
     "roles": [
      "pmat"
     ],
-    "bytes": 1645,
-    "sha256": "54278e6d20d9ac36312f4aa181e1a6cbbf637ed13f08ab3c38dd9e292dcdbba2",
-    "blob": "dfc41c61052c988f871ce31191623b618ed31ab7"
+    "bytes": 2419,
+    "sha256": "78aca31b723d7b3a0f1e34c93e63a0e905fbe25de857127e1df8c77cdd931c45",
+    "blob": "315e927e870e337b33c8a5b84f57ad7247ccb6d6"
    }
   ]
  }
