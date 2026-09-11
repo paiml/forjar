@@ -1,0 +1,23 @@
+### RED — the new cases against the gate as it was at cc6c0231
+test the_caret_rule_is_cargos_rule ... FAILED
+test a_release_at_the_cookbook_floor_without_its_cookbook_commit_is_red ... ok
+test a_cookbook_field_that_is_not_a_commit_sha_is_red ... ok
+test a_cookbook_commit_that_cannot_be_read_is_unmeasured_and_red ... ok
+test the_cookbook_requirement_is_read_the_way_cargo_writes_it ... FAILED
+test a_release_below_the_cookbook_floor_is_not_asked_for_one ... ok
+test a_cookbook_that_cannot_build_against_the_release_is_red ... FAILED
+assertion `left == right` failed: caret_admits 1.29.0 1.2 exited 99, wanted 0:
+assertion `left == right` failed: ^0.0.1 is the same requirement written the way Cargo writes it; the gate exited 1:
+GATE T FAIL v0.0.1: the cookbook at 0123456789abcdef0123456789abcdef01234567 declares no forjar version requirement — nothing there pins what it was qualified against
+GATE T FAIL v0.0.1: the cookbook at 0123456789abcdef0123456789abcdef01234567 requires forjar 0.1, which 0.0.1 does not satisfy — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut
+test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+
+### GREEN — the same cases against the gate at HEAD
+test the_caret_rule_is_cargos_rule ... ok
+test a_cookbook_field_that_is_not_a_commit_sha_is_red ... ok
+test a_cookbook_commit_that_cannot_be_read_is_unmeasured_and_red ... ok
+test a_release_at_the_cookbook_floor_without_its_cookbook_commit_is_red ... ok
+test a_release_below_the_cookbook_floor_is_not_asked_for_one ... ok
+test the_cookbook_requirement_is_read_the_way_cargo_writes_it ... ok
+test a_cookbook_that_cannot_build_against_the_release_is_red ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.76s
