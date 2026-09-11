@@ -1,6 +1,6 @@
 # Release receipt — forjar 1.28.0
 
-verdict: SHIPPED — crates.io serves 1.28.0, docs.rs built it, the GitHub release is published with 14 assets, and every pre-tag gate was green on the tagged sha. Two of the last three steps were done by hand and both are named below with the defect that made them necessary: the workflow declined to un-draft a release it had not created (PMAT-232), and promotion from prerelease to full release is the operator's step by design, taken after `make dogfood-published VERSION=1.28.0` passed.
+verdict: SHIPPED — crates.io serves 1.28.0, docs.rs built it, the GitHub release is published with 14 assets, and every pre-tag gate was green on the tagged sha. The last two steps were taken by hand for two different reasons, and the difference matters: un-drafting, because the workflow declined to un-draft a release it had not created, which is a defect (PMAT-232); promotion from prerelease to full release, because that is the operator's step BY DESIGN in this repository, taken after `make dogfood-published VERSION=1.28.0` passed.
 
 ## Identity
 
@@ -21,10 +21,18 @@ verdict: SHIPPED — crates.io serves 1.28.0, docs.rs built it, the GitHub relea
 |---|---|---|
 | A–H, T | `make dogfood-release` on `568dc169` (the cut branch, tree clean) | exit 0, all nine green — quoted line by line in `docs/audits/dogfood-1.28.0-receipt.md` |
 | F, stated | `cargo llvm-cov --workspace --locked --fail-under-lines 95` inside the gate | 96.45%; the mutation arm found no `src/` change to mutate, a measured zero (PMAT-216 unchanged) |
-| R, post-tag | `scripts/dogfood/release-check.sh` | PASS — 13 PRs since v1.27.0 all carry a receipt; the tag is on origin, the release is published, crates.io and docs.rs serve it |
+| R, post-tag | `scripts/dogfood/release-check.sh` | exit 0, and the line it printed is quoted below rather than paraphrased |
 | C, D on the published artifact | `make dogfood-published VERSION=1.28.0` | PASS — 211 CLI names, 12 MCP tools, 12 HTTP verbs live in the crate crates.io serves; 18 documented invocations run; 98 cookbook configs validate |
 
-`docs/audits/logs/PMAT-231-release-check.log` holds both runs verbatim.
+`docs/audits/logs/PMAT-231-release-check.log` holds both runs verbatim. Gate R's own line reads:
+
+```
+GATE R PASS pre-tag: 13 PR(s) since v1.27.0 (GitHub reports 13 merged in that window, 0 of them
+after this HEAD) all carry receipt=ok; PENDING until the tag is cut: no docs/audits/crux-1.28.0.md:
+Cargo.toml is still at v1.28.0's version (1.28.0), no release is being cut
+```
+
+**Everything after the semicolon is false, and it is quoted here rather than paraphrased into something tidier.** The tag IS on origin — that is provable from the line itself, because arm 1 emits four PENDING notes when the tag is absent (`tag not cut`, `no GitHub release`, `not on crates.io`, `not on docs.rs`) and none of them is here; `docs/audits/crux-1.28.0.md` exists at HEAD and gate H reconciled it during the cut. The one pending note is arm 6 saying no NEW release is being prepared, which is the correct state the day after a cut, and the `pre-tag` wording comes from a single branch that fires on any non-empty pending list. Filed as **PMAT-234**. What the exit code means is that the arms passed; what the sentence says is the opposite of the truth, and a gate whose one line cannot be read at face value is the failure mode this repository's gates exist to avoid.
 
 ## What the release itself broke, and what fixed it
 
