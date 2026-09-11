@@ -153,47 +153,87 @@ fn the_cookbook_requirement_is_read_the_way_cargo_writes_it() {
     r.assert_says("multi-clause");
 }
 
-/// The rule itself, over the versions the real repository is in.
+/// The rule itself, over every shape three review lanes broke it with.
 ///
-/// Every case above is pinned to the fixture's 0.0.x line, so the range that
-/// actually matters — `forjar = "1.2"` admitting `>=1.2.0, <2.0.0` — is not
-/// exercised by any of them. This drives `caret_admits` as it is written in
-/// `scripts/dogfood/tagged.sh` over a table, so the arithmetic is measured
-/// rather than inferred from one 0.0.x case. `2` is below the requirement,
-/// `3` is past its ceiling, `0` admits.
+/// Every fixture case above is pinned to the fixture's 0.0.x line, so the
+/// range that actually matters — `forjar = "1.2"` admitting `>=1.2.0, <2.0.0`
+/// — is exercised by none of them. This drives `dogfood_req_admits` as it is
+/// written in `scripts/dogfood/lib/releases.sh`, over a table.
+///
+/// It SOURCES the library rather than slicing the function out of a script
+/// with `sed`, which is what the first version of this test did: a lane showed
+/// that writing `caret_admits () {` with one extra space made the slice empty
+/// and the test red while the gate was fine, and that a function inside a
+/// string literal would be extracted and pass while the gate was broken. A
+/// test whose subject depends on the formatting of the file it reads is
+/// measuring the formatting.
+///
+/// `2` is below the requirement, `3` is at or past its ceiling, `4` is a
+/// version this rule refuses to evaluate, `0` admits.
 #[test]
-fn the_caret_rule_is_cargos_rule() {
-    // (version that shipped, what the cookbook requires, expected exit)
-    const TABLE: &[(&str, &str, i32)] = &[
-        ("1.29.0", "1.2", 0),
-        ("1.2.0", "1.2", 0),
-        ("1.99.99", "1.2", 0),
-        ("2.0.0", "1.2", 3),   // the defect: `>=` passes this one
-        ("2.0.0", "1.2.3", 3), // and this one
-        ("1.1.0", "1.2", 2),
-        ("1.0.0", "1", 0),
-        ("2.0.0", "1", 3),
-        ("0.2.5", "0.2", 0),
-        ("0.3.0", "0.2", 3), // below 1.0 the caret stops at the minor
-        ("0.0.3", "0.0.3", 0),
-        ("0.0.4", "0.0.3", 3), // and at 0.0.z it stops at the patch
-        ("0.9.0", "0", 0),
-        ("1.0.0", "0", 3),
-        ("0.0.9", "0.0", 0),
-        ("0.1.0", "0.0", 3),
+fn the_requirement_rule_is_cargos_rule() {
+    // (version that shipped, operator, requirement, expected exit)
+    const TABLE: &[(&str, &str, &str, i32)] = &[
+        // A caret runs to the next major, which is the requirement the
+        // cookbook actually carries (`forjar = { version = "1.2" }`).
+        ("1.29.0", "^", "1.2", 0),
+        ("1.2.0", "^", "1.2", 0),
+        ("1.99.99", "^", "1.2", 0),
+        ("2.0.0", "^", "1.2", 3), // a plain `>=` passes this one
+        ("2.0.0", "^", "1.2.3", 3),
+        ("1.1.0", "^", "1.2", 2),
+        ("1.0.0", "^", "1", 0),
+        ("2.0.0", "^", "1", 3),
+        // Below 1.0 the caret narrows to the leftmost non-zero component.
+        ("0.2.5", "^", "0.2", 0),
+        ("0.3.0", "^", "0.2", 3),
+        ("0.0.3", "^", "0.0.3", 0),
+        ("0.0.4", "^", "0.0.3", 3),
+        ("0.9.0", "^", "0", 0),
+        ("1.0.0", "^", "0", 3),
+        ("0.0.9", "^", "0.0", 0),
+        ("0.1.0", "^", "0.0", 3),
+        // A TILDE stops at the minor it was given, where a caret runs on.
+        // Reading `~1.2` as `^1.2` admits 1.99.99 and 2.0.0, neither of which
+        // Cargo admits: wider is the direction that produces a false green.
+        ("1.2.9", "~", "1.2", 0),
+        ("1.3.0", "~", "1.2", 3),
+        ("1.99.99", "~", "1.2", 3),
+        ("1.2.9", "~", "1.2.3", 0),
+        ("1.3.0", "~", "1.2.3", 3),
+        ("1.9.0", "~", "1", 0),
+        ("2.0.0", "~", "1", 3),
+        // An EXACT requirement admits one version when it was given three
+        // components, and the last one it was given otherwise.
+        ("1.2.3", "=", "1.2.3", 0),
+        ("1.2.4", "=", "1.2.3", 3),
+        ("1.2.9", "=", "1.2", 0),
+        ("1.3.0", "=", "1.2", 3),
+        // And what this rule REFUSES rather than measures wrong. `sort -V`
+        // puts 1.2.4-alpha ABOVE 1.2.4 where Cargo puts it below; bash reads
+        // a component of `3-9` as a subtraction and lands on an upper bound
+        // of `0.0.-5`; `0.0.3.4` is not a version and was read as `0.0.3`;
+        // `01.0.0` is not one either.
+        ("1.2.4-alpha", "^", "1.2.3", 4),
+        ("1.2.4", "^", "1.2.3-9", 4),
+        ("0.0.4", "^", "0.0.3-9", 4),
+        ("0.0.3", "^", "0.0.3.4", 4),
+        ("1.0.0", "^", "01.0.0", 4),
+        ("1.0.0+build", "^", "1", 4),
+        ("1.0.0", "^", "1.*", 4),
+        ("1.0.0", "^", "", 4),
     ];
-    for (ver, req, want) in TABLE {
+    for (ver, op, req, want) in TABLE {
         let script = format!(
             r#"set -euo pipefail
                . scripts/dogfood/lib/window.sh
                . scripts/dogfood/lib/releases.sh
-               eval "$(sed -n '/^caret_admits()/,/^}}/p' scripts/dogfood/tagged.sh)"
-               # A function that is not there would come back 127, and `|| return 2`
+               # A function that is not there comes back 127, and `|| return 2`
                # inside the rule would read that as "below the requirement" — a
                # measurement of nothing, dressed as a verdict. Ask first.
-               command -v caret_admits >/dev/null || exit 99
+               command -v dogfood_req_admits >/dev/null || exit 99
                command -v dogfood_semver_ge >/dev/null || exit 99
-               caret_admits '{ver}' '{req}'"#
+               dogfood_req_admits '{ver}' '{op}' '{req}'"#
         );
         let out = std::process::Command::new("bash")
             .arg("-c")
@@ -205,9 +245,50 @@ fn the_caret_rule_is_cargos_rule() {
         assert_eq!(
             got,
             *want,
-            "caret_admits {ver} {req} exited {got}, wanted {want}:\n{}{}",
+            "dogfood_req_admits {ver} {op}{req} exited {got}, wanted {want}:\n{}{}",
             String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         );
     }
+}
+
+/// The operator reaches the rule, and a comment does not.
+///
+/// Two lanes found the gate stripping `^`, `~` and `=` and evaluating all
+/// three as a caret — `=1.2.3` admitting everything below 2.0.0 — and all
+/// three found `forjar = "1.2" # version = "2.0"` measuring 2.0. Both are
+/// wrong in the FALSE GREEN direction: they admit a release the cookbook
+/// cannot use. These drive the whole arm, not the rule underneath it.
+#[test]
+fn the_operator_reaches_the_rule_and_a_comment_does_not() {
+    const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+    let mut fx = fixture(Case {
+        cookbook_floor: FLOOR,
+        cookbook: SHA,
+        ..Case::default()
+    });
+
+    // `~0.0` admits >=0.0.0, <0.1.0, so the release is fine.
+    fx.cookbook_manifest("[dependencies]\nforjar = \"~0.0\"\n");
+    run(&fx, AN_HOUR).assert_green("~0.0 admits the 0.0.1 that shipped");
+
+    // `=0.0.0` admits exactly 0.0.0. Read as a caret it would stop at 0.0.1
+    // too, so the case that separates them is a tilde one major up: see the
+    // table above. Here the point is that `=` is not silently widened.
+    fx.cookbook_manifest("[dependencies]\nforjar = \"=0.0.0\"\n");
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("=0.0.0 admits 0.0.0 and nothing else");
+    r.assert_says("stops at 0.0.1");
+
+    // The trailing comment is not the requirement.
+    fx.cookbook_manifest("[dependencies]\nforjar = \"0.0.1\" # version = \"9.9\"\n");
+    run(&fx, AN_HOUR).assert_green("the requirement is 0.0.1, not the 9.9 in the comment");
+
+    // A pre-release tag would sort the wrong way, so it is refused by name
+    // rather than measured. The RELEASE side is validated too, not just the
+    // requirement: `ver` comes from the tag and nothing checked it.
+    fx.cookbook_manifest("[dependencies]\nforjar = \"0.0.1-rc1\"\n");
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("a pre-release requirement is not evaluated by this rule");
+    r.assert_says("numeric components");
 }
