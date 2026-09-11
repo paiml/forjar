@@ -4,7 +4,7 @@
  "branch": "PMAT-522-comply-count-recursion-guard",
  "base": "d64a57cc",
  "base_commit": "d64a57ccdb23f395088a1a2bed9ec45d8bb35776",
- "diff_sha256": "700852f84644f7917855d1752da8551f2a3ff06b",
+ "diff_sha256": "0deb7316e6fb7277748a5790a4e7b158fa6469b6",
  "recorded_at": "after the operator's measurements, the three failed caps and the one that works",
  "quorum": {
   "lanes": [
@@ -33,7 +33,7 @@
   ]
  },
  "falsification": {
-  "test": "five cases: a_recursive_invocation_is_refused_and_prints_no_count asserts exit 3 with an EMPTY stdout, because a 0 there is read as the check's finding count; the_sentinel_reaches_the_child_process asserts it is exported and tested before it is set; no_committed_ratchet_config_names_this_script refuses the declaration that opens the loop; the_process_cap_is_applied_and_fails_closed DRIVES the cap with a stubbed `ps` reporting one thread, so the cap lands at 513 against an account running 2,424 and the script's own fork must fail — the only proof the ulimit took effect — and with a `ps` that exits 1, which must refuse with exit 4 and no count; and the_guarded_script_still_measures_on_this_machine, which is what would have caught `ulimit -u 256`",
+  "test": "five cases: a_recursive_invocation_is_refused_and_prints_no_count asserts exit 3 with an EMPTY stdout, because a 0 there is read as the check's finding count; the_sentinel_reaches_the_child_process asserts it is exported and tested before it is set; no_committed_ratchet_config_names_this_script refuses the declaration that opens the loop; the_process_cap_is_applied_and_fails_closed DRIVES the cap with a stubbed `ps` reporting one thread, so the cap lands at 513 against an account running 2,424 and the script's own fork must fail — the only proof the ulimit took effect — and with a `ps` that exits 1, which must refuse with exit 4 and no count; and the_guard_does_not_stop_the_measurement, which is what would have caught `ulimit -u 256` — with pmat STUBBED, because the hosted runner has none and because naming a check id made the case depend on a roster that changed under it",
   "test_file": "tests/falsification_comply_count_cannot_run_inside_itself.rs",
   "cargo_test_target": "falsification_comply_count_cannot_run_inside_itself",
   "reverted": "the guard block removed from scripts/ratchets/comply-count.sh, and separately `ulimit -u 256` and `ulimit -u $((procs + 64))` each tried in place of the thread-relative cap",
