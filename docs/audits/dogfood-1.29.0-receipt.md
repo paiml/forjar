@@ -27,16 +27,20 @@ made gate B own them in a new Arm 7; the line above is that arm holding.
 Measured within one day: 172 checks with the CB-2110..CB-2115 family, then 166
 without it and CB-148 live again, then 172 again — `pmat --version` reading
 3.40.0 throughout, with the banner going `commit: 5db342d5` → `commit: unknown`
-→ `commit: d76e533e`. Arm 7 is red while the family is absent, which is correct
+→ `commit: d76e533e`. The arithmetic is exact and was questioned in review:
+172 − 6 = 166, because CB-148 is in BOTH rosters — the first build printed it as
+`RETIRED — superseded by CB-2110`, which is a row, not an absence. Arm 7 is red while the family is absent, which is correct
 and is also a gate whose verdict depends on which local build is installed. The
 baseline records the build banner for that reason. **This is the single largest
 risk to the next cut**: the same gate can be green here and red on another
 machine with a different pmat build and an identical version string.
 
-**Gate F's mutation arm measured zero because no `.rs` differs from main.** This
-release changes no source file: every one of its sixteen tickets is release
-machinery, gates, scripts, tests or the record. That is a measured zero, not a
-skip, and it is the same state 1.28.0 was cut in.
+**Gate F's mutation arm measured zero because no `.rs` differs from main on THIS
+BRANCH.** Say it precisely, because the loose version is false: the release as a
+whole changes **twelve** `.rs` files since v1.28.0, and **zero** of them under
+`src/` — they are all falsification tests. The cut branch itself changes none,
+which is what gate F measured. A measured zero, not a skip, and the same state
+1.28.0 was cut in.
 
 **Gate D validates 98 cookbook configs** against the built artifact, and from
 this release the ledger row also names the cookbook COMMIT that was (PMAT-241).

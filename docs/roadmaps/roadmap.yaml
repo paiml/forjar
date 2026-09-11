@@ -3705,3 +3705,28 @@ roadmap:
   - release:v1.29.0
   notes: 'Caused by this session, on 2026-09-11, while trying pmat''s own .pmat-ratchet.toml mechanism for PMAT-521 before switching to the gate B arm. `pmat comply check` evaluates .pmat-ratchet.toml and runs every measurement command; one of those commands ran `pmat comply check`. Measured by the operator: 9,740 processes, 5,781 comply-count.sh, 1,462 pmat comply check, load average 379 peaking at 3,026, CPU pressure some/10s 83%. Killed by renicing the set to 19 then SIGKILL on the root. The .pmat-ratchet.toml was never committed and is not on disk, so the cycle cannot occur here today — the absence of an input is not a safeguard. pmat has no recursion guard either; that half is upstream.'
   release: 1.29.0
+- id: PMAT-526
+  kind: code
+  github_issue: 526
+  item_type: task
+  title: 'gate D''s version arm does not catch the case its own comment names: a README pinning a minor the crate has moved past'
+  release: 1.30.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T18:55:00Z
+  updated: 2026-09-11T18:55:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
+  - 'a README at the current minor, and one deliberately ahead within the same major, are still green'
+  - 'the staleness bound is written down with its reason rather than implied by the comparison — a caret in a README is deliberately loose, so the rule is a bound and not equality, and that is a judgement someone has to make explicitly'
+  - 'falsification cases drive both directions, and the existing 18 documented invocations stay green'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'

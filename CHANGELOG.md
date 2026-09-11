@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.29.0] - 2026-09-11
 
 The second cut under the two-day cadence (PMAT-225; due 2026-09-12T16:07:14Z).
-Thirteen PRs across sixteen tickets, every one labelled `release:v1.29.0` at the
-moment it merged rather than at the cut. All of it is the release machinery
+Twelve PRs across fifteen tickets, every one labelled `release:v1.29.0` at the
+moment it merged rather than at the cut — this cut's own PR is the thirteenth
+and is not counted, because it has not merged. All of it is the release machinery
 itself, and almost all of it was found by RUNNING that machinery rather than by
 reading it: shipping 1.28.0 exposed three defects the same day, gate T's own
 first green run exposed a fourth, a pmat upgrade turned a release gate red
@@ -98,9 +99,11 @@ of eighteen further sites elsewhere is committed as PMAT-240.
 **Gate B records what pmat 3.40's six new checks measure, and refuses growth
 (PMAT-521).** Gate B was green when 1.28.0 was cut and red on main the next
 day: pmat 3.40 put six checks in the comply roster this repository has never
-satisfied — 49 specifications with no front-matter and no review, 24 roadmap
-items with no GitHub issue, ten whose id does not match their issue, 34 with no
-release binding. Not one is a regression from any ticket in this window. The
+satisfied. What each reports, as a FINDING COUNT and not a ceiling: CB-2110,
+49 specifications with no front-matter; CB-2111, the same 49 unjudgeable
+because of it; CB-2112, 34 (24 items with no GitHub issue, 10 whose id does not
+match their issue); CB-2114, 34 with no release binding; CB-2115, 43
+disagreements between the roadmap and GitHub. Not one is a regression from any ticket in this window. The
 doctrine forbids a skip, so `scripts/ratchets/cb21xx-baseline.json` records a
 ceiling per check with the instrument that produced it, Arm 1 exempts exactly
 those five ids and Arm 7 enforces the ceilings from the same comply run Arm 1

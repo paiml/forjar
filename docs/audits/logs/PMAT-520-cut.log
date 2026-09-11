@@ -1,0 +1,20 @@
+### RED — this branch's crux document reverted, gate H over the same twelve bullets
+GATE H FAIL no docs/audits/crux-1.29.0.md: 12 behaviour(s) are being released against no recorded comparison with any other system (provable-iac.md: quorum-validated design, >=3 world-class systems)
+
+### GREEN — restored
+GATE H PASS 12 of 12 behaviour bullet(s) under [1.29.0] reconciled in docs/audits/crux-1.29.0.md, each naming >= 3 of the 28 surveyed systems
+
+### the falsifier the receipt names, at HEAD
+test a_release_with_no_behaviour_paragraph_anywhere_is_red ... ok
+test the_row_is_still_required_under_the_version_section ... ok
+test before_the_cut_unreleased_still_wins ... ok
+test at_the_cut_the_gate_reads_the_version_section ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+### NOT a proof, and why it is not in the receipt:
+### reverting Cargo.toml in the WORKING TREE does not move gate T, because gate T
+### reads the version at HEAD (git show HEAD:Cargo.toml). Measured:
+cut in flight: Cargo.toml is at 1.29.0
+### with main's 1.28.0 in the working tree, the gate still reports 1.29.0 — it is
+### reading the commit, which is the correct behaviour and makes a working-tree
+### revert useless as evidence about it.
