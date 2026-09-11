@@ -1,0 +1,18 @@
+### RED — the new cases against release-check.sh as main has it
+test a_published_release_whose_docs_never_built_is_still_red ... ok
+test after_a_published_release_the_verdict_never_says_pre_tag ... FAILED
+test before_the_tag_is_cut_the_verdict_still_says_so ... ok
+GATE R PASS pre-tag: 1 PR(s) since v0.0.0 (GitHub reports 1 merged in that window, 0 of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: no docs/audits/crux-0.0.1.md: Cargo.toml is still at v0.0.1's version (0.0.1), no release is being cut
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+### the same defect against the REAL repository, at main's script
+GATE R PASS pre-tag: 19 PR(s) since v1.27.0 (GitHub reports 19 merged in that window, 0 of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: no docs/audits/crux-1.28.0.md: Cargo.toml is still at v1.28.0's version (1.28.0), no release is being cut
+
+### GREEN — at a517c9af
+test a_published_release_whose_docs_never_built_is_still_red ... ok
+test after_a_published_release_the_verdict_never_says_pre_tag ... ok
+test before_the_tag_is_cut_the_verdict_still_says_so ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+### and the real repository, at the fix
+GATE R PASS v1.28.0 is on main and on origin; GitHub release published (prerelease=false); crates.io serves forjar 1.28.0; docs.rs built the docs; 19 PR(s) since v1.27.0 (of 19 GitHub reports merged in that window) all carry receipt=ok; also pending: no docs/audits/crux-1.28.0.md: Cargo.toml is still at v1.28.0's version (1.28.0), no release is being cut

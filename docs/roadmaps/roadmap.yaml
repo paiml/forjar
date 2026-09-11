@@ -3459,16 +3459,16 @@ roadmap:
   github_issue: null
   item_type: task
   title: gate R's verdict line says PASS pre-tag and PENDING until the tag is cut whenever ANY arm is pending, so after every successful release it reports the opposite of the truth
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T00:00:33Z
-  updated: 2026-09-11T00:00:34Z
+  updated: 2026-09-11T13:30:35Z
   spec: null
   acceptance_criteria:
   - 'scripts/dogfood/release-check.sh distinguishes the arms that are pending BECAUSE THE TAG DOES NOT EXIST from every other pending note: after a published release its verdict line names the tag, the release, crates.io and docs.rs as measured, and lists any remaining pending note as what it actually is'
   - 'the summary never says pre-tag when origin serves the tag, and never says PENDING until the tag is cut about a note that has nothing to do with the tag'
-  - 'a falsification case drives the script over a fixture where the tag exists and one non-tag arm is pending, and asserts the verdict line says neither'
+  - 'four falsification cases drive the script over a fixture in the state a finished release leaves: the published one says neither phrase, the pre-tag one still says both, a failed docs build is still RED, and the one remaining note does not claim a present file is missing'
   phases: []
   subtasks: []
   estimated_effort: null
