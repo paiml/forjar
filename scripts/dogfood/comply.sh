@@ -23,13 +23,18 @@
 #   cb-200            reports (enabled); Arm 1 exempts exactly it, Arm 5 enforces the ratchet ceiling.
 #   cb-2110..cb-2115  (Arm 7) report (enabled); Arm 1 exempts exactly those five, Arm 7
 #                     enforces the per-check ceilings in scripts/ratchets/cb21xx-baseline.json
-#                     (PMAT-243). CB-2113 is NOT among them: it is branch-local
-#                     and satisfiable, so it stays in Arm 1's net.
+#                     (PMAT-521) and refuses a ceiling that RISES without a written
+#                     justification for that check (PMAT-531). CB-2113 is NOT among
+#                     them: it is branch-local and satisfiable, so it stays in Arm 1's net.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 REPO="paiml/forjar"
+
+# The tree a raise is measured against: one the author of the raise did not
+# write. Overridable for a fixture, never for a shortcut.
+BASE_REF="${COMPLY_BASE_REF:-origin/main}"
 
 # The five comply checks pmat 3.40 added that this repository has never
 # satisfied. Arm 1 exempts EXACTLY these, Arm 7 enforces their recorded
@@ -308,6 +313,61 @@ fi
 # a missing check fails here, and so does a check whose message carries no
 # count.
 [ -f "$CB21XX_BASE" ] || fail "no ${CB21XX_BASE} — the CB-2110..CB-2115 ceilings are undeclared, and an undeclared ceiling is not a passed one"
+
+# A CEILING MAY NOT RISE WITHOUT A WRITTEN REASON (PMAT-531).
+#
+# "MAY ONLY SHRINK" is the rule this file states and nothing enforced it: the
+# ceilings are a JSON file, and raising one is a one-character edit that turns
+# every future regression green. The schema has carried a `justification` field
+# since it was written; nothing read it.
+#
+# Measured the day it mattered. Correcting PMAT-240's false `status: completed`
+# turned a closed roadmap row into an open one, CB-2112 and CB-2114 each grew by
+# one, and gate B went red — correctly, because the growth was real. CB-2114 was
+# fixed by real work; CB-2112 was RAISED, because the row keeps its historical id
+# and no sync can rename it. That raise is legitimate and it is exactly the shape
+# an illegitimate one has.
+#
+# So the comparison is against the baseline as the BASE BRANCH has it, which is a
+# tree the author of a raise did not write, and a raise without
+# `justification.<CHECK>` naming that check is refused BY NAME. Lowering needs
+# nothing. A baseline the base does not carry yet is a new file, and new files
+# declare rather than raise.
+cb21xx_raise_rc=0
+cb21xx_raise="$(python3 -c '
+import json, subprocess, sys
+
+path = sys.argv[1]
+base = sys.argv[2]
+now = json.load(open(path))["ceiling"]
+p = subprocess.run(["git", "show", "%s:%s" % (base, path)],
+                   capture_output=True, text=True)
+if p.returncode != 0:
+    print("declared: %s is new on this branch, so nothing is raised" % path)
+    raise SystemExit(0)
+try:
+    was_doc = json.loads(p.stdout)
+except Exception as e:
+    print("UNMEASURED: %s does not parse at %s (%s), so a raise would be invisible" % (path, base, e))
+    raise SystemExit(2)
+was = was_doc["ceiling"]
+reasons = json.load(open(path)).get("justification", {}) or {}
+bad = []
+for cid, cap in sorted(now.items()):
+    if cid in was and cap > was[cid] and not str(reasons.get(cid, "")).strip():
+        bad.append("%s raised %d -> %d with no justification.%s" % (cid, was[cid], cap, cid))
+if bad:
+    print("RAISED WITHOUT A REASON: " + "; ".join(bad))
+    raise SystemExit(1)
+raised = [c for c in sorted(now) if c in was and now[c] > was[c]]
+if raised:
+    print("raised with a written reason: " + ", ".join(raised))
+else:
+    print("no ceiling raised")
+' "$CB21XX_BASE" "$BASE_REF" 2>&1)" || cb21xx_raise_rc=$?
+if [ "$cb21xx_raise_rc" -ne 0 ]; then
+  fail "the CB-2110..CB-2115 ceilings (Arm 7): ${cb21xx_raise} — a ceiling that may only shrink is a rule nobody enforced until PMAT-531; raising one needs a reason in ${CB21XX_BASE} under \"justification\", reviewed like any other change"
+fi
 cb21xx_rc=0
 # STDERR IS CAPTURED TOO (2>&1). Three review lanes found that a `sys.exit("…")`
 # writes to stderr while `$( )` takes stdout, so the arm would go red with an
@@ -431,7 +491,12 @@ echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${
 #
 # Arm 7's own address: lower any ceiling in scripts/ratchets/cb21xx-baseline.json
 # by one and the arm reports REGRESSION naming that check, the count and the
-# ceiling. Removing a check from the CB21XX array instead turns Arm 1 red for it
+# ceiling. Delete the `justification` block while a ceiling is above the base
+# branch's and the raise arm refuses it, naming the check and both numbers —
+# measured on the raise that introduced it.
+# tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives the counting
+# arm; tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs drives the
+# raise arm over a temp git repository, in all six directions. Removing a check from the CB21XX array instead turns Arm 1 red for it
 # by name, which is the other direction and the one that matters more: an
 # exemption nobody granted is how a ratchet becomes a waiver.
 # tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives both, plus the

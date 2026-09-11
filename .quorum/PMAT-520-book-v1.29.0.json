@@ -1,0 +1,138 @@
+{
+ "kind": "code",
+ "issue": "PMAT-531 (closes forjar#531) — the v1.29.0 ledger booking, and the two false records the round found. The row is byte-identical to `release-goal.sh window v1.29.0` and is the FIRST any release has carried naming the paiml/forjar-cookbook commit it was qualified against (7c100454, PMAT-241). Three review lanes were unanimous that the cut's label moves were wrong: PMAT-233 reads `cancelled` and was carried into the next window (a treadmill), and PMAT-240 read `completed` with thirteen pipelines of its own shape still in scripts/ and neither acceptance criterion met. Both corrected; both gates that let them stand filed as PMAT-528 and PMAT-529. Correcting the false `completed` then pushed CB-2112 and CB-2114 over their ceilings — real growth, because a closed row became an open one — so CB-2114 was restored by real work and CB-2112 was RAISED with a written reason, which is when it became clear that 'MAY ONLY SHRINK' was a rule stated in the baseline's own text that nothing enforced.",
+ "branch": "PMAT-520-book-v1.29.0",
+ "base": "20e80f64",
+ "base_commit": "20e80f645cc34688415843bd36f2cc66fad6f117",
+ "diff_sha256": "98a2f60181e40f8712b485c511f23b562c29148e",
+ "recorded_at": "after the round, the two corrections, the two tickets filed, and the raise arm the raise itself called for",
+ "quorum": {
+  "lanes": [
+   "book lane 1 (conv-d56db057)",
+   "book lane 2 (conv-c27abfd8)",
+   "book lane 3 (conv-d1221a10)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes on the booking diff with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 730s/430s/611s, verdicts 3/3 FAIL.",
+  "kill_rule": "six claims about the row and the labels, plus the standing instruction that earned the previous round: quote any sentence or number a reader could check and find false. The unanimous finding was the one no gate asked — the label moves. The instructive one was a 2-1 SPLIT WHERE THE MINORITY WAS RIGHT: two lanes refuted the tickets list as missing three ids and the third confirmed it against the rule; the other two had found MENTIONS in PR bodies rather than shipped tickets. That is why every refutation is re-run instead of counted.",
+  "claims_confirmed": 4,
+  "claims_refuted": 4,
+  "refuted_claims": [
+   "That the cut's label moves are right — refuted 3/3 and both halves reproduce. PMAT-233 reads `cancelled` and its release: label was moved into the next window, which is a treadmill: every future cut carries it one further while gate T counts it as open work. PMAT-240 read `completed` and was moved as finished work that was never done.",
+   "That `status: completed` on PMAT-240 was true — thirteen pipelines of its own shape are still in scripts/ and NEITHER acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. Corrected textually because `pmat work edit` refuses Completed -> Planned and Completed -> InProgress.",
+   "That no sentence in the record is checkable and false — PMAT-520's acceptance criteria said 'ten behaviour bullets' and 'twelve tickets' where the release shipped twelve and fifteen, and the ledger header's 'ten tags since the cookbook's master' became ELEVEN the moment v1.29.0 was tagged, which is a count that decays at every release.",
+   "That the booking is honestly a kind: triage change — CONFIRMED 3/3 when the lanes read it and made FALSE afterwards by this branch's own later work, which brought scripts/ratchets/cb21xx-baseline.json into the diff. Recorded as an EXPIRED confirmation rather than kept, and the receipt is kind: code with a falsification."
+  ],
+  "lane_errors": [
+   "Two of three lanes refuted the `tickets` list as missing PMAT-200, PMAT-233 and PMAT-240, named in PR bodies. Does NOT reproduce: the window's rule is the first PMAT-<n> in the branch, then the title, then the body — the same rule gate A applies — and the row matches it exactly. What they found were MENTIONS; PR #517's body says 'eighteen more elsewhere are PMAT-240, census committed', which is a reference to future work. Measured: no commit between v1.28.0 and v1.29.0 names PMAT-240 as its subject. The third lane read the rule and confirmed the list.",
+   "The delegate stopped at its 30-turn limit while reducing, after all three lanes completed. Sixth occurrence in this session at that same point; worth a ticket in the paiml-implement repository rather than a seventh workaround."
+  ]
+ },
+ "falsification": {
+  "test": "a_ceiling_may_not_rise_without_a_written_reason drives six outcomes over a temp git repository: a ceiling raised above the BASE BRANCH's with no reason is refused naming the check and both numbers; raised WITH one passes and SAYS so, because a silent allow makes the reason decorative; whitespace is not a reason; lowering is green and says nothing rose; a justification for a check that did not rise does not license a different one that did; and a baseline the base does not carry is a new file, which declares rather than raises",
+  "test_file": "tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs",
+  "cargo_test_target": "falsification_cb21xx_ceiling_raise_needs_a_reason",
+  "reverted": "the `justification` block removed from scripts/ratchets/cb21xx-baseline.json while CB-2112 sits one above the base branch's ceiling, then restored",
+  "observed_failure": "GATE B FAIL the CB-2110..CB-2115 ceilings (Arm 7): RAISED WITHOUT A REASON: CB-2112 raised 34 -> 35 with no justification.CB-2112 — and GATE B PASS with the block restored, reporting `ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=35/35 CB-2114=34/34 CB-2115=42/43 held`. In docs/audits/logs/PMAT-531-booking.log, measured against the live repository rather than a fixture.",
+  "still_green_when_reverted": "the nine cases of falsification_cb21xx_ratchet_holds_the_ceiling, which drive the COUNTING arm rather than the raise arm and prove the new one is confined to it — the two were one file until the 500-line ratchet split them"
+ },
+ "crux": {
+  "systems": [
+   "Bazel",
+   "Nix",
+   "Debian",
+   "SLSA"
+  ],
+  "verdict": "accept(the mechanism a ratchet needs is not the ceiling but the REASON a ceiling moved the wrong way, and every surveyed system requires one in writing rather than trusting the direction. Debian's Lintian overrides name the tag and the reason in a committed file [X]. Bazel's --incompatible_* flags name the release at which a tolerated breakage stops being tolerated [X]. Nix pins a stale derivation with an explicit comment rather than silently [X]. SLSA records the level a project MEETS and requires evidence to claim a higher one [X]. forjar's baseline has carried a `justification` field since it was written and nothing read it, so a one-character edit turned every future regression green. Where forjar is still WORSE: none of the four lets the author of the change be the only reviewer of its reason, and this gate does — the justification is written and read by the same hand until a human opens the PR.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with the no-write rule opening the brief and the two earlier incidents named; the tree was verified clean afterwards",
+  "verdict": "3/3 FAIL; four refutations, three reproduced and one did not; one confirmation expired and is recorded as expired",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-531",
+  "tools": [
+   "scripts/release-goal.sh cut",
+   "scripts/release-goal.sh window",
+   "scripts/dogfood/tagged.sh",
+   "scripts/dogfood/comply.sh",
+   "scripts/ratchets/comply-count.sh",
+   "pmat comply check",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat work edit -s (refused Completed -> Planned)",
+   "bashrs lint",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. The new case is not among them: it drives six outcomes over a temp git repository and asserts on exit codes and named text, not on the script's spelling.",
+  "bashrs": "0 errors on scripts/dogfood/comply.sh.",
+  "quality_gate": "10 + 4 + 4 green at HEAD; GATE B PASS with CB-2110=49/49 CB-2111=49/49 CB-2112=35/35 CB-2114=34/34 CB-2115=42/43; GATE B FAIL with the justification removed. Gate T is red on this branch for the one reason the booking cannot fix before it merges — its own commit has not merged — and green on main once it does.",
+  "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
+  "tool_defects_found": [
+   "`pmat work edit` refuses Completed -> Planned and Completed -> InProgress, so a row wrongly marked completed cannot be corrected by the tool. PMAT-240 was corrected textually, recorded in its own notes and in the receipt. Whether the lifecycle should admit a documented correction is part of PMAT-528."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/book-1.29.0-judges.md",
+  "total_bytes": 12133,
+  "files": [
+   {
+    "path": ".quorum/evidence/book-1.29.0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1730,
+    "sha256": "e3a2f9a53db5315fdeb13c15bbeaede369664a0655f99d65275c0503a4de7970",
+    "blob": "9cc716b947b34ac244e5357c43c5ca46160ade04"
+   },
+   {
+    "path": ".quorum/evidence/book-1.29.0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1994,
+    "sha256": "0b755c13d15479fb22e20ac937e86517ae64051cfcbe7cd9625e9154714dc78b",
+    "blob": "ca07e3e1fb1c805044336aa44b49a56933b7e294"
+   },
+   {
+    "path": ".quorum/evidence/book-1.29.0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5875,
+    "sha256": "ef56ea9855861b6810b1613c8b5f9461a1a2df114d597fa58a6a29f7520696a6",
+    "blob": "5ce39610e639431b1cc6df24819f50a56d5e3065"
+   },
+   {
+    "path": ".quorum/evidence/book-1.29.0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 779,
+    "sha256": "930dc22aa35655012bf7e81a06f26541e603304eee25e56bbb7756d1e4d8cc3d",
+    "blob": "13292213d445cc3fbf42b092dc8cf01e9e1f201e"
+   },
+   {
+    "path": ".quorum/evidence/book-1.29.0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1755,
+    "sha256": "ae5045b81fa25a9037b110c014c845c1c53832d1569ff847859df99097dfcbdb",
+    "blob": "524e9c4678dc0e937b72de4f0840b1988819146e"
+   }
+  ]
+ }
+}
