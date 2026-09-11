@@ -119,6 +119,37 @@ Two lanes also wrote `pmat_output.json`, `stdout.log` and `stderr.log` into the
 repository root despite the no-write rule opening the brief. Removed; recorded
 here rather than left for someone to find.
 
+## And then the checks left the roster
+
+While this branch was being finished, gate B went red again for a reason
+neither the tree nor the lanes could have produced. **The five checks the
+ratchet owns left the comply roster at 18:34.** `pmat --version` read 3.40.0
+before and after, but the binary had been rebuilt locally from a different
+source state:
+
+| | 14:00 | 18:34 |
+|---|---|---|
+| `pmat --version` | 3.40.0 | 3.40.0 |
+| banner | `commit: 5db342d5`, `worktree: clean` | `commit: unknown` |
+| roster size | 172 checks | 166 checks |
+| CB-2110..CB-2115 | present | **absent** |
+| CB-148 | "RETIRED — superseded by CB-2110" | live and passing |
+
+Gate B is RED under that build and **should be**: a ceiling cannot be asserted
+against a tool that does not run the check, and reading `absent` as `zero
+findings` is the one thing this arm exists to refuse. The arm was doing its job.
+
+What it was NOT doing was saying which failure it was. The message accused an
+id of rotting, which sends a reader looking for a rename that has not happened.
+Arm 7 now distinguishes them: the WHOLE FAMILY absent is a tool that does not
+carry these checks, reported with the roster size and a pointer to the
+baseline's `instrument` field; ONE OF SEVERAL absent is a rotted id. The
+baseline's `instrument` records the BUILD now, not just the version string.
+
+**Which pmat build is authoritative is not a question this gate can answer**,
+and it is the one thing between here and a green gate B. It is named here
+rather than worked around.
+
 ## Two things this ticket does not do
 
 - **pmat has no recursion guard either.** `pmat comply check` will run a
@@ -134,6 +165,10 @@ here rather than left for someone to find.
   sanitise the environment, so the path that actually happened is closed; a
   future caller that scrubs the environment would reopen it, and nothing here
   would notice.
+- **A ceiling is only meaningful against a tool that runs the check.** The
+  family left the roster on a local rebuild of the same version string, and
+  nothing in this repository can pin which build is authoritative. The gate
+  reports the situation precisely and stops there.
 - **The declaration test catches the literal string only.** A wrapper script,
   a Makefile target, or another pmat subcommand that evaluates the ratchet
   would re-create the cycle and pass it. Two lanes named this. A static test

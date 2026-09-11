@@ -67,3 +67,24 @@ CB-2115=43/43 held …`
 v1.28.0 carry release:v1.29.0; due 2026-09-12T16:07:14Z`
 
 `GATE A PASS 11 of 11 merged PR(s) since v1.28.0 carry a harness receipt`
+
+## The roster changed underneath this work
+
+At 18:34, while this branch was being finished, all six CB-21xx checks left the
+comply roster. `pmat --version` read 3.40.0 before and after.
+
+| | 14:00 | 18:34 |
+|---|---|---|
+| banner | `commit: 5db342d5`, `worktree: clean` | `commit: unknown` |
+| roster size | 172 | 166 |
+| CB-2110..CB-2115 | present | absent |
+| CB-148 | "RETIRED — superseded by CB-2110" | live and passing |
+
+The binary at `~/.cargo/bin/pmat` has an mtime of 18:34 the same day. Gate B is
+RED under it, correctly — a ceiling cannot be asserted against a tool that does
+not run the check — and Arm 7 now names the cause as a TOOL rather than
+accusing an id of rotting.
+
+This also broke one falsification case that named `CB-2110` directly. It
+discovers a countable check from the installed tool now, which is the right
+dependency: the subject of that case is the guard, not the roster.

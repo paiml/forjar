@@ -4,7 +4,7 @@
  "branch": "PMAT-522-comply-count-recursion-guard",
  "base": "d64a57cc",
  "base_commit": "d64a57ccdb23f395088a1a2bed9ec45d8bb35776",
- "diff_sha256": "6794da047988d5d8ad38068d26ef37c756215812",
+ "diff_sha256": "700852f84644f7917855d1752da8551f2a3ff06b",
  "recorded_at": "after the operator's measurements, the three failed caps and the one that works",
  "quorum": {
   "lanes": [
@@ -82,12 +82,13 @@
   "quality_gate": "5 + 9 green at HEAD; GATE B PASS with the ratchet at CB-2110=49/49 CB-2111=49/49 CB-2112=34/34 CB-2114=34/34 CB-2115=43/43, after being RED at 42 on this same branch until a lane named it; GATE T PASS with 14 tickets from 11 PRs carrying release:v1.29.0; GATE A PASS 11 of 11. Nothing under src/ changes.",
   "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
   "tool_defects_found": [
-   "pmat comply check runs a .pmat-ratchet.toml measurement command that itself runs pmat comply check, at any depth, with no recursion guard. That half is upstream and unfixed."
+   "pmat comply check runs a .pmat-ratchet.toml measurement command that itself runs pmat comply check, at any depth, with no recursion guard. That half is upstream and unfixed.",
+   "Two local builds of pmat reporting the SAME version string (3.40.0) carry different check rosters: 172 checks with the CB-2110..CB-2115 family at 14:00, 166 without it at 18:34, and CB-148 reported as retired by the first and live by the second. A version string that does not distinguish two rosters makes any ceiling recorded against it ambiguous, which is why the baseline's instrument field now records the build banner."
   ]
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/comply-count-recursion-judges.md",
-  "total_bytes": 14132,
+  "total_bytes": 15042,
   "files": [
    {
     "path": ".quorum/evidence/comply-count-recursion-claims.md",
@@ -130,9 +131,9 @@
     "roles": [
      "pmat"
     ],
-    "bytes": 2419,
-    "sha256": "78aca31b723d7b3a0f1e34c93e63a0e905fbe25de857127e1df8c77cdd931c45",
-    "blob": "315e927e870e337b33c8a5b84f57ad7247ccb6d6"
+    "bytes": 3329,
+    "sha256": "2ee01aca1cc5ddc9a88e33dbad8588414a3bb652d9d065fcfffd72cc1ae8e098",
+    "blob": "40f0321122271d1ffcd79d8834e78c69c3060bbd"
    }
   ]
  }
