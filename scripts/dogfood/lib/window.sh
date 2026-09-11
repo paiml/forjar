@@ -53,7 +53,13 @@ PR_PAGE_LIMIT=200
 # the day the tag list fails to fetch.
 dogfood_prev_tag() {
   local rc=0 tag
-  tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)" || rc=$?
+  # PMAT-239: no pipe. `git tag … | head -1` has head exit after one line,
+  # git take SIGPIPE, and pipefail report 141 — the same defect that made this
+  # gate call a readable registry UNMEASURED at random. Capture, then take the
+  # first line with parameter expansion: one process, no signal.
+  local tags
+  tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)" || rc=$?
+  tag="${tags%%$'\n'*}"
   if [ "$rc" -ne 0 ]; then
     fail "git tag --merged HEAD exited ${rc} — the lower bound of the PR window cannot be read, so the window is UNMEASURED"
   fi

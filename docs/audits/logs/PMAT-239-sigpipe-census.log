@@ -23,3 +23,13 @@ scripts/dogfood/lib/window.sh:303:  # ONE PROCESS. `grep … | head -1` is the s
 == the two this branch fixes
    scripts/dogfood/lib/window.sh: the registry lookup (printf | grep -q) -> a here-string
    scripts/dogfood/lib/window.sh: the status reader (grep | head -1 | cut) -> one awk
+== the rule is red when the pattern returns
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+== restored
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.32s
+
+== the rule is red when the pattern returns: one leaky pipeline inserted into scripts/release-goal.sh
+PMAT-239: scripts/release-goal.sh:330 pipes into `grep -q`, which exits before its left-hand side finishes. Under `set -o pipefail` the left side takes SIGPIPE and the pipeline returns 141, so a gate reports UNMEASURED at random — measured on this very gate. Capture and use a here-string, or do it in one process:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+== restored
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.33s

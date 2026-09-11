@@ -322,3 +322,52 @@ fn the_same_tree_gives_the_same_verdict_every_time() {
         );
     }
 }
+
+/// PMAT-239 / PMAT-240: the pattern, not the instance.
+///
+/// Ten runs of a gate cannot distinguish a fix from luck — a review lane put
+/// the odds at 1.7% for a flake that showed one time in three, and it is right.
+/// This is the deterministic half: the three files this branch owns carry no
+/// pipeline whose right-hand side can exit before its left-hand side finishes,
+/// so none of them can return 141 under `set -o pipefail`.
+///
+/// Eighteen more such pipelines exist elsewhere under `scripts/`; they are
+/// filed as PMAT-240 with the census committed, and this rule is deliberately
+/// scoped to what this branch fixed rather than made red on work it did not do.
+#[test]
+fn the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let owned = [
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/tagged.sh",
+        "scripts/release-goal.sh",
+    ];
+    let early = ["grep -q", "grep -m", "head", "jq -e"];
+    for rel in owned {
+        let text =
+            std::fs::read_to_string(root.join(rel)).unwrap_or_else(|e| panic!("read {rel}: {e}"));
+        for (n, line) in text.lines().enumerate() {
+            if line.trim_start().starts_with('#') {
+                continue;
+            }
+            let Some((_, rhs)) = line.split_once('|') else {
+                continue;
+            };
+            // `||` is a shell operator, not a pipeline.
+            if rhs.starts_with('|') {
+                continue;
+            }
+            for e in early {
+                assert!(
+                    !rhs.trim_start().starts_with(e),
+                    "PMAT-239: {rel}:{} pipes into `{e}`, which exits before its \
+                     left-hand side finishes. Under `set -o pipefail` the left side \
+                     takes SIGPIPE and the pipeline returns 141, so a gate reports \
+                     UNMEASURED at random — measured on this very gate. Capture and \
+                     use a here-string, or do it in one process:\n    {line}",
+                    n + 1
+                );
+            }
+        }
+    }
+}
