@@ -1,0 +1,114 @@
+{
+  "kind": "triage",
+  "issue": "PMAT-235 — sixteen tickets named by a tagged release or a merged PR read planned or inprogress while the ledger and the release:<tag> labels were correct; all sixteen now read completed, moved with pmat work edit through the lifecycle the tool enforces. Files PMAT-236, the gate T arm that would have caught the drift: gate T reconciles the label in both directions and never looks at status.",
+  "branch": "PMAT-235-sync-shipped-status",
+  "base": "d7028f5b",
+  "base_commit": "d7028f5bcab9180090a34bed36a4dfeec829a5f1",
+  "diff_sha256": "46dc29cc261c5fa5d3727c870a931850221b502e",
+  "recorded_at": "after the quorum round and the correction it produced",
+  "quorum": {
+    "lanes": [
+      "lane 1 (conv-e97e57d6)",
+      "lane 2 (conv-e68657a3)",
+      "lane 3 (conv-157bed15)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed lanes on 691c1faa with the base pinned at d7028f5b: 0/3 PASS. The brief forbade judging a data change from a summary: every lane parsed both versions of the roadmap into structured rows and diffed them field by field, ran the refused pmat transition itself, and read the receipt as a hostile reader.",
+    "kill_rule": "nine claims survived three independent parses of the file; the tenth did not. The refutation was corrected in the tree rather than argued, and no second round was run because three lanes had already produced the right figures from the data itself.",
+    "claims_confirmed": 9,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "As worded: '183 rows before, 183 after, none lost or added' — refuted 3/3. The file holds 184 rows at the base and 186 at HEAD; the two added are PMAT-235 and PMAT-236, minted on this branch. The figure was true of the measurement taken and false of the commit, because it was taken before those rows existed, and the count also used a PMAT- regex that missed the one row whose id does not begin with PMAT-. Corrected in the receipt and the log, with the reason."
+    ]
+  },
+  "falsification": {
+    "not_applicable": "this branch contains no code: the diff is the roadmap's status field, a receipt and one audit log. There is no test to revert and none was run. What stands in place of a falsifier is that the change was made by a tool that refuses an illegal transition rather than by editing YAML, and that three independent lanes parsed both versions of the file field by field and found one error, which is corrected."
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/status-sync-judges.md",
+    "total_bytes": 14973,
+    "files": [
+      {
+        "path": ".quorum/evidence/status-sync-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2311,
+        "sha256": "58a65471d2e549f540f138490cfa88a74b8bad6dfe96352a82278dc9a44701da",
+        "blob": "e98012e0fc009807b61c19f3ebc0faf734e05733"
+      },
+      {
+        "path": ".quorum/evidence/status-sync-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 4292,
+        "sha256": "0ccb25f6b9e4e9d09b6da95b9f733ebe53042f6bac24d5fc38fd73554627364a",
+        "blob": "bbcacb22663d4f8f047571f318a762c77a9b5a0d"
+      },
+      {
+        "path": ".quorum/evidence/status-sync-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 5701,
+        "sha256": "1d5311b1ac153e6a61f2546666efd85ecf296e79148a65346bf8a4881cf02002",
+        "blob": "3cd042ccd4150bf9205a14fdc29bf6eb2861c2fd"
+      },
+      {
+        "path": ".quorum/evidence/status-sync-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1002,
+        "sha256": "ad7f1baa2b6e30c1010b15abc12468c65fb9907256370c1d57e36f8c5bcb5418",
+        "blob": "ff460e2dc4206bd2d32ab9e076d9f015617bf9b6"
+      },
+      {
+        "path": ".quorum/evidence/status-sync-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1667,
+        "sha256": "633c8e65c1808068f461689c1f639a142b0c507351d9798afa93d473c6ea0c6d",
+        "blob": "2c8c42b23afd1f0c5a844175ba006248fcf0555d"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Chef",
+      "Terraform",
+      "SLSA"
+    ],
+    "verdict": "accept(docs/audits/crux-1.28.0.md row 1 surveyed how these projects link work to the release that carries it and found every one of them recording the link at merge and reconciling it at the cut. None of them keeps a second, hand-maintained status field beside that link, which is exactly the field that drifted here: the machine-checked half was right for five releases while the human-read half was wrong. The fix files the missing check rather than adding a second source of truth.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed lanes, review-only, base pinned by SHA, writes=false; the delegate hit its 30-turn cap after the lanes finished and the orchestrator read the files itself",
+    "verdict": "0/3 PASS; one refutation, corrected"
+  },
+  "pmat": {
+    "ticket": "PMAT-235",
+    "tools": [
+      "pmat work edit -s (32 invocations, the sync itself)",
+      "pmat work add",
+      "pmat work validate",
+      "pmat work list-statuses",
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared the lane)",
+      "route.sh",
+      "transcript-gate.sh",
+      "scripts/release-goal.sh tag",
+      "scripts/dogfood/tagged.sh",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 43 of 4715 tests examined flagged tree-wide (332 files parsed); 0 in the touched paths, because this branch touches no test file and no source file at all. Nothing to accept. The gate requires this scan by name even for a receipt that claims no test, which is right: a branch asserting it touches none should be made to prove it.",
+    "quality_gate": "pmat work validate passes; scripts/dogfood/tagged.sh GATE T PASS on the branch; the field-by-field diff of both versions of the roadmap shows zero semantic change outside status, updated and the top-level kind: field, with 184 rows in and 186 out (PMAT-235 and PMAT-236 minted here). No cargo build was run and none is claimed.",
+    "limit": "PMAT-236 is filed, not built: until gate T checks the status of every ticket a ledger row names, this can drift again. PMAT-159 carries no kind at all and is left alone. pmat work complete was deliberately not used — it runs quality gates and falsification against work being finished now, and all sixteen were finished days ago."
+  }
+}
