@@ -3603,3 +3603,28 @@ roadmap:
   - kind:code
   - release:v1.29.0
   notes: Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236's own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed.
+- id: PMAT-241
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'every tagged release must move the cookbook with it: paiml/forjar-cookbook master has not moved since 2026-08-29, four releases ago, and nothing records which cookbook commit a release was qualified against'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T11:51:08Z
+  updated: 2026-09-11T11:54:37Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/roadmaps/releases.yaml declares cookbook_floor and every row at or above it names the paiml/forjar-cookbook commit the release was qualified against'
+  - 'gate T refuses a row that names no cookbook commit, names a branch rather than a commit, names one the cookbook does not carry (UNMEASURED), or names one whose Cargo.toml declares a forjar requirement the released version does not satisfy'
+  - 'scripts/release-goal.sh window <tag> emits the field from `git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master` so `cut` books it, and refuses to write one it could not read'
+  - 'four fixture cases drive the arm: missing, a branch name, an unreadable commit, and a release below the floor which is asked for nothing'
+  - 'the forjar-dogfood skill and CLAUDE.md say that the cookbook is part of the release and that a cookbook which cannot use the release is bumped as part of the cut'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — measured 2026-09-11: paiml/forjar-cookbook master is 7c100454, dated 2026-08-29, which is four releases ago (v1.26.0, v1.27.0, v1.28.0 and the open v1.29.0 window). Gate D validates its 98 configs against the built artifact on every dogfood run and `make dogfood-published VERSION=` does it against what crates.io serves, so the cookbook IS exercised — but nothing recorded which cookbook, and nothing required it to move. cookbook_floor is v1.29.0 rather than the existing floor: retrofitting the four releases whose cookbook commit nobody recorded would be inventing the record, not keeping it.'

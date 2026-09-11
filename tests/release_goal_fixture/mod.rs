@@ -93,6 +93,11 @@ pub(crate) struct Case {
     pub(crate) dogfood_floor: &'static str,
     /// Whether the dogfood receipt and crux document exist at HEAD.
     pub(crate) receipts: bool,
+    /// The `cookbook_floor:` the ledger declares; empty declares none, which
+    /// is the state of every release before v1.29.0 (PMAT-241).
+    pub(crate) cookbook_floor: &'static str,
+    /// The `cookbook:` the floor's row declares; empty writes no such field.
+    pub(crate) cookbook: &'static str,
     /// The version Cargo.toml carries at HEAD.
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
@@ -114,6 +119,8 @@ impl Default for Case {
             due_skew: 0,
             dogfood_floor: FLOOR,
             receipts: true,
+            cookbook_floor: "",
+            cookbook: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
             pre_cut: false,
@@ -151,6 +158,24 @@ pub(crate) fn iso(epoch: i64) -> String {
 /// v0.0.0 (below the floor) -> PR #10 -> v0.0.1 (the floor) -> PR #11 (the
 /// open window) -> the declaration commit. Tags are annotated and pushed to a
 /// bare origin, so their creation instant is the tagger date, as forjar's are.
+/// `cookbook_floor: <tag>\n`, or nothing when the case declares none.
+fn cookbook_floor_line(case: &Case) -> String {
+    if case.cookbook_floor.is_empty() {
+        String::new()
+    } else {
+        format!("cookbook_floor: {}\n", case.cookbook_floor)
+    }
+}
+
+/// `    cookbook: <sha>\n` on the floor's row, or nothing.
+fn cookbook_row_line(case: &Case) -> String {
+    if case.cookbook.is_empty() {
+        String::new()
+    } else {
+        format!("    cookbook: {}\n", case.cookbook)
+    }
+}
+
 pub(crate) fn fixture(case: Case) -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("repo");
@@ -234,14 +259,15 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     let due = iso(cut + 2 * 86400 + case.due_skew);
     let mut ledger = if case.pre_cut {
         format!(
-            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
             case.dogfood_floor,
+            cookbook_floor_line(&case),
             iso(base_cut + 2 * 86400)
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n",
-        case.dogfood_floor, case.declared_prs
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {

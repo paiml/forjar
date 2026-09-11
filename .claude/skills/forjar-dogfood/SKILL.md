@@ -32,7 +32,7 @@ asking for "the dogfood" got a different document, with no error and no diff.
 | **F** | Coverage ≥ 95% line, and 0 mutant survivors in the diff | `scripts/dogfood/coverage.sh` |
 | **G** | Every contract validates, lints, and resolves its falsifiers to tests that run in `ci / gate` | `scripts/dogfood/contracts.sh` |
 | **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` |
-| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>`, every ticket merged since the newest tag carries `release:<next.tag>`, and the next cut is not overdue (PMAT-225) | `scripts/dogfood/tagged.sh` |
+| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>` and says `status: completed`, every ticket merged since the newest tag carries `release:<next.tag>`, the next cut is not overdue, and from `cookbook_floor` every release names the paiml/forjar-cookbook commit it was qualified against (PMAT-225, PMAT-236, PMAT-241) | `scripts/dogfood/tagged.sh` |
 
 All nine are **mechanical**: shell, no agent. `make dogfood-release` runs
 every one of them and fails on the first RED. T is the release-goal gate: the
@@ -42,7 +42,21 @@ on the roadmap rows, the measured side is git and GitHub, and
 status line — `<next tag> <bar> <elapsed>h/<cadence>h left=<h> · <merged>
 merged, <tagged> tagged · due <instant> basis=…`. After a tag,
 `scripts/release-goal.sh cut <tag> --next <next>` writes the row and moves the
-labels; before one, `scripts/release-goal.sh sync` labels the open window. This skill does not re-implement
+labels; before one, `scripts/release-goal.sh sync` labels the open window.
+
+**The cookbook is part of the release, not a downstream of it (PMAT-241).**
+paiml/forjar-cookbook is where forjar is USED rather than described: gate D
+validates every one of its configs against the built artifact, and `make
+dogfood-published VERSION=x.y.z` does it against what crates.io actually
+serves. Nothing recorded which cookbook that was, and the cookbook's master had
+not moved in four releases while four tags went out claiming to be dogfooded
+against it. From `cookbook_floor` every ledger row names the cookbook commit
+the release was qualified against — `release-goal.sh window <tag>` takes it
+from `git ls-remote … refs/heads/master` at the moment of the cut, so `cut`
+books it — and gate T refuses a row that names none, names a branch instead of
+a commit, names a commit the cookbook does not carry, or names one whose
+`Cargo.toml` cannot admit the version that shipped. **If the cookbook cannot
+use the release, the cookbook is bumped as part of the cut.** This skill does not re-implement
 a gate, does not decide a gate, and does not paraphrase a gate's output — it
 runs the Make target and quotes the `GATE <letter> …` line each script printed.
 

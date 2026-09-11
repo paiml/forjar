@@ -15,6 +15,14 @@
 #                regime, PMAT-163); below it a window may hold unticketed PRs
 # dogfood_floor  from here every tag has docs/audits/dogfood-<ver>-receipt.md
 #                and docs/audits/crux-<ver>.md at HEAD
+# cookbook_floor from here every tag names the paiml/forjar-cookbook commit it
+#                was qualified against, and that commit's Cargo.toml must admit
+#                the released version. The cookbook is where forjar is used
+#                rather than described: `make dogfood-published VERSION=x.y.z`
+#                runs gates C and D against what crates.io serves, and gate D
+#                validates every cookbook config against it. Nothing recorded
+#                which cookbook that was, and the cookbook's master had not
+#                moved in four releases (PMAT-241).
 # releases[]     tag, cut (the tag's creation instant, UTC), prs (every PR whose
 #                merge commit the tag contains and the previous tag does not),
 #                tickets (every roadmap row those PRs name in branch or title)
@@ -27,6 +35,9 @@ cadence_days: 2
 floor: v1.25.0
 harness_floor: v1.26.0
 dogfood_floor: v1.26.0
+# From the next cut. Retrofitting the four releases whose cookbook commit
+# nobody recorded would be inventing the record, not keeping it.
+cookbook_floor: v1.29.0
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
