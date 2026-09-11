@@ -3608,17 +3608,17 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'every tagged release must move the cookbook with it: paiml/forjar-cookbook master has not moved since 2026-08-29 and ten tags have gone out since, none of which records which cookbook commit it was qualified against'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T11:51:08Z
-  updated: 2026-09-11T11:54:37Z
+  updated: 2026-09-11T12:58:08Z
   spec: null
   acceptance_criteria:
   - 'docs/roadmaps/releases.yaml declares cookbook_floor and every row at or above it names the paiml/forjar-cookbook commit the release was qualified against'
-  - 'gate T refuses a row that names no cookbook commit, names a branch rather than a commit, names one the cookbook does not carry (UNMEASURED), or names one whose Cargo.toml declares a forjar requirement the released version does not satisfy'
+  - 'gate T refuses a row that names no cookbook commit, names a branch rather than a commit, names one the cookbook does not carry (UNMEASURED), or names one whose Cargo.toml declares a forjar requirement the released version does not satisfy under Cargo''s caret, tilde and exact rules rather than under `>=`'
   - 'scripts/release-goal.sh window <tag> emits the field from `git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master` so `cut` books it, and refuses to write one it could not read'
-  - 'four fixture cases drive the arm: missing, a branch name, an unreadable commit, and a release below the floor which is asked for nothing'
+  - 'eight cases drive the arm: missing, a branch name, an unreadable commit, a release below the floor which is asked for nothing, the requirement read the way Cargo writes it, a cookbook that cannot build against the release, the operator and the comment, and a 35-row table of the requirement rule itself'
   - 'the forjar-dogfood skill and CLAUDE.md say that the cookbook is part of the release and that a cookbook which cannot use the release is bumped as part of the cut'
   phases: []
   subtasks: []
