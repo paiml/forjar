@@ -275,6 +275,9 @@ fn workflow(rel: &str) -> String {
 }
 
 /// Every workflow that gates a heavy job, and the jobs it gates.
+/// Coverage is deliberately absent: the 95% line floor is a standing property
+/// of the repository rather than of one diff, and it is measured on every
+/// change. `coverage_is_never_gated` pins that.
 const GATED: &[(&str, &[&str])] = &[
     (
         ".github/workflows/ci.yml",
@@ -287,7 +290,6 @@ const GATED: &[(&str, &[&str])] = &[
         ],
     ),
     (".github/workflows/proofs.yml", &["ledger-replay"]),
-    (".github/workflows/coverage.yml", &["coverage"]),
     (".github/workflows/bench.yml", &["benchmark"]),
 ];
 
@@ -400,5 +402,22 @@ fn a_rename_cannot_hide_a_deleted_source_file() {
     assert_code(
         &["docs/thing.rs", "src/thing.rs"],
         "a rename split into a delete and an add is code",
+    );
+}
+
+/// PMAT-237: the coverage floor is measured on every change, never inferred.
+#[test]
+fn coverage_is_never_gated() {
+    let cov = workflow(".github/workflows/coverage.yml");
+    assert!(
+        !cov.contains("needs.classify.outputs.code"),
+        "PMAT-237: the coverage job is conditional. The 95% line floor is a \
+         standing property of the repository, not of one diff; the cheapest way \
+         to keep a floor is to measure it every time rather than to reason about \
+         when it could not have moved."
+    );
+    assert!(
+        cov.contains("95"),
+        "PMAT-237: the coverage workflow no longer names the floor it enforces:\n{cov}"
     );
 }
