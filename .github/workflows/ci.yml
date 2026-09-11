@@ -26,7 +26,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PMAT-237: what can this change break? One job, one decision, and every
+  # heavy job below gates on it. The release gate (`make dogfood-release`) is
+  # untouched and still runs everything.
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.class.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: class
+        uses: ./.github/actions/changed-class
+
   ci:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
     with:
       repo: ${{ github.event.repository.name }}
@@ -67,6 +83,8 @@ jobs:
   # is the same "guard nobody runs" shape as #242 and #298. Add new structural
   # guards to this list, or accept that they are documentation.
   examples-validate:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: examples-validate
     runs-on: ubuntu-latest
     steps:
@@ -180,6 +198,8 @@ jobs:
   # The gates are load-bearing in one direction only: dropping `cli` must not
   # break the library, and nothing in the default lane would ever notice if it did.
   no-default-features:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: no-default-features
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -200,6 +220,8 @@ jobs:
   # because it conflicts with that job's `--lib` target selection. So the PR lane
   # needs its own job. Deterministic and offline; ~8s of doctests once built.
   doctests:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: doctests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -218,6 +240,8 @@ jobs:
   # and pv, which are provisioned on the clean-room hosts by forjar.yaml, so
   # they run there through `make dogfood-release`.
   dogfood:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -236,34 +260,46 @@ jobs:
 
   gate:
     runs-on: ubuntu-latest
-    needs: [ci, lockfile, examples-validate, no-default-features, doctests, dogfood]
+    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood]
     if: always()
     steps:
       - name: Check required jobs
+        env:
+          CODE: ${{ needs.classify.outputs.code }}
         run: |
-          if [ "${{ needs.ci.result }}" != "success" ]; then
-            echo "ci failed: ${{ needs.ci.result }}"
-            exit 1
-          fi
+          # PMAT-237: a job may be SKIPPED only because the change cannot reach
+          # it. The gate re-reads the class rather than trusting the skip: if
+          # the change IS code and a heavy job did not run, that is a hole, not
+          # a saving, and this gate refuses it by name.
+          # Written with explicit `if`, not `[ … ] && return 0`: an AND-list
+          # that fails at statement level exits the step under `bash -e` before
+          # the message is printed, and a gate that fails silently is half a
+          # gate.
+          ok() {
+            case "$2" in
+              success) return 0 ;;
+              skipped)
+                if [ "$CODE" != "true" ]; then
+                  echo "$1: skipped — the change touches nothing it reads"
+                  return 0
+                fi
+                echo "::error::$1 was skipped on a change the classifier called code"
+                return 1
+                ;;
+              *)
+                echo "::error::$1: $2"
+                return 1
+                ;;
+            esac
+          }
+          ok "ci" "${{ needs.ci.result }}" || exit 1
           if [ "${{ needs.lockfile.result }}" != "success" ]; then
             echo "lockfile preflight failed: ${{ needs.lockfile.result }}"
             exit 1
           fi
-          if [ "${{ needs.examples-validate.result }}" != "success" ]; then
-            echo "examples-validate failed: ${{ needs.examples-validate.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.no-default-features.result }}" != "success" ]; then
-            echo "no-default-features failed: ${{ needs.no-default-features.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.doctests.result }}" != "success" ]; then
-            echo "doctests failed: ${{ needs.doctests.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.dogfood.result }}" != "success" ]; then
-            echo "dogfood gates failed: ${{ needs.dogfood.result }}"
-            exit 1
-          fi
+          ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1
+          ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
+          ok "doctests" "${{ needs.doctests.result }}" || exit 1
+          ok "dogfood" "${{ needs.dogfood.result }}" || exit 1
           echo "All required jobs passed"
 

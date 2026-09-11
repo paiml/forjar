@@ -63,6 +63,20 @@ env:
   CARGO_TARGET_DIR: ${{ github.workspace }}/target-${{ github.job }}
 
 jobs:
+  # PMAT-237: ledger-replay builds the binary and replays every recorded
+  # ledger defect — 34 minutes, the single most expensive job a PR pays for,
+  # and it cannot be affected by a change that touches no code.
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.class.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: class
+        uses: ./.github/actions/changed-class
+
   kani:
     name: kani
     runs-on: [self-hosted, clean-room]
@@ -199,6 +213,8 @@ jobs:
 
   # Aggregator so branch protection can require one context for both.
   ledger-replay:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: ledger-replay
     runs-on: [self-hosted, clean-room]
     # forjar#447 (second signature, measured on the host 2026-09-03): all 16
@@ -318,7 +334,7 @@ jobs:
   proofs:
     name: proofs
     runs-on: ubuntu-latest
-    needs: [kani, lean, contracts, ledger-replay]
+    needs: [classify, kani, lean, contracts, ledger-replay]
     if: always()
     steps:
       # `skipped` is a PASS here and nothing else is. On an unlabelled PR the
@@ -327,6 +343,8 @@ jobs:
       # A genuine failure, cancellation or timeout is still `failure`/`cancelled`
       # and still fails this gate.
       - name: Check proof jobs
+        env:
+          CODE: ${{ needs.classify.outputs.code }}
         run: |
           set -eu
           rc=0
@@ -335,7 +353,18 @@ jobs:
             result=${job#*:}
             case "$result" in
               success) echo "$name: verified" ;;
-              skipped) echo "$name: skipped (not selected for this event)" ;;
+              skipped)
+                # PMAT-237: a skip is a pass only when the change could not
+                # reach the job. kani is skipped by event; ledger-replay is
+                # skipped by class, and if the class says `code` then a skip
+                # there is a hole, not a saving.
+                if [ "$name" = "ledger-replay" ] && [ "${CODE:-}" = "true" ]; then
+                  echo "$name FAILED: skipped on a change the classifier called code" >&2
+                  rc=1
+                else
+                  echo "$name: skipped (not selected for this change)"
+                fi
+                ;;
               *)       echo "$name FAILED: $result" >&2; rc=1 ;;
             esac
           done
