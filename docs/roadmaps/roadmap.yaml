@@ -3638,7 +3638,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T14:20:00Z
-  updated: 2026-09-11T19:57:41Z
+  updated: 2026-09-11T23:38:42Z
   spec: null
   acceptance_criteria:
   - Cargo.toml and Cargo.lock are bumped together, which PR CI's lockfile-preflight enforces
@@ -3653,6 +3653,7 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.29.0
+  - release:v1.30.0
   notes: 'orch-basis:release — the cut is due 2026-09-12T16:07:14Z under cadence_days 2. Left OPEN in its own PR: CB-2113 (Commit Traceability, new in pmat 3.40) refuses a commit whose Pmat-Ticket names a ticket already completed, so a cut ticket is marked completed by the NEXT PR rather than its own.'
   release: 1.29.0
 - id: PMAT-521
