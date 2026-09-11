@@ -528,10 +528,12 @@ jobs:
           # assertion below sat behind the same guard. The v1.28.0 release is
           # what that cost: its first tag-triggered run created the release and
           # then died in dist-artifacts, and the re-dispatch that carried the
-          # fix reported `publish-release: success` while doing nothing at all,
-          # leaving thirteen assets and no installer invisible to everyone but
-          # their author. A release whose creating run fails after
-          # `create-release` could never be published by this workflow.
+          # fix reported `publish-release: success` while doing nothing at all.
+          # By then the release was complete — fourteen assets, installer
+          # included, dist-artifacts green six minutes earlier — and still
+          # invisible to everyone but its author, because a draft is. A release
+          # whose creating run fails after `create-release` could never be
+          # published by this workflow.
           #
           # What the old guard was protecting is real and is kept: an EXISTING
           # release keeps the state the operator gave it. That is now decided by
