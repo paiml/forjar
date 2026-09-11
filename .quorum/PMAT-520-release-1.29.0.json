@@ -1,0 +1,160 @@
+{
+ "kind": "code",
+ "issue": "PMAT-520 (closes forjar#520) — the forjar 1.29.0 release cut: the version and lockfile bumped together, the twelve behaviour bullets written under CHANGELOG [1.29.0] for the first time (the section was EMPTY with twelve tickets merged behind it), docs/audits/crux-1.29.0.md reconciling every one of them against 28 surveyed systems, and the dogfood receipt recording `make dogfood-release` exit 0 with all nine gates green and coverage at 96.43%. Twelve PRs across fifteen tickets since v1.28.0, every one labelled release:v1.29.0 at the moment it merged. Three review lanes read the record looking for a sentence a reader could check and find false; they found four, and all four are corrected here.",
+ "branch": "PMAT-520-release-1.29.0",
+ "base": "7e889f5b",
+ "base_commit": "7e889f5bf2785c684a44800c6be670aa1621c055",
+ "diff_sha256": "6e5bab59d4701a39d106c301f25a2ed427c92a2d",
+ "recorded_at": "after the round, the four corrections, and the two refutations that do not reproduce",
+ "quorum": {
+  "lanes": [
+   "ph1.crux survey lane (width 1)",
+   "ph1 review lane 1 (conv-b7a1263d)",
+   "ph1 review lane 2 (conv-925ff699)",
+   "ph1 review lane 3 (conv-6f895692)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one crux survey lane over the ten bullets that existed when it ran, and one round of three sandboxed review lanes on 3875e2de with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 367s/478s/389s, verdicts 3/3 FAIL.",
+  "kill_rule": "six numbered claims, and ABOVE them one standing instruction: find a sentence in the CHANGELOG, the crux audit or the dogfood receipt that a reader could check and find false. FOUR of the five findings came from that instruction rather than from the claims. A release record is prose, and prose fails in a way a claim list does not anticipate — not by being unsupported, but by drifting a word or a count away from what the tree says. None of the four would have failed a gate; all four would have been in the permanent record of what 1.29.0 was.",
+  "claims_confirmed": 2,
+  "claims_refuted": 5,
+  "refuted_claims": [
+   "That thirteen PRs across sixteen tickets merged into this release — twelve and fifteen. Gate A enumerates the window; the thirteenth is this cut's own PR, which has not merged. Refuted 3/3.",
+   "That nothing a cut needs is missing — README.md:96 read `forjar = \"1.28\"` while the tree builds 1.29.0. Gate D passed it and is CORRECT by its predicate (a caret admits 1.29.0), but its own comment names a README that has fallen behind as the defect and the code only fails on a claim that is NEWER. Corrected by hand; the gate's gap is PMAT-526 (#526), filed rather than widened inside a release cut.",
+   "That crux row 1 describes what gate T does — it said forjar 'refuses the tag'; gate T refuses the ledger ROW, and the tag exists by then, which is why a release is three PRs.",
+   "That the release changes no source file — twelve .rs files differ from v1.28.0 and zero are under src/. Gate F's own line was precise about the BRANCH; the prose generalised it into a false claim about the release.",
+   "That the CB-21xx figures in the CHANGELOG read as what they are — two lanes read finding counts as a list of ceilings. A writing defect rather than a false statement, and a number three readers misread is a defect even when it is true."
+  ],
+  "lane_errors": [
+   "One lane called the roster arithmetic impossible — '172 - 6 + 1 = 167, not 166'. Measured: 172 - 6 = 166 exactly, because CB-148 is in BOTH rosters, printed as 'RETIRED — superseded by CB-2110' in the first. Does not reproduce.",
+   "All three reported the dogfood receipt as having no falsification block. It does not, because a dogfood receipt does not carry one — its shape is fixed by the forjar-dogfood skill. The brief said the receipt 'will name' the reverted hunk without saying which receipt. A BRIEF defect, recorded as one.",
+   "The delegate stopped at its 30-turn limit while summarising, after all three lanes completed and reduce.json was written. Fifth occurrence in this session at exactly that point."
+  ]
+ },
+ "falsification": {
+  "test": "a release cut has no production hunk to revert, so the hunk is the RECORD: removing docs/audits/crux-1.29.0.md turns gate H red naming all twelve behaviour bullets, and restoring it turns it green. falsification_crux_gate_reads_the_release_section drives the gate that reads the version section rather than [Unreleased], which is the arm this cut depends on",
+  "test_file": "tests/falsification_crux_gate_reads_the_release_section.rs",
+  "cargo_test_target": "falsification_crux_gate_reads_the_release_section",
+  "reverted": "docs/audits/crux-1.29.0.md removed from the working tree, then restored with git checkout HEAD --",
+  "observed_failure": "GATE H FAIL no docs/audits/crux-1.29.0.md: 12 behaviour(s) are being released against no recorded comparison with any other system, listing every unreconciled bullet key; GATE H PASS 12 of 12 with it restored. In docs/audits/logs/PMAT-520-cut.log. WHAT COULD NOT BE PROVEN THE SAME WAY, recorded rather than implied: reverting Cargo.toml in the WORKING TREE does not move gate T's 'cut in flight' verdict, because gate T reads the version at HEAD (git show HEAD:Cargo.toml) — measured, with main's 1.28.0 in the working tree the gate still reports 1.29.0. Correct behaviour for the gate, and it makes a working-tree revert useless as evidence about it, so this receipt claims only the crux half.",
+  "still_green_when_reverted": "the four cases of falsification_crux_gate_reads_the_release_section itself, which drive the gate's section selection and are unaffected by whether this release's document exists"
+ },
+ "crux": {
+  "systems": [
+   "Ansible",
+   "Terraform",
+   "Bazel",
+   "Nix",
+   "Kubernetes",
+   "systemd",
+   "Docker",
+   "Podman",
+   "SLSA"
+  ],
+  "verdict": "accept(twelve rows against 28 surveyed systems and 36 [X] claims, in docs/audits/crux-1.29.0.md. FOUR rows conclude forjar is WORSE than the industry default and they are the four worth reading first: clearing shared /tmp by hand where systemd, Docker and Podman have isolation; a release gate whose telemetry depends on shell pipelines, with eighteen SIGPIPE sites open as PMAT-240; a dated ceiling that records debt without naming the release at which it stops being tolerated, which is what Bazel's --incompatible_* flags do; and a cycle refused at run time where Bazel, Nix and systemd refuse one at declaration time. Two review lanes independently identified the same four and neither found a row claiming a win it had not earned. Rows 11 and 12 are the orchestrator's rather than the survey lane's, because neither behaviour existed when the lane ran, and the audit says so in its own limit section.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "two dispatches: one width-1 crux survey over the ten bullets that existed when it ran, and one width-3 review round, both review-only with writes=false and the no-write rule opening the brief; the repository was verified clean after each",
+  "verdict": "3/3 FAIL on the review; four false sentences found and corrected, two refutations recorded as not reproducing",
+  "rounds": 2,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-520",
+  "tools": [
+   "make dogfood-release",
+   "pmat comply check",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat work edit -s",
+   "scripts/dogfood/harness.sh",
+   "scripts/dogfood/quorum.sh",
+   "scripts/dogfood/tagged.sh",
+   "scripts/dogfood/comply.sh",
+   "scripts/dogfood/surface.sh",
+   "scripts/dogfood/docs.sh",
+   "scripts/dogfood/contracts.sh",
+   "scripts/dogfood/coverage.sh",
+   "scripts/dogfood/crux-reconcile.sh",
+   "scripts/ratchets/comply-count.sh",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "cargo build --release",
+   "cargo test --no-fail-fast",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. This cut adds no test, and the falsifier it names is not in the list.",
+  "quality_gate": "make dogfood-release exits 0 with all nine gates green: A 12/12, B with all five CB-21xx ceilings held, C 211 CLI names, D 18 invocations and 98 cookbook configs, E 12/12, F 96.43% line coverage against the 95% floor, G 40 contracts, H 12/12 bullets, T cut in flight. Twelve .rs files differ from v1.28.0 and zero under src/, which is why gate F's mutation arm measures a zero.",
+  "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
+  "tool_defects_found": [
+   "The comply check ROSTER is not stable across local builds of one pmat version: 172 checks with the CB-2110..CB-2115 family, 166 without it and CB-148 live again, 172 with it back — pmat --version reading 3.40.0 throughout, banner going commit: 5db342d5 -> commit: unknown -> commit: d76e533e. Gate B's Arm 7 is red while the family is absent, correctly, which also means the same tree can be green here and red elsewhere on an identical version string. Named in the dogfood receipt as the largest risk to the next cut.",
+   "Gate D's version arm does not catch the case its own comment names — a README pinning a minor the crate has moved past. Filed as PMAT-526 (#526)."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/release-1.29.0-judges.md",
+  "total_bytes": 15079,
+  "files": [
+   {
+    "path": ".quorum/evidence/release-1.29.0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1952,
+    "sha256": "e897c0fa36b29a468a1ee8c8c84eb9cfe49f44287a643d1178b837c57094556a",
+    "blob": "b42d275e9785135d955301d1bb27044b6b5ab851"
+   },
+   {
+    "path": ".quorum/evidence/release-1.29.0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1909,
+    "sha256": "0dfa107ad3fee6ac14d6d2fdf400c13463997bdc9457f0cb125052caf40ee3cb",
+    "blob": "ca40ea228851e9d20ef9d603c20182c51270a8d6"
+   },
+   {
+    "path": ".quorum/evidence/release-1.29.0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5280,
+    "sha256": "95d6ff8b45bbb928f152eff26558e57be1e1dba07154a30548e19cd948c7f52a",
+    "blob": "79ffc5f0574cff1d51a6d3609fc101e8b107ecdb"
+   },
+   {
+    "path": ".quorum/evidence/release-1.29.0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1231,
+    "sha256": "5e782ccbe07d2a91add64a01590dbea4954c564ea60a18c670fafcbc11de6b6c",
+    "blob": "f77b5e0e1440ad97f01d78c58f714971b2e53fb4"
+   },
+   {
+    "path": ".quorum/evidence/release-1.29.0-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2143,
+    "sha256": "60d5867aa1240f87be9651a7e90dc5916ab39f7185517861669309c1a481fe85",
+    "blob": "311d6a92a5b1f372e500922e929cd5e0726eb9c2"
+   },
+   {
+    "path": ".quorum/evidence/release-1.29.0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2564,
+    "sha256": "8fdb10dc198ab18969b0aacb9d29fc521018fc9b52948cc2db618e17124e96d1",
+    "blob": "21c7972b3e221ad9c4650ae68b3d6681f430be22"
+   }
+  ]
+ }
+}
