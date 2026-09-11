@@ -4,7 +4,7 @@
  "branch": "PMAT-241-every-release-updates-the-cookbook",
  "base": "f98b388d",
  "base_commit": "f98b388d751275f691ca9fa3f44f517c9928d0f0",
- "diff_sha256": "2b42334b1bba6228944de2a9d2ae4b89c9eb76cb",
+ "diff_sha256": "a36fa3e9d6cbe4dfe7adb8f6e5316fa7cc7a3393",
  "recorded_at": "after both rounds, the eight refutations, and the re-run of every one of them",
  "quorum": {
   "lanes": [
