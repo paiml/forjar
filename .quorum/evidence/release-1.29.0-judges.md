@@ -39,7 +39,13 @@ produced one.
      the same window library is fifteen ids. The thirteenth PR is this cut's
      own, which has not merged — counting it is the error, and it is the kind
      a release makes every time unless the sentence says why.
-   - corrected: twelve and fifteen, with the reason written into the sentence.
+   - corrected: twelve and fifteen, with the reason written into the sentence —
+     and then made mechanical, because a correction only fixes this release.
+     Gate T grew a ninth arm, T9, driven by
+     tests/falsification_release_changelog_counts_the_window.rs:44: while a cut
+     is in flight, the release's own CHANGELOG section must count what the
+     window measures. Against the section exactly as it was written, gate T is
+     RED naming the claim, the measurement and the reason.
 
 2. [stale] That nothing a cut needs is missing.
    - evidence: refuted 3/3. `README.md:96` read `forjar = "1.28"` while the
@@ -58,7 +64,11 @@ produced one.
      ledger ROW; the tag already exists when the gate runs, which is why the
      release is three PRs and why gate T is red on main between the tag and the
      booking.
-   - corrected: the row now says the row, and says the tag exists by then.
+   - corrected: the row now says the row, and says the tag exists by then. Not
+     mechanised: no gate reads a crux row's prose for accuracy, and the one that
+     could — tests/falsification_release_changelog_counts_the_window.rs:101,
+     which refuses reading a neighbouring release's section — is about
+     structure rather than truth.
 
 4. [source] That the release changes no source file.
    - evidence: refuted 1/3 and it reproduces: twelve `.rs` files differ from
@@ -66,7 +76,10 @@ produced one.
      — no `.rs` differs from origin/main on THIS BRANCH — and the prose around
      it generalised that into a claim about the release, which is false.
    - corrected: both numbers stated, with the distinction between the branch
-     and the release made explicit.
+     and the release made explicit. The same class of slip is what
+     tests/falsification_release_changelog_counts_the_window.rs:118 guards
+     against from the other side — a number that was true of one window,
+     restated about another.
 
 5. [readability] That the CB-21xx figures in the CHANGELOG read as what they
    are.
@@ -77,7 +90,9 @@ produced one.
      two lists genuinely differ because one is per-class and the other is
      per-check.
    - corrected: each figure now names the check it belongs to. A number three
-     readers misread is a defect even when it is true.
+     readers misread is a defect even when it is true, and
+     tests/falsification_release_changelog_counts_the_window.rs:61 is the shape
+     of the answer: the count is compared, not the typography.
 
 ## Refutations that do not reproduce
 

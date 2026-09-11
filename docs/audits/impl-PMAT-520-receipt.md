@@ -28,13 +28,43 @@ release changes **twelve `.rs` files** since v1.28.0 and **zero** under `src/`:
 they are all falsification tests. That is why gate F's mutation arm measures a
 zero — there is nothing to mutate — and it is the same state 1.28.0 was cut in.
 
-## The falsification, and its honest limit
+## The falsification — a gate written because of what the round found
 
-A release cut has no production hunk to revert, so the hunk is the record
-itself: remove `docs/audits/crux-1.29.0.md` and gate H is RED naming all twelve
-behaviour bullets; restore it and gate H is green. That is a genuine
-revert-the-hunk proof about THIS change, because the crux document is the half
-of this diff that makes a claim the tree can contradict.
+The first attempt pointed at `falsification_crux_gate_reads_the_release_section`
+and the quorum gate refused it BY NAME: *a falsification must exercise the
+change under review, so its test has to be written or modified here; pointing at
+a pre-existing green test proves nothing.* It was right. A release cut has no
+production hunk, and reaching for a green test that was already there is exactly
+the shape that check exists to block.
+
+So the cut carries a gate instead, and it is the one this cut's own defect
+called for. **T9: while a cut is in flight, the CHANGELOG counts what merged.**
+The window is already measured two arms above — the same set gates A and E
+enumerate — so the join costs nothing. T9 reads the release's own CHANGELOG
+section, takes the first `<N> PRs across <M> tickets` claim in it, and refuses a
+disagreement, saying why.
+
+Against the CHANGELOG exactly as it was written at `3875e2de`:
+
+```
+GATE T FAIL CHANGELOG [1.29.0] claims "Thirteen PRs across sixteen tickets" and
+the window measures "Twelve PRs across Fifteen tickets": 12 PR(s) merged since
+v1.28.0 carrying 15 ticket(s). A cut's own PR has not merged when the sentence
+is written, and counting it is the error this arm exists for (PMAT-520)
+```
+
+Five cases drive it: the defect is red and names its reason; the true count
+passes in either case and in the singular; a section that makes no claim is not
+failed for silence; a NEIGHBOURING release section is not this one's claim; and
+a stale count between releases is not this gate's business.
+
+**The red half ran in a scratch clone.** Gate T reads the CHANGELOG at HEAD, so
+the proof needs the defect COMMITTED, and committing-then-resetting inside a
+proof script has destroyed work twice in this session — the second time it took
+the T9 commit itself, recovered from the reflog.
+
+The crux document is a second, weaker measurement of the same kind: remove it
+and gate H is RED naming all twelve bullets. That one is in the log too.
 
 **What could not be proven the same way**, and is recorded as such rather than
 implied: reverting `Cargo.toml` in the working tree does NOT move gate T's "cut
@@ -110,5 +140,9 @@ ticket already completed, so a cut ticket is marked completed by the next PR.
   timestamps, which is the property, but `--twice` was not passed.
 - The README was corrected by hand. Nothing would have caught the next one
   until PMAT-526 lands.
+- T9 reads ONE sentence shape. A release that counts its window in different
+  words is not checked, and is not failed for it either — silence is not a
+  claim. The convention is now load-bearing without being written down anywhere
+  but the arm's own comment.
 
 IMPL-PMAT-520-RECEIPT-END

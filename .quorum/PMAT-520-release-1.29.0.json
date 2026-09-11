@@ -4,7 +4,7 @@
  "branch": "PMAT-520-release-1.29.0",
  "base": "7e889f5b",
  "base_commit": "7e889f5bf2785c684a44800c6be670aa1621c055",
- "diff_sha256": "6e5bab59d4701a39d106c301f25a2ed427c92a2d",
+ "diff_sha256": "a777c1f6aff869bb30b248a685480d793b5a15c8",
  "recorded_at": "after the round, the four corrections, and the two refutations that do not reproduce",
  "quorum": {
   "lanes": [
@@ -29,16 +29,17 @@
   "lane_errors": [
    "One lane called the roster arithmetic impossible — '172 - 6 + 1 = 167, not 166'. Measured: 172 - 6 = 166 exactly, because CB-148 is in BOTH rosters, printed as 'RETIRED — superseded by CB-2110' in the first. Does not reproduce.",
    "All three reported the dogfood receipt as having no falsification block. It does not, because a dogfood receipt does not carry one — its shape is fixed by the forjar-dogfood skill. The brief said the receipt 'will name' the reverted hunk without saying which receipt. A BRIEF defect, recorded as one.",
-   "The delegate stopped at its 30-turn limit while summarising, after all three lanes completed and reduce.json was written. Fifth occurrence in this session at exactly that point."
+   "The delegate stopped at its 30-turn limit while summarising, after all three lanes completed and reduce.json was written. Fifth occurrence in this session at exactly that point.",
+   "The first receipt for this cut pointed its falsification at a PRE-EXISTING green test, falsification_crux_gate_reads_the_release_section, and the quorum gate refused it by name: a falsification must exercise the change under review. It was right, and the answer was not a different pointer but a gate — T9 exists because three lanes caught by hand what no gate asked."
   ]
  },
  "falsification": {
-  "test": "a release cut has no production hunk to revert, so the hunk is the RECORD: removing docs/audits/crux-1.29.0.md turns gate H red naming all twelve behaviour bullets, and restoring it turns it green. falsification_crux_gate_reads_the_release_section drives the gate that reads the version section rather than [Unreleased], which is the arm this cut depends on",
-  "test_file": "tests/falsification_crux_gate_reads_the_release_section.rs",
-  "cargo_test_target": "falsification_crux_gate_reads_the_release_section",
-  "reverted": "docs/audits/crux-1.29.0.md removed from the working tree, then restored with git checkout HEAD --",
-  "observed_failure": "GATE H FAIL no docs/audits/crux-1.29.0.md: 12 behaviour(s) are being released against no recorded comparison with any other system, listing every unreconciled bullet key; GATE H PASS 12 of 12 with it restored. In docs/audits/logs/PMAT-520-cut.log. WHAT COULD NOT BE PROVEN THE SAME WAY, recorded rather than implied: reverting Cargo.toml in the WORKING TREE does not move gate T's 'cut in flight' verdict, because gate T reads the version at HEAD (git show HEAD:Cargo.toml) — measured, with main's 1.28.0 in the working tree the gate still reports 1.29.0. Correct behaviour for the gate, and it makes a working-tree revert useless as evidence about it, so this receipt claims only the crux half.",
-  "still_green_when_reverted": "the four cases of falsification_crux_gate_reads_the_release_section itself, which drive the gate's section selection and are unaffected by whether this release's document exists"
+  "test": "T9, the gate arm this cut's own defect called for: while a cut is in flight, any \"<N> PRs across <M> tickets\" claim in the release's own CHANGELOG section must equal what the window measures. a_changelog_that_counts_its_own_pr_is_named_and_red drives the exact defect; the_measured_count_passes_in_either_case drives the true count in both capitalisations and the singular; a_section_that_makes_no_claim_is_not_failed_for_silence keeps a prose convention from becoming an obligation; a_neighbouring_release_section_is_not_this_ones_claim refuses reading the wrong section, which would be GREEN on an incorrect cut whose predecessor happened to match; between_releases_a_stale_count_is_not_this_gates_business keeps it off the tree when nothing is being cut",
+  "test_file": "tests/falsification_release_changelog_counts_the_window.rs",
+  "cargo_test_target": "falsification_release_changelog_counts_the_window",
+  "reverted": "the CHANGELOG exactly as it was written at 3875e2de, committed in a `git clone --shared` throwaway because gate T reads the CHANGELOG at HEAD; and separately docs/audits/crux-1.29.0.md removed from the working tree, which turns gate H red",
+  "observed_failure": "GATE T FAIL CHANGELOG [1.29.0] claims \"Thirteen PRs across sixteen tickets\" and the window measures \"Twelve PRs across Fifteen tickets\": 12 PR(s) merged since v1.28.0 carrying 15 ticket(s). A cut's own PR has not merged when the sentence is written, and counting it is the error this arm exists for. GATE T PASS at 80c2ffbf with the count corrected. And GATE H FAIL no docs/audits/crux-1.29.0.md: 12 behaviour(s) are being released against no recorded comparison, green with it restored. Both in docs/audits/logs/PMAT-520-cut.log. THE RED HALF RAN IN A SCRATCH CLONE: gate T reads the CHANGELOG at HEAD, so the proof needs the defect COMMITTED, and committing-then-resetting inside a proof script has destroyed work twice in this session — the second time it took the T9 commit itself, recovered from the reflog.",
+  "still_green_when_reverted": "the nineteen cases of falsification_release_goals_are_measured and the eight of falsification_release_cookbook_is_part_of_the_release, which drive every other arm of gate T through the same fixture and prove T9 is confined to the in-flight window"
  },
  "crux": {
   "systems": [
@@ -90,7 +91,7 @@
   ],
   "vacuous_tests_in_touched_paths": 0,
   "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. This cut adds no test, and the falsifier it names is not in the list.",
-  "quality_gate": "make dogfood-release exits 0 with all nine gates green: A 12/12, B with all five CB-21xx ceilings held, C 211 CLI names, D 18 invocations and 98 cookbook configs, E 12/12, F 96.43% line coverage against the 95% floor, G 40 contracts, H 12/12 bullets, T cut in flight. Twelve .rs files differ from v1.28.0 and zero under src/, which is why gate F's mutation arm measures a zero.",
+  "quality_gate": "make dogfood-release exits 0 with all nine gates green: A 12/12, B with all five CB-21xx ceilings held, C 211 CLI names, D 18 invocations and 98 cookbook configs, E 12/12, F 96.43% line coverage against the 95% floor, G 40 contracts, H 12/12 bullets, T cut in flight. Twelve .rs files differ from v1.28.0 and zero under src/, which is why gate F's mutation arm measures a zero. T9 adds five cases and gate T stays green on the real repository.",
   "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A.",
   "tool_defects_found": [
    "The comply check ROSTER is not stable across local builds of one pmat version: 172 checks with the CB-2110..CB-2115 family, 166 without it and CB-148 live again, 172 with it back — pmat --version reading 3.40.0 throughout, banner going commit: 5db342d5 -> commit: unknown -> commit: d76e533e. Gate B's Arm 7 is red while the family is absent, correctly, which also means the same tree can be green here and red elsewhere on an identical version string. Named in the dogfood receipt as the largest risk to the next cut.",
@@ -99,7 +100,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/release-1.29.0-judges.md",
-  "total_bytes": 15079,
+  "total_bytes": 16124,
   "files": [
    {
     "path": ".quorum/evidence/release-1.29.0-claims.md",
@@ -124,9 +125,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 5280,
-    "sha256": "95d6ff8b45bbb928f152eff26558e57be1e1dba07154a30548e19cd948c7f52a",
-    "blob": "79ffc5f0574cff1d51a6d3609fc101e8b107ecdb"
+    "bytes": 6325,
+    "sha256": "dd55b2fc8b6f00abbfb0d78e133bfb30d229758724be56eeaa9f7e2e5a6d7982",
+    "blob": "25c3bc4af02ed3e3185180425ec8a3e04e52b9c8"
    },
    {
     "path": ".quorum/evidence/release-1.29.0-agy.md",
