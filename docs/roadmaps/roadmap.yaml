@@ -3607,7 +3607,7 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'every tagged release must move the cookbook with it: paiml/forjar-cookbook master has not moved since 2026-08-29, four releases ago, and nothing records which cookbook commit a release was qualified against'
+  title: 'every tagged release must move the cookbook with it: paiml/forjar-cookbook master has not moved since 2026-08-29 and ten tags have gone out since, none of which records which cookbook commit it was qualified against'
   status: planned
   priority: medium
   assigned_to: null
@@ -3627,4 +3627,4 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.29.0
-  notes: 'orch-basis:release — measured 2026-09-11: paiml/forjar-cookbook master is 7c100454, dated 2026-08-29, which is four releases ago (v1.26.0, v1.27.0, v1.28.0 and the open v1.29.0 window). Gate D validates its 98 configs against the built artifact on every dogfood run and `make dogfood-published VERSION=` does it against what crates.io serves, so the cookbook IS exercised — but nothing recorded which cookbook, and nothing required it to move. cookbook_floor is v1.29.0 rather than the existing floor: retrofitting the four releases whose cookbook commit nobody recorded would be inventing the record, not keeping it.'
+  notes: 'orch-basis:release — measured 2026-09-11: paiml/forjar-cookbook master is 7c100454, dated 2026-08-29T15:05:21Z, and ten v* tags have been cut since (v1.22.0 through v1.28.0, counted in seconds from the tagger dates). Gate D validates its 98 configs against the built artifact on every dogfood run and `make dogfood-published VERSION=` does it against what crates.io serves, so the cookbook IS exercised — but nothing recorded which cookbook, and nothing required it to move. cookbook_floor is v1.29.0 rather than the existing floor: retrofitting the ten releases whose cookbook commit nobody recorded would be inventing the record, not keeping it.'

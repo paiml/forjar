@@ -35,7 +35,7 @@ cadence_days: 2
 floor: v1.25.0
 harness_floor: v1.26.0
 dogfood_floor: v1.26.0
-# From the next cut. Retrofitting the four releases whose cookbook commit
+# From the next cut. Retrofitting the ten releases whose cookbook commit
 # nobody recorded would be inventing the record, not keeping it.
 cookbook_floor: v1.29.0
 releases:

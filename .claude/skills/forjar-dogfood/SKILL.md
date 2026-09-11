@@ -49,13 +49,15 @@ paiml/forjar-cookbook is where forjar is USED rather than described: gate D
 validates every one of its configs against the built artifact, and `make
 dogfood-published VERSION=x.y.z` does it against what crates.io actually
 serves. Nothing recorded which cookbook that was, and the cookbook's master had
-not moved in four releases while four tags went out claiming to be dogfooded
+not moved since 2026-08-29 while ten tags went out claiming to be dogfooded
 against it. From `cookbook_floor` every ledger row names the cookbook commit
 the release was qualified against — `release-goal.sh window <tag>` takes it
 from `git ls-remote … refs/heads/master` at the moment of the cut, so `cut`
 books it — and gate T refuses a row that names none, names a branch instead of
 a commit, names a commit the cookbook does not carry, or names one whose
-`Cargo.toml` cannot admit the version that shipped. **If the cookbook cannot
+`Cargo.toml` cannot admit the version that shipped — read as CARGO reads it:
+`forjar = "1.2"` is a caret, `>=1.2.0, <2.0.0`, so a plain `>=` would pass
+2.0.0 against a cookbook that cannot build with it. **If the cookbook cannot
 use the release, the cookbook is bumped as part of the cut.** This skill does not re-implement
 a gate, does not decide a gate, and does not paraphrase a gate's output — it
 runs the Make target and quotes the `GATE <letter> …` line each script printed.

@@ -179,8 +179,39 @@ labels_of_release() {
 # The row names the commit; this checks that the commit exists on the cookbook
 # and that its Cargo.toml admits the version that shipped. A release whose
 # cookbook cannot build against it is a release the cookbook does not describe.
+# Cargo's caret, which is what a bare requirement means (PMAT-241).
+#
+# `^I.J.K` admits `>=I.J.K` up to the next increment of the LEFTMOST NON-ZERO
+# component that was SPECIFIED: `^1.2` is `>=1.2.0, <2.0.0`, `^0.2` is
+# `>=0.2.0, <0.3.0`, `^0.0.3` is `>=0.0.3, <0.0.4`, `^0` is `>=0.0.0, <1.0.0`.
+# A plain `>=` would pass 2.0.0 against `^1.2` — measured on this branch before
+# a review lane could say it (`dogfood_semver_ge v2.0.0 v1.2` is true) — at
+# exactly the release where this arm matters most: the one that breaks the
+# cookbook. Exit 0 admits, 2 is below the requirement, 3 is past its ceiling.
+caret_admits() {
+  local ver="$1" req="$2" n r1 r2 r3 rest rest2 lower upper
+  r1="${req%%.*}"; rest="${req#*.}"
+  if [ "$rest" = "$req" ]; then
+    n=1; r2=0; r3=0
+  else
+    r2="${rest%%.*}"; rest2="${rest#*.}"
+    if [ "$rest2" = "$rest" ]; then n=2; r3=0; else n=3; r3="${rest2%%.*}"; fi
+  fi
+  lower="${r1}.${r2}.${r3}"
+  dogfood_semver_ge "v${ver}" "v${lower}" || return 2
+  if [ "$r1" != 0 ]; then upper="$((10#$r1 + 1)).0.0"
+  elif [ "$n" -ge 2 ] && [ "$r2" != 0 ]; then upper="0.$((10#$r2 + 1)).0"
+  elif [ "$n" -ge 3 ] && [ "$r3" != 0 ]; then upper="0.0.$((10#$r3 + 1))"
+  elif [ "$n" -eq 1 ]; then upper="1.0.0"
+  elif [ "$n" -eq 2 ]; then upper="0.1.0"
+  else upper="0.0.1"; fi
+  CARET_UPPER="$upper"
+  if dogfood_semver_ge "v${ver}" "v${upper}"; then return 3; fi
+  return 0
+}
+
 cookbook_of_release() {
-  local row="$1" tag="$2" ver="$3" sha rc=0 body req
+  local row="$1" tag="$2" ver="$3" sha rc=0 crc=0 body req
   sha="$(printf '%s' "$row" | jq -r '.cookbook // ""')"
   if [ -z "$sha" ]; then
     fail "${tag} is at or above cookbook_floor and its row names no cookbook: commit — nothing records which paiml/forjar-cookbook the release was qualified against (take it from \`git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master\` when the cut is made)"
@@ -193,15 +224,53 @@ cookbook_of_release() {
   if [ "$rc" -ne 0 ] || [ -z "$body" ]; then
     fail "${tag}: paiml/forjar-cookbook has no readable Cargo.toml at ${sha} — either the commit is not on the cookbook or GitHub could not answer, and both are UNMEASURED"
   fi
-  req="$(printf '%s\n' "$body" | sed -n 's/^forjar = .*version = "\([0-9][0-9.]*\)".*/\1/p' | head -1)"
-  if [ -z "$req" ]; then
-    req="$(printf '%s\n' "$body" | sed -n 's/^forjar = "\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+  # THE REQUIREMENT, READ THE WAY CARGO WOULD.
+  #
+  # Three things a review lane caught in the first version of this parser:
+  # it matched `forjar = ` in ANY table, so a dev-dependency would be read as
+  # the real one; it required the value to start with a digit, so `^1.2` — the
+  # spelling Cargo writes by default — produced an empty requirement and the
+  # gate said "declares no forjar version requirement", which is false; and it
+  # said nothing about a multi-clause requirement it cannot evaluate.
+  #
+  # awk keeps the section, takes the first `forjar` entry in `[dependencies]`
+  # or `[workspace.dependencies]`, and returns the requirement STRING. The
+  # comparison below then decides, and refuses by name anything it cannot read.
+  local raw
+  raw="$(printf '%s\n' "$body" | awk '
+    /^\[/ { dep = ($0 == "[dependencies]" || $0 == "[workspace.dependencies]"); next }
+    !dep { next }
+    /^forjar[[:space:]]*=/ {
+      line = $0
+      if (match(line, /version[[:space:]]*=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); gsub(/.*"/, "", v)
+        v = substr(line, RSTART, RLENGTH); sub(/^version[[:space:]]*=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+      if (match(line, /=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); sub(/^=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+    }')"
+  if [ -z "$raw" ]; then
+    fail "${tag}: the cookbook at ${sha} declares no forjar version requirement under [dependencies] or [workspace.dependencies] — a path or git dependency pins no version, and nothing there says what the cookbook was qualified against"
   fi
-  if [ -z "$req" ]; then
-    fail "${tag}: the cookbook at ${sha} declares no forjar version requirement — nothing there pins what it was qualified against"
+  case "$raw" in
+    *,*|*\ *) fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\", a multi-clause requirement this gate does not evaluate — say so rather than guess (widen the gate, or pin the cookbook with a single caret)" ;;
+  esac
+  req="${raw#^}"; req="${req#\~}"; req="${req#=}"
+  case "$req" in
+    ''|*[!0-9.]*|.*|*.|*..*) fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\", which this gate cannot read as a version — it understands a bare or caret requirement over numeric components and says so instead of guessing" ;;
+  esac
+  caret_admits "$ver" "$req" || crc=$?
+  if [ "$crc" -eq 2 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw}, which ${ver} is older than — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut"
   fi
-  if ! dogfood_semver_ge "v${ver}" "v${req}"; then
-    fail "${tag}: the cookbook at ${sha} requires forjar ${req}, which ${ver} does not satisfy — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut"
+  if [ "$crc" -eq 3 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw} and the release is ${ver} — a caret requirement stops at ${CARET_UPPER}, so the cookbook cannot build against what shipped and must be bumped as part of the cut"
+  fi
+  if [ "$crc" -ne 0 ]; then
+    fail "${tag}: caret_admits ${ver} ${req} exited ${crc}, which is not a verdict this gate knows — UNMEASURED"
   fi
   echo "GATE T ${tag} cookbook ${sha} requires forjar ${req} ok"
 }

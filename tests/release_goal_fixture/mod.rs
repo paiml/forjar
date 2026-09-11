@@ -132,15 +132,57 @@ pub(crate) struct Fixture {
     pub(crate) _dir: tempfile::TempDir,
     pub(crate) root: PathBuf,
     pub(crate) gh: String,
+    /// The PR list the stub answers with, kept so a case that re-stubs `gh`
+    /// to answer a cookbook contents request keeps the SAME window. A case
+    /// that rebuilt the JSON by hand dropped the open window's PR and went red
+    /// for a reason it was not about.
+    pub(crate) prs: String,
     /// The floor tag's creation instant, as seconds.
     pub(crate) cut: i64,
 }
 
 pub(crate) fn stub_gh(dir: &Path, json: &str) -> String {
+    stub_gh_with_cookbook(dir, json, "")
+}
+
+/// The stub, and what it answers a cookbook contents request with (PMAT-241).
+///
+/// `cargo_toml` is the cookbook's `Cargo.toml` as the gate would receive it:
+/// the stub returns it base64-encoded under `.content`, the way the GitHub
+/// contents API does, so a case can drive the requirement parser and the caret
+/// comparison. Empty means the stub cannot answer, which is what an
+/// unreachable GitHub looks like and is a case of its own.
+pub(crate) fn stub_gh_with_cookbook(dir: &Path, json: &str, cargo_toml: &str) -> String {
     let p = dir.join("gh");
+    let contents = if cargo_toml.is_empty() {
+        String::from("      echo '{}'\n      exit 0\n")
+    } else {
+        let mut b64 = String::new();
+        let bytes = cargo_toml.as_bytes();
+        const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for c in bytes.chunks(3) {
+            let b = [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0)];
+            let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+            b64.push(A[(n >> 18 & 63) as usize] as char);
+            b64.push(A[(n >> 12 & 63) as usize] as char);
+            b64.push(if c.len() > 1 {
+                A[(n >> 6 & 63) as usize] as char
+            } else {
+                '='
+            });
+            b64.push(if c.len() > 2 {
+                A[(n & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        format!("      printf '%s' '{b64}'\n      exit 0\n")
+    };
     std::fs::write(
         &p,
-        format!("#!/usr/bin/env bash\ncat <<'FIXTURE_JSON'\n{json}\nFIXTURE_JSON\n"),
+        format!(
+            "#!/usr/bin/env bash\n             if [ \"${{1:-}}\" = api ]; then\n             {contents}             fi\n             cat <<'FIXTURE_JSON'\n{json}\nFIXTURE_JSON\n"
+        ),
     )
     .expect("write stub");
     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).expect("chmod");
@@ -310,6 +352,7 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         _dir: dir,
         root,
         gh,
+        prs: json,
         cut,
     }
 }
@@ -381,6 +424,12 @@ pub(crate) fn run(fx: &Fixture, after_cut: i64) -> Run {
 pub(crate) const AN_HOUR: i64 = 3600;
 
 impl Fixture {
+    /// Answer the cookbook's `Cargo.toml` with `cargo_toml`, keeping the
+    /// window this fixture already declared (PMAT-241).
+    pub(crate) fn cookbook_manifest(&mut self, cargo_toml: &str) {
+        self.gh = stub_gh_with_cookbook(self._dir.path(), &self.prs.clone(), cargo_toml);
+    }
+
     pub(crate) fn assert_committed(&self, rel: &str) {
         let out = git(&self.root, &["cat-file", "-e", &format!("HEAD:{rel}")]);
         assert!(out.status.success(), "{rel} must be at HEAD");
