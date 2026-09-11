@@ -1,0 +1,125 @@
+{
+  "kind": "triage",
+  "issue": "PMAT-231 — the closing record of the forjar 1.28.0 release: docs/audits/release-1.28.0-receipt.md (the tag, the published release and its 14 assets, crates.io, docs.rs, every gate measured on the tagged sha, and the two steps taken by hand with the difference between them stated), plus the three defects shipping it exposed — PMAT-232 (publish-release cannot un-draft a release a previous run created), PMAT-233 (the homebrew tap push has an empty token and has never once worked), PMAT-234 (gate R's verdict line says pre-tag whenever any arm is pending, so after every successful release the one line an operator is told to read states the opposite of the truth). Every new row carries release:v1.29.0 from the moment it was minted.",
+  "branch": "PMAT-231-record-1.28.0",
+  "base": "aff6be71",
+  "base_commit": "aff6be716986441101f839446b7285ff0b2ba7c9",
+  "diff_sha256": "e0b9f6ee615ed44501691a4253fd82ba05209f6d",
+  "recorded_at": "after two quorum rounds and the five corrections they produced",
+  "quorum": {
+    "lanes": [
+      "r1 lane 1 (conv-01453612)",
+      "r1 lane 2 (conv-f478c764)",
+      "r1 lane 3 (conv-2292ace1)",
+      "r2 lane 1 (conv-4f8f5c5f)",
+      "r2 lane 2 (conv-0fe0e63a)",
+      "r2 lane 3 (conv-41808662)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "two: fcbc5b7e (0/3 PASS) and f2c5cb58 (1/3 PASS). Every lane measured the live release, crates.io, docs.rs and the workflow runs rather than reading the receipt back to itself, and every lane was asked to read the receipt as a hostile reader and quote any sentence a reader could check and find false.",
+    "kill_rule": "the only artifact this branch produces is a record, so every finding is a defect in that record and none could be dismissed as cosmetic. Five were found and all five corrected: a truncated crates.io timestamp, a miscounted cancellation, two roadmap rows a patching bug left with null notes, a gate paraphrased instead of quoted, and a verdict line that flattened two by-hand steps into one. One lane error is recorded rather than dropped.",
+    "claims_confirmed": 6,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "Round 1, 2/3: crates.io's created_at was given as 2026-09-10T16:12:45Z; the API returns 2026-09-10T16:12:45.938977Z. Corrected, and round 2 checked every digit including the byte count.",
+      "Round 1, 3/3: 'the first tag run had four jobs cancelled' — it had three; four more belonged to the pull-request CI run and its Proofs run. Found by querying attempts/1, because `gh run view --json jobs` reports only the latest attempt and a re-run hides the cancellation entirely. Corrected to the per-run split, with that fact recorded.",
+      "Round 1, 3/3: PMAT-231's and PMAT-232's rows carried `notes: null` — the patcher matched `notes: null\\n` and notes is a row's last line. Corrected; round 2 confirmed all four rows for label, kind and notes.",
+      "Round 2, 2/3 unprompted: the gate table said gate R reported the tag on origin and the release published — what it MEANT, not what it PRINTED (`PASS pre-tag … PENDING until the tag is cut`). Corrected by quoting the line in full and showing from its own content that the arms passed; the wording is filed as PMAT-234.",
+      "Round 2, 1/3 unprompted: the verdict line said both by-hand steps were made necessary by a defect; only the un-drafting was, and promotion from prerelease to full release is the operator's step by design. Corrected so a reader of the verdict alone is not misled."
+    ],
+    "lane_errors": [
+      "Round 2 lane 3 refuted the claim that all four new rows carry a populated notes field, reporting that 'several PMAT rows lack a notes field entirely'. Re-run at f2c5cb58: all four carry kind, release:v1.29.0 and non-null notes. Older rows elsewhere in the file do lack notes, which is most likely what the lane read."
+    ]
+  },
+  "falsification": {
+    "not_applicable": "this branch contains no code: the diff is a release receipt, four roadmap rows and one audit log. There is no test to revert and none was run. What stands in place of a falsifier is that every fact in the receipt was measured against the live release, crates.io, docs.rs and the workflow runs by six independent lanes and by the orchestrator, that five of those facts were wrong and were corrected rather than defended, and that the gate R line the receipt reports is quoted rather than paraphrased — the defect two lanes caught."
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/release-record-judges.md",
+    "total_bytes": 23776,
+    "files": [
+      {
+        "path": ".quorum/evidence/release-record-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 6920,
+        "sha256": "31b1e0590fda6591f5ed6df8d121b8e9a566690a1ff639abf2da9bc09163d36e",
+        "blob": "2ef1227ff47065cde373164825f9e99de7ddbec5"
+      },
+      {
+        "path": ".quorum/evidence/release-record-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 5487,
+        "sha256": "b6ce435500f995547dc4a9b2e95102b382ed88137684b3dc18aa5a11902ea446",
+        "blob": "232e6ac342a9e4d0da8d093c9e37e6f77353ca90"
+      },
+      {
+        "path": ".quorum/evidence/release-record-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 8030,
+        "sha256": "ea93803a6b70c869ab1630ccef7646a7baed2a03cbccc86d529529e933459f35",
+        "blob": "2d8286490f8ecfad8e3d2b01e6a83bbe4a607336"
+      },
+      {
+        "path": ".quorum/evidence/release-record-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1442,
+        "sha256": "ce5d01c822c760fc72e3918b610609854dad67544f28c4751b04bd318e892c31",
+        "blob": "065810046a2351cc8dd6ed4a5c530b8dbe265f6f"
+      },
+      {
+        "path": ".quorum/evidence/release-record-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1897,
+        "sha256": "a9372293cc346c9eea04b1020151ef68e07e2f44504763a6a0a7bd14e726d8f2",
+        "blob": "46136272008ef78722cd6dc13597dd66f3222bb6"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Chef",
+      "Nix",
+      "SLSA"
+    ],
+    "verdict": "accept(docs/audits/crux-1.28.0.md row 9 surveyed this exact act — the bookkeeping that follows a cut — and found it is a bot's commit or an attestation in all four surveyed projects rather than a reviewed change. forjar's release record is a reviewed change in the tree, judged by six lanes, and five of its facts were wrong before they were judged; that is the argument for the stricter shape rather than against it. No new comparison was run: this release's behaviour paragraphs are already reconciled and this branch adds none.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "six sandboxed lanes over two rounds, review-only, base pinned by SHA, writes=false; both delegate dispatches hit the 30-turn cap after the lanes finished and the orchestrator ran lane-reduce.sh itself",
+    "verdict": "0/3 then 1/3 PASS; five findings, all corrected; one lane error recorded"
+  },
+  "pmat": {
+    "ticket": "PMAT-231",
+    "tools": [
+      "pmat work add",
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared both rounds)",
+      "route.sh",
+      "transcript-gate.sh",
+      "scripts/release-goal.sh tag",
+      "scripts/dogfood/tagged.sh",
+      "scripts/dogfood/release-check.sh",
+      "make dogfood-published VERSION=1.28.0",
+      "gh release edit (by hand, twice, both recorded)",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "no test file is touched by this branch; the tree-wide figure (43 of 4713 tests examined, 331 files parsed) was measured on the PMAT-230 branch and is recorded in .quorum/PMAT-230-release-download-clobber.json",
+    "quality_gate": "scripts/dogfood/release-check.sh exit 0 on the published release; make dogfood-published VERSION=1.28.0 exit 0 with GATE C and GATE D PASS against the crate crates.io serves; scripts/dogfood/tagged.sh GATE T PASS on the branch (6 tagged releases reconcile, 26 tickets carry their tag, 2 of 2 PRs merged since v1.28.0 carry release:v1.29.0). Both runs verbatim in docs/audits/logs/PMAT-231-release-check.log. No cargo build was run and none is claimed: this branch contains no code.",
+    "limit": "two steps of the release were taken by hand and the receipt names both; the homebrew job has still never published a formula (PMAT-233); gate R's own verdict line is wrong after every successful release (PMAT-234) and this receipt quotes it rather than repairing it, because repairing it is a code change and this is a triage branch."
+  }
+}
