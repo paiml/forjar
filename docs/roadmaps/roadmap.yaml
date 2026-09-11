@@ -3442,7 +3442,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:32Z
-  updated: 2026-09-11T06:29:10Z
+  updated: 2026-09-11T19:56:38Z
   spec: null
   acceptance_criteria:
   - the homebrew job's Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication
@@ -3452,7 +3452,6 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.29.0
   notes: 'Measured 2026-09-10 on run 34530301814: the step reached `Cloning into /tmp/tap` for the first time — PMAT-230''s fixes carried it past the checksums download and the leftover directory — and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step log shows `GH_TOKEN:` with an empty value while every other step in the job shows `GH_TOKEN: ***`, so the secret is not wired into this step. The homebrew job is not on publish-release''s needs, so this has never blocked a release; it has simply never worked.'
 - id: PMAT-234
   kind: code
@@ -3584,14 +3583,16 @@ roadmap:
   - release:v1.29.0
   notes: 'Measured 2026-09-11 on main: `GATE T FAIL grep exited 141 looking PMAT-225 up in the ticket registry — UNMEASURED` on one run, PASS on the next two. 141 is 128+13, SIGPIPE: `printf … | grep -q` has grep exit at the first match and close the pipe, printf takes the signal, and pipefail makes that the pipeline''s status. The gate was right to refuse an unmeasured read; the read should not have been unmeasurable.'
 - id: PMAT-240
-  github_issue: null
+  kind: code
+  github_issue: 530
   item_type: task
-  title: 'the SIGPIPE class is repository-wide: 18 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
-  status: completed
+  title: 'the SIGPIPE class is repository-wide: 13 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
+  release: 1.30.0
+  status: planned
   priority: medium
   assigned_to: null
   created: 2026-09-11T11:03:11Z
-  updated: 2026-09-11T11:48:50Z
+  updated: 2026-09-11T19:56:38Z
   spec: null
   acceptance_criteria:
   - every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood
@@ -3601,8 +3602,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.29.0
-  notes: Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236's own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed.
+  - release:v1.30.0
+  notes: 'Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236''s own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed. on 2026-09-11 the row read status completed while thirteen pipelines of the shape were still in scripts/ and NEITHER acceptance criterion had been met. It was planned when it was minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so, and no gate asked: gate T''s T7 arm refuses a SHIPPED ticket that says planned and permits a ticket that says completed and never shipped. `pmat work edit` refuses Completed -> Planned and Completed -> InProgress as invalid transitions, so this row is corrected TEXTUALLY and deliberately: a lifecycle rule that keeps a false completed in the record is the wrong rule for this case, and a row claiming eighteen pipelines were fixed while thirteen are still there is the exact shape of half-true record PMAT-235 and PMAT-236 exist to refuse — three review lanes caught it on the v1.29.0 booking, where `release-goal.sh cut` had moved a ticket nobody had done into the next window. Back to planned.'
 - id: PMAT-241
   kind: code
   github_issue: null
@@ -3633,19 +3634,18 @@ roadmap:
   github_issue: 520
   item_type: task
   title: 'cut v1.29.0: version, CHANGELOG, the crux audit, the dogfood receipt and the tag'
-  release: 1.29.0
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T14:20:00Z
-  updated: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T19:57:41Z
   spec: null
   acceptance_criteria:
-  - 'Cargo.toml and Cargo.lock are bumped together, which PR CI''s lockfile-preflight enforces'
-  - 'the ten behaviour bullets of this window are written under CHANGELOG [1.29.0] — [Unreleased] was EMPTY with twelve tickets merged behind it'
-  - 'docs/audits/crux-1.29.0.md reconciles every one of those bullets with >= 3 named systems, and says where forjar is WORSE than the default'
+  - Cargo.toml and Cargo.lock are bumped together, which PR CI's lockfile-preflight enforces
+  - the ten behaviour bullets of this window are written under CHANGELOG [1.29.0] — [Unreleased] was EMPTY with twelve tickets merged behind it
+  - docs/audits/crux-1.29.0.md reconciles every one of those bullets with >= 3 named systems, and says where forjar is WORSE than the default
   - '`make dogfood-release` exits 0 and docs/audits/dogfood-1.29.0-receipt.md records the nine GATE lines verbatim'
-  - 'the ledger row is booked by `scripts/release-goal.sh cut v1.29.0 --next v1.30.0` and names the paiml/forjar-cookbook commit the release was qualified against (PMAT-241)'
+  - the ledger row is booked by `scripts/release-goal.sh cut v1.29.0 --next v1.30.0` and names the paiml/forjar-cookbook commit the release was qualified against (PMAT-241)
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3654,6 +3654,7 @@ roadmap:
   - orch:fable
   - release:v1.29.0
   notes: 'orch-basis:release — the cut is due 2026-09-12T16:07:14Z under cadence_days 2. Left OPEN in its own PR: CB-2113 (Commit Traceability, new in pmat 3.40) refuses a commit whose Pmat-Ticket names a ticket already completed, so a cut ticket is marked completed by the NEXT PR rather than its own.'
+  release: 1.29.0
 - id: PMAT-521
   kind: code
   github_issue: 521
@@ -3730,3 +3731,78 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
+- id: PMAT-528
+  kind: code
+  github_issue: 528
+  item_type: task
+  title: 'gate T''s status arm is one-directional: it refuses "shipped but says planned" and permits "says completed but never shipped"'
+  release: 1.30.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T20:15:00Z
+  updated: 2026-09-11T20:15:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window'
+  - 'a ticket completed outside any window, and one legitimately completed inside one, are both still green — a ticket can be closed as obsolete, folded into another, or finished before the floor, so the predicate cannot be "every completed ticket is named by a release"'
+  - 'falsification cases drive all three, and the corrected PMAT-240 row is the regression case'
+  - 'whether the work lifecycle should admit a documented correction is decided here rather than left: `pmat work edit` refuses Completed -> Planned and Completed -> InProgress, so a row wrongly marked completed cannot be corrected by the tool'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
+- id: PMAT-529
+  kind: code
+  github_issue: 529
+  item_type: task
+  title: 'release-goal.sh moves a CANCELLED ticket''s release label into the next window, forever'
+  release: 1.30.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T20:15:00Z
+  updated: 2026-09-11T20:15:00Z
+  spec: null
+  acceptance_criteria:
+  - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
+  - 'a ticket cancelled AFTER it was labelled for a window that already shipped keeps its historical label — the ledger row records what was in the release, and rewriting it would be inventing history'
+  - 'falsification cases drive both directions'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
+- id: PMAT-531
+  kind: triage
+  github_issue: 531
+  item_type: task
+  title: 'book v1.29.0 in the release ledger, and correct the two false records the booking round found'
+  release: 1.29.0
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T20:25:00Z
+  updated: 2026-09-11T20:25:00Z
+  spec: null
+  acceptance_criteria:
+  - 'the booked row''s cut, PRs, tickets, dogfood, crux and cookbook are byte-identical to `release-goal.sh window v1.29.0` — and it is the FIRST row to name the cookbook commit the release was qualified against (PMAT-241)'
+  - 'next.tag is v1.30.0 and next.due is exactly the cut instant plus cadence_days'
+  - 'no cancelled row carries a label for an open window'
+  - 'the CB-21xx ratchet holds, with any raise carrying a written justification rather than a silent edit'
+  - 'gate T is green on main once this merges'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.29.0
+  notes: 'The booking half of the three-PR release shape. Gate T is red on main between the tag and this merge, by design: the tag exists and no row declares it. Three review lanes read the booking and found two false records — PMAT-240 completed while thirteen of its own sites remained, and PMAT-233 cancelled but labelled for the next window — and both gates that should have caught them are filed as PMAT-528 and PMAT-529.'
