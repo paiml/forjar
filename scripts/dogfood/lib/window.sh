@@ -122,6 +122,7 @@ dogfood_tag_date() {
 # counted), inside UPPER (this window), or neither (merged after UPPER,
 # reported and not counted).
 dogfood_prs_between() {
+  DOGFOOD_WINDOW_UNMEASURED=""
   local lower="$1" upper="$2"
   local rc=0 raw n jrc=0 i=0 num oid arc prev_rc keep='[]'
   dogfood_ref_date "$lower"
@@ -191,6 +192,23 @@ dogfood_prs_between() {
     fail "git rev-list --count ${lower}..${upper} exited ${crc}: whether anything landed since ${lower} cannot be read — UNMEASURED"
   fi
   if [ "$DOGFOOD_PR_COUNT" -eq 0 ] && [ "$commits_since" -gt 0 ]; then
+    # PMAT-229: THE STATUS LINE MAY RENDER THIS; NO GATE MAY PASS OVER IT.
+    #
+    # `DOGFOOD_WINDOW_SOFT=1` records the refusal instead of taking it, and
+    # only `release-goal.sh show` sets it. On a feature branch — which is where
+    # an operator reads the cadence — the branch's own commits are in no merged
+    # PR, so this fired and `make release-goal` printed no goal at all: not the
+    # tag, not the due instant, not the bar. None of those depend on the
+    # unmeasured commits; only the merged count does, and it is printed as
+    # UNMEASURED. The caller still exits non-zero.
+    #
+    # scripts/dogfood/tagged.sh never sets it and is unchanged: a release gate
+    # that rendered a degraded line would be a gate that passed on an
+    # unmeasured window.
+    if [ "${DOGFOOD_WINDOW_SOFT:-0}" = "1" ]; then
+      DOGFOOD_WINDOW_UNMEASURED="${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED"
+      return 0
+    fi
     fail "${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it"
   fi
 }

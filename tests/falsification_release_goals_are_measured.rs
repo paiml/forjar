@@ -169,3 +169,54 @@ fn a_gh_that_cannot_answer_is_unmeasured_and_red() {
     r.assert_red("gh exited 1: the window is unmeasured");
     r.assert_says("UNMEASURED");
 }
+
+/// PMAT-229: the status line renders what it can and says what it cannot.
+///
+/// `release-goal.sh show` shares gate T's window, and the window refuses when
+/// commits reach HEAD that no merged PR contains — which is every feature
+/// branch, and therefore every place an operator actually reads the cadence.
+/// `make release-goal` printed no goal at all there: not the tag, not the due
+/// instant, not the elapsed bar, none of which depend on the unmeasured
+/// commits. Only the merged count does, and it is now printed as UNMEASURED.
+///
+/// The exit code stays non-zero, so nothing can read the degraded line as a
+/// measured one, and `scripts/dogfood/tagged.sh` is untouched: a release gate
+/// that rendered this would be a gate passing on an unmeasured window, which
+/// is the case directly below this one in the same fixture.
+#[test]
+fn the_status_line_renders_the_goal_when_the_merged_count_is_unmeasurable() {
+    // The state right after a tag: the previous release's own PR is all
+    // GitHub reports, so the window is empty while the declaration commit
+    // sits in it. That is what a branch looks like to this code, and it is
+    // exactly the case that fired on PMAT-227's booking branch.
+    let mut fx = fixture(Case::default());
+    let shipped = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.1^{commit}"]));
+    fx.gh = stub_gh(
+        fx._dir.path(),
+        &format!(
+            r#"[{{"number":10,"mergedAt":"2026-01-02T00:00:00Z","mergeCommit":{{"oid":"{shipped}"}},"headRefName":"PMAT-901-the-shipped-work","title":"the shipped work","body":""}}]"#
+        ),
+    );
+    let t = tool(&fx, AN_HOUR, &["show"]);
+    assert_ne!(
+        t.code, 0,
+        "PMAT-229: an unmeasurable window must still leave a non-zero exit, so \
+         no script reads a degraded line as a pass:\n{}",
+        t.text
+    );
+    assert!(
+        t.text.contains(NEXT) && t.text.contains("due ") && t.text.contains("basis="),
+        "PMAT-229: the goal line — the next tag, the due instant, the basis — \
+         does not depend on the commits that could not be measured, and must be \
+         printed:\n{}",
+        t.text
+    );
+    assert!(
+        t.text.contains("UNMEASURED"),
+        "PMAT-229: the counts that could not be measured must say so rather than \
+         print a number:\n{}",
+        t.text
+    );
+    // The gate over the same window is unchanged and still refuses outright.
+    run(&fx, AN_HOUR).assert_red("gate T never renders a degraded line");
+}
