@@ -3493,3 +3493,21 @@ roadmap:
   - kind:code
   - release:v1.29.0
   notes: 'Measured 2026-09-10 immediately after v1.28.0 was published: `GATE R PASS pre-tag: 13 PR(s) since v1.27.0 … PENDING until the tag is cut: no docs/audits/crux-1.28.0.md: Cargo.toml is still at v1.28.0''s version (1.28.0), no release is being cut`. Every word after the semicolon is wrong: the tag is on origin (arm 1 found it, which is why the four tag-dependent PENDING notes are absent), the crux document exists and gate H reconciled it during the cut, and the pending note is arm 6 saying no NEW release is being prepared — the correct post-release state. The wording comes from one branch at the end of the script that assumes any pending note means pre-tag. This repository''s doctrine is that the single line a gate prints must be true; it is the only line the operator is told to read.'
+- id: PMAT-235
+  github_issue: null
+  item_type: task
+  title: 'ORCH-001: orchestrator routing rule (AUTO-IMPL-SKILL-003)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T01:44:51Z
+  updated: 2026-09-11T01:44:51Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  - orch-routing
+  notes: null
