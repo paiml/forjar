@@ -1,0 +1,128 @@
+{
+ "kind": "code",
+ "issue": "PMAT-234 — gate R's verdict line said the opposite of the truth after every successful release. scripts/dogfood/release-check.sh kept ONE flat `pending` string and read it as 'the tag is not cut yet'. Arm 6 adds a note after every successful release (Cargo.toml is back at the newest tag's version, so no cut is in flight and no crux document is owed), so on main the gate printed `PASS pre-tag: 19 PR(s) since v1.27.0 … PENDING until the tag is cut: no docs/audits/crux-1.28.0.md …` about a version that was tagged, released, on crates.io and rendered on docs.rs. The notes are two sets now — note_pretag for the arms whose obligation does not exist until the tag does, note_pending for everything else — and either verdict reports the other set as `also pending` rather than dropping it. Two of three review lanes then found a second false statement in the one remaining note: it asserted the crux document was MISSING, and it is present and 13,860 bytes.",
+ "branch": "PMAT-234-gate-r-says-what-is-pending",
+ "base": "c5e4aaa3",
+ "base_commit": "c5e4aaa34dabc4ad73aa81893656847efa4710f5",
+ "diff_sha256": "74db8444fa164d63792c8644b92e2c03ed501548",
+ "recorded_at": "after the round, the refutation, and the re-run that reproduced it on the live repository",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-483fb521)",
+   "lane 2 (conv-5d8c1125)",
+   "lane 3 (conv-51c90ddf)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes on a517c9af with the base pinned and --not-before set to the dispatch instant. All three returned, exits 0/0/0, durations 371s/332s/333s. Verdicts 1 PASS, 2 FAIL — recorded as it fell rather than resolved by majority, because what decides it is that the refutation reproduces.",
+  "kill_rule": "the brief fixed the ORDER of the attack: enumerate every note_ call site and assign its bucket; look for a state where the old script exited non-zero and the new one exits 0; look for a state where `also pending` drops a note or sits beside a false `CRUX present`; rebuild the harness in the lane's OWN temp dir and watch the published case go red on origin/main; diff the moved fixture for behaviour rather than formatting; check the cargo search output shape against the real tool. All six produced a confirmation — and the finding that mattered came from OUTSIDE the list, which is the value of an adversarial round over a self-review: the brief could not ask about a defect its author had not noticed, and two lanes noticed it anyway.",
+  "claims_confirmed": 6,
+  "claims_refuted": 1,
+  "refuted_claims": [
+   "That the one remaining note says something true — it asserted the crux document was MISSING, and docs/audits/crux-1.28.0.md is present and 13,860 bytes. Refuted 2/3, unasked, re-run before it was accepted. The note now reports the document's state as a measurement in both directions, and a fourth case drives both."
+  ],
+  "lane_errors": [
+   "The delegate stopped at its 30-turn limit while summarising, AFTER all three lanes had completed and reduce.json was written. The lane JSON was read directly rather than resuming for a summary of output already on disk. Second occurrence in this session at exactly that point.",
+   "One lane returned PASS on a diff two others refuted. Its six confirmations agree with theirs; it simply did not look at the note's wording, which the brief had not asked about. Recorded rather than averaged away."
+  ]
+ },
+ "falsification": {
+  "test": "after_a_published_release_the_verdict_never_says_pre_tag drives the state a finished release leaves and asserts neither phrase appears while the remaining note still does; before_the_tag_is_cut_the_verdict_still_says_so asserts the pre-tag state STILL says both with no `also pending`, so the fix cannot buy its correctness by deleting the words; a_published_release_whose_docs_never_built_is_still_red drives doc_status=false and asserts RED; the_remaining_note_does_not_claim_a_present_file_is_missing drives the crux document written and then removed",
+  "test_file": "tests/falsification_release_check_says_what_is_pending.rs",
+  "cargo_test_target": "falsification_release_check_says_what_is_pending",
+  "reverted": "origin/main's scripts/dogfood/release-check.sh checked out over this branch's tests, then restored from a517c9af",
+  "observed_failure": "with origin/main's script: 2 passed, 1 failed — the published case, because the output carries `pre-tag` and `PENDING until the tag is cut`. 3 passed with it restored. And on the REAL repository, which is the stronger measurement because it is the tree the defect was found on: main's script printed `GATE R PASS pre-tag: 19 PR(s) since v1.27.0 … PENDING until the tag is cut: no docs/audits/crux-1.28.0.md …` and the fixed one prints the tag, the release, crates.io and docs.rs as measured with the note reported as `also pending`. Both in docs/audits/logs/PMAT-234-pretag.log.",
+  "still_green_when_reverted": "the nine cases of falsification_dogfood_release_check_pr_window, which drive the rest of gate R through the same fixture and prove the extraction and the change are confined to the verdict sentence"
+ },
+ "crux": {
+  "systems": [
+   "Terraform",
+   "Ansible",
+   "Kubernetes"
+  ],
+  "verdict": "accept(a tool's single summary line is the only line an operator is told to read, and every surveyed system treats a status summary as load-bearing rather than decorative — `terraform plan`'s counts, `ansible-playbook`'s PLAY RECAP, `kubectl rollout status`. None of them has a state in which the summary asserts the opposite of the resource's actual condition. A gate whose verdict line is wrong is worse than one with no verdict line, because the false line stops anybody looking.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false with the no-write rule stated FIRST, base pinned by SHA and --not-before pinned to the dispatch instant; all three returned and the repository was verified intact",
+  "verdict": "1 PASS, 2 FAIL; one refutation, re-run by the orchestrator and reproduced on the live repository",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-234",
+  "tools": [
+   "kind-gate.sh",
+   "route.sh",
+   "goal.sh worker",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "bashrs lint",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/dogfood/release-check.sh",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "pmat work edit -s",
+   "pmat work validate"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "pmat analyze vacuous-tests over the tree: 400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently when a fixture is missing. None of the four new cases appears, and neither does anything in tests/falsification_dogfood_release_check_pr_window.rs or tests/release_check_fixture/mod.rs.",
+  "bashrs": "0 errors on scripts/dogfood/release-check.sh.",
+  "quality_gate": "4 + 9 + 4 green at HEAD; 1 of 4 red against origin/main's script; gate R exits 0 on the live repository both before and after — the defect was never the exit code, it was the sentence.",
+  "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A."
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/gate-r-pending-judges.md",
+  "total_bytes": 11434,
+  "files": [
+   {
+    "path": ".quorum/evidence/gate-r-pending-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2336,
+    "sha256": "573d49b86e3da536925dc0567303bdf65d9058eff9d2dea245cbfb765bf32267",
+    "blob": "106f8450d33173addfba3be018a80f6a185cf7ff"
+   },
+   {
+    "path": ".quorum/evidence/gate-r-pending-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1731,
+    "sha256": "0ea225eeee51b60b7bdc99091f56300970042844cda93cbea5f53ecb1f64b295",
+    "blob": "fb292cebedaa421fe41be7a56396376408ef1c19"
+   },
+   {
+    "path": ".quorum/evidence/gate-r-pending-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5060,
+    "sha256": "3928288f39ebc5da90b4d4601d4e5807665ccaf65e8aa13bc010d34cd9290492",
+    "blob": "5f79d82f0aa5535770fcca5ad2fd5ecf6b5fe74f"
+   },
+   {
+    "path": ".quorum/evidence/gate-r-pending-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 979,
+    "sha256": "e7de39d038688418d00b1e426eb97ba6d17c389af39f0068052d3c30228e6834",
+    "blob": "d1dc4950941e91cb70460f834fc178c66b8007d0"
+   },
+   {
+    "path": ".quorum/evidence/gate-r-pending-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1328,
+    "sha256": "42c46052f7e537e911f5db744aa545b33c0155b6e7b961ef72ba58b5abddb926",
+    "blob": "af75356f7b315d1748e708976322fcdd098bf834"
+   }
+  ]
+ }
+}
