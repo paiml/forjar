@@ -45,6 +45,44 @@ fn after_a_published_release_the_verdict_never_says_pre_tag() {
     r.assert_says("no release is being cut");
 }
 
+/// The remaining note does not claim a file is missing that is there.
+///
+/// Two review lanes found this and it reproduces on the real repository:
+/// the note opened with `no docs/audits/crux-1.28.0.md`, asserting the
+/// document was absent, while that document is present and 13KB long. A
+/// verdict line being fixed for saying false things must not keep one of its
+/// own. What is true is that no crux document is OWED, because no cut is in
+/// flight; whether one exists is a separate fact, and it is measured.
+#[test]
+fn the_remaining_note_does_not_claim_a_present_file_is_missing() {
+    let fx = published_fixture();
+    let dir = fx.root.parent().expect("tempdir").to_path_buf();
+    let bin = stub_release_tools(&dir, PREV_VERSION, "true");
+    let gh = stub_gh_published(&dir, &fx.head, "false");
+
+    // With the document there, the note says so.
+    write(
+        &fx.root,
+        &format!("docs/audits/crux-{PREV_VERSION}.md"),
+        "# crux (fixture)\n",
+    );
+    let r = run_published(&fx, &gh, &bin);
+    r.assert_green("a published release whose crux document is at HEAD");
+    r.assert_says("is owed (it is present)");
+    r.assert_never_says(
+        &format!("no docs/audits/crux-{PREV_VERSION}.md:"),
+        "the document is present, so a note opening with its absence is false",
+    );
+
+    // And with it gone, the note says that instead — the state is measured,
+    // not assumed in either direction.
+    std::fs::remove_file(fx.root.join(format!("docs/audits/crux-{PREV_VERSION}.md")))
+        .expect("remove the crux document");
+    let r = run_published(&fx, &gh, &bin);
+    r.assert_green("no crux document is owed when no cut is in flight");
+    r.assert_says("is owed (it is absent)");
+}
+
 /// And the pre-tag verdict still says pre-tag, because that state is real.
 ///
 /// The fix must not buy its correctness by deleting the words: before the tag

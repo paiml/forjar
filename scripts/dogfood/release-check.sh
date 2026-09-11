@@ -90,6 +90,7 @@ pretag=""
 note_pretag() {
   pretag="${pretag}${1}, "
 }
+crux_state=""
 pending=""
 note_pending() {
   pending="${pending}${1}, "
@@ -355,7 +356,18 @@ fi
 latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
-  note_pending "no ${CRUX}: Cargo.toml is still at ${latest_tag}'s version (${version}), no release is being cut"
+  # THE NOTE SAYS WHAT IS TRUE, NOT WHAT IS CONVENIENT (PMAT-234, found by two
+  # review lanes). It used to open with "no ${CRUX}", asserting the document
+  # was absent — and on this repository right now it is present and 13KB long.
+  # A verdict line being fixed for saying false things must not keep one of its
+  # own. What is true here is that no crux document is OWED, because no cut is
+  # in flight; whether one happens to exist is a separate fact, and it is
+  # measured rather than assumed.
+  crux_state="absent"
+  if [ -f "$CRUX" ]; then
+    crux_state="present"
+  fi
+  note_pending "no ${CRUX} is owed (it is ${crux_state}): Cargo.toml is still at ${latest_tag}'s version (${version}), so no release is being cut and its reconciliation is not re-run here"
 else
   if [ ! -f "$CRUX" ]; then
     fail "no ${CRUX}: this version's behaviour changes have no recorded comparison against other systems (run scripts/dogfood/crux-reconcile.sh for the rows it wants)"
