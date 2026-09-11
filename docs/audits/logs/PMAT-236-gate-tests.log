@@ -1,13 +1,11 @@
-== RED: main's scripts/dogfood over this branch's tests (the fixes are COMMITTED at 7faabf52)
-test a_shipped_ticket_without_its_release_label_is_named_and_red ... ok
-test a_merged_ticket_without_the_next_release_label_is_named_and_red ... ok
-test a_merged_ticket_whose_row_says_planned_is_named_and_red ... FAILED
+== RED: main's scripts/dogfood over this branch's tests (fixes COMMITTED at fa34b0c5)
+test the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe ... FAILED
 test a_shipped_ticket_whose_row_says_planned_is_named_and_red ... FAILED
-test the_same_tree_gives_the_same_verdict_every_time ... ok
-test result: FAILED. 14 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.97s
+test a_merged_ticket_whose_row_says_planned_is_named_and_red ... FAILED
+test result: FAILED. 14 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.27s
 == restore
 (nothing above = restored)
 == GREEN, three suites
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.77s
-test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.02s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.53s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.36s

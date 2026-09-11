@@ -1,0 +1,7 @@
+# Quorum evidence — PMAT-236 + PMAT-238 + PMAT-239 — agy
+
+- Version: agy 1.2.0; three sandboxed lanes on 7faabf52 with the base pinned at cc339449; conversations conv-660c1af8,conv-3a06ac22 conv-919980f0. **All three returned.**
+- **The brief opened with the previous round's incident.** A lane in the PMAT-237 round created branches inside the operator's repository, committed to them and left HEAD on one, so five later commits landed on the lane's branch and the push sent a stale tip. This brief stated that first, forbade every write including a checkout or a branch, and told lanes to test unusual paths by feeding strings to a reader on stdin rather than by creating files. The repository was untouched afterwards, verified by branch name, tip and `git branch --list 'test-*'`.
+- The brief also fixed the ORDER of the attack — the ref the statuses are read at, then the SIGPIPE class across the whole of scripts/ rather than the one instance, then whether ten runs can distinguish a fix from luck — and every one of those three produced a finding. The one that mattered most, the class rather than the instance, is the one the ticket had not thought to ask.
+- Three refutations: the SIGPIPE class (3/3, right, three more sites plus one this branch had just added), the ten-run loop (1/3, right, and it produced the rule that replaced it), and the red/green measurement (2/3, wrong, re-run and recorded as a lane error).
+- The delegate hit its 30-turn cap after the lanes had written their files; the orchestrator read them directly.
