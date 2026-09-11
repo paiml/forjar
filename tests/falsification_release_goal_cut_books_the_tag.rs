@@ -83,7 +83,7 @@ fn a_tag_that_was_cut_and_never_declared_is_red_until_cut_books_it() {
     git(&fx.root, &["commit", "-qm", "book v0.0.1"]);
     let r = run(&fx, AN_HOUR);
     r.assert_green("the cut is booked, the labels agree, the next goal is declared");
-    r.assert_says("1 of 1 PR(s) merged since v0.0.1 carry release:v0.0.2");
+    r.assert_says("1 ticket(s) from 1 PR(s) merged since v0.0.1 carry release:v0.0.2");
 
     // The status line reads the working tree and says so.
     let s = tool(&fx, AN_HOUR, &["show"]);
