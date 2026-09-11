@@ -1,0 +1,121 @@
+{
+  "kind": "code",
+  "issue": "PMAT-232 — release.yml's publish-release un-drafted the release only when its own run created it, and the assertion that it had done so sat behind the same guard, so a release whose creating run failed after create-release could never be published by the workflow (v1.28.0 was un-drafted by hand). The job now reads the release's own state: it publishes a draft whoever created it, leaves a published release exactly as it is so a re-dispatch cannot demote an operator's promotion, and asserts unconditionally that the release is not a draft when it finishes. Also cancels PMAT-233 as a duplicate of PMAT-200 and folds its measurement in.",
+  "branch": "PMAT-232-publish-a-draft-it-did-not-create",
+  "base": "a138c809",
+  "base_commit": "a138c809dedd5e9dddf6e1576e646b482e40b205",
+  "diff_sha256": "a1ed836dc0bb40fc91ab8d2c5f68ea2b24564d83",
+  "recorded_at": "after the quorum round and the two corrections it produced",
+  "quorum": {
+    "lanes": [
+      "lane 1 (conv-179049d3)",
+      "lane 2 (conv-803e03ae)",
+      "lane 3 (conv-02916c3e)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed lanes on efa49822 with the base pinned at a138c809: 0/3 PASS with all eleven claims confirmed, nine by all three. The FAIL verdicts come from the hostile-reader half of the brief, which is where both real defects were.",
+    "kill_rule": "the brief asked for three things a text rule cannot give — re-run every mutation rather than trust the log, work out by hand which of the three possible state strings takes which branch of the shell case, and say what the job does when gh fails or returns nothing. All three lanes did all three and agreed; that reasoning is the only runtime evidence this change has, because rule 5 reads the job's text and cannot execute it.",
+    "claims_confirmed": 11,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "The hostile reading found two sentences false as written, refuted by two lanes independently: the new workflow comment said the re-dispatch left 'thirteen assets and no installer' (it left fourteen — dist-artifacts succeeded six minutes before publish-release ran; thirteen-and-no-installer was the FIRST run's state), and PMAT-200's note said the tap step's empty token stands out 'while every other step in the same job shows GH_TOKEN: ***' (only one sibling step declares a token at all, from secrets.GITHUB_TOKEN, while the tap step declares secrets.HOMEBREW_TAP_TOKEN, which is not provisioned). Both corrected; the second correction is the sharper statement of the same defect."
+    ],
+    "lane_errors": [
+      "One lane refuted the actionlint claim, reporting 11 findings rather than 22. Re-run by the orchestrator over the whole workflow directory on both trees: 22 lines carry a file:line:col: prefix on each side, and the sets are identical but for two shifted in-script line numbers. A count of unique messages would give a smaller number; the claim is about the finding set."
+    ]
+  },
+  "falsification": {
+    "test": "rule 5 of the release workflow shape test: publish-release must test that the release IS a draft before editing it, must re-read and exit non-zero with an ::error:: if it is still a draft, and must not gate either on needs.create-release.outputs.created",
+    "test_file": "tests/falsification_release_workflow_shape.rs",
+    "cargo_test_target": "falsification_release_workflow_shape",
+    "reverted": "main's .github/workflows/release.yml checked out over this branch's tests (git checkout main -- .github/workflows/release.yml), then restored with git checkout HEAD --",
+    "observed_failure": "7 passed, 1 failed — rule 5 names the guard it refuses (docs/audits/logs/PMAT-232-gate-tests.log); 8 passed with the workflow restored. Three mutations in docs/audits/logs/PMAT-232-rule5-mutations.log each turn rule 5 red: the created guard restored, the end-state assertion removed, the edit made unconditional. The FIRST version of the rule caught only one of the three, because `--draft=false` in the edit command satisfied its own assertion check; that is recorded in the rule's comment and in the receipt.",
+    "still_green_when_reverted": "the seven other PMAT-166 rules, which prove the change rewrites one rule rather than loosening the shape around it"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/publish-draft-judges.md",
+    "total_bytes": 16100,
+    "files": [
+      {
+        "path": ".quorum/evidence/publish-draft-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2672,
+        "sha256": "b08783d8aacbfae6d5b81a0f023773f14eb208f4fe6c1ec555542a41a6f5fd01",
+        "blob": "2891a8818e6c6653391843966010b34ec0119922"
+      },
+      {
+        "path": ".quorum/evidence/publish-draft-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2935,
+        "sha256": "50c28653703de7193133b39a5f8db335f2266741dc52cddaaadc456458da0695",
+        "blob": "b125b22a381fce14b9fc3731b7ecd0d879b061e5"
+      },
+      {
+        "path": ".quorum/evidence/publish-draft-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 7562,
+        "sha256": "352fc5d8e9709d9e02db27ade9e423d8a744f5244f5a8128897511ee32dc3489",
+        "blob": "aecce2f9211e4998196e0d1b73a1d4c74f014897"
+      },
+      {
+        "path": ".quorum/evidence/publish-draft-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1242,
+        "sha256": "d7c0235df1eb24b45616a1b8a8d0813211976bbf39e05ccc4f110dd082ab612c",
+        "blob": "45f337dbae4a33156366081b23a3c43cce9b44cb"
+      },
+      {
+        "path": ".quorum/evidence/publish-draft-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1689,
+        "sha256": "22532f0b7eef793198977d3027f877b2c7760f3f5c0e91c587bbd144ed38e433",
+        "blob": "4dec6e6e4c69adf4d940b18ab19790dfde6a13ed"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Chef",
+      "SLSA",
+      "Nix"
+    ],
+    "verdict": "accept(docs/audits/crux-1.28.0.md rows 1 and 9 surveyed how these projects publish a release and found the publishing step idempotent and owned by automation in all four — krel regenerates and re-pushes, Expeditor re-runs its own commit, a SLSA attestation is re-issued for the same artifact, nixpkgs' release branch is bumped again. None of them makes publishing conditional on which run created the object, because none of them has an object that can be created by one run and finished by another. forjar does, and this change makes the step idempotent in the same way: it acts on the state it finds rather than on its own provenance.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed lanes, review-only, base pinned by SHA, writes=false; the delegate hit its 30-turn cap after the lanes finished and the orchestrator read the files itself",
+    "verdict": "0/3 PASS, all eleven claims confirmed; two real defects from the hostile-reader half, both corrected; one lane error recorded"
+  },
+  "pmat": {
+    "ticket": "PMAT-232",
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared the lane)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat work edit -s cancelled (the PMAT-233 triage)",
+      "pmat work validate",
+      "cargo test --test falsification_release_workflow_shape",
+      "actionlint",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 43 of 4715 tests examined flagged tree-wide; 0 in tests/falsification_release_workflow_shape.rs, the one touched test file. Nothing to accept.",
+    "quality_gate": "cargo test --test falsification_release_workflow_shape: 8 passed at HEAD, 7 passed / 1 failed against main's release.yml; three mutations each red; release.yml parses as YAML; actionlint's finding set identical to main's (22 both sides, two shifted line numbers); pmat work validate passes. No cargo build of src/ was needed and nothing under src/ changes.",
+    "limit": "the job has not been observed doing this and cannot be, outside a release; it first runs for real at the v1.29.0 cut, due 2026-09-12T16:07:14Z. create-release still exposes a `created` output nothing consumes, kept because rule 3 requires it. cargo mutants remains unmeasurable on this host (PMAT-216) and has nothing to mutate here."
+  }
+}

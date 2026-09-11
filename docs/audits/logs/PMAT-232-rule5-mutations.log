@@ -1,0 +1,5 @@
+== rule 5 (PMAT-232) mutation battery: each mutation applied alone to release.yml's publish-release job
+-- restore-created-guard: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+-- drop-the-assertion: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+-- demote-a-published-release: test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+-- restored (whole binary): test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

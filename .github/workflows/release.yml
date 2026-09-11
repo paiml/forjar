@@ -522,16 +522,42 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Only a release this run created is un-drafted here; an existing
-          # release keeps whatever state the operator gave it (PMAT-166).
-          if [ "${{ needs.create-release.outputs.created }}" = "true" ]; then
-            gh release edit "$RELEASE_TAG" --draft=false --prerelease --repo "${{ github.repository }}"
-          fi
+          # A DRAFT IS UN-DRAFTED HERE WHOEVER CREATED IT (PMAT-232).
+          #
+          # This used to run only when THIS run created the release, and the
+          # assertion below sat behind the same guard. The v1.28.0 release is
+          # what that cost: its first tag-triggered run created the release and
+          # then died in dist-artifacts, and the re-dispatch that carried the
+          # fix reported `publish-release: success` while doing nothing at all.
+          # By then the release was complete — fourteen assets, installer
+          # included, dist-artifacts green six minutes earlier — and still
+          # invisible to everyone but its author, because a draft is. A release
+          # whose creating run fails after `create-release` could never be
+          # published by this workflow.
+          #
+          # What the old guard was protecting is real and is kept: an EXISTING
+          # release keeps the state the operator gave it. That is now decided by
+          # reading the release rather than by asking who created it — a draft
+          # is published, a published release is left exactly as it is, so a
+          # re-dispatch over a release an operator has already promoted to a
+          # full release cannot demote it back to a prerelease.
+          state="$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json isPrerelease,isDraft --jq '"prerelease=\(.isPrerelease) draft=\(.isDraft)"')"
+          echo "release $RELEASE_TAG before: $state"
+          case "$state" in
+            *"draft=true")
+              gh release edit "$RELEASE_TAG" --draft=false --prerelease --repo "${{ github.repository }}"
+              ;;
+          esac
           state="$(gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" --json isPrerelease,isDraft --jq '"prerelease=\(.isPrerelease) draft=\(.isDraft)"')"
           echo "release $RELEASE_TAG: $state"
-          if [ "${{ needs.create-release.outputs.created }}" = "true" ] && [ "$state" != "prerelease=true draft=false" ]; then
-            echo "::error::release $RELEASE_TAG is not a published prerelease after the asset jobs: $state"
-            exit 1
-          fi
+          # UNCONDITIONAL. The assertion is the whole point of the job, and a
+          # job that passes while doing nothing is what PMAT-232 was.
+          case "$state" in
+            *"draft=false") ;;
+            *)
+              echo "::error::release $RELEASE_TAG is still a draft after the asset jobs: $state"
+              exit 1
+              ;;
+          esac
           echo "Promotion to a full release is the operator's step after 'make dogfood-published VERSION=' passes."
 
