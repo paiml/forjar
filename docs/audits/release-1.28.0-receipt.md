@@ -9,7 +9,7 @@ verdict: SHIPPED — crates.io serves 1.28.0, docs.rs built it, the GitHub relea
 | version | 1.28.0 (from 1.27.0; minor, because `api::ProbeMap` joins the supported surface and `drift` starts measuring resources it used to skip) |
 | tag | `v1.28.0` → `931ee2eb`, annotated, tagger date 2026-09-10T16:07:14Z, on `cdcc0e80a17a95158fbf9693556df81149020401` |
 | main at the cut | `cdcc0e80` — "release: forjar 1.28.0 — the first cut under the two-day cadence, and the triage rail admits the release ledger (PMAT-226) (#508)" |
-| crates.io | `forjar 1.28.0`, `created_at 2026-09-10T16:12:45Z`, 3,822,649 bytes, not yanked — published from a detached worktree of the tag by `make publish-from-tag TAG=v1.28.0` after a `DRY_RUN=1` pass, with the local credentials file |
+| crates.io | `forjar 1.28.0`, `created_at 2026-09-10T16:12:45.938977Z`, 3,822,649 bytes, not yanked — published from a detached worktree of the tag by `make publish-from-tag TAG=v1.28.0` after a `DRY_RUN=1` pass, with the local credentials file |
 | docs.rs | `doc_status: true` for 1.28.0 |
 | GitHub release | published 2026-09-10T23:56:51Z, not a draft, not a prerelease, **14 assets** — 6 tarballs, 6 `.sha256`, `SHA256SUMS` and `install.sh`, all uploaded by the workflow |
 | cadence | the first release under `docs/roadmaps/releases.yaml`'s `cadence_days: 2` (PMAT-225). Booked by PMAT-227; the next goal is `v1.29.0`, due 2026-09-12T16:07:14Z |
@@ -59,6 +59,6 @@ All three carry `release:v1.29.0`, applied when they were minted rather than at 
 
 - `homebrew` has never published a formula for any release, including this one (PMAT-233). It is not on `publish-release`'s `needs`, so it has never blocked one.
 - `cargo mutants` remains unmeasurable on this workstation (PMAT-216); the 1.28.0 branch changed nothing under `src/`, so its mutation arm had nothing to measure and said so.
-- The clean-room fleet was saturated by other repositories throughout: the first tag run had four jobs cancelled at 16:53:40Z by a runner-side event, and the re-dispatch waited roughly ninety minutes for a `clean-room` runner. Neither is a property of this release.
+- The clean-room fleet was saturated by other repositories throughout. A runner-side event at 16:53:40–42Z cancelled **seven** jobs across three runs in the same two seconds: three of the tag run's binary builds, three jobs of the pull-request CI run and one of its Proofs run. Those counts are attempt 1 of each run — `gh run view --json jobs` reports the LATEST attempt, so a re-run hides them, and `gh api repos/<repo>/actions/runs/<id>/attempts/1/jobs` is what shows them. The re-dispatch then waited roughly ninety minutes for a `clean-room` runner. None of it is a property of this release.
 
 RELEASE-1.28.0-RECEIPT-END

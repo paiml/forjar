@@ -3427,7 +3427,7 @@ roadmap:
   - kind:triage
   - orch:fable
   - release:v1.29.0
-  notes: null
+  notes: 'orch-basis:release — the closing record of the 1.28.0 release. The release was published by hand with `gh release edit --draft=false --prerelease` because publish-release declined to (PMAT-232), and promoted to a full release after `make dogfood-published VERSION=1.28.0` passed, which is the operator step the workflow names; everything else was done by the workflow. Sixth-plus ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user''s verbatim instruction quoted on PMAT-226. Three quorum lanes refuted three facts in the first draft of the receipt — a rounded crates.io timestamp, a miscounted cancellation, and this very notes field, which a row-patching bug had left null — and all three were corrected.'
 - id: PMAT-232
   kind: code
   github_issue: null
@@ -3449,7 +3449,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.29.0
-  notes: null
+  notes: 'Measured 2026-09-10 on run 34530301814, the re-dispatch that carried PMAT-230''s fix: every asset job succeeded, publish-release reported success, and the release stayed draft=true — because the step is guarded by `if [ "${{ needs.create-release.outputs.created }}" = "true" ]` and this run did not create the release, the earlier failed run did. The assertion that would have caught it is behind the same guard, so the job passes while doing nothing. A release whose creating run fails after create-release can therefore never be published by the workflow; v1.28.0 was un-drafted by hand.'
 - id: PMAT-233
   kind: code
   github_issue: null
