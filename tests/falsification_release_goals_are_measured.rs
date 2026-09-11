@@ -220,3 +220,37 @@ fn the_status_line_renders_the_goal_when_the_merged_count_is_unmeasurable() {
     // The gate over the same window is unchanged and still refuses outright.
     run(&fx, AN_HOUR).assert_red("gate T never renders a degraded line");
 }
+
+/// PMAT-229: the soft switch cannot be set from outside the tool.
+///
+/// The first version read `${DOGFOOD_WINDOW_SOFT:-0}` from the environment,
+/// which any operator could export and every gate would inherit — a release
+/// gate softened from a shell profile. It is the third argument now, and this
+/// case runs the gate with that name exported to prove the gate cannot see it.
+#[test]
+fn no_environment_variable_can_soften_the_gate() {
+    let fx = fixture(Case::default());
+    let out = std::process::Command::new("bash")
+        .arg(fx.root.join("scripts/dogfood/tagged.sh"))
+        .current_dir(&fx.root)
+        .env("GH", &fx.gh)
+        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string())
+        .env("DOGFOOD_WINDOW_SOFT", "1")
+        .env("SOFT", "soft")
+        .output()
+        .expect("bash must run");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !text.contains("UNMEASURED counts") && !text.contains("merged=UNMEASURED"),
+        "PMAT-229: the gate rendered a degraded line because the environment \
+         asked it to:\n{text}"
+    );
+    assert!(
+        text.contains("GATE T PASS") || text.contains("GATE T FAIL"),
+        "the gate must still reach a verdict:\n{text}"
+    );
+}

@@ -123,7 +123,12 @@ dogfood_tag_date() {
 # reported and not counted).
 dogfood_prs_between() {
   DOGFOOD_WINDOW_UNMEASURED=""
-  local lower="$1" upper="$2"
+  # PMAT-229: the soft switch is the THIRD ARGUMENT, never an environment
+  # variable. An earlier version read `${DOGFOOD_WINDOW_SOFT:-0}`, which any
+  # operator could export into their shell and every gate would inherit —
+  # a release gate softened from outside is exactly the hole this must not
+  # open. An argument cannot be inherited.
+  local lower="$1" upper="$2" soft="${3:-}"
   local rc=0 raw n jrc=0 i=0 num oid arc prev_rc keep='[]'
   dogfood_ref_date "$lower"
   raw="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${DOGFOOD_REF_DATE}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName,title,body 2>&1)" || rc=$?
@@ -194,18 +199,18 @@ dogfood_prs_between() {
   if [ "$DOGFOOD_PR_COUNT" -eq 0 ] && [ "$commits_since" -gt 0 ]; then
     # PMAT-229: THE STATUS LINE MAY RENDER THIS; NO GATE MAY PASS OVER IT.
     #
-    # `DOGFOOD_WINDOW_SOFT=1` records the refusal instead of taking it, and
-    # only `release-goal.sh show` sets it. On a feature branch — which is where
+    # A third argument of `soft` records the refusal instead of taking it,
+    # and only `release-goal.sh show` passes it. On a feature branch — which is where
     # an operator reads the cadence — the branch's own commits are in no merged
     # PR, so this fired and `make release-goal` printed no goal at all: not the
     # tag, not the due instant, not the bar. None of those depend on the
     # unmeasured commits; only the merged count does, and it is printed as
     # UNMEASURED. The caller still exits non-zero.
     #
-    # scripts/dogfood/tagged.sh never sets it and is unchanged: a release gate
+    # scripts/dogfood/tagged.sh never passes it and is unchanged: a release gate
     # that rendered a degraded line would be a gate that passed on an
     # unmeasured window.
-    if [ "${DOGFOOD_WINDOW_SOFT:-0}" = "1" ]; then
+    if [ "$soft" = "soft" ]; then
       DOGFOOD_WINDOW_UNMEASURED="${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED"
       return 0
     fi

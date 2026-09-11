@@ -184,7 +184,7 @@ cmd_show() {
   # branch's own commits are in no merged PR; refusing to print the due
   # instant and the bar because the MERGED COUNT is unmeasurable made the
   # cadence unreadable exactly where the work happens. Gate T is unchanged.
-  DOGFOOD_WINDOW_SOFT=1 dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD
+  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD soft
   if [ -n "${DOGFOOD_WINDOW_UNMEASURED:-}" ]; then
     merged=UNMEASURED
     tagged=UNMEASURED
