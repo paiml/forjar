@@ -3857,3 +3857,28 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Measured 2026-09-12 before it was corrected by hand: repos/paiml/forjar/releases/latest resolved to v1.25.2 while v1.26.0, v1.27.0 and v1.28.0 were all prerelease=false draft=false. Anyone resolving that URL got a four-version-old binary for days. Two causes: release.yml un-drafts with --prerelease so a tag-triggered release lands as a prerelease and nothing performs the promotion; and --prerelease=false alone does not recompute latest, which needs --latest. Gate R READS isPrerelease and reports it, never asserts it, and never asks what /releases/latest resolves to — so it was green for four releases while what a user downloads was stale.'
+- id: PMAT-535
+  kind: code
+  github_issue: 535
+  item_type: task
+  title: 'a branch named for the wrong ticket silently credits a shipped ticket to the next release window'
+  release: 1.30.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T08:40:00Z
+  updated: 2026-09-12T08:40:00Z
+  spec: null
+  acceptance_criteria:
+  - 'a PR whose branch-resolved ticket differs from its Pmat-Ticket trailer is named and red, in whichever gate reads it first'
+  - 'the two agreeing is still green, and a branch with no ticket id is still handled by the existing fallback to title then body'
+  - 'falsification cases drive the disagreement, the agreement, and the fallback'
+  - 'PMAT-520 carrying release:v1.30.0 is the regression case: it should not be demanded once the rule is fixed'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 release record. PMAT-520 shipped in 1.29.0 — its PR #527''s merge commit IS the commit v1.29.0 points at — and also carries release:v1.30.0, which gate T demanded. The window rule resolves a PR''s ticket from the first PMAT-<n> in the BRANCH NAME, and the booking PR #532 was pushed from PMAT-520-book-v1.29.0 while its ticket is PMAT-531 (trailer, title and receipt all say 531). So every window arm resolves #532 to PMAT-520, PMAT-520 claims two releases, and PMAT-531 is invisible to all of them. The branch name is LOAD-BEARING for three gates — A resolves a receipt path from it, E resolves .quorum/<slug>.json from it, T resolves the window from it — and nothing checks it against the trailer.'

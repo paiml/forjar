@@ -3,7 +3,7 @@
 ## Method
 
 One `agy` quorum lane surveyed world-class release-engineering, CI and
-configuration-management systems against ten of the eleven behaviour changes in
+configuration-management systems against ten of the twelve behaviour changes in
 this release, from documentation memory only — no network access and no live
 invocation of any reference system. The lane read the release's CHANGELOG
 section and the row keys `scripts/dogfood/crux-reconcile.sh` asked for, and a

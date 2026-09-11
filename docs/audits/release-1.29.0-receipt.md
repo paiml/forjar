@@ -1,6 +1,6 @@
 # Release receipt — forjar 1.29.0
 
-verdict: SHIPPED — crates.io serves 1.29.0, docs.rs built it, the GitHub release is published with 14 assets and is now what `/releases/latest` resolves to, and every pre-tag gate was green on the tagged sha. Three steps were taken by hand and each is recorded with its reason: the tag-triggered `Release` run failed on shared-runner infrastructure and was re-run; `binary-release.yml` was dispatched with the tag because it did not fire on the push; and the promotion from prerelease to full release is the operator's step BY DESIGN here, taken after `make dogfood-published VERSION=1.29.0` passed.
+verdict: SHIPPED — crates.io serves 1.29.0, docs.rs built it, the GitHub release is published with 14 assets and is now what `/releases/latest` resolves to, and every pre-tag gate was green on the tagged sha. FOUR steps were taken by hand and each is recorded with its reason below. Three review lanes counted them and found the section headed three, which is the kind of number this record exists to get right.
 
 ## Identity
 
@@ -13,7 +13,7 @@ verdict: SHIPPED — crates.io serves 1.29.0, docs.rs built it, the GitHub relea
 | docs.rs | `doc_status: true` for 1.29.0 |
 | GitHub release | published 2026-09-11T21:26:27Z, not a draft, not a prerelease, **14 assets** |
 | cadence | the second release under `cadence_days: 2`. Booked by PMAT-531; the next goal is `v1.30.0`, due 2026-09-13T19:55:10Z |
-| window | 12 PRs, 15 tickets — every one carrying `release:v1.29.0` on its roadmap row at the moment it merged |
+| window | **13 PRs, 16 tickets** — what the ledger row records, which includes this release's own cut PR #527 because its merge commit IS the tagged commit. The CHANGELOG says twelve and fifteen and is also right: when that sentence was written, #527 had not merged. Gate T's T9 arm exists for exactly that asymmetry and reads the CHANGELOG only while a cut is in flight |
 | cookbook | `7c100454e8f9fb2b5b13f076b773f808071d5e08` — **the first release whose ledger row names the paiml/forjar-cookbook commit it was qualified against** (PMAT-241) |
 
 ## Gates on the tagged sha
@@ -25,13 +25,10 @@ verdict: SHIPPED — crates.io serves 1.29.0, docs.rs built it, the GitHub relea
 | C, D post-publish | `make dogfood-published VERSION=1.29.0` | exit 0 — the surface and the 18 documented invocations measured against **what crates.io actually serves**, including 98 cookbook configs |
 | R, post-tag | `scripts/dogfood/release-check.sh` | exit 0 |
 
-Gate R's line, quoted rather than paraphrased:
+Gate R's line, verbatim and on one line — three review lanes found the first version of this receipt had truncated it at `(it is present)` and rewrapped it across four lines while calling it a quote:
 
 ```
-GATE R PASS v1.29.0 is on main and on origin; GitHub release published
-(prerelease=false); crates.io serves forjar 1.29.0; docs.rs built the docs;
-15 PR(s) since v1.28.0 (of 15 GitHub reports merged in that window) all carry
-receipt=ok; also pending: no docs/audits/crux-1.29.0.md is owed (it is present)
+GATE R PASS v1.29.0 is on main and on origin; GitHub release published (prerelease=false); crates.io serves forjar 1.29.0; docs.rs built the docs; 15 PR(s) since v1.28.0 (of 15 GitHub reports merged in that window) all carry receipt=ok; also pending: no docs/audits/crux-1.29.0.md is owed (it is present): Cargo.toml is still at v1.29.0's version (1.29.0), so no release is being cut and its reconciliation is not re-run here
 ```
 
 **That sentence is itself a thing this release shipped.** Before PMAT-234, the
@@ -39,7 +36,7 @@ same state printed `PASS pre-tag … PENDING until the tag is cut` about a
 release that was tagged, published and rendered — and named a document that
 was present as missing.
 
-## Three steps taken by hand, and why each
+## Four steps taken by hand, and why each
 
 1. **The tag-triggered `Release` run failed and was re-run.** Its `verify`
    job died on `could not parse/generate dep info … No such file or directory`
@@ -54,6 +51,11 @@ was present as missing.
 3. **The promotion from prerelease to full release.** `release.yml` un-drafts
    with `--prerelease` by design, leaving promotion to the operator. Taken
    after `make dogfood-published` passed.
+4. **The crates.io publish itself**, with `cargo publish --locked` from this
+   host after a `--dry-run` pass, against the local credentials file. That is
+   this repository's standing arrangement rather than an exception — there is
+   no trusted publishing on the repo — and the Identity table has said so all
+   along, which is precisely why a section headed "three" was wrong.
 
 ## What the release exposed about itself
 
@@ -82,5 +84,16 @@ Gate T was red on main between the tag and the booking by design, and red again
 after the booking for a reason it named precisely: PMAT-531 carried
 `release:v1.29.0` and its own PR merged after the tag, so by the window rule it
 is v1.30.0 work. Corrected here.
+
+**PMAT-520 is a different case and three review lanes caught the receipt
+getting it wrong.** Its PR #527's merge commit **is** the commit `v1.29.0`
+points at, so it did not merge after the tag — it merged AT it, and it shipped
+in this release. It now carries BOTH `release:v1.29.0` and `release:v1.30.0`,
+and the second is not a mistake anyone made by hand: gate T resolves a PR's
+ticket from the first `PMAT-<n>` in its BRANCH NAME, and the booking PR #532
+was pushed from `PMAT-520-book-v1.29.0` while its ticket is PMAT-531. A branch
+named for the wrong ticket silently credits a shipped ticket to the next
+window, and nothing catches it. Filed as PMAT-535 (#535). The `release:v1.29.0`
+label stays because it is true and the ledger row says so.
 
 RELEASE-1.29.0-RECEIPT-END
