@@ -93,7 +93,7 @@ tree roughly in half — 360 crates to 191, measured with
 
 ```toml
 # the binary, everything on
-forjar = "1.28"
+forjar = "1.29"
 # library only: api, core, copia, resources, transport, tripwire
 forjar = { version = "1.28", default-features = false }
 ```

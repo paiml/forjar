@@ -42,6 +42,12 @@
 #   T5  from dogfood_floor on, the dogfood receipt and the crux document a row
 #       names exist at HEAD, the receipt ends in its END marker and reaches
 #       exactly one verdict
+#   T9  while a cut is in flight, any "<N> PRs across <M> tickets" claim in the
+#       release's own CHANGELOG section equals what the window measures. The
+#       1.29.0 cut wrote "Thirteen" over twelve merged PRs — the thirteenth was
+#       its own, unmerged, PR — and three review lanes caught it by hand on the
+#       last read. Silence is not a claim and a stale count between releases is
+#       not this gate's business.
 #   T6  next.tag is above the newest tag, next.due is exactly the newest cut
 #       plus cadence_days, and the cut is not OVERDUE: past next.due with PRs
 #       merged since the tag and Cargo.toml still at the tagged version, this
@@ -62,6 +68,22 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 fail() {
   echo "GATE T FAIL $1"
   exit 1
+}
+
+# A count as a CHANGELOG spells it, or empty for one this arm cannot spell.
+# Empty is UNMEASURED at the call site rather than a silent pass: a release
+# with more than twenty PRs is possible and must not read as "no claim".
+number_word() {
+  case "$1" in
+    0) echo "Zero" ;;   1) echo "One" ;;      2) echo "Two" ;;
+    3) echo "Three" ;;  4) echo "Four" ;;     5) echo "Five" ;;
+    6) echo "Six" ;;    7) echo "Seven" ;;    8) echo "Eight" ;;
+    9) echo "Nine" ;;   10) echo "Ten" ;;     11) echo "Eleven" ;;
+    12) echo "Twelve" ;; 13) echo "Thirteen" ;; 14) echo "Fourteen" ;;
+    15) echo "Fifteen" ;; 16) echo "Sixteen" ;; 17) echo "Seventeen" ;;
+    18) echo "Eighteen" ;; 19) echo "Nineteen" ;; 20) echo "Twenty" ;;
+    *) echo "" ;;
+  esac
 }
 
 # shellcheck source=scripts/dogfood/lib/window.sh
@@ -437,6 +459,65 @@ esac
 if [ "$NOW" -gt "$due" ] && [ "$DOGFOOD_PR_COUNT" -gt 0 ] && [ -z "$in_flight" ]; then
   fail "the cut of ${NEXT_TAG} is OVERDUE by $(( (NOW - due) / 3600 ))h: due ${NEXT_DUE} (${NEWEST} cut + ${CADENCE_DAYS} day(s)), ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST}, and Cargo.toml is still at ${DOGFOOD_CARGO_VERSION}"
 fi
+# T9 (PMAT-520): WHILE A CUT IS IN FLIGHT, THE CHANGELOG COUNTS WHAT MERGED.
+#
+# The 1.29.0 cut said "Thirteen PRs across sixteen tickets" and twelve PRs and
+# fifteen tickets had merged. Nobody had miscounted: the thirteenth is the cut's
+# own PR, which has not merged and never will have when the sentence is written.
+# Three review lanes caught it by hand, on the last read before it became the
+# permanent record of what the release was. No gate asked.
+#
+# The window is already measured two arms above — the same numbers gate A and
+# gate E enumerate — so the join costs nothing. The claim is read from the
+# release's own CHANGELOG section, in the ONE shape a cut writes it: a leading
+# "<N> PRs across <M> tickets". A section that makes no such claim is not
+# failed for silence; a section that makes one and gets it wrong is.
+#
+# Only while a cut is in flight. Before one, the section does not exist; after
+# the tag, the window has moved on and the sentence is correctly about a window
+# that has closed.
+if [ -n "$in_flight" ] && git cat-file -e "HEAD:CHANGELOG.md" 2>/dev/null; then
+  changelog="$(git show "HEAD:CHANGELOG.md")"
+  # A HERE-STRING, NOT A PIPE. `printf | awk '\''… exit'\''` closes the pipe when
+  # awk leaves early, printf takes SIGPIPE, and under `set -o pipefail` the whole
+  # gate dies 141 with no verdict. This arm did exactly that on its first run —
+  # the same class as PMAT-239, in the file that already carries a rule against
+  # it, written by someone who had read the rule.
+  claim="$(awk -v ver="${DOGFOOD_CARGO_VERSION}" '
+    index($0, "## [" ver "]") == 1 { inside = 1; next }
+    inside && index($0, "## [") == 1 { exit }
+    inside && match($0, /[A-Za-z]+ PRs? across [A-Za-z]+ tickets?/) {
+      print substr($0, RSTART, RLENGTH); exit
+    }' <<<"$changelog")"
+  if [ -n "$claim" ]; then
+    n_tickets=0
+    for _ in $DOGFOOD_WINDOW_TICKETS; do n_tickets=$((n_tickets + 1)); done
+    # The counts are written as words, which is how a CHANGELOG reads. Only the
+    # range a release plausibly spans is spelled; anything outside it is
+    # UNMEASURED and says so rather than passing.
+    want_prs="$(number_word "$DOGFOOD_PR_COUNT")"
+    want_tickets="$(number_word "$n_tickets")"
+    if [ -z "$want_prs" ] || [ -z "$want_tickets" ]; then
+      fail "CHANGELOG [${DOGFOOD_CARGO_VERSION}] claims \"${claim}\" and the window measures ${DOGFOOD_PR_COUNT} PR(s) and ${n_tickets} ticket(s), which this arm cannot spell as words — UNMEASURED, and an unmeasured claim is not a checked one"
+    fi
+    # COMPARED IN LOWERCASE. A count is capitalised when it opens a sentence and
+    # not when it does not, and which of those a release's prose happens to use
+    # is nobody's business but the writer's. Measured: this very cut wrote
+    # "Twelve PRs across fifteen tickets" and the speller produced "Fifteen",
+    # which is a disagreement about typography dressed as a disagreement about
+    # the window.
+    want="${want_prs} PRs across ${want_tickets} tickets"
+    lc_claim="$(printf '%s' "$claim" | tr '[:upper:]' '[:lower:]')"
+    lc_want="$(printf '%s' "$want" | tr '[:upper:]' '[:lower:]')"
+    lc_prs="$(printf '%s' "$want_prs" | tr '[:upper:]' '[:lower:]')"
+    lc_tickets="$(printf '%s' "$want_tickets" | tr '[:upper:]' '[:lower:]')"
+    case "$lc_claim" in
+      "$lc_want"|"${lc_prs} pr across ${lc_tickets} tickets"|"${lc_prs} prs across ${lc_tickets} ticket"|"${lc_prs} pr across ${lc_tickets} ticket") ;;
+      *) fail "CHANGELOG [${DOGFOOD_CARGO_VERSION}] claims \"${claim}\" and the window measures \"${want}\": ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carrying ${n_tickets} ticket(s). A cut's own PR has not merged when the sentence is written, and counting it is the error this arm exists for (PMAT-520)" ;;
+    esac
+  fi
+fi
+
 if [ -n "$in_flight" ]; then
   clock="$in_flight"
 elif [ "$NOW" -gt "$due" ]; then

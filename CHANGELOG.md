@@ -7,6 +7,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-09-11
+
+The second cut under the two-day cadence (PMAT-225; due 2026-09-12T16:07:14Z).
+Twelve PRs across fifteen tickets, every one labelled `release:v1.29.0` at the
+moment it merged rather than at the cut — this cut's own PR is the thirteenth
+and is not counted, because it has not merged. All of it is the release machinery
+itself, and almost all of it was found by RUNNING that machinery rather than by
+reading it: shipping 1.28.0 exposed three defects the same day, gate T's own
+first green run exposed a fourth, a pmat upgrade turned a release gate red
+overnight, and five rounds of review lanes exposed thirteen more that no gate
+would have caught — including one round in which every claim put to it fell.
+
+**Every tagged release names the cookbook it was qualified against, and the
+gate asks whether that cookbook can use it (PMAT-241).** paiml/forjar-cookbook
+is where forjar is USED rather than described: gate D validates its configs
+against the built artifact on every dogfood run, and `make dogfood-published
+VERSION=x.y.z` does it against what crates.io serves. Nothing recorded WHICH
+cookbook that was. Measured: the cookbook's master is `7c100454`, dated
+2026-08-29, and TEN `v*` tags went out after it. From `cookbook_floor`
+(v1.29.0) every ledger row names the cookbook commit the release was qualified
+against — `release-goal.sh window` takes it from `git ls-remote` at the moment
+of the cut, so `cut` books it — and gate T refuses a row that names none, names
+a branch instead of a commit, names a commit the cookbook does not carry, or
+names one whose `Cargo.toml` cannot admit the version that shipped. The
+admission test is CARGO's, not `>=`: `forjar = "1.2"` is `>=1.2.0, <2.0.0`, and
+a plain `>=` passes 2.0.0 against it — a false green at exactly the release
+this arm exists to catch. Caret, tilde and exact each get their own ceiling,
+and a version this rule cannot evaluate is refused by name rather than measured
+wrong. If the cookbook cannot use the release, the cookbook is bumped as part
+of the cut.
+
+**A shipped ticket says it shipped (PMAT-236).** Gate T reconciled the ledger
+and the `release:<tag>` labels and neither looked at `status`, so on the day
+1.28.0 shipped the roadmap said none of its work had started: sixteen tickets
+across five releases read `planned` or `inprogress` while their labels were
+correct, and no gate went red. The new arm checks every ticket a tagged row
+names and every ticket merged since the newest tag, and it fired on PMAT-232
+the moment it existed — the drift recurring within a day of the backfill
+(PMAT-235).
+
+**Gate R's verdict says what is pending, and why (PMAT-234).** After every
+successful release gate R printed `PASS pre-tag … PENDING until the tag is cut`
+about a version that was tagged, published, on crates.io and rendered on
+docs.rs, because one flat `pending` string could not tell "the tag does not
+exist" from "no cut is in flight". The notes are two sets now, either verdict
+reports the other as `also pending`, and the one remaining note reports whether
+the crux document exists as a MEASUREMENT rather than asserting it is missing —
+which it was doing while the file sat there at 13KB.
+
+**A PR runs what its change can break; the release still runs everything
+(PMAT-237).** One PR cost about 131 job-minutes on a fleet of twenty runners
+shared with every other paiml repository, and eight of the ten most recently
+merged PRs touched no `src/` at all. `scripts/ci/changed-class.sh` is an
+ALLOW-LIST of the harmless — an unclassified path, an unreadable diff and an
+empty list are all code — and the heavy jobs are gated on it. `ci / gate` and
+the proofs aggregator refuse a skip when the class says code and refuse an
+unmeasured class, and `--no-renames` keeps a rename out of `src/` visible as a
+deletion. Coverage is deliberately NOT gated: the 95% line floor is a property
+of the repository, not of one diff. The honest saving is three PRs in ten
+skipping seven jobs, 70% of the minutes for each.
+
+**The release workflow stops assuming it owns `/tmp` (PMAT-230).** Both
+`gh release download` calls now pass `--clobber` and the two other fixed `/tmp`
+paths are cleared before use. On a non-ephemeral self-hosted runner the
+previous release's files were still there, and the download failed rather than
+overwriting them — measured by a release that could not finish.
+
+**`publish-release` publishes a draft whoever created it (PMAT-232).** The step
+read the release state and un-drafted only a release it had created itself, so
+a release created by another job stayed invisible to everyone but its author.
+It now reads the state, publishes, and asserts `draft=false` unconditionally
+with an error rather than a warning.
+
+**The status line renders what it can, and a census note is a diagnostic
+(PMAT-228, PMAT-229).** A note about the ticket census was written to stdout
+and parsed as data; it goes to stderr. And when the merged count cannot be
+measured, the status line renders the goal with `merged=UNMEASURED` and exits
+2 rather than printing nothing — an unmeasured number is its own answer.
+
+**Three pipelines could take SIGPIPE and call a readable registry UNMEASURED
+(PMAT-239).** `printf | grep -q` and `git tag | head -1` under `set -o
+pipefail` return 141, and gate T reported `grep exited 141 … UNMEASURED` on
+about one run in three. The three in the release-goal scripts are one process
+each now, a rule refuses the pattern in the files this work owns, and a census
+of eighteen further sites elsewhere is committed as PMAT-240.
+
+**The verdict line counts tickets and PRs separately (PMAT-238).** It said
+"8 of 7 PR(s)" because one PR carried two tickets.
+
+**Gate B records what pmat 3.40's six new checks measure, and refuses growth
+(PMAT-521).** Gate B was green when 1.28.0 was cut and red on main the next
+day: pmat 3.40 put six checks in the comply roster this repository has never
+satisfied. What each reports, as a FINDING COUNT and not a ceiling: CB-2110,
+49 specifications with no front-matter; CB-2111, the same 49 unjudgeable
+because of it; CB-2112, 34 (24 items with no GitHub issue, 10 whose id does not
+match their issue); CB-2114, 34 with no release binding; CB-2115, 43
+disagreements between the roadmap and GitHub. Not one is a regression from any ticket in this window. The
+doctrine forbids a skip, so `scripts/ratchets/cb21xx-baseline.json` records a
+ceiling per check with the instrument that produced it, Arm 1 exempts exactly
+those five ids and Arm 7 enforces the ceilings from the same comply run Arm 1
+made. A check exempt but not ratcheted, a check that has left the roster, a
+second entry under one id and a count the message does not carry are each
+UNMEASURED and red BY NAME. **The convention that stops it being a treadmill
+was measured, not assumed**: from here a ticket's GitHub issue is created first
+and the roadmap id's tail IS the issue number, the issue goes on the release
+milestone, and `release:` is the bare version string. Two tickets were minted
+for this release under those rules and no count grew; one fell.
+
+**A ratchet measurement cannot eat the machine (PMAT-522).** The script that
+measures a comply check runs `pmat comply check`, and `pmat comply check` runs
+every measurement command declared in `.pmat-ratchet.toml`. Declaring one is a
+cycle by construction, and doing so took a 48-core machine from idle to **9,740
+processes and a load average of 3,026** in minutes. Three things close it: a
+sentinel that refuses the re-entry with exit 3 and prints NO count, because a
+`0` there is read as the check reporting no findings; a process cap measured in
+THREADS, because `ulimit -u` is per-user and counts threads — a fixed cap and a
+process-derived one each killed the script's own fork on a host at 226
+processes and 2,352 threads — which FAILS CLOSED when it cannot be established;
+and a test refusing any committed ratchet config that names the script.
+
+**The 1.28.0 release record (PMAT-231, PMAT-227, PMAT-235).** The ledger row
+booked from the tag, the open goal moved to v1.29.0, the sixteen drifted
+statuses backfilled, and the three defects shipping 1.28.0 exposed written
+down rather than remembered.
+
 ## [1.28.0] - 2026-09-10
 
 The first cut under the two-day cadence `docs/roadmaps/releases.yaml` declares

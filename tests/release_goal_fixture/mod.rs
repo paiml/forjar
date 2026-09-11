@@ -102,6 +102,10 @@ pub(crate) struct Case {
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
     pub(crate) shipped_branch: &'static str,
+    /// The `CHANGELOG.md` the fixture commits, or none. T9 reads the section
+    /// for `version` and joins any "<N> PRs across <M> tickets" claim in it
+    /// against the measured window (PMAT-520).
+    pub(crate) changelog: &'static str,
     /// The world BEFORE the cut is booked: v0.0.1 exists and the ledger still
     /// says next is v0.0.1 (due = v0.0.0's cut + cadence) with no rows.
     pub(crate) pre_cut: bool,
@@ -123,6 +127,7 @@ impl Default for Case {
             cookbook: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
+            changelog: "",
             pre_cut: false,
         }
     }
@@ -331,6 +336,9 @@ pub(crate) fn fixture(case: Case) -> Fixture {
             case.version
         ),
     );
+    if !case.changelog.is_empty() {
+        write(&root, "CHANGELOG.md", case.changelog);
+    }
     if case.receipts {
         write(
             &root,
