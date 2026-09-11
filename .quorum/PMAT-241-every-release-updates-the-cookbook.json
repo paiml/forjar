@@ -1,0 +1,138 @@
+{
+ "kind": "code",
+ "issue": "PMAT-241 — every tagged release names the paiml/forjar-cookbook commit it was qualified against, and the gate asks whether that cookbook can actually USE the version that shipped. The cookbook is where forjar is USED rather than described: gate D validates its configs against the built artifact and `make dogfood-published VERSION=` does it against what crates.io serves. Nothing recorded WHICH cookbook that was. Measured: the cookbook's master is 7c100454, dated 2026-08-29T15:05:21Z, and ten v* tags have been cut since. From cookbook_floor (v1.29.0) every ledger row names the commit, release-goal.sh window takes it from git ls-remote at the moment of the cut so `cut` books it, and gate T refuses a row that names none, names a branch, names a commit the cookbook does not carry, or names one whose Cargo.toml cannot admit the released version under CARGO's rule rather than under `>=`.",
+ "branch": "PMAT-241-every-release-updates-the-cookbook",
+ "base": "f98b388d",
+ "base_commit": "f98b388d751275f691ca9fa3f44f517c9928d0f0",
+ "diff_sha256": "2b42334b1bba6228944de2a9d2ae4b89c9eb76cb",
+ "recorded_at": "after both rounds, the eight refutations, and the re-run of every one of them",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-756b15d5)",
+   "lane 2 (conv-ecf29dee)",
+   "lane 3 (conv-c3a9cae0)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "two rounds of three sandboxed agy quorum lanes, both 3/3 FAIL. Round one reviewed the design (the cookbook: field, the sed parser, dogfood_semver_ge as the admission test) and refuted five claims. Round two reviewed the implementation at 9f25f006 with the base pinned at f98b388d and --not-before set to the dispatch instant, so a stale lane set from another ticket cannot be reduced into this one; all three lanes returned, exits 0/0/0, and all three summaries read C1 REFUTED, C2 REFUTED, C3 REFUTED, C4 CONFIRMED(N=10), C5 CONFIRMED. The repository was verified clean afterwards: only the orchestrator's own untracked logs, HEAD still on the dispatch commit.",
+  "kill_rule": "the brief fixed the ORDER of the attack rather than asking for a review: find an input where the rule disagrees with real Cargo (checking against cargo or the semver crate in the lane's OWN temp dir); find a real Cargo.toml shape the parser silently misreads, with seven candidates named; attack the test's own extraction in BOTH directions; verify the ten-tag count from the repository's tags; check containment. Four of the five produced findings, and the one that mattered most is the one the ticket had not thought to ask — that the operator is half of what a requirement means. Every refutation was re-run by the orchestrator before it was acted on; the unanimity is the reason, not a substitute for it.",
+  "claims_confirmed": 2,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "That `sort -V` is the right predicate for a Cargo requirement — measured before the lanes said it and then by all three: `dogfood_semver_ge v2.0.0 v1.2` is true, a false green at exactly the release this arm exists to catch.",
+   "That stripping ^, ~ and = and evaluating the remainder as a caret reads the requirement — Cargo reads ~1.2 as <1.3.0 and =1.2.3 as exactly 1.2.3, so reading an operator as a caret is always WIDER than Cargo, which is the false-green direction.",
+   "That the parser reads the requirement — `forjar = \"1.2\" # version = \"2.0\"` measured 2.0, the pattern matching inside the trailing comment.",
+   "That the versions reaching the rule are versions — $((10#3-9 + 1)) is -5, 0.0.3.4 was read as 0.0.3, 01.0.0 was evaluated, a pre-release sorts ABOVE its release under sort -V, and the RELEASED version was never checked at all.",
+   "That the rule's test measures the shipped function — it sliced the function out with sed, which fails in both directions: one extra space before the parens makes it red while the gate is fine, and a function inside a string literal makes it green while the gate is broken.",
+   "That the first requirement regex could read what Cargo writes — it could not read ^1.2 at all and said 'declares no forjar version requirement', which is a false statement about the cookbook rather than a miss.",
+   "That a [dev-dependencies] entry is not read as the dependency — the first parser ignored sections entirely.",
+   "That 'four tags went out' and that CLAUDE.md carried the bump clause — the count is ten, and only SKILL.md carried it."
+  ],
+  "lane_errors": [
+   "The delegate stopped at its 30-turn limit while summarising, after all three lanes had completed and reduce.json was written. The lane JSON was read directly rather than resuming for a summary of output already on disk.",
+   "Two of the three lanes measured the ten-tag count by comparing ISO strings whose offsets were +02:00 against a threshold written in Z. They got the right answer for a reason that would not survive a tag cut in another timezone; the orchestrator re-measured it in seconds."
+  ]
+ },
+ "falsification": {
+  "test": "the_requirement_rule_is_cargos_rule drives dogfood_req_admits over 35 rows across caret, tilde and exact, including every input a lane broke the old rule with; the_operator_reaches_the_rule_and_a_comment_does_not drives the whole arm with a tilde, an exact requirement, a trailing comment and a pre-release; a_cookbook_that_cannot_build_against_the_release_is_red and the_cookbook_requirement_is_read_the_way_cargo_writes_it drive the parser and the ceiling; four more cases drive the field itself and the floor",
+  "test_file": "tests/falsification_release_cookbook_is_part_of_the_release.rs",
+  "cargo_test_target": "falsification_release_cookbook_is_part_of_the_release",
+  "reverted": "scripts/dogfood/tagged.sh and scripts/dogfood/lib/releases.sh checked out at 9f25f006 (the commit before the lane fixes) over this branch's tests, then restored from fb169574; and separately at cc6c0231 for the first round's proof",
+  "observed_failure": "with the scripts at 9f25f006: 6 passed, 2 failed — the rule table (dogfood_req_admits does not exist there, and the guard reports 99 rather than letting `|| return 2` read 127 as 'below the requirement') and the operator/comment case (GATE T FAIL naming forjar 9.9, the version from the trailing comment). 8 passed with them restored. With the scripts at cc6c0231: 4 passed, 3 failed, including 'declares no forjar version requirement' against a ^0.0.1 the cookbook does declare. Both proofs in docs/audits/logs/PMAT-241-lane-findings.log and docs/audits/logs/PMAT-241-caret.log.",
+  "still_green_when_reverted": "the nineteen cases of falsification_release_goals_are_measured and the eighteen of falsification_dogfood_harness_and_quorum, which drive the rest of gate T and gates A and E through the same library, and prove the change is confined to the cookbook arm"
+ },
+ "crux": {
+  "systems": [
+   "Cargo",
+   "Bazel",
+   "Nix",
+   "Debian"
+  ],
+  "verdict": "accept(a release that cannot be consumed by the code that consumes it has not been qualified, and the qualifying consumer must be NAMED by commit rather than assumed to be whatever HEAD happened to be. Cargo itself is the reference for the requirement rule, and reading it approximately is the defect this ticket is mostly about; the crux row for the release will name the others.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "two rounds of three sandboxed agy quorum lanes, review-only, writes=false with the no-write rule stated FIRST, base pinned by SHA and --not-before pinned to the dispatch instant; all three of round two returned (exits 0/0/0) and the repository was verified intact afterwards",
+  "verdict": "3/3 FAIL in both rounds; eight refutations between them, every one re-run by the orchestrator before it was acted on, and every one reproduced",
+  "rounds": 2,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-241",
+  "tools": [
+   "kind-gate.sh",
+   "model-gate.sh",
+   "config-lint.sh",
+   "goal.sh worker (declared the delegate round)",
+   "route.sh",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "bashrs lint",
+   "shellcheck -x",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/dogfood/tagged.sh",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "pmat hooks (pre-commit format, complexity, clippy, SATD)"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "pmat analyze vacuous-tests over the tree: 400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files, and 3 more skip silently when a fixture is missing. None of the eight cases in tests/falsification_release_cookbook_is_part_of_the_release.rs appears, and neither does anything in tests/falsification_release_goals_are_measured.rs or tests/release_goal_fixture/mod.rs. The scan is run over the tree rather than one path because a path argument makes it refuse: it enumerates tracked files for a denominator and a single file has none.",
+  "bashrs": "0 errors on scripts/dogfood/tagged.sh and scripts/dogfood/lib/releases.sh. An earlier revision introduced SC2168 (a `local` declared mid-body) and it was fixed by hoisting the declaration rather than suppressed.",
+  "quality_gate": "8 + 19 + 4 + 18 + 2 green at HEAD; 2 of 8 red against the scripts at 9f25f006 and 3 of 7 red against them at cc6c0231; gate T green against the live repository, exit 0. Nothing under src/ changes, so gate F's mutation arm has no diff to mutate.",
+  "tdg": "825 files analysed, average 93.7, 442 A+ and 276 A."
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/cookbook-release-judges.md",
+  "total_bytes": 17262,
+  "files": [
+   {
+    "path": ".quorum/evidence/cookbook-release-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 3600,
+    "sha256": "758f93b8be672aafa22f9d5044fe3e9a7a92e7185aeb6945c8fd0ce0c618646a",
+    "blob": "7d866edadcde8e2c0dcc7641d20938e792e7e8cf"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-release-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 2669,
+    "sha256": "a256d6c338090c28494bb2661e8c4401d22661cbdc094c1284f9c2e04fb407ae",
+    "blob": "8c5e8e925d80e690016bd3d3c821abc7f169a25b"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-release-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 7814,
+    "sha256": "9f9760c2d1497cc2a74f94f26c39bc0aa0ca18053a033f75e26ca6088b79d3aa",
+    "blob": "bf7cbe8bee71b12e6def608cf5a41324b861faf2"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-release-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1230,
+    "sha256": "f88b55a88693e9ea49fa0e96f10922300964250f017454327a64061a886a33a5",
+    "blob": "f63bc18e64fdcdf2da55c61bff035c1beb4fd15c"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-release-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1949,
+    "sha256": "c4966b878a4118df5fa9ea9930336d2653b91dbe40b1c842616d011592b7c59b",
+    "blob": "00030b9023f655d736a7f8d91c2d91dd19b2a738"
+   }
+  ]
+ }
+}
