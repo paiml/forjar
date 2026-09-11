@@ -63,6 +63,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PMAT-237: what can this change break? The release gate is untouched and
+  # still runs everything; this decides only what a PR pays for what it
+  # changed. The decision is scripts/ci/changed-class.sh, driven in both
+  # directions by tests/falsification_pr_lane_runs_what_the_change_can_break.rs.
+  # PMAT-237 gates the heavy jobs on whether a change can reach them.
+  # COVERAGE IS DELIBERATELY NOT AMONG THEM. The 95% line floor is a standing
+  # property of the repository, not a property of one diff, and the cheapest
+  # way to keep a floor is to measure it every time rather than to reason about
+  # when it could not have moved. Twelve minutes of the ~131 a PR used to cost.
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 45

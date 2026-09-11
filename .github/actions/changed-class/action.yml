@@ -1,0 +1,57 @@
+name: changed-class
+description: >-
+  Decide, from the files a change touches, whether the heavy Rust jobs can
+  possibly be affected by it. One definition, used by every workflow that
+  gates on it, so the workflows cannot drift apart (PMAT-237).
+
+outputs:
+  code:
+    description: >-
+      'true' when the change touches anything that can alter what the Rust
+      toolchain produces or what the test suite asserts, and therefore when
+      every heavy job must run. 'false' only for a change confined to the
+      declared documentation-and-record paths.
+    value: ${{ steps.classify.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Classify the change
+      id: classify
+      shell: bash
+      env:
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+        PUSH_BEFORE: ${{ github.event.before }}
+      run: |
+        set -euo pipefail
+
+        # WHICH BASE. Copied deliberately from the file-health ratchet, whose
+        # comment explains why both obvious answers are wrong: for a PR, the
+        # synthetic merge commit's FIRST PARENT is the base tip it was really
+        # built on, so a PR is never billed for another PR's changes; for a
+        # push, `event.before` is the tip the push moved from, so five commits
+        # pushed at once are all seen.
+        if [ -n "${PR_BASE:-}" ]; then
+          BASE=$(git rev-parse 'HEAD^1' 2>/dev/null || echo "$PR_BASE")
+        else
+          BASE="${PUSH_BEFORE:-}"
+        fi
+        if ! git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1; then
+          BASE=$(git rev-parse 'HEAD~1' 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -1)
+        fi
+        echo "Comparing against $BASE"
+
+        # `--no-renames`: a rename is reported as its NEW path alone, so
+        # moving `src/thing.rs` to `docs/thing.rs` would list one harmless path
+        # while deleting a source file. Splitting it into a delete and an add
+        # makes the deletion visible, and the deletion is code. Found by a
+        # review lane.
+        changed="$(git diff --name-only --no-renames "$BASE"...HEAD)"
+        printf '%s\n' "$changed" | sed 's/^/  /'
+
+        # ONE DECISION, IN ONE PLACE. The classifier is a script so that a
+        # test can drive it with fabricated file lists —
+        # tests/falsification_pr_lane_runs_what_the_change_can_break.rs does,
+        # in both directions — rather than a YAML `if:` no test can reach.
+        printf '%s\n' "$changed" | bash scripts/ci/changed-class.sh >> "$GITHUB_OUTPUT"
+        echo "class:"; tail -1 "$GITHUB_OUTPUT"

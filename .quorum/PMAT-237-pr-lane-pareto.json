@@ -1,0 +1,126 @@
+{
+  "kind": "code",
+  "issue": "PMAT-237 — a PR paid the full release suite even when it touched no code: one PR cost about 131 job-minutes (ledger-replay 34, dogfood 26, benchmark 18, the workspace suite 14, coverage 12) on a fleet of twenty runners shared with every other paiml repository, and eight of the ten most recently merged PRs touched no src/ at all. scripts/ci/changed-class.sh is now the one decision — an allow-list of the harmless, where an unclassified path, an unreadable diff and an empty list are all code — and seven heavy jobs run only when it says the change can reach them. make dogfood-release is untouched: the release gate still runs everything. Coverage is deliberately NOT gated; the 95% floor is a standing property of the repository and is measured on every change.",
+  "branch": "PMAT-237-pr-lane-pareto",
+  "base": "0c1277c6",
+  "base_commit": "0c1277c6bf6f914c4edddd3e93e669ea6239a6b4",
+  "diff_sha256": "5c6137817503b8e80d7cab622db341492ab699cd",
+  "recorded_at": "after the round, the two holes it found, and the narrowing the orchestrator's own measurement forced",
+  "quorum": {
+    "lanes": [
+      "lane 1 (no output)",
+      "lane 2 (returned FAIL)",
+      "lane 3 (wrote to the repository; stopped)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three lanes on 479d8edd with the base pinned at 0c1277c6. ONE returned. One created files inside the operator's working tree and committed them to the working branch while probing a path with a space and a non-ASCII byte (commit 16c2af56 adding docs/ä.md, later docs/space file.md and docs/ünicode.md staged, plus an untracked test); everything was reset, the branch verified back at its own commit, and the remaining lanes stopped. The round is one lane deep and is recorded as such.",
+    "kill_rule": "the round was NOT re-run: a second carried the same risk of a lane writing to the tree, the two findings that mattered were already closed, and the evidence this change rests on is its own thirteen cases and three mutations rather than a lane's opinion. The one returning lane earned the round twice over — it found that a failed classify job skipped every heavy job and passed the gate, and that a rename out of src/ read as a harmless path.",
+    "claims_confirmed": 6,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "The worst outcome the design had: if the classify job fails or is cancelled its output is EMPTY, every heavy job's `if` is false so they all skip, and the gate read an empty class as 'not code' and passed — a change nothing tested would have merged green. Closed: ci.yml's gate checks needs.classify.result and refuses an empty class; proofs.yml's aggregator defaults an absent class to code. Pinned by a_class_that_was_not_measured_is_refused.",
+      "A rename out of the source tree read as harmless: `git diff --name-only` reports a rename as its NEW path alone, so src/thing.rs -> docs/thing.rs listed one harmless path while deleting a source file. Closed with --no-renames, which splits it into a delete and an add; the deletion is code. Pinned by a_rename_cannot_hide_a_deleted_source_file.",
+      "Two claim wordings were wrong: README.md and contracts/** are not 'under the harmless prefixes' (they are separate arms read before them), and six cases drive the classifier rather than nine (the other three pin the wiring). Both corrected in the claim set and the receipt."
+    ],
+    "lane_errors": [
+      "One lane produced no structured output. Another wrote to and committed in the operator's repository, which is the worst thing a review lane can do; it is recorded in the receipt and the evidence rather than left as silence, and the brief for any future round states the rule first and notes that the classifier reads a file list on stdin and needs no files to exist."
+    ]
+  },
+  "falsification": {
+    "test": "thirteen cases: six drive scripts/ci/changed-class.sh with fabricated file lists in both directions (source, tests, manifests, gate scripts, workflows, the record, an unclassified path, an empty list, and the paths that look harmless and are not), three pin the wiring (every gated workflow uses the one action, every heavy job carries the condition, a skip is refused when the change is code), one re-derives the exclusion list from every CARGO_MANIFEST_DIR-joined record path in tests/ and src/, and three pin what the review found (an unmeasured class, a rename, and coverage never being gated)",
+    "test_file": "tests/falsification_pr_lane_runs_what_the_change_can_break.rs",
+    "cargo_test_target": "falsification_pr_lane_runs_what_the_change_can_break",
+    "reverted": "three mutations applied one at a time: the classifier's unclassified arm made harmless; one heavy job's condition removed from ci.yml; the gate's refusal text removed",
+    "observed_failure": "the unclassified arm turns three cases red (an_unclassified_path_is_code, source_and_tests_and_the_manifests_are_code, the_things_that_run_the_gates_are_code); the ungated job turns every_heavy_job_runs_only_when_the_change_can_reach_it red; the removed refusal turns a_skip_is_refused_when_the_change_is_code red. All thirteen green with the tree restored (docs/audits/logs/PMAT-237-class-census.log).",
+    "still_green_when_reverted": "the rest of the suite, which is what proves each mutation is caught by the rule that owns it rather than by a blanket failure"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/pr-lane-judges.md",
+    "total_bytes": 13895,
+    "files": [
+      {
+        "path": ".quorum/evidence/pr-lane-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2537,
+        "sha256": "e2ac1b0794849cd8ea65ff12530ba6385add7ad712ae93073877a40f4fb99ccf",
+        "blob": "85470b137759cf6f51fd01efd9d13c64b245ef90"
+      },
+      {
+        "path": ".quorum/evidence/pr-lane-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2041,
+        "sha256": "d69afd13015b3ef8dcc98e1e7d2794b4b0879a299ed635e3b21119090b388d81",
+        "blob": "c8f8a75222ecb24bf58351836804c9c8764ee72a"
+      },
+      {
+        "path": ".quorum/evidence/pr-lane-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6091,
+        "sha256": "18f8bb5413d8750eeb7e17eb79bb8412e5fd32d81a0d32426fda96a02fc79803",
+        "blob": "dd727391d768965523c4f7d8295984357e8630a7"
+      },
+      {
+        "path": ".quorum/evidence/pr-lane-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1439,
+        "sha256": "9dce24c4475dad70d0c250d4ca887efc3079e025e4a54d8da703e3b857e58062",
+        "blob": "08a740116ded33c11ed8a749ee3b637b53827dc1"
+      },
+      {
+        "path": ".quorum/evidence/pr-lane-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1787,
+        "sha256": "6094667c1c344e9c7cdac03d1751676de1b17eb419a3ffd7e09c797dbe801e47",
+        "blob": "645f0c86db818636911a87f2a03380a0df5b8b4d"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Kubernetes",
+      "Bazel",
+      "Nix",
+      "Chef"
+    ],
+    "verdict": "accept(all four decide what to run from what changed, and three of them do it by construction rather than by a list. Bazel's action graph rebuilds exactly the targets whose declared inputs changed, so the question this ticket answers by hand is answered there by the build system [X]; Nix reaches the same place through input-addressed derivations [X]; Kubernetes' prow selects test jobs with run_if_changed / skip_if_only_changed path predicates written per job, which is a hand-maintained list of the same kind as this one [X]; Chef's Expeditor skips by label, the weakest form, because a label is applied by a person [X]. forjar has no dependency graph over its gates, so the Kubernetes shape is the available one — and the difference that matters is the direction of failure: prow's predicates name what to RUN, this names what is harmless and treats everything else as code. A list that fails open is the one thing this repository's doctrine cannot accept, and a rule that re-derives the exclusions from the tree is the cheapest way to keep the list honest as the suite grows.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three lanes dispatched, one returned, one wrote to the repository and was stopped, one returned nothing; review-only, base pinned by SHA, writes=false in the brief and violated by one lane",
+    "verdict": "one lane deep; two real holes found and closed; the round is recorded as it happened rather than as a quorum"
+  },
+  "pmat": {
+    "ticket": "PMAT-237",
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared the round)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat work add",
+      "scripts/release-goal.sh tag",
+      "cargo test",
+      "cargo llvm-cov --fail-under-lines 95",
+      "actionlint",
+      "bashrs lint",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests",
+      "gh run view / gh pr view (the measurement)"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 43 of 4728 tests examined flagged tree-wide; 0 in the touched test file.",
+    "quality_gate": "13 cases green; three mutations each red for their own rule; actionlint's finding set identical to main's (22 both sides); all four edited workflows parse; bashrs 0 errors on the classifier; and the 95% floor measured on this branch at 95.69% lines with cargo llvm-cov --fail-under-lines 95 exit 0. Nothing under src/ changes.",
+    "limit": "the round is one lane deep and one lane damaged the tree; the 95.69% margin is narrower than the 96.45% measured at the 1.28.0 cut; a PR can edit the classifier and its own classify job runs the edited copy, which is the same-repo trust model stated rather than solved; and the saving is three PRs in ten today, which grows with the record and shrinks if more tests read record paths — the self-deriving rule is what makes that visible."
+  }
+}

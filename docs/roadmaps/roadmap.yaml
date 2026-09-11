@@ -3521,3 +3521,28 @@ roadmap:
   - kind:code
   - release:v1.29.0
   notes: 'Found by the PMAT-235 sync: 16 tickets across five releases (v1.25.2 through the open v1.29.0 window) carried a correct release:<tag> label and an untouched status of planned or inprogress, and no gate anywhere went red for it. Gate T checks the label in both directions and never looks at the status, so the roadmap said none of the 1.28.0 work had started on the day it shipped. The label is the link a release needs; the status is what a person reads.'
+- id: PMAT-237
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'a PR pays the full release suite even when it touches no code: 8 of the last 10 merged PRs changed no src/ and each still spent ~131 job-minutes on ledger-replay, dogfood, bench, coverage and the workspace tests'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T08:37:16Z
+  updated: 2026-09-11T08:42:36Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/ci/changed-class.sh is the ONE decision: it reads a file list and prints code=true|false, is an allow-list of the harmless rather than a deny-list of the heavy, and treats an unclassified path, an unreadable diff and README.md / docs/audits/surface_audit.csv / contracts/** as code'
+  - 'tests/falsification_pr_lane_runs_what_the_change_can_break.rs drives that script with fabricated file lists in both directions, and is red under the registered mutation (the unclassified arm made harmless)'
+  - 'the five heavy jobs — ci, dogfood, examples-validate, no-default-features, doctests in ci.yml, ledger-replay in proofs.yml, coverage, benchmark — run only when the class says code, and ci.yml''s gate and proofs.yml''s aggregator each REFUSE a skip when the class says code, so a saving cannot become a hole'
+  - 'the class is computed by one composite action that calls the one script, and a rule asserts every gated workflow uses it'
+  - 'make dogfood-release is untouched: the release gate still runs everything'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:state — measured 2026-09-11 on the ten most recently merged PRs: EIGHT touched no src/ at all, and every one still paid about 131 job-minutes — ledger-replay 34, dogfood 26, bench 18, the workspace suite 14, coverage 12, ci/lint 7, ci/coverage 7, examples-validate 6. The critical path was about 50 minutes per PR on a fleet of 20 runners shared with every other paiml repository, which is why a docs-only booking PR waited ninety minutes for a runner during the v1.28.0 release. The release gate is not touched and still runs everything; what changes is what a PR pays for what it changed. The allow-list direction is the whole safety argument: being wrong costs forty minutes of CI one way and ships untested code the other, and those are not the same mistake.'
