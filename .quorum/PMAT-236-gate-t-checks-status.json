@@ -16,7 +16,7 @@
     "refuters_per_claim": 3,
     "rounds": "one round of three sandboxed lanes on 7faabf52 with the base pinned at cc339449: 3/3 FAIL, all three returning, and the repository intact afterwards — the previous round's brief put the no-write rule at the end and a lane created branches in the working tree and left HEAD on one; this brief opened with that incident.",
     "kill_rule": "the brief fixed the ORDER of the attack — the ref the statuses are read at, then the SIGPIPE class across the whole of scripts/ rather than the one instance, then whether ten runs can distinguish a fix from luck — and each of those three produced a finding. The one that mattered most is the one the ticket had not thought to ask: the class, not the instance. Every refutation was re-run before it was acted on, and the one that does not reproduce is recorded as a lane error rather than dropped.",
-    "claims_confirmed": 8,
+    "claims_confirmed": 7,
     "claims_refuted": 3,
     "refuted_claims": [
       "That no pipeline in these scripts can return 141 — refuted 3/3 and right three times over: `git tag … | head -1` in dogfood_prev_tag, and `git tag … | grep -v … | head -1` in both tagged.sh and release-goal.sh. All three are one capture plus one awk or a parameter expansion now. The same grep found a NINETEENTH site this branch had just introduced (grep | head -1 | cut in the new status reader, one line from the defect being fixed), now one awk. Eighteen further sites elsewhere are filed as PMAT-240 with the census committed.",
