@@ -11,8 +11,9 @@ Error: Invalid transition: Planned → Completed. See work-dbc-v1.yaml §work_li
 $ pmat work edit <id> -s inprogress && pmat work edit <id> -s completed   ->  status: completed
 
 == what the tool changed, classified over the whole file
-   16 status, 16 updated, 14 top-level 'kind:' fields dropped, 29 list items requoted, 2 notes requoted; 183 rows in, 183 rows out
+   16 status, 16 updated, 14 top-level 'kind:' fields dropped, 29 list items requoted, 2 notes requoted
    semantic diffs outside status/updated/kind: 0
+   rows: 184 before, 186 after — PMAT-235 and PMAT-236 minted here; no row lost
    every dropped kind: field is duplicated by a kind:* label: True
    release label census unchanged: v1.25.0=1 v1.25.2=2 v1.26.0=9 v1.27.0=4 v1.28.0=10 v1.29.0=10
 

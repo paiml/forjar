@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-235 — the roadmap's status field says what shipped
 
-verdict: PASS — 16 tickets that a tagged release or a merged PR names read `planned` or `inprogress`; all 16 now read `completed`, moved with `pmat work edit` through the lifecycle the tool enforces, never by editing the YAML. Measured over the whole file: 16 status changes, 16 `updated` bumps, 14 top-level `kind:` fields the tool drops, 29 list items and 2 notes requoted, 183 rows in and 183 out, and **zero semantic diffs outside status, updated and kind**. Every dropped `kind:` field is duplicated by the `kind:*` label `kind-gate.sh` reads first, and every `release:<tag>` label is intact. `pmat work validate` passes and gate T is green. Filed: PMAT-236, the gate arm that would have caught this.
+verdict: PASS — 16 tickets that a tagged release or a merged PR names read `planned` or `inprogress`; all 16 now read `completed`, moved with `pmat work edit` through the lifecycle the tool enforces, never by editing the YAML. Measured over the whole file: 16 status changes, 16 `updated` bumps, 14 top-level `kind:` fields the tool drops, 29 list items and 2 notes requoted, **184 rows in and 186 out — the two added are PMAT-235 and PMAT-236, minted here — with no row lost and no other row's meaning changed**. Every dropped `kind:` field is duplicated by the `kind:*` label `kind-gate.sh` reads first, and every `release:<tag>` label is intact. `pmat work validate` passes and gate T is green. Filed: PMAT-236, the gate arm that would have caught this.
 
 orch_model: opus [A]   orch_class: triage   orch_decision: admit   orch_basis: state
 fable_binding: false   quota_age_h: absent   quota_mark: ?   k_measured_at_set: refused(R-5)
@@ -31,6 +31,12 @@ Gate T checks the `release:<tag>` label in both directions and never looks at `s
 `pmat work edit <id> -s completed` **refuses** a `planned` ticket: `Invalid transition: Planned → Completed. See work-dbc-v1.yaml §work_lifecycle`. The legal path is `-s inprogress` then `-s completed`, and that is what every ticket took. The refusal is the tool doing its job and it is recorded rather than worked around.
 
 The edit drops any top-level field it does not know, which cost 14 rows their `kind:` field — the behaviour this repository had already measured on a different field. It is not a loss here: all 14 carry the matching `kind:*` label, and `kind-gate.sh` reads `label-kind` before the field. Checked explicitly rather than assumed.
+
+## What the review corrected
+
+All three lanes refuted the row count. The receipt's first draft said "183 rows in and 183 out", which was true of the measurement I took — and I took it before minting PMAT-235 and PMAT-236, so it described an intermediate tree and not the commit. The real figures are 184 rows before and 186 after, the two added being the tickets this branch files. My own count also used a `PMAT-` regex and so missed the one row whose id does not start with `PMAT-`.
+
+The correction matters more than the digits: a receipt that measures the tree at one moment and describes the commit at another is not measuring the commit, and the only reason it was caught is that three lanes parsed both versions of the file instead of reading the receipt back to itself.
 
 ## Gaps, named
 
