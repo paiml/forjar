@@ -38,8 +38,10 @@ and one did not.
      on the rail. **This became FALSE afterwards**, by this branch's own later
      work: fixing the ratchet's ceilings brought
      `scripts/ratchets/cb21xx-baseline.json` into the diff, which is off the
-     rail, so the receipt is `kind: code` with a falsification. Recorded rather
-     than left, because a confirmation that expired is not a confirmation.
+     rail, so the receipt is `kind: code` with a falsification —
+     tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1, which is the
+     arm that file brought with it. Recorded rather than left, because a
+     confirmation that expired is not a confirmation.
 
 ## REFUTED
 
@@ -54,7 +56,10 @@ and one did not.
    - corrected: PMAT-233's label removed; PMAT-240 corrected to `planned`. Both
      gates filed — PMAT-529 (#529) for the labelling, PMAT-528 (#528) for the
      status asymmetry — rather than patched here, because each has a judgement
-     in it that a booking PR is the wrong place to make.
+     in it that a booking PR is the wrong place to make. What this branch DID
+     make mechanical is the consequence: correcting the status pushed two
+     ceilings up, and tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1
+     now refuses a ceiling that rises without a written reason.
 
 2. [status] That `status: completed` on PMAT-240 was true.
    - evidence: refuted 2/3 and it reproduces hard. Thirteen pipelines of its
@@ -66,6 +71,10 @@ and one did not.
      `Completed -> Planned` and `Completed -> InProgress`. A lifecycle rule that
      keeps a false `completed` in the record is the wrong rule for this case.
      The row now has issue #530 and a release binding, neither of which it had.
+   - corrected: and the ceiling the correction moved is now guarded.
+     tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1 drives six
+     outcomes, including the one this branch is: a raise WITH a reason passes
+     and says so, because a silent allow makes the reason decorative.
 
 3. [stale] That no sentence in the record is checkable and false.
    - evidence: refuted 2/3. PMAT-520's acceptance criteria said "ten behaviour
