@@ -1,0 +1,24 @@
+### RED — the lanes' inputs against the gate as it was at 9f25f006
+test the_requirement_rule_is_cargos_rule ... FAILED
+test a_cookbook_field_that_is_not_a_commit_sha_is_red ... ok
+test a_cookbook_commit_that_cannot_be_read_is_unmeasured_and_red ... ok
+test a_release_at_the_cookbook_floor_without_its_cookbook_commit_is_red ... ok
+test a_release_below_the_cookbook_floor_is_not_asked_for_one ... ok
+test the_operator_reaches_the_rule_and_a_comment_does_not ... FAILED
+test the_cookbook_requirement_is_read_the_way_cargo_writes_it ... ok
+test a_cookbook_that_cannot_build_against_the_release_is_red ... ok
+assertion `left == right` failed: dogfood_req_admits 1.29.0 ^1.2 exited 99, wanted 0:
+assertion `left == right` failed: the requirement is 0.0.1, not the 9.9 in the comment; the gate exited 1:
+GATE T FAIL v0.0.1: the cookbook at 0123456789abcdef0123456789abcdef01234567 requires forjar 9.9, which 0.0.1 is older than — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut
+test result: FAILED. 6 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.74s
+
+### GREEN — the same cases at fb169574, with every refutation fixed
+test the_requirement_rule_is_cargos_rule ... ok
+test a_release_at_the_cookbook_floor_without_its_cookbook_commit_is_red ... ok
+test a_cookbook_commit_that_cannot_be_read_is_unmeasured_and_red ... ok
+test a_cookbook_field_that_is_not_a_commit_sha_is_red ... ok
+test a_release_below_the_cookbook_floor_is_not_asked_for_one ... ok
+test the_cookbook_requirement_is_read_the_way_cargo_writes_it ... ok
+test the_operator_reaches_the_rule_and_a_comment_does_not ... ok
+test a_cookbook_that_cannot_build_against_the_release_is_red ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.76s

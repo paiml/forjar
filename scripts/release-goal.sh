@@ -144,8 +144,9 @@ window_prs() {
 # PMAT-225 quorum refuted a `window` that omitted them — its output and the
 # ledger's rows were not the same text).
 cmd_window() {
-  local tag="${1:-}" lower upper cutline receipts=""
+  local tag="${1:-}" lower upper cutline receipts="" cookbook_floor cookbook=""
   dogfood_load_releases
+  dogfood_releases_field '.cookbook_floor // ""'; cookbook_floor="$DOGFOOD_FIELD"
   dogfood_releases_field '.dogfood_floor'
   if [ -n "$tag" ]; then
     git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || fail "no such tag: ${tag}"
@@ -154,6 +155,18 @@ cmd_window() {
     if dogfood_semver_ge "$tag" "$DOGFOOD_FIELD"; then
       receipts="    dogfood: docs/audits/dogfood-${tag#v}-receipt.md
     crux: docs/audits/crux-${tag#v}.md"
+    fi
+    # PMAT-241: the cookbook commit this release was qualified against. Taken
+    # from the cookbook's canonical branch at the moment of the cut, because
+    # that is what `make dogfood-published VERSION=` will have run gates C and
+    # D against. A branch name would move; a sha does not.
+    if [ -n "$cookbook_floor" ] && dogfood_semver_ge "$tag" "$cookbook_floor"; then
+      local ls rc2=0
+      ls="$(git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master)" || rc2=$?
+      if [ "$rc2" -ne 0 ] || [ -z "$ls" ]; then
+        fail "git ls-remote on paiml/forjar-cookbook exited ${rc2}: the cookbook commit this release is qualified against cannot be read, and an unread one must not be written down"
+      fi
+      cookbook="    cookbook: ${ls%%[[:space:]]*}"
     fi
   else
     dogfood_prev_tag; lower="$DOGFOOD_PREV_TAG"; upper="HEAD"
@@ -168,6 +181,7 @@ cmd_window() {
   echo "    prs: [${PRS}]"
   echo "    tickets: [$(printf '%s' "$TICKETS" | sed 's/ /, /g')]"
   [ -z "$receipts" ] || echo "$receipts"
+  [ -z "$cookbook" ] || echo "$cookbook"
   [ -z "$STRAYS" ] || echo "    # stray ids (no row, no alias): ${STRAYS}"
   [ -z "$UNTICKETED" ] || echo "    # PRs naming no roadmap ticket: ${UNTICKETED}"
 }

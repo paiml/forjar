@@ -93,6 +93,11 @@ pub(crate) struct Case {
     pub(crate) dogfood_floor: &'static str,
     /// Whether the dogfood receipt and crux document exist at HEAD.
     pub(crate) receipts: bool,
+    /// The `cookbook_floor:` the ledger declares; empty declares none, which
+    /// is the state of every release before v1.29.0 (PMAT-241).
+    pub(crate) cookbook_floor: &'static str,
+    /// The `cookbook:` the floor's row declares; empty writes no such field.
+    pub(crate) cookbook: &'static str,
     /// The version Cargo.toml carries at HEAD.
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
@@ -114,6 +119,8 @@ impl Default for Case {
             due_skew: 0,
             dogfood_floor: FLOOR,
             receipts: true,
+            cookbook_floor: "",
+            cookbook: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
             pre_cut: false,
@@ -125,15 +132,57 @@ pub(crate) struct Fixture {
     pub(crate) _dir: tempfile::TempDir,
     pub(crate) root: PathBuf,
     pub(crate) gh: String,
+    /// The PR list the stub answers with, kept so a case that re-stubs `gh`
+    /// to answer a cookbook contents request keeps the SAME window. A case
+    /// that rebuilt the JSON by hand dropped the open window's PR and went red
+    /// for a reason it was not about.
+    pub(crate) prs: String,
     /// The floor tag's creation instant, as seconds.
     pub(crate) cut: i64,
 }
 
 pub(crate) fn stub_gh(dir: &Path, json: &str) -> String {
+    stub_gh_with_cookbook(dir, json, "")
+}
+
+/// The stub, and what it answers a cookbook contents request with (PMAT-241).
+///
+/// `cargo_toml` is the cookbook's `Cargo.toml` as the gate would receive it:
+/// the stub returns it base64-encoded under `.content`, the way the GitHub
+/// contents API does, so a case can drive the requirement parser and the caret
+/// comparison. Empty means the stub cannot answer, which is what an
+/// unreachable GitHub looks like and is a case of its own.
+pub(crate) fn stub_gh_with_cookbook(dir: &Path, json: &str, cargo_toml: &str) -> String {
     let p = dir.join("gh");
+    let contents = if cargo_toml.is_empty() {
+        String::from("      echo '{}'\n      exit 0\n")
+    } else {
+        let mut b64 = String::new();
+        let bytes = cargo_toml.as_bytes();
+        const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for c in bytes.chunks(3) {
+            let b = [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0)];
+            let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+            b64.push(A[(n >> 18 & 63) as usize] as char);
+            b64.push(A[(n >> 12 & 63) as usize] as char);
+            b64.push(if c.len() > 1 {
+                A[(n >> 6 & 63) as usize] as char
+            } else {
+                '='
+            });
+            b64.push(if c.len() > 2 {
+                A[(n & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        format!("      printf '%s' '{b64}'\n      exit 0\n")
+    };
     std::fs::write(
         &p,
-        format!("#!/usr/bin/env bash\ncat <<'FIXTURE_JSON'\n{json}\nFIXTURE_JSON\n"),
+        format!(
+            "#!/usr/bin/env bash\n             if [ \"${{1:-}}\" = api ]; then\n             {contents}             fi\n             cat <<'FIXTURE_JSON'\n{json}\nFIXTURE_JSON\n"
+        ),
     )
     .expect("write stub");
     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).expect("chmod");
@@ -151,6 +200,24 @@ pub(crate) fn iso(epoch: i64) -> String {
 /// v0.0.0 (below the floor) -> PR #10 -> v0.0.1 (the floor) -> PR #11 (the
 /// open window) -> the declaration commit. Tags are annotated and pushed to a
 /// bare origin, so their creation instant is the tagger date, as forjar's are.
+/// `cookbook_floor: <tag>\n`, or nothing when the case declares none.
+fn cookbook_floor_line(case: &Case) -> String {
+    if case.cookbook_floor.is_empty() {
+        String::new()
+    } else {
+        format!("cookbook_floor: {}\n", case.cookbook_floor)
+    }
+}
+
+/// `    cookbook: <sha>\n` on the floor's row, or nothing.
+fn cookbook_row_line(case: &Case) -> String {
+    if case.cookbook.is_empty() {
+        String::new()
+    } else {
+        format!("    cookbook: {}\n", case.cookbook)
+    }
+}
+
 pub(crate) fn fixture(case: Case) -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("repo");
@@ -234,14 +301,15 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     let due = iso(cut + 2 * 86400 + case.due_skew);
     let mut ledger = if case.pre_cut {
         format!(
-            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
             case.dogfood_floor,
+            cookbook_floor_line(&case),
             iso(base_cut + 2 * 86400)
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n",
-        case.dogfood_floor, case.declared_prs
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {
@@ -284,6 +352,7 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         _dir: dir,
         root,
         gh,
+        prs: json,
         cut,
     }
 }
@@ -355,6 +424,12 @@ pub(crate) fn run(fx: &Fixture, after_cut: i64) -> Run {
 pub(crate) const AN_HOUR: i64 = 3600;
 
 impl Fixture {
+    /// Answer the cookbook's `Cargo.toml` with `cargo_toml`, keeping the
+    /// window this fixture already declared (PMAT-241).
+    pub(crate) fn cookbook_manifest(&mut self, cargo_toml: &str) {
+        self.gh = stub_gh_with_cookbook(self._dir.path(), &self.prs.clone(), cargo_toml);
+    }
+
     pub(crate) fn assert_committed(&self, rel: &str) {
         let out = git(&self.root, &["cat-file", "-e", &format!("HEAD:{rel}")]);
         assert!(out.status.success(), "{rel} must be at HEAD");

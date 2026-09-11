@@ -167,6 +167,107 @@ labels_of_release() {
   done
 }
 
+# T8 (PMAT-241): the cookbook moved with the release.
+#
+# The cookbook is where forjar is USED rather than described: gate D validates
+# every one of its configs against the built artifact, and `make
+# dogfood-published VERSION=x.y.z` does it against what crates.io actually
+# serves. Nothing recorded WHICH cookbook that was, and paiml/forjar-cookbook's
+# master had not moved since 2026-08-29 — four releases — while four tags went
+# out claiming to be dogfooded against it.
+#
+# The row names the commit; this checks that the commit exists on the cookbook
+# and that its Cargo.toml admits the version that shipped. A release whose
+# cookbook cannot build against it is a release the cookbook does not describe.
+cookbook_of_release() {
+  local row="$1" tag="$2" ver="$3" sha rc=0 crc=0 body raw op req
+  sha="$(printf '%s' "$row" | jq -r '.cookbook // ""')"
+  if [ -z "$sha" ]; then
+    fail "${tag} is at or above cookbook_floor and its row names no cookbook: commit — nothing records which paiml/forjar-cookbook the release was qualified against (take it from \`git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master\` when the cut is made)"
+  fi
+  case "$sha" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+    *) fail "${tag}: cookbook: \"${sha}\" is not a commit sha — the field names the cookbook commit the release was qualified against, not a branch or a tag, because a branch moves and this must not" ;;
+  esac
+  body="$("$GH" api "repos/paiml/forjar-cookbook/contents/Cargo.toml?ref=${sha}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)" || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$body" ]; then
+    fail "${tag}: paiml/forjar-cookbook has no readable Cargo.toml at ${sha} — either the commit is not on the cookbook or GitHub could not answer, and both are UNMEASURED"
+  fi
+  # THE REQUIREMENT, READ THE WAY CARGO WOULD.
+  #
+  # Four things review lanes caught in earlier versions of this parser, each of
+  # them a WRONG MEASUREMENT rather than a miss: it matched `forjar = ` in any
+  # table, so a dev-dependency was read as the real one; it required the value
+  # to start with a digit, so `^1.2` — the spelling Cargo writes by default —
+  # produced an empty requirement and the gate said "declares no forjar version
+  # requirement", which is false; it read a trailing comment, so
+  # `forjar = "1.2" # version = "2.0"` measured 2.0; and it said nothing about
+  # a multi-clause requirement it cannot evaluate.
+  #
+  # awk keeps the section, cuts the comment, takes the first `forjar` entry in
+  # `[dependencies]` or `[workspace.dependencies]`, and returns the requirement
+  # STRING — operator included, because the operator is half of what the
+  # requirement means. The comparison below then decides, and refuses by name
+  # anything it cannot read.
+  local raw
+  raw="$(printf '%s\n' "$body" | awk '
+    function uncomment(s,   i, c, q, out) {
+      # A trailing `# version = "2.0"` was read as the requirement, so
+      # `forjar = "1.2" # version = "2.0"` measured 2.0. Cut at the first `#`
+      # outside a string, the way TOML reads one.
+      q = 0; out = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "#" && !q) break
+        if (c == "\"") q = !q
+        out = out c
+      }
+      return out
+    }
+    /^\[/ { dep = ($0 == "[dependencies]" || $0 == "[workspace.dependencies]"); next }
+    !dep { next }
+    /^forjar[[:space:]]*=/ {
+      line = uncomment($0)
+      if (match(line, /version[[:space:]]*=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); sub(/^version[[:space:]]*=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+      if (match(line, /=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); sub(/^=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+    }')"
+  if [ -z "$raw" ]; then
+    fail "${tag}: the cookbook at ${sha} declares no forjar version requirement under [dependencies] or [workspace.dependencies] — a path or git dependency pins no version, and nothing there says what the cookbook was qualified against"
+  fi
+  case "$raw" in
+    *,*|*\ *) fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\", a multi-clause requirement this gate does not evaluate — say so rather than guess (widen the gate, or pin the cookbook with a single caret)" ;;
+  esac
+  # THE OPERATOR IS PART OF THE REQUIREMENT. `~1.2` and `=1.2` stop at 1.3.0
+  # where `^1.2` runs to 2.0.0, so reading all three as a caret admits versions
+  # Cargo refuses — wider, which is the direction that produces a false green.
+  case "$raw" in
+    \^*) op='^'; req="${raw#^}" ;;
+    \~*) op='~'; req="${raw#\~}" ;;
+    =*)  op='='; req="${raw#=}" ;;
+    *)   op='^'; req="$raw" ;;
+  esac
+  dogfood_req_admits "$ver" "$op" "$req" || crc=$?
+  if [ "$crc" -eq 4 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\" and the release is ${ver} — this gate evaluates a caret, tilde or exact requirement over one to three numeric components, and one of those two is not, so it says so rather than measure the wrong thing (\`sort -V\` puts a pre-release ABOVE the version it precedes, and bash reads a component of \`3-9\` as a subtraction)"
+  fi
+  if [ "$crc" -eq 2 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw}, which ${ver} is older than — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut"
+  fi
+  if [ "$crc" -eq 3 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw} and the release is ${ver} — that requirement stops at ${DOGFOOD_REQ_UPPER}, so the cookbook cannot build against what shipped and must be bumped as part of the cut"
+  fi
+  if [ "$crc" -ne 0 ]; then
+    fail "${tag}: dogfood_req_admits ${ver} ${op} ${req} exited ${crc}, which is not a verdict this gate knows — UNMEASURED"
+  fi
+  echo "GATE T ${tag} cookbook ${sha} requires forjar ${raw} ok"
+}
+
 # T5: the dogfood receipt and crux document of row $1 (tag $2, version $3).
 receipts_of_release() {
   local row="$1" tag="$2" ver="$3" rc=0 path text last n
@@ -208,6 +309,7 @@ dogfood_releases_field '.cadence_days'; CADENCE_DAYS="$DOGFOOD_FIELD"
 dogfood_releases_field '.floor'; FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.harness_floor'; HARNESS_FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.dogfood_floor'; DOGFOOD_FLOOR="$DOGFOOD_FIELD"
+dogfood_releases_field '.cookbook_floor // ""'; COOKBOOK_FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.next.tag'; NEXT_TAG="$DOGFOOD_FIELD"
 dogfood_releases_field '.next.due'; NEXT_DUE="$DOGFOOD_FIELD"
 for t in "$FLOOR" "$HARNESS_FLOOR" "$DOGFOOD_FLOOR"; do
@@ -262,6 +364,9 @@ for tag in $TAGS; do
   labels_of_release "$tag" "$DOGFOOD_WINDOW_TICKETS"
   if dogfood_semver_ge "$tag" "$DOGFOOD_FLOOR"; then
     receipts_of_release "$row" "$tag" "${tag#v}"
+  fi
+  if [ -n "${COOKBOOK_FLOOR:-}" ] && dogfood_semver_ge "$tag" "$COOKBOOK_FLOOR"; then
+    cookbook_of_release "$row" "$tag" "${tag#v}"
   fi
   n=0
   for _ in $DOGFOOD_WINDOW_TICKETS; do n=$((n + 1)); done
