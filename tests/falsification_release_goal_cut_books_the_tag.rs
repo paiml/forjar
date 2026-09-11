@@ -94,3 +94,46 @@ fn a_tag_that_was_cut_and_never_declared_is_red_until_cut_books_it() {
     s.assert_says("basis=docs/roadmaps/releases.yaml:L");
     s.assert_says("ledger=worktree");
 }
+
+/// PMAT-228: a census note never reaches the ledger.
+///
+/// `dogfood_prs_between` reports the PRs it did NOT count — the previous
+/// release's own PR, and anything merged after the upper bound — and `cut`
+/// captures `window`'s stdout to build the row it writes. So the note landed
+/// in `docs/roadmaps/releases.yaml` as line 55 of the v1.28.0 booking, where
+/// the leading `#` made it a YAML comment by accident and nothing complained.
+/// A tool that writes a comment nobody asked for will one day write a line
+/// that is not a comment.
+///
+/// The fixture gives `gh` a PR whose merge commit is inside the PREVIOUS
+/// release, which is the case that fired: the note must still be REPORTED,
+/// and must not be in the file.
+#[test]
+fn a_census_note_is_reported_and_never_reaches_the_ledger() {
+    let mut fx = fixture(Case {
+        pre_cut: true,
+        ..Case::default()
+    });
+    let previous = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.0^{commit}"]));
+    let shipped = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.1^{commit}"]));
+    let json = format!(
+        r#"[{{"number":9,"mergedAt":"2026-01-01T00:00:00Z","mergeCommit":{{"oid":"{previous}"}},"headRefName":"PMAT-900-the-previous-release","title":"release v0.0.0 (PMAT-900)","body":""}},{{"number":10,"mergedAt":"2026-01-02T00:00:00Z","mergeCommit":{{"oid":"{shipped}"}},"headRefName":"PMAT-901-the-shipped-work","title":"the shipped work","body":""}}]"#
+    );
+    fx.gh = stub_gh(fx._dir.path(), &json);
+
+    let t = tool(&fx, AN_HOUR, &["cut", FLOOR, "--next", NEXT]);
+    assert_eq!(t.code, 0, "cut must succeed:\n{}", t.text);
+    t.assert_says("not counted");
+
+    let ledger = read(&fx, "docs/roadmaps/releases.yaml");
+    assert!(
+        !ledger.contains("not counted"),
+        "PMAT-228: `cut` pasted a census note into the ledger. The note is a \
+         diagnostic and belongs on stderr; `cut` captures stdout to build the \
+         row:\n{ledger}"
+    );
+    assert!(
+        ledger.contains("    prs: [10]\n"),
+        "the row must still declare the PR that IS in the window:\n{ledger}"
+    );
+}

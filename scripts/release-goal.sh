@@ -170,6 +170,7 @@ cmd_window() {
 
 cmd_show() {
   local next due cadence_h elapsed_h left_h filled bar i merged tagged=0 t dirty sha color reset=""
+  DOGFOOD_WINDOW_UNMEASURED=""
   dogfood_load_releases
   dogfood_releases_field '.next.tag'; next="$DOGFOOD_FIELD"
   dogfood_releases_field '.next.due'; due="$DOGFOOD_FIELD"
@@ -178,14 +179,24 @@ cmd_show() {
   dogfood_tag_date "$DOGFOOD_PREV_TAG"
   dogfood_epoch "$DOGFOOD_TAG_DATE"; elapsed_h=$(( (NOW - DOGFOOD_EPOCH) / 3600 ))
   dogfood_epoch "$due"; left_h=$(( (DOGFOOD_EPOCH - NOW) / 3600 ))
-  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD
-  window_tickets
-  merged=0
-  for t in $TICKETS; do
-    merged=$((merged + 1))
-    dogfood_row_labels "$t"
-    case " $DOGFOOD_LABELS " in *" release:${next} "*) tagged=$((tagged + 1)) ;; esac
-  done
+  # PMAT-229: the status line renders what it can and says what it cannot.
+  # An operator runs `make release-goal` from a feature branch, where the
+  # branch's own commits are in no merged PR; refusing to print the due
+  # instant and the bar because the MERGED COUNT is unmeasurable made the
+  # cadence unreadable exactly where the work happens. Gate T is unchanged.
+  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD soft
+  if [ -n "${DOGFOOD_WINDOW_UNMEASURED:-}" ]; then
+    merged=UNMEASURED
+    tagged=UNMEASURED
+  else
+    window_tickets
+    merged=0
+    for t in $TICKETS; do
+      merged=$((merged + 1))
+      dogfood_row_labels "$t"
+      case " $DOGFOOD_LABELS " in *" release:${next} "*) tagged=$((tagged + 1)) ;; esac
+    done
+  fi
   filled=$(( elapsed_h * 10 / cadence_h ))
   [ "$filled" -le 10 ] || filled=10
   [ "$filled" -ge 0 ] || filled=0
@@ -209,6 +220,12 @@ cmd_show() {
     "$merged" "$tagged" "$due" "$DOGFOOD_RELEASES_NEXT_LINE" "$DOGFOOD_PREV_TAG" "$sha" "$dirty"
   [ -z "$STRAYS" ] || echo "stray ids: ${STRAYS}"
   [ -z "$UNTICKETED" ] || echo "PRs naming no roadmap ticket: ${UNTICKETED}"
+  # The line is rendered and the exit code is still the truth: a script that
+  # read this as a pass would be reading a degraded line as a measured one.
+  if [ -n "${DOGFOOD_WINDOW_UNMEASURED:-}" ]; then
+    echo "release-goal: ${DOGFOOD_WINDOW_UNMEASURED}" >&2
+    return 2
+  fi
 }
 
 cmd_sync() {
