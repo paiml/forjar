@@ -39,7 +39,7 @@ and one did not.
      work: fixing the ratchet's ceilings brought
      `scripts/ratchets/cb21xx-baseline.json` into the diff, which is off the
      rail, so the receipt is `kind: code` with a falsification —
-     tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1, which is the
+     tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs:1, which is the
      arm that file brought with it. Recorded rather than left, because a
      confirmation that expired is not a confirmation.
 
@@ -58,7 +58,7 @@ and one did not.
      status asymmetry — rather than patched here, because each has a judgement
      in it that a booking PR is the wrong place to make. What this branch DID
      make mechanical is the consequence: correcting the status pushed two
-     ceilings up, and tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1
+     ceilings up, and tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs:1
      now refuses a ceiling that rises without a written reason.
 
 2. [status] That `status: completed` on PMAT-240 was true.
@@ -72,7 +72,7 @@ and one did not.
      keeps a false `completed` in the record is the wrong rule for this case.
      The row now has issue #530 and a release binding, neither of which it had.
    - corrected: and the ceiling the correction moved is now guarded.
-     tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs:1 drives six
+     tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs:1 drives six
      outcomes, including the one this branch is: a raise WITH a reason passes
      and says so, because a silent allow makes the reason decorative.
 

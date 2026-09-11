@@ -493,7 +493,10 @@ echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${
 # by one and the arm reports REGRESSION naming that check, the count and the
 # ceiling. Delete the `justification` block while a ceiling is above the base
 # branch's and the raise arm refuses it, naming the check and both numbers —
-# measured on the raise that introduced it. Removing a check from the CB21XX array instead turns Arm 1 red for it
+# measured on the raise that introduced it.
+# tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives the counting
+# arm; tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs drives the
+# raise arm over a temp git repository, in all six directions. Removing a check from the CB21XX array instead turns Arm 1 red for it
 # by name, which is the other direction and the one that matters more: an
 # exemption nobody granted is how a ratchet becomes a waiver.
 # tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives both, plus the
