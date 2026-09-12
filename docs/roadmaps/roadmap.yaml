@@ -3938,7 +3938,7 @@ roadmap:
   github_issue: 542
   item_type: task
   title: 'the PR lane rebuilds the binary for 7 of 25 PRs that cannot move the gates it builds it for: 21.3 of 25.2 critical-path minutes'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T11:05:00Z
