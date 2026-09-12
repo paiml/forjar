@@ -559,5 +559,20 @@ jobs:
               exit 1
               ;;
           esac
-          echo "Promotion to a full release is the operator's step after 'make dogfood-published VERSION=' passes."
+          # NAME THE COMMAND, AND SAY WHY IT NEEDS --latest (PMAT-534).
+          #
+          # "Promotion is the operator's step" was the whole of the instruction
+          # for four releases, and for four releases nobody took it:
+          # repos/<r>/releases/latest resolved to v1.25.2 while v1.26.0, v1.27.0
+          # and v1.28.0 were all full releases days newer. Every
+          # `curl -L .../releases/latest/download/...` got the old binary.
+          #
+          # `--latest` is not decoration. GitHub fixes "latest" when the
+          # prerelease flag is WRITTEN and never recomputes it, so
+          # `gh release edit <tag> --prerelease=false` alone clears the flag and
+          # leaves the pointer exactly where it was. Gate R now refuses a full
+          # release that /releases/latest does not point at.
+          echo "Promotion to a full release is the operator's step after 'make dogfood-published VERSION=' passes:"
+          echo "  gh release edit $RELEASE_TAG --repo ${{ github.repository }} --prerelease=false --latest"
+          echo "and 'make release-check' refuses a full release that repos/${{ github.repository }}/releases/latest does not resolve to."
 
