@@ -90,6 +90,13 @@ count_lines() {
 
 # PMAT-240: one awk rather than `sed Cargo.toml | head -1`, which leaves sed
 # writing into a pipe head has already closed.
+#
+# NOT byte-for-byte the same reader, and a review lane measured the
+# difference: the old sed anchored the closing quote at end of line, so
+# `version = "1.29.0" # a comment` — valid TOML — yielded NOTHING and this
+# script failed with "cannot read version". The awk stops at the closing
+# quote and reads 1.29.0. That is a behaviour CHANGE and it is the right
+# direction, but it is a change rather than a preservation.
 version="$(awk '/^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/".*/, "", v); print v; exit }' Cargo.toml)"
 if [ -z "$version" ]; then
   fail "cannot read version from Cargo.toml, so the crux document has no name to look for"

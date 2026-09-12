@@ -65,6 +65,86 @@ fn scripts(root: &Path) -> Vec<String> {
 /// The commands that can leave a pipeline before its left side is done.
 const EARLY: [&str; 4] = ["grep -q", "grep -m", "head", "jq -e"];
 
+/// The pipeline stages of one shell line, with quoting and comments honoured.
+///
+/// Three review lanes broke the naive version, each in one line of shell:
+///
+/// | input | naive result | why |
+/// |---|---|---|
+/// | `echo " \| head "` | flagged | split on a pipe inside a string |
+/// | `cat f \| grep " # " \| head -1` | missed | `split_once(" # ")` cut the line at a `#` inside a string, taking the `head` with it |
+/// | `cat f \` (newline) `  \| head -1` | missed | a continuation is one pipeline written on two lines |
+///
+/// So this walks the line: a `'` or `"` toggles its quote, a `#` outside quotes
+/// ends the line, and only a single `|` outside quotes splits a stage — `||`
+/// is an operator and is consumed whole, so the command after it is a fallback
+/// rather than the right-hand side of a pipe.
+fn stages(line: &str) -> Vec<String> {
+    let mut w = Walk::default();
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if w.step(c, &mut chars) {
+            break;
+        }
+    }
+    w.out
+}
+
+/// One pass over a shell line, carrying its quote state.
+///
+/// A struct rather than a loop body because the loop body was cognitive 33
+/// against a limit of 25 — the complexity gate catching the same "one function
+/// doing three jobs" it caught in this file once already.
+#[derive(Default)]
+struct Walk {
+    out: Vec<String>,
+    single: bool,
+    double: bool,
+}
+
+impl Walk {
+    /// Consume one character. Returns true when the line is over (a comment).
+    fn step(&mut self, c: char, rest: &mut std::iter::Peekable<std::str::Chars<'_>>) -> bool {
+        if self.out.is_empty() {
+            self.out.push(String::new());
+        }
+        match c {
+            // An escape takes the next character with it, whatever it is.
+            '\\' if !self.single => {
+                self.push(c);
+                if let Some(n) = rest.next() {
+                    self.push(n);
+                }
+            }
+            '\'' if !self.double => {
+                self.single = !self.single;
+                self.push(c);
+            }
+            '"' if !self.single => {
+                self.double = !self.double;
+                self.push(c);
+            }
+            _ if self.single || self.double => self.push(c),
+            // `||` IS AN OPERATOR, NOT TWO PIPES. Consumed whole, so
+            // `cmd || head -1` has one stage and the `head` after it is a
+            // fallback command rather than the right-hand side of a pipe.
+            '|' if rest.peek() == Some(&'|') => {
+                rest.next();
+                self.push('|');
+                self.push('|');
+            }
+            '|' => self.out.push(String::new()),
+            '#' => return true,
+            _ => self.push(c),
+        }
+        false
+    }
+
+    fn push(&mut self, c: char) {
+        self.out.last_mut().expect("a stage").push(c);
+    }
+}
+
 /// The offending pipelines in one script's text, as `line:code`.
 ///
 /// Split out so the walk over the tree stays a loop and this stays a
@@ -72,44 +152,34 @@ const EARLY: [&str; 4] = ["grep -q", "grep -m", "head", "jq -e"];
 /// refused it at 38 against a limit of 25, which is the same "one function
 /// doing three jobs" the gate exists to catch.
 fn offending_pipelines(rel: &str, text: &str) -> Vec<String> {
-    // EVERY script, not only those that set pipefail themselves.
+    // EVERY script, not only those whose text contains `pipefail`.
     //
-    // The first version skipped a file whose text lacked the word, and that
-    // skipped `scripts/dogfood/lib/releases.sh` — a LIBRARY, sourced by gates
-    // that do set it, so it inherits pipefail and dies exactly the same way.
-    // Two of the twelve sites this ticket fixed were in it, and the rule would
-    // not have caught either.
+    // That filter skipped `scripts/dogfood/lib/releases.sh` — a LIBRARY,
+    // sourced by gates that do set it, so it inherits pipefail and dies the
+    // same way. Two of the sites this ticket fixed were in it.
     //
-    // And pipefail is not the whole hazard anyway. Without it the left side
-    // still takes SIGPIPE and its output is still TRUNCATED — silently. That
-    // is how a 459-line proof log in this very session landed as 9 lines and
-    // three review lanes refused a receipt describing it.
-    text.lines()
+    // And pipefail is not the whole hazard. Without it the left side still
+    // takes SIGPIPE and its output is still TRUNCATED, silently. That is how a
+    // 459-line proof log in this very session landed as 9 lines.
+    //
+    // A CONTINUATION IS ONE PIPELINE. `cat f \` on one line and `| head -1` on
+    // the next is the same hazard written differently, and a lane walked out
+    // through exactly that.
+    let joined = text.replace("\\\n", " ");
+    joined
+        .lines()
         .enumerate()
         .filter_map(|(n, line)| {
             let t = line.trim_start();
-            // A comment is not code, and an exception that was WRITTEN DOWN is
-            // an exception. One nobody wrote down is the same as no rule.
+            // A whole-line comment is not code, and an exception that was
+            // WRITTEN DOWN is an exception. One nobody wrote down is the same
+            // as no rule.
             if t.starts_with('#') || line.contains("# sigpipe-ok:") {
                 return None;
             }
-            // A TRAILING COMMENT IS NOT CODE EITHER. The first version of this
-            // rule fired on a comment describing the pipeline that had just
-            // been REMOVED, and a rule that reads prose would push people to
-            // stop explaining their fixes.
-            let code = t.split_once(" # ").map_or(t, |(before, _)| before);
-            // EVERY stage, not just the one after the first pipe. `printf |
-            // sed | head -1` has a safe middle and a fatal end, and a rule
-            // that looked only at the first `|` passed over it — measured:
-            // two of the twelve sites this ticket fixed, in the same file.
-            let mut stages = code.split('|');
-            stages.next()?; // the leftmost command is never the early exit
-            let fatal = stages.any(|stage| {
-                // `||` is a shell operator, not a pipeline: it shows up here
-                // as an EMPTY stage between two splits.
-                if stage.is_empty() {
-                    return false;
-                }
+            let st = stages(t);
+            // The leftmost command is never the early exit.
+            let fatal = st.iter().skip(1).any(|stage| {
                 let stage = stage.trim_start();
                 EARLY.iter().any(|e| stage.starts_with(e))
             });
@@ -181,12 +251,77 @@ fn the_rule_walks_the_whole_of_scripts_including_the_libraries() {
         "{lib} now sets pipefail itself, so this case no longer proves that a \
          library WITHOUT it is walked — point it at one that does not"
     );
-    // It is walked: a pipeline planted in its text is found.
-    let planted = format!("{text}\nprintf '%s' \"$x\" | grep -q y\n");
+    // It is walked: a pipeline planted in the MIDDLE of its text is found.
+    //
+    // A lane pointed out that planting at the END proves almost nothing — a
+    // rule that only read a file's last line would pass. So it goes in the
+    // middle, and the case asserts the reported LINE NUMBER, which only a rule
+    // that actually walks the file can get right.
+    let lines: Vec<&str> = text.lines().collect();
+    let at = lines.len() / 2;
+    let mut planted: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    planted.insert(at, "printf '%s' \"$x\" | grep -q y".to_string());
+    let found = offending_pipelines(lib, &planted.join("\n"));
     assert_eq!(
-        offending_pipelines(lib, &planted).len(),
+        found.len(),
         1,
         "a pipeline in a library that sets no pipefail of its own is not \
          caught, so the rule has the same hole the one before it had"
     );
+    assert!(
+        found[0].starts_with(&format!("{lib}:{}", at + 1)),
+        "the rule found the planted pipeline but reports it at the wrong line \
+         ({}), so it is not walking the file — it is pattern-matching the \
+         whole text",
+        found[0]
+    );
+}
+
+/// The three shapes three review lanes walked out through.
+///
+/// Each is one line of shell and each defeated the naive version of this rule.
+/// They are here as cases rather than as a comment because a rule's holes are
+/// the part worth regression-testing: the fixes are one function, and the next
+/// person to touch it will not have read the round.
+#[test]
+fn the_rule_cannot_be_walked_out_of_by_quoting_or_continuing() {
+    // A `#` INSIDE A STRING is not a comment. Cutting the line there took the
+    // `head` stage with it and the pipeline vanished.
+    let hidden = "set -o pipefail\ncat f | grep \" # \" | head -1\n";
+    assert_eq!(
+        offending_pipelines("x.sh", hidden).len(),
+        1,
+        "a `#` inside a string hides the rest of the pipeline from the rule"
+    );
+
+    // A `|` INSIDE A STRING is not a pipe. This one is safe and was flagged.
+    let quoted = "set -o pipefail\necho \" | head \"\n";
+    assert!(
+        offending_pipelines("x.sh", quoted).is_empty(),
+        "a pipe inside a string is reported as a pipeline, so the rule fires \
+         on text that runs nothing"
+    );
+
+    // A CONTINUATION is one pipeline written on two lines.
+    let continued = "set -o pipefail\ncat f \\\n  | head -1\n";
+    assert_eq!(
+        offending_pipelines("x.sh", continued).len(),
+        1,
+        "a pipeline split across a line continuation is invisible to the rule"
+    );
+
+    // And the safe shapes stay safe: `||` is an operator, the early-exit
+    // command as the LEFTMOST stage reads a file rather than a pipe, and a
+    // written exception is an exception.
+    for safe in [
+        "set -o pipefail\ncmd || head -1\n",
+        "set -o pipefail\nhead -12 f | sed 's/^/  /'\n",
+        "set -o pipefail\ncat f | head -1  # sigpipe-ok: f is one line\n",
+        "set -o pipefail\n# cat f | head -1\n",
+    ] {
+        assert!(
+            offending_pipelines("x.sh", safe).is_empty(),
+            "the rule fires on a safe shape:\n{safe}"
+        );
+    }
 }

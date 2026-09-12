@@ -73,6 +73,23 @@ release that stops with no reason given.
 - **one** `sed file | head -12` → `head -12 file | sed`, so head reads the file
   and sed consumes everything head produced.
 
+## One rewrite is not a preservation, and says so
+
+A review lane measured it: the old `sed -n 's/^version = "\(.*\)"$/\1/p'`
+anchors the closing quote at end of line, so
+
+```
+version = "1.29.0" # a trailing comment
+```
+
+— valid TOML — yields **nothing**, and the script fails with "cannot read
+version from Cargo.toml". The awk stops at the closing quote and reads
+`1.29.0`.
+
+That is a **behaviour change**, in the right direction, and it is recorded as a
+change rather than filed under "preserves behaviour" in all three scripts that
+carry it. Nothing in the tree pins it — see the gaps.
+
 ## The exception is written, or it is not an exception
 
 A pipeline that is genuinely safe carries `# sigpipe-ok: <reason>` on its line.
@@ -85,15 +102,30 @@ stop explaining their fixes.
 
 ## Falsification
 
-`tests/falsification_no_script_pipes_into_an_early_exit.rs`, two cases: the
+`tests/falsification_no_script_pipes_into_an_early_exit.rs`, three cases: the
 walk itself, and one asserting the census is repository-wide — it names the
 three files PMAT-239 owned AND the library its scope missed, checks that
-library still sets no `pipefail` of its own, and plants a pipeline in its text
-to prove it is walked anyway.
+library still sets no `pipefail` of its own, and plants a pipeline in the
+MIDDLE of its text — asserting the reported LINE NUMBER, because a lane pointed
+out that planting at the end would pass under a rule that read only a file's
+last line.
+
+Plus a third case carrying **the three shapes three review lanes walked out
+through**, each one line of shell: a `#` inside a string that hid the rest of
+the pipeline, a `|` inside a string that was flagged as one, and a line
+continuation that split a pipeline in two. And the safe shapes that must stay
+safe: `||`, the early-exit command as the LEFTMOST stage, a written
+`# sigpipe-ok:`, and a whole-line comment.
+
+A rule's holes are the part worth regression-testing. The fixes are one
+function and the next person to touch it will not have read the round.
 
 Red in a scratch clone with its own `CARGO_TARGET_DIR`, over main's `scripts/`:
-**15 pipelines**, named with file, line and text. Green here. Six gates pass
-either way, in `docs/audits/logs/PMAT-240-sigpipe-class.log`.
+**15 pipelines**, named with file, line and text. Green here. Six gates pass at
+HEAD, all in `docs/audits/logs/PMAT-240-sigpipe-class.log` — **the gates were
+not re-run against main's scripts**, so "either way" would have been a claim
+the log does not support, and a review lane said so about the first draft of
+this sentence.
 
 The first clone ran a STALE test binary from the shared target directory and
 reported 10; the rebuild with its own target directory reported 15. A proof
@@ -101,8 +133,15 @@ that reuses a cached binary is measuring the cache.
 
 ## Gaps, named
 
-- The predicate is textual. `head` inside a quoted string, or a pipeline built
-  by `eval`, is invisible to it.
+- The predicate is textual. A pipeline built by `eval`, or one whose command
+  name arrives in a variable, is invisible to it. Quoting, comments inside
+  strings and line continuations are handled, each because a review lane walked
+  out through it first.
+- **The `sed` → `awk` version readers are a behaviour change and nothing pins
+  it.** A manifest with a trailing comment on its version line now reads where
+  it used to fail. Three scripts carry the change and none has a case for it;
+  the right home is a falsifier for the version reader itself, which this
+  ticket did not write.
 - `scripts/ledger-replay.sh` still carries one bashrs SEC011 error, unrelated
   and accounted for by gate B's `BASHRS_ERROR_CEILING=1`.
 - Nothing checks the same shape outside `scripts/` — `Makefile` recipes and
