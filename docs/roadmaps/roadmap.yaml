@@ -3587,11 +3587,11 @@ roadmap:
   github_issue: 530
   item_type: task
   title: 'the SIGPIPE class is repository-wide: 13 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T11:03:11Z
-  updated: 2026-09-12T02:08:27Z
+  updated: 2026-09-12T03:40:38Z
   spec: null
   acceptance_criteria:
   - every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood
@@ -3861,18 +3861,17 @@ roadmap:
   kind: code
   github_issue: 535
   item_type: task
-  title: 'a branch named for the wrong ticket silently credits a shipped ticket to the next release window'
-  release: 1.30.0
-  status: planned
+  title: a branch named for the wrong ticket silently credits a shipped ticket to the next release window
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T08:40:00Z
-  updated: 2026-09-12T08:40:00Z
+  updated: 2026-09-12T03:40:38Z
   spec: null
   acceptance_criteria:
-  - 'a PR whose branch-resolved ticket differs from its Pmat-Ticket trailer is named and red, in whichever gate reads it first'
-  - 'the two agreeing is still green, and a branch with no ticket id is still handled by the existing fallback to title then body'
-  - 'falsification cases drive the disagreement, the agreement, and the fallback'
+  - a PR whose branch-resolved ticket differs from its Pmat-Ticket trailer is named and red, in whichever gate reads it first
+  - the two agreeing is still green, and a branch with no ticket id is still handled by the existing fallback to title then body
+  - falsification cases drive the disagreement, the agreement, and the fallback
   - 'PMAT-520 carrying release:v1.30.0 is the regression case: it should not be demanded once the rule is fixed'
   phases: []
   subtasks: []
@@ -3882,6 +3881,7 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Found by three review lanes on the v1.29.0 release record. PMAT-520 shipped in 1.29.0 — its PR #527''s merge commit IS the commit v1.29.0 points at — and also carries release:v1.30.0, which gate T demanded. The window rule resolves a PR''s ticket from the first PMAT-<n> in the BRANCH NAME, and the booking PR #532 was pushed from PMAT-520-book-v1.29.0 while its ticket is PMAT-531 (trailer, title and receipt all say 531). So every window arm resolves #532 to PMAT-520, PMAT-520 claims two releases, and PMAT-531 is invisible to all of them. The branch name is LOAD-BEARING for three gates — A resolves a receipt path from it, E resolves .quorum/<slug>.json from it, T resolves the window from it — and nothing checks it against the trailer.'
+  release: 1.30.0
 - id: PMAT-537
   kind: code
   github_issue: 537
@@ -3907,4 +3907,29 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Measured on 7c100454, the exact commit v1.29.0''s ledger row names: Cargo.toml says `forjar = { version = "1.2" }` and Cargo.lock says `version = "1.2.1"`. `^1.2` admits 1.29.0 so gate T prints `cookbook 7c100454 requires forjar 1.2 ok`, while what that cookbook actually compiles is forjar 1.2.1 — twenty-seven minor versions behind the release it is recorded as qualifying. PMAT-241 built the link and the link points at something that was never built against the release. The cookbook is where forjar is USED: cookbook-qualify, the scoring bridge and every recipe score it produces are compiled against whatever its lockfile pins, so those scores have been measured against 1.2.1 while the repository shipped 1.3 through 1.29.'
+  release: 1.30.0
+- id: PMAT-540
+  kind: code
+  github_issue: 540
+  item_type: task
+  title: 'the window rule validates the branch name and not the PR title: the same misattribution is still reachable'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T10:20:00Z
+  updated: 2026-09-12T10:20:00Z
+  spec: null
+  acceptance_criteria:
+  - a merged PR whose title-resolved or body-resolved ticket disagrees with its merge commit's Pmat-Ticket line is named and red in gate A
+  - the trailer is read the way PMAT-535 reads it, by the line and not by %(trailers:key=...), which returns nothing for a squash message ending in bullet paragraphs
+  - a PR with no ticket in any of the three sources is still UNMEASURED and red, as it is today
+  - falsification cases drive the disagreement, the agreement, and the no-ticket case
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by a three-lane review round on PMAT-535. PMAT-535 refuses, at push time, a branch that names a PMAT-<n> no commit being pushed claims — but the window rule reads BRANCH, then TITLE, then BODY, and the arm can only see the first. A branch named fix/ci-lint (the naming this repository''s own guidelines suggest for work with no ticket) with a PR titled ''(PMAT-520)'' and a trailer saying PMAT-531 reproduces PR #532''s misattribution exactly, and nothing refuses it. It cannot live in the pre-push hook: at push time the pull request does not exist and its title is typed afterwards. It belongs in gate A, which already holds the PR object, the merge commit and the receipt, so it can compare all three sources rather than taking the first that matches.'
   release: 1.30.0
