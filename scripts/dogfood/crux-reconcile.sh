@@ -71,7 +71,11 @@ crux_row() {
   if [ "$rc" -gt 1 ]; then
     fail "grep exited ${rc} reading ${CRUX} — the reconciliation is UNMEASURED"
   fi
-  printf '%s\n' "$hits" | sed -n '/^|/p' | head -1
+  # PMAT-240: one awk over a here-string. `printf | sed | head -1` is three
+  # processes and two pipes, the last of which leaves after one line — and a
+  # rule that only inspected the stage after the FIRST pipe walked past it,
+  # which is how this one survived the census that named twelve others.
+  awk '/^\|/ { print; exit }' <<<"$hits"
 }
 
 # The number of non-empty lines in $1.
@@ -84,7 +88,16 @@ count_lines() {
   printf '%s\n' "$n"
 }
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+# PMAT-240: one awk rather than `sed Cargo.toml | head -1`, which leaves sed
+# writing into a pipe head has already closed.
+#
+# NOT byte-for-byte the same reader, and a review lane measured the
+# difference: the old sed anchored the closing quote at end of line, so
+# `version = "1.29.0" # a comment` — valid TOML — yielded NOTHING and this
+# script failed with "cannot read version". The awk stops at the closing
+# quote and reads 1.29.0. That is a behaviour CHANGE and it is the right
+# direction, but it is a change rather than a preservation.
+version="$(awk '/^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/".*/, "", v); print v; exit }' Cargo.toml)"
 if [ -z "$version" ]; then
   fail "cannot read version from Cargo.toml, so the crux document has no name to look for"
 fi
@@ -95,7 +108,11 @@ CRUX="docs/audits/crux-${version}.md"
 # and demanding a reconciliation for a version nobody is cutting would be
 # ceremony over a version that already shipped. `scripts/dogfood/release-check.sh`
 # Arm 6 applies the identical rule and calls this script once a version differs.
-latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+# PMAT-240: capture, then take the first line with a parameter expansion.
+# `git tag … | head -1` makes git take SIGPIPE when head leaves, and under
+# pipefail that is a 141 the caller reads as "the tag list is UNMEASURED".
+_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
+latest_tag="${_tags%%$'\n'*}"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
   echo "GATE H PENDING Cargo.toml is still at ${latest_tag}'s version (${version}); no release is being cut, so there is nothing to reconcile yet"
@@ -175,7 +192,10 @@ while IFS= read -r b; do
   n=0
   named=""
   for s in "${SYSTEMS[@]}"; do
-    if printf '%s' "$row" | grep -qiF -- "$s"; then
+    # PMAT-240: a here-string, not a pipe. This one runs once per surveyed
+    # system per row — 28 x 12 on the 1.29.0 audit — so the odds of one of
+    # them losing the race are not small.
+    if grep -qiF -- "$s" <<<"$row"; then
       n=$((n + 1))
       named="${named}${s} "
     fi

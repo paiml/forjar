@@ -3587,12 +3587,11 @@ roadmap:
   github_issue: 530
   item_type: task
   title: 'the SIGPIPE class is repository-wide: 13 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
-  release: 1.30.0
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-11T11:03:11Z
-  updated: 2026-09-11T19:56:38Z
+  updated: 2026-09-12T02:08:27Z
   spec: null
   acceptance_criteria:
   - every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood
@@ -3604,6 +3603,7 @@ roadmap:
   - kind:code
   - release:v1.30.0
   notes: 'Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236''s own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed. on 2026-09-11 the row read status completed while thirteen pipelines of the shape were still in scripts/ and NEITHER acceptance criterion had been met. It was planned when it was minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so, and no gate asked: gate T''s T7 arm refuses a SHIPPED ticket that says planned and permits a ticket that says completed and never shipped. `pmat work edit` refuses Completed -> Planned and Completed -> InProgress as invalid transitions, so this row is corrected TEXTUALLY and deliberately: a lifecycle rule that keeps a false completed in the record is the wrong rule for this case, and a row claiming eighteen pipelines were fixed while thirteen are still there is the exact shape of half-true record PMAT-235 and PMAT-236 exist to refuse — three review lanes caught it on the v1.29.0 booking, where `release-goal.sh cut` had moved a ticket nobody had done into the next window. Back to planned.'
+  release: 1.30.0
 - id: PMAT-241
   kind: code
   github_issue: null
@@ -3887,19 +3887,18 @@ roadmap:
   github_issue: 537
   item_type: task
   title: 'the cookbook gate reads the requirement and never the lockfile: every release since 1.2.1 was "qualified against" a cookbook that builds forjar 1.2.1'
-  release: 1.30.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T09:30:00Z
-  updated: 2026-09-12T09:30:00Z
+  updated: 2026-09-12T02:02:22Z
   spec: null
   acceptance_criteria:
-  - 'gate T reads the cookbook commit''s Cargo.lock as well as its Cargo.toml, and refuses a row whose cookbook does not build the released version'
-  - 'a cookbook with no lockfile, or one the gate cannot read, is UNMEASURED and red — never a pass'
-  - 'the choice between the three readings of "updates forjar-cookbook" is written down with its reason, because the strongest one puts a real obligation on a second repository'
-  - 'falsification cases drive a matching lock, a stale lock, a missing lock and an unreadable one'
-  - 'the cookbook itself is updated so 1.29.0 is the first release this is true of'
+  - gate T reads the cookbook commit's Cargo.lock as well as its Cargo.toml, and refuses a row whose cookbook does not build the released version
+  - a cookbook with no lockfile, or one the gate cannot read, is UNMEASURED and red — never a pass
+  - the choice between the three readings of "updates forjar-cookbook" is written down with its reason, because the strongest one puts a real obligation on a second repository
+  - falsification cases drive a matching lock, a stale lock, a missing lock and an unreadable one
+  - the cookbook itself is updated so 1.29.0 is the first release this is true of
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3908,3 +3907,4 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Measured on 7c100454, the exact commit v1.29.0''s ledger row names: Cargo.toml says `forjar = { version = "1.2" }` and Cargo.lock says `version = "1.2.1"`. `^1.2` admits 1.29.0 so gate T prints `cookbook 7c100454 requires forjar 1.2 ok`, while what that cookbook actually compiles is forjar 1.2.1 — twenty-seven minor versions behind the release it is recorded as qualifying. PMAT-241 built the link and the link points at something that was never built against the release. The cookbook is where forjar is USED: cookbook-qualify, the scoring bridge and every recipe score it produces are compiled against whatever its lockfile pins, so those scores have been measured against 1.2.1 while the repository shipped 1.3 through 1.29.'
+  release: 1.30.0

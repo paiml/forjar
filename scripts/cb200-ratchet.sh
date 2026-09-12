@@ -96,7 +96,9 @@ print(out[0] if out else -1)
 ')
 
 # A count carried on a stale index is worse than no count: it reads as authority.
-if printf '%s' "$raw" | grep -q 'index is stale'; then
+# PMAT-240: a here-string, not a pipe — `grep -q` exits early and printf takes
+# SIGPIPE, which under pipefail would make this ratchet die without a verdict.
+if grep -q 'index is stale' <<<"$raw"; then
   echo "✗ CB-200 measured against a STALE index — refusing to report a number the tree has already changed."
   echo "  Run: pmat query \"x\" --rebuild-index"
   exit 1

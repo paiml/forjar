@@ -219,7 +219,9 @@ for h in hard:
 PY
 )"
 
-if printf '%s\n' "$depth_out" | grep -q '^HARD '; then
+# PMAT-240: a here-string, not a pipe — `grep -q` exits on its first match and
+# printf then takes SIGPIPE, which under pipefail kills the gate with no verdict.
+if grep -q '^HARD ' <<<"$depth_out"; then
   printf '%s\n' "$depth_out" | grep '^HARD '
   fail "a contract does not have the depth its kind claims (see HARD lines above)"
 fi

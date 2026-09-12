@@ -64,7 +64,16 @@ count_lines() {
   printf '%s\n' "$n"
 }
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+# PMAT-240: one awk rather than `sed Cargo.toml | head -1`, which leaves sed
+# writing into a pipe head has already closed.
+#
+# NOT byte-for-byte the same reader, and a review lane measured the
+# difference: the old sed anchored the closing quote at end of line, so
+# `version = "1.29.0" # a comment` — valid TOML — yielded NOTHING and this
+# script failed with "cannot read version". The awk stops at the closing
+# quote and reads 1.29.0. That is a behaviour CHANGE and it is the right
+# direction, but it is a change rather than a preservation.
+version="$(awk '/^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/".*/, "", v); print v; exit }' Cargo.toml)"
 if [ -z "$version" ]; then
   fail "cannot read version from Cargo.toml — there is no release to check"
 fi
@@ -192,7 +201,12 @@ fi
 # refutation. This is the release-time completeness check on the same
 # obligation: every PR that got INTO this release must have left a receipt.
 prev_rc=0
-prev_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | grep -vxF -- "$TAG" | head -1)" || prev_rc=$?
+# PMAT-240: one awk over a captured list. The old shape was `git tag … |
+# grep -vxF … | head -1`: head leaves after one line, grep takes SIGPIPE, git
+# takes SIGPIPE, and under pipefail the whole gate reported the PR window
+# UNMEASURED at random — which is exactly the symptom PMAT-239 chased in gate T.
+_all_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
+prev_tag="$(awk -v skip="$TAG" '$0 != skip { print; exit }' <<<"$_all_tags")" || prev_rc=$?
 if [ "$prev_rc" -gt 1 ]; then
   fail "grep exited ${prev_rc} selecting the previous tag — the PR window is UNMEASURED"
 fi
@@ -353,7 +367,11 @@ fi
 # that tag's, the cut for THIS version has happened (or is happening) and the
 # obligation is live: the file must exist AND the reconciliation must actually
 # PASS, not merely be present.
-latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+# PMAT-240: capture, then take the first line with a parameter expansion.
+# `git tag … | head -1` makes git take SIGPIPE when head leaves, and under
+# pipefail that is a 141 the caller reads as "the tag list is UNMEASURED".
+_latest_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
+latest_tag="${_latest_tags%%$'\n'*}"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
   # THE NOTE SAYS WHAT IS TRUE, NOT WHAT IS CONVENIENT (PMAT-234, found by two
