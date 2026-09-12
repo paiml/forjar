@@ -33,27 +33,34 @@ each openable with one line of shell.
      cutting the line there took the `head` stage with it. The pipeline
      vanished from the rule entirely. One line of shell.
    - corrected: the line is walked character by character; a `#` ends it only
-     outside quotes.
+     outside quotes, and
+     tests/falsification_no_script_pipes_into_an_early_exit.rs:1 carries the
+     shape as a case.
 
 2. [strings-fire] That a `|` in a line is a pipe.
    - evidence: `echo " | head "` was reported as a fatal pipeline. A rule that
      fires on text which runs nothing is a rule people learn to ignore, and
      this one would have fired on any script printing a usage string with a
      pipe in it.
-   - corrected: only a `|` outside quotes splits a stage.
+   - corrected: only a `|` outside quotes splits a stage, and
+     tests/falsification_no_script_pipes_into_an_early_exit.rs:1 asserts this
+     exact line is NOT reported.
 
 3. [continuation] That a pipeline is one line.
    - evidence: `cat f \` on one line and `| head -1` on the next is one
      pipeline written on two, and the rule saw two lines with no pipe between
      them.
-   - corrected: continuations are joined before any line is analysed.
+   - corrected: continuations are joined before any line is analysed, driven at
+     tests/falsification_no_script_pipes_into_an_early_exit.rs:1.
 
 4. [or-operator] That `||` is two pipes.
    - evidence: found while fixing the above. `cmd || head -1` split into three
      stages with an empty one between, and the `head` after it read as a
      right-hand side. It is a FALLBACK command: nothing pipes into it.
    - corrected: `||` is consumed whole, so the command after it is never a
-     stage.
+     stage; it is one of the four safe shapes
+     tests/falsification_no_script_pipes_into_an_early_exit.rs:1 asserts stay
+     safe.
 
 5. [vacuous] That the library case proves the library is walked.
    - evidence: the planted pipeline went at the END of the file, where a rule

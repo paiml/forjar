@@ -1,0 +1,135 @@
+{
+ "kind": "code",
+ "issue": "PMAT-240 (closes forjar#530) — the SIGPIPE class, over the tree rather than three files. A pipeline whose right-hand side can exit before its left finishes (grep -q, grep -m, head, jq -e) makes the left take SIGPIPE; under `set -o pipefail` it returns 141 and a gate reports UNMEASURED at random, which gate T did on about one run in three. PMAT-239 fixed three instances and wrote a rule over THREE FILES; its own census found eighteen more and thirteen were still there. Fifteen sites are closed here — the rule itself found three the census never listed — and the rule now walks every stage of every pipeline in every script under scripts/, libraries included.",
+ "branch": "PMAT-240-sigpipe-class",
+ "base": "1d8cbcb8",
+ "base_commit": "1d8cbcb8d3df76ff1d1c727a8bc0f99a2239c12a",
+ "diff_sha256": "00d6ab96fc1cd0888936ec6b7a9505e84af2bec8",
+ "recorded_at": "after the round that found four holes in the rule, each openable with one line of shell",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-d9a35c6c)",
+   "lane 2 (conv-dcce07d0)",
+   "lane 3 (conv-595732d6)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 311s/433s/441s, verdicts 3/3 FAIL.",
+  "kill_rule": "six claims and the standing instruction. THE RULE HAD FOUR HOLES, each openable with one line of shell, and all three lanes found at least two. A rule against a hazard class is only worth the holes it does not have, and these four survived a careful author, a census and a first round of testing — they did not survive three readers each handed one instruction. The instruction also caught a receipt describing a log that did not contain what it claimed, which is now three for three across this release.",
+  "claims_confirmed": 2,
+  "claims_refuted": 7,
+  "refuted_claims": [
+   "That a `#` in a line is a comment — `cat f | grep \" # \" | head -1` has its `#` inside a string, and cutting the line there took the `head` stage with it. The pipeline vanished from the rule entirely.",
+   "That a `|` in a line is a pipe — `echo \" | head \"` was reported as fatal. A rule that fires on text which runs nothing is a rule people learn to ignore.",
+   "That a pipeline is one line — `cat f \\` plus `| head -1` on the next line is one pipeline written on two, and the rule saw two lines with no pipe between them.",
+   "That `||` is two pipes — found while fixing the above. `cmd || head -1` split into three stages with an empty one between, and the `head` read as a right-hand side when it is a FALLBACK: nothing pipes into it.",
+   "That the library case proves the library is walked — the planted pipeline went at the END of the file, where a rule reading only a file's last line would pass. It is in the middle now and the case asserts the reported LINE NUMBER.",
+   "That every rewrite preserves behaviour — the old sed anchors the closing quote at end of line, so `version = \"1.29.0\" # a comment` (valid TOML) yields NOTHING and the script fails. The awk reads 1.29.0. A behaviour CHANGE in the right direction, now recorded as a change in all three scripts and named as an unpinned gap.",
+   "That six gates passed 'either way' — they were run at HEAD only and the log holds one run. Third time in this release a receipt has been caught describing a file that did not contain what it claimed."
+  ],
+  "lane_errors": [
+   "The delegate stopped at its 30-turn limit while reducing, after all three lanes completed. Ninth occurrence in this session at the same point."
+  ]
+ },
+ "falsification": {
+  "test": "no_script_under_scripts_pipes_into_a_command_that_can_exit_early walks every stage of every pipeline in every .sh under scripts/; the_rule_walks_the_whole_of_scripts_including_the_libraries names the three files PMAT-239 owned AND the library its scope missed, asserts that library still sets no pipefail of its own, and plants a pipeline in the MIDDLE of its text asserting the reported LINE NUMBER; the_rule_cannot_be_walked_out_of_by_quoting_or_continuing carries the three shapes three review lanes walked out through plus four safe shapes that must stay safe",
+  "test_file": "tests/falsification_no_script_pipes_into_an_early_exit.rs",
+  "cargo_test_target": "falsification_no_script_pipes_into_an_early_exit",
+  "reverted": "main's scripts/ checked out over this branch's tests, in a `git clone --shared` throwaway with its own CARGO_TARGET_DIR",
+  "observed_failure": "PMAT-240: 15 pipeline(s) under scripts/ feed a command that can exit before its left-hand side finishes — each named with file, line and text. Green at HEAD, 3 cases passing. In docs/audits/logs/PMAT-240-sigpipe-class.log. TWO EARLIER ATTEMPTS AT THIS PROOF WERE WRONG AND ARE RECORDED: the first clone reused a stale test binary from the shared target directory and reported 10, and the second carried a rule predating two uncommitted fixes. A proof that reuses a cached binary is measuring the cache; one built from an uncommitted tree is measuring the last commit.",
+  "still_green_when_reverted": "the eighteen cases of falsification_release_goals_are_measured and the ten of falsification_release_cookbook_is_part_of_the_release, which run the gates the fifteen edits are inside and prove the rewrites changed no verdict"
+ },
+ "crux": {
+  "systems": [
+   "Nix",
+   "Bazel",
+   "systemd",
+   "Debian"
+  ],
+  "verdict": "accept(the question is whether a hazard is fixed at its instances or at its class, and every surveyed system answers the class. Nix makes a whole category of build non-determinism impossible by construction rather than auditing for it [X]. Bazel's sandbox makes an undeclared input a build error everywhere rather than a lint on the files someone remembered [X]. systemd's unit ordering is a graph the manager refuses cycles in, not a convention [X]. Debian's Lintian runs over every package rather than the ones a maintainer touched [X]. PMAT-239 fixed three instances and scoped its rule to three files, which is the shape all four reject, and eighteen sites survived it. Where forjar remains WORSE than all four: this rule is TEXTUAL — it reads shell as strings, and a pipeline built by `eval` or whose command arrives in a variable is invisible. None of the four relies on reading its own source as text; they change the substrate so the hazard cannot be expressed. A shell gate cannot do that, which is an argument about the substrate rather than about this rule.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with the no-write rule opening the brief and the five earlier incidents named; the tree was verified clean afterwards",
+  "verdict": "3/3 FAIL; four holes in the rule, a vacuous case, a behaviour change filed as a preservation, and a receipt describing a log it did not match",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-240",
+  "tools": [
+   "scripts/dogfood/{comply,docs,contracts,crux-reconcile,tagged,release-check}.sh",
+   "scripts/cb200-ratchet.sh",
+   "bashrs lint",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "pmat work edit -s",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files. None of the three cases appears — and ONE OF THEM WAS VACUOUS in a way the analyzer does not model, planting its evidence at the end of a file where a rule reading only the last line would pass. A review lane caught that; the analyzer did not.",
+  "bashrs": "0 errors on every touched script except scripts/ledger-replay.sh, whose single SEC011 is pre-existing and is the one gate B's BASHRS_ERROR_CEILING=1 accounts for.",
+  "quality_gate": "3 + 18 + 10 green at HEAD; six gates (B, D, G, H pending correctly, T, R) pass at HEAD and were NOT re-run against main's scripts, which the receipt says rather than implying. The complexity gate refused this file twice — cognitive 38 and then 33 against a limit of 25 — and both were split rather than suppressed.",
+  "tool_defects_found": [
+   "`cargo test` in a `--shared` clone reuses the shared target directory's binaries, so a proof run there can measure a stale rule. Setting CARGO_TARGET_DIR to a fresh path is the fix, and the first two attempts at this ticket's red proof were both wrong because of it."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/sigpipe-class-judges.md",
+  "total_bytes": 10517,
+  "files": [
+   {
+    "path": ".quorum/evidence/sigpipe-class-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1420,
+    "sha256": "f72da4aca0cb5e7f8174565a8ba3ae9077b896a926f8776ce0657134106c15fd",
+    "blob": "35c5388a9c765a318a0dd73787c1f7dce9e3ce6d"
+   },
+   {
+    "path": ".quorum/evidence/sigpipe-class-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1826,
+    "sha256": "31cee0b6f01559c0081eba6d912fe843e6a54668cd3b39b1c0813c674f505b37",
+    "blob": "d7d6e659f50e72c87bda5f8a82a0aac7bc9e11c7"
+   },
+   {
+    "path": ".quorum/evidence/sigpipe-class-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 4784,
+    "sha256": "ce8d574533849049e40031722cb6772b0a66e9073ab237a1e9915c9ac1806d73",
+    "blob": "2db27aba0ae1fda65acff246f8d4ffc8f87d6685"
+   },
+   {
+    "path": ".quorum/evidence/sigpipe-class-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 625,
+    "sha256": "d7af76627b3cdc17777541f038ec52e39008ee340e68d63c656773dcff54db95",
+    "blob": "c5672a45de4873660dd7985b17c6c705e38f36d0"
+   },
+   {
+    "path": ".quorum/evidence/sigpipe-class-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1862,
+    "sha256": "f78d96d08eaa807ed2aff535752b66eb765194c15a12b26dbc80f1d1aa05bfee",
+    "blob": "9975d66a3107391e4b8fc8fa6e0feca642e6b5d4"
+   }
+  ]
+ }
+}

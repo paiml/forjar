@@ -22,5 +22,6 @@ Six claims plus the standing instruction, one round of three sandboxed lanes,
 **And the instruction**: REFUTED — the receipt claimed six gates passed "either
 way" over a log holding one run.
 
-The adjudicated tally in `sigpipe-class-judges.md` is **2 CONFIRMED, 6
-REFUTED**.
+The adjudicated tally in `sigpipe-class-judges.md` is **2 CONFIRMED, 7
+REFUTED** — the seven include `||`, which was found while fixing the other
+three rather than put to a lane, and is adjudicated here because it was a hole.
