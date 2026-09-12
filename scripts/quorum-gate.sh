@@ -274,6 +274,54 @@ if [ "${PRINT_HASH:-0}" = "1" ]; then
     exit 0
 fi
 
+# THE BRANCH NAMES THE TICKET THE WORK CLAIMS (PMAT-535).
+#
+# The branch name is LOAD-BEARING for three gates and nothing checked it. Gate A
+# resolves `docs/audits/impl-<ticket>-receipt.md` from it, gate E resolves
+# `.quorum/<slug>.json` from it, and gate T resolves a PR's RELEASE WINDOW from
+# it. Three gates read one unvalidated string.
+#
+# Measured on PR #532: pushed from `PMAT-520-book-v1.29.0` while every commit's
+# trailer, its title and its receipt said PMAT-531. Every window arm therefore
+# credited PMAT-520 — which had SHIPPED in 1.29.0 — to the v1.30.0 window, and
+# PMAT-531, the ticket that actually owned the work, was invisible to all of
+# them. Nobody added that label by hand; gate T demanded it.
+#
+# The rule: if the branch names a ticket, some commit being pushed must claim
+# it. A branch named for work no commit on it does is misnamed, and here is the
+# last moment that is cheap to fix — after the push it is in three gates'
+# arithmetic and a merge commit cannot be renamed.
+#
+# NOT "every trailer equals the branch's id": a branch legitimately carries
+# commits for more than one ticket, which this repository does on every release.
+# What it must not do is name one that none of them claims.
+branch_id="$(awk 'match($0, /PMAT-[0-9]+/) { print substr($0, RSTART, RLENGTH); exit }' <<<"$branch")"
+if [ -n "$branch_id" ]; then
+    # READ IT THE WAY PMAT DOES, not the way git's trailer parser does.
+    #
+    # `git log --format='%(trailers:key=Pmat-Ticket,...)'` reads trailers from
+    # the LAST PARAGRAPH only, so a message written with several `-m` flags —
+    # each of which becomes its own paragraph — has a `Pmat-Ticket:` line that
+    # git does not consider a trailer at all. Measured on this very commit,
+    # whose Pmat-Ticket sits two paragraphs above Co-Authored-By and returned
+    # nothing. pmat's own CB-2113 and this repository's commit-msg hook both
+    # match the LINE wherever it appears, and a gate that disagreed with them
+    # about what a trailer is would refuse commits they accept.
+    trailers="$(git log --format=%B "$merge_base..$pushed" 2>/dev/null | sed -n 's/^Pmat-Ticket:[[:space:]]*//p')"
+    case " $(tr '\n' ' ' <<<"$trailers") " in
+        *" $branch_id "*) ;;
+        *)
+            die "branch '$branch' names $branch_id and no commit being pushed claims it.
+     Trailers on this branch: $(tr '\n' ' ' <<<"$trailers" | sed 's/  */ /g')
+     The branch name is read by gate A for the receipt path, by gate E for this
+     receipt's own filename, and by gate T for the RELEASE WINDOW a PR belongs
+     to. A branch named for someone else's ticket credits the work to the wrong
+     one in all three, and after the push a merge commit cannot be renamed.
+     Rename the branch to its own ticket, or add a commit that claims $branch_id."
+            ;;
+    esac
+fi
+
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
 
 # THE RECEIPT IS READ FROM THE COMMIT, NOT FROM THE WORKING TREE.
