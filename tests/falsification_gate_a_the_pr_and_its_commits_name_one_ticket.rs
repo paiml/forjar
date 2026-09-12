@@ -195,38 +195,84 @@ fn a_floor_this_repository_does_not_carry_exempts_nothing() {
     out.assert_says("PMAT-111");
 }
 
-/// The floor the script ships with is a real commit, and it is #532's.
+/// The floor the script ships with names a real commit — measured where the
+/// history is there to measure it against.
 ///
 /// A floor naming a commit the repository does not carry would silently stop
-/// exempting anything — safe, but not what the comment beside it claims. This
-/// case reads the constant out of the script and resolves it against the real
-/// repository.
+/// exempting anything. That is SAFE — `a_floor_this_repository_does_not_carry_exempts_nothing`
+/// pins the direction — but it is not what the comment beside the constant
+/// claims, so the constant is checked too.
+///
+/// A CI checkout is shallow by default, and `b4719737` is not in a
+/// `--depth 1` clone. An assertion that cannot be taken there must not fail and
+/// must not quietly pass: this case MEASURES which of the two repositories it is
+/// in, says so in its own failure text, and asserts something real in each.
 #[test]
 fn the_shipped_floor_is_the_commit_it_says_it_is() {
+    let floor = shipped_floor();
+    // Measurable anywhere: the constant is an abbreviated object name.
+    assert!(
+        floor.len() >= 7 && floor.chars().all(|c| c.is_ascii_hexdigit()),
+        "PMAT-540: the shipped TRAILER_FLOOR {floor:?} is not a hex object name, \
+         so it can never resolve and the floor exempts nothing anywhere"
+    );
+
+    let resolves = git_here(&["rev-parse", "--verify", &format!("{floor}^{{commit}}")]);
+    if resolves {
+        return;
+    }
+    // It did not resolve. Exactly one explanation is acceptable: this checkout
+    // does not carry the history. Anything else is a typo in the constant.
+    let shallow = std::process::Command::new("git")
+        .args(["rev-parse", "--is-shallow-repository"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("git must run");
+    let shallow = String::from_utf8_lossy(&shallow.stdout).trim() == "true";
+    assert!(
+        shallow,
+        "PMAT-540: the shipped TRAILER_FLOOR {floor:?} does not resolve in a \
+         repository that is NOT shallow, so it names no commit here and the \
+         comment beside it describes a record it cannot reach"
+    );
+    // And in the shallow case, say what was measured rather than nothing: the
+    // floor is unreachable here, which is precisely the state gate A treats as
+    // "exempt nothing".
+    assert!(
+        !git_here(&["cat-file", "-e", &floor]),
+        "PMAT-540: git calls this repository shallow and yet carries {floor:?}, \
+         so the branch this case took does not describe the tree it is in"
+    );
+}
+
+/// The `TRAILER_FLOOR` default, read out of gate A itself.
+fn shipped_floor() -> String {
     let script = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/harness.sh"),
     )
     .expect("gate A must exist");
     let line = script
         .lines()
-        .find(|l| l.starts_with("TRAILER_FLOOR="))
+        .find(|l| l.trim_start().starts_with("TRAILER_FLOOR="))
         .expect("PMAT-540: gate A no longer declares a TRAILER_FLOOR");
-    let floor = line
-        .split(":-")
+    line.split(":-")
         .nth(1)
         .and_then(|t| t.split('}').next())
-        .expect("PMAT-540: TRAILER_FLOOR is not a `${VAR:-default}` default");
-    let out = std::process::Command::new("git")
-        .args(["rev-parse", "--verify", &format!("{floor}^{{commit}}")])
+        .unwrap_or_else(|| {
+            panic!("PMAT-540: TRAILER_FLOOR is not a `${{VAR:-default}}` default: {line}")
+        })
+        .to_string()
+}
+
+/// A git command against the real repository: did it succeed?
+fn git_here(args: &[&str]) -> bool {
+    std::process::Command::new("git")
+        .args(args)
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("git must run");
-    assert!(
-        out.status.success(),
-        "PMAT-540: the shipped TRAILER_FLOOR {floor:?} is not a commit in this \
-         repository, so it exempts nothing and the comment beside it describes \
-         a record it cannot reach"
-    );
+        .expect("git must run")
+        .status
+        .success()
 }
 
 /// THE CASE A REVIEW LANE NAMED AS MISSING: the arm must read what git cannot.

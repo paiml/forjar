@@ -165,8 +165,18 @@ before the slow jobs — and not coverage. Its sibling is already in that list.
   commit, which does not exist until the merge happens.
 - **A merge commit whose trailers were rewritten after the fact would pass.**
   The gate reads what is in the commit now.
-- **`TRAILER_FLOOR` is a bare commit hash in a shell script.** It is asserted to
-  resolve, and the reason beside it names the single record it exempts, but
-  nothing asserts that record is still the only one below it.
+- **`TRAILER_FLOOR` is a bare commit hash in a shell script.** The reason beside
+  it names the single record it exempts, but nothing asserts that record is
+  still the only one below it.
+- **A CI checkout is shallow, so the floor is not there.** `actions/checkout`
+  defaults to `--depth 1`, and `b4719737` is not in that clone: gate A then
+  treats the floor as absent and exempts nothing, which is the strict direction
+  and is what `a_floor_this_repository_does_not_carry_exempts_nothing` pins.
+  `the_shipped_floor_is_the_commit_it_says_it_is` FAILED in CI for exactly that
+  reason on the first push of this branch, in `dogfood-guards` and again in
+  `coverage`; it now measures which repository it is in and asserts something
+  real in each — the constant's shape anywhere, that it resolves where the
+  history is present, and that git itself calls the checkout shallow where it is
+  not. A bogus floor in a full clone still fails it, measured.
 
 IMPL-PMAT-540-RECEIPT-END
