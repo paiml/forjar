@@ -1,0 +1,93 @@
+### the census this ticket inherited, and what the rule actually found
+
+PMAT-239 fixed three sites and wrote a rule over three FILES. A grep for
+the shape found 13 lines in scripts/, one of them a COMMENT explaining
+PMAT-239's own fix — so 12 real sites.
+
+The rule, once it walked EVERY STAGE of every pipeline in EVERY script,
+found THREE more that neither the grep nor the census had listed:
+  scripts/dogfood/crux-reconcile.sh:74  printf | sed -n | head -1
+  scripts/publish-from-tag.sh:88        git show | manifest_version | head -n1
+  scripts/dogfood/release-check.sh:195  git tag | grep -vxF | head -1
+Fifteen sites closed.
+
+### RED — the rule (as this branch has it) against main's scripts,
+### run in a scratch clone with its own CARGO_TARGET_DIR
+   Compiling forjar-contracts v0.31.2 (/tmp/claude-1000/-home-noah-src-forjar/94370bba-7b35-4321-848b-60e617a270a6/scratchpad/sigproof/crates/forjar-contracts)
+   Compiling forjar-contracts-macros v0.31.2 (/tmp/claude-1000/-home-noah-src-forjar/94370bba-7b35-4321-848b-60e617a270a6/scratchpad/sigproof/crates/forjar-contracts-macros)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.29.0 (/tmp/claude-1000/-home-noah-src-forjar/94370bba-7b35-4321-848b-60e617a270a6/scratchpad/sigproof)
+warning: forjar@1.29.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 36.30s
+     Running tests/falsification_no_script_pipes_into_an_early_exit.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_no_script_pipes_into_an_early_exit-05be8601e084e28d)
+
+running 2 tests
+test the_rule_walks_the_whole_of_scripts_including_the_libraries ... FAILED
+test no_script_under_scripts_pipes_into_a_command_that_can_exit_early ... FAILED
+
+failures:
+
+---- the_rule_walks_the_whole_of_scripts_including_the_libraries stdout ----
+
+thread 'the_rule_walks_the_whole_of_scripts_including_the_libraries' (2895631) panicked at tests/falsification_no_script_pipes_into_an_early_exit.rs:186:5:
+assertion `left == right` failed: a pipeline in a library that sets no pipefail of its own is not caught, so the rule has the same hole the one before it had
+  left: 3
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- no_script_under_scripts_pipes_into_a_command_that_can_exit_early stdout ----
+
+thread 'no_script_under_scripts_pipes_into_a_command_that_can_exit_early' (2895630) panicked at tests/falsification_no_script_pipes_into_an_early_exit.rs:133:5:
+PMAT-240: 15 pipeline(s) under scripts/ feed a command that can exit before its left-hand side finishes. Under `set -o pipefail` the left side takes SIGPIPE and the pipeline returns 141, so a gate reports UNMEASURED at random — measured on gate T at about one run in three.
+
+Capture and use a here-string, do it in one process, or put the early-exit command FIRST so it reads the file rather than a pipe. If a pipeline is genuinely safe, say so on the line with `# sigpipe-ok: <reason>` — an exception nobody wrote down is the same as no rule.
+
+scripts/cb200-ratchet.sh:99  if printf '%s' "$raw" | grep -q 'index is stale'; then
+scripts/dogfood/contracts.sh:222  if printf '%s\n' "$depth_out" | grep -q '^HARD '; then
+scripts/dogfood/crux-reconcile.sh:74  printf '%s\n' "$hits" | sed -n '/^|/p' | head -1
+scripts/dogfood/crux-reconcile.sh:87  version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/crux-reconcile.sh:98  latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+scripts/dogfood/crux-reconcile.sh:178  if printf '%s' "$row" | grep -qiF -- "$s"; then
+scripts/dogfood/docs.sh:305  if printf '%s\n' "$report" | grep -q '^FAILURE '; then
+scripts/dogfood/lib/binary.sh:27  want="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/lib/releases.sh:64  printf '%s' "$json" | jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null || rc=$?
+scripts/dogfood/lib/releases.sh:141  v="$(printf '%s\n' "$text" | sed -n 's/^version = "\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+scripts/dogfood/release-check.sh:67  version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+scripts/dogfood/release-check.sh:195  prev_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | grep -vxF -- "$TAG" | head -1)" || prev_rc=$?
+scripts/dogfood/release-check.sh:356  latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+scripts/ledger-replay.sh:116  sed 's/^/      /' "$WORK/$i.out" | head -12
+scripts/publish-from-tag.sh:88  cargo_toml_version="$(git show "$TAG:Cargo.toml" | manifest_version | head -n1)"
+
+
+failures:
+    no_script_under_scripts_pipes_into_a_command_that_can_exit_early
+    the_rule_walks_the_whole_of_scripts_including_the_libraries
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test falsification_no_script_pipes_into_an_early_exit`
+error: 1 target failed:
+    `--test falsification_no_script_pipes_into_an_early_exit`
+
+### GREEN — at this branch
+   Compiling forjar-contracts v0.31.2 (/home/noah/src/forjar/crates/forjar-contracts)
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.29.0 (/home/noah/src/forjar)
+warning: forjar@1.29.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.14s
+     Running tests/falsification_no_script_pipes_into_an_early_exit.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_no_script_pipes_into_an_early_exit-05be8601e084e28d)
+
+running 2 tests
+test the_rule_walks_the_whole_of_scripts_including_the_libraries ... ok
+test no_script_under_scripts_pipes_into_a_command_that_can_exit_early ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+### the gates the fifteen edits touched
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=35/35 CB-2114=34/34 CB-2115=42/43 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+GATE D PASS 18 documented invocation(s) from README.md run or parse against the fixtures (1 pinned as known-broken above); version claims reconcile with Cargo.toml; 98 cookbook config(s) validate
+GATE G PASS 40 contract(s) validate; pv lint 0 errors; 4 kernel(s) carry equations and kani harnesses; every contract names a falsifier; citations resolve; 12 verb(s) and 12 resource kind(s) reconciled against the corpus (11 unanchored, 2 ungoverned, both at their recorded ceiling)
+GATE H PENDING Cargo.toml is still at v1.29.0's version (1.29.0); no release is being cut, so there is nothing to reconcile yet
+GATE T PASS 7 tagged release(s) since v1.25.0 reconcile with git and GitHub and 42 ticket(s) carry their tag and say they shipped; 4 ticket(s) from 3 PR(s) merged since v1.29.0 carry release:v1.30.0; due 2026-09-13T19:55:10Z, 41h left
+GATE R PASS v1.29.0 is on main and on origin; GitHub release published (prerelease=false); crates.io serves forjar 1.29.0; docs.rs built the docs; 17 PR(s) since v1.28.0 (of 17 GitHub reports merged in that window) all carry receipt=ok; also pending: no docs/audits/crux-1.29.0.md is owed (it is present): Cargo.toml is still at v1.29.0's version (1.29.0), so no release is being cut and its reconciliation is not re-run here
