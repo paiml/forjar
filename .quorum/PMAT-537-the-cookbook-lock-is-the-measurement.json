@@ -1,0 +1,130 @@
+{
+ "kind": "code",
+ "issue": "PMAT-537 (closes forjar#537) — PMAT-241 made every release name the paiml/forjar-cookbook commit it was qualified against and checked the cookbook's Cargo.toml admits the released version. It read the REQUIREMENT, which is a range; cargo compiles the LOCK. On 7c100454 — the exact commit v1.29.0's row named — the manifest says `forjar = \"1.2\"` and the lock says 1.2.1, so the gate blessed a cookbook compiled TWENTY-SEVEN MINORS behind the release it was recorded as qualifying. cookbook-qualify, the scoring bridge and every recipe score that cookbook produces were built against 1.2.1 while this repository shipped 1.3 through 1.29. Gate T reads both files now and refuses a row whose cookbook lock is not exactly the released version; paiml/forjar-cookbook is bumped and merged (0be3e1ec); and v1.29.0's row names a commit that was actually compiled against it, which no release before this one did.",
+ "branch": "PMAT-537-the-cookbook-lock-is-the-measurement",
+ "base": "ff9b1818",
+ "base_commit": "ff9b1818a5090e715183d41ae331a69b7612cacd",
+ "diff_sha256": "4650f8de63b8333c2243c63067cfac73b854c7ad",
+ "recorded_at": "after the round in which every numbered claim held and the receipt was refused anyway",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-a99a2141)",
+   "lane 2 (conv-3b67e241)",
+   "lane 3 (conv-f46b801e)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes on 50e8c8cb with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 234s/357s/389s, verdicts 3/3 FAIL — with ALL SIX numbered claims confirmed by all three lanes, the first time in this release run.",
+  "kill_rule": "six claims about the change, and above them the instruction this release run has now carried four rounds: quote any sentence a reader could check and find false. Every claim held — the parser attacked with five malformed locks, the exactly-equal decision weighed against two alternatives, the fail-closed directions probed, the cases checked for vacuity, the cookbook bump verified from GitHub, the after-the-tag re-pointing judged on its merits — and all three lanes still refused, for one sentence. A change can be right in every respect a reviewer was asked about and still ship a false sentence about itself; only a reviewer who checks the artifact rather than the argument catches it.",
+  "claims_confirmed": 6,
+  "claims_refuted": 1,
+  "refuted_claims": [
+   "That docs/audits/logs/PMAT-537-cookbook-lock.log contains the red and green gate outputs the receipt quotes from it. Refuted 3/3, and they read the FILE rather than the claim: it was NINE LINES and contained neither, ending mid-sentence. The cause was `tee \"$L\" | head -14` in the script that wrote it — head closes the pipe, tee takes SIGPIPE, and the file stops where the terminal output did. That is the SIGPIPE class this repository has a rule about and an open ticket for (PMAT-240), in a proof script, written by the person who wrote the rule. Regenerated without a pipe: 459 lines, both verdicts, the ten cases."
+  ],
+  "lane_errors": [
+   "The delegate stopped at its 30-turn limit while reducing, after all three lanes completed. Eighth occurrence in this session at the same point; the lane JSON is read directly each time, and a pattern reproducing eight times belongs in the paiml-implement repository as a ticket rather than a ninth workaround."
+  ]
+ },
+ "falsification": {
+  "test": "a_cookbook_whose_lock_is_not_the_release_is_named_and_red drives three shapes — the lock pinning the release (green), the exact shape 7c100454 was in (red, naming both versions and the reason), and a lock AHEAD of the release (red, because being ahead is a different error rather than a lesser one); a_cookbook_lock_that_says_nothing_is_unmeasured_and_red drives a missing lock, a lock with no forjar entry, and a lock where another package's entry precedes forjar's",
+  "test_file": "tests/falsification_release_cookbook_is_part_of_the_release.rs",
+  "cargo_test_target": "falsification_release_cookbook_is_part_of_the_release",
+  "reverted": "the ledger row put back to the commit it originally named (7c100454), committed in a `git clone --shared` throwaway because gate T reads the ledger at HEAD",
+  "observed_failure": "GATE T FAIL v1.29.0: the cookbook at 7c100454 LOCKS forjar 1.2.1 and the release is 1.29.0 — the requirement 1.2 admits it, but a requirement is a range and the lock is what cargo builds, so that cookbook was never compiled against this release. At this branch: GATE T v1.29.0 cookbook 0be3e1ec requires forjar 1.29 and locks 1.29.0 ok, and GATE T PASS over seven tagged releases. Both in docs/audits/logs/PMAT-537-cookbook-lock.log, 459 lines — whose FIRST version was 9 lines and contained neither, because the script piped tee into head, and which three review lanes refused the receipt over.",
+  "still_green_when_reverted": "the eight pre-existing cases of the same file, which drive the cookbook field and the REQUIREMENT rule rather than the lock, and prove the new arm is confined to it"
+ },
+ "crux": {
+  "systems": [
+   "Nix",
+   "Debian",
+   "SLSA",
+   "Sigstore"
+  ],
+  "verdict": "accept(the question is whether a recorded dependency claim is about the RANGE declared or the ARTIFACT built, and every surveyed system answers the artifact. A Nix store path IS the hash of what was built, so a claim about it cannot be about a range [X]. Debian records the exact binary package versions a build used in its .buildinfo, not the Build-Depends ranges [X]. SLSA provenance lists resolved MATERIALS with digests, precisely because a declared dependency specification is not evidence of what was compiled [X]. Sigstore binds a signature to an artifact digest rather than to a source specification [X]. forjar recorded a cookbook COMMIT, which is artifact-shaped, and then judged it by the range in its manifest, which is not — the one mismatch in an otherwise artifact-shaped design, and it produced twenty-seven releases of a link pointing at something never built against them. Where forjar is still WORSE than all four: the gate reads the lock from GitHub's API at gate time rather than recording the resolved version IN the ledger row, so the row's meaning still depends on a remote file that could change under it. A row naming both the commit and the version it locked would be the artifact-shaped fix.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with the no-write rule opening the brief and the four earlier incidents named; the tree was verified clean afterwards",
+  "verdict": "3/3 FAIL with all six numbered claims CONFIRMED — refused on one false sentence about a log file, which all three opened",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-537",
+  "tools": [
+   "scripts/dogfood/tagged.sh",
+   "gh api (cookbook contents at two refs)",
+   "cargo build/clippy/test --workspace --locked (in the cookbook)",
+   "gh pr create/merge (paiml/forjar-cookbook#20)",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "bashrs lint",
+   "cargo test --no-fail-fast",
+   "cargo fmt --all",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files. None of the five new cases appears — each drives the real gate over a fixture repository with a stubbed gh and asserts on the verdict's own text.",
+  "bashrs": "0 errors on scripts/dogfood/tagged.sh. One `local` declared mid-body produced SC2168 on the first attempt and was hoisted rather than suppressed, the same correction as PMAT-241's.",
+  "quality_gate": "10 + 18 + 5 + 4 green at HEAD; GATE T PASS on this branch over seven tagged releases with the cookbook arm reading `requires forjar 1.29 and locks 1.29.0 ok`; GATE T FAIL in a clone with the old commit in the row. The cookbook's own workspace builds clean against 1.29.0 with clippy silent and 145 tests passing, and 15 CI checks green on paiml/forjar-cookbook#20.",
+  "tool_defects_found": [
+   "`tee \"$L\" | head -N` in a proof script truncates the committed log at N lines: head closes the pipe, tee takes SIGPIPE. Measured — a 459-line proof landed as 9 lines. Same class as PMAT-240, which is open, and the memory note red-proof-in-a-clone now carries it."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/cookbook-lock-judges.md",
+  "total_bytes": 10707,
+  "files": [
+   {
+    "path": ".quorum/evidence/cookbook-lock-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1618,
+    "sha256": "9ee3161129c5b3cfd5ad7633db84f288e7490b94180d774825444bc2a404d1a9",
+    "blob": "e85ab6a6be6cd78d40a71222e26b70c261bcfa6c"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-lock-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1411,
+    "sha256": "7e81b28af3ca402de39438f4cf6e7c755f8ffecb80ccbaa3d16fe25536646b6b",
+    "blob": "422f4544774a4d735e2de2a96276a03c83a03c36"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-lock-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 4778,
+    "sha256": "1516309f443329079132ca9c71e4a8deb9a2c4abafc6310ece006e11e11df595",
+    "blob": "dd1090e9992191b45bf2192894e5d2ec7bfe99ed"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-lock-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 846,
+    "sha256": "2e06a22841ac9a8cf8ed47655c0fd22af6ad7cf7b0e113e738d2fd9d25586ecd",
+    "blob": "4eb6798b1429b521d775fb45d8730e255e7af933"
+   },
+   {
+    "path": ".quorum/evidence/cookbook-lock-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2054,
+    "sha256": "d4303f0693e6235795b621e840f3f26ed73a133d702b0ee9c87f416238788bdc",
+    "blob": "4dbd494f86aa59e565ee28e2c1141b7d38b7fba2"
+   }
+  ]
+ }
+}

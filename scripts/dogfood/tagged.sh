@@ -42,6 +42,12 @@
 #   T5  from dogfood_floor on, the dogfood receipt and the crux document a row
 #       names exist at HEAD, the receipt ends in its END marker and reaches
 #       exactly one verdict
+#   T8b from cookbook_floor the named cookbook commit's Cargo.LOCK must pin the
+#       version being released, not merely a requirement that admits it. A
+#       requirement is a range; the lock is what cargo builds. Measured on
+#       7c100454, the commit v1.29.0's row named: the manifest says `1.2` and
+#       the lock says 1.2.1, so the gate blessed a cookbook compiled twenty-seven
+#       minors behind the release it was recorded as qualifying (PMAT-537).
 #   T9  while a cut is in flight, any "<N> PRs across <M> tickets" claim in the
 #       release's own CHANGELOG section equals what the window measures. The
 #       1.29.0 cut wrote "Thirteen" over twelve merged PRs — the thirteenth was
@@ -202,7 +208,7 @@ labels_of_release() {
 # and that its Cargo.toml admits the version that shipped. A release whose
 # cookbook cannot build against it is a release the cookbook does not describe.
 cookbook_of_release() {
-  local row="$1" tag="$2" ver="$3" sha rc=0 crc=0 body raw op req
+  local row="$1" tag="$2" ver="$3" sha rc=0 crc=0 lrc=0 body raw op req lock locked
   sha="$(printf '%s' "$row" | jq -r '.cookbook // ""')"
   if [ -z "$sha" ]; then
     fail "${tag} is at or above cookbook_floor and its row names no cookbook: commit — nothing records which paiml/forjar-cookbook the release was qualified against (take it from \`git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master\` when the cut is made)"
@@ -287,7 +293,43 @@ cookbook_of_release() {
   if [ "$crc" -ne 0 ]; then
     fail "${tag}: dogfood_req_admits ${ver} ${op} ${req} exited ${crc}, which is not a verdict this gate knows — UNMEASURED"
   fi
-  echo "GATE T ${tag} cookbook ${sha} requires forjar ${raw} ok"
+  # THE LOCK IS WHAT CARGO BUILDS (PMAT-537).
+  #
+  # Everything above reads the REQUIREMENT, and a requirement is a range. Cargo
+  # compiles the LOCK. Measured on 7c100454 — the exact commit v1.29.0's row
+  # names — `Cargo.toml` says `forjar = { version = "1.2" }` and `Cargo.lock`
+  # says `version = "1.2.1"`. `^1.2` admits 1.29.0, so this arm printed
+  # `requires forjar 1.2 ok` about a cookbook that compiles a version
+  # twenty-seven minors older than the release it was recorded as qualifying.
+  #
+  # WHICH OF THREE READINGS. "Every tagged release updates forjar-cookbook"
+  # could mean the lock resolves to the released version, or to anything the
+  # requirement admits that is not older than the previous release, or merely
+  # that the requirement admits the release. The last is what existed and is
+  # the one that produced the defect. THIS GATE TAKES THE FIRST: the cookbook's
+  # lock must pin exactly the version being released.
+  #
+  # That is an obligation on a second repository and it is stated rather than
+  # implied: a cut now requires a cookbook commit whose lock has been updated to
+  # the version being cut. It is the only reading under which "was qualified
+  # against" is true of the thing that was actually compiled, which is the whole
+  # point of naming a commit at all.
+  lock="$("$GH" api "repos/paiml/forjar-cookbook/contents/Cargo.lock?ref=${sha}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)" || lrc=$?
+  if [ "$lrc" -ne 0 ] || [ -z "$lock" ]; then
+    fail "${tag}: paiml/forjar-cookbook has no readable Cargo.lock at ${sha} — the requirement is a range and the LOCK is what cargo builds, so without it nothing is known about the version that cookbook actually compiles: UNMEASURED"
+  fi
+  locked="$(awk '
+    /^name = "forjar"$/ { want = 1; next }
+    want && /^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/"$/, "", v); print v; exit }
+    /^\[\[package\]\]/ { want = 0 }' <<<"$lock")"
+  if [ -z "$locked" ]; then
+    fail "${tag}: the cookbook's Cargo.lock at ${sha} pins no forjar version — a lock with no entry for the crate under test measures nothing, and nothing is not a pass"
+  fi
+  if [ "$locked" != "$ver" ]; then
+    fail "${tag}: the cookbook at ${sha} LOCKS forjar ${locked} and the release is ${ver} — the requirement ${raw} admits it, but a requirement is a range and the lock is what cargo builds, so that cookbook was never compiled against this release. Update paiml/forjar-cookbook's Cargo.lock to ${ver} and name the resulting commit here (PMAT-537)"
+  fi
+
+  echo "GATE T ${tag} cookbook ${sha} requires forjar ${raw} and locks ${locked} ok"
 }
 
 # T5: the dogfood receipt and crux document of row $1 (tag $2, version $3).

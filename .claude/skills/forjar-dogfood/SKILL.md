@@ -32,7 +32,7 @@ asking for "the dogfood" got a different document, with no error and no diff.
 | **F** | Coverage ≥ 95% line, and 0 mutant survivors in the diff | `scripts/dogfood/coverage.sh` |
 | **G** | Every contract validates, lints, and resolves its falsifiers to tests that run in `ci / gate` | `scripts/dogfood/contracts.sh` |
 | **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` |
-| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>` and says `status: completed`, every ticket merged since the newest tag carries `release:<next.tag>`, the next cut is not overdue, and from `cookbook_floor` every release names the paiml/forjar-cookbook commit it was qualified against (PMAT-225, PMAT-236, PMAT-241) | `scripts/dogfood/tagged.sh` |
+| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>` and says `status: completed`, every ticket merged since the newest tag carries `release:<next.tag>`, the next cut is not overdue, from `cookbook_floor` every release names a paiml/forjar-cookbook commit whose `Cargo.toml` admits AND whose `Cargo.lock` pins the released version, and while a cut is in flight the CHANGELOG's own PR and ticket counts equal what the window measures (PMAT-225, PMAT-236, PMAT-241, PMAT-520, PMAT-537) | `scripts/dogfood/tagged.sh` |
 
 All nine are **mechanical**: shell, no agent. `make dogfood-release` runs
 every one of them and fails on the first RED. T is the release-goal gate: the
@@ -57,8 +57,21 @@ books it — and gate T refuses a row that names none, names a branch instead of
 a commit, names a commit the cookbook does not carry, or names one whose
 `Cargo.toml` cannot admit the version that shipped — read as CARGO reads it:
 `forjar = "1.2"` is a caret, `>=1.2.0, <2.0.0`, so a plain `>=` would pass
-2.0.0 against a cookbook that cannot build with it. **If the cookbook cannot
-use the release, the cookbook is bumped as part of the cut.** This skill does not re-implement
+2.0.0 against a cookbook that cannot build with it.
+
+**And the requirement is not the measurement — the LOCK is (PMAT-537).** A
+requirement is a range; `cargo` compiles what `Cargo.lock` pins. Measured on
+the first commit any release ever named: the manifest said `1.2` and the lock
+said **1.2.1**, so the gate blessed a cookbook compiled twenty-seven minors
+behind the release it was recorded as qualifying. Gate T reads both now and
+refuses a row whose cookbook lock is not exactly the released version; a lock
+it cannot read, or one with no forjar in it, is UNMEASURED and red.
+
+**So the cookbook is bumped and pushed as PART OF THE CUT, before the tag**,
+and the cut names the resulting commit. That is an obligation on a second
+repository and it is stated here rather than implied. It was done the other way
+round exactly once — for 1.29.0, where the cookbook was bumped after the tag
+and the row corrected — and the receipt for that says so. This skill does not re-implement
 a gate, does not decide a gate, and does not paraphrase a gate's output — it
 runs the Make target and quotes the `GATE <letter> …` line each script printed.
 
