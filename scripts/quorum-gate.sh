@@ -308,8 +308,19 @@ if [ -n "$branch_id" ]; then
     # match the LINE wherever it appears, and a gate that disagreed with them
     # about what a trailer is would refuse commits they accept.
     trailers="$(git log --format=%B "$merge_base..$pushed" 2>/dev/null | sed -n 's/^Pmat-Ticket:[[:space:]]*//p')"
-    case " $(tr '\n' ' ' <<<"$trailers") " in
-        *" $branch_id "*) ;;
+    # ONLY when the commits claim SOMETHING. A branch whose commits carry no
+    # `Pmat-Ticket` at all is a different defect with a different owner — the
+    # commit-msg hook refuses it, and pmat's CB-2113 refuses it again — and an
+    # arm that also refused it would be reporting someone else's finding in its
+    # own words. The defect THIS arm is about had a trailer; it was the wrong
+    # one.
+    claimed="$(tr '\n' ' ' <<<"$trailers")"
+    case "$claimed" in
+        *[![:space:]]*) : ;;   # some commit claims a ticket; judge which
+        *) claimed="" ;;       # none does — a different gate's finding
+    esac
+    case "${claimed:+ $claimed }" in
+        ""|*" $branch_id "*) ;;
         *)
             die "branch '$branch' names $branch_id and no commit being pushed claims it.
      Trailers on this branch: $(tr '\n' ' ' <<<"$trailers" | sed 's/  */ /g')
