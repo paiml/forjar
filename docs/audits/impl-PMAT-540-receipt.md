@@ -16,7 +16,7 @@ verification:
   cmd="cargo test --test falsification_dogfood_harness_and_quorum"  rerun_exit=0 (19 passed, unchanged)  log=§4
   cmd="the same 9 against origin/main's harness.sh"  rerun_exit=101 (5 failed, 4 guards green)  log=§4
   cmd="four targeted mutations"  rerun_exit=101 each; the kill matrix is §6  log=§5, §6
-  review: 3 agy lanes, 3 × FAIL, 21 findings; four false sentences, a fixture that did not reproduce the shape, an unguarded pipeline and an over-stated promise, all acted on below
+  review: 3 agy lanes, 3 × FAIL, 22 findings; four false sentences, a fixture that did not reproduce the shape, an unguarded pipeline and an over-stated promise, all acted on below
   cmd="bash scripts/dogfood/harness.sh"  rerun_exit=0, and exit 1 with a floor this repository does not carry  log=§3
   cmd="the rule against the 30 most recently merged PRs"  rerun_exit=0  log=§2
   cmd="bashrs lint scripts/dogfood/harness.sh"  rerun_exit=1, 0 errors (0 errors on origin/main too)
