@@ -51,14 +51,22 @@
 
 ### 4. the conversion
 
-  Thirty-two declarations moved to [self-hosted, clean-room] across seventeen
-  files, by script rather than by hand so that every site is the same edit:
+  Thirty-THREE declarations moved to [self-hosted, clean-room] across seventeen
+  files. The script did 32, by script rather than by hand so that every site is
+  the same edit; the 33rd is the one it missed, below. Re-derived from the trees
+  rather than from the script's own report -- count the hosted-Linux labels that
+  exist at 0bb6cb57 and no longer exist at HEAD:
 
-    1 audit.yml · 1 behavior.yml · 2 bench.yml · 4 binary-release.yml
-    8 ci.yml · 1 convergence.yml · 1 coverage.yml · 1 docs.yml
-    2 lint.yml · 1 msrv.yml · 1 mutation.yml · 3 nightly.yml
-    2 proofs.yml · 1 quorum.yml · 1 release-audit.yml · 1 release-goal.yml
-    1 stress.yml
+      1  audit.yml          1  behavior.yml       2  bench.yml
+      4  binary-release.yml 8  ci.yml             1  convergence.yml
+      1  coverage.yml       1  docs.yml           2  lint.yml
+      1  msrv.yml           1  mutation.yml       4  nightly.yml
+      2  proofs.yml         1  quorum.yml         1  release-audit.yml
+      1  release-goal.yml   1  stress.yml
+    --- hosted-Linux runner labels that no longer exist: 33 across 17 files
+
+  nightly.yml is 4 here and the script reported 3; lint.yml is 2 because its
+  matrix held one ubuntu-latest and its second job another.
 
   THE SCRIPT MISSED ONE and the test caught it:
 

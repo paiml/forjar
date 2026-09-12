@@ -11,7 +11,7 @@
 //! doctests         runner=GitHub Actions 1000366556  labels=ubuntu-latest  success
 //! ```
 //!
-//! `runner=GitHub Actions <n>` is a GitHub-hosted runner. Thirty-two runner
+//! `runner=GitHub Actions <n>` is a GitHub-hosted runner. Thirty-three runner
 //! declarations across seventeen workflow files named one, and every pull
 //! request spent them.
 //!
@@ -80,21 +80,37 @@ fn workflows() -> Vec<(String, Value)> {
 
 /// A GitHub-HOSTED runner label. The fleet's labels (`self-hosted`,
 /// `clean-room`, `build`, …) are not in this shape and never match.
+///
+/// Case-INSENSITIVE: GitHub accepts `macOS-latest` and `Ubuntu-latest`, and a
+/// case-sensitive prefix check would let either through. Matched by prefix
+/// rather than against a fixed list because GitHub adds images (`ubuntu-26.04`,
+/// `macos-27`) faster than a list here would be updated, and a list that is
+/// behind fails open.
 fn hosted_label(v: &str) -> bool {
-    let v = v.trim();
+    let v = v.trim().to_ascii_lowercase();
     v.starts_with("ubuntu-") || v.starts_with("macos-") || v.starts_with("windows-")
 }
 
-/// Append every string in `v` — a bare label, or a list like
-/// `[self-hosted, clean-room]`.
+/// Append every string in `v` — a bare label, a list like
+/// `[self-hosted, clean-room]`, or the OBJECT form GitHub also accepts:
+/// `runs-on: { group: <g>, labels: [ubuntu-latest] }`. The object form is the
+/// one a hosted runner can hide in, because it is rare enough that a reader
+/// scanning for `runs-on: ubuntu-latest` will not see it.
 fn push_labels(out: &mut Vec<String>, v: &Value) {
     match v {
         Value::String(s) => out.push(s.clone()),
         Value::Sequence(seq) => {
             for item in seq {
-                if let Value::String(s) = item {
-                    out.push(s.clone());
-                }
+                push_labels(out, item);
+            }
+        }
+        Value::Mapping(map) => {
+            // `labels` ONLY. `group` names a runner GROUP, not a runner: a
+            // group called `ubuntu-runners` is not a hosted label, and reading
+            // it made the fleet control below report a hosted runner that was
+            // not there. The first draft of this arm read both.
+            if let Some(inner) = map.get(Value::String("labels".to_string())) {
+                push_labels(out, inner);
             }
         }
         _ => {}
@@ -108,17 +124,25 @@ fn matrix_labels(job: &Value) -> Vec<String> {
     let Some(matrix) = job.get("strategy").and_then(|s| s.get("matrix")) else {
         return out;
     };
+    // EVERY key, not just `runner` and `os`. `runs-on: ${{ matrix.machine }}`
+    // is as valid as `matrix.os`, and a scan that hardcoded two names would
+    // pass over it. Reading them all can only over-collect, and over-collecting
+    // a label that is not a runner is harmless: it is only ever compared
+    // against the hosted-label shape.
     if let Some(Value::Sequence(include)) = matrix.get("include") {
         for leg in include {
-            for key in ["runner", "os"] {
-                if let Some(v) = leg.get(key) {
+            if let Value::Mapping(leg) = leg {
+                for (_, v) in leg {
                     push_labels(&mut out, v);
                 }
             }
         }
     }
-    for key in ["runner", "os"] {
-        if let Some(v) = matrix.get(key) {
+    if let Value::Mapping(matrix) = matrix {
+        for (key, v) in matrix {
+            if key.as_str() == Some("include") || key.as_str() == Some("exclude") {
+                continue;
+            }
             push_labels(&mut out, v);
         }
     }
@@ -132,12 +156,16 @@ fn runner_labels(job: &Value) -> Vec<String> {
     let Some(runs_on) = job.get("runs-on") else {
         return Vec::new();
     };
-    let is_expr = matches!(runs_on, Value::String(s) if s.contains("${{"));
-    if is_expr {
-        return matrix_labels(job);
-    }
+    // An expression anywhere in `runs-on` -- bare, or inside a list like
+    // `runs-on: [self-hosted, "${{ matrix.pool }}"]` -- means the matrix is
+    // also a source of labels. Both are read: the literals `runs-on` names AND
+    // everything the matrix can substitute, because either can be hosted.
     let mut out = Vec::new();
     push_labels(&mut out, runs_on);
+    if out.iter().any(|l| l.contains("${{")) {
+        out.retain(|l| !l.contains("${{"));
+        out.extend(matrix_labels(job));
+    }
     out
 }
 
@@ -145,20 +173,37 @@ fn runner_labels(job: &Value) -> Vec<String> {
 fn hosted_sites() -> Vec<(String, String, String)> {
     let mut sites = Vec::new();
     for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let name = name.as_str().unwrap_or("<non-string job name>").to_string();
-            for label in runner_labels(job) {
-                if hosted_label(&label) {
-                    sites.push((file.clone(), name.clone(), label));
-                }
-            }
+        for (job, label) in hosted_in(&doc) {
+            sites.push((file.clone(), job, label));
         }
     }
     sites.sort();
     sites
+}
+
+/// Every `(job, hosted label)` in one parsed workflow. Split out of
+/// [`hosted_sites`] so the controls below can drive it with a fixture: a claim
+/// that some shape "would hide a hosted runner" is worth exactly as much as the
+/// fixture that shows it does not.
+fn hosted_in(doc: &Value) -> Vec<(String, String)> {
+    let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for (name, job) in jobs {
+        let name = name.as_str().unwrap_or("<non-string job name>").to_string();
+        for label in runner_labels(job) {
+            if hosted_label(&label) {
+                out.push((name.clone(), label));
+            }
+        }
+    }
+    out
+}
+
+/// Parse a workflow fixture, or fail naming it.
+fn fixture(yaml: &str) -> Value {
+    serde_yaml_ng::from_str(yaml).expect("the fixture must parse")
 }
 
 /// The measurement this whole test rests on: the parser can SEE a runner
@@ -178,10 +223,59 @@ fn the_parser_finds_the_runners_that_are_there() {
                 .count();
         }
     }
+    // MEASURED at 48 on this branch. A floor of 20 left 28 labels of slack, so
+    // more than half the fleet jobs could have been deleted before this noticed;
+    // 40 keeps the guard honest while leaving room to retire a workflow.
     assert!(
-        fleet >= 20,
+        fleet >= 40,
         "the parser found only {fleet} `self-hosted` labels; it is not reading \
          runners and every other case in this file would pass over anything"
+    );
+}
+
+/// A job that calls a REUSABLE workflow declares no `runs-on` of its own, so
+/// every case in this file passes over it — the runner is chosen by a file in
+/// another repository that this test cannot read.
+///
+/// Found by a review lane, which is the only reason it is here: the parser was
+/// silently skipping these and nothing said so. They cannot be checked from
+/// here, so they are COUNTED, exactly like the macOS legs. Two of these three
+/// were measured on run 34685410794 landing on `intel-clean-room-*`
+/// (`ci / lint`, `ci / coverage`, `ci / test` all reported
+/// `labels=self-hosted,clean-room`), which is evidence about
+/// `sovereign-ci.yml` and not a guarantee about its future.
+#[test]
+fn the_jobs_that_delegate_their_runner_are_exactly_these() {
+    let mut delegated = Vec::new();
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            if job.get("runs-on").is_some() {
+                continue;
+            }
+            let Some(uses) = job.get("uses").and_then(Value::as_str) else {
+                continue;
+            };
+            let name = name.as_str().unwrap_or("?");
+            delegated.push(format!("{file}:{name} -> {uses}"));
+        }
+    }
+    delegated.sort();
+
+    let expected = vec![
+        "ci.yml:ci -> paiml/.github/.github/workflows/sovereign-ci.yml@main".to_string(),
+        "nightly-bench.yml:bench -> paiml/.github/.github/workflows/sovereign-ci.yml@main"
+            .to_string(),
+        "pr-gate.yml:authorize -> paiml/.github/.github/workflows/pr-gate.yml@main".to_string(),
+    ];
+    assert_eq!(
+        delegated, expected,
+        "the set of jobs whose runner is chosen by another repository changed. \
+         No case in this file can see where those jobs run, so each one is a \
+         hosted runner this repository cannot rule out. Adding one is a \
+         decision; removing one should be written down."
     );
 }
 
@@ -276,5 +370,120 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         "these jobs say `self-hosted` without naming a pool, so they can land on \
          any of the 25 runners including the GPU boxes:\n{}",
         bare.join("\n")
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Controls. Every one of these is a shape a review lane claimed could hide a
+// hosted runner from this file's parser. Each is a fixture rather than an
+// argument, because the four cases above are only worth what the parser under
+// them is worth, and "I considered that shape" is not a measurement.
+// ---------------------------------------------------------------------------
+
+/// `runs-on` also takes an OBJECT: `{ group: …, labels: [ubuntu-latest] }`.
+///
+/// This is the shape that hides best. A reader scanning for
+/// `runs-on: ubuntu-latest` does not see it, and neither did the first draft of
+/// `push_labels`, which matched only `String` and `Sequence`.
+#[test]
+fn the_object_form_of_runs_on_cannot_hide_a_hosted_runner() {
+    let doc = fixture(
+        r#"
+jobs:
+  build:
+    runs-on:
+      group: ubuntu-runners
+      labels: [ubuntu-latest]
+"#,
+    );
+    assert_eq!(
+        hosted_in(&doc),
+        vec![("build".to_string(), "ubuntu-latest".to_string())],
+        "the object form of `runs-on` hid a hosted runner from the parser"
+    );
+}
+
+/// GitHub accepts `macOS-latest` and `Ubuntu-Latest`. A case-sensitive prefix
+/// check lets both through while looking correct.
+#[test]
+fn a_hosted_label_in_another_case_is_still_a_hosted_label() {
+    let doc = fixture(
+        r#"
+jobs:
+  a:
+    runs-on: macOS-Latest
+  b:
+    runs-on: Ubuntu-Latest
+"#,
+    );
+    let found: Vec<String> = hosted_in(&doc).into_iter().map(|(_, l)| l).collect();
+    assert_eq!(
+        found,
+        vec!["macOS-Latest".to_string(), "Ubuntu-Latest".to_string()],
+        "a hosted label spelled in another case was not recognised"
+    );
+}
+
+/// The matrix key need not be called `runner` or `os`.
+#[test]
+fn a_matrix_key_by_any_name_is_still_read() {
+    let doc = fixture(
+        r#"
+jobs:
+  build:
+    strategy:
+      matrix:
+        machine: [ubuntu-latest, self-hosted]
+    runs-on: ${{ matrix.machine }}
+"#,
+    );
+    let found: Vec<String> = hosted_in(&doc).into_iter().map(|(_, l)| l).collect();
+    assert_eq!(
+        found,
+        vec!["ubuntu-latest".to_string()],
+        "a matrix key not named `runner` or `os` hid a hosted runner"
+    );
+}
+
+/// An expression nested inside a `runs-on` LIST still reaches the matrix.
+#[test]
+fn an_expression_inside_a_runs_on_list_still_reaches_the_matrix() {
+    let doc = fixture(
+        r#"
+jobs:
+  build:
+    strategy:
+      matrix:
+        pool: [macos-latest]
+    runs-on: [self-hosted, "${{ matrix.pool }}"]
+"#,
+    );
+    let found: Vec<String> = hosted_in(&doc).into_iter().map(|(_, l)| l).collect();
+    assert_eq!(
+        found,
+        vec!["macos-latest".to_string()],
+        "an expression inside a runs-on list did not reach the matrix"
+    );
+}
+
+/// And the controls do not fire on a job that is genuinely on the fleet — a
+/// parser that called everything hosted would pass every case above.
+#[test]
+fn a_fleet_job_is_not_mistaken_for_a_hosted_one() {
+    let doc = fixture(
+        r#"
+jobs:
+  a:
+    runs-on: [self-hosted, clean-room]
+  b:
+    runs-on:
+      group: fleet
+      labels: [self-hosted, build]
+"#,
+    );
+    assert!(
+        hosted_in(&doc).is_empty(),
+        "a fleet job was reported as hosted: {:?}",
+        hosted_in(&doc)
     );
 }

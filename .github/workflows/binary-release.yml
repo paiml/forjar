@@ -175,7 +175,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y --no-install-recommends musl-tools
           else
-            echo "no musl-gcc and no apt-get on this runner; the link step will say so" >&2
+            echo "::warning::musl-gcc is absent and apt-get is not available on this runner. The build will reach the link step and fail there naming the missing linker. Install musl-tools on the fleet image, or give this leg a runner that has it." >&2
           fi
 
       # Cross is used for aarch64 targets — pinned to v0.2.5 (matches the
@@ -242,7 +242,19 @@ jobs:
         run: |
           TARGET="${{ matrix.target }}"
           BIN_PATH="target/${TARGET}/release/forjar"
-          builder="$(ldd --version 2>/dev/null | head -1 || echo 'ldd unavailable')"
+          # `ldd --version` reports the glibc of the HOST running this step.
+          # For the aarch64 leg the binary was built inside a cross container
+          # on an x86_64 host, so the host's glibc is not the one it linked
+          # against and printing it would be a measurement of the wrong thing.
+          # The DEMANDED floor below is read out of the binary itself and is
+          # correct on every leg; the builder line is only claimed where it is
+          # true.
+          case "$TARGET" in
+            x86_64-unknown-linux-gnu)
+              builder="$(ldd --version 2>/dev/null | head -1 || echo 'ldd unavailable')" ;;
+            *)
+              builder="not applicable — ${TARGET} was cross-built, so this host's glibc is not what it linked against" ;;
+          esac
           demanded="$(strings -a "$BIN_PATH" 2>/dev/null \
             | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' \
             | sort -V | tail -1)"
