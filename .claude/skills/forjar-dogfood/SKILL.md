@@ -24,7 +24,7 @@ asking for "the dogfood" got a different document, with no error and no diff.
 
 | Gate | What it asserts | Where it runs |
 |------|-----------------|---------------|
-| **A** | Every PR merged since the last tag carries `docs/audits/impl-<ticket>-receipt.md`, ending in its END marker, with exactly one verdict | `scripts/dogfood/harness.sh` |
+| **A** | Every PR merged since the last tag carries `docs/audits/impl-<ticket>-receipt.md`, ending in its END marker, with exactly one verdict — and, from `TRAILER_FLOOR`, is filed under a ticket its own merge commit claims (PMAT-540) | `scripts/dogfood/harness.sh` |
 | **B** | `pmat comply check` passes against the committed config | `scripts/dogfood/comply.sh` |
 | **C** | The declared transport surface equals the surface the built binary exposes | `scripts/dogfood/surface.sh` |
 | **D** | Every documented `forjar …` invocation runs, and every count README claims is the derived one | `scripts/dogfood/docs.sh` |

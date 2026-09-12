@@ -47,6 +47,26 @@ fail() {
 # The window (and the constants GH, REPO, PR_PAGE_LIMIT) — shared with gate E
 # so the two gates cannot drift into checking different sets of PRs. `fail` is
 # defined above because window.sh calls it.
+# THE TRAILER FLOOR (PMAT-540) -- the commit up to which a PR is not judged on
+# what its commits claim.
+#
+# `b4719737` is PR #532's own merge commit, and #532 is the ONE record in thirty
+# that this rule would condemn: its branch says PMAT-520 and every commit says
+# PMAT-531. A merged branch cannot be renamed, so the choice was to exempt it by
+# name or to rewrite history. The floor is set at that commit and no later, so
+# every PR merged after it -- #536, #538, #539, #541, #543 and everything since
+# -- IS judged, and all of them pass. A floor at main's tip would have exempted
+# five PRs that need no exemption.
+#
+# The exempted set cannot grow: PMAT-535 refuses a branch naming a ticket no
+# commit claims at push time, which is the only way a record like #532 was made.
+#
+# Measured over the thirty most recently merged PRs: 28 agree, #532 is the
+# mismatch, and #496 LOOKS like one -- branch PMAT-218, commits PMAT-219 --
+# until the ids are resolved, because PMAT-219's row declares the misnomer as
+# its `alias:`. Resolving before comparing is why #496 is green.
+TRAILER_FLOOR="${TRAILER_FLOOR:-b4719737}"
+
 # shellcheck source=scripts/dogfood/lib/window.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/window.sh"
 
@@ -81,6 +101,97 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   fi
   if [ -z "$id" ]; then
     fail "PR #${num} (branch ${href}) names no PMAT-<n> ticket in its branch, title or body, so the harness receipt it must carry has no address: a merged PR whose ticket cannot be identified cannot be shown to have been implemented under the harness"
+  fi
+
+  # THE MERGE COMMIT MUST CLAIM THE TICKET THE PR IS FILED UNDER (PMAT-540).
+  #
+  # `dogfood_pr_tickets` resolves a PR's ticket from the BRANCH, then the TITLE,
+  # then the BODY, and PMAT-535 closed only the first: `scripts/quorum-gate.sh`
+  # refuses, at push time, a branch that names a PMAT-<n> no commit claims. It
+  # cannot close the other two, because at push time the pull request does not
+  # exist and its title is typed afterwards. Here it does exist, and its merge
+  # commit is an ancestor of HEAD, so the two sources can be compared.
+  #
+  # Measured on PR #532: branch `PMAT-520-book-v1.29.0`, every commit's trailer
+  # PMAT-531. Every window arm credited PMAT-520 -- already SHIPPED in 1.29.0 --
+  # to the v1.30.0 window, gate T demanded `release:v1.30.0` on it, and the
+  # ticket that owned the work was invisible to all three gates. Nobody added
+  # that label by hand.
+  #
+  # READ BY THE LINE, not with `%(trailers:key=…)`. git's parser reads the LAST
+  # PARAGRAPH only, and a squash message ends with whatever bullets GitHub
+  # assembled: on b4719737, the merge commit of #532 itself, it returns NOTHING
+  # while the line is plainly there. An arm built on it would be blind to the
+  # exact commit it exists for. pmat's CB-2113 asks git the same way, which is
+  # why it saw nothing either.
+  dogfood_pr_field "$i" ".mergeCommit.oid"
+  merge="$DOGFOOD_FIELD"
+  if [ -z "$merge" ]; then
+    fail "PR #${num} (${id}) is in the window with no merge commit oid, so what its commits claim cannot be read — UNMEASURED"
+  fi
+
+  # THE FLOOR, AND WHY THERE IS ONE.
+  #
+  # A rule cannot condemn a record it arrived after. PR #532 is merged, and a
+  # merge commit cannot be renamed: the only honest remedies were to exempt it
+  # or to rewrite history. The floor exempts every PR merged up to this commit
+  # by name, so a reader can see exactly which records the rule does not judge,
+  # and PMAT-535 already refuses that shape at push time -- so the exemption
+  # covers a set that cannot grow.
+  #
+  # A FLOOR THIS REPOSITORY DOES NOT CARRY EXEMPTS NOTHING. The floor is an
+  # EXEMPTION, so failing to find it must make the gate stricter and not
+  # looser: a typo, a shallow clone or a fixture repository all mean no PR is
+  # excused, which is the direction that cannot hide a defect.
+  frc=1
+  if git rev-parse --verify "${TRAILER_FLOOR}^{commit}" >/dev/null 2>&1; then
+    frc=0
+    git merge-base --is-ancestor "$merge" "$TRAILER_FLOOR" >/dev/null 2>&1 || frc=$?
+  fi
+  if [ "$frc" -eq 0 ]; then
+    echo "GATE A #${num} ${id} predates the trailer floor ${TRAILER_FLOOR} — not judged on what its commits claim"
+  elif [ "$frc" -gt 1 ]; then
+    fail "git merge-base --is-ancestor exited ${frc} comparing PR #${num}'s merge commit ${merge} with the trailer floor ${TRAILER_FLOOR} — UNMEASURED"
+  else
+    mrc=0
+    mmsg="$(git log -1 --format=%B "$merge")" || mrc=$?
+    if [ "$mrc" -ne 0 ]; then
+      fail "git log -1 on PR #${num}'s merge commit ${merge} exited ${mrc}, so what its commits claim cannot be read — UNMEASURED"
+    fi
+    # Normalised exactly as scripts/quorum-gate.sh normalises it, and for the
+    # same measured reasons: a CRLF message glues \r to the id, a
+    # `Pmat-Ticket: PMAT-1, PMAT-2` line is two claims, and being stricter than
+    # the commit-msg hook about indentation or case can only invent refusals.
+    claims="$(printf '%s\n' "$mmsg" \
+      | sed -n 's/^[[:space:]]*[Pp][Mm][Aa][Tt]-[Tt][Ii][Cc][Kk][Ee][Tt]:[[:space:]]*//p' \
+      | tr -d '\r' | tr ',' ' ' | tr '\n' ' ' | tr -s ' ')"
+    # Resolve each claim the way the PR's own id was resolved, so an id that a
+    # roadmap row declares as its `alias:` compares equal to the row. PR #496's
+    # branch says PMAT-218 and its commits say PMAT-219, and PMAT-219's row
+    # declares the misnomer -- that PR is correctly filed and must not be red.
+    # Deduplicated: a squash message repeats the trailer once per squashed
+    # commit, and "claims PMAT-531 PMAT-531 PMAT-531 PMAT-531 PMAT-531" tells a
+    # reader nothing the first one did not.
+    resolved=""
+    for claim in $claims; do
+      dogfood_resolve_id "$claim"
+      claim="${DOGFOOD_ROW:-$claim}"
+      case " $resolved " in
+        *" $claim "*) ;;
+        *) resolved="${resolved:+$resolved }$claim" ;;
+      esac
+    done
+    # ONLY when the commits claim SOMETHING. A merge commit carrying no
+    # `Pmat-Ticket:` line at all is the commit-msg hook's finding and CB-2113's,
+    # not this gate's, and an arm that also reported it would be saying someone
+    # else's finding in its own words.
+    if [ -n "$resolved" ]; then
+      case " $resolved " in
+        *" $id "*) ;;
+        *)
+          fail "PR #${num} is filed under ${id} -- from its branch '${href}', then its title -- and its merge commit ${merge} claims ${resolved}. Gate A resolves the receipt path from that id, gate E resolves .quorum/<slug>.json from it and gate T resolves the RELEASE WINDOW from it, so a PR filed under one ticket whose work claims another credits the work to the wrong ticket in all three. Rename the branch or fix the title BEFORE merging; after the merge neither can be changed" ;;
+      esac
+    fi
   fi
 
   receipt="docs/audits/impl-${id}-receipt.md"
@@ -123,6 +234,10 @@ fi
 
 echo "GATE A PASS ${checked} of ${DOGFOOD_PR_COUNT} merged PR(s) since ${DOGFOOD_PREV_TAG} carry a harness receipt"
 
+# mutation: drop the `*" $id "*) ;;` arm of the trailer case -- every PR whose
+# merge commit claims its own ticket then reads as a mismatch and the gate exits
+# 1 on the first one, which shows the comparison is made against what the commit
+# actually says and not assumed.
 # mutation: change the comparison `[ "$last" != "IMPL-${id}-RECEIPT-END" ]` to
 # `[ "$last" != "IMPL-${id}-RECEIPT-ENDS" ]` — every real receipt's last line
 # then reads as truncated and the gate exits 1, which shows the marker is read

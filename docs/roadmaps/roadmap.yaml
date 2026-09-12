@@ -3913,7 +3913,7 @@ roadmap:
   github_issue: 540
   item_type: task
   title: 'the window rule validates the branch name and not the PR title: the same misattribution is still reachable'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T10:20:00Z
