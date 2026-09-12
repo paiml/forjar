@@ -3937,7 +3937,7 @@ roadmap:
   kind: code
   github_issue: 542
   item_type: task
-  title: 'the PR lane rebuilds the binary for 10 of 25 PRs that cannot move the gates it builds it for: 21.3 of 25.2 critical-path minutes'
+  title: 'the PR lane rebuilds the binary for 7 of 25 PRs that cannot move the gates it builds it for: 21.3 of 25.2 critical-path minutes'
   status: planned
   priority: high
   assigned_to: null
@@ -3957,5 +3957,5 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.30.0
-  notes: 'A refinement of PMAT-237, which already works — 3 of the last 25 merged PRs were code=false and skipped every heavy job. What it cannot do is decide WHICH heavy gate: one boolean for all of them, so a change to scripts/ or tests/ — which genuinely needs the guard tests — also pays for a release build and two gates that read a surface it cannot reach. Measured on CI run 34670955910: dogfood is the critical path at 25.2 min (build 9.0, gate C 6.2, gate D 6.1, guard tests 3.8) against 6.3 min for the next-longest job. Of the 25 PRs merged as of cddf78cd, run through changed-class.sh itself, 12 can move gate C or D and 10 cannot — a first estimate said 14, from a narrower trigger set that did not count .github/** or scripts/dogfood/**; the shipped classifier is the conservative one and 10 is what it measures. Gate C reads the built binary and docs/audits/surface_audit.csv; gate D reads the binary, README.md and that same CSV. Operator standing instruction: always Pareto-optimize PR vs pre-release on the 80/20 rule. Measured version: 56% of PRs, 75% faster, no floor lowered.'
+  notes: 'A refinement of PMAT-237, which already works — 3 of the last 25 merged PRs were code=false and skipped every heavy job. What it cannot do is decide WHICH heavy gate: one boolean for all of them, so a change to scripts/ or tests/ — which genuinely needs the guard tests — also pays for a release build and two gates that read a surface it cannot reach. Measured on CI run 34670955910: dogfood is the critical path at 25.2 min (build 9.0, gate C 6.2, gate D 6.1, guard tests 3.8) against 6.3 min for the next-longest job. Of the 25 PRs merged as of cddf78cd, run through changed-class.sh itself, 15 can move gate C or D and 7 cannot. The figure moved twice under measurement: a first estimate said 14 from a trigger set too narrow, a review round then found the selection failed OPEN for tests/fixtures/** and scripts/dogfood/lib/** (both gates read them), and closing that honestly costs three PRs. 7 is what the shipped classifier measures. Gate C reads the built binary and docs/audits/surface_audit.csv; gate D reads the binary, README.md and that same CSV. Operator standing instruction: always Pareto-optimize PR vs pre-release on the 80/20 rule. Measured version: 28% of PRs pay nothing at all instead of 21.3 minutes, 75% faster on those, 149 job-minutes over the 25, no floor lowered.'
   release: 1.30.0

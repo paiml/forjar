@@ -244,7 +244,7 @@ jobs:
   # they run there through `make dogfood-release`.
   # PMAT-542: the gates that MEASURE THE BUILT BINARY, and the release build
   # they need, run only when the change can move them. Measured on the 25 PRs
-  # merged as of cddf78cd: 10 were code=true and could reach neither gate, and
+  # merged as of cddf78cd: 7 were code=true and could reach neither gate, and
   # each paid 21.3 minutes of a 25.2-minute critical path for a surface its diff
   # could not touch. The guard tests below are a separate job because they are
   # cheap and every code change can move them.

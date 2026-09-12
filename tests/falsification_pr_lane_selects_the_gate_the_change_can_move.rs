@@ -2,12 +2,18 @@
 //!
 //! `code=` is one boolean for every heavy job. Measured on the 25 PRs merged as
 //! of cddf78cd, run through the classifier itself: 3 were `code=false` and
-//! already skipped everything, 12 can move gate C or gate D, and 10 CANNOT and
+//! already skipped everything, 15 can move gate C or gate D, and 7 CANNOT and
 //! paid 21.3 minutes of a 25.2-minute critical path for a release build and two
 //! gates that read a surface their diff cannot reach.
 //!
-//! Gate C reads the built binary and `docs/audits/surface_audit.csv`. Gate D
-//! reads the built binary, `README.md` and that same CSV. Nothing else.
+//! WHAT EACH GATE READS was derived by reading the two scripts, and a review
+//! round refuted the first version of the list. Gate C runs
+//! `scripts/dogfood/lib/binary.sh`, diffs the live surface against
+//! `docs/audits/surface_audit.csv`, and evaluates
+//! `tests/fixtures/dogfood/local-files.yaml` two ways. Gate D runs the same
+//! resolver, every fenced invocation in `README.md` against the whole
+//! `tests/fixtures/dogfood/` tree and a cookbook clone, and reconciles the
+//! version against `Cargo.toml`.
 //!
 //! This is a LATENCY change and not a coverage change: `make dogfood-release`
 //! runs A-H and T over the whole window before any tag, and a gate the lane did
@@ -56,13 +62,124 @@ fn the_files_the_gates_read_select_exactly_their_own_gate() {
         "gate C IS that script",
     );
     assert_gates(&["scripts/dogfood/docs.sh"], "D", "gate D IS that script");
+    // And the neighbours in that directory are NOT selected. Selecting the whole
+    // of scripts/dogfood/ was tried and measured: it takes the saving from 7
+    // PRs in 25 to 2, because this repository develops its gate scripts
+    // constantly and neither gate C nor gate D reads any of the others.
+    assert_gates(
+        &["scripts/dogfood/harness.sh"],
+        "none",
+        "gate A's script is read by neither gate C nor gate D",
+    );
+    assert_gates(
+        &["scripts/dogfood/tagged.sh"],
+        "none",
+        "gate T's script is read by neither",
+    );
 }
 
-/// The ten-in-twenty-five this ticket is about.
+/// THE HOLE A REVIEW ROUND MEASURED: the fixtures and the shared resolver.
+///
+/// The first version of this arm listed only the two gate scripts and the CSV,
+/// so `tests/` and `scripts/` swallowed everything else. Both gates run
+/// `scripts/dogfood/lib/binary.sh`; gate C evaluates
+/// `tests/fixtures/dogfood/local-files.yaml` two ways and compares them; gate D
+/// runs every documented invocation against the whole `tests/fixtures/dogfood/`
+/// tree. A PR editing the very fixture gate C compares would have SKIPPED gate
+/// C — the fail-open direction, which ships an unmeasured surface.
+#[test]
+fn the_fixtures_and_the_shared_resolver_are_not_harmless() {
+    assert_gates(
+        &["tests/fixtures/dogfood/local-files.yaml"],
+        "C,D",
+        "gate C compares two evaluations of exactly this file",
+    );
+    assert_gates(
+        &["tests/fixtures/dogfood/Makefile"],
+        "C,D",
+        "gate D runs a documented invocation against it",
+    );
+    assert_gates(
+        &["scripts/dogfood/lib/binary.sh"],
+        "C,D",
+        "both gates run it to resolve the binary under test",
+    );
+    // The siblings those live among are still harmless, or the arm would have
+    // bought its safety by selecting everything.
+    assert_gates(
+        &["tests/falsification_dist.rs"],
+        "none",
+        "an integration test is not compiled into the release binary",
+    );
+    assert_gates(
+        &["scripts/quorum-gate.sh"],
+        "none",
+        "a script outside scripts/dogfood/ is read by neither gate",
+    );
+}
+
+/// One token of a gate script's source, as a repository path, if it names one.
+fn gate_path(tok: &str) -> Option<String> {
+    if tok.len() <= 5 {
+        return None;
+    }
+    if let Some(rest) = tok.strip_prefix("lib/") {
+        return Some(format!("scripts/dogfood/lib/{rest}"));
+    }
+    if tok.starts_with("tests/fixtures/") {
+        return Some(tok.to_string());
+    }
+    None
+}
+
+/// Every `tests/fixtures/…` and `lib/…` path the two gate scripts name.
+fn paths_the_gates_name() -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for gate in ["scripts/dogfood/surface.sh", "scripts/dogfood/docs.sh"] {
+        let text = workflow(gate);
+        let toks = text.split(|c: char| !(c.is_alphanumeric() || "._/-".contains(c)));
+        for path in toks.filter_map(gate_path) {
+            if !found.contains(&path) {
+                found.push(path);
+            }
+        }
+    }
+    found
+}
+
+/// THE RULE THAT KEEPS THE CLOSURE TRUE.
+///
+/// The selection was not guessed; it is what the two gate scripts actually
+/// open. This case re-derives that from the scripts themselves and asserts the
+/// classifier selects each path. A gate that starts reading a new fixture, or
+/// sourcing a new library, turns this RED rather than blinding itself — the
+/// same shape as PMAT-237's
+/// `every_record_path_a_test_reads_is_classified_as_code`.
+#[test]
+fn every_path_the_two_gates_name_is_selected_by_the_classifier() {
+    let found = paths_the_gates_name();
+    assert!(
+        found.len() >= 3,
+        "PMAT-542: only {found:?} re-derived from the two gate scripts. This \
+         case is supposed to find at least the two fixtures and the shared \
+         binary resolver; finding fewer means it has stopped reading them."
+    );
+    for path in &found {
+        assert_ne!(
+            gates_of(&[path.as_str()]),
+            "none",
+            "PMAT-542: {path} is named by a gate script and the classifier calls \
+             it harmless. That is the fail-open direction: a change to it would \
+             skip the very gate that reads it."
+        );
+    }
+}
+
+/// The seven-in-twenty-five this ticket is about.
 ///
 /// A receipt, its evidence, its log, a script outside `scripts/dogfood/` and a
-/// test — the exact shape of #515, #517, #519, #523, #524, #532, #536, #538 and
-/// #541, which is the pull request that landed the ticket before this one.
+/// test — the shape of #515, #517, #519, #523, #532, #536 and #541, the last of
+/// which is the pull request that landed the ticket before this one.
 /// `code=true`, because the guard tests and the workspace suite can all move;
 /// `gates=none`, because the release build and both surface gates cannot.
 #[test]
@@ -247,11 +364,14 @@ fn the_booleans_and_the_summary_token_are_one_decision() {
 #[test]
 fn the_workflow_compares_the_selection_exactly() {
     let ci = workflow(".github/workflows/ci.yml");
+    // Anchored on `if: `, not on the bare expression: a comment carrying the
+    // same words would satisfy a bare substring test while the workflow did
+    // something else. A review lane made that exact point.
     for want in [
-        "needs.classify.outputs.gate_c == 'true'",
-        "needs.classify.outputs.gate_c != 'true'",
-        "needs.classify.outputs.gate_d == 'true'",
-        "needs.classify.outputs.gate_d != 'true'",
+        "if: needs.classify.outputs.gate_c == 'true'",
+        "if: needs.classify.outputs.gate_c != 'true'",
+        "if: needs.classify.outputs.gate_d == 'true'",
+        "if: needs.classify.outputs.gate_d != 'true'",
     ] {
         assert!(
             ci.contains(want),
@@ -264,5 +384,27 @@ fn the_workflow_compares_the_selection_exactly() {
         !ci.contains("contains(needs.classify.outputs.gates"),
         "PMAT-542: ci.yml selects a gate with `contains()` on the summary \
          token. That is a case-insensitive substring test:\n"
+    );
+}
+
+/// An absent base is UNMEASURED, and unmeasured is everything.
+///
+/// The action used to fall back to `HEAD~1` when it had no PR base and no
+/// `event.before` — a `workflow_dispatch` re-run of a twenty-commit branch was
+/// then classified from ONE commit. That narrows the diff, which selects too
+/// little, which skips a measurement. Found by a review lane on this ticket.
+#[test]
+fn an_absent_base_is_not_a_narrower_base() {
+    let action = workflow(".github/actions/changed-class/action.yml");
+    assert!(
+        !action.contains("BASE=$(git rev-parse 'HEAD~1'"),
+        "PMAT-542: the action still falls back to HEAD~1 when it has no base. \
+         A narrower diff looks like a measurement and is not:\n{action}"
+    );
+    assert!(
+        action.contains("the change is UNMEASURED, which is code"),
+        "PMAT-542: the action does not say what it does when it has no usable \
+         base. It must hand the empty file list to the classifier, whose own \
+         rule is that no readable file list is not a licence to skip anything."
     );
 }

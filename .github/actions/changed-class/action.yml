@@ -54,17 +54,31 @@ runs:
         else
           BASE="${PUSH_BEFORE:-}"
         fi
-        if ! git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1; then
-          BASE=$(git rev-parse 'HEAD~1' 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -1)
+        # NO USABLE BASE MEANS UNMEASURED, AND UNMEASURED IS EVERYTHING.
+        #
+        # This used to fall back to `HEAD~1`, which NARROWS the diff to the last
+        # commit alone. On a `workflow_dispatch` run there is no PR base and no
+        # `event.before`, so a manual re-run of a twenty-commit branch was
+        # classified from one commit -- underselecting, which is the direction
+        # that skips a measurement. Found by a review round on PMAT-542.
+        #
+        # An empty file list is what the classifier already treats as "no
+        # readable file list is not a licence to skip anything": code=true,
+        # gates=C,D. So the absent base is handed straight to that rule rather
+        # than to a narrower base that looks like a measurement and is not.
+        if git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1; then
+          echo "Comparing against $BASE"
+          changed="$(git diff --name-only --no-renames "$BASE"...HEAD)"
+        else
+          echo "No usable base (BASE='${BASE:-}') — the change is UNMEASURED, which is code."
+          changed=""
         fi
-        echo "Comparing against $BASE"
 
         # `--no-renames`: a rename is reported as its NEW path alone, so
         # moving `src/thing.rs` to `docs/thing.rs` would list one harmless path
         # while deleting a source file. Splitting it into a delete and an add
         # makes the deletion visible, and the deletion is code. Found by a
         # review lane.
-        changed="$(git diff --name-only --no-renames "$BASE"...HEAD)"
         printf '%s\n' "$changed" | sed 's/^/  /'
 
         # ONE DECISION, IN ONE PLACE. The classifier is a script so that a
