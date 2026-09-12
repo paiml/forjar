@@ -237,6 +237,10 @@ pub(crate) struct Scan {
     pub(crate) workflows: usize,
     pub(crate) jobs: usize,
     pub(crate) hosted_jobs: usize,
+    /// Instrumented-coverage jobs on ANY runner. The denominator the
+    /// debug-info assertion needs, which `hosted_coverage_jobs` stopped being
+    /// when coverage.yml moved to the fleet (PMAT-547).
+    pub(crate) coverage_jobs: usize,
     pub(crate) hosted_coverage_jobs: usize,
     pub(crate) cache_steps: usize,
     pub(crate) cached_paths: usize,
@@ -257,32 +261,51 @@ pub(crate) fn scan_workflow(name: &str, doc: &Value, scan: &mut Scan) {
         scan.jobs += 1;
         let job_id = job_id.as_str().unwrap_or("<non-string job id>");
         let Some(on) = runs_on(job) else { continue };
-        if !is_github_hosted(&on) {
-            continue;
+        let hosted = is_github_hosted(&on);
+        if hosted {
+            scan.hosted_jobs += 1;
         }
-        scan.hosted_jobs += 1;
         if !is_instrumented_coverage_job(job) {
             continue;
         }
-        scan.hosted_coverage_jobs += 1;
+        // PMAT-547 split these two counts apart. The CACHE rule is about a disk
+        // we do not own, so it stays hosted-only and `self_hosted_coverage_jobs_
+        // are_exempt` still holds. The DEBUG-INFO knob is not: the same run is
+        // 70.70 GiB with full DWARF and 23 GiB without it on any machine, and
+        // when coverage.yml moved to the fleet that guard would otherwise have
+        // been silently dropped along with the hosted label.
+        scan.coverage_jobs += 1;
+        if hosted {
+            scan.hosted_coverage_jobs += 1;
+        }
         if !job_reduces_debug_info(job) {
             scan.full_dwarf_jobs.push(format!("{name}:{job_id}"));
         }
-        let Some(steps) = job.get("steps").and_then(Value::as_sequence) else {
-            continue;
-        };
-        for step in steps.iter().filter(|s| is_cache_action(s)) {
-            scan.cache_steps += 1;
-            for path in cached_paths(step) {
-                scan.cached_paths += 1;
-                if is_rust_build_dir(&path) {
-                    scan.violations.push(Violation {
-                        workflow: name.to_string(),
-                        job: job_id.to_string(),
-                        runs_on: on.clone(),
-                        path,
-                    });
-                }
+        if hosted {
+            scan_cache_steps(name, job_id, job, &on, scan);
+        }
+    }
+}
+
+/// The cache half of the scan: a hosted instrumented-coverage job that caches a
+/// Rust build directory is the #386 defect. Split out of [`scan_workflow`] to
+/// keep that function under the repository's cognitive-complexity gate after
+/// PMAT-547 gave it a second denominator.
+fn scan_cache_steps(name: &str, job_id: &str, job: &Value, on: &str, scan: &mut Scan) {
+    let Some(steps) = job.get("steps").and_then(Value::as_sequence) else {
+        return;
+    };
+    for step in steps.iter().filter(|s| is_cache_action(s)) {
+        scan.cache_steps += 1;
+        for path in cached_paths(step) {
+            scan.cached_paths += 1;
+            if is_rust_build_dir(&path) {
+                scan.violations.push(Violation {
+                    workflow: name.to_string(),
+                    job: job_id.to_string(),
+                    runs_on: on.to_string(),
+                    path,
+                });
             }
         }
     }

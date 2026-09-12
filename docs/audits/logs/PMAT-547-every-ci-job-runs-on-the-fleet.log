@@ -1,0 +1,324 @@
+# PMAT-547 — every CI job runs on the fleet
+
+### 1. the measurement that started it
+
+  $ gh api repos/paiml/forjar/actions/jobs/103531462399 --jq '"\(.name)\trunner=\(.runner_name)\tlabels=\(.labels|join(","))\t\(.conclusion)"'
+  dogfood-surface	runner=GitHub Actions 1000366553	labels=ubuntu-latest	success
+  classify	runner=GitHub Actions 1000366551	labels=ubuntu-latest	success
+  doctests	runner=GitHub Actions 1000366556	labels=ubuntu-latest	success
+
+  The runner is read back from the API, not from the workflow file. A workflow
+  that SAYS ubuntu-latest is a claim; runner_name is what actually ran it.
+  `GitHub Actions <n>` is a GitHub-hosted runner.
+
+  For contrast, the jobs that were already on the fleet, same run:
+
+  $ gh api repos/paiml/forjar/actions/jobs/103531462466 --jq ...
+  ci / lint	runner=intel-clean-room-12	labels=self-hosted,clean-room	success
+  ci / coverage	runner=intel-clean-room-3	labels=self-hosted,clean-room	success
+  ci / test	runner=intel-clean-room-8	labels=self-hosted,clean-room	success
+
+### 2. the scope, before
+
+  $ grep -rn "runs-on:" .github/workflows/ | awk -F'runs-on:' '{print $2}' | sort | uniq -c | sort -rn
+       29  ubuntu-latest
+       10  [self-hosted, clean-room]
+        2  ${{ matrix.runner }}
+        1  ubuntu-22.04
+        1  ${{ matrix.os }}
+
+  Plus hosted values inside three matrices: lint.yml (ubuntu-latest,
+  macos-latest), nightly.yml (ubuntu-latest, ubuntu-24.04-arm, macos-latest x2,
+  windows-latest), release.yml (macos-latest x2 -- its four Linux targets
+  already said [self-hosted, clean-room]).
+
+  Four further mentions are PROSE, inside comments, and are not declarations:
+  ci.yml:8, ci.yml:176, binary-release.yml:56, binary-release.yml:100,
+  release.yml:208.
+
+### 3. what the fleet can serve
+
+  $ gh api orgs/paiml/actions/runners --jq '[.runners[] | .labels[].name] | group_by(.) | map({label:.[0],count:length}) | sort_by(-.count)[]'
+  Linux 25 · self-hosted 25 · build 23 · X64 21 · clean-room 20 · intel 16
+  docker 7 · ephemeral 7 · yoga 5 · ARM64 4 · cuda 4 · gpu 4 · gx10 4
+  ada 1 · blackwell 1 · gb10 1 · perf-solo 1
+
+  $ gh api orgs/paiml/actions/runners --jq '[.runners[] | select([.labels[].name] | (index("macOS") or index("Windows") or index("macos")))] | length'
+  0
+
+  Twenty-five runners, every one Linux. ZERO macOS and ZERO Windows. So every
+  Linux declaration can move and seven legs cannot.
+
+### 4. the conversion
+
+  Thirty-THREE declarations moved to [self-hosted, clean-room] across seventeen
+  files. The script did 32, by script rather than by hand so that every site is
+  the same edit; the 33rd is the one it missed, below. Re-derived from the trees
+  rather than from the script's own report -- count the hosted-Linux labels that
+  exist at 0bb6cb57 and no longer exist at HEAD:
+
+      1  audit.yml          1  behavior.yml       2  bench.yml
+      4  binary-release.yml 8  ci.yml             1  convergence.yml
+      1  coverage.yml       1  docs.yml           2  lint.yml
+      1  msrv.yml           1  mutation.yml       4  nightly.yml
+      2  proofs.yml         1  quorum.yml         1  release-audit.yml
+      1  release-goal.yml   1  stress.yml
+    --- hosted-Linux runner labels that no longer exist: 33 across 17 files
+
+  nightly.yml is 4 here and the script reported 3; lint.yml is 2 because its
+  matrix held one ubuntu-latest and its second job another.
+
+  THE SCRIPT MISSED ONE and the test caught it:
+
+    nightly.yml:73  runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)
+
+  The converter matched a runner value to end-of-line; a trailing comment made
+  the value `ubuntu-24.04-arm   # native ARM64 build (GA, free for public
+  repos)`, which is not a hosted label by exact match. The falsification test
+  parses the YAML, so the comment is not part of the value and the site was a
+  finding. This is the whole argument for parsing over grepping, made by the
+  change's own tooling against itself.
+
+### 5. the two moves that needed more than a label
+
+  nightly.yml built aarch64-unknown-linux-gnu with
+
+    cargo build --release --features vendored-openssl --target ${{ matrix.target }}
+
+  which works on a native ARM runner and cannot work on an x86_64 fleet host:
+  no aarch64 linker, and vendored-openssl needs a cross C toolchain. release.yml
+  has been building that same target on [self-hosted, clean-room] all along,
+  with `cross build` for aarch64-unknown-linux-*. The leg now takes that path.
+
+  binary-release.yml pinned its build leg to ubuntu-22.04 for glibc 2.35,
+  because a binary linked against a newer glibc refuses to start on an older
+  host. The pin is gone. Rather than assume the fleet's glibc, the workflow now
+  RECORDS it. Verified locally, on a real forjar binary:
+
+    $ bash <the new step, target substituted>
+    builder: ldd (Ubuntu GLIBC 2.35-0ubuntu3.11) 2.35
+    binary demands at most GLIBC_2.34
+
+  and the same two lines into $GITHUB_STEP_SUMMARY. It never fails the build: a
+  release that raises the floor is a decision for a reader, not for a step.
+
+### 6. the comments that became false
+
+  ci.yml:8      "security: cargo audit (ubuntu-latest, ...)"  -> (fleet, ...)
+  ci.yml:176    justified the sudo test by GitHub's DOCUMENTED hosted-runner
+                environment. GitHub documents that a hosted runner's `runner`
+                user is non-root with passwordless sudo, and documents nothing
+                about the fleet. The citation is gone; FORJAR_REQUIRE_SUDO_TESTS
+                is what was ever load-bearing and is now the only half.
+  binary-release.yml:56  "hosted runners only, no self-hosted dependency" --
+                a deliberate choice this commit reverses, said so.
+  binary-release.yml:100 the glibc pin, rewritten around the measurement above.
+
+  release.yml:208 mentions macos-latest and is still true; it was left alone.
+
+### 7. after
+
+  $ grep -rn "runs-on:\|runner:\|os: \[" .github/workflows/ | grep -E "ubuntu|macos|windows"
+  .github/workflows/nightly.yml:75:            runner: macos-latest
+  .github/workflows/nightly.yml:77:            runner: macos-latest
+  .github/workflows/nightly.yml:79:            runner: windows-latest
+  .github/workflows/lint.yml (2 macos-latest legs, via include:)
+  .github/workflows/release.yml:194:            runner: macos-latest
+  .github/workflows/release.yml:196:            runner: macos-latest
+
+  SEVEN legs, all of them a platform the fleet has no hardware for. Counted
+  from the parsed YAML rather than from grep lines:
+
+    lint.yml:macos-latest = 2
+    nightly.yml:macos-latest = 2
+    nightly.yml:windows-latest = 1
+    release.yml:macos-latest = 2
+    TOTAL LEGS: 7
+
+  The grep above prints SIX lines, and the receipt, the log, the commit message,
+  the test's doc comment and .github/actionlint.yaml all said "six" until this
+  was counted properly. lint.yml contributes ONE line and TWO legs: its matrix
+  used to be `os: [ubuntu-latest, macos-latest]` on one line and this branch
+  rewrote it as four explicit include: legs, two of which are macos-latest. The
+  test's expected map had 7 all along -- it was the prose that was wrong, and
+  the receipt contradicted itself, saying "Six legs" in one sentence and "seven
+  legs" in the next.
+
+  $ actionlint .github/workflows/*.yml   # findings across the directory
+  base 0bb6cb57: 22      this branch: 15
+
+  (.github/actionlint.yaml now declares the fleet's labels; without it
+  actionlint reports every `clean-room` as an unknown label and the real
+  findings are lost in the noise. The 15 that remain are pre-existing
+  shellcheck infos inside run: blocks, none of them added here.)
+
+### 8. every case is killed by something
+
+  ########## BASELINE
+  the_parser_finds_the_runners_that_are_there ... ok
+  a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+  no_linux_job_asks_github_for_a_runner ... ok
+  the_platforms_the_fleet_cannot_serve_are_exactly_these ... ok
+  
+  ########## M1 one Linux job goes back to a hosted runner
+  --- .github/workflows/audit.yml: runs-on: [self-hosted, clean-room] => runs-on: ubuntu-latest
+  a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+  the_platforms_the_fleet_cannot_serve_are_exactly_these ... ok
+  the_parser_finds_the_runners_that_are_there ... ok
+  no_linux_job_asks_github_for_a_runner ... FAILED
+  --- restored (dirty=0)
+  
+  ########## M2 a seventh leg the fleet cannot serve is added
+  --- .github/workflows/lint.yml:           - runner: macos-latest
+              features: encryption =>           - runner: macos-latest
+              features: encryption
+      
+  the_platforms_the_fleet_cannot_serve_are_exactly_these ... FAILED
+  the_parser_finds_the_runners_that_are_there ... ok
+  no_linux_job_asks_github_for_a_runner ... ok
+  a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+  --- restored (dirty=0)
+  
+  ########## M3 a fleet job names self-hosted without a pool
+  --- .github/workflows/docs.yml: runs-on: [self-hosted, clean-room] => runs-on: self-hosted
+  the_parser_finds_the_runners_that_are_there ... ok
+  a_fleet_job_names_a_pool_and_not_just_self_hosted ... FAILED
+  no_linux_job_asks_github_for_a_runner ... ok
+  the_platforms_the_fleet_cannot_serve_are_exactly_these ... ok
+  --- restored (dirty=0)
+  
+  ########## M4 the parser stops seeing runners
+  --- tests/falsification_every_ci_job_runs_on_the_fleet/:     let mut out = Vec::new();
+      push_labels(&mut out, runs_on);
+       =>     let mut out = Vec::new();
+      let _ = runs_on;
+      let _ = &mut ou
+  the_platforms_the_fleet_cannot_serve_are_exactly_these ... ok
+  no_linux_job_asks_github_for_a_runner ... ok
+  a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+  the_parser_finds_the_runners_that_are_there ... FAILED
+  --- restored (dirty=0)
+  
+  ########## FINAL
+  0
+  92cb6a1a fix(ci): every CI job runs on the fleet, not on GitHub's runners (PMAT-547, closes #547)
+
+  The tree is restored after each one (`git status --porcelain -- .github tests`
+  is 0 lines at the end), and every mutation ran against the COMMITTED tree.
+
+  RE-RUN AT 607e229b, after the review round grew the suite from four cases to
+  ten. M1, M2 and M3 still kill exactly one case each. M4's anchor had moved --
+  the review round rewrote `runner_labels` -- so it was re-aimed at
+  `push_labels`, which is what every case now reads through:
+
+    MUTATION M4: Value::String(s) => out.push(s.clone())  ->  Value::String(_) => {}
+      the_object_form_of_runs_on_cannot_hide_a_hosted_runner ... FAILED
+      a_fleet_job_is_not_mistaken_for_a_hosted_one ... ok
+      a_hosted_label_in_another_case_is_still_a_hosted_label ... FAILED
+      a_matrix_key_by_any_name_is_still_read ... FAILED
+      an_expression_inside_a_runs_on_list_still_reaches_the_matrix ... FAILED
+      no_linux_job_asks_github_for_a_runner ... ok
+      the_platforms_the_fleet_cannot_serve_are_exactly_these ... FAILED
+      a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+      the_jobs_that_delegate_their_runner_are_exactly_these ... ok
+      the_parser_finds_the_runners_that_are_there ... FAILED
+
+  M4 KILLS SIX, NOT ONE, and the earlier form of this log said "four single
+  kills, no collateral". That was true of a four-case suite and is not true of
+  this one. It is also the right answer: blinding the parser must break every
+  case that reads through it, and the four survivors are precisely the four that
+  assert an ABSENCE -- no Linux job is hosted, no fleet job is mistaken for one,
+  no job names `self-hosted` bare, the delegated set is unchanged. A blinded
+  parser reports nothing hosted, so all four pass while measuring nothing. That
+  is the exact failure `the_parser_finds_the_runners_that_are_there` exists to
+  catch, and M4 is the mutation that proves it catches it.
+
+  So: three specific kills, and one mutation that demonstrates the vacuity
+  guard is the only thing holding the other four honest.
+
+### 10. `clean-room` spans two architectures
+
+  Raised after the branch was already pushed, by measuring the fleet a second
+  time -- this time by GROUP rather than by label:
+
+  $ gh api orgs/paiml/actions/runner-groups --jq '.runner_groups[] | "\(.id) \(.name) visibility=\(.visibility)"'
+  1 Default   visibility=all
+  3 gpu-nodes visibility=selected
+  5 gpu-x86   visibility=selected
+
+  $ gh api orgs/paiml/actions/runner-groups/1/runners --jq '.runners[] | "\(.name) \([.labels[].name]|join(","))"'
+  intel-clean-room      self-hosted,Linux,X64,clean-room,intel,build
+  ... 16 of them, every one X64 ...
+
+  $ gh api orgs/paiml/actions/runner-groups/3/runners --jq ...
+  gx10-build   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool1   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool2   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool3   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+
+  FOUR RUNNERS CARRY `clean-room` AND ARE ARM64. `[self-hosted, clean-room]`
+  does not say X64, so the label alone does not choose an architecture.
+
+  Nothing is wrong TODAY: groups 3 and 5 are `visibility=selected` and forjar is
+  not in them, which is why every job this branch ran landed on an
+  intel-clean-room box:
+
+  $ for each run of this PR: jobs[].runner_name
+  4 intel-clean-room-7 · 2 intel-clean-room-6 · intel-clean-room-8 ·
+  intel-clean-room-15 · intel-clean-room
+
+  But that is an ACCESS-CONTROL accident, not a property of the label. Adding
+  forjar to `gpu-nodes` is one checkbox, and the day someone clicks it a job
+  building `x86_64-unknown-linux-gnu` can be handed an ARM64 runner. The
+  artifact it uploads would then be WRONG rather than missing, which is the
+  worse of the two failures and the one a green check will not show.
+
+  Every runner forjar can reach is X64, so naming it costs no capacity:
+
+    50 declarations pinned to [self-hosted, clean-room, X64] across 18 files
+
+  Seventeen of those fifty were already on the fleet before this branch --
+  release.yml's ten and proofs.yml's -- and had the same unstated assumption.
+
+  MUTATION M5: one fleet job drops its architecture
+    a_fleet_job_names_the_architecture_it_needs ... FAILED
+    (the other ten stay green; a single kill)
+
+### 11. the exposure the move itself created
+
+  CI measured what no local run could: `msrv` and `coverage` both died on the
+  fleet with
+
+    error: couldn't read /home/noah/.cargo/registry/src/.../bashrs-6.68.0/src/
+           formal/inspector_proofinspector.rs: No such file or directory (os error 2)
+    error: could not parse/generate dep info at: .../deps/tower-....d
+           No such file or directory (os error 2)
+
+  which is infra#430: sixteen clean-room runners share one ~/.cargo and an
+  hourly reaper deletes registry/src entries by mtime, under live builds.
+
+  THIS EXPOSURE ARRIVED WITH THE MOVE. On a GitHub-hosted runner every job has a
+  private ~/.cargo by construction, so these two jobs had never been on the
+  shared surface. `proofs.yml:ledger-replay` had already hit it and already
+  carried the fix, with the comment naming infra#430 -- one job's footnote,
+  which this makes the rule:
+
+    24 fleet jobs that run cargo now declare
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+
+  Six of those were on the fleet BEFORE this branch (proofs.yml:kani,
+  release.yml's four, bench) and carried the same exposure unnoticed.
+
+  The path is outside the workspace, so it survives the checkout clean: a cache
+  per (runner, job), not a cold download per run.
+
+  MUTATION M6: one fleet job loses its private CARGO_HOME
+    a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself ... FAILED
+    (the other eleven stay green; a single kill)
+
+  The other red check on that run, `clippy (self-hosted, clean-room, X64)`,
+  reports conclusion=cancelled with an empty runner_name: it never got a runner.
+  `gh pr checks` renders a cancellation as "fail", which is why it is named here
+  rather than fixed.
+
+PMAT-547-LOG-END

@@ -116,12 +116,18 @@ fn the_scan_reaches_the_real_coverage_job() {
         scan.hosted_jobs,
         scan.jobs
     );
+    // PMAT-547: this counted HOSTED coverage jobs, and coverage.yml's job is no
+    // longer hosted -- so the count is legitimately 0 and the detector is fine.
+    // What this guard is for is the detector, not the hosting, so it now counts
+    // coverage jobs on any runner. If `is_instrumented_coverage_job` breaks,
+    // this still goes red; if the last coverage job is deleted, it also goes
+    // red, which is correct.
     assert!(
-        scan.hosted_coverage_jobs > 0,
-        "found 0 instrumented-coverage jobs among {} hosted job(s). coverage.yml \
+        scan.coverage_jobs > 0,
+        "found 0 instrumented-coverage jobs among {} job(s). coverage.yml \
          defines one, so `is_instrumented_coverage_job` no longer recognises it \
          and the guard above is passing over an empty set",
-        scan.hosted_jobs
+        scan.jobs
     );
 }
 
@@ -140,15 +146,15 @@ fn the_scan_reaches_the_real_coverage_job() {
 /// why are my backtraces useless" edit — restores the pre-#388 arithmetic with
 /// the cache rule still satisfied, because it caches no build directory at all.
 #[test]
-fn every_hosted_coverage_job_reduces_debug_info() {
+fn every_instrumented_coverage_job_reduces_debug_info() {
     let scan = scan_repo();
     assert!(
-        scan.hosted_coverage_jobs > 0,
+        scan.coverage_jobs > 0,
         "0 instrumented-coverage jobs found — this assertion has no denominator"
     );
     assert!(
         scan.full_dwarf_jobs.is_empty(),
-        "hosted instrumented-coverage job(s) build with full debug info: {:?}\n\n\
+        "instrumented-coverage job(s) build with full debug info: {:?}\n\n\
          MEASURED: the same `cargo llvm-cov` run is 70.70 GiB in 19,070 files \
          with full DWARF and 23 GiB with `CARGO_PROFILE_DEV_DEBUG: \
          line-tables-only`. A hosted runner's disk is ~145 GiB with ~84 GiB \
