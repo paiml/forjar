@@ -62,20 +62,22 @@
  "pmat": {
   "ticket": "PMAT-535",
   "tools": [
-   "cargo test x5 suites",
+   "cargo test --no-fail-fast (5 suites)",
    "cargo fmt --all -- --check",
    "bashrs lint (head and base)",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
    "bash -n on the fixed and arm-deleted scripts",
    "bash scripts/quorum-gate.sh against seven branch shapes",
+   "scripts/quorum-gate.sh PRINT_HASH",
    "git log --format=%(trailers:key=Pmat-Ticket,valueonly=true)",
    "git interpret-trailers --parse",
    "gh pr view 532",
    "gh issue create",
-   "pmat hooks (commit-msg, read)",
-   "python3 yaml round-trip check on the roadmap"
+   "goal.sh worker"
   ],
   "vacuous_tests_in_touched_paths": 0,
-  "vacuous_scan": "the vacuity charge was answered by measurement rather than by a scanner: the arm's sixty lines were cut out of the script and the gate re-run, which is the only thing that can distinguish a guard from a vacuous case.",
+  "vacuous_scan": "414 of 19687 #[test] fns cannot fail (2.1%) across 2173 parsed files; 3 more skip silently when a fixture is missing. NONE of the eight cases in tests/falsification_a_branch_names_its_own_ticket.rs appears in either list. That is necessary and not sufficient, and a review lane said so: the analyzer models a test with no failure mode, not a test that cannot distinguish the change. The vacuity charge was answered by cutting the arm's sixty lines out of the script and re-running the gate, which is the only thing that separates a false-refusal guard from a test that proves nothing.",
   "bashrs": "0 errors on scripts/quorum-gate.sh, and 0 errors on origin/main's copy of it. bashrs exits 1 on both because it returns non-zero for anything it has to say. 8 new warnings and 10 new infos, sixteen of the eighteen quote-context artifacts inside a multi-line die string, two the standard SC2089 note on a single-quoted sed script.",
   "quality_gate": "8 + 5 + 8 + 4 + 4 green at HEAD; cargo fmt clean; the roadmap parses with PMAT-540 appended",
   "tool_defects_found": [
