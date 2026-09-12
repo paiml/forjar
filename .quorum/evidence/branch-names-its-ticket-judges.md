@@ -86,8 +86,8 @@ one of its reads failed open.
      disagree with.
 
 4. [fail-open] That an unreadable history is not a pass.
-   - evidence: a lane read `git log --format=%B "$merge_base..$pushed"
-     2>/dev/null` with no exit check and traced a failure to an empty
+   - evidence: a lane read the trailer extraction — a `git log` redirected to
+     `/dev/null` with no exit check — and traced a failure to an empty
      `$trailers`, an empty `$claimed`, and the arm's own skip — a check that
      could not run printing exactly what a check that passed prints, which this
      repository forbids in `CLAUDE.md`.
@@ -136,8 +136,9 @@ one of its reads failed open.
      Named in the receipt's "Gaps, named" as the first gap.
 
 8. [advice] That the refusal tells the reader the right thing to do.
-   - evidence: a lane quoted `Rename the branch to its own ticket, or add a
-     commit that claims $branch_id` and observed that the second half satisfies
+   - evidence: a lane quoted the refusal's closing advice, which offered a
+     choice between renaming and adding a commit, and observed that the second
+     half satisfies
      the gate while LEAVING THE BRANCH MISNAMED — advice that walks the reader
      into the exact outcome the arm exists to prevent.
    - corrected: the message now says RENAME THE BRANCH, and says in so many
