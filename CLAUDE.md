@@ -50,7 +50,7 @@ make release-check      # post-tag: tag, release, crates.io, docs.rs, receipts
 
 | gate | asks |
 |---|---|
-| A `harness.sh` | every PR merged since the newest `v*` tag maps to a ticket whose `docs/audits/impl-<ticket>-receipt.md` exists at HEAD, ends with `IMPL-<ticket>-RECEIPT-END` and has exactly one `verdict:` line; and, from `TRAILER_FLOOR`, that ticket is one its MERGE COMMIT claims on a `Pmat-Ticket:` line — the branch, the title and the body are what the id is read from, and until PMAT-540 none of them was checked against the work (PR #532 was filed under a ticket that had already shipped); gh unreachable or a PR with no ticket is UNMEASURED |
+| A `harness.sh` | every PR merged since the newest `v*` tag maps to a ticket whose `docs/audits/impl-<ticket>-receipt.md` exists at HEAD, ends with `IMPL-<ticket>-RECEIPT-END` and has exactly one `verdict:` line; and, from `TRAILER_FLOOR`, that ticket is not CONTRADICTED by its merge commit — if the commit names any `Pmat-Ticket:` at all, the PR's own ticket must be among them; a commit naming none is the commit-msg hook's finding and passes here. The branch, the title and the body are what the id is read from, and until PMAT-540 none was checked against the work (PR #532 was filed under a ticket that had already shipped); gh unreachable or a PR with no ticket is UNMEASURED |
 | B `comply.sh` | `pmat comply` against the committed `.pmat.yaml`, with a stronger instrument in place of each disabled check |
 | C `surface.sh` | the CLI/MCP/HTTP surface, measured from the running artifact: declared vs live, diffed against `docs/audits/surface_audit.csv` |
 | D `docs.sh` | every fenced `forjar …` block in README.md, run against a fixture in a sandboxed HOME |
