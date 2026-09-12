@@ -233,6 +233,56 @@ fn the_parser_finds_the_runners_that_are_there() {
     );
 }
 
+/// A fleet job names the ARCHITECTURE it needs.
+///
+/// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
+/// `clean-room` spans BOTH architectures. Group 1 "Default" holds sixteen
+/// `intel-clean-room-*`, every one `X64`; group 3 "gpu-nodes" holds four gx10
+/// boxes that also carry `clean-room` and are every one **ARM64**.
+///
+/// Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
+/// `[self-hosted, clean-room]` reaches only X64 boxes and nothing is currently
+/// wrong. That is an access-control accident, not a property of the label: the
+/// day forjar is added to `gpu-nodes` — one checkbox — a job building
+/// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
+/// it uploads would be wrong rather than absent.
+///
+/// Every runner forjar can reach is `X64`, so naming it costs no capacity and
+/// states the assumption instead of relying on someone not clicking the box.
+#[test]
+fn a_fleet_job_names_the_architecture_it_needs() {
+    let arches = ["X64", "ARM64"];
+    let mut unpinned = Vec::new();
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            let labels = runner_labels(job);
+            if !labels.iter().any(|l| l == "self-hosted") {
+                continue;
+            }
+            if labels.iter().any(|l| arches.contains(&l.as_str())) {
+                continue;
+            }
+            unpinned.push(format!(
+                "  {file}  job `{}`  runs-on {labels:?}",
+                name.as_str().unwrap_or("?")
+            ));
+        }
+    }
+    unpinned.sort();
+    assert!(
+        unpinned.is_empty(),
+        "these fleet jobs name no architecture, and `clean-room` spans X64 and \
+         ARM64:\n{}\n\nAdd `X64` (or `ARM64`, deliberately). Every runner this \
+         repository can reach today is X64, so this costs nothing and removes \
+         the chance that a checkbox on a runner group turns an x86_64 release \
+         binary into an ARM one.",
+        unpinned.join("\n")
+    );
+}
+
 /// A job that calls a REUSABLE workflow declares no `runs-on` of its own, so
 /// every case in this file passes over it — the runner is chosen by a file in
 /// another repository that this test cannot read.

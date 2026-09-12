@@ -236,4 +236,52 @@
   So: three specific kills, and one mutation that demonstrates the vacuity
   guard is the only thing holding the other four honest.
 
+### 10. `clean-room` spans two architectures
+
+  Raised after the branch was already pushed, by measuring the fleet a second
+  time -- this time by GROUP rather than by label:
+
+  $ gh api orgs/paiml/actions/runner-groups --jq '.runner_groups[] | "\(.id) \(.name) visibility=\(.visibility)"'
+  1 Default   visibility=all
+  3 gpu-nodes visibility=selected
+  5 gpu-x86   visibility=selected
+
+  $ gh api orgs/paiml/actions/runner-groups/1/runners --jq '.runners[] | "\(.name) \([.labels[].name]|join(","))"'
+  intel-clean-room      self-hosted,Linux,X64,clean-room,intel,build
+  ... 16 of them, every one X64 ...
+
+  $ gh api orgs/paiml/actions/runner-groups/3/runners --jq ...
+  gx10-build   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool1   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool2   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+  gx10-pool3   self-hosted,Linux,clean-room,ARM64,gx10,ephemeral,docker,build
+
+  FOUR RUNNERS CARRY `clean-room` AND ARE ARM64. `[self-hosted, clean-room]`
+  does not say X64, so the label alone does not choose an architecture.
+
+  Nothing is wrong TODAY: groups 3 and 5 are `visibility=selected` and forjar is
+  not in them, which is why every job this branch ran landed on an
+  intel-clean-room box:
+
+  $ for each run of this PR: jobs[].runner_name
+  4 intel-clean-room-7 · 2 intel-clean-room-6 · intel-clean-room-8 ·
+  intel-clean-room-15 · intel-clean-room
+
+  But that is an ACCESS-CONTROL accident, not a property of the label. Adding
+  forjar to `gpu-nodes` is one checkbox, and the day someone clicks it a job
+  building `x86_64-unknown-linux-gnu` can be handed an ARM64 runner. The
+  artifact it uploads would then be WRONG rather than missing, which is the
+  worse of the two failures and the one a green check will not show.
+
+  Every runner forjar can reach is X64, so naming it costs no capacity:
+
+    50 declarations pinned to [self-hosted, clean-room, X64] across 18 files
+
+  Seventeen of those fifty were already on the fleet before this branch --
+  release.yml's ten and proofs.yml's -- and had the same unstated assumption.
+
+  MUTATION M5: one fleet job drops its architecture
+    a_fleet_job_names_the_architecture_it_needs ... FAILED
+    (the other ten stay green; a single kill)
+
 PMAT-547-LOG-END

@@ -29,9 +29,9 @@ jobs:
         # runners and every one of them is Linux. It cannot move until the
         # fleet has a mac.
         include:
-          - runner: [self-hosted, clean-room]
+          - runner: [self-hosted, clean-room, X64]
             features: ""
-          - runner: [self-hosted, clean-room]
+          - runner: [self-hosted, clean-room, X64]
             features: encryption
           - runner: macos-latest
             features: ""
@@ -76,7 +76,7 @@ jobs:
   # PR *and* is now over 500. A pre-existing over-limit file (the declarative
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

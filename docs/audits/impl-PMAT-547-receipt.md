@@ -26,6 +26,24 @@ Thirty-three declarations across seventeen files. Thirty-two were converted by s
 
 Log §4, §7.
 
+## The architecture nobody had named
+
+`clean-room` spans BOTH architectures. Measured by runner GROUP rather than by
+label: group 1 "Default" is sixteen `intel-clean-room-*`, every one `X64`; group
+3 "gpu-nodes" is four gx10 boxes that also carry `clean-room` and are every one
+**ARM64**. Groups 3 and 5 are `visibility=selected` and forjar is not in them, so
+every job this branch ran landed on an intel box and nothing is wrong today —
+but that is an access-control accident, not a property of the label. Adding
+forjar to `gpu-nodes` is one checkbox, and a job building
+`x86_64-unknown-linux-gnu` handed an ARM64 runner uploads an artifact that is
+WRONG rather than missing.
+
+Fifty declarations across eighteen files now say `[self-hosted, clean-room, X64]`.
+Seventeen of them were already on the fleet before this branch — `release.yml`'s
+ten and `proofs.yml`'s — carrying the same unstated assumption.
+
+Log §10.
+
 ## The two moves that needed more than a label
 
 **`nightly.yml` built aarch64 natively.** `cargo build --release --target aarch64-unknown-linux-gnu` works on a hosted ARM runner and cannot work on an x86_64 fleet host: no aarch64 linker, and `vendored-openssl` needs a cross C toolchain. `release.yml` has been building that same target on `[self-hosted, clean-room]` all along with `cross build`, so the leg takes the proven path rather than a new one.
@@ -48,9 +66,9 @@ Log §6.
 
 **It caught a site this change's own converter missed.** `nightly.yml:73` read `runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)`; the converter matched a runner value to end-of-line, so the trailing comment made the value not match, and the script reported success while a hosted ARM runner stayed. That is the argument for parsing over grepping, made by the change's own tooling against itself.
 
-Ten cases. Four are the invariants, five are controls a review lane's findings
-turned into fixtures, and one counts the jobs whose runner this repository does
-not choose. Four killers, no collateral:
+Eleven cases. Four are the invariants, five are controls a review lane's findings
+turned into fixtures, one counts the jobs whose runner this repository does not
+choose, and one pins the architecture:
 
 | case | killed by |
 |---|---|
@@ -58,6 +76,7 @@ not choose. Four killers, no collateral:
 | `the_platforms_the_fleet_cannot_serve_are_exactly_these` | M2 — a seventh hosted leg added |
 | `a_fleet_job_names_a_pool_and_not_just_self_hosted` | M3 — `runs-on: self-hosted` alone |
 | `the_parser_finds_the_runners_that_are_there` | M4 — `runner_labels` returns nothing |
+| `a_fleet_job_names_the_architecture_it_needs` | M5 — one fleet job drops its `X64` |
 
 M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The four survivors are exactly the four that assert an ABSENCE, and a blinded parser reports nothing hosted, so all four pass while measuring nothing. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
 
@@ -107,5 +126,6 @@ Log §8.
 - **The conversion is not proven on the fleet by this branch.** Whether all thirty-three jobs actually pass on `clean-room` is decided by CI on this PR and by the workflows that only run on a schedule or a tag — `nightly.yml`, `binary-release.yml`, `mutation.yml`, `stress.yml`, `proofs.yml`. The `cross` path and the guarded `musl-tools` install are both copied from `release.yml`, which already runs on the fleet, but a scheduled workflow will not be observed until it next fires.
 - **The glibc floor is recorded, not enforced.** Nothing fails if a future fleet image raises it. Making it a floor needs a number someone is willing to commit to, and this branch does not invent one.
 - **`actionlint` is still not run in CI.** `.github/actionlint.yaml` makes a local run useful; wiring it into the PR lane is separate work.
+- **The architecture pin is a guess about capacity, not about need.** Every runner forjar can reach is X64, so `[self-hosted, clean-room, X64]` costs nothing today. If forjar is ever given the ARM64 `gpu-nodes` group deliberately — to build an aarch64 artifact natively instead of under `cross` — the pin is what has to be relaxed, one job at a time, and `a_fleet_job_names_the_architecture_it_needs` is where the decision gets written down.
 
 IMPL-PMAT-547-RECEIPT-END

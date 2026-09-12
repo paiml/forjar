@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   stress:
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     strategy:
       matrix:
         iteration: [1, 2, 3]

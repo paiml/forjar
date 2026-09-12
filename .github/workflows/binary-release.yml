@@ -2,7 +2,7 @@ name: Binary Release
 
 # Attaches cross-compiled `forjar` binaries to a GitHub Release as tar.gz +
 # sha256 on github-hosted runners. This runs in parallel with the existing
-# release.yml (which uses [self-hosted, clean-room] runners) and is the
+# release.yml (which uses [self-hosted, clean-room, X64] runners) and is the
 # durable path for binary attachment — github-hosted runners are not
 # subject to self-hosted infra availability/queueing.
 #
@@ -58,7 +58,7 @@ jobs:
   # GitHub-hosted runner is not something this project may spend.
   ensure-release:
     name: Ensure release exists
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -112,7 +112,7 @@ jobs:
     # build inside cross containers, so only the x86_64-gnu leg is exposed;
     # the record is what turns "we think it still runs on old hosts" into a
     # number a reader can check against the oldest host they care about.
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +160,7 @@ jobs:
 
       # PMAT-547: this leg moved from a hosted runner to the fleet, where
       # apt-get may be absent and sudo may not be passwordless. release.yml
-      # already builds musl targets on [self-hosted, clean-room] and guards the
+      # already builds musl targets on [self-hosted, clean-room, X64] and guards the
       # call exactly this way, so this is the shape that is known to work
       # there. If musl-tools is already present -- which is why the guard is
       # safe -- the build proceeds; if it is genuinely missing AND cannot be
@@ -304,7 +304,7 @@ jobs:
   checksums:
     name: Aggregate SHA256SUMS
     needs: [ensure-release, build]
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Regenerate and upload SHA256SUMS
         env:
@@ -357,7 +357,7 @@ jobs:
   summary:
     name: Summary
     needs: [ensure-release, build]
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     if: always()
     steps:
       - name: Write summary

@@ -21,7 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
     steps:
@@ -68,12 +68,12 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: aarch64-unknown-linux-gnu
             # PMAT-547: was ubuntu-24.04-arm. release.yml already builds this
             # same target on the fleet, so the native-ARM hosted runner buys
             # nothing this repository is allowed to spend.
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: aarch64-apple-darwin
@@ -163,7 +163,7 @@ jobs:
   # ── Create/update nightly prerelease ─────────────────────
   release:
     needs: build
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

@@ -28,7 +28,7 @@ permissions:
 jobs:
   receipt:
     name: quorum receipt
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - uses: actions/checkout@v4
         with:

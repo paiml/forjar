@@ -4,7 +4,7 @@
   "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
   "base": "0bb6cb57",
   "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
-  "diff_sha256": "4e3cd55999a0c1423c1007ed4f5ff60468a5fe37",
+  "diff_sha256": "9802322fd10636abdf31938a153f63c9ae74497a",
   "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
   "quorum": {
     "lanes": [
@@ -17,14 +17,15 @@
     "rounds": "one round of three sandboxed agy quorum lanes against a FULL standalone clone, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id.",
     "kill_rule": "THIS BRANCH BROKE A SUITE IT HAD NEVER RUN. falsification_hosted_jobs_do_not_cache_target guards a HOSTED coverage job against caching target/ -- the 70.70 GiB ENOSPC that killed the runner's Worker in #386 -- and its vacuity guard needs at least one hosted coverage job. Moving coverage.yml to the fleet made that zero and two cases went red on the branch as the lanes saw it. The orchestrator had run eight workflow-reading suites and not that one.",
     "claims_confirmed": 7,
-    "claims_refuted": 6,
+    "claims_refuted": 7,
     "refuted_claims": [
       "That seven macOS/Windows legs remain -- the branch said six, in five places. grep prints six LINES because lint.yml contributes one line and two legs, and the count predated this branch's own rewrite of that matrix.",
       "That reading the object form's `group` alongside its `labels` is correct. A runner GROUP is not a label: a group named `ubuntu-runners` reported as a hosted runner, and the fleet control caught it on the first run.",
       "That the branch moved 32 declarations. 33, re-derived by counting hosted-Linux labels present at the base and absent at HEAD; 32 was the conversion script's own report.",
       "That a vacuity floor of 20 is a guard. Measured at 48, so more than half the fleet jobs could have been deleted before it noticed. The floor is now 40.",
       "That actions/cache degrades on a clean-room runner and should be removed (lane 1). It talks to GitHub's cache service over the network and works from a self-hosted runner; this branch changes nothing about it.",
-      "That moving ci.yml's job breaks its real-sudo test (lane 1). Failing loudly where the capability is absent is the DESIGNED behaviour -- FORJAR_REQUIRE_SUDO_TESTS turns a skip into a panic, which is why the comment citing GitHub's documented environment was removed and only the switch was kept."
+      "That moving ci.yml's job breaks its real-sudo test (lane 1). Failing loudly where the capability is absent is the DESIGNED behaviour -- FORJAR_REQUIRE_SUDO_TESTS turns a skip into a panic, which is why the comment citing GitHub's documented environment was removed and only the switch was kept.",
+      "That `[self-hosted, clean-room]` chooses an architecture. It does not: measured by runner GROUP, four gx10 boxes carry `clean-room` and are ARM64, alongside sixteen X64 intel boxes. forjar reaches only the X64 group today because groups 3 and 5 are visibility=selected -- an access-control accident, not a property of the label. Fifty declarations now say X64."
     ],
     "lane_errors": [
       "the delegate hit its 30-turn limit before writing a receipt, for the thirteenth time this session — filed as paiml-implement#141. All three lane JSONs were on disk with status SUCCESS and were read directly.",
@@ -32,10 +33,10 @@
     ]
   },
   "falsification": {
-    "test": "ten cases. Four are the invariants; five are controls built from a lane's `asserted` findings, each a fixture feeding one shape that hid a hosted runner from the parser -- the object form of runs-on, a hosted label in another case, a matrix key not named runner/os, an expression nested in a runs-on list, and a fleet job that must NOT be mistaken for a hosted one; the tenth counts the three jobs whose runner is chosen by a reusable workflow in another repository, which no case here can read.",
+    "test": "eleven cases. Four are the invariants; five are controls built from a lane's `asserted` findings, each a fixture feeding one shape that hid a hosted runner from the parser; one counts the three jobs whose runner is chosen by a reusable workflow in another repository, which no case here can read; and one pins the ARCHITECTURE, because `clean-room` spans X64 and ARM64 and the label alone does not choose between them.",
     "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet.rs",
     "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
-    "reverted": "four targeted mutations over the COMMITTED tree, each restored by name from HEAD, every run --no-fail-fast. M1 (one Linux job back to ubuntu-latest), M2 (a hosted leg added) and M3 (`runs-on: self-hosted` without a pool) each kill exactly one case. M4 blinds `push_labels` and KILLS SIX OF THE TEN -- every case that reads through the parser -- which is the right answer and not a clean kill: the four survivors all assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. That is precisely what the_parser_finds_the_runners_that_are_there exists to catch. An earlier draft claimed four single kills and no collateral; that was true of the four-case suite the round grew to ten. `git status --porcelain -- .github tests` is 0 lines after every mutation.",
+    "reverted": "five targeted mutations over the COMMITTED tree, each restored by name from HEAD, every run --no-fail-fast. M1 (one Linux job back to ubuntu-latest), M2 (a hosted leg added) and M3 (`runs-on: self-hosted` without a pool) each kill exactly one case. M4 blinds `push_labels` and KILLS SIX OF THE TEN -- every case that reads through the parser -- which is the right answer and not a clean kill: the four survivors all assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. That is precisely what the_parser_finds_the_runners_that_are_there exists to catch. An earlier draft claimed four single kills and no collateral; that was true of the four-case suite the round grew to ten. M5 drops one fleet job's `X64` and kills exactly one case, a_fleet_job_names_the_architecture_it_needs. `git status --porcelain -- .github tests` is 0 lines after every mutation.",
     "observed_failure": "dogfood-surface runner=GitHub Actions 1000366553 labels=ubuntu-latest success — read back from repos/paiml/forjar/actions/jobs/103531462399, alongside classify and doctests, on a run whose ci/lint, ci/coverage and ci/test were on intel-clean-room-12, -3 and -8",
     "still_green_when_reverted": "the eight workflow-reading suites this repository already had, 94 cases, plus the ten of falsification_hosted_jobs_do_not_cache_target once its denominator was repaired — which is the other half of the claim: nothing any other workflow test asserts has changed"
   },
@@ -85,7 +86,7 @@
   },
   "evidence": {
     "claims_digest": ".quorum/evidence/fleet-runners-judges.md",
-    "total_bytes": 16880,
+    "total_bytes": 17785,
     "files": [
       {
         "path": ".quorum/evidence/fleet-runners-claims.md",
@@ -110,9 +111,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 7973,
-        "sha256": "c490bba52fd9ce8a28b64544ed4f3a41ffa71d63e5295b184d2b8f441c7afdd8",
-        "blob": "95412e5197318a5cd6407f495e5db45bf31c2bfc"
+        "bytes": 8878,
+        "sha256": "e7d25641b43b0b57d3ad6a6578a9b654ac63cbb2065fb8764732696166b912af",
+        "blob": "ade7bd94569464432b8fc2e858392f7c7f627aa7"
       },
       {
         "path": ".quorum/evidence/fleet-runners-agy.md",

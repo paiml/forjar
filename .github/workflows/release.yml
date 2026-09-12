@@ -38,7 +38,7 @@ concurrency:
 jobs:
   # ── Verify: tag-version match + package tarball ─────────
   verify:
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       crate_name: ${{ steps.parse.outputs.crate_name }}
       version: ${{ steps.parse.outputs.version }}
@@ -126,7 +126,7 @@ jobs:
   # ── Create GitHub Release ─────────────────────────────
   create-release:
     needs: verify
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       created: ${{ steps.create.outputs.created }}
     steps:
@@ -183,13 +183,13 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: x86_64-unknown-linux-musl
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: aarch64-unknown-linux-gnu
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: aarch64-unknown-linux-musl
-            runner: [self-hosted, clean-room]
+            runner: [self-hosted, clean-room, X64]
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: aarch64-apple-darwin
@@ -288,7 +288,7 @@ jobs:
   checksums:
     needs: [verify, create-release, build-binaries]
     if: needs.verify.outputs.has_binaries == 'true'
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       # THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL.
       #
@@ -363,7 +363,7 @@ jobs:
   dist-artifacts:
     needs: [verify, checksums]
     if: needs.verify.outputs.has_binaries == 'true'
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -436,7 +436,7 @@ jobs:
   homebrew:
     needs: [verify, dist-artifacts]
     if: needs.verify.outputs.has_binaries == 'true'
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -516,7 +516,7 @@ jobs:
       needs.create-release.result == 'success' &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Publish the prerelease
         env:
