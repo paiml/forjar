@@ -88,9 +88,20 @@ a missing lock and a lock with no forjar entry are each UNMEASURED; and
 forjar's entry is forjar's whatever package name precedes it in the file.
 
 Red and green against the real repository in
-`docs/audits/logs/PMAT-537-cookbook-lock.log`: with the old commit in the row,
-`GATE T FAIL … LOCKS forjar 1.2.1 and the release is 1.29.0`; with the new one,
-`GATE T v1.29.0 cookbook 0be3e1ec … requires forjar 1.29 and locks 1.29.0 ok`.
+`docs/audits/logs/PMAT-537-cookbook-lock.log`, 459 lines: with the old commit
+in the row, `GATE T FAIL … LOCKS forjar 1.2.1 and the release is 1.29.0`; with
+the new one, `GATE T v1.29.0 cookbook 0be3e1ec … requires forjar 1.29 and locks
+1.29.0 ok`; and the ten cases green.
+
+**The first version of that log was 9 lines and contained neither.** Three
+review lanes read it and all three refused the receipt for claiming it held
+outputs it did not. The cause was `tee "$L" | head -14` in the script that
+wrote it: `head` closes the pipe, `tee` takes SIGPIPE, and the file stops where
+the terminal output did. That is the SIGPIPE class this repository has a rule
+about and an open ticket for (PMAT-240), in a proof script, written by the
+person who wrote the rule. The log is regenerated with no pipe, and the red
+half runs in a scratch clone because committing the defect here has disturbed
+this working tree four times in this session.
 
 The fixture's stub had to learn to answer the two files separately — one that
 returned the manifest for both would have made every lock case measure the
