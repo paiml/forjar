@@ -1,0 +1,9 @@
+### the defect, on the commit v1.29.0 originally named
+7c100454 Cargo.toml:
+forjar = { version = "1.2", default-features = false }
+7c100454 Cargo.lock:
+name = "forjar"
+version = "1.2.1"
+
+### RED — gate T with that commit in the row
+(gate T reads the ledger at HEAD, so the red half is the commit before this one)
