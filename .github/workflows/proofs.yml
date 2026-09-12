@@ -67,7 +67,7 @@ jobs:
   # ledger defect — 34 minutes, the single most expensive job a PR pays for,
   # and it cannot be affected by a change that touches no code.
   classify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:
@@ -333,7 +333,7 @@ jobs:
 
   proofs:
     name: proofs
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     needs: [classify, kani, lean, contracts, ledger-replay]
     if: always()
     steps:

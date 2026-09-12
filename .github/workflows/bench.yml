@@ -19,7 +19,7 @@ jobs:
   # changed. The decision is scripts/ci/changed-class.sh, driven in both
   # directions by tests/falsification_pr_lane_runs_what_the_change_can_break.rs.
   classify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:
@@ -32,7 +32,7 @@ jobs:
   benchmark:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 

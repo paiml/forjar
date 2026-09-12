@@ -1,0 +1,26 @@
+# The paiml fleet's runner labels.
+#
+# actionlint knows GitHub's hosted labels and nothing else, so without this
+# every `runs-on: [self-hosted, clean-room]` in this repository reports
+# `label "clean-room" is unknown` and the real findings are lost in the noise.
+#
+# Measured from `gh api orgs/paiml/actions/runners` on 2026-09-12: 25 runners,
+# every one Linux, carrying these labels. There is no macOS and no Windows
+# runner on the fleet, which is why the six macOS/Windows legs in lint.yml,
+# nightly.yml and release.yml still name GitHub's own labels -- see
+# tests/falsification_every_ci_job_runs_on_the_fleet.rs, which counts them.
+self-hosted-runner:
+  labels:
+    - clean-room   # 20 — the CI pool sovereign-ci and this repo's jobs use
+    - build        # 23 — the broader build pool (clean-room + yoga + gx10)
+    - intel        # 16 — the intel-clean-room boxes
+    - gx10         # 4  — GPU boxes
+    - yoga         # 5  — the yoga build hosts
+    - gpu          # 4
+    - cuda         # 4
+    - ada          # 1
+    - blackwell    # 1
+    - gb10         # 1
+    - ephemeral    # 7
+    - docker       # 7
+    - perf-solo    # 1

@@ -73,7 +73,7 @@ jobs:
   # way to keep a floor is to measure it every time rather than to reason about
   # when it could not have moved. Twelve minutes of the ~131 a PR used to cost.
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     timeout-minutes: 45
     env:
       # See note 2 above. Scoped to this lane — the repo's profiles are untouched.

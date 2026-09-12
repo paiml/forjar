@@ -21,7 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
     steps:
@@ -68,9 +68,12 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-latest
+            runner: [self-hosted, clean-room]
           - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)
+            # PMAT-547: was ubuntu-24.04-arm. release.yml already builds this
+            # same target on the fleet, so the native-ARM hosted runner buys
+            # nothing this repository is allowed to spend.
+            runner: [self-hosted, clean-room]
           - target: x86_64-apple-darwin
             runner: macos-latest
           - target: aarch64-apple-darwin
@@ -90,8 +93,26 @@ jobs:
       - name: Ensure target is installed
         run: rustup target add ${{ matrix.target }}
 
+      # PMAT-547: the aarch64-linux leg used to run on a native ARM hosted
+      # runner, where a plain `cargo build --target` worked. On the fleet it is
+      # an x86_64 host, so it needs the same `cross` path release.yml already
+      # uses for that target -- a container that carries the aarch64 linker and
+      # the C toolchain vendored-openssl needs.
+      - name: Install cross (aarch64 legs only)
+        if: startsWith(matrix.target, 'aarch64-unknown-linux')
+        run: command -v cross >/dev/null 2>&1 || cargo install cross --locked
+
       - name: Build release binary
-        run: cargo build --release --features vendored-openssl --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          case "${{ matrix.target }}" in
+            aarch64-unknown-linux-*)
+              cross build --release --features vendored-openssl --target "${{ matrix.target }}"
+              ;;
+            *)
+              cargo build --release --features vendored-openssl --target "${{ matrix.target }}"
+              ;;
+          esac
 
       - name: Package (unix)
         if: runner.os != 'Windows'
@@ -142,7 +163,7 @@ jobs:
   # ── Create/update nightly prerelease ─────────────────────
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

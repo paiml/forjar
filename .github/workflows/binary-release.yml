@@ -53,10 +53,12 @@ env:
 
 jobs:
   # Resolve the tag once and make sure the GitHub Release exists before any
-  # build leg runs — hosted runners only, no self-hosted dependency.
+  # build leg runs. This used to say "hosted runners only, no self-hosted
+  # dependency" and was a deliberate choice; PMAT-547 reverses it, because a
+  # GitHub-hosted runner is not something this project may spend.
   ensure-release:
     name: Ensure release exists
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -96,12 +98,21 @@ jobs:
   build:
     name: ${{ matrix.target }}
     needs: ensure-release
-    # 22.04 pins the gnu builds to glibc 2.35 — binaries built on
-    # ubuntu-latest (24.04, glibc 2.39) refuse to run on older hosts.
-    # musl legs are static and aarch64 legs build inside cross containers,
-    # so only the x86_64-gnu leg actually needs this, but one runner keeps
-    # the matrix uniform.
-    runs-on: ubuntu-22.04
+    # THIS LEG WAS PINNED TO ubuntu-22.04 AND IS NO LONGER PINNED TO ANYTHING.
+    #
+    # 22.04 pinned the gnu builds to glibc 2.35, because a binary linked
+    # against a newer glibc refuses to start on an older host and
+    # ubuntu-latest had moved to 24.04 / glibc 2.39. PMAT-547 moves the leg to
+    # the fleet, whose glibc is whatever the fleet has — which is not a thing
+    # this workflow could measure before it ran.
+    #
+    # So it measures it. The step below records the builder's glibc and the
+    # maximum GLIBC_ version the produced binary demands, into the job summary
+    # and the log, on every release. musl legs are static and aarch64 legs
+    # build inside cross containers, so only the x86_64-gnu leg is exposed;
+    # the record is what turns "we think it still runs on old hosts" into a
+    # number a reader can check against the oldest host they care about.
+    runs-on: [self-hosted, clean-room]
     strategy:
       fail-fast: false
       matrix:
@@ -147,11 +158,25 @@ jobs:
         if: ${{ !matrix.cross }}
         run: rustup target add ${{ matrix.target }}
 
+      # PMAT-547: this leg moved from a hosted runner to the fleet, where
+      # apt-get may be absent and sudo may not be passwordless. release.yml
+      # already builds musl targets on [self-hosted, clean-room] and guards the
+      # call exactly this way, so this is the shape that is known to work
+      # there. If musl-tools is already present -- which is why the guard is
+      # safe -- the build proceeds; if it is genuinely missing AND cannot be
+      # installed, the build fails at the link step naming what it wanted,
+      # which is a better failure than apt-get exiting 127 here.
       - name: Install musl tools
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends musl-tools
+          if command -v musl-gcc >/dev/null 2>&1; then
+            echo "musl-gcc already present: $(command -v musl-gcc)"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends musl-tools
+          else
+            echo "no musl-gcc and no apt-get on this runner; the link step will say so" >&2
+          fi
 
       # Cross is used for aarch64 targets — pinned to v0.2.5 (matches the
       # legacy release.yml convention).
@@ -205,6 +230,30 @@ jobs:
           fi
           ls -la "$BIN_PATH"
 
+      # PMAT-547. The gnu legs used to be pinned to ubuntu-22.04 so they linked
+      # against glibc 2.35; the pin is gone and the fleet's glibc is whatever
+      # the fleet has. An unmeasured floor is not a floor, so record it: the
+      # builder's own glibc, and the highest GLIBC_ version the binary actually
+      # demands -- which is the number that decides whether an old host can run
+      # it. Never fails the build: it is a measurement, and a release that
+      # raises the floor is a decision for a reader, not for this step.
+      - name: Record the glibc floor this binary demands
+        if: ${{ !contains(matrix.target, 'musl') }}
+        run: |
+          TARGET="${{ matrix.target }}"
+          BIN_PATH="target/${TARGET}/release/forjar"
+          builder="$(ldd --version 2>/dev/null | head -1 || echo 'ldd unavailable')"
+          demanded="$(strings -a "$BIN_PATH" 2>/dev/null \
+            | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' \
+            | sort -V | tail -1)"
+          [ -n "$demanded" ] || demanded="none found (static, or strings unavailable)"
+          printf 'builder: %s\nbinary demands at most GLIBC_%s\n' "$builder" "$demanded"
+          {
+            printf '### glibc floor — `%s`\n\n' "$TARGET"
+            printf -- '- builder: `%s`\n' "$builder"
+            printf -- '- binary demands at most: `GLIBC_%s`\n' "$demanded"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Package archive
         id: package
         run: |
@@ -243,7 +292,7 @@ jobs:
   checksums:
     name: Aggregate SHA256SUMS
     needs: [ensure-release, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - name: Regenerate and upload SHA256SUMS
         env:
@@ -296,7 +345,7 @@ jobs:
   summary:
     name: Summary
     needs: [ensure-release, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     if: always()
     steps:
       - name: Write summary

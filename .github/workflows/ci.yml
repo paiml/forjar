@@ -5,7 +5,7 @@
 #   test: cargo test --lib (self-hosted clean-room)
 #   lint: cargo clippy --all-targets -- -D warnings + cargo fmt --check
 #   coverage: cargo llvm-cov + codecov upload
-#   security: cargo audit (ubuntu-latest, continue-on-error)
+#   security: cargo audit (fleet, continue-on-error)
 #   provenance: SLSA attest-build-provenance
 #   gate: aggregates test+lint results
 #
@@ -30,7 +30,7 @@ jobs:
   # heavy job below gates on it. The release gate (`make dogfood-release`) is
   # untouched and still runs everything.
   classify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     outputs:
       code: ${{ steps.class.outputs.code }}
       gate_c: ${{ steps.class.outputs.gate_c }}
@@ -62,7 +62,7 @@ jobs:
   # then dirties the tree and skips release creation entirely.
   lockfile:
     name: lockfile-preflight
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -89,7 +89,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -173,11 +173,16 @@ jobs:
       # without passwordless sudo that file was green against the fd-3 emitter
       # too. FORJAR_REQUIRE_SUDO_TESTS=1 turns each of those skips into a panic
       # naming the missing capability, so a green step here means the gated
-      # tests RAN, under real sudo, not that they declined to. ubuntu-latest
-      # satisfies the gate by GitHub's documented hosted-runner environment
-      # (the `runner` user is non-root and has passwordless sudo) — that is
-      # cited, not measured here, which is why the switch is set: if it ever
-      # stops holding, this step fails loudly instead of skipping silently.
+      # tests RAN, under real sudo, not that they declined to.
+      #
+      # PMAT-547 moved this job from ubuntu-latest to the fleet, and with it
+      # the only thing the old comment could offer: GitHub DOCUMENTS that a
+      # hosted runner's `runner` user is non-root with passwordless sudo, and
+      # documents nothing about ours. So the citation is gone and only the
+      # switch is left — which is the half that was ever load-bearing. If a
+      # fleet runner does not give this step passwordless sudo, the step fails
+      # loudly naming the missing capability instead of skipping silently.
+      # Unmeasured is not the same as satisfied, and this is how it says so.
       - name: The sudo transport survives closefrom under real sudo (required, not skippable)
         env:
           FORJAR_REQUIRE_SUDO_TESTS: "1"
@@ -204,7 +209,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: no-default-features
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -226,7 +231,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: doctests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -255,7 +260,7 @@ jobs:
   dogfood-surface:
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Build the artifact the surface gates measure
@@ -281,14 +286,14 @@ jobs:
   dogfood-guards:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Guard tests
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
   gate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:

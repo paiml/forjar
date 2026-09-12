@@ -26,7 +26,7 @@ permissions:
 jobs:
   build-book:
     name: mdbook build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room]
     timeout-minutes: 10
     env:
       MDBOOK_VERSION: v0.4.40
