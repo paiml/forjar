@@ -61,10 +61,11 @@ fail() {
 # The exempted set cannot grow: PMAT-535 refuses a branch naming a ticket no
 # commit claims at push time, which is the only way a record like #532 was made.
 #
-# Measured over the thirty most recently merged PRs: 28 agree, #532 is the
-# mismatch, and #496 LOOKS like one -- branch PMAT-218, commits PMAT-219 --
-# until the ids are resolved, because PMAT-219's row declares the misnomer as
-# its `alias:`. Resolving before comparing is why #496 is green.
+# Measured over the thirty most recently merged PRs: 29 agree, #532 is the one
+# mismatch, and none lacks a trailer. #496 LOOKS like a second mismatch --
+# branch PMAT-218, commits PMAT-219 -- until the ids are resolved, because
+# PMAT-219's row declares the misnomer as its `alias:`; resolving before
+# comparing is why it counts among the 29.
 TRAILER_FLOOR="${TRAILER_FLOOR:-b4719737}"
 
 # shellcheck source=scripts/dogfood/lib/window.sh
@@ -119,11 +120,14 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   # that label by hand.
   #
   # READ BY THE LINE, not with `%(trailers:key=…)`. git's parser reads the LAST
-  # PARAGRAPH only, and a squash message ends with whatever bullets GitHub
-  # assembled: on b4719737, the merge commit of #532 itself, it returns NOTHING
-  # while the line is plainly there. An arm built on it would be blind to the
-  # exact commit it exists for. pmat's CB-2113 asks git the same way, which is
-  # why it saw nothing either.
+  # PARAGRAPH only, and GitHub appends its own to a squash message: after the
+  # branch commits' bodies it writes a `---------` separator and a
+  # `Co-authored-by:` block, and THAT becomes the last paragraph. Measured on
+  # b4719737, the merge commit of #532 itself: `%(trailers)` returns the
+  # `Co-authored-by:` line alone and `%(trailers:key=Pmat-Ticket)` returns
+  # NOTHING, while the line is plainly in the message. An arm built on git's
+  # parser would be blind to the exact commit it exists for. pmat's CB-2113 asks
+  # git the same way, which is why it saw nothing either.
   dogfood_pr_field "$i" ".mergeCommit.oid"
   merge="$DOGFOOD_FIELD"
   if [ -z "$merge" ]; then
@@ -162,9 +166,16 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     # same measured reasons: a CRLF message glues \r to the id, a
     # `Pmat-Ticket: PMAT-1, PMAT-2` line is two claims, and being stricter than
     # the commit-msg hook about indentation or case can only invent refusals.
+    # Guarded, because `set -euo pipefail` turns a failure anywhere in this
+    # pipeline into a bare exit -- and an exit code with no `GATE A` line is a
+    # death rather than a verdict, which this file refuses everywhere else.
+    crc=0
     claims="$(printf '%s\n' "$mmsg" \
       | sed -n 's/^[[:space:]]*[Pp][Mm][Aa][Tt]-[Tt][Ii][Cc][Kk][Ee][Tt]:[[:space:]]*//p' \
-      | tr -d '\r' | tr ',' ' ' | tr '\n' ' ' | tr -s ' ')"
+      | tr -d '\r' | tr ',' ' ' | tr '\n' ' ' | tr -s ' ')" || crc=$?
+    if [ "$crc" -ne 0 ]; then
+      fail "reading the Pmat-Ticket lines out of PR #${num}'s merge commit ${merge} exited ${crc} — UNMEASURED"
+    fi
     # Resolve each claim the way the PR's own id was resolved, so an id that a
     # roadmap row declares as its `alias:` compares equal to the row. PR #496's
     # branch says PMAT-218 and its commits say PMAT-219, and PMAT-219's row
@@ -185,6 +196,12 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     # `Pmat-Ticket:` line at all is the commit-msg hook's finding and CB-2113's,
     # not this gate's, and an arm that also reported it would be saying someone
     # else's finding in its own words.
+    #
+    # This is a real exemption and it is stated as one: a PR whose merge commit
+    # claims nothing PASSES here. None of the thirty most recently merged PRs is
+    # in that shape, and two other checks already judge it, but "the merge
+    # commit claims the ticket" is not what this arm enforces -- it enforces
+    # "does not claim a DIFFERENT one".
     if [ -n "$resolved" ]; then
       case " $resolved " in
         *" $id "*) ;;

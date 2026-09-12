@@ -42,14 +42,42 @@ mod harness;
 
 use harness::*;
 
-/// A squash message in the shape GitHub actually writes one: a subject, the
-/// branch commits' bodies, and the trailer block repeated once per commit.
+/// A squash message in the shape GitHub actually writes one.
+///
+/// The shape matters and a review lane measured that the first version of this
+/// helper did not have it. GitHub appends its OWN last paragraph to a squash
+/// message: after the branch commits' bodies it writes a `---------` separator
+/// and a `Co-authored-by:` block, and that block becomes the last paragraph —
+/// which is the only place `%(trailers:key=…)` looks. Without the separator
+/// git parses the `Pmat-Ticket:` lines happily, and every case here would pass
+/// over an arm that had been "simplified" to use git's parser, which is the one
+/// regression this suite exists to prevent.
+///
+/// Measured on `b4719737`, PR #532's own merge commit: `%(trailers)` returns
+/// the `Co-authored-by:` line alone.
 fn squash_claiming(ticket: &str) -> String {
     format!(
         "work that landed (#77)\n\n* the first commit\n\nPmat-Ticket: {ticket}\n\
          Co-Authored-By: t <t@t>\n\n* the second commit\n\nPmat-Ticket: {ticket}\n\
-         Co-Authored-By: t <t@t>\n"
+         Co-Authored-By: t <t@t>\n\n---------\n\nCo-authored-by: t <t@t>\n"
     )
+}
+
+/// What git's OWN parser sees on the fixture's HEAD.
+fn git_sees_trailer(repo: &std::path::Path) -> String {
+    String::from_utf8_lossy(
+        &git(
+            repo,
+            &[
+                "log",
+                "-1",
+                "--format=%(trailers:key=Pmat-Ticket,valueonly=true)",
+            ],
+        )
+        .stdout,
+    )
+    .trim()
+    .to_string()
 }
 
 /// The exact shape PR #532 was in: filed under one ticket, claimed by another.
@@ -199,4 +227,63 @@ fn the_shipped_floor_is_the_commit_it_says_it_is() {
          repository, so it exempts nothing and the comment beside it describes \
          a record it cannot reach"
     );
+}
+
+/// THE CASE A REVIEW LANE NAMED AS MISSING: the arm must read what git cannot.
+///
+/// Every other case here would pass over an arm rewritten to use
+/// `%(trailers:key=…)`, because `git interpret-trailers` and `git log
+/// --format=%(trailers)` both parse a message whose last paragraph IS the
+/// trailer block. The real defect only exists because GitHub writes a
+/// `---------` + `Co-authored-by:` paragraph after it.
+///
+/// So this case asserts, in order: that git's own parser returns NOTHING for
+/// the fixture's message, and that the gate nevertheless PASSES a PR whose
+/// commits claim its own ticket. An arm using git's parser would read "claims
+/// nothing", take the skip, and also pass — so the first assertion is what
+/// makes the second mean something, and it fails loudly if git ever starts
+/// reading this shape.
+#[test]
+fn the_arm_reads_a_claim_gits_own_parser_cannot_see() {
+    let fx = fixture_msg(
+        Some(&good_impl_receipt()),
+        Some(good_quorum_receipt()),
+        &squash_claiming(TICKET),
+    );
+    let by_git = git_sees_trailer(&fx.root);
+    assert!(
+        by_git.is_empty(),
+        "PMAT-540: git now parses this message's Pmat-Ticket lines ({by_git:?}), \
+         so the fixture no longer reproduces the shape that made #532 invisible \
+         and no case here would catch an arm rewritten to use git's parser"
+    );
+    run(&fx, "harness.sh", &fx.gh_reporting_the_pr()).assert_green(
+        "A",
+        "a PR whose commits claim its own ticket in a message git cannot parse",
+    );
+}
+
+/// The same shape, mismatching: the arm must REFUSE what git cannot see.
+///
+/// This is the half with teeth. An arm using git's parser reads "claims
+/// nothing" and passes; this one reads the line and refuses.
+#[test]
+fn a_mismatch_gits_own_parser_cannot_see_is_still_refused() {
+    let fx = fixture_msg(
+        Some(&good_impl_receipt()),
+        Some(good_quorum_receipt()),
+        &squash_claiming("PMAT-111"),
+    );
+    let by_git = git_sees_trailer(&fx.root);
+    assert!(
+        by_git.is_empty(),
+        "PMAT-540: git now parses this shape ({by_git:?}), so this case no \
+         longer proves the arm must read the line itself"
+    );
+    let out = run(&fx, "harness.sh", &fx.gh_reporting_the_pr());
+    out.assert_not_green(
+        "A",
+        "a mismatch written where git's own trailer parser cannot see it",
+    );
+    out.assert_says("PMAT-111");
 }
