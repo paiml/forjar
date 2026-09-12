@@ -4,7 +4,7 @@
  "branch": "PMAT-542-per-gate-selection",
  "base": "cddf78cd",
  "base_commit": "cddf78cdd5d3b8d561241e564bd20000f30a3211",
- "diff_sha256": "e5694241d941f437b1f0de87fb1f2725347158bd",
+ "diff_sha256": "b6ccaec11c260eb9755974f7fddfa9b43ef936d9",
  "recorded_at": "after the round that found the selection failed OPEN on the two gates' own fixtures and their shared binary resolver",
  "quorum": {
   "lanes": [
