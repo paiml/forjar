@@ -19,15 +19,32 @@ PMAT-542 — the PR lane selects the gate the change can move
    6.1 min  Gate D — documented invocations run against fixtures
    3.8 min  Guard tests        <- the only step a scripts/ or tests/ change can move
 
-### 2. what the two gates actually read
-gate C (scripts/dogfood/surface.sh):
+### 2. what the two gates actually read, derived by reading them
+A review round refuted the first version of this list. These are the lines:
+
+gate C — scripts/dogfood/surface.sh:
   35:CSV="docs/audits/surface_audit.csv"
-  plus the built binary. Nothing else — it sources no library.
-gate D (scripts/dogfood/docs.sh):
+  50:BIN="$(bash "$(dirname "${BASH_SOURCE[0]}")/lib/binary.sh")"
+  277:FIXTURE="tests/fixtures/dogfood/local-files.yaml"
+gate D — scripts/dogfood/docs.sh:
+  41:FIXTURES="tests/fixtures/dogfood"
   42:CSV="docs/audits/surface_audit.csv"
   51:COOKBOOK="${COOKBOOK:-${_common_abs}/../forjar-cookbook}"
+  62:BIN="$(bash "$(dirname "${BASH_SOURCE[0]}")/lib/binary.sh")"
   82:README = "README.md"
-  plus the built binary and the cookbook clone. Nothing else.
+  279:cargo_version = re.search(r'^version = "(.*)"', open("Cargo.toml", encoding="utf-8").read(),
+and lib/binary.sh itself sources nothing further:
+  source lines: 0
+
+So the closure is: the built binary; scripts/dogfood/lib/binary.sh, which
+both gates exec to resolve it; docs/audits/surface_audit.csv, which both
+read; README.md, which only gate D runs; tests/fixtures/dogfood/, which
+gate C compares two evaluations of and gate D runs everything against;
+Cargo.toml, for gate D's version reconciliation; and a clone of
+paiml/forjar-cookbook the workflow makes. The FIRST version of the
+selection listed only the two gate scripts and the CSV, so the fixtures
+and the shared resolver fell into the harmless arm — the fail-open
+direction. Two of three lanes measured it.
 
 ### 3. the selection matrix, from the script itself
 FILE LIST                                                  OUTPUT
@@ -44,10 +61,10 @@ CLAUDE.md                                                  code=true gate_c=fals
 some/path/nobody/classified                                code=true gate_c=true gate_d=true gates=C,D 
 (an empty list)                                            code=true gate_c=true gate_d=true gates=C,D 
 
-### 4. the last 25 merged PRs, each run through the classifier
+### 4. the 25 PRs merged as of cddf78cd, each run through the classifier
 PR      code        gates     top-level paths it touched
 #541    true        none      docs/ .quorum/ scripts/ tests/ 
-#539    true        D         docs/ .quorum/ scripts/ tests/ 
+#539    true        C,D       docs/ .quorum/ scripts/ tests/ 
 #538    true        none      .claude/ CLAUDE.md docs/ .quorum/ scripts/ tests/ 
 #536    true        none      docs/ .quorum/ 
 #532    true        none      docs/ .quorum/ scripts/ tests/ 
@@ -55,10 +72,10 @@ PR      code        gates     top-level paths it touched
 #524    true        none      docs/ .quorum/ scripts/ tests/ 
 #523    true        none      docs/ .quorum/ scripts/ tests/ 
 #519    true        none      docs/ .quorum/ scripts/ tests/ 
-#518    true        none      .claude/ CLAUDE.md docs/ .quorum/ scripts/ tests/ 
-#517    true        none      docs/ .quorum/ scripts/ tests/ 
+#518    true        C,D       .claude/ CLAUDE.md docs/ .quorum/ scripts/ tests/ 
+#517    true        C,D       docs/ .quorum/ scripts/ tests/ 
 #516    true        C,D       docs/ .github/ .quorum/ scripts/ tests/ 
-#515    true        none      docs/ .quorum/ scripts/ tests/ 
+#515    true        C,D       docs/ .quorum/ scripts/ tests/ 
 #514    true        C,D       docs/ .github/ .quorum/ tests/ 
 #513    false       none      docs/ .quorum/ 
 #511    false       none      docs/ .quorum/ 
@@ -72,17 +89,22 @@ PR      code        gates     top-level paths it touched
 #500    true        C,D       contracts/ docs/ examples/ .quorum/ src/ tests/ 
 #498    true        C,D       docs/ .quorum/ src/ tests/ 
 
-  25 PRs measured
-  3  code=false      — already skipped every heavy job (PMAT-237)
-  12  can move a gate — the build and the selected gate(s) still run
-  10  gates=none      — 21.3 min of a 25.2 min critical path, for nothing
+  25 PRs measured, and what each would pay now:
+   3  code=false  — already skipped every heavy job (PMAT-237)
+  15  gates=C,D   — build + both gates, 25.2 min, unchanged
+   0  gates=C     — build + gate C, 6.1 min saved
+   0  gates=D     — build + gate D, 6.2 min saved
+   7  gates=none  — no build, no gate: 21.3 of 25.2 min saved, and the
+               critical path becomes ci / test at 6.3 min
 
-  40% of all PRs stop paying 21.3 min; their critical path becomes
-  ci / test at 6.3 min, which is 75% faster than 25.2.
+  28% of all PRs (7 of 25) stop paying the 21.3 minutes entirely — 75% faster.
+  A further 0 save one gate. Over the 25, the job-minutes saved are 149.1.
 
 ### 5. and THIS branch, which pays in full
   .github/actions/changed-class/action.yml
   .github/workflows/ci.yml
+  docs/audits/impl-PMAT-542-receipt.md
+  docs/audits/logs/PMAT-542-per-gate-selection.log
   docs/roadmaps/roadmap.yaml
   scripts/ci/changed-class.sh
   tests/changed_class_fixture/mod.rs
@@ -94,49 +116,71 @@ PR      code        gates     top-level paths it touched
   it is supposed to fail in: this PR does not get to skip the gates it is
   changing the rules for.
 
-### 6. RED — the eleven cases against origin/main's classifier
-Three NON-RUST files reverted to origin/main, everything else at the
-branch's commit; restored afterwards from that NAMED commit, not from HEAD.
+### 6. RED — the fourteen cases against origin/main
+Three NON-RUST files reverted to origin/main, everything else at 51cc9400;
+restored afterwards from that NAMED commit, not from HEAD.
 
 the reverted classifier, asked the same question:
-  $ printf 'src/x.rs
-' | bash scripts/ci/changed-class.sh
+  $ echo src/x.rs | bash scripts/ci/changed-class.sh
   code=true
   (no gate_c=, no gate_d=, no gates= — which is what every case reads)
 
-  test result: FAILED. 0 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out
-
+       Running tests/falsification_pr_lane_runs_what_the_change_can_break.rs 
+  running 13 tests
+  failures:
+  failures:
+      every_heavy_job_runs_only_when_the_change_can_reach_it
+  test result: FAILED. 12 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+       Running tests/falsification_pr_lane_selects_the_gate_the_change_can_move.rs 
+  running 14 tests
+  failures:
   failures:
       a_gate_the_lane_did_not_select_says_so_by_name
       a_surface_skip_is_refused_when_the_selection_says_it_should_have_run
+      an_absent_base_is_not_a_narrower_base
       an_empty_file_list_selects_both_gates
       an_unclassified_path_selects_both_gates
+      every_path_the_two_gates_name_is_selected_by_the_classifier
       source_and_the_manifests_select_both_gates
       the_booleans_and_the_summary_token_are_one_decision
       the_files_the_gates_read_select_exactly_their_own_gate
+      the_fixtures_and_the_shared_resolver_are_not_harmless
       the_selection_is_never_the_empty_string
       the_shape_that_pays_for_nothing_selects_no_gate
       the_workflow_compares_the_selection_exactly
       the_workflow_reads_the_selection_from_the_one_script
+  test result: FAILED. 0 passed; 14 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-  the first failure, quoted in full:
-    assertion `left == right` failed: the classifier printed 0 `gates=` lines
-    for ["src/core/mod.rs"]; exactly one is the contract:
-    code=true
-      left: 0
-     right: 1
+  All 14 of PMAT-542's cases are RED. One of PMAT-237's 13 is red too and that
+  is honest rather than incidental: `every_heavy_job_runs_only_when_the_change_can_reach_it`
+  reads the job names out of the workflow, and reverting the workflow puts back
+  a job called `dogfood` where the case now expects `dogfood-surface` and
+  `dogfood-guards`. The other 12 stay green, which is the other half of the
+  claim: the CLASS is unchanged.
 
-  and PMAT-237's own 13 cases stayed green throughout: the class is unchanged.
+### 7. three numbers, and why each moved
+FOURTEEN — the first scan, before any of this was implemented. It used a trigger
+set narrower than what shipped: it did not count `.github/**` or
+`scripts/dogfood/**` as reaching a gate.
 
-### 7. a number this receipt got wrong, and the correction
-The first scan of the saving said FOURTEEN PRs would stop paying. It used a
-narrower trigger set than the classifier that shipped: it did not count
-`.github/**` or `scripts/dogfood/**` as reaching a gate.
+TEN — the first implementation, measured. Conservative about `.github/**` and
+about either gate's own script.
 
-The shipped classifier is the conservative one — a change to the lane itself, or
-to either gate's own script, selects — and against it the figure is TEN. Section
-4 above is that run, against the classifier in this commit, over the 25 PRs
-merged as of cddf78cd. Ten, not fourteen, is the number in the code comments,
-the roadmap, the commit message and the issue.
+TWO — a review round then measured that the selection FAILED OPEN: both gates
+run `scripts/dogfood/lib/binary.sh`, gate C compares two evaluations of
+`tests/fixtures/dogfood/local-files.yaml`, and gate D runs everything against
+the whole fixture tree — all under `scripts/` and `tests/`, which the harmless
+arm names. The first fix selected the whole of `scripts/dogfood/` and
+`tests/fixtures/`, and that collapsed the saving to two PRs in twenty-five,
+because this repository develops harness.sh, tagged.sh, comply.sh and the rest
+constantly and gate C and gate D read none of them.
+
+SEVEN — the closure derived by reading the two scripts: `lib/*` (four files, so
+a sibling either gate starts sourcing later is already covered), `surface.sh` for
+C, `docs.sh` for D, and `tests/fixtures/*`, which is only the dogfood tree
+today. Section 4 above is that run.
+
+Every revision came from a measurement, and the fail-open one came from a
+review round rather than from a test. That is what the round is for.
 
 PMAT-542-LOG-END
