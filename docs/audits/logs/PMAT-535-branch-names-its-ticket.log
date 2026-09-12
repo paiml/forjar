@@ -1,0 +1,255 @@
+### the defect, as it actually happened
+PR #532 branch:  PMAT-520-book-v1.29.0
+PR #532 trailer: PMAT-531  (merge commit b4719737)
+  branch=PMAT-520-book-v1.29.0
+  title =ledger: book v1.29.0 — the first cookbook commit, and two false records (PMAT-531, closes #531)
+  and PMAT-520 carries BOTH release:v1.29.0 and release:v1.30.0 today:
+    - release:v1.29.0
+    - release:v1.30.0
+
+### the six cases
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.29.0 (/home/noah/src/forjar)
+warning: forjar@1.29.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.71s
+     Running tests/falsification_a_branch_names_its_own_ticket.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_a_branch_names_its_own_ticket-01175b635dd1fd80)
+
+running 6 tests
+test a_branch_with_no_ticket_id_is_not_refused_by_this_arm ... ok
+test a_branch_named_for_a_ticket_no_commit_claims_is_named_and_red ... ok
+test a_branch_that_names_its_own_ticket_passes_this_arm ... ok
+test a_branch_whose_commits_claim_nothing_is_not_this_arms_finding ... ok
+test a_pmat_ticket_line_git_would_not_call_a_trailer_still_counts ... ok
+test a_branch_carrying_several_tickets_passes_if_it_names_one ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+
+### the arm refusing the real shape, run against a fixture of it
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.29.0 (/home/noah/src/forjar)
+warning: forjar@1.29.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.73s
+     Running tests/falsification_a_branch_names_its_own_ticket.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_a_branch_names_its_own_ticket-01175b635dd1fd80)
+
+running 1 test
+test a_branch_named_for_a_ticket_no_commit_claims_is_named_and_red ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.12s
+
+
+### the neighbouring quorum suites, unchanged
+warning: forjar-contracts@0.31.2: [contract] Assertions: 0 preconditions, 0 postconditions from YAML
+   Compiling forjar v1.29.0 (/home/noah/src/forjar)
+warning: forjar@1.29.0: CONTRACT: 45/45 bindings bound (0 partial, 0 not_implemented)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.73s
+     Running tests/falsification_quorum_anchors_release_shaped.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_anchors_release_shaped-af5b3bd6d3f0256e)
+
+running 4 tests
+test the_gate_refuses_a_citation_past_the_end_of_a_new_file ... ok
+test a_claim_set_with_no_citations_is_still_refused ... ok
+test an_rs_citation_outside_the_diff_is_still_refused ... ok
+test a_release_shaped_diff_can_anchor_its_claims ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/falsification_quorum_gate_has_a_triage_shape.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_gate_has_a_triage_shape-060e3336ef493d0e)
+
+running 8 tests
+test a_code_receipt_cannot_anchor_its_claims_on_documentation ... ok
+test a_documentation_citation_outside_the_diff_anchors_nothing ... ok
+test a_triage_shaped_diff_anchors_its_claims_on_the_documentation_it_touches ... ok
+test a_code_receipt_with_no_falsification_is_still_refused ... ok
+test another_file_under_roadmaps_is_still_off_the_rail ... ok
+test a_triage_receipt_over_a_code_diff_is_refused_by_name ... ok
+test a_triage_receipt_passes_the_whole_gate_and_says_what_it_did_not_verify ... ok
+test a_triage_receipt_over_the_release_ledger_is_on_the_rail ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests/falsification_quorum_gate_reads_the_pushed_ref.rs (/mnt/nvme-raid0/targets/forjar/debug/deps/falsification_quorum_gate_reads_the_pushed_ref-143fd88c0f54f8fe)
+
+running 5 tests
+test a_branch_deletion_is_not_asked_for_a_receipt ... ok
+test an_untracked_receipt_cannot_waive_the_gate ... ok
+test a_receipt_committed_on_the_pushed_branch_is_found_from_another_checkout ... ok
+test the_bound_diff_hash_is_the_pushed_branchs_diff_not_the_checkouts ... ok
+test the_ordinary_same_branch_push_still_passes_with_and_without_the_flag ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+
+### bashrs lint on the changed script
+[2m2026-09-12T03:49:59.441105Z[0m [32m INFO[0m [2mbashrs::cli::commands::lint_cmds[0m[2m:[0m Linting scripts/quorum-gate.sh
+Issues found in [36mscripts/quorum-gate.sh[0m:
+
+[2mℹ[0m [2m227:12-15[0m [2m227:12-15 [info] SC1135: Use \$ in double quotes rather than breaking out of the quote[0m
+
+[2mℹ[0m [2m106:30-49[0m [2m106:30-49 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m123:43-62[0m [2m123:43-62 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m128:16-35[0m [2m128:16-35 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m188:41-54[0m [2m188:41-54 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m194:41-50[0m [2m194:41-50 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m208:31-40[0m [2m208:31-40 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m227:13-22[0m [2m227:13-22 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m325:25-34[0m [2m325:25-34 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m387:38-47[0m [2m387:38-47 [info] SC2016: Expressions don't expand in single quotes, use double quotes for that[0m
+
+[2mℹ[0m [2m106:30-49[0m [2m106:30-49 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+
+[2mℹ[0m [2m123:43-62[0m [2m123:43-62 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+
+[2mℹ[0m [2m128:16-35[0m [2m128:16-35 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "${actor:-unknown}"
+
+[2mℹ[0m [2m188:41-54[0m [2m188:41-54 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$remote_ref"
+
+[2mℹ[0m [2m194:41-50[0m [2m194:41-50 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$branch"
+
+[2mℹ[0m [2m208:31-40[0m [2m208:31-40 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$branch"
+
+[2mℹ[0m [2m218:19-32[0m [2m218:19-32 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m ""$BASE_REF""
+
+[2mℹ[0m [2m227:13-22[0m [2m227:13-22 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$pushed"
+
+[2mℹ[0m [2m325:25-34[0m [2m325:25-34 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$branch"
+
+[2mℹ[0m [2m362:6-29[0m [2m362:6-29 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "rm -f "$receipt_blob""
+
+[2mℹ[0m [2m387:38-47[0m [2m387:38-47 [info] BRS0006: Expressions don't expand in single quotes, use double quotes for that[0m
+  [32mFix:[0m "$branch"
+
+[33m⚠[0m [2m236:44-53[0m [33m236:44-53 [warning] SC2086: Double quote to prevent globbing and word splitting on $BASE_REF[0m
+  [32mFix:[0m "$BASE_REF"
+
+[33m⚠[0m [2m259:27-36[0m [33m259:27-36 [warning] SC2086: Double quote to prevent globbing and word splitting on $BASE_REF[0m
+  [32mFix:[0m "$BASE_REF"
+
+[33m⚠[0m [2m325:41-51[0m [33m325:41-51 [warning] SC2086: Double quote to prevent globbing and word splitting on $branch_id[0m
+  [32mFix:[0m "$branch_id"
+
+[33m⚠[0m [2m331:71-81[0m [33m331:71-81 [warning] SC2086: Double quote to prevent globbing and word splitting on $branch_id[0m
+  [32mFix:[0m "$branch_id"
+
+[33m⚠[0m [2m364:34-42[0m [33m364:34-42 [warning] SC2086: Double quote to prevent globbing and word splitting on $receipt[0m
+  [32mFix:[0m "$receipt"
+
+[33m⚠[0m [2m364:71-78[0m [33m364:71-78 [warning] SC2086: Double quote to prevent globbing and word splitting on $pushed[0m
+  [32mFix:[0m "$pushed"
+
+[33m⚠[0m [2m705:21-31[0m [33m705:21-31 [warning] SC2086: Double quote to prevent globbing and word splitting on ${tallies}[0m
+  [32mFix:[0m "${tallies}"
+
+[2mℹ[0m [2m229:1-53[0m [2m229:1-53 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m252:1-103[0m [2m252:1-103 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m253:1-66[0m [2m253:1-66 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m317:5-44[0m [2m317:5-44 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m400:1-58[0m [2m400:1-58 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m697:1-41[0m [2m697:1-41 [info] SC2089: Quotes/backslashes will be treated literally. Use array or separate assignment[0m
+
+[2mℹ[0m [2m216:1-57[0m [2m216:1-57 [info] BRS0008: Redirections only apply to the condition command, not the if block. Move redirection after 'fi' to redirect entire block[0m
+
+[33m⚠[0m [2m130:1-82[0m [33m130:1-82 [warning] BRS0009: Multiple stdout redirections specified. Only the last one will be used, earlier ones are ignored[0m
+
+[33m⚠[0m [2m319:12-21[0m [33m319:12-21 [warning] SC2101: Named class needs outer [], e.g. [[:space:]][0m
+
+[33m⚠[0m [2m171:15-37[0m [33m171:15-37 [warning] SC2140: Word is split between quotes. Use proper quoting or concatenation[0m
+
+[33m⚠[0m [2m123:64-76[0m [33m123:64-76 [warning] SC2154: Variable 'QUORUM_SKIP' is referenced but not assigned[0m
+
+[2mℹ[0m [2m135:67-75[0m [2m135:67-75 [info] SC2162: read without -r will mangle backslashes[0m
+  [32mFix:[0m read -r the
+
+[2mℹ[0m [2m327:25-32[0m [2m327:25-32 [info] SC2162: read without -r will mangle backslashes[0m
+  [32mFix:[0m read -r by
+
+[2mℹ[0m [2m85:1-70[0m [2m85:1-70 [info] BRS0018: Redirection before pipe applies to first command only. Reorder if this is unexpected[0m
+
+[2mℹ[0m [2m135:1-84[0m [2m135:1-84 [info] BRS0018: Redirection before pipe applies to first command only. Reorder if this is unexpected[0m
+
+[2mℹ[0m [2m193:1-10[0m [2m193:1-10 [info] SC2249: Consider adding a *) default case to handle unexpected values[0m
+
+[33m⚠[0m [2m135:1-84[0m [33m135:1-84 [warning] BRS0023: Use 'read -r' to prevent backslash interpretation[0m
+
+[33m⚠[0m [2m327:1-80[0m [33m327:1-80 [warning] BRS0023: Use 'read -r' to prevent backslash interpretation[0m
+
+[2mℹ[0m [2m121:1-35[0m [2m121:1-35 [info] BRS0024: Use ${var:?} to fail if variable is unset, rather than defaulting to empty[0m
+
+[2mℹ[0m [2m51:1-22[0m [2m51:1-22 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m63:1-23[0m [2m63:1-23 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m86:1-16[0m [2m86:1-16 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m96:1-20[0m [2m96:1-20 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m157:1-14[0m [2m157:1-14 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m158:1-13[0m [2m158:1-13 [info] BRS0026: Use single quotes for literal strings that don't contain expansions[0m
+
+[2mℹ[0m [2m104:1-38[0m [2m104:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m122:1-38[0m [2m122:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m171:1-94[0m [2m171:1-94 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[2mℹ[0m [2m272:1-38[0m [2m272:1-38 [info] SC2316: Prefer [[ ]] over [ ] for string comparison (better handling of special characters)[0m
+
+[33m⚠[0m [2m697:14-16[0m [33m697:14-16 [warning] PERF002: Command substitution inside loop body forks a subshell each iteration. Consider moving outside the loop.[0m
+
+[33m⚠[0m [2m704:10-12[0m [33m704:10-12 [warning] PERF002: Command substitution inside loop body forks a subshell each iteration. Consider moving outside the loop.[0m
+
+[2mℹ[0m [2m135:67-71[0m [2m135:67-71 [info] REL003: `read` without `-t` timeout may block indefinitely. Consider adding `-t <seconds>`.[0m
+
+[2mℹ[0m [2m327:25-29[0m [2m327:25-29 [info] REL003: `read` without `-t` timeout may block indefinitely. Consider adding `-t <seconds>`.[0m
+
+Summary: [32m0 error(s)[0m, [33m15 warning(s)[0m, [2m46 info(s)[0m
+bashrs exit: 1
+
+### the gate on this branch, before the artifact exists
+✗ QUORUM GATE: no quorum receipt at .quorum/PMAT-535-a-branch-names-its-own-ticket.json in the commit being pushed (HEAD)
+
+  A receipt written but not committed does not exist to this gate, because it
+  will not exist to the reviewer or to CI either.
+  This branch proposes changes that have not survived refutation.
+  Run the quorum, then write the receipt AND COMMIT IT. See docs/quorum.md.
+  Emergency bypass (recorded in the reflog): git push --no-verify
+quorum-gate exit: 1
+
+### bashrs: what the exit code actually is, on BOTH sides
+bashrs exits 1 whenever it has anything to say, errors or not, so the exit
+code alone says nothing about this change. Measured on both:
+  base (origin/main:scripts/quorum-gate.sh): Summary: 0 error(s), 11 warning(s), 41 info(s)
+  head (this branch):                        Summary: 0 error(s), 15 warning(s), 46 info(s)
+  both exit 1; ERRORS are 0 on both sides, which is the floor this repo holds.
+
+The four warnings the arm adds, each one read:
+  319 SC2101 [![:space:]]      — a case PATTERN, and [![:space:]] is the correct
+                                 spelling of 'contains a non-space'. False positive.
+  325 SC2086 $branch_id        — column 41-51 is INSIDE the die message's double
+  331 SC2086 $branch_id          quotes; bashrs parses the multi-line string as code.
+  327 BRS0023 read -r          — line 327 is the English word 'read' in the sentence
+                                 'The branch name is read by gate A'. Same cause.
+None is a shell defect; all four come from one multi-line quoted message.
