@@ -93,3 +93,50 @@ PR      code        gates     top-level paths it touched
   itself runs both gates. That is the allow-list failing in the direction
   it is supposed to fail in: this PR does not get to skip the gates it is
   changing the rules for.
+
+### 6. RED — the eleven cases against origin/main's classifier
+Three NON-RUST files reverted to origin/main, everything else at the
+branch's commit; restored afterwards from that NAMED commit, not from HEAD.
+
+the reverted classifier, asked the same question:
+  $ printf 'src/x.rs
+' | bash scripts/ci/changed-class.sh
+  code=true
+  (no gate_c=, no gate_d=, no gates= — which is what every case reads)
+
+  test result: FAILED. 0 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out
+
+  failures:
+      a_gate_the_lane_did_not_select_says_so_by_name
+      a_surface_skip_is_refused_when_the_selection_says_it_should_have_run
+      an_empty_file_list_selects_both_gates
+      an_unclassified_path_selects_both_gates
+      source_and_the_manifests_select_both_gates
+      the_booleans_and_the_summary_token_are_one_decision
+      the_files_the_gates_read_select_exactly_their_own_gate
+      the_selection_is_never_the_empty_string
+      the_shape_that_pays_for_nothing_selects_no_gate
+      the_workflow_compares_the_selection_exactly
+      the_workflow_reads_the_selection_from_the_one_script
+
+  the first failure, quoted in full:
+    assertion `left == right` failed: the classifier printed 0 `gates=` lines
+    for ["src/core/mod.rs"]; exactly one is the contract:
+    code=true
+      left: 0
+     right: 1
+
+  and PMAT-237's own 13 cases stayed green throughout: the class is unchanged.
+
+### 7. a number this receipt got wrong, and the correction
+The first scan of the saving said FOURTEEN PRs would stop paying. It used a
+narrower trigger set than the classifier that shipped: it did not count
+`.github/**` or `scripts/dogfood/**` as reaching a gate.
+
+The shipped classifier is the conservative one — a change to the lane itself, or
+to either gate's own script, selects — and against it the figure is TEN. Section
+4 above is that run, against the classifier in this commit, over the 25 PRs
+merged as of cddf78cd. Ten, not fourteen, is the number in the code comments,
+the roadmap, the commit message and the issue.
+
+PMAT-542-LOG-END
