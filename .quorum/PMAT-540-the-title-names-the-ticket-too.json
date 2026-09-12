@@ -4,7 +4,7 @@
  "branch": "PMAT-540-the-title-names-the-ticket-too",
  "base": "0ed60f67",
  "base_commit": "0ed60f67aaeb929c8a63dacdf0c76a3bc29c1a33",
- "diff_sha256": "b861a1d84804ce333428484edf9d66b3ffa9f67f",
+ "diff_sha256": "305a263d30351545c5c54c0c92c14ad5194cac5a",
  "recorded_at": "after the round that found the fixture did not reproduce the message shape the ticket is about",
  "quorum": {
   "lanes": [
