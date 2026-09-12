@@ -31,7 +31,7 @@ report rather than a measurement.
    - evidence: now `measured` by fixture. `push_labels` matched only
      `Value::String` and `Value::Sequence`, so the object form contributed no
      labels at all and the job was invisible. The case is
-     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:23`, and it failed
+     `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:100`, and it failed
      against the parser as written before the `Value::Mapping` arm was added.
 
 3. [case] That `hosted_label`'s prefix check was case-sensitive and would pass
@@ -39,7 +39,7 @@ report rather than a measurement.
    - evidence: now `measured`. GitHub accepts `macOS-Latest` and
      `Ubuntu-Latest`; the check now lowercases first. The fixture driving both
      spellings is at
-     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:43`.
+     `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:149`.
 
 4. [matrix-key] That a matrix key not named `runner` or `os` hid a hosted
    runner, and that an expression nested inside a `runs-on` LIST never reached
@@ -48,7 +48,7 @@ report rather than a measurement.
      names and `is_expr` matched only a bare `Value::String`. The parser now
      reads every matrix key except `include`/`exclude`, and descends into lists.
      The two cases are at
-     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:63` and `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:84`.
+     `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:194` and `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:23`.
 
 5. [cross-glibc] That the new glibc step measured the wrong machine on a
    cross-built leg (lane 1, `asserted`).
@@ -67,7 +67,7 @@ report rather than a measurement.
      `sovereign-ci.yml`, `pr-gate.yml:authorize` to `pr-gate.yml`, all in
      `paiml/.github`. No test here can read where they run. They are counted
      instead, by
-     `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:142`, so adding a
+     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:43`, so adding a
      fourth is a decision someone makes on purpose rather than a silent gap.
 
 7. [thirty-three] That the branch moved 33 declarations and not 32 (lane 2,
@@ -98,7 +98,7 @@ report rather than a measurement.
      caught it on the first run:
      `left: [("build", "ubuntu-latest"), ("build", "ubuntu-runners")]`. The arm
      reads `labels` only, and the control is
-     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:106`. A fix that ships with a control finds its own defects
+     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:63`. A fix that ships with a control finds its own defects
      in one test run instead of one release.
 
 3. [silent-guard] That the `musl-tools` guard "proceeds silently" to an obscure
@@ -128,6 +128,20 @@ report rather than a measurement.
      the fleet cannot give that step sudo, this repository should be told
      loudly. CI on this PR is what measures it.
 
+8. [shared-registry] That moving a job to the fleet is a label change (this
+   branch, in every one of its 33 conversions).
+   - corrected: it is not. A GitHub-hosted runner gives every job a private
+     `~/.cargo` by construction; the fleet's sixteen clean-room runners share
+     one, and infra#430's hourly reaper deletes `registry/src` entries by mtime
+     under live builds. CI on this branch measured it: `msrv` and `coverage`
+     both died with `couldn't read .../registry/src/.../bashrs-6.68.0/...: No
+     such file or directory` and `could not parse/generate dep info at:
+     .../deps/tower-....d`. 24 fleet jobs that run cargo now declare
+     `CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}`, the
+     shape `proofs.yml:ledger-replay` already carried; six of the 24 were on the
+     fleet BEFORE this branch and had the exposure unnoticed. The case is
+     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:84`.
+
 7. [arch] That `[self-hosted, clean-room]` chooses an architecture (this
    branch, in every one of its 33 conversions).
    - corrected: it does not. Measured by runner GROUP rather than by label:
@@ -140,7 +154,7 @@ report rather than a measurement.
      eighteen files now say `[self-hosted, clean-room, X64]`; seventeen of them
      were already on the fleet before this branch with the same unstated
      assumption. The case is
-     `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:97`.
+     `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:106`.
 
 6. [threshold] That `the_parser_finds_the_runners_that_are_there` is a real
    guard at a floor of 20 (this branch).

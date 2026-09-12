@@ -165,3 +165,19 @@ pub(crate) fn hosted_in(doc: &Value) -> Vec<(String, String)> {
 pub(crate) fn fixture(yaml: &str) -> Value {
     serde_yaml_ng::from_str(yaml).expect("the fixture must parse")
 }
+
+/// Does any step of this job invoke cargo — directly, or through an action
+/// whose name says so? Read from `run:` and `uses:` together, because
+/// `cargo-llvm-cov` arrives as a `uses:` and compiles just the same.
+pub(crate) fn job_runs_cargo(job: &Value) -> bool {
+    let Some(Value::Sequence(steps)) = job.get("steps") else {
+        return false;
+    };
+    steps.iter().any(|step| {
+        ["run", "uses"].iter().any(|k| {
+            step.get(*k)
+                .and_then(Value::as_str)
+                .is_some_and(|v| v.contains("cargo"))
+        })
+    })
+}

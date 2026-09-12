@@ -38,6 +38,12 @@ jobs:
           - runner: macos-latest
             features: encryption
     runs-on: ${{ matrix.runner }}
+    # infra#430, as on the fleet jobs above: the clean-room runners share one
+    # ~/.cargo and an hourly reaper deletes registry/src under live builds. The
+    # macOS/Windows legs of this matrix get a private registry too, which costs
+    # them nothing -- a hosted runner's registry is cold every time anyway.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 

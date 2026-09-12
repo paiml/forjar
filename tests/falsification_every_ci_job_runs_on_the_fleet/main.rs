@@ -46,7 +46,7 @@
 mod controls;
 mod scan;
 
-use scan::{hosted_sites, runner_labels, workflows};
+use scan::{hosted_sites, job_runs_cargo, runner_labels, workflows};
 use serde_yaml_ng::Value;
 use std::collections::BTreeMap;
 
@@ -74,6 +74,58 @@ fn the_parser_finds_the_runners_that_are_there() {
         fleet >= 40,
         "the parser found only {fleet} `self-hosted` labels; it is not reading \
          runners and every other case in this file would pass over anything"
+    );
+}
+
+/// A fleet job that runs cargo keeps its registry to itself.
+///
+/// infra#430. Sixteen clean-room runners share one `~/.cargo`, and an hourly
+/// reaper deletes `registry/src` entries by mtime — under live builds. rustc
+/// then reads a source file that has just vanished:
+///
+/// ```text
+/// error: couldn't read .../registry/src/.../bashrs-6.68.0/src/formal/…rs:
+///        No such file or directory (os error 2)
+/// error: could not parse/generate dep info at: .../deps/tower-….d
+/// ```
+///
+/// MEASURED on this branch: `msrv` and `coverage` both died that way the first
+/// time PMAT-547 moved them off GitHub-hosted runners — where every job had a
+/// private `~/.cargo` by construction, so the exposure arrived WITH the move to
+/// the fleet. `proofs.yml:ledger-replay` had already hit it and already carried
+/// the fix; this makes the fix the rule rather than one job's footnote.
+///
+/// The host-side fix is paiml/infra's. This is the repository-side one.
+#[test]
+fn a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself() {
+    let mut exposed = Vec::new();
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            let labels = runner_labels(job);
+            if !labels.iter().any(|l| l == "self-hosted") {
+                continue;
+            }
+            if !job_runs_cargo(job) {
+                continue;
+            }
+            let has_home = job.get("env").and_then(|e| e.get("CARGO_HOME")).is_some();
+            if !has_home {
+                exposed.push(format!("  {file}  job `{}`", name.as_str().unwrap_or("?")));
+            }
+        }
+    }
+    exposed.sort();
+    assert!(
+        exposed.is_empty(),
+        "these fleet jobs run cargo against the SHARED ~/.cargo that infra#430's \
+         reaper sweeps under live builds:\n{}\n\nGive each one\n  env:\n    \
+         CARGO_HOME: ${{{{ github.workspace }}}}/../cargo-home-${{{{ github.job }}}}\n\
+         The path sits outside the workspace, so it survives the checkout clean \
+         and is a cache rather than a cold download.",
+        exposed.join("\n")
     );
 }
 

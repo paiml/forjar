@@ -284,4 +284,41 @@
     a_fleet_job_names_the_architecture_it_needs ... FAILED
     (the other ten stay green; a single kill)
 
+### 11. the exposure the move itself created
+
+  CI measured what no local run could: `msrv` and `coverage` both died on the
+  fleet with
+
+    error: couldn't read /home/noah/.cargo/registry/src/.../bashrs-6.68.0/src/
+           formal/inspector_proofinspector.rs: No such file or directory (os error 2)
+    error: could not parse/generate dep info at: .../deps/tower-....d
+           No such file or directory (os error 2)
+
+  which is infra#430: sixteen clean-room runners share one ~/.cargo and an
+  hourly reaper deletes registry/src entries by mtime, under live builds.
+
+  THIS EXPOSURE ARRIVED WITH THE MOVE. On a GitHub-hosted runner every job has a
+  private ~/.cargo by construction, so these two jobs had never been on the
+  shared surface. `proofs.yml:ledger-replay` had already hit it and already
+  carried the fix, with the comment naming infra#430 -- one job's footnote,
+  which this makes the rule:
+
+    24 fleet jobs that run cargo now declare
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+
+  Six of those were on the fleet BEFORE this branch (proofs.yml:kani,
+  release.yml's four, bench) and carried the same exposure unnoticed.
+
+  The path is outside the workspace, so it survives the checkout clean: a cache
+  per (runner, job), not a cold download per run.
+
+  MUTATION M6: one fleet job loses its private CARGO_HOME
+    a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself ... FAILED
+    (the other eleven stay green; a single kill)
+
+  The other red check on that run, `clippy (self-hosted, clean-room, X64)`,
+  reports conclusion=cancelled with an empty runner_name: it never got a runner.
+  `gh pr checks` renders a cancellation as "fail", which is why it is named here
+  rather than fixed.
+
 PMAT-547-LOG-END

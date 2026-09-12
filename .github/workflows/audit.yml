@@ -14,6 +14,19 @@ on:
 jobs:
   audit:
     runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 

@@ -76,6 +76,7 @@ jobs:
     runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 45
     env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
       # See note 2 above. Scoped to this lane — the repo's profiles are untouched.
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
