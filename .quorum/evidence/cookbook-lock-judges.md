@@ -32,13 +32,18 @@ sentence about itself.
      bumped to will make the cut red.
    - evidence: that cost is the point rather than a side effect. The weakest
      reading is what produced twenty-seven releases of a link pointing at
-     something never built against them.
+     something never built against them, and
+     tests/falsification_release_cookbook_is_part_of_the_release.rs:1 pins the
+     chosen one in both directions — a lock behind the release and a lock ahead
+     of it are each red.
 
 3. [fail-closed] That every unmeasurable direction fails closed and says which
    it is.
    - evidence: a missing lock, an unreadable one and one with no forjar entry
      each produce a named UNMEASURED failure rather than a pass. All three
-     lanes looked for an input that slips through and none found one.
+     lanes looked for an input that slips through and none found one, and
+     tests/falsification_release_cookbook_is_part_of_the_release.rs:1 drives all
+     three shapes against the real gate.
 
 4. [cases] That the five new cases falsify, and that the stub's two-file
    dispatch cannot make a case measure the wrong file.
