@@ -187,4 +187,33 @@ hide the next one. Both suites, ten cases, run every time.
   restored after every mutation; git status --porcelain -- scripts/dogfood/release-check.sh: 0 lines
   HEAD after the matrix: 190172ee
 
+### 9. the revert, run rather than assumed
+
+  $ git checkout 0bb6cb57 -- scripts/dogfood/release-check.sh
+   1 file changed, 56 deletions(-)
+  $ cargo test --no-fail-fast --test ...latest_points_at_the_release --test ...says_what_is_pending
+  a_prerelease_with_no_full_release_behind_it_is_reported_not_refused ... FAILED
+  a_pointer_that_cannot_be_read_is_unmeasured_and_red ... FAILED
+  a_pointer_that_answers_with_nothing_is_unmeasured_and_red ... FAILED
+  a_full_release_that_is_latest_passes ... ok
+  a_prerelease_is_reported_and_not_forced_to_latest ... FAILED
+  a_full_release_that_is_not_latest_is_named_and_red ... FAILED
+  result: FAILED. 1 passed; 5 failed
+  a_published_release_whose_docs_never_built_is_still_red ... ok
+  after_a_published_release_the_verdict_never_says_pre_tag ... ok
+  before_the_tag_is_cut_the_verdict_still_says_so ... ok
+  the_remaining_note_does_not_claim_a_present_file_is_missing ... ok
+  result: ok. 4 passed; 0 failed
+  $ git checkout HEAD -- scripts/dogfood/release-check.sh   # dirty lines: 0
+
+  FIVE of the six die, not six. The quorum receipt said "all six cases die"
+  until this was run. a_full_release_that_is_latest_passes asserts the arm does
+  NOT fire, so removing the arm cannot make it fail -- M3 (elif true) is its
+  killer, and that is why the receipt's table has named M3 rather than removal
+  for it since the first round. The claim was wrong in the receipt's prose and
+  right in its table, which is the shape a table is for.
+
+  All four says_what_is_pending cases stay green through the revert: nothing
+  gate R already did has changed.
+
 PMAT-534-LOG-END

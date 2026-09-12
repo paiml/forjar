@@ -4,7 +4,7 @@
   "branch": "PMAT-534-the-latest-release-is-the-latest-release",
   "base": "0bb6cb57",
   "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
-  "diff_sha256": "de841be68a009793858d23c95ca6ae658d3d249b",
+  "diff_sha256": "dfe8d4b0a0fe3dbb5926b45f321d0b4872844589",
   "recorded_at": "after the round that found a guard no case defended, and the re-measurement that found the refusal running before the arm asked what the release is",
   "quorum": {
     "lanes": [
