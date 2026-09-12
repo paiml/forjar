@@ -24,7 +24,9 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
-want="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+# PMAT-240: one awk rather than `sed Cargo.toml | head -1`, which leaves sed
+# writing into a pipe head has already closed.
+want="$(awk '/^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/".*/, "", v); print v; exit }' Cargo.toml)"
 if [ -z "$want" ]; then
   echo "cannot read version from Cargo.toml" >&2
   exit 1

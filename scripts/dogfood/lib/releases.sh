@@ -61,7 +61,10 @@ dogfood_load_releases() {
     fail "docs/roadmaps/releases.yaml at ${ref} does not parse (python exit ${rc}: ${json}) — a ledger that cannot be read declares nothing, UNMEASURED"
   fi
   rc=0
-  printf '%s' "$json" | jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null || rc=$?
+  # PMAT-240: a here-string, not a pipe. `jq -e` can exit before reading all of
+  # its input on a false result, printf takes SIGPIPE, and the gate then reports
+  # the ledger UNMEASURED at random rather than judging its shape.
+  jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null <<<"$json" || rc=$?
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n), and next.tag / next.due"
   fi
@@ -138,7 +141,9 @@ dogfood_cargo_version() {
   if [ "$rc" -ne 0 ]; then
     fail "Cargo.toml cannot be read at ${ref} (exit ${rc}), so whether a cut is in flight is UNMEASURED"
   fi
-  v="$(printf '%s\n' "$text" | sed -n 's/^version = "\([0-9][0-9.]*\)".*/\1/p' | head -1)"
+  # PMAT-240: one awk over a here-string. Three processes with two pipes, the
+  # last of which exits after one line, is three chances to take SIGPIPE.
+  v="$(awk '/^version = "[0-9]/ { v = $0; sub(/^version = "/, "", v); sub(/[^0-9.].*/, "", v); print v; exit }' <<<"$text")"
   if [ -z "$v" ]; then
     fail "Cargo.toml at ${ref} has no version = \"x.y.z\" line, so whether a cut is in flight is UNMEASURED"
   fi
