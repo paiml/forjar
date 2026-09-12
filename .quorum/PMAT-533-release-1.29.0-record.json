@@ -1,0 +1,131 @@
+{
+ "kind": "triage",
+ "issue": "PMAT-533 (closes forjar#533) — the forjar 1.29.0 release record, the third PR of the release shape. 1.29.0 is on crates.io (3,876,443 bytes, not yanked), docs.rs built it, the GitHub release carries 14 assets and is what /releases/latest resolves to, and `make dogfood-published VERSION=1.29.0` exits 0 against what crates.io actually serves including 98 cookbook configs. The record also closes the window's bookkeeping: PMAT-531's PR merged after the tag so it is v1.30.0 work. Three review lanes found FIVE false sentences in the record — a Gate R line called verbatim that was truncated and rewrapped, a section headed 'three steps by hand' that was four, a window count the ledger contradicts, an assertion that PMAT-520's PR merged after the tag when its merge commit IS the tagged commit, and a stale count in the crux Method — and all five are corrected before it becomes the record.",
+ "branch": "PMAT-533-release-1.29.0-record",
+ "base": "b4719737",
+ "base_commit": "b4719737775ab1ebdb493e019affd0230c994ed8",
+ "diff_sha256": "5d1ed7911ef017a7844a0e9a1913b960a98c8d4b",
+ "recorded_at": "after the round, the five corrections, and the two defects the fourth of them opened",
+ "quorum": {
+  "lanes": [
+   "record lane 1 (conv-35894adf)",
+   "record lane 2 (conv-b9b58ad0)",
+   "record lane 3 (conv-b02acaec)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes on the record diff with --not-before pinned to the dispatch instant. All three returned, exits 0/0/0, durations 378s/337s/334s, verdicts 3/3 FAIL.",
+  "kill_rule": "six claims about the record's facts, and ABOVE them the instruction this release run has now carried three times: quote any sentence a reader could check and find false. Three times it has produced every finding that mattered — eight sentences in the cut, two false records in the booking, five here. A record fails by drifting a word or a count away from what the tree says, and no claim list anticipates which word. Two lanes also said plainly what they COULD NOT check (docs.rs from their sandbox, `make dogfood-published`), which is worth more than a confirmation and is why both were measured by the orchestrator instead.",
+  "claims_confirmed": 2,
+  "claims_refuted": 5,
+  "refuted_claims": [
+   "That the Gate R line in the record is quoted rather than paraphrased — refuted 3/3. It was truncated at `(it is present)` and rewrapped across four lines under a heading claiming it was verbatim. The real line is 426 bytes on one line. Corrected, and verified by substring match against the live gate's output.",
+   "That four hand-taken steps are three — refuted 3/3. The crates.io publish is done by hand from this host against the local credentials file, which the Identity table two paragraphs above already said.",
+   "That the release's window is 12 PRs and 15 tickets — the ledger row records 13 and 16. Both are right about different windows; a RELEASE receipt describes the shipped release, which includes the cut's own PR #527 because its merge commit IS the tagged commit.",
+   "That PMAT-520's PR merged after the v1.29.0 tag — refuted by two lanes in one command: #527's merge commit is 20e80f64 and `git rev-parse v1.29.0^{commit}` is 20e80f64. It merged AT the tag and shipped in the release.",
+   "That the crux audit's Method is current — it said 'ten of the eleven behaviour changes' where twelve shipped, updated once when the count grew and not again. Found by a lane cross-reading the four documents for a number appearing twice with two values."
+  ],
+  "lane_errors": [
+   "Two lanes reported docs.rs as UNCHECKED, one having got a 404 from the API in its sandbox. Measured by the orchestrator instead: https://docs.rs/crate/forjar/1.29.0/status.json returns {\"doc_status\":true,\"version\":\"1.29.0\"}. Two also could not run `make dogfood-published`; it was run here and exits 0. Saying so is the correct behaviour, not an error, and is recorded here so the receipt does not read as three independent confirmations.",
+   "The delegate stopped at its 30-turn limit while reducing, after all three lanes completed. SEVENTH occurrence in this session at that same point — a pattern that reproduces seven times in one session belongs in the paiml-implement repository as a ticket rather than an eighth workaround."
+  ]
+ },
+ "falsification": {
+  "not_applicable": "this branch contains no code: the diff is the release receipt, this receipt, the evidence and two roadmap label corrections, all on the kind: triage rail. There is no hunk to revert and none was reverted, so no falsification is claimed. What stands in its place is that every fact in the record was re-derived from the artifact itself rather than from the tree that produced it — crates.io's API for the size and the yank flag, docs.rs's status.json, the GitHub releases API for the flags and the asset count, `git rev-parse` for the tag — and that `make dogfood-published VERSION=1.29.0` runs gates C and D against what crates.io SERVES rather than against what this checkout builds. The one thing the record could not measure, why binary-release.yml did not fire on the tag push, is stated as NOT MEASURED in those words."
+ },
+ "crux": {
+  "systems": [
+   "Debian",
+   "Nix",
+   "SLSA",
+   "Sigstore"
+  ],
+  "verdict": "accept(a release record's value is that it was written from the ARTIFACT and not from the build that produced it, and every surveyed system draws that line. Debian's `.changes` and the archive's own records are checked against the uploaded files rather than the builder's claims [X]. Nix's store path IS the hash of what was built, so the record and the artifact cannot disagree [X]. SLSA's provenance is about materials and builder identity precisely because a self-asserted build log is not evidence [X]. Sigstore binds a signature to an artifact rather than to a repository state [X]. forjar's record is measured from crates.io, docs.rs and the releases API rather than from this checkout, and `make dogfood-published` re-runs two gates against what the registry serves. Where forjar is WORSE: none of the four would accept 'why the release workflow did not fire is NOT MEASURED' in a shipped record, and this one does — honestly, but it is still an unexplained gap in the chain between a tag and its binaries.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with the no-write rule opening the brief and the three earlier incidents named; the tree was verified clean afterwards",
+  "verdict": "3/3 FAIL; five false sentences found and corrected, and the fourth of them opened a defect in a rule three gates share",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-533",
+  "tools": [
+   "scripts/dogfood/release-check.sh",
+   "make dogfood-published VERSION=1.29.0",
+   "scripts/dogfood/tagged.sh",
+   "scripts/dogfood/crux-reconcile.sh",
+   "scripts/release-goal.sh sync",
+   "scripts/ratchets/comply-count.sh",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "pmat work validate",
+   "gh api (releases, crates.io, docs.rs)",
+   "git rev-parse",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "400 of 19650 #[test] fns cannot fail (2.0%) across 2164 parsed files; 3 more skip silently. This PR adds no test — kind: triage — so the falsification is not_applicable with a reason rather than a pointer at a pre-existing green test, which the quorum gate refuses by name.",
+  "quality_gate": "GATE R PASS, quoted verbatim in the release receipt; `make dogfood-published VERSION=1.29.0` exit 0 with gates C and D green against what crates.io serves including 98 cookbook configs; GATE T PASS with 7 tagged releases reconciling and 42 tickets carrying their tag and saying they shipped; the CB-21xx ratchet held at 49/49 49/49 35/35 34/34 43/43 across four newly minted tickets with no raise.",
+  "tool_defects_found": [
+   "GitHub's /releases/latest resolved to v1.25.2 for four releases while three newer stable releases existed. Gate R reads isPrerelease, reports it, never asserts it, and never asks what latest resolves to. Filed as PMAT-534 (#534).",
+   "The window's ticket rule resolves a PR to the first PMAT-<n> in its BRANCH NAME, and nothing checks that against the Pmat-Ticket trailer. PR #532 was pushed from PMAT-520-book-v1.29.0 while its ticket is PMAT-531, so every window arm credits PMAT-520 — which shipped in 1.29.0 — to the v1.30.0 window, and PMAT-531 is invisible to all of them. The branch name is load-bearing for three gates. Filed as PMAT-535 (#535)."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/record-1.29.0-judges.md",
+  "total_bytes": 10538,
+  "files": [
+   {
+    "path": ".quorum/evidence/record-1.29.0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1100,
+    "sha256": "4a78c327b2d33b6e5f305f2a1e4c4c5d7f18ad0e1c713acae72584103dcfea9f",
+    "blob": "d61ebaea1442625571905fda7f0a4cd356221c7b"
+   },
+   {
+    "path": ".quorum/evidence/record-1.29.0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1863,
+    "sha256": "4fa4fb52287ba2744d657dc55a5b2cd2f8d73578895b4e42bdfba73af4976a8e",
+    "blob": "31d39b861fcd095d6c8bd3f6b59c66f4fcb63ba5"
+   },
+   {
+    "path": ".quorum/evidence/record-1.29.0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 5013,
+    "sha256": "37e9d83792ad9f71ad1ae4fd1164fa894ecb4be96cd377c7fe4f27ecaf3ff08d",
+    "blob": "b011c5c08fcb2b4cc340ac7edfa69807cf60ac42"
+   },
+   {
+    "path": ".quorum/evidence/record-1.29.0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 864,
+    "sha256": "e57c973937125809c04c6a4579351ceaf14715fdfcab8cef58c54ff44df9abd0",
+    "blob": "f9751bf1c590105f213c4c7b98ec8f89bf676b68"
+   },
+   {
+    "path": ".quorum/evidence/record-1.29.0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1698,
+    "sha256": "2f7a3d28457e4300e8cf9b0a9c7b87498eac10bede967ca736d2f8c369c81824",
+    "blob": "63b0672be5019032453dfd892a9830411f4bd17b"
+   }
+  ]
+ }
+}
