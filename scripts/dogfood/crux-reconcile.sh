@@ -71,7 +71,11 @@ crux_row() {
   if [ "$rc" -gt 1 ]; then
     fail "grep exited ${rc} reading ${CRUX} — the reconciliation is UNMEASURED"
   fi
-  printf '%s\n' "$hits" | sed -n '/^|/p' | head -1
+  # PMAT-240: one awk over a here-string. `printf | sed | head -1` is three
+  # processes and two pipes, the last of which leaves after one line — and a
+  # rule that only inspected the stage after the FIRST pipe walked past it,
+  # which is how this one survived the census that named twelve others.
+  awk '/^\|/ { print; exit }' <<<"$hits"
 }
 
 # The number of non-empty lines in $1.

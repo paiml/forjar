@@ -72,10 +72,18 @@ const EARLY: [&str; 4] = ["grep -q", "grep -m", "head", "jq -e"];
 /// refused it at 38 against a limit of 25, which is the same "one function
 /// doing three jobs" the gate exists to catch.
 fn offending_pipelines(rel: &str, text: &str) -> Vec<String> {
-    // Only scripts that actually set pipefail can die this way.
-    if !text.contains("pipefail") {
-        return Vec::new();
-    }
+    // EVERY script, not only those that set pipefail themselves.
+    //
+    // The first version skipped a file whose text lacked the word, and that
+    // skipped `scripts/dogfood/lib/releases.sh` — a LIBRARY, sourced by gates
+    // that do set it, so it inherits pipefail and dies exactly the same way.
+    // Two of the twelve sites this ticket fixed were in it, and the rule would
+    // not have caught either.
+    //
+    // And pipefail is not the whole hazard anyway. Without it the left side
+    // still takes SIGPIPE and its output is still TRUNCATED — silently. That
+    // is how a 459-line proof log in this very session landed as 9 lines and
+    // three review lanes refused a receipt describing it.
     text.lines()
         .enumerate()
         .filter_map(|(n, line)| {
@@ -90,16 +98,22 @@ fn offending_pipelines(rel: &str, text: &str) -> Vec<String> {
             // been REMOVED, and a rule that reads prose would push people to
             // stop explaining their fixes.
             let code = t.split_once(" # ").map_or(t, |(before, _)| before);
-            let (_, rhs) = code.split_once('|')?;
-            // `||` is a shell operator, not a pipeline.
-            if rhs.starts_with('|') {
-                return None;
-            }
-            let rhs = rhs.trim_start();
-            EARLY
-                .iter()
-                .any(|e| rhs.starts_with(e))
-                .then(|| format!("{rel}:{}  {}", n + 1, line.trim()))
+            // EVERY stage, not just the one after the first pipe. `printf |
+            // sed | head -1` has a safe middle and a fatal end, and a rule
+            // that looked only at the first `|` passed over it — measured:
+            // two of the twelve sites this ticket fixed, in the same file.
+            let mut stages = code.split('|');
+            stages.next()?; // the leftmost command is never the early exit
+            let fatal = stages.any(|stage| {
+                // `||` is a shell operator, not a pipeline: it shows up here
+                // as an EMPTY stage between two splits.
+                if stage.is_empty() {
+                    return false;
+                }
+                let stage = stage.trim_start();
+                EARLY.iter().any(|e| stage.starts_with(e))
+            });
+            fatal.then(|| format!("{rel}:{}  {}", n + 1, line.trim()))
         })
         .collect()
 }
@@ -131,41 +145,48 @@ fn no_script_under_scripts_pipes_into_a_command_that_can_exit_early() {
     );
 }
 
-/// The rule must cover more than the three files PMAT-239 owned.
+/// The rule must cover more than the files one ticket touched.
 ///
-/// A rule scoped to the files one ticket touched is how eighteen sites
-/// survived a fix that named them. This asserts the census is repository-wide
-/// by counting what it actually walks.
+/// A rule scoped to three files is how eighteen sites survived a fix that
+/// named them, and a rule scoped to files containing the word `pipefail` is how
+/// a sourced LIBRARY survives one — `scripts/dogfood/lib/releases.sh` does not
+/// contain it, inherits it from every gate that sources it, and held two of the
+/// twelve sites this ticket fixed.
 #[test]
-fn the_rule_walks_the_whole_of_scripts_and_not_one_ticket_s_files() {
+fn the_rule_walks_the_whole_of_scripts_including_the_libraries() {
     let root = repo();
     let all = scripts(&root);
-    let with_pipefail = all
-        .iter()
-        .filter(|rel| {
-            std::fs::read_to_string(root.join(rel))
-                .map(|t| t.contains("pipefail"))
-                .unwrap_or(false)
-        })
-        .count();
-    assert!(
-        with_pipefail >= 10,
-        "only {with_pipefail} of {} scripts set pipefail, which is fewer than \
-         the set PMAT-239's census found — either the census shrank or this \
-         test is looking in the wrong place",
-        all.len()
-    );
-    // And the three PMAT-239 owned are among them, so the narrow rule's
-    // subject is genuinely contained in this one.
+
+    // The three PMAT-239 owned, so its narrower rule's subject is contained in
+    // this one; and the library its scope missed.
     for rel in [
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/tagged.sh",
         "scripts/release-goal.sh",
+        "scripts/dogfood/lib/releases.sh",
     ] {
         assert!(
             all.iter().any(|f| f == rel),
-            "{rel} is not in the set this rule walks, so PMAT-239's narrower \
-             rule covers a file this one does not"
+            "{rel} is not in the set this rule walks — a file the narrower \
+             rules covered, or a library they missed, must be in this one"
         );
     }
+
+    // And a library that sets no pipefail of its own is still walked, which is
+    // the whole difference between this rule and the one before it.
+    let lib = "scripts/dogfood/lib/releases.sh";
+    let text = std::fs::read_to_string(root.join(lib)).expect("the library must exist");
+    assert!(
+        !text.contains("pipefail"),
+        "{lib} now sets pipefail itself, so this case no longer proves that a \
+         library WITHOUT it is walked — point it at one that does not"
+    );
+    // It is walked: a pipeline planted in its text is found.
+    let planted = format!("{text}\nprintf '%s' \"$x\" | grep -q y\n");
+    assert_eq!(
+        offending_pipelines(lib, &planted).len(),
+        1,
+        "a pipeline in a library that sets no pipefail of its own is not \
+         caught, so the rule has the same hole the one before it had"
+    );
 }
