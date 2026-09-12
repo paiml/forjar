@@ -1,0 +1,135 @@
+{
+  "kind": "code",
+  "issue": "PMAT-534 (closes forjar#534) — the latest release is the latest release. GitHub fixes make_latest when the prerelease flag is WRITTEN and never recomputes it, so `gh release edit <tag> --prerelease=false` leaves /releases/latest where it was. repos/paiml/forjar/releases/latest resolved to v1.25.2 while v1.26.0, v1.27.0 and v1.28.0 were full releases days newer. Gate R now asks where that URL points, and a pointer that did not answer is judged against what the release IS.",
+  "branch": "PMAT-534-the-latest-release-is-the-latest-release",
+  "base": "0bb6cb57",
+  "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
+  "diff_sha256": "de841be68a009793858d23c95ca6ae658d3d249b",
+  "recorded_at": "after the round that found a guard no case defended, and the re-measurement that found the refusal running before the arm asked what the release is",
+  "quorum": {
+    "lanes": [
+      "lane 1 — the arm (lane-1.json, PASS)",
+      "lane 2 — the cases and the stub (lane-2.json, FAIL)",
+      "lane 3 — the documents and the numbers (lane-3.json, PASS)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed agy quorum lanes against a FULL standalone clone, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id. An earlier dispatch of the same round died on an API session limit and left the out_dir empty.",
+    "kill_rule": "six claims and the standing instruction. THE CASE SET DID NOT DEFEND ONE OF THE ARM'S TWO GUARDS: `if [ -z \"$latest_rel\" ]` could be deleted with all four cases green. Re-measuring that finding is what surfaced the larger one no lane raised — the `rc -ne 0` refusal ran before the arm ever asked whether the release was a prerelease, so a 404 that is ordinary for a prerelease was refused as UNMEASURED.",
+    "claims_confirmed": 6,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "That no sentence in the documentation is false. The arm's own comment promised a prerelease is REPORTED, not refused; for a repository whose releases are all prereleases it refused one as UNMEASURED. True for forjar, false for the instrument.",
+      "That a non-zero exit from gh api .../releases/latest always means UNMEASURED. The endpoint serves only non-prerelease, non-draft releases and 404s when there is none — measured on electron/electron and on a repository with no releases.",
+      "That lane 2's coverage finding was `asserted`. A lane briefed NO WRITES could not execute it; it is `measured` here, by deleting the guard and watching every case stay green.",
+      "That this round's first kill matrix showed six mutations each killing one case. It ran without --no-fail-fast, cargo stopped after the first failing binary, and M3's three collateral kills were invisible.",
+      "That .github/workflows/release.yml:593 is where the promotion is named. The file is 578 lines long. The substance survives at lines 562-577; the line number did not."
+    ],
+    "lane_errors": [
+      "the delegate hit its 30-turn limit before writing a receipt, for the twelfth time this session — filed as paiml-implement#141. All three lane JSONs were on disk with status SUCCESS, alongside the reduce.json the delegate had written, and were read directly.",
+      "lane 3 cited two line numbers that do not say what it claimed: release.yml:593 in a 578-line file, and roadmap.yaml:3842, which is the row's `priority: high` line. Both conclusions were re-derived from the files and held."
+    ]
+  },
+  "falsification": {
+    "test": "six cases, six killers. a_pointer_that_answers_with_nothing_is_unmeasured_and_red pins the guard the round found undefended and asserts the gate does NOT say 'still resolves to' — an empty answer is not a pointer resolving elsewhere. a_prerelease_with_no_full_release_behind_it_is_reported_not_refused pins the arm's own comment to the arm, and asserts UNMEASURED is never said for a 404 that is ordinary.",
+    "test_file": "tests/falsification_release_check_latest_points_at_the_release.rs",
+    "cargo_test_target": "falsification_release_check_latest_points_at_the_release",
+    "reverted": "scripts/dogfood/release-check.sh checked out from origin/main over this branch and both suites run --no-fail-fast: 5 of the 6 die and all 4 of falsification_release_check_says_what_is_pending stay green. The survivor is a_full_release_that_is_latest_passes, which asserts the arm does NOT fire and so cannot be killed by removing it; M3 (elif true) is its killer. Then six targeted mutations over the COMMITTED script, each restored by name from HEAD. Five kill exactly one case; M3 kills four and is disclosed as a collateral kill.",
+    "observed_failure": "GATE R FAIL the GitHub release for v1.26.0 is a full release and repos/paiml/forjar/releases/latest still resolves to v1.25.2 — the shape v1.26.0, v1.27.0 and v1.28.0 were all in, for days, while gate R said the release was fine",
+    "still_green_when_reverted": "the four cases of falsification_release_check_says_what_is_pending, and a_full_release_that_is_latest_passes itself — which is the other half of the claim: nothing gate R already did has changed, and the arm does not fire on a release whose pointer agrees."
+  },
+  "crux": {
+    "systems": [
+      "Homebrew (a formula's url is a versioned tarball; the 'latest' pointer is never what an install resolves)",
+      "rustup (channel manifests are published per-date and 'stable' is a written file, not a computed newest)",
+      "Debian archive (Release files name the version; 'latest' is a symlink an archive tool writes and dak verifies)",
+      "npm (dist-tags are explicit writes; `npm publish` sets `latest` unless --tag says otherwise, and `npm dist-tag ls` is the check)"
+    ],
+    "verdict": "accept(every surveyed system treats 'latest' as a WRITTEN pointer that can disagree with the newest artifact, and every one of them has a way to read it back — npm's `dist-tag ls`, dak's verify, rustup's manifest fetch. GitHub is the same shape: make_latest is written when the prerelease flag is written. forjar had the write and not the read-back, which is exactly the gap that let the pointer sit four releases behind. Where forjar is WORSE than npm: the promotion is still an operator step, so this refuses a release that was not promoted rather than promoting it. Where it is better than Homebrew's model: the arm names both tags — the one being checked and the one the URL answers — so the reader is told which of the two is wrong.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, against a FULL clone",
+    "verdict": "2/3 PASS, 1/3 FAIL; one guard no case defended, two fabricated line citations, and one lane's blanket claim that nothing in the documentation was false",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "writes": false,
+    "sandbox": true,
+    "out_dir": "keyed by ticket AND session id"
+  },
+  "pmat": {
+    "ticket": "PMAT-534",
+    "tools": [
+      "cargo test --no-fail-fast (4 suites, 23 cases, green; reverted and six mutations)",
+      "cargo clippy --tests",
+      "cargo fmt --all",
+      "bash -n / shellcheck -x",
+      "bashrs lint (head and base)",
+      "python3 yaml.safe_load (release.yml, roadmap.yaml)",
+      "bash scripts/dogfood/release-check.sh",
+      "bash scripts/quorum-gate.sh (PRINT_HASH)",
+      "pmat analyze vacuous-tests",
+      "analyze_vacuous_tests",
+      "gh api repos/:owner/:repo/releases and /releases/latest (forjar, electron/electron, a repository with no releases)",
+      "goal.sh worker / route.sh"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "432 of 19716 #[test] fns cannot fail (2.2%) across 2178 parsed files, plus 3 that skip silently. Neither falsification_release_check_latest_points_at_the_release nor release_check_fixture appears. Necessary and not sufficient, and this ticket is why: the guard the round found undefended was reachable by no case at all, and a scan that asks whether a test CAN fail cannot see a branch no test reaches. The kill matrix in log section 8 is what settles it.",
+    "bashrs": "0 errors on scripts/dogfood/release-check.sh and 0 on origin/main's copy; 38 warnings / 94 infos against 35 / 86. Two of the new warnings sit on a line byte-identical to the one this branch already shipped, and shellcheck — which owns those codes — reports nothing on the file.",
+    "quality_gate": "23 cases green at HEAD across 4 suites; clippy clean; fmt clean; GATE R PASS exit 0 on this repository",
+    "tool_defects_found": [
+      "the paiml-implement delegate hit its 30-turn cap before writing a receipt, for the twelfth time this session (paiml-implement#141). An earlier dispatch of the same round died on an API session limit with an empty out_dir — the failure mode lane-reduce's --not-before and width refusal exist to keep from becoming a false PASS."
+    ]
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/latest-release-judges.md",
+    "total_bytes": 15047,
+    "files": [
+      {
+        "path": ".quorum/evidence/latest-release-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1886,
+        "sha256": "a64028b7dfa3c6c504cd350ca49a221fa4294a010954e8e5fa964a9d3d921db9",
+        "blob": "005172c41727cdfa3b9837ab0400bb34b2ed1af1"
+      },
+      {
+        "path": ".quorum/evidence/latest-release-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1559,
+        "sha256": "896ab29a288d92740e8467cec54f27faf86e54a370826df75d82e15679f23442",
+        "blob": "cafb01697e8f3ae4d3a9d6d7cc014b01f27cc51f"
+      },
+      {
+        "path": ".quorum/evidence/latest-release-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 7447,
+        "sha256": "9af6ac4f064900f852da0dc1a36c202383e4917de6515f126a1214097e3ffc9a",
+        "blob": "4c07bd53317bd345b62aca4d8eaa6eb79db257b6"
+      },
+      {
+        "path": ".quorum/evidence/latest-release-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1501,
+        "sha256": "7a820d90ecca17099a16bb666f391f1a997f2a6e0e43e076a56df1b8f85aa0b1",
+        "blob": "c1eb4bcf64ff1feee105cfaddaf0bceea4404923"
+      },
+      {
+        "path": ".quorum/evidence/latest-release-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2654,
+        "sha256": "9aceb384edd4d51152bdcce421bc62e0affad1f56ed7a6ea5c5f579d533247fa",
+        "blob": "8f9dfda2837389ae158e8d99846ccead862324cf"
+      }
+    ]
+  }
+}
