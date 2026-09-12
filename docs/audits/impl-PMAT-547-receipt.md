@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-547 — every CI job runs on the fleet
 
-verdict: PASS — thirty-two runner declarations across seventeen workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room]`, the two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Four cases, four killers. Six legs remain on GitHub because the fleet has no macOS and no Windows runner; they are counted, not hidden.
+verdict: PASS — thirty-two runner declarations across seventeen workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room]`, the two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Four cases, four killers. Seven legs remain on GitHub because the fleet has no macOS and no Windows runner; they are counted, not hidden.
 
 ## What was measured
 
@@ -65,7 +65,7 @@ Log §8.
 
 ## Gaps, named
 
-- **Six legs still run on GitHub.** Two macOS in `lint.yml`, two macOS and one Windows in `nightly.yml`, two macOS in `release.yml` — seven legs across four values, counted as `{lint.yml:macos-latest: 2, nightly.yml:macos-latest: 2, nightly.yml:windows-latest: 1, release.yml:macos-latest: 2}`. The fleet has no such hardware. They can be removed only by dropping this project's coverage of those platforms, which is a decision for a person, or by adding a mac and a Windows box to the fleet. The test makes adding a seventh fail.
+- **Seven legs still run on GitHub.** Two macOS in `lint.yml`, two macOS and one Windows in `nightly.yml`, two macOS in `release.yml` — seven legs across four `(file, label)` pairs, counted as `{lint.yml:macos-latest: 2, nightly.yml:macos-latest: 2, nightly.yml:windows-latest: 1, release.yml:macos-latest: 2}`. The fleet has no such hardware. They can be removed only by dropping this project's coverage of those platforms, which is a decision for a person, or by adding a mac and a Windows box to the fleet. The test makes adding an eighth fail.
 - **The conversion is not proven on the fleet by this branch.** Whether all thirty-two jobs actually pass on `clean-room` is decided by CI on this PR and by the workflows that only run on a schedule or a tag — `nightly.yml`, `binary-release.yml`, `mutation.yml`, `stress.yml`, `proofs.yml`. The `cross` path and the guarded `musl-tools` install are both copied from `release.yml`, which already runs on the fleet, but a scheduled workflow will not be observed until it next fires.
 - **The glibc floor is recorded, not enforced.** Nothing fails if a future fleet image raises it. Making it a floor needs a number someone is willing to commit to, and this branch does not invent one.
 - **`actionlint` is still not run in CI.** `.github/actionlint.yaml` makes a local run useful; wiring it into the PR lane is separate work.

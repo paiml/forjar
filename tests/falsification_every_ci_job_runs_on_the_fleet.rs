@@ -22,9 +22,14 @@
 //! passes identically either way. That is exactly the shape that comes back:
 //! the next workflow, or the next job added to an existing one, is written
 //! `runs-on: ubuntu-latest` by habit and no reviewer sees it. So it is pinned
-//! here, and the pin is a count rather than a prohibition, because the six
+//! here, and the pin is a count rather than a prohibition, because the seven
 //! legs the fleet CANNOT serve have to stay visible instead of being argued
 //! about once and forgotten.
+//!
+//! SEVEN, not six. `grep` prints six lines because `lint.yml` contributes one
+//! line and two legs; the map below was right and the prose around it was
+//! wrong, in the receipt, the log, the commit message and this comment, until
+//! the legs were counted from the parsed YAML.
 //!
 //! # The fleet
 //!

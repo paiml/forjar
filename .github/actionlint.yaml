@@ -6,7 +6,7 @@
 #
 # Measured from `gh api orgs/paiml/actions/runners` on 2026-09-12: 25 runners,
 # every one Linux, carrying these labels. There is no macOS and no Windows
-# runner on the fleet, which is why the six macOS/Windows legs in lint.yml,
+# runner on the fleet, which is why the seven macOS/Windows legs in lint.yml,
 # nightly.yml and release.yml still name GitHub's own labels -- see
 # tests/falsification_every_ci_job_runs_on_the_fleet.rs, which counts them.
 self-hosted-runner:

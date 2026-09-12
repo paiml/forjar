@@ -47,7 +47,7 @@
   0
 
   Twenty-five runners, every one Linux. ZERO macOS and ZERO Windows. So every
-  Linux declaration can move and six legs cannot.
+  Linux declaration can move and seven legs cannot.
 
 ### 4. the conversion
 
@@ -118,7 +118,23 @@
   .github/workflows/release.yml:194:            runner: macos-latest
   .github/workflows/release.yml:196:            runner: macos-latest
 
-  Six legs, all of them a platform the fleet has no hardware for.
+  SEVEN legs, all of them a platform the fleet has no hardware for. Counted
+  from the parsed YAML rather than from grep lines:
+
+    lint.yml:macos-latest = 2
+    nightly.yml:macos-latest = 2
+    nightly.yml:windows-latest = 1
+    release.yml:macos-latest = 2
+    TOTAL LEGS: 7
+
+  The grep above prints SIX lines, and the receipt, the log, the commit message,
+  the test's doc comment and .github/actionlint.yaml all said "six" until this
+  was counted properly. lint.yml contributes ONE line and TWO legs: its matrix
+  used to be `os: [ubuntu-latest, macos-latest]` on one line and this branch
+  rewrote it as four explicit include: legs, two of which are macos-latest. The
+  test's expected map had 7 all along -- it was the prose that was wrong, and
+  the receipt contradicted itself, saying "Six legs" in one sentence and "seven
+  legs" in the next.
 
   $ actionlint .github/workflows/*.yml   # findings across the directory
   base 0bb6cb57: 22      this branch: 15
