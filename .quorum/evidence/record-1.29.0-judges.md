@@ -40,9 +40,9 @@ false — and the third time it produced every finding that mattered.
      had been truncated at `(it is present)` and rewrapped across four lines.
      The real line is 426 bytes on one line and ends `… so no release is being
      cut and its reconciliation is not re-run here`.
-   - corrected: one line, byte for byte, verified by substring match against
-     the live gate's output, and the heading now says what happened to the
-     first version.
+   - corrected: docs/audits/release-1.29.0-receipt.md:31 is that line, on one
+     line, byte for byte, verified by substring match against the live gate's
+     output; the heading above it now says what happened to the first version.
 
 2. [count] That four hand-taken steps are three.
    - evidence: refuted 3/3. The crates.io publish is done by hand from this
@@ -51,8 +51,8 @@ false — and the third time it produced every finding that mattered.
      two paragraphs above the section said so all along. A section headed
      "three" while its own document listed a fourth is the shape of error a
      record is written to avoid.
-   - corrected: four, with the fourth named and its standing arrangement
-     stated.
+   - corrected: docs/audits/release-1.29.0-receipt.md:39 is headed four now,
+     with the fourth named and its standing arrangement stated.
 
 3. [window] That the release's window is 12 PRs and 15 tickets.
    - evidence: refuted by one lane against the ledger row, which records 13 and
@@ -60,15 +60,16 @@ false — and the third time it produced every finding that mattered.
      twelve was true when it was written, before the cut's own PR #527 merged —
      but a RELEASE receipt describes the shipped release, and the shipped
      release includes #527 because its merge commit IS the tagged commit.
-   - corrected: the ledger's 13 and 16, with the asymmetry explained and
-     pointed at gate T's T9 arm, which exists for it.
+   - corrected: docs/audits/release-1.29.0-receipt.md:16 takes the ledger's 13
+     and 16, with the asymmetry explained and pointed at gate T's T9 arm, which
+     exists for it.
 
 4. [tag] That PMAT-520's PR merged after the v1.29.0 tag.
    - evidence: refuted by two lanes and it reproduces in one command: PR #527's
      merge commit is `20e80f64`, and `git rev-parse v1.29.0^{commit}` is
      `20e80f64`. It merged AT the tag and shipped in the release.
-   - corrected: the record says so, and the correction opened the real defect
-     below.
+   - corrected: docs/audits/release-1.29.0-receipt.md:88 says so, and the
+     correction opened the real defect below.
 
 5. [branch] That PMAT-520's `release:v1.30.0` label was put there by a person.
    - evidence: nobody put it there — gate T demanded it, and gate T is doing
@@ -81,6 +82,6 @@ false — and the third time it produced every finding that mattered.
    - corrected: nothing here, deliberately. The branch name is LOAD-BEARING for
      three gates — A resolves a receipt path from it, E the quorum slug, T the
      window — and nothing checks it against the trailer. Filed as PMAT-535
-     (#535) with PMAT-520's double label as its regression case, because
-     changing a resolution rule three gates share is not a release-record PR's
-     work.
+     (#535) with PMAT-520's double label as its regression case — visible in
+     docs/roadmaps/roadmap.yaml — because changing a resolution rule three
+     gates share is not a release-record PR's work.
