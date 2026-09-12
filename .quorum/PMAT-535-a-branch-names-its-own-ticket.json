@@ -4,7 +4,7 @@
  "branch": "PMAT-535-a-branch-names-its-own-ticket",
  "base": "76863b1b",
  "base_commit": "76863b1b01c85aaf5b33034d6e1d0a05ca907423",
- "diff_sha256": "2e12c5238bd085ed440ddf35399b9a899fd7b96e",
+ "diff_sha256": "a1e2c5fee5c90be334b2f3153a858a72293e45a7",
  "recorded_at": "after the round that refuted the arm's reason, measured two false refusals against the arm as already committed, and found a read that failed open",
  "quorum": {
   "lanes": [
