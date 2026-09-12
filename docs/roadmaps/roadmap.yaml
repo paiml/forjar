@@ -3862,7 +3862,7 @@ roadmap:
   github_issue: 535
   item_type: task
   title: a branch named for the wrong ticket silently credits a shipped ticket to the next release window
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T08:40:00Z
