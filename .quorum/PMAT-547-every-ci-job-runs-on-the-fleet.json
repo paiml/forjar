@@ -4,7 +4,7 @@
   "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
   "base": "0bb6cb57",
   "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
-  "diff_sha256": "15fa1bc851d498fb0f53f4c17c77c5f9565c1626",
+  "diff_sha256": "5efb5d01af65d53cf8f11c86c81a8313ac599ae8",
   "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
   "quorum": {
     "lanes": [
