@@ -2,7 +2,16 @@ PMAT-540 — the PR and its commits name one ticket
 =================================================
 
 ### 1. the two parsers on the commit the rule exists for
-b4719737 is PR #532's merge commit.
+b4719737 is PR #532's merge commit. Its message ENDS like this:
+    | Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+    | 
+    | ---------
+    | 
+    | Co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+  GitHub appends that `---------` + Co-authored-by paragraph itself, and it
+  becomes the last paragraph -- the only place git looks for trailers:
+  git's %(trailers), whole:                       Co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
   git's own %(trailers:key=Pmat-Ticket,valueonly): (nothing)
   read by the LINE:                              PMAT-531 
   pmat's CB-2113 asks git the same way -- src/services/commit_traceability/mod.rs:275
@@ -68,50 +77,81 @@ with a floor this repository does not carry (TRAILER_FLOOR=deadbeef...):
   reverted: M  scripts/dogfood/harness.sh
        Running tests/falsification_dogfood_harness_and_quorum.rs 
   running 19 tests
-  test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+  test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
        Running tests/falsification_gate_a_the_pr_and_its_commits_name_one_ticket.rs 
-  running 7 tests
+  running 9 tests
       a_floor_this_repository_does_not_carry_exempts_nothing
+      a_mismatch_gits_own_parser_cannot_see_is_still_refused
       a_pr_below_the_trailer_floor_is_not_judged_and_says_so
       a_pr_whose_commits_claim_another_ticket_is_named_and_red
       the_shipped_floor_is_the_commit_it_says_it_is
-  test result: FAILED. 3 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+  test result: FAILED. 4 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
 
-  restoring from f7711482
-  tree: ?? docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+  restoring from HEAD
+  tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
 
 ### 5. the three guards are not vacuous — each killed by its own mutation
 
 MUTATION 1: compare RAW ids, never resolving through alias:<id>.
-  running 7 tests
+  running 9 tests
       a_claim_that_resolves_through_an_alias_agrees
-  test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+  test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
 
 MUTATION 2: drop the 'only when the commits claim SOMETHING' guard.
-  running 7 tests
+  running 9 tests
       a_merge_commit_that_claims_nothing_is_not_this_arms_finding
-  test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+  test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
 
 MUTATION 3: refuse every PR (the arm's case with no matching branch).
-  running 7 tests
+  running 9 tests
       a_claim_that_resolves_through_an_alias_agrees
       a_pr_whose_commits_claim_its_own_ticket_passes
-  test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+      the_arm_reads_a_claim_gits_own_parser_cannot_see
+  test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
 
-  restored; tree: ?? docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+  restored; tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+MUTATION 4: read the trailers with GIT'S OWN PARSER instead of the line.
+  running 9 tests
+      a_floor_this_repository_does_not_carry_exempts_nothing
+      a_mismatch_gits_own_parser_cannot_see_is_still_refused
+      a_pr_whose_commits_claim_another_ticket_is_named_and_red
+  test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+  restored; tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
 
-### 6. what this branch would have paid, under PMAT-542's selection
+### 6. every case is killed by something
+  case                                              killed by
+  ------------------------------------------------- ----------------------------
+  a_pr_whose_commits_claim_another_ticket_is_named   removal, M4
+  a_mismatch_gits_own_parser_cannot_see_is_refused   removal, M4
+  a_pr_below_the_trailer_floor_is_not_judged         removal
+  a_floor_this_repository_does_not_carry_exempts_..  removal, M4
+  the_shipped_floor_is_the_commit_it_says_it_is      removal
+  a_claim_that_resolves_through_an_alias_agrees      M1, M3
+  a_merge_commit_that_claims_nothing_is_not_this...  M2
+  a_pr_whose_commits_claim_its_own_ticket_passes     M3
+  the_arm_reads_a_claim_gits_own_parser_cannot_see   M3
+
+  M1 = compare raw ids, never resolving alias:<id>
+  M2 = drop the "only when the commits claim SOMETHING" guard
+  M3 = make the match arm unreachable, refusing every PR
+  M4 = read the trailers with git's own parser instead of the line
+
+  Nine cases, nine killers. The four that survive REMOVAL are over-refusal
+  guards by construction -- they assert the arm does not fire -- and each is
+  killed by a mutation that makes it fire wrongly.
+
+### 7. what this branch would have paid, under PMAT-542's selection
   the whole diff:            code=true gate_c=true gate_d=true gates=C,D 
   the diff without .github/: code=true gate_c=false gate_d=false gates=none 
   The one .github/ line is this suite being added to the guard job's list. Gate
-  C and gate D read nothing this branch touches, and without that line the
-  branch would be the first `gates=none` PR since PMAT-542 landed -- 21.3 of
-  25.2 critical-path minutes, not paid.
-  It is paid anyway, and on purpose: the integration suites DO run in CI under
-  the coverage job (`cargo llvm-cov` builds and runs every test binary), so
-  naming this one in the guard list buys ORDERING -- a fast red before the slow
-  jobs -- rather than coverage. Its sibling falsification_dogfood_harness_and_quorum
-  is in that list, and a gate-A falsifier that ran later than gate A's other
-  falsifier would be a surprise for no reason.
+  C and gate D read nothing else this branch touches, so without it the branch
+  would be the first `gates=none` PR since PMAT-542 landed -- 21.3 of 25.2
+  critical-path minutes, not paid.
+
+  It is paid on purpose. The integration suites DO run in CI under the coverage
+  job (`cargo llvm-cov` builds and runs every test binary), so naming this one
+  in the guard list buys ORDERING -- a fast red before the slow jobs -- rather
+  than coverage. Its sibling falsification_dogfood_harness_and_quorum is already
+  in that list.
 
 PMAT-540-LOG-END

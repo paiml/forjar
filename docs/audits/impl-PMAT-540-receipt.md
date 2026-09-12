@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-540 — the PR and its commits name one ticket
 
-verdict: PASS — gate A now refuses a merged PR filed under a ticket its own merge commit does not claim. Measured over the thirty most recently merged PRs: 29 agree, PR #532 is the one mismatch, and it is exempted by a floor set at its own merge commit and no later. Four of the seven cases die when the arm is removed; each of the other three is killed by its own targeted mutation.
+verdict: PASS — gate A now refuses a merged PR whose own merge commit CONTRADICTS the ticket it is filed under. Measured over the thirty most recently merged PRs: 29 agree, PR #532 is the one mismatch, and it is exempted by a floor set at its own merge commit and no later. Nine cases, nine killers: five die when the arm is removed and each of the other four is killed by a mutation that makes the arm fire wrongly. A three-lane round refuted four sentences and found a fixture that did not reproduce the shape it existed for.
 
 orch_model: opus [A]   orch_class: code   orch_decision: admit   orch_basis: state
 fable_binding: false   quota_age_h: absent   quota_mark: ?   k_measured_at_set: refused(R-5)
@@ -12,10 +12,11 @@ routes:
   ph2  class=orchestration  route=self  w=100.00  basis=absent
 
 verification:
-  cmd="cargo test --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket"  rerun_exit=0 (7 passed)  log=docs/audits/logs/PMAT-540-the-pr-and-its-commits.log §4
+  cmd="cargo test --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket"  rerun_exit=0 (9 passed)  log=docs/audits/logs/PMAT-540-the-pr-and-its-commits.log §4
   cmd="cargo test --test falsification_dogfood_harness_and_quorum"  rerun_exit=0 (19 passed, unchanged)  log=§4
-  cmd="the same 7 against origin/main's harness.sh"  rerun_exit=101 (4 failed, 3 guards green)  log=§4
-  cmd="three targeted mutations, one per guard"  rerun_exit=101 each, and each kills exactly its own guard  log=§5
+  cmd="the same 9 against origin/main's harness.sh"  rerun_exit=101 (5 failed, 4 guards green)  log=§4
+  cmd="four targeted mutations"  rerun_exit=101 each; the kill matrix is §6  log=§5, §6
+  review: 3 agy lanes, 3 × FAIL, 21 findings; four false sentences, a fixture that did not reproduce the shape, an unguarded pipeline and an over-stated promise, all acted on below
   cmd="bash scripts/dogfood/harness.sh"  rerun_exit=0, and exit 1 with a floor this repository does not carry  log=§3
   cmd="the rule against the 30 most recently merged PRs"  rerun_exit=0  log=§2
   cmd="bashrs lint scripts/dogfood/harness.sh"  rerun_exit=1, 0 errors (0 errors on origin/main too)
@@ -44,11 +45,25 @@ work claims.
 | `%(trailers:key=Pmat-Ticket,valueonly=true)` | *(nothing)* |
 | `sed -n 's/^…Pmat-Ticket:…//p'` | `PMAT-531` |
 
-git reads trailers from the **last paragraph only**, and a squash message ends
-with whatever bullets GitHub assembled. pmat's CB-2113 asks git the same way
-(`src/services/commit_traceability/mod.rs:275`), which is why it saw nothing
-either. An arm built on git's parser would have been blind to the exact commit
-it exists for.
+git reads trailers from the **last paragraph only**, and GitHub writes that
+paragraph itself: after the branch commits' bodies it appends a `---------`
+separator and a `Co-authored-by:` block. `%(trailers)` on `b4719737` returns
+that one `Co-authored-by:` line and nothing else. pmat's CB-2113 asks git the
+same way (`src/services/commit_traceability/mod.rs:275`), which is why it saw
+nothing either. An arm built on git's parser would have been blind to the exact
+commit it exists for.
+
+The first version of this receipt said the message *"ends with whatever bullets
+GitHub assembled"*. **A review lane quoted that and measured it false** — it is
+the separator and the co-author block, not the bullets — and the same lane found
+that the test fixture therefore did not reproduce the shape at all: git parsed
+`squash_claiming`'s trailers happily, so every case would have passed over an
+arm "simplified" to use git's parser. That is the one regression this suite
+exists to prevent. The fixture now carries the separator, and two cases pin it:
+`the_arm_reads_a_claim_gits_own_parser_cannot_see` and
+`a_mismatch_gits_own_parser_cannot_see_is_still_refused`, both of which assert
+FIRST that git's parser returns nothing. Mutation 4 — read with git's parser —
+kills three cases (log §5); before the fix it would have killed none.
 
 The same normalisation PMAT-535 arrived at, for the same measured reasons: strip
 `\r` (a CRLF message glues it to the id), split on commas (one line can name two
@@ -76,7 +91,9 @@ A merged branch cannot be renamed, so #532 could only be exempted by name or
 erased by rewriting history. `TRAILER_FLOOR` is **`b4719737`, #532's own merge
 commit** — and no later. Every PR merged after it is judged, and #536, #538,
 #539, #541 and #543 all pass. A floor at main's tip would have exempted five PRs
-that need no exemption; §3 of the log shows both.
+that need no exemption — measured while choosing it, and not what §3 of the log
+shows; §3 contrasts the shipped floor with a floor this repository does not
+carry.
 
 **The exempted set cannot grow.** PMAT-535 refuses that shape at push time, and
 it is the only way a record like #532 was made.
@@ -93,18 +110,17 @@ what the comment beside it claims.
 
 ## Falsification, and what each case is worth
 
-Seven cases. **Four die when the arm is removed** (log §4): the mismatch itself,
-the exemption, the absent floor, and the floor constant.
-
-The other three are over-refusal guards and cannot die from removing the arm.
-They are not vacuous, and this is measured rather than argued — **each is killed
-by its own targeted mutation** (log §5):
+Nine cases, and **nine killers**. Five die when the arm is removed (log §4).
+The other four are over-refusal guards and cannot die from removing an arm they
+assert does not fire — so each is killed by a mutation that makes it fire
+wrongly. Measured, not argued (log §5, matrix in §6):
 
 | mutation | what fails |
 |---|---|
-| compare raw ids, never resolving `alias:<id>` | `a_claim_that_resolves_through_an_alias_agrees` |
-| drop the "only when the commits claim SOMETHING" guard | `a_merge_commit_that_claims_nothing_is_not_this_arms_finding` |
-| make the match arm unreachable, refusing every PR | `a_claim_that_resolves_through_an_alias_agrees` **and** `a_pr_whose_commits_claim_its_own_ticket_passes` |
+| M1 compare raw ids, never resolving `alias:<id>` | `a_claim_that_resolves_through_an_alias_agrees` |
+| M2 drop the "only when the commits claim SOMETHING" guard | `a_merge_commit_that_claims_nothing_is_not_this_arms_finding` |
+| M3 make the match arm unreachable, refusing every PR | the alias case, `a_pr_whose_commits_claim_its_own_ticket_passes`, `the_arm_reads_a_claim_gits_own_parser_cannot_see` |
+| M4 read the trailers with git's own parser | both mismatch cases and `a_floor_this_repository_does_not_carry_exempts_nothing` |
 
 The 19 cases of `falsification_dogfood_harness_and_quorum` stay green throughout,
 which is the other half of the claim: nothing the gate already did has changed.
@@ -125,11 +141,24 @@ before the slow jobs — and not coverage. Its sibling is already in that list.
 
 ## Gaps, named
 
+- **A merge commit that claims NOTHING passes.** The arm enforces "does not
+  claim a DIFFERENT one", not "claims this one": a commit with no
+  `Pmat-Ticket:` line at all is the commit-msg hook's finding and CB-2113's. A
+  review lane read CLAUDE.md's promise that the PR is filed under a ticket its
+  merge commit *claims*, found this guard, and was right that the two disagreed
+  — the promise was what was wrong, and both CLAUDE.md and the skill now say
+  "does not contradict". None of the thirty PRs measured is in that shape.
+- **A commit claiming TWO tickets where the PR names one passes.** A lane put
+  it plainly: a merge commit claiming `PMAT-520 PMAT-531` under a PR titled
+  PMAT-520 satisfies the arm while PMAT-531's work is still credited to the
+  wrong window. That is deliberate — a release cut legitimately carries several
+  tickets — but it is a hole in the same wall.
+- **If the PR and its commits agree on a lie, it passes.** The arm measures
+  agreement, not truth.
 - **The BODY is still not checked against the commits.** The rule falls through
   to the body only when branch and title name nothing; the arm compares what the
   rule RESOLVED, so a body-resolved id is covered — but a PR whose body names a
-  second, different ticket that the rule never reaches is not, and nothing here
-  notices.
+  second, different ticket that the rule never reaches is not.
 - **The arm runs at gate A, which is post-merge.** It refuses the RELEASE, not
   the merge: `make dogfood-release` goes red and the record must be fixed before
   a tag. Refusing at merge time would need a required check that reads the merge
