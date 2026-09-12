@@ -1,0 +1,136 @@
+{
+ "kind": "code",
+ "issue": "PMAT-535 (closes forjar#535) — a branch names the ticket its work claims. The branch name is read by gate A for a receipt path, by gate E for a quorum filename and by gate T for a release window, and nothing checked it. PR #532 was pushed from PMAT-520-book-v1.29.0 while every commit said PMAT-531, so a ticket that had already shipped in 1.29.0 was credited to the v1.30.0 window and the ticket that owned the work was invisible to all three gates.",
+ "branch": "PMAT-535-a-branch-names-its-own-ticket",
+ "base": "76863b1b",
+ "base_commit": "76863b1b01c85aaf5b33034d6e1d0a05ca907423",
+ "diff_sha256": "4be702e98b69125e733f48fee5f69173f750c1f7",
+ "recorded_at": "after the round that refuted the arm's reason, measured two false refusals against the arm as already committed, and found a read that failed open",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-63e3c4dc)",
+   "lane 2 (conv-92638a89)",
+   "lane 3 (conv-b70ff43e)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id. Each lane got a different brief and all three carried the standing instruction to quote any sentence a reader could check and find false.",
+  "kill_rule": "six claims and the standing instruction. THE ARM'S STATED REASON WAS FALSE and its true reason was stronger; two normalisations were missing and each was a FALSE REFUSAL measured against the arm this branch had already committed; one read failed open; five of six cases could not die from deleting the arm; and one sentence of the receipt was false.",
+  "claims_confirmed": 4,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "That pmat's CB-2113 and this repository's commit-msg hook both match the Pmat-Ticket LINE wherever it appears. Both ask git: CB-2113 with %(trailers:key=...) and the hook with git interpret-trailers --parse, falling back to grep -qE 'PMAT-[0-9]+|#[0-9]+' over the whole message.",
+   "That the arm produces no false refusals. A CRLF commit message left a carriage return glued to the id, and the gate refused a branch whose own commit claimed its ticket while printing that trailer one line below.",
+   "That one Pmat-Ticket line names one ticket. 'PMAT-535, PMAT-536' is two claims, and unsplit the first read as 'PMAT-535,' and matched nothing.",
+   "That an unreadable history is not a pass. git log with 2>/dev/null and no exit check turned a failed read into 'this branch claims nothing', which the arm skips.",
+   "That the six falsification cases each fail if the arm is deleted. Five assert only that a message was NOT printed; measured with the arm cut out, only the two positive cases fail.",
+   "That all four new bashrs warnings are artifacts of the multi-line die message. SC2101 fired on a case PATTERN outside the string entirely.",
+   "That refusing a misnamed branch closes the misattribution. The window rule reads BRANCH, then TITLE, then BODY, and a branch named fix/ci-lint with a PR titled (PMAT-520) reproduces the whole defect untouched.",
+   "That the refusal tells the reader the right thing to do. 'or add a commit that claims <id>' satisfies the gate while leaving the branch misnamed, which is the outcome the arm exists to prevent."
+  ],
+  "lane_errors": [
+   "lane 3 could not run git at all: the review repository was a `git clone --shared` whose objects/info/alternates points into the parent repository, outside the sandbox. It marked three of its ten findings UNMEASURED rather than guessing, and still found the receipt's false sentence from the files alone. A sandboxed lane needs a full clone."
+  ]
+ },
+ "falsification": {
+  "test": "the_arm_refuses_on_a_trailer_gits_own_parser_cannot_see asserts FIRST that git's own trailer parser returns nothing for a Pmat-Ticket line written in its own paragraph, then that the arm refuses the misnamed branch AND names the ticket git could not see. a_branch_named_for_a_ticket_no_commit_claims_is_named_and_red drives the exact shape PR #532 was in. Six more are false-refusal guards, two of them RED against the arm as committed at 9c2426af.",
+  "test_file": "tests/falsification_a_branch_names_its_own_ticket.rs",
+  "cargo_test_target": "falsification_a_branch_names_its_own_ticket",
+  "reverted": "the arm's lines cut out of scripts/quorum-gate.sh entirely, and the gate re-run as a shell against both positive shapes: each falls through to the receipt arm, so both positive cases fail. Separately, the arm exactly as committed at 9c2426af re-run against the CRLF and comma shapes: both refused, which is the red half of the two regression cases.",
+  "observed_failure": "branch 'PMAT-535-crlf' names PMAT-535 and no commit being pushed claims it. Trailers on this branch: PMAT-535 -- the refusal printing the very trailer it says nobody claims.",
+  "still_green_when_reverted": "the five cases of falsification_quorum_gate_reads_the_pushed_ref, the eight of falsification_quorum_gate_has_a_triage_shape, the four of falsification_quorum_anchors_release_shaped and the four of falsification_dogfood_scripts_declare_mutations"
+ },
+ "crux": {
+  "systems": [
+   "Gerrit (Change-Id trailer, enforced by a server-side commit hook)",
+   "Kubernetes Prow (release-note and area labels adjudicated by a bot, not by the branch name)",
+   "Linux kernel patch conventions (Fixes: and Link: trailers parsed by git itself)",
+   "Chef Expeditor (version bump and changelog driven by PR labels on merge)"
+  ],
+  "verdict": "accept(every surveyed system binds a change to its work item through a field a tool writes and a tool reads -- a trailer or a label -- and none of them derives that binding from a branch NAME, which is free text a human types once and no tool validates. forjar derives it from the branch name in three gates, so the cheapest correct move is not to stop reading the name but to require the name and the trailer to agree, at the last moment the name can still be changed. Where forjar is WORSE than all four: the check is a client-side pre-push hook, so --no-verify, a clone with no hooks and the GitHub web UI all bypass it, where Gerrit's equivalent runs on the server and cannot be bypassed at all.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, with the no-write rule opening each brief and the standing instruction closing it",
+  "verdict": "1 do-not-implement-as-written, 2 FAIL; the arm's reason refuted, two false refusals measured, one read failing open, half the suite unable to die from deleting the arm, and a false sentence quoted out of the receipt",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-535",
+  "tools": [
+   "cargo test x5 suites",
+   "cargo fmt --all -- --check",
+   "bashrs lint (head and base)",
+   "bash -n on the fixed and arm-deleted scripts",
+   "bash scripts/quorum-gate.sh against seven branch shapes",
+   "git log --format=%(trailers:key=Pmat-Ticket,valueonly=true)",
+   "git interpret-trailers --parse",
+   "gh pr view 532",
+   "gh issue create",
+   "pmat hooks (commit-msg, read)",
+   "python3 yaml round-trip check on the roadmap"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "the vacuity charge was answered by measurement rather than by a scanner: the arm's sixty lines were cut out of the script and the gate re-run, which is the only thing that can distinguish a guard from a vacuous case.",
+  "bashrs": "0 errors on scripts/quorum-gate.sh, and 0 errors on origin/main's copy of it. bashrs exits 1 on both because it returns non-zero for anything it has to say. 8 new warnings and 10 new infos, sixteen of the eighteen quote-context artifacts inside a multi-line die string, two the standard SC2089 note on a single-quoted sed script.",
+  "quality_gate": "8 + 5 + 8 + 4 + 4 green at HEAD; cargo fmt clean; the roadmap parses with PMAT-540 appended",
+  "tool_defects_found": [
+   "a `git clone --shared` cannot be reviewed by a sandboxed lane: its alternates point outside the sandbox and every git command fails. Procedure, not tool -- recorded here so the next round uses a full clone."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/branch-names-its-ticket-judges.md",
+  "total_bytes": 15142,
+  "files": [
+   {
+    "path": ".quorum/evidence/branch-names-its-ticket-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1278,
+    "sha256": "58b2ac22db34e7e6161328d7e8bcb0a9bef57cec18cde4a44ad03bd203f7cd8d",
+    "blob": "b583ed95947d5f6553134aedf2780da391e0a177"
+   },
+   {
+    "path": ".quorum/evidence/branch-names-its-ticket-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1246,
+    "sha256": "3ccf7c731c36f188ceac68a9f71f48d61c1d3fd26c0294e5508395c3f7c695fb",
+    "blob": "17d50bdb6f143431995390d96b91a7875889b364"
+   },
+   {
+    "path": ".quorum/evidence/branch-names-its-ticket-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 9449,
+    "sha256": "2bcfc4127bf04046ae7bc0ba11ca58a009d41243a4415365089dda7bf6491889",
+    "blob": "a438656186c5adff493afe6f4229833ceeea0df5"
+   },
+   {
+    "path": ".quorum/evidence/branch-names-its-ticket-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1266,
+    "sha256": "cf8487758ed8a2b577ea908a7aaa2d2ff5d090f5b73a926b688423d6478c42dc",
+    "blob": "75023ccdccba11f09e364182615c2e91aada26f3"
+   },
+   {
+    "path": ".quorum/evidence/branch-names-its-ticket-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1903,
+    "sha256": "ce33e91ac2239e4ddb39efe4f463562b3c40f7fda6601f4820817ffe836cda20",
+    "blob": "a4c9e1c8f8cb8ba5651cd801e0acf7448bf80146"
+   }
+  ]
+ }
+}
