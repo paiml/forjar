@@ -93,4 +93,98 @@ MUTATION: refuse EVERY full release (elif true)
   and the four of falsification_release_check_says_what_is_pending stay green
   through the revert and every mutation but M4, which they also catch.
 
+### 7. the review round, and the two branches nothing defended
+
+Three lanes read the branch at 545a095f. Lane 1 (the arm) and lane 3 (the
+documents) returned PASS. Lane 2 (the cases and the stub) returned FAIL on one
+claim, which measurement confirmed.
+
+FINDING 1 (lane 2) -- `if [ -z "$latest_rel" ]` is undefended.
+
+  $ python3 -c "<delete the -z branch from release-check.sh>"
+  removed
+  $ cargo test --test falsification_release_check_latest_points_at_the_release
+  running 4 tests
+  test a_full_release_that_is_not_latest_is_named_and_red ... ok
+  test a_pointer_that_cannot_be_read_is_unmeasured_and_red ... ok
+  test a_prerelease_is_reported_and_not_forced_to_latest ... ok
+  test a_full_release_that_is_latest_passes ... ok
+  test result: ok. 4 passed; 0 failed
+
+  The guard could be deleted and every case stayed green. Without it an empty
+  answer falls to the comparison and the gate prints `still resolves to ` with a
+  blank where the tag goes: the reader is told the pointer is wrong when what
+  happened is that it never answered.
+
+FINDING 2 (this session, no lane raised it) -- the refusal ran before the
+question of what the release IS.
+
+  `rc -ne 0` called fail() before `prerelease` was ever consulted. The arm's own
+  comment says a prerelease is REPORTED, not refused. Whether that sentence is
+  true depends on whether /releases/latest can fail to answer for a legitimate
+  prerelease. MEASURED:
+
+  $ gh api repos/electron/electron/releases?per_page=3 --jq '.[] | "\(.tag_name)\tpre=\(.prerelease)\tcreated=\(.created_at)"'
+  v45.0.0-alpha.6	pre=true	created=2026-09-10T20:00:16Z
+  v43.7.0	pre=false	created=2026-09-10T06:34:54Z
+  v44.3.0	pre=false	created=2026-09-08T16:57:51Z
+  $ gh api repos/electron/electron/releases/latest --jq '.tag_name'
+  v44.3.0
+
+  The newest release is a prerelease and /releases/latest answers a release two
+  older: the endpoint serves only non-prerelease, non-draft releases. And when
+  there is none to serve:
+
+  $ gh api repos/paiml/pmat-empty-probe/releases/latest --jq '.tag_name'
+  {"message":"Not Found", ... "status":"404"}gh: Not Found (HTTP 404)
+  exit=1
+
+  So for a repository whose releases are ALL prereleases the 404 is the ORDINARY
+  state, and the shipped arm refused it as UNMEASURED -- forcing to latest
+  exactly the deliberate prerelease it promised not to force. The sentence was
+  true for forjar, which has full releases, and false for the instrument.
+
+  Both silences now go through one `unread` reason and one branch on what the
+  release is: reported for a prerelease, refused as UNMEASURED for a full one.
+
+### 8. the kill matrix over the corrected arm
+
+Six mutations, each applied to the COMMITTED script (190172ee) and restored with
+`git checkout HEAD --`, every run `--no-fail-fast` so a failing binary does not
+hide the next one. Both suites, ten cases, run every time.
+
+  mutation                                             kills
+  ---------------------------------------------------- ---------------------------------
+  M1  prerelease+unread branch -> if false             a_prerelease_with_no_full_release_
+                                                        behind_it_is_reported_not_refused
+  M2  elif [ latest_rel != TAG ] -> elif false         a_full_release_that_is_not_latest_
+                                                        is_named_and_red
+  M3  elif [ latest_rel != TAG ] -> elif true          a_full_release_that_is_latest_passes
+                                                        + 3 COLLATERAL (below)
+  M4  elif [ -z latest_rel ] -> elif false             a_pointer_that_answers_with_nothing_
+                                                        is_unmeasured_and_red
+  M5  if [ rc -ne 0 ] -> if false                      a_pointer_that_cannot_be_read_is_
+                                                        unmeasured_and_red
+  M6  elif [ prerelease = true ] -> elif false         a_prerelease_is_reported_and_not_
+                                                        forced_to_latest
+
+  Five of the six kill exactly one case. M3 is the exception and it is disclosed
+  here as it was in section 5: `elif true` refuses EVERY full release, so it also
+  turns three pre-existing cases of falsification_release_check_says_what_is_pending
+  red --  a_published_release_whose_docs_never_built_is_still_red,
+  after_a_published_release_the_verdict_never_says_pre_tag and
+  the_remaining_note_does_not_claim_a_present_file_is_missing. The fourth,
+  before_the_tag_is_cut_the_verdict_still_says_so, survives because it is pre-tag
+  and arm 2b never runs. M3 is a collateral kill, not a clean one, and it is the
+  only case in the suite that is proven by an over-refusal rather than by removal.
+
+  THE FIRST RUN OF THIS MATRIX WAS WRONG. It used `cargo test --test A --test B`
+  without --no-fail-fast, cargo stopped after the first failing binary, and the
+  says_what_is_pending suite never ran under any mutation. That run reported M3
+  as a clean single kill. It is recorded here because the receipt would have
+  carried that claim.
+
+  restored after every mutation; git status --porcelain -- scripts/dogfood/release-check.sh: 0 lines
+  HEAD after the matrix: 190172ee
+
 PMAT-534-LOG-END

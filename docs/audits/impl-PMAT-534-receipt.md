@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-534 — the latest release is the latest release
 
-verdict: PASS — gate R refuses a full release that `repos/:owner/:repo/releases/latest` does not resolve to, reports a prerelease with the command that promotes it, and treats an unreadable pointer as UNMEASURED. The promotion step, which existed only as one line of a workflow's output for four releases, is now named in three places a reader reaches. Four cases, four killers.
+verdict: PASS — gate R refuses a full release that `repos/:owner/:repo/releases/latest` does not resolve to, reports a prerelease with the command that promotes it, and treats an unreadable pointer as UNMEASURED. The promotion step, which existed only as one line of a workflow's output for four releases, is now named in three places a reader reaches. A pointer that did not answer is judged against what the release IS — reported for a prerelease, whose 404 is ordinary, and refused for a full one. Six cases, six killers.
 
 orch_model: opus [A]   orch_class: code   orch_decision: admit   orch_basis: state
 fable_binding: false   quota_age_h: absent   quota_mark: ?   k_measured_at_set: refused(R-5)
@@ -81,24 +81,36 @@ in.
 
 ## Falsification
 
-Four cases, **four killers** (log §4–§6):
+Six cases, **six killers** (log §4–§8). Each mutation is applied to the committed
+script and every run is `--no-fail-fast`, so both suites — ten cases — run under
+each one:
 
 | case | killed by |
 |---|---|
-| `a_full_release_that_is_not_latest_is_named_and_red` | removal, M1 `elif false` |
-| `a_pointer_that_cannot_be_read_is_unmeasured_and_red` | removal, M2 assume agreement |
-| `a_prerelease_is_reported_and_not_forced_to_latest` | removal, M3 fail on prerelease |
-| `a_full_release_that_is_latest_passes` | M4 `elif true` |
+| `a_full_release_that_is_not_latest_is_named_and_red` | removal, M2 `elif false` |
+| `a_pointer_that_cannot_be_read_is_unmeasured_and_red` | removal, M5 `if false` on `rc -ne 0` |
+| `a_prerelease_is_reported_and_not_forced_to_latest` | removal, M6 `elif false` on the prerelease note |
+| `a_full_release_that_is_latest_passes` | M3 `elif true` |
+| `a_pointer_that_answers_with_nothing_is_unmeasured_and_red` | removal, M4 `elif false` on the empty answer |
+| `a_prerelease_with_no_full_release_behind_it_is_reported_not_refused` | removal, M1 `if false` on the unread-prerelease branch |
 
-The one case that survives removal is the over-refusal guard — it asserts the
-arm does not fire — and M4 is the mutation that makes it fire wrongly. M4 also
-turns three of the four pre-existing `says_what_is_pending` cases red, which is
-the other half of the claim: the arm sits in the path every published release
-takes.
+Five of the six mutations kill exactly one case. **M3 is the exception and is a
+collateral kill**: `elif true` refuses every full release, so it also turns three
+of the four pre-existing `says_what_is_pending` cases red. The fourth survives
+because it is pre-tag and arm 2b never runs. That is the other half of the claim
+— the arm sits in the path every published release takes — but it means
+`a_full_release_that_is_latest_passes` is the one case proven by an over-refusal
+rather than by removal.
+
+The first run of this matrix was wrong and is recorded in log §8: without
+`--no-fail-fast`, cargo stopped after the first failing binary, the
+`says_what_is_pending` suite never ran, and M3 looked like a clean single kill.
+This receipt would have said so.
 
 The fixture's `gh` stub answers `api` **before** `release`, because the two are
 told apart by `$1` alone and a stub that answered the PR list for `api` would
-hand the gate a JSON array where it wants a tag name.
+hand the gate a JSON array where it wants a tag name. All three published stubs
+are now built by one `stub_script`, so that ordering cannot drift per stub.
 
 ## Gaps, named
 
@@ -108,6 +120,13 @@ hand the gate a JSON array where it wants a tag name.
   VERSION=` passes, and a workflow that promoted on tag would undo that gate.
 - **`/releases/latest` is read once, at gate R time.** A release demoted
   afterwards is not noticed until the next run.
+- **For a PRERELEASE, an unreadable pointer is reported, not refused.** The 404
+  a repository of only prereleases returns and a token without the scope are the
+  same silence to this arm, and on the prerelease path it reports both. Nothing
+  is lost in the verdict — the arm never refuses a prerelease anyway — but the
+  UNMEASURED signal is genuinely weaker there than on the full-release path, and
+  the message says only that the pointer could not be read, never that it
+  resolves nowhere.
 - **The arm cannot see a release that should NOT be latest.** A hotfix on an old
   minor, deliberately published after a newer release, would be refused for
   pointing elsewhere — correctly by this rule, but this repository has never cut
