@@ -3838,7 +3838,7 @@ roadmap:
   item_type: task
   title: 'GitHub''s "latest release" pointed at v1.25.2 for four releases, because nothing marks a release latest'
   release: 1.30.0
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T08:00:00Z
