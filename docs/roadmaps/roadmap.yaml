@@ -3813,7 +3813,7 @@ roadmap:
   item_type: task
   title: 'the v1.29.0 release record: tag, release, crates.io, docs.rs, and the window that closed'
   release: 1.30.0
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-12T08:00:00Z
@@ -3882,3 +3882,29 @@ roadmap:
   - orch:fable
   - release:v1.30.0
   notes: 'Found by three review lanes on the v1.29.0 release record. PMAT-520 shipped in 1.29.0 — its PR #527''s merge commit IS the commit v1.29.0 points at — and also carries release:v1.30.0, which gate T demanded. The window rule resolves a PR''s ticket from the first PMAT-<n> in the BRANCH NAME, and the booking PR #532 was pushed from PMAT-520-book-v1.29.0 while its ticket is PMAT-531 (trailer, title and receipt all say 531). So every window arm resolves #532 to PMAT-520, PMAT-520 claims two releases, and PMAT-531 is invisible to all of them. The branch name is LOAD-BEARING for three gates — A resolves a receipt path from it, E resolves .quorum/<slug>.json from it, T resolves the window from it — and nothing checks it against the trailer.'
+- id: PMAT-537
+  kind: code
+  github_issue: 537
+  item_type: task
+  title: 'the cookbook gate reads the requirement and never the lockfile: every release since 1.2.1 was "qualified against" a cookbook that builds forjar 1.2.1'
+  release: 1.30.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T09:30:00Z
+  updated: 2026-09-12T09:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate T reads the cookbook commit''s Cargo.lock as well as its Cargo.toml, and refuses a row whose cookbook does not build the released version'
+  - 'a cookbook with no lockfile, or one the gate cannot read, is UNMEASURED and red — never a pass'
+  - 'the choice between the three readings of "updates forjar-cookbook" is written down with its reason, because the strongest one puts a real obligation on a second repository'
+  - 'falsification cases drive a matching lock, a stale lock, a missing lock and an unreadable one'
+  - 'the cookbook itself is updated so 1.29.0 is the first release this is true of'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Measured on 7c100454, the exact commit v1.29.0''s ledger row names: Cargo.toml says `forjar = { version = "1.2" }` and Cargo.lock says `version = "1.2.1"`. `^1.2` admits 1.29.0 so gate T prints `cookbook 7c100454 requires forjar 1.2 ok`, while what that cookbook actually compiles is forjar 1.2.1 — twenty-seven minor versions behind the release it is recorded as qualifying. PMAT-241 built the link and the link points at something that was never built against the release. The cookbook is where forjar is USED: cookbook-qualify, the scoring bridge and every recipe score it produces are compiled against whatever its lockfile pins, so those scores have been measured against 1.2.1 while the repository shipped 1.3 through 1.29.'
