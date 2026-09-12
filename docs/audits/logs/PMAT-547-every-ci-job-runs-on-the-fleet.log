@@ -203,14 +203,37 @@
   0
   92cb6a1a fix(ci): every CI job runs on the fleet, not on GitHub's runners (PMAT-547, closes #547)
 
-  Four mutations, four single kills, no collateral. The tree is restored after
-  each one (`git status --porcelain -- .github tests` is 0 lines at the end),
-  and every mutation ran against the COMMITTED workflows at 92cb6a1a.
+  The tree is restored after each one (`git status --porcelain -- .github tests`
+  is 0 lines at the end), and every mutation ran against the COMMITTED tree.
 
-  M4 is the vacuity guard, and it is not decoration: runner_labels is the only
-  thing standing between these cases and passing over a repository that runs
-  entirely on GitHub. A version that returns an empty vector makes the other
-  three cases trivially true, and M4 is the mutation that proves they would not
-  survive it.
+  RE-RUN AT 607e229b, after the review round grew the suite from four cases to
+  ten. M1, M2 and M3 still kill exactly one case each. M4's anchor had moved --
+  the review round rewrote `runner_labels` -- so it was re-aimed at
+  `push_labels`, which is what every case now reads through:
+
+    MUTATION M4: Value::String(s) => out.push(s.clone())  ->  Value::String(_) => {}
+      the_object_form_of_runs_on_cannot_hide_a_hosted_runner ... FAILED
+      a_fleet_job_is_not_mistaken_for_a_hosted_one ... ok
+      a_hosted_label_in_another_case_is_still_a_hosted_label ... FAILED
+      a_matrix_key_by_any_name_is_still_read ... FAILED
+      an_expression_inside_a_runs_on_list_still_reaches_the_matrix ... FAILED
+      no_linux_job_asks_github_for_a_runner ... ok
+      the_platforms_the_fleet_cannot_serve_are_exactly_these ... FAILED
+      a_fleet_job_names_a_pool_and_not_just_self_hosted ... ok
+      the_jobs_that_delegate_their_runner_are_exactly_these ... ok
+      the_parser_finds_the_runners_that_are_there ... FAILED
+
+  M4 KILLS SIX, NOT ONE, and the earlier form of this log said "four single
+  kills, no collateral". That was true of a four-case suite and is not true of
+  this one. It is also the right answer: blinding the parser must break every
+  case that reads through it, and the four survivors are precisely the four that
+  assert an ABSENCE -- no Linux job is hosted, no fleet job is mistaken for one,
+  no job names `self-hosted` bare, the delegated set is unchanged. A blinded
+  parser reports nothing hosted, so all four pass while measuring nothing. That
+  is the exact failure `the_parser_finds_the_runners_that_are_there` exists to
+  catch, and M4 is the mutation that proves it catches it.
+
+  So: three specific kills, and one mutation that demonstrates the vacuity
+  guard is the only thing holding the other four honest.
 
 PMAT-547-LOG-END

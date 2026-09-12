@@ -59,7 +59,7 @@ not choose. Four killers, no collateral:
 | `a_fleet_job_names_a_pool_and_not_just_self_hosted` | M3 — `runs-on: self-hosted` alone |
 | `the_parser_finds_the_runners_that_are_there` | M4 — `runner_labels` returns nothing |
 
-M4 is the vacuity guard and it is not decoration: a `runner_labels` that returns an empty vector makes the other three cases trivially true over a repository running entirely on GitHub. Every mutation ran against the committed workflows at `92cb6a1a`, and the tree was restored after each.
+M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The four survivors are exactly the four that assert an ABSENCE, and a blinded parser reports nothing hosted, so all four pass while measuring nothing. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
 
 ### What the review round changed here
 
