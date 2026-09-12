@@ -102,6 +102,61 @@ fn fixture(branch: &str, tickets: &[&str]) -> (tempfile::TempDir, PathBuf) {
     (dir, repo)
 }
 
+/// A repository on `branch` whose single commit carries `msg` VERBATIM.
+///
+/// `--cleanup=verbatim` so a CRLF message stays a CRLF message: git's default
+/// cleanup would strip the carriage returns this fixture exists to reproduce.
+fn fixture_msg(branch: &str, msg: &str) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let repo = dir.path().to_path_buf();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    git(&repo, &["config", "commit.gpgsign", "false"]);
+    write(&repo, "README.md", "fixture\n");
+    write(
+        &repo,
+        ".quorum/enforce.json",
+        &format!("{{\"enforced_for\": [\"{ACTOR}\"]}}\n"),
+    );
+    git(&repo, &["add", "-A"]);
+    git(&repo, &["commit", "-qm", "base"]);
+    git(&repo, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+
+    git(&repo, &["checkout", "-q", "-b", branch]);
+    write(&repo, "w.txt", "w\n");
+    git(&repo, &["add", "-A"]);
+    // Inside `.git`, so it is not a worktree file the commit would pick up.
+    let msg_path = repo.join(".git").join("fixture-msg.txt");
+    std::fs::write(&msg_path, msg).expect("write the message");
+    git(
+        &repo,
+        &[
+            "commit",
+            "-q",
+            "-F",
+            msg_path.to_str().expect("a path"),
+            "--cleanup=verbatim",
+        ],
+    );
+    (dir, repo)
+}
+
+/// What `git log --format=%(trailers:…)` — git's OWN parser — sees on HEAD.
+fn git_sees_trailer(repo: &Path) -> String {
+    String::from_utf8_lossy(
+        &git(
+            repo,
+            &[
+                "log",
+                "-1",
+                "--format=%(trailers:key=Pmat-Ticket,valueonly=true)",
+            ],
+        )
+        .stdout,
+    )
+    .trim()
+    .to_string()
+}
+
 fn run(repo: &Path) -> (i32, String) {
     let out = Command::new("bash")
         .arg(gate())
@@ -193,70 +248,88 @@ fn a_branch_with_no_ticket_id_is_not_refused_by_this_arm() {
     );
 }
 
-/// The arm reads the trailer the way pmat does, not the way git does.
+/// The arm reads the trailer with `sed` because GIT'S OWN PARSER IS BLIND TO
+/// THE DEFECT THIS ARM EXISTS FOR.
 ///
 /// `git log --format='%(trailers:key=…)'` reads trailers from the LAST
-/// PARAGRAPH only, so a message written with several `-m` flags — each of which
-/// becomes its own paragraph — has a `Pmat-Ticket:` line git does not consider
-/// a trailer. Measured: every commit in this session until this ticket was in
-/// that shape. pmat's CB-2113 and this repository's commit-msg hook both match
-/// the LINE wherever it appears, and a gate disagreeing with them about what a
-/// trailer is would refuse commits they accept.
+/// PARAGRAPH only. Measured on `b4719737`, the merge commit of PR #532 itself:
+/// git's parser returns NOTHING, because the squash message ends with bullet
+/// paragraphs. pmat's CB-2113 asks git the same way
+/// (`src/services/commit_traceability/mod.rs`), so it saw nothing either, and
+/// the commit-msg hook passed the commit through its fallback — a bare
+/// `grep -qE 'PMAT-[0-9]+|#[0-9]+'` over the whole message.
+///
+/// This case is POSITIVE on purpose. It asserts git sees nothing, and then
+/// asserts the arm REFUSES and NAMES the ticket git could not see. An arm built
+/// on git's parser would have read "this branch claims nothing", taken the
+/// skip, and let PR #532 through — and deleting the arm fails this case.
 #[test]
-fn a_pmat_ticket_line_git_would_not_call_a_trailer_still_counts() {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let repo = dir.path().to_path_buf();
-    git(&repo, &["init", "-q", "-b", "main"]);
-    git(&repo, &["config", "commit.gpgsign", "false"]);
-    write(&repo, "README.md", "fixture\n");
-    write(
-        &repo,
-        ".quorum/enforce.json",
-        &format!("{{\"enforced_for\": [\"{ACTOR}\"]}}\n"),
+fn the_arm_refuses_on_a_trailer_gits_own_parser_cannot_see() {
+    // `git commit -m A -m B -m C` — each -m its own paragraph.
+    let (_d, repo) = fixture_msg(
+        "PMAT-520-book-v1.29.0",
+        "work\n\nPmat-Ticket: PMAT-531\n\nClaude-Session: x\n\nCo-Authored-By: t <t@t>\n",
     );
-    git(&repo, &["add", "-A"]);
-    git(&repo, &["commit", "-qm", "base"]);
-    git(&repo, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-
-    git(&repo, &["checkout", "-q", "-b", "PMAT-531-work"]);
-    write(&repo, "w.txt", "w\n");
-    git(&repo, &["add", "-A"]);
-    // Pmat-Ticket in its OWN paragraph, two above the last — exactly what
-    // `git commit -m A -m B -m C` produces, and exactly what git's trailer
-    // parser returns nothing for.
-    git(
-        &repo,
-        &[
-            "commit",
-            "-qm",
-            "work\n\nPmat-Ticket: PMAT-531\n\nClaude-Session: x\n\nCo-Authored-By: t <t@t>",
-        ],
-    );
-    let by_git = String::from_utf8_lossy(
-        &git(
-            &repo,
-            &[
-                "log",
-                "-1",
-                "--format=%(trailers:key=Pmat-Ticket,valueonly=true)",
-            ],
-        )
-        .stdout,
-    )
-    .trim()
-    .to_string();
+    let by_git = git_sees_trailer(&repo);
     assert!(
         by_git.is_empty(),
         "git now reads this shape as a trailer, so this case no longer proves \
          the arm must read it differently — it returned {by_git:?}"
     );
 
+    let (code, text) = run(&repo);
+    assert_ne!(code, 0, "the gate accepted a misnamed branch:\n{text}");
+    assert!(
+        text.contains("names PMAT-520") && text.contains("PMAT-531"),
+        "the arm did not read a Pmat-Ticket line git's parser cannot see, so it \
+         would have missed the very commit that produced PR #532:\n{text}"
+    );
+}
+
+/// A CRLF commit message is not a false refusal.
+///
+/// MEASURED RED against the first version of this arm: `sed` left the carriage
+/// return glued to the id, `PMAT-535\r` did not match `PMAT-535`, and the gate
+/// refused the branch while PRINTING the very trailer that named it.
+#[test]
+fn a_crlf_commit_message_is_not_a_false_refusal() {
+    let (_d, repo) = fixture_msg(
+        "PMAT-535-crlf",
+        "work\r\n\r\nPmat-Ticket: PMAT-535\r\nCo-Authored-By: t <t@t>\r\n",
+    );
     let (_code, text) = run(&repo);
     assert!(
         !text.contains("no commit being pushed claims it"),
-        "the arm missed a Pmat-Ticket line git would not call a trailer, so it \
-         disagrees with pmat's CB-2113 and the commit-msg hook about what one \
-         is:\n{text}"
+        "a branch whose CRLF commit claims its own ticket was refused:\n{text}"
+    );
+    assert!(
+        text.contains("no quorum receipt"),
+        "the gate did not reach the receipt arm, so this case is not measuring \
+         what it claims:\n{text}"
+    );
+}
+
+/// `Pmat-Ticket: PMAT-535, PMAT-536` is TWO claims, not one string.
+///
+/// MEASURED RED against the first version of this arm: unsplit, the first id
+/// read as `PMAT-535,` and matched nothing, so a branch named for the ticket
+/// its own commit lists first was refused.
+#[test]
+fn a_comma_separated_trailer_is_two_claims() {
+    let (_d, repo) = fixture_msg(
+        "PMAT-535-two-claims",
+        "work\n\nPmat-Ticket: PMAT-535, PMAT-536\nCo-Authored-By: t <t@t>\n",
+    );
+    let (_code, text) = run(&repo);
+    assert!(
+        !text.contains("no commit being pushed claims it"),
+        "a branch named for the first of two comma-separated claims was \
+         refused:\n{text}"
+    );
+    assert!(
+        text.contains("no quorum receipt"),
+        "the gate did not reach the receipt arm, so this case is not measuring \
+         what it claims:\n{text}"
     );
 }
 

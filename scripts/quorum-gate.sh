@@ -283,13 +283,13 @@ fi
 #
 # Measured on PR #532: pushed from `PMAT-520-book-v1.29.0` while every commit's
 # trailer, its title and its receipt said PMAT-531. Every window arm therefore
-# credited PMAT-520 — which had SHIPPED in 1.29.0 — to the v1.30.0 window, and
+# credited PMAT-520 -- which had SHIPPED in 1.29.0 -- to the v1.30.0 window, and
 # PMAT-531, the ticket that actually owned the work, was invisible to all of
 # them. Nobody added that label by hand; gate T demanded it.
 #
 # The rule: if the branch names a ticket, some commit being pushed must claim
 # it. A branch named for work no commit on it does is misnamed, and here is the
-# last moment that is cheap to fix — after the push it is in three gates'
+# last moment that is cheap to fix -- after the push it is in three gates'
 # arithmetic and a merge commit cannot be renamed.
 #
 # NOT "every trailer equals the branch's id": a branch legitimately carries
@@ -297,40 +297,64 @@ fi
 # What it must not do is name one that none of them claims.
 branch_id="$(awk 'match($0, /PMAT-[0-9]+/) { print substr($0, RSTART, RLENGTH); exit }' <<<"$branch")"
 if [ -n "$branch_id" ]; then
-    # READ IT THE WAY PMAT DOES, not the way git's trailer parser does.
+    # READ IT WITH sed, NOT WITH GIT'S TRAILER PARSER, BECAUSE GIT'S PARSER
+    # MISSES THE DEFECT THIS ARM EXISTS FOR.
     #
-    # `git log --format='%(trailers:key=Pmat-Ticket,...)'` reads trailers from
-    # the LAST PARAGRAPH only, so a message written with several `-m` flags —
-    # each of which becomes its own paragraph — has a `Pmat-Ticket:` line that
-    # git does not consider a trailer at all. Measured on this very commit,
-    # whose Pmat-Ticket sits two paragraphs above Co-Authored-By and returned
-    # nothing. pmat's own CB-2113 and this repository's commit-msg hook both
-    # match the LINE wherever it appears, and a gate that disagreed with them
-    # about what a trailer is would refuse commits they accept.
-    trailers="$(git log --format=%B "$merge_base..$pushed" 2>/dev/null | sed -n 's/^Pmat-Ticket:[[:space:]]*//p')"
+    # `%(trailers:key=Pmat-Ticket,...)` reads trailers from the LAST PARAGRAPH
+    # only. Measured on b4719737, the merge commit of the very PR that produced
+    # the misattribution above: git's parser returns NOTHING for it, because the
+    # squash message ends with bullet paragraphs; `sed` returns PMAT-531. An arm
+    # built on git's parser would have seen "this branch claims nothing", taken
+    # the skip below, and let PR #532 through.
+    #
+    # This is also why pmat's CB-2113 -- which asks git the same way, measured in
+    # pmat's `src/services/commit_traceability/mod.rs` -- said nothing about that
+    # commit either, and why the commit-msg hook passed it: the hook falls back
+    # to `grep -qE 'PMAT-[0-9]+|#[0-9]+'` over the whole message when git's parser
+    # finds no trailer, so ANY ticket-shaped string anywhere satisfies it.
+    #
+    # Reading the line is therefore strictly MORE permissive than either of
+    # them: this arm can refuse only a branch whose commits demonstrably name
+    # some other ticket, never one those two tools consider unlabelled.
+    trailers="$(git log --format=%B "$merge_base..$pushed")" \
+        || die "could not read the commit messages of $merge_base..$pushed.
+     This arm is then UNMEASURED, and an unmeasured check is a failing check --
+     it must not print the same thing as a check that passed."
+    # NORMALISE, because every one of these was a FALSE REFUSAL when measured:
+    #   \r     -- a CRLF message leaves a carriage return glued to the id, so
+    #             `PMAT-535\r` did not match `PMAT-535` and the gate refused a
+    #             branch while printing the very trailer that named it.
+    #   comma  -- `Pmat-Ticket: PMAT-535, PMAT-536` is two claims; unsplit, the
+    #             first one reads as `PMAT-535,` and matched nothing.
+    #   indent -- git will not call an indented line a trailer, but the hook's
+    #             fallback accepts it, and being stricter than the hook here can
+    #             only produce refusals nothing else agrees with.
+    # The key is matched case-insensitively for the same reason: the hook greps
+    # it with -i.
+    claimed="$(printf '%s\n' "$trailers" \
+        | sed -n 's/^[[:space:]]*[Pp][Mm][Aa][Tt]-[Tt][Ii][Cc][Kk][Ee][Tt]:[[:space:]]*//p' \
+        | tr -d '\r' | tr ',' ' ' | tr '\n' ' ' | tr -s ' ')"
     # ONLY when the commits claim SOMETHING. A branch whose commits carry no
-    # `Pmat-Ticket` at all is a different defect with a different owner — the
-    # commit-msg hook refuses it, and pmat's CB-2113 refuses it again — and an
-    # arm that also refused it would be reporting someone else's finding in its
-    # own words. The defect THIS arm is about had a trailer; it was the wrong
-    # one.
-    claimed="$(tr '\n' ' ' <<<"$trailers")"
-    case "$claimed" in
-        *[![:space:]]*) : ;;   # some commit claims a ticket; judge which
-        *) claimed="" ;;       # none does — a different gate's finding
-    esac
-    case "${claimed:+ $claimed }" in
-        ""|*" $branch_id "*) ;;
-        *)
-            die "branch '$branch' names $branch_id and no commit being pushed claims it.
-     Trailers on this branch: $(tr '\n' ' ' <<<"$trailers" | sed 's/  */ /g')
+    # `Pmat-Ticket` at all is a different defect with a different owner -- the
+    # commit-msg hook and CB-2113 both judge it -- and an arm that also refused
+    # it would be reporting someone else's finding in its own words. The defect
+    # THIS arm is about had a trailer; it was the wrong one.
+    if [ -n "$claimed" ]; then
+        case " $claimed " in
+            *" $branch_id "*) ;;
+            *)
+                die "branch '$branch' names $branch_id and no commit being pushed claims it.
+     Claimed by the commits on this branch: $claimed
      The branch name is read by gate A for the receipt path, by gate E for this
      receipt's own filename, and by gate T for the RELEASE WINDOW a PR belongs
      to. A branch named for someone else's ticket credits the work to the wrong
      one in all three, and after the push a merge commit cannot be renamed.
-     Rename the branch to its own ticket, or add a commit that claims $branch_id."
-            ;;
-    esac
+     RENAME THE BRANCH to the ticket this work is for. Adding a commit that
+     merely names $branch_id would satisfy this arm and leave the branch still
+     misnamed -- which is the outcome the arm exists to prevent."
+                ;;
+        esac
+    fi
 fi
 
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
