@@ -4,7 +4,7 @@
  "branch": "PMAT-535-a-branch-names-its-own-ticket",
  "base": "76863b1b",
  "base_commit": "76863b1b01c85aaf5b33034d6e1d0a05ca907423",
- "diff_sha256": "4be702e98b69125e733f48fee5f69173f750c1f7",
+ "diff_sha256": "2e12c5238bd085ed440ddf35399b9a899fd7b96e",
  "recorded_at": "after the round that refuted the arm's reason, measured two false refusals against the arm as already committed, and found a read that failed open",
  "quorum": {
   "lanes": [
@@ -86,7 +86,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/branch-names-its-ticket-judges.md",
-  "total_bytes": 15142,
+  "total_bytes": 15172,
   "files": [
    {
     "path": ".quorum/evidence/branch-names-its-ticket-claims.md",
@@ -111,9 +111,9 @@
     "roles": [
      "judges"
     ],
-    "bytes": 9449,
-    "sha256": "2bcfc4127bf04046ae7bc0ba11ca58a009d41243a4415365089dda7bf6491889",
-    "blob": "a438656186c5adff493afe6f4229833ceeea0df5"
+    "bytes": 9479,
+    "sha256": "dca8f01f468e6790bdd985f9c4e61bb5a8e94339e98315f91fcb60451131100f",
+    "blob": "04f7eade0a8de2399465742edcba7da577adb79e"
    },
    {
     "path": ".quorum/evidence/branch-names-its-ticket-agy.md",
