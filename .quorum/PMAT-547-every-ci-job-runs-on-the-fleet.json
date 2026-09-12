@@ -1,0 +1,137 @@
+{
+  "kind": "code",
+  "issue": "PMAT-547 (closes forjar#547) — every CI job runs on the fleet. Measured on PR #545 run 34685410794 by reading runner_name back from the API rather than from the workflow file, three of this repository's own jobs reported `runner=GitHub Actions <n>` with `labels=ubuntu-latest`. Thirty-three runner declarations across seventeen workflow files named a GitHub-hosted runner and every pull request spent them. The fleet is 25 runners, every one Linux, so every Linux declaration moves to [self-hosted, clean-room] and seven macOS/Windows legs cannot move at all.",
+  "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
+  "base": "0bb6cb57",
+  "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
+  "diff_sha256": "8f1909174c4e430b78d7e4ae4bf67fb525dbec51",
+  "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
+  "quorum": {
+    "lanes": [
+      "lane 1 — will these jobs run on the fleet (lane-1.json, FAIL)",
+      "lane 2 — the test, and what it lets through (lane-2.json, FAIL)",
+      "lane 3 — the documents and the numbers (lane-3.json, FAIL)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three sandboxed agy quorum lanes against a FULL standalone clone, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id.",
+    "kill_rule": "THIS BRANCH BROKE A SUITE IT HAD NEVER RUN. falsification_hosted_jobs_do_not_cache_target guards a HOSTED coverage job against caching target/ -- the 70.70 GiB ENOSPC that killed the runner's Worker in #386 -- and its vacuity guard needs at least one hosted coverage job. Moving coverage.yml to the fleet made that zero and two cases went red on the branch as the lanes saw it. The orchestrator had run eight workflow-reading suites and not that one.",
+    "claims_confirmed": 7,
+    "claims_refuted": 6,
+    "refuted_claims": [
+      "That seven macOS/Windows legs remain -- the branch said six, in five places. grep prints six LINES because lint.yml contributes one line and two legs, and the count predated this branch's own rewrite of that matrix.",
+      "That reading the object form's `group` alongside its `labels` is correct. A runner GROUP is not a label: a group named `ubuntu-runners` reported as a hosted runner, and the fleet control caught it on the first run.",
+      "That the branch moved 32 declarations. 33, re-derived by counting hosted-Linux labels present at the base and absent at HEAD; 32 was the conversion script's own report.",
+      "That a vacuity floor of 20 is a guard. Measured at 48, so more than half the fleet jobs could have been deleted before it noticed. The floor is now 40.",
+      "That actions/cache degrades on a clean-room runner and should be removed (lane 1). It talks to GitHub's cache service over the network and works from a self-hosted runner; this branch changes nothing about it.",
+      "That moving ci.yml's job breaks its real-sudo test (lane 1). Failing loudly where the capability is absent is the DESIGNED behaviour -- FORJAR_REQUIRE_SUDO_TESTS turns a skip into a panic, which is why the comment citing GitHub's documented environment was removed and only the switch was kept."
+    ],
+    "lane_errors": [
+      "the delegate hit its 30-turn limit before writing a receipt, for the thirteenth time this session — filed as paiml-implement#141. All three lane JSONs were on disk with status SUCCESS and were read directly.",
+      "five of lane 2's nine findings were graded `asserted` rather than measured, which is what a NO WRITES brief costs: a lane cannot run the parser it is reasoning about. Four of those five were true and are now fixtures."
+    ]
+  },
+  "falsification": {
+    "test": "ten cases. Four are the invariants; five are controls built from a lane's `asserted` findings, each a fixture feeding one shape that hid a hosted runner from the parser -- the object form of runs-on, a hosted label in another case, a matrix key not named runner/os, an expression nested in a runs-on list, and a fleet job that must NOT be mistaken for a hosted one; the tenth counts the three jobs whose runner is chosen by a reusable workflow in another repository, which no case here can read.",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet.rs",
+    "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
+    "reverted": "four targeted mutations over the COMMITTED workflows at 92cb6a1a, each restored by name from HEAD, every run --no-fail-fast: one Linux job back to ubuntu-latest, a seventh hosted leg added, `runs-on: self-hosted` without a pool, and runner_labels returning nothing. Each kills exactly one case; no collateral; `git status --porcelain -- .github tests` is 0 lines after every one.",
+    "observed_failure": "dogfood-surface runner=GitHub Actions 1000366553 labels=ubuntu-latest success — read back from repos/paiml/forjar/actions/jobs/103531462399, alongside classify and doctests, on a run whose ci/lint, ci/coverage and ci/test were on intel-clean-room-12, -3 and -8",
+    "still_green_when_reverted": "the eight workflow-reading suites this repository already had, 94 cases, plus the ten of falsification_hosted_jobs_do_not_cache_target once its denominator was repaired — which is the other half of the claim: nothing any other workflow test asserts has changed"
+  },
+  "crux": {
+    "systems": [
+      "Nix (builders are declared in nix.conf and a build that cannot reach one fails rather than falling back)",
+      "Bazel remote execution (the execution platform is part of the action key, so a local and a remote runner are never interchangeable by accident)",
+      "GitLab CI (runner tags are matched explicitly and an untagged job is refused when the project requires tags)",
+      "Buildkite (agent tags are queried and a step with no matching queue waits visibly rather than running somewhere else)"
+    ],
+    "verdict": "accept(every surveyed system makes WHERE a job runs an explicit, checked property rather than a default, and three of the four refuse or block rather than silently substituting a runner. GitHub Actions is the outlier: `runs-on: ubuntu-latest` is the path of least resistance, it always works, and nothing in a green check says which machine produced it -- which is why this repository spent hosted runners for months without noticing. forjar cannot change the default, so it does what GitLab does with required tags: it makes the property checkable and checks it. Where forjar is WORSE than Buildkite: seven legs still have no fleet queue at all and are simply counted, where Buildkite would block visibly. Where it is better than a lint rule: the check reads the same YAML GitHub reads, so a hosted runner hidden in a matrix or in the object form of runs-on is a finding rather than prose a grep never saw.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, against a FULL clone",
+    "verdict": "3/3 FAIL; a suite the branch broke without running it, four holes in its own parser, a glibc measurement of the wrong machine, and two numbers that were a script's report rather than a measurement",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "writes": false,
+    "sandbox": true,
+    "out_dir": "keyed by ticket AND session id"
+  },
+  "pmat": {
+    "ticket": "PMAT-547",
+    "tools": [
+      "cargo test --no-fail-fast (9 workflow-reading suites, 110 cases, green; four mutations)",
+      "cargo clippy --tests",
+      "cargo fmt --all",
+      "bash -n",
+      "shellcheck -x",
+      "actionlint (head and base)",
+      "python3 yaml.safe_load over all 20 workflow files",
+      "gh api repos/paiml/forjar/actions/jobs/<id> (runner_name read back per job)",
+      "gh api orgs/paiml/actions/runners",
+      "pmat analyze vacuous-tests",
+      "analyze_vacuous_tests",
+      "bash scripts/quorum-gate.sh (PRINT_HASH)",
+      "goal.sh worker / route.sh"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "432 of 19720 #[test] fns cannot fail (2.2%) across 2177 parsed files, plus 3 that skip silently. Neither falsification_every_ci_job_runs_on_the_fleet nor falsification_hosted_jobs_do_not_cache_target appears. Necessary and not sufficient, and this ticket argues it twice: the scan cannot see that a parser silently returns nothing for the object form of runs-on, and it cannot see that a suite's denominator has gone to zero -- the second is exactly what the_scan_reaches_the_real_coverage_job caught, without help from any scan.",
+    "bashrs": "not applicable: this branch changes no .sh file. The shell it does add lives inside workflow `run:` blocks and is linted by actionlint's embedded shellcheck, which reports nothing on the new steps.",
+    "quality_gate": "110 cases green across 9 suites at HEAD; clippy clean; fmt clean; all 20 workflows parse; actionlint findings 22 -> 15",
+    "tool_defects_found": [
+      "the paiml-implement delegate hit its 30-turn cap before writing a receipt, for the thirteenth time this session (paiml-implement#141)."
+    ]
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/fleet-runners-judges.md",
+    "total_bytes": 16880,
+    "files": [
+      {
+        "path": ".quorum/evidence/fleet-runners-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2469,
+        "sha256": "c3c45f4ddc38444a7936afa0d1e4429cf3877728db1b5b99ed6671d109f67b1d",
+        "blob": "f00c40d1b2dea2c0e2a3a87e6c4d0639712c39cb"
+      },
+      {
+        "path": ".quorum/evidence/fleet-runners-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2056,
+        "sha256": "7c676e06be69f763b426c65e0160e46ddbdb0998d0a0e06dd0ddd981ae668279",
+        "blob": "5eb6ab7fc3242ae3ceeb4da6e4d2a48c88739033"
+      },
+      {
+        "path": ".quorum/evidence/fleet-runners-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 7973,
+        "sha256": "c490bba52fd9ce8a28b64544ed4f3a41ffa71d63e5295b184d2b8f441c7afdd8",
+        "blob": "95412e5197318a5cd6407f495e5db45bf31c2bfc"
+      },
+      {
+        "path": ".quorum/evidence/fleet-runners-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1910,
+        "sha256": "8b6d19397b6e07421305886395abdde3b7d1e953dbe4fcbca883ea1549f9dc47",
+        "blob": "dc980723374256ba7f5905db936ace9b957504e9"
+      },
+      {
+        "path": ".quorum/evidence/fleet-runners-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2472,
+        "sha256": "3da18961eb481b248eb92367039ed5136a5945bd2df303f1b77b2a458fa4f4b0",
+        "blob": "a812296906459d2be4a877c3780acd810f344e8c"
+      }
+    ]
+  }
+}
