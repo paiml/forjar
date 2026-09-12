@@ -4,7 +4,7 @@
   "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
   "base": "0bb6cb57",
   "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
-  "diff_sha256": "9802322fd10636abdf31938a153f63c9ae74497a",
+  "diff_sha256": "c27b805df3bd9b1b336ce1f8880754409d0314a4",
   "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
   "quorum": {
     "lanes": [
@@ -33,8 +33,8 @@
     ]
   },
   "falsification": {
-    "test": "eleven cases. Four are the invariants; five are controls built from a lane's `asserted` findings, each a fixture feeding one shape that hid a hosted runner from the parser; one counts the three jobs whose runner is chosen by a reusable workflow in another repository, which no case here can read; and one pins the ARCHITECTURE, because `clean-room` spans X64 and ARM64 and the label alone does not choose between them.",
-    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet.rs",
+    "test": "eleven cases, split across main.rs (the six invariants), controls.rs (five fixtures) and scan.rs (the parser), because one file reached this repository's 500-line gate. Four are the invariants; five are controls built from a lane's `asserted` findings, each a fixture feeding one shape that hid a hosted runner from the parser; one counts the three jobs whose runner is chosen by a reusable workflow in another repository, which no case here can read; and one pins the ARCHITECTURE, because `clean-room` spans X64 and ARM64 and the label alone does not choose between them.",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet/main.rs",
     "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
     "reverted": "five targeted mutations over the COMMITTED tree, each restored by name from HEAD, every run --no-fail-fast. M1 (one Linux job back to ubuntu-latest), M2 (a hosted leg added) and M3 (`runs-on: self-hosted` without a pool) each kill exactly one case. M4 blinds `push_labels` and KILLS SIX OF THE TEN -- every case that reads through the parser -- which is the right answer and not a clean kill: the four survivors all assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. That is precisely what the_parser_finds_the_runners_that_are_there exists to catch. An earlier draft claimed four single kills and no collateral; that was true of the four-case suite the round grew to ten. M5 drops one fleet job's `X64` and kills exactly one case, a_fleet_job_names_the_architecture_it_needs. `git status --porcelain -- .github tests` is 0 lines after every mutation.",
     "observed_failure": "dogfood-surface runner=GitHub Actions 1000366553 labels=ubuntu-latest success — read back from repos/paiml/forjar/actions/jobs/103531462399, alongside classify and doctests, on a run whose ci/lint, ci/coverage and ci/test were on intel-clean-room-12, -3 and -8",
@@ -86,7 +86,7 @@
   },
   "evidence": {
     "claims_digest": ".quorum/evidence/fleet-runners-judges.md",
-    "total_bytes": 17785,
+    "total_bytes": 17835,
     "files": [
       {
         "path": ".quorum/evidence/fleet-runners-claims.md",
@@ -111,9 +111,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 8878,
-        "sha256": "e7d25641b43b0b57d3ad6a6578a9b654ac63cbb2065fb8764732696166b912af",
-        "blob": "ade7bd94569464432b8fc2e858392f7c7f627aa7"
+        "bytes": 8928,
+        "sha256": "1ad9682405b21b67565f7574679cb31a327e065d941be3e63e59d955e306aae7",
+        "blob": "93b6a5aa2924f167e1c5608700179624ee4d7bca"
       },
       {
         "path": ".quorum/evidence/fleet-runners-agy.md",

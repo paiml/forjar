@@ -188,7 +188,7 @@
   --- restored (dirty=0)
   
   ########## M4 the parser stops seeing runners
-  --- tests/falsification_every_ci_job_runs_on_the_fleet.rs:     let mut out = Vec::new();
+  --- tests/falsification_every_ci_job_runs_on_the_fleet/:     let mut out = Vec::new();
       push_labels(&mut out, runs_on);
        =>     let mut out = Vec::new();
       let _ = runs_on;

@@ -62,7 +62,7 @@ Log §6.
 
 ## Falsification
 
-`tests/falsification_every_ci_job_runs_on_the_fleet.rs` parses the workflow YAML, so a hosted label in a comment is prose and one inside a matrix is a finding.
+`tests/falsification_every_ci_job_runs_on_the_fleet/` parses the workflow YAML — split into `main.rs` (the six invariants), `controls.rs` (five fixtures) and `scan.rs` (the parser), because one file reached the 500-line gate at 539 lines and CI's `file-health` ratchet refused it, so a hosted label in a comment is prose and one inside a matrix is a finding.
 
 **It caught a site this change's own converter missed.** `nightly.yml:73` read `runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)`; the converter matched a runner value to end-of-line, so the trailing comment made the value not match, and the script reported success while a hosted ARM runner stayed. That is the argument for parsing over grepping, made by the change's own tooling against itself.
 
