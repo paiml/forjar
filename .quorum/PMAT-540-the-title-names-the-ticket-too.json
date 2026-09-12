@@ -1,0 +1,137 @@
+{
+ "kind": "code",
+ "issue": "PMAT-540 (closes forjar#540) — the PR and its commits name one ticket. The window rule reads BRANCH, then TITLE, then BODY; PMAT-535 closed the branch at push time and could not close the other two, because at push time the pull request does not exist. Gate A can: it holds the PR object, the merge commit and the receipt. From TRAILER_FLOOR, a PR whose merge commit claims any Pmat-Ticket must have its own ticket among them.",
+ "branch": "PMAT-540-the-title-names-the-ticket-too",
+ "base": "0ed60f67",
+ "base_commit": "0ed60f67aaeb929c8a63dacdf0c76a3bc29c1a33",
+ "diff_sha256": "b861a1d84804ce333428484edf9d66b3ffa9f67f",
+ "recorded_at": "after the round that found the fixture did not reproduce the message shape the ticket is about",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-677f8786)",
+   "lane 2 (conv-df6462cd)",
+   "lane 3 (conv-26c150de)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes against a FULL standalone clone, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id.",
+  "kill_rule": "six claims and the standing instruction. THE FIXTURE DID NOT REPRODUCE THE SHAPE: squash_claiming ended at the trailer block, so git parsed it and six of the nine cases would have passed over an arm rewritten to use git's own trailer parser — the one regression the suite exists to prevent. Found by following a single false sentence about how GitHub writes a squash message.",
+  "claims_confirmed": 5,
+  "claims_refuted": 7,
+  "refuted_claims": [
+   "That a squash message ends with whatever bullets GitHub assembled. GitHub appends its own last paragraph — a --------- separator and a Co-authored-by block — and that is what pushes the Pmat-Ticket lines out of git's view.",
+   "That the fixture reproduces the shape that makes git blind. squash_claiming ended at the trailer block, git parsed it, and every case would have passed over an arm using git's parser.",
+   "That the floor comment's arithmetic matches the log: it said 28 agree against a log measuring 29 over 30 rows, because #496 agrees after alias resolution.",
+   "That section 3 of the log shows a floor at main's tip. It contrasts the shipped floor with a floor this repository does not carry.",
+   "That gate A enforces what CLAUDE.md promised — that the merge commit CLAIMS the ticket. A commit claiming nothing passes, deliberately, so the promise was what was wrong.",
+   "That every command in the arm can fail safely. The claims pipeline had no exit guard, so a failure would have killed the gate with no GATE A line — a death rather than a verdict.",
+   "That the arm closes the misattribution. A merge commit claiming two tickets under a PR filed as one passes, and a PR and its commits agreeing on a lie pass: the arm measures agreement, not truth."
+  ],
+  "lane_errors": [
+   "the delegate hit its 30-turn limit before writing a receipt, for the eleventh time this session — filed as paiml-implement#141. All three lane JSONs were on disk with status SUCCESS and were read directly."
+  ]
+ },
+ "falsification": {
+  "test": "nine cases, nine killers. the_arm_reads_a_claim_gits_own_parser_cannot_see and a_mismatch_gits_own_parser_cannot_see_is_still_refused each assert FIRST that git's own trailer parser returns nothing for the fixture's message, then that the arm passes or refuses on what it read by the line — so an arm rewritten to use git's parser fails them. the_shipped_floor_is_the_commit_it_says_it_is reads TRAILER_FLOOR out of the script and resolves it against the real repository.",
+  "test_file": "tests/falsification_gate_a_the_pr_and_its_commits_name_one_ticket.rs",
+  "cargo_test_target": "falsification_gate_a_the_pr_and_its_commits_name_one_ticket",
+  "reverted": "scripts/dogfood/harness.sh checked out from origin/main over this branch and both suites run with --no-fail-fast: 5 of the 9 die and all 19 of falsification_dogfood_harness_and_quorum stay green. Then four targeted mutations, each restored from HEAD by name: raw-id comparison, dropping the claims-nothing guard, an unreachable match arm, and reading the trailers with git's own parser.",
+  "observed_failure": "GATE A FAIL PR #532 is filed under PMAT-520 -- from its branch 'PMAT-520-book-v1.29.0', then its title -- and its merge commit b4719737 claims PMAT-531",
+  "still_green_when_reverted": "all 19 cases of falsification_dogfood_harness_and_quorum, which is the other half of the claim: nothing gate A already did has changed"
+ },
+ "crux": {
+  "systems": [
+   "Gerrit (a server-side hook rejects a push whose Change-Id does not match the change it updates)",
+   "Linux kernel tooling (checkpatch and b4 read Fixes:/Link: trailers with their own parsers, not git's)",
+   "Chef Expeditor (the merge label, written by a bot, is the only source of the version bump)",
+   "Kubernetes Prow (release-note blocks are adjudicated from the PR body by a bot at merge time)"
+  ],
+  "verdict": "accept(each surveyed system binds a change to its work item through a field a TOOL writes and a TOOL reads, and each puts the check where the binding can still be changed — Gerrit on the server at push, Prow at merge. forjar reads the binding from a BRANCH NAME, free text nobody validated, in three gates; PMAT-535 checks it at push and this checks it after merge, which is the last place the two sources are both visible. Where forjar is WORSE than Gerrit: this refuses the RELEASE rather than the merge, so a misattributed PR lands and is caught by make dogfood-release afterwards. Where it is better than the kernel's tooling: the reader is told what the id DECIDES — a receipt path, a quorum filename and a release window — rather than only that it disagreed.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, against a FULL clone",
+  "verdict": "3/3 FAIL; a fixture that could not catch its own ticket's regression, an unguarded pipeline, a documented promise stronger than the code, an arithmetic slip and a citation to the wrong log section",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-540",
+  "tools": [
+   "cargo test --no-fail-fast (2 suites, green, reverted and four mutations)",
+   "cargo clippy --all-targets -- -D warnings",
+   "cargo fmt --all -- --check",
+   "bashrs lint (head and base)",
+   "bash -n",
+   "bash scripts/dogfood/harness.sh (with and without the floor)",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "git log --format=%(trailers) / %(trailers:key=Pmat-Ticket)",
+   "gh pr list / gh pr view over 30 merged PRs",
+   "scripts/ci/changed-class.sh",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "414 of 19687 #[test] fns cannot fail (2.1%) across 2173 parsed files. None of the nine cases appears — and until a lane read the fixture, six of them could not have caught an arm rewritten to use git's own trailer parser. Necessary and not sufficient; the kill matrix in section 6 of the log is what settles it.",
+  "bashrs": "0 errors on scripts/dogfood/harness.sh and 0 errors on origin/main's copy; 16 warnings / 27 infos against 10 / 18.",
+  "quality_gate": "9 + 19 green at HEAD; clippy clean; fmt clean; gate A exits 0 on this repository with the shipped floor and 1 without it",
+  "tool_defects_found": [
+   "the paiml-implement delegate hit its 30-turn cap before writing a receipt, for the eleventh time this session. Filed as paiml-implement#141 with the measured shape and four suggestions."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/pr-and-commits-judges.md",
+  "total_bytes": 12716,
+  "files": [
+   {
+    "path": ".quorum/evidence/pr-and-commits-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1245,
+    "sha256": "2df91b2d3c5e82b69bafc06198aeccb20f02c524519d65461cf3e71138dafb3b",
+    "blob": "b94f8decf81912aeb8c0d4a4527586f6a8ae673d"
+   },
+   {
+    "path": ".quorum/evidence/pr-and-commits-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1264,
+    "sha256": "8346cb347dad69fde2baf63789c80885f7fb36a7286fdfd4576c54e090d4a8d9",
+    "blob": "51c9ce7751fd77e11db5b6443cccc6d16cc92689"
+   },
+   {
+    "path": ".quorum/evidence/pr-and-commits-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 7234,
+    "sha256": "18403dd9fa72e4e17296f11a5aba2c4e4feda17481e5ca7c25ca39148656cbd6",
+    "blob": "dc42120cd04ce3e38ca1f3221f7c7d75c17ab9b3"
+   },
+   {
+    "path": ".quorum/evidence/pr-and-commits-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1240,
+    "sha256": "94bba05173da0e551758a01b0bb12fc9acaa3b0008df671e3b2005995a08f4b7",
+    "blob": "3a385195632f0f968677dbafcfe1f2fddddec7fd"
+   },
+   {
+    "path": ".quorum/evidence/pr-and-commits-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1733,
+    "sha256": "3db4af7dcd4ce95cf47b1732fd270b636a6e8c987d0f353f57eea6ce002108a7",
+    "blob": "89e10ce4e2ea4df0ef14f938ecf3966f54746d78"
+   }
+  ]
+ }
+}
