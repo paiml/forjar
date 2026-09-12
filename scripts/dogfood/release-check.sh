@@ -191,13 +191,31 @@ else
   # that is not the latest one -- the shape every stale pointer above had.
   rc=0
   latest_rel="$("$GH" api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>&1)" || rc=$?
+  unread=""
   if [ "$rc" -ne 0 ]; then
-    fail "${GH} api repos/${REPO}/releases/latest exited ${rc} (${latest_rel}) — where that URL points is UNMEASURED, and unmeasured is not the same as pointing here"
+    unread="${GH} api repos/${REPO}/releases/latest exited ${rc} (${latest_rel})"
+  elif [ -z "$latest_rel" ]; then
+    unread="repos/${REPO}/releases/latest answered with exit 0 and no tag_name"
   fi
-  if [ -z "$latest_rel" ]; then
-    fail "repos/${REPO}/releases/latest returned no tag_name — UNMEASURED"
-  fi
-  if [ "$prerelease" = "true" ]; then
+  # A pointer that did not answer is judged against what the release IS.
+  #
+  # /releases/latest serves the newest release that is neither a prerelease nor
+  # a draft, and 404s when there is none -- MEASURED 2026-09-12 on
+  # electron/electron, whose newest release v45.0.0-alpha.6 is a prerelease and
+  # whose /releases/latest answers v44.3.0, two releases older, and on a
+  # repository with no releases at all, where gh exits 1 with HTTP 404. So for a
+  # repository whose releases are ALL prereleases the 404 is the ORDINARY state,
+  # and refusing it would contradict the paragraph above -- the arm would force
+  # to latest exactly the deliberate prerelease it promises not to. Reported.
+  #
+  # For a FULL release the same silence is UNMEASURED and refused: a full
+  # release the pointer cannot be read for is the state the four stale releases
+  # above were in, and assuming it points here is the silence they lived in.
+  if [ -n "$unread" ] && [ "$prerelease" = "true" ]; then
+    note_pending "the release for ${TAG} is a PRERELEASE and where repos/${REPO}/releases/latest points could not be read (${unread}) — GitHub never makes a prerelease latest, so nothing following that URL gets ${TAG} either way (promote it with: gh release edit ${TAG} --repo ${REPO} --prerelease=false --latest)"
+  elif [ -n "$unread" ]; then
+    fail "${unread} — where that URL points is UNMEASURED, and unmeasured is not the same as pointing here"
+  elif [ "$prerelease" = "true" ]; then
     note_pending "the release for ${TAG} is a PRERELEASE, so repos/${REPO}/releases/latest resolves to ${latest_rel} and nothing following that URL will get ${TAG} (promote it with: gh release edit ${TAG} --repo ${REPO} --prerelease=false --latest)"
   elif [ "$latest_rel" != "$TAG" ]; then
     fail "the GitHub release for ${TAG} is a full release and repos/${REPO}/releases/latest still resolves to ${latest_rel}: every installer, badge and script that follows that URL gets ${latest_rel}, not ${TAG}. GitHub fixes 'latest' when the prerelease flag is WRITTEN and never recomputes it, so clearing the flag alone leaves the pointer where it was — run: gh release edit ${TAG} --repo ${REPO} --latest"

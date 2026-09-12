@@ -108,3 +108,59 @@ fn a_pointer_that_cannot_be_read_is_unmeasured_and_red() {
     r.assert_says("UNMEASURED");
     r.assert_says("releases/latest");
 }
+
+/// `gh` exits 0 and says nothing, which is neither a tag nor an error.
+///
+/// MEASURED on this branch before the case existed: deleting the guard left
+/// all four cases green, so nothing defended it. Without the guard the empty
+/// answer falls through to the comparison below and the gate refuses the
+/// release with `still resolves to ` and a blank where the tag goes — the
+/// reader is told the pointer is wrong when what happened is that it never
+/// answered.
+#[test]
+fn a_pointer_that_answers_with_nothing_is_unmeasured_and_red() {
+    let f = published_fixture();
+    let dir = f.root.parent().expect("tempdir").to_path_buf();
+    let bin = stub_release_tools(&dir, PREV_VERSION, "true");
+    let gh = stub_gh_published_api_empty(&dir, &f.head);
+    let r = run_published(&f, &gh, &bin);
+
+    r.assert_not_green("a gh api that exits 0 and prints no tag name");
+    r.assert_says("UNMEASURED");
+    r.assert_says("no tag_name");
+    // The message must not accuse the pointer of resolving somewhere: it did
+    // not resolve at all, and the two are different findings.
+    r.assert_never_says(
+        "still resolves to",
+        "an empty answer is not a pointer that resolves elsewhere",
+    );
+}
+
+/// A prerelease whose repository has no full release behind it.
+///
+/// `/releases/latest` serves only non-prerelease, non-draft releases and 404s
+/// when there is none — MEASURED 2026-09-12 on electron/electron, whose newest
+/// release `v45.0.0-alpha.6` is a prerelease and whose `/releases/latest`
+/// answers `v44.3.0`, and on a repository with no releases, where `gh` exits 1
+/// with HTTP 404. For a repository whose releases are all prereleases that 404
+/// is the ORDINARY state. Refusing it would force to latest exactly the
+/// deliberate prerelease this arm promises not to force — the paragraph at the
+/// top of this file would be false.
+#[test]
+fn a_prerelease_with_no_full_release_behind_it_is_reported_not_refused() {
+    let f = published_fixture();
+    let dir = f.root.parent().expect("tempdir").to_path_buf();
+    let bin = stub_release_tools(&dir, PREV_VERSION, "true");
+    let gh = stub_gh_published_api_broken_as(&dir, &f.head, "true");
+    let r = run_published(&f, &gh, &bin);
+
+    r.assert_green("a prerelease whose repository has no release latest can serve");
+    r.assert_says("PRERELEASE");
+    r.assert_says("also pending");
+    r.assert_says("--prerelease=false --latest");
+    // And it must not claim to have measured what it could not read.
+    r.assert_never_says(
+        "UNMEASURED",
+        "a 404 is the ordinary state for a prerelease, not a broken instrument",
+    );
+}
