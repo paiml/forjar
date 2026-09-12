@@ -12,6 +12,24 @@ outputs:
       every heavy job must run. 'false' only for a change confined to the
       declared documentation-and-record paths.
     value: ${{ steps.classify.outputs.code }}
+  gate_c:
+    description: >-
+      'true' when gate C -- the surface measured from the built binary -- can
+      move. Compared EXACTLY by the workflow `if:`; `contains()` on the summary
+      token below is a case-insensitive substring test and is not (PMAT-542).
+    value: ${{ steps.classify.outputs.gate_c }}
+  gate_d:
+    description: >-
+      'true' when gate D -- the documented invocations run against the built
+      binary -- can move.
+    value: ${{ steps.classify.outputs.gate_d }}
+  gates:
+    description: >-
+      Which of the two dogfood gates that MEASURE THE BUILT BINARY this change
+      can move: 'C,D', 'C', 'D', or 'none'. Never the empty string -- an empty
+      value cannot be told apart from a classifier that did not run, and the
+      workflow gate refuses one (PMAT-542).
+    value: ${{ steps.classify.outputs.gates }}
 
 runs:
   using: composite
@@ -54,4 +72,4 @@ runs:
         # tests/falsification_pr_lane_runs_what_the_change_can_break.rs does,
         # in both directions — rather than a YAML `if:` no test can reach.
         printf '%s\n' "$changed" | bash scripts/ci/changed-class.sh >> "$GITHUB_OUTPUT"
-        echo "class:"; tail -1 "$GITHUB_OUTPUT"
+        echo "class:"; tail -4 "$GITHUB_OUTPUT"

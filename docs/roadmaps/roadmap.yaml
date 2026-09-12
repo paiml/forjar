@@ -3933,3 +3933,29 @@ roadmap:
   - release:v1.30.0
   notes: 'Found by a three-lane review round on PMAT-535. PMAT-535 refuses, at push time, a branch that names a PMAT-<n> no commit being pushed claims — but the window rule reads BRANCH, then TITLE, then BODY, and the arm can only see the first. A branch named fix/ci-lint (the naming this repository''s own guidelines suggest for work with no ticket) with a PR titled ''(PMAT-520)'' and a trailer saying PMAT-531 reproduces PR #532''s misattribution exactly, and nothing refuses it. It cannot live in the pre-push hook: at push time the pull request does not exist and its title is typed afterwards. It belongs in gate A, which already holds the PR object, the merge commit and the receipt, so it can compare all three sources rather than taking the first that matches.'
   release: 1.30.0
+- id: PMAT-542
+  kind: code
+  github_issue: 542
+  item_type: task
+  title: 'the PR lane rebuilds the binary for 10 of 25 PRs that cannot move the gates it builds it for: 21.3 of 25.2 critical-path minutes'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T11:05:00Z
+  updated: 2026-09-12T11:05:00Z
+  spec: null
+  acceptance_criteria:
+  - changed-class.sh emits a per-gate selection alongside code=, and cases drive src/ selecting both, README-only selecting D, a receipt-and-scripts diff selecting neither, and each gate's own script selecting itself
+  - an unclassified path selects EVERY gate, the same direction PMAT-237's an_unclassified_path_is_code holds
+  - a not-selected gate prints NOT-SELECTED with its reason and never PASS, asserted by a case, because that is the whole difference between this and a --skip
+  - the workflow gate refuses a skipped dogfood-surface whenever the selection says it should have run, and refuses an empty selection as unmeasured
+  - make dogfood-release is unchanged and still runs A-H and T over the whole window
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'A refinement of PMAT-237, which already works — 3 of the last 25 merged PRs were code=false and skipped every heavy job. What it cannot do is decide WHICH heavy gate: one boolean for all of them, so a change to scripts/ or tests/ — which genuinely needs the guard tests — also pays for a release build and two gates that read a surface it cannot reach. Measured on CI run 34670955910: dogfood is the critical path at 25.2 min (build 9.0, gate C 6.2, gate D 6.1, guard tests 3.8) against 6.3 min for the next-longest job. Of the 25 PRs merged as of cddf78cd, run through changed-class.sh itself, 12 can move gate C or D and 10 cannot — a first estimate said 14, from a narrower trigger set that did not count .github/** or scripts/dogfood/**; the shipped classifier is the conservative one and 10 is what it measures. Gate C reads the built binary and docs/audits/surface_audit.csv; gate D reads the binary, README.md and that same CSV. Operator standing instruction: always Pareto-optimize PR vs pre-release on the 80/20 rule. Measured version: 56% of PRs, 75% faster, no floor lowered.'
+  release: 1.30.0

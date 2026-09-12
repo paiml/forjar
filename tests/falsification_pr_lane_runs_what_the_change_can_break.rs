@@ -16,58 +16,10 @@
 //! which gate C diffs the live surface against; and `contracts/**`, which gate
 //! G validates.
 
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+mod changed_class_fixture;
+use changed_class_fixture::{assert_code, assert_harmless, class_of, workflow};
 
-fn script() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/ci/changed-class.sh")
-}
-
-/// The classifier's verdict for a file list.
-fn class_of(files: &[&str]) -> String {
-    let mut child = Command::new("bash")
-        .arg(script())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("bash must run");
-    child
-        .stdin
-        .as_mut()
-        .expect("stdin")
-        .write_all(files.join("\n").as_bytes())
-        .expect("write the file list");
-    let out = child.wait_with_output().expect("classifier must finish");
-    assert!(
-        out.status.success(),
-        "the classifier exited {:?}: {}{}",
-        out.status.code(),
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
-}
-
-fn assert_code(files: &[&str], why: &str) {
-    assert_eq!(
-        class_of(files),
-        "code=true",
-        "PMAT-237: {why}. A change touching {files:?} must run every heavy job; \
-         reading it as harmless skips the suite over it."
-    );
-}
-
-fn assert_harmless(files: &[&str], why: &str) {
-    assert_eq!(
-        class_of(files),
-        "code=false",
-        "PMAT-237: {why}. A change touching only {files:?} cannot alter what any \
-         heavy job measures, and paying forty minutes for it is the waste this \
-         ticket exists to remove."
-    );
-}
+use std::path::Path;
 
 #[test]
 fn source_and_tests_and_the_manifests_are_code() {
@@ -269,11 +221,6 @@ fn an_empty_file_list_is_code() {
 // the same bytes GitHub Actions parses.
 // ---------------------------------------------------------------------
 
-fn workflow(rel: &str) -> String {
-    let p = Path::new(env!("CARGO_MANIFEST_DIR")).join(rel);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("read {p:?}: {e}"))
-}
-
 /// Every workflow that gates a heavy job, and the jobs it gates.
 /// Coverage is deliberately absent: the 95% line floor is a standing property
 /// of the repository rather than of one diff, and it is measured on every
@@ -286,7 +233,8 @@ const GATED: &[(&str, &[&str])] = &[
             "examples-validate",
             "no-default-features",
             "doctests",
-            "dogfood",
+            "dogfood-surface",
+            "dogfood-guards",
         ],
     ),
     (".github/workflows/proofs.yml", &["ledger-replay"]),

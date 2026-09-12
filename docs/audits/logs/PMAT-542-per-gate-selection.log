@@ -1,0 +1,95 @@
+PMAT-542 — the PR lane selects the gate the change can move
+===========================================================
+
+### 1. the critical path, from the last CI run on main (run 34670955910)
+  25.2 min  dogfood            <- the critical path on every code=true PR
+   6.3 min  ci / test
+   5.8 min  examples-validate
+   4.7 min  ci / lint
+   4.2 min  ci / coverage
+   2.9 min  doctests
+   1.2 min  no-default-features
+   ... 7 more, each under 0.6 min
+  51.8 min  sum of job time
+  25.2 min  critical path (the longest job)
+
+  inside dogfood:
+   9.0 min  Build the artifact the surface gate measures
+   6.2 min  Gate C — surface from the built artifact
+   6.1 min  Gate D — documented invocations run against fixtures
+   3.8 min  Guard tests        <- the only step a scripts/ or tests/ change can move
+
+### 2. what the two gates actually read
+gate C (scripts/dogfood/surface.sh):
+  35:CSV="docs/audits/surface_audit.csv"
+  plus the built binary. Nothing else — it sources no library.
+gate D (scripts/dogfood/docs.sh):
+  42:CSV="docs/audits/surface_audit.csv"
+  51:COOKBOOK="${COOKBOOK:-${_common_abs}/../forjar-cookbook}"
+  82:README = "README.md"
+  plus the built binary and the cookbook clone. Nothing else.
+
+### 3. the selection matrix, from the script itself
+FILE LIST                                                  OUTPUT
+src/core/mod.rs                                            code=true gate_c=true gate_d=true gates=C,D 
+Cargo.toml                                                 code=true gate_c=true gate_d=true gates=C,D 
+contracts/x.yaml                                           code=true gate_c=true gate_d=true gates=C,D 
+docs/audits/surface_audit.csv                              code=true gate_c=true gate_d=true gates=C,D 
+README.md                                                  code=true gate_c=false gate_d=true gates=D 
+scripts/dogfood/surface.sh                                 code=true gate_c=true gate_d=false gates=C 
+scripts/dogfood/docs.sh                                    code=true gate_c=false gate_d=true gates=D 
+tests/ + docs/ + .quorum/ + scripts/                       code=true gate_c=false gate_d=false gates=none 
+CLAUDE.md                                                  code=true gate_c=false gate_d=false gates=none 
+.github/workflows/ci.yml                                   code=true gate_c=true gate_d=true gates=C,D 
+some/path/nobody/classified                                code=true gate_c=true gate_d=true gates=C,D 
+(an empty list)                                            code=true gate_c=true gate_d=true gates=C,D 
+
+### 4. the last 25 merged PRs, each run through the classifier
+PR      code        gates     top-level paths it touched
+#541    true        none      docs/ .quorum/ scripts/ tests/ 
+#539    true        D         docs/ .quorum/ scripts/ tests/ 
+#538    true        none      .claude/ CLAUDE.md docs/ .quorum/ scripts/ tests/ 
+#536    true        none      docs/ .quorum/ 
+#532    true        none      docs/ .quorum/ scripts/ tests/ 
+#527    true        C,D       Cargo.lock Cargo.toml CHANGELOG.md docs/ .quorum/ README.md scripts/ tests/ 
+#524    true        none      docs/ .quorum/ scripts/ tests/ 
+#523    true        none      docs/ .quorum/ scripts/ tests/ 
+#519    true        none      docs/ .quorum/ scripts/ tests/ 
+#518    true        none      .claude/ CLAUDE.md docs/ .quorum/ scripts/ tests/ 
+#517    true        none      docs/ .quorum/ scripts/ tests/ 
+#516    true        C,D       docs/ .github/ .quorum/ scripts/ tests/ 
+#515    true        none      docs/ .quorum/ scripts/ tests/ 
+#514    true        C,D       docs/ .github/ .quorum/ tests/ 
+#513    false       none      docs/ .quorum/ 
+#511    false       none      docs/ .quorum/ 
+#510    true        C,D       docs/ .github/ .quorum/ tests/ 
+#509    false       none      docs/ .quorum/ 
+#508    true        C,D       Cargo.lock Cargo.toml CHANGELOG.md docs/ .quorum/ README.md scripts/ tests/ 
+#507    true        C,D       CHANGELOG.md .claude/ CLAUDE.md contracts/ docs/ .github/ Makefile .quorum/ scripts/ tests/ 
+#505    true        C,D       CHANGELOG.md contracts/ docs/ .quorum/ scripts/ tests/ 
+#504    true        C,D       CHANGELOG.md contracts/ docs/ .quorum/ src/ tests/ 
+#502    true        C,D       CHANGELOG.md contracts/ docs/ .quorum/ src/ tests/ 
+#500    true        C,D       contracts/ docs/ examples/ .quorum/ src/ tests/ 
+#498    true        C,D       docs/ .quorum/ src/ tests/ 
+
+  25 PRs measured
+  3  code=false      — already skipped every heavy job (PMAT-237)
+  12  can move a gate — the build and the selected gate(s) still run
+  10  gates=none      — 21.3 min of a 25.2 min critical path, for nothing
+
+  40% of all PRs stop paying 21.3 min; their critical path becomes
+  ci / test at 6.3 min, which is 75% faster than 25.2.
+
+### 5. and THIS branch, which pays in full
+  .github/actions/changed-class/action.yml
+  .github/workflows/ci.yml
+  docs/roadmaps/roadmap.yaml
+  scripts/ci/changed-class.sh
+  tests/changed_class_fixture/mod.rs
+  tests/falsification_pr_lane_runs_what_the_change_can_break.rs
+  tests/falsification_pr_lane_selects_the_gate_the_change_can_move.rs
+  -> code=true gate_c=true gate_d=true gates=C,D 
+  .github/** is unclassified for the selection, so a change to the lane
+  itself runs both gates. That is the allow-list failing in the direction
+  it is supposed to fail in: this PR does not get to skip the gates it is
+  changing the rules for.

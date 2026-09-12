@@ -33,6 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.class.outputs.code }}
+      gate_c: ${{ steps.class.outputs.gate_c }}
+      gate_d: ${{ steps.class.outputs.gate_d }}
+      gates: ${{ steps.class.outputs.gates }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -239,33 +242,60 @@ jobs:
   # F (coverage + mutants), G (pv contracts) and H (crux reconcile) need pmat
   # and pv, which are provisioned on the clean-room hosts by forjar.yaml, so
   # they run there through `make dogfood-release`.
-  dogfood:
+  # PMAT-542: the gates that MEASURE THE BUILT BINARY, and the release build
+  # they need, run only when the change can move them. Measured on the 25 PRs
+  # merged as of cddf78cd: 10 were code=true and could reach neither gate, and
+  # each paid 21.3 minutes of a 25.2-minute critical path for a surface its diff
+  # could not touch. The guard tests below are a separate job because they are
+  # cheap and every code change can move them.
+  #
+  # THIS IS A LATENCY CHANGE, NOT A COVERAGE CHANGE. `make dogfood-release` runs
+  # A-H and T over the whole window before any tag, and the `gate` job below
+  # refuses this job's skip whenever `gates` says it should have run.
+  dogfood-surface:
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
+    needs: classify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build the artifact the surface gates measure
+        run: cargo build --release --locked
+      - name: Gate C — surface from the built artifact
+        if: needs.classify.outputs.gate_c == 'true'
+        run: bash scripts/dogfood/surface.sh
+      - name: Gate C — NOT-SELECTED
+        if: needs.classify.outputs.gate_c != 'true'
+        run: echo "GATE C NOT-SELECTED this change touches nothing gate C reads (the built binary, docs/audits/surface_audit.csv, scripts/dogfood/surface.sh) — measured in full by make dogfood-release before the tag"
+      - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
+        if: needs.classify.outputs.gate_d == 'true'
+        run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
+      - name: Gate D — documented invocations run against fixtures
+        if: needs.classify.outputs.gate_d == 'true'
+        run: bash scripts/dogfood/docs.sh
+        env:
+          COOKBOOK: ${{ runner.temp }}/forjar-cookbook
+      - name: Gate D — NOT-SELECTED
+        if: needs.classify.outputs.gate_d != 'true'
+        run: echo "GATE D NOT-SELECTED this change touches nothing gate D reads (the built binary, README.md, docs/audits/surface_audit.csv, scripts/dogfood/docs.sh) — measured in full by make dogfood-release before the tag"
+
+  dogfood-guards:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Build the artifact the surface gate measures
-        run: cargo build --release --locked
-      - name: Gate C — surface from the built artifact
-        run: bash scripts/dogfood/surface.sh
-      - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
-        run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
-      - name: Gate D — documented invocations run against fixtures
-        run: bash scripts/dogfood/docs.sh
-        env:
-          COOKBOOK: ${{ runner.temp }}/forjar-cookbook
       - name: Guard tests
-        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree
+        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move
 
   gate:
     runs-on: ubuntu-latest
-    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood]
+    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:
       - name: Check required jobs
         env:
           CODE: ${{ needs.classify.outputs.code }}
+          GATES: ${{ needs.classify.outputs.gates }}
         run: |
           # PMAT-237: a job may be SKIPPED only because the change cannot reach
           # it. The gate re-reads the class rather than trusting the skip: if
@@ -287,6 +317,14 @@ jobs:
           fi
           if [ -z "$CODE" ]; then
             echo "::error::the class is empty — treating it as code and refusing"
+            exit 1
+          fi
+          # PMAT-542: the SELECTION must have been measured too. The classifier
+          # prints `none` and never the empty string, exactly so that "nothing
+          # was selected" and "nothing computed a selection" cannot look the
+          # same here. An empty value is the second one.
+          if [ -z "$GATES" ]; then
+            echo "::error::the gate selection is empty — nothing measured which gates this change can move, and an unmeasured selection is not a selection"
             exit 1
           fi
 
@@ -315,6 +353,27 @@ jobs:
           ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1
           ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
           ok "doctests" "${{ needs.doctests.result }}" || exit 1
-          ok "dogfood" "${{ needs.dogfood.result }}" || exit 1
+          ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+          # PMAT-542: dogfood-surface skips on its OWN condition, which is
+          # `gates != none` rather than the class. Re-read the selection here
+          # for the same reason `ok` re-reads the class: a skip is a claim until
+          # the thing that decided it says so.
+          case "${{ needs.dogfood-surface.result }}" in
+            success) echo "dogfood-surface: ran gates $GATES" ;;
+            skipped)
+              if [ "$CODE" != "true" ]; then
+                echo "dogfood-surface: skipped — the change touches nothing it reads"
+              elif [ "$GATES" = "none" ]; then
+                echo "dogfood-surface: NOT-SELECTED — this change can move neither gate C nor gate D; both are measured in full by make dogfood-release before the tag"
+              else
+                echo "::error::dogfood-surface was skipped while the selection says $GATES"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::dogfood-surface: ${{ needs.dogfood-surface.result }}"
+              exit 1
+              ;;
+          esac
           echo "All required jobs passed"
 
