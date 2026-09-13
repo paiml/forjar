@@ -14,9 +14,10 @@ it exactly that way.
 
 1. [gate-b-ratchet] "The roadmap bookkeeping is in order, so the CB-21xx ratchet
    holds." Refuted by gate B on this branch, before any lane ran.
-   - evidence: `GATE B FAIL the CB-2110..CB-2115 ratchet (Arm 7): REGRESSION:
-     CB-2114: 36 finding(s), ceiling 34 (recorded 2026-09-11); CB-2115: 49
-     finding(s), ceiling 43` — recorded verbatim at
+   - evidence: gate B printed `REGRESSION` for two of the five ratcheted checks —
+     `CB-2114: 36 finding(s), ceiling 34 (recorded 2026-09-11)` and `CB-2115: 49
+     finding(s), ceiling 43` —
+     recorded verbatim at
      docs/audits/logs/PMAT-555-cut.log:2. The growth was the author's: six GitHub
      issues were filed during this window and not one carried the three things
      the baseline's own convention requires of a new ticket.
@@ -29,7 +30,8 @@ it exactly that way.
 
 2. [gate-t-label] "Every ticket of the open window carries its release label."
    Refuted by gate T.
-   - evidence: `GATE T FAIL PMAT-549 merged since v1.29.0 and its roadmap row
+   - evidence: gate T refused by name —
+     `GATE T FAIL PMAT-549 merged since v1.29.0 and its roadmap row
      does not carry release:v1.30.0`. The row is at
      docs/roadmaps/roadmap.yaml:3962. A PR is labelled when it MERGES, not when
      the cut is made, and #551 merged into this window hours before the cut began
@@ -83,7 +85,8 @@ it exactly that way.
 
 7. [no-behaviour-change] Nothing in this diff changes forjar's behaviour, so no
    falsification test is owed. All three lanes.
-   - evidence: gate F reported `no .rs differs from origin/main, so there is
+   - evidence: gate F reported that nothing in this diff is Rust —
+     `no .rs differs from origin/main, so there is
      nothing to mutate`, quoted at docs/audits/dogfood-1.30.0-receipt.md:14, and
      the receipt names that arm as vacuous FOR THIS CUT rather than counting it as
      a pass. The falsification this release rests on is #551's, already merged and

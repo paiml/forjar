@@ -38,6 +38,27 @@ why: measured dropping 20 of 57 `kind:` fields and reflowing 369 lines. `kind:`
 is what the paiml-implement kind-gate reads, so the documented writer silently
 removes a gate's input. The `release:` fields in this diff are written textually.
 
+## analyze_vacuous_tests
+
+`pmat analyze vacuous-tests`, on this tree:
+
+```
+432 of 19736 #[test] fns cannot fail (2.2%) across 2181 parsed file(s);
+3 more skip silently when a fixture is missing
+```
+
+**In the paths this diff touches: zero.** The diff touches no `.rs` at all —
+`Cargo.toml`, `Cargo.lock`, `README.md`, `CHANGELOG.md`, four `docs/audits/`
+files, `docs/roadmaps/roadmap.yaml` and this evidence bundle. So the number
+above is the repository's standing backlog and not this cut's: a release
+receipt that quoted 432 as if the cut had caused it would be exactly the kind
+of unattributed measurement this gate exists to catch.
+
+The 432 are real debt and are owned elsewhere; the 3 silent skips
+(`FORJAR_SECRET_TEST_KEY`, `FORJAR_AGE_KEY`, and a container-runtime probe)
+are the more interesting number, because a test that skips when its fixture is
+absent reports green having measured nothing.
+
 ## What was not run, and why
 
 No `cargo test` beyond what the gates run: this cut changes no Rust, which gate
