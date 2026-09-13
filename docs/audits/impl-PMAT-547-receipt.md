@@ -93,7 +93,7 @@ Log §6.
 
 **It caught a site this change's own converter missed.** `nightly.yml:73` read `runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)`; the converter matched a runner value to end-of-line, so the trailing comment made the value not match, and the script reported success while a hosted ARM runner stayed. That is the argument for parsing over grepping, made by the change's own tooling against itself.
 
-Twelve cases. Seven are invariants, five are controls a review lane's findings
+Thirteen cases. Seven are invariants, six are controls a review lane's findings
 turned into fixtures, one counts the jobs whose runner this repository does not
 choose, and one pins the architecture:
 
@@ -107,7 +107,7 @@ choose, and one pins the architecture:
 | `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` | M6 — one fleet job loses its private `CARGO_HOME` |
 | `controls::a_mixed_case_linux_label_is_still_a_linux_label` | M7 — `runs-on: Ubuntu-latest` in audit.yml |
 
-M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The survivors are exactly the cases that assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. RE-MEASURED AT THIS HEAD, where the suite is twelve: M4 kills six of the twelve — the four controls, `the_parser_finds_the_runners_that_are_there` and `the_platforms_the_fleet_cannot_serve_are_exactly_these` — and six survive, the four absence-assertions plus `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` and `controls::a_fleet_job_is_not_mistaken_for_a_hosted_one`. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
+M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The survivors are exactly the cases that assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. RE-MEASURED AT THIS HEAD, where the suite is thirteen: M4 kills six of the thirteen — the four controls, `the_parser_finds_the_runners_that_are_there` and `the_platforms_the_fleet_cannot_serve_are_exactly_these` — and seven survive: the four absence-assertions, `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself`, `controls::a_fleet_job_is_not_mistaken_for_a_hosted_one` and `controls::a_mixed_case_linux_label_is_still_a_linux_label`, which reads `linux_label` directly and never touches the parser. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
 
 ### The case that owns the rule was blind to case, and a lane found it
 
