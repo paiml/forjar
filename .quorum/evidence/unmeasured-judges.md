@@ -70,8 +70,9 @@ binds adds a test for each. The CRUX was ruled on in round one like any other cl
 
 3. [r2-census-partition] Round two C3 — the census puts every in-scope resource in exactly one of
    inspected, skipped or unmeasured, for every report including the lockless one.
-   - evidence: src/tripwire/drift/census.rs:103 is `is_inspected`, `self.skipped.is_none() &&
-     !self.unmeasured`, so the three states partition by construction; and every report is now built by
+   - evidence: src/tripwire/drift/census.rs:103 is `is_inspected`, and it reads the skipped and
+     unmeasured flags together, so the three states partition every in-scope resource by construction;
+     and every report is now built by
      `DriftReport::new`, which is what round one's refutation forced.
 
 4. [r2-json-and-text] Round two C4 — CLI JSON keeps `drift_count == findings.len()` and adds
