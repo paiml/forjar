@@ -3968,7 +3968,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-13T07:00:59Z
-  updated: 2026-09-13T07:00:59Z
+  updated: 2026-09-13T19:17:07Z
   spec: null
   acceptance_criteria:
   - 'forjar#549. transport timeout on a 60s-limited completion_check rendered as DRIFTED with Actual: ERROR. Invites allowlisting a converged resource.'
@@ -3977,6 +3977,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.30.0
   notes: null
 - id: PMAT-555
   github_issue: 555
