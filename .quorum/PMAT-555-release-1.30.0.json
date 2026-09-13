@@ -1,0 +1,134 @@
+{
+  "kind": "code",
+  "issue": "PMAT-555 (closes forjar#555) — release 1.30.0. Nine PRs since v1.29.0. The headline is #551 (PMAT-549): a query the target never answered is UNMEASURED, not drift. The other eight are the gates and records that decide when a cut may happen at all. No Rust changes in this diff.",
+  "branch": "PMAT-555-release-1.30.0",
+  "base": "586dba26",
+  "base_commit": "586dba2668a9ffe81bdaade67422cebd953df1b4",
+  "diff_sha256": "1bc77a03594062a1b917d5497d62b9706acd8b50",
+  "recorded_at": "after one round of three sandboxed agy lanes, 3/3 PASS with no findings, on a head the release gates had already refused three times and cleared. The refutations in this cut are the gates own and are recorded as theirs, not as the lanes.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1, head 81b2aae4 — gemini-3.1-pro-high (declared = measured), review-only in its own clone with push removed, writes=false, tree witness returned: PASS, 0 findings",
+      "lane 2, head 81b2aae4 — gemini-3.6-flash-high (declared = measured), review-only in its own clone with push removed, writes=false, tree witness returned: PASS, 0 findings",
+      "lane 3, head 81b2aae4 — gemini-3.8-flash-medium (declared = measured), review-only in its own clone with push removed, writes=false, tree witness returned: PASS, 0 findings"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "THE JUDGES ARE THE LANES. This cut ran no second-tier judge phase: the same three lanes that reviewed the diff are the panel each claim was put to, so judges=3 and refuters_per_claim=3 count the SAME three reviewers rather than two independent tiers, and PMAT-549 (two rounds of three lanes each followed by three separate judges) is the stronger shape. Recorded here so the two numbers are not read as six reviewers. The refutations in this cut came from the release gates, not from the panel — see .quorum/evidence/release-1.30.0-judges.md, which names them as the refuting authority.",
+    "kill_rule": "not applicable to this round: no lane raised a finding. The gates ruling is binding in the other direction — a red gate stops the cut and no verdict overrides it.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "gate-b-ratchet: the CB-21xx ratchet refused the branch — CB-2114 36 against a ceiling of 34, CB-2115 49 against 43 — because six issues filed in this window carried no roadmap row, no milestone and no release: field. Repaired to the baselines own convention, never raised; after: 34 / 34 / 42.",
+      "gate-t-label: PMAT-549 merged since v1.29.0 and its roadmap row did not carry release:v1.30.0. A PR is labelled when it MERGES, not when the cut is made. release-goal.sh sync labelled it and reported nine as already correct.",
+      "gate-h-shape: the CHANGELOG window entries were markdown list items where gate H counts only a bold span opening a paragraph, so nine behaviour changes would have shipped with the gate that requires a comparison printing nothing. Then the crux document did not exist. Then one row named two surveyed systems where the floor is three."
+    ]
+  },
+  "falsification": {
+    "test": "falsification_release_changelog_counts_the_window (5 cases, all pass on this tree) is the falsifier this cut RESTS on rather than one it adds: it is the test that makes the CHANGELOG window rule refutable, and this cut is an instance of that rule. No new test is owed, because the diff changes no Rust — gate F reports no .rs differs from origin/main. The behaviour being released was falsified on its own branch: #551 carries four integration cases and eleven unit cases, with origin/main src/ checked out over the head to watch all four fail.",
+    "test_file": "docs/audits/logs/PMAT-555-cut.log",
+    "cargo_test_target": "falsification_release_changelog_counts_the_window",
+    "observed_failure": "GATE B FAIL the CB-2110..CB-2115 ratchet (Arm 7): REGRESSION: CB-2114: 36 finding(s), ceiling 34; CB-2115: 49 finding(s), ceiling 43 — then GATE T FAIL PMAT-549 merged since v1.29.0 and its roadmap row does not carry release:v1.30.0 — then GATE H FAIL three times: no behaviour bullet under [1.30.0], then no docs/audits/crux-1.30.0.md, then 1 crux row names fewer than 3 world-class systems. Recorded verbatim in docs/audits/logs/PMAT-555-cut.log.",
+    "reverted": "not applicable: the reds above were REAL reds on this branch, in sequence, each cleared by the change the cut log names beside it. A gate that was never red on a branch is not evidence that it can fail; these three were.",
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "docs/audits/crux-1.30.0.md, nine rows, one per behaviour bullet, each naming >= 3 of the 28 surveyed systems. Written by the release orchestrator from documentation memory rather than surveyed by an agy lane as 1.29.0s was, every third-party claim marked [X], and the audits Method section says so in its first paragraph.",
+    "systems": [
+      "Ansible, Kubernetes, Terraform and Puppet: every one already distinguishes unreachable from failed — Ansibles play recap, Kubernetes node Unknown, Terraform refusing to plan against an unreachable provider [X]",
+      "Docker, SLSA, Sigstore, in-toto: the mutable-latest-pointer hazard, and the fields answer of verifying the artifact rather than the pointer [X]",
+      "Nix, Bazel, Terraform: flake.lock, MODULE.bazel.lock and .terraform.lock.hcl all distinguish a requirement from a lock — forjars gate T had been reading the requirement [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one round of three sandboxed agy quorum lanes, review-only",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "3/3 PASS, agreed=true, bound to head 81b2aae4",
+    "out_dir": "docs/audits/quorum-PMAT-555.json (working tree only — NOT committed: forjars convention is .quorum/<branch>.json, main carries 448 of those and 0 docs/audits/quorum-*.json, and committing one moves the hash this receipt binds. forjar#554.)"
+  },
+  "pmat": {
+    "ticket": "PMAT-555",
+    "tools": [
+      "make release-goal (v1.30.0 due 2026-09-13T19:55:10Z, 10 merged / 9 tagged)",
+      "make release-check (GATE R PASS)",
+      "make dogfood-release (nine gates, exit 0)",
+      "pmat comply check --format json (before: CB-2112 35, CB-2114 36, CB-2115 49; after: 34 / 34 / 42)",
+      "pmat work sync --check-only (named the three orphan issues the author had just created)",
+      "scripts/release-goal.sh sync (nine already, one labelled)",
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests (432 of 19736 #[test] fns cannot fail, 2.2%, across 2181 parsed files; 3 more skip silently)"
+    ],
+    "quality_gate": "GATE B PASS comply clean; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs error(s); the CB-21xx ratchet holding at 34 / 34 / 42 against ceilings 35 / 34 / 43",
+    "vacuous_scan": "pmat analyze vacuous-tests: 432 of 19736 #[test] fns cannot fail (2.2%) across 2181 parsed file(s), and 3 more skip silently when a fixture is missing. That is the repository standing backlog, not this cuts: the diff touches no .rs, so no test in it can be vacuous. Also gate F: no .rs differs from origin/main, so the mutation arm is vacuous FOR THIS CUT and the dogfood receipt names it as vacuous rather than counting it a pass.",
+    "vacuous_tests_in_touched_paths": 0,
+    "tool_defects_found": [
+      "forjar#554 — the quorum gate hashes docs/audits/quorum-*.json, which the review tooling writes, so committing a verdict moves the hash the receipt binds and each round invalidates itself. Hit while cutting this release; the workaround here is not to commit that file, and the fix is a .gitignore entry matching the convention main already follows."
+    ]
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/release-1.30.0-judges.md",
+    "total_bytes": 14914,
+    "files": [
+      {
+        "path": ".quorum/evidence/release-1.30.0-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1923,
+        "sha256": "42c3092f324871c6dd37a1f9947e8c1b6a836c8905694dbf8bde6f2a57e4077e",
+        "blob": "4f3647a7973dd9774c7bd9c00a6c09d24db21216"
+      },
+      {
+        "path": ".quorum/evidence/release-1.30.0-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1307,
+        "sha256": "b79275439043c54850105e324621e2b9bef4ce45ca0fe2e8cd0f9bfe2349509f",
+        "blob": "d4c7cd68a21912e3367e5176e7a30727e0361bfa"
+      },
+      {
+        "path": ".quorum/evidence/release-1.30.0-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 5460,
+        "sha256": "a0aae518774bd555e80ef6f5485d580538d1583440c7f92da1373e92067ec659",
+        "blob": "5f82e5e1d0c405e709e2c57ca7aefd862eee114d"
+      },
+      {
+        "path": ".quorum/evidence/release-1.30.0-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1573,
+        "sha256": "582992cac2b925501561ae52ecfc3a04d0fb0b408fccf0089baa4c6c66b5bbd7",
+        "blob": "ed0487f9936399cb76d866aa5c2ae9eb04bf5003"
+      },
+      {
+        "path": ".quorum/evidence/release-1.30.0-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 1552,
+        "sha256": "5a2919968ba7594b1e00b7e3a3c185d076d162592e4211fe964e97c86b53140b",
+        "blob": "ced427badae6290dcc3b88c6cbf447cdf71099bc"
+      },
+      {
+        "path": ".quorum/evidence/release-1.30.0-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 3099,
+        "sha256": "3c3993439e1e02dc551f8860d674cbb13b436dfca3f98c0f7e87a3ed0217905f",
+        "blob": "eadcd2a6b69bbb3943896b4e5a8fd27863b37ff8"
+      }
+    ]
+  }
+}

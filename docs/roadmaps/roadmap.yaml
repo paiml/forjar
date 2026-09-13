@@ -3963,14 +3963,142 @@ roadmap:
   github_issue: 549
   item_type: task
   title: 'drift reports a completion_check that timed out as DRIFTED: an unmeasured resource must be its own verdict'
-  status: planned
+  release: 1.30.0
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-13T07:00:59Z
-  updated: 2026-09-13T07:00:59Z
+  updated: 2026-09-13T19:17:07Z
   spec: null
   acceptance_criteria:
   - 'forjar#549. transport timeout on a 60s-limited completion_check rendered as DRIFTED with Actual: ERROR. Invites allowlisting a converged resource.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.30.0
+  notes: null
+- id: PMAT-555
+  github_issue: 555
+  item_type: task
+  title: 'release: forjar 1.30.0 — a query the target never answered is UNMEASURED, not drift'
+  release: 1.30.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T18:52:55Z
+  updated: 2026-09-13T18:52:55Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-546
+  github_issue: 546
+  item_type: task
+  title: 'PVL-F1: proofs.yml aggregate not required; dogfood/contracts.sh invoked by no workflow; lean job lacks `if:` while its caller is label-gated'
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:39Z
+  updated: 2026-09-13T19:04:39Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-547
+  github_issue: 547
+  item_type: task
+  title: every CI job runs on the fleet — 31 workflow jobs were dispatched to GitHub-hosted runners
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:40Z
+  updated: 2026-09-13T19:04:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-550
+  github_issue: 550
+  item_type: task
+  title: drift reports DRIFTED and no apply converges it — --force and --refresh both plan '0 to change' on a resource drift just flagged
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:40Z
+  updated: 2026-09-13T19:04:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-552
+  github_issue: 552
+  item_type: task
+  title: 'a drift run exits 1, not the drift class 10: the classifier matches a string the drift path never emits'
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-553
+  github_issue: 553
+  item_type: task
+  title: remote_path_digest turns an unanswered query into None, outside the unmeasured reader
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-554
+  github_issue: 554
+  item_type: task
+  title: the quorum gate's hash covers a file the quorum itself writes, so every verdict invalidates its own receipt
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
