@@ -44,10 +44,24 @@ const DRIFT_QUERY_TIMEOUT_SECS: u64 = 60;
 /// The detectors now fill a census as they go; the bare-`Vec` wrappers below are
 /// kept for callers that genuinely only want findings.
 pub struct DriftReport {
-    /// What drifted.
+    /// What drifted, AND what could not be measured: `DriftFinding::is_unmeasured`
+    /// tells the two apart (forjar#549). A consumer that reports drift must split
+    /// them; one that does not still sees every unanswered query as a finding,
+    /// never as a clean result.
     pub findings: Vec<DriftFinding>,
     /// What was inspected, what was skipped, and why.
     pub census: DriftCensus,
+}
+
+impl DriftReport {
+    /// Findings and census, with the census told what went unmeasured.
+    ///
+    /// forjar#549: reports are built here, after all of their detectors have
+    /// run, so no census counts an unanswered query as inspected.
+    pub(super) fn new(findings: Vec<DriftFinding>, mut census: DriftCensus) -> Self {
+        unmeasured::census_unmeasured(&findings, &mut census);
+        Self { findings, census }
+    }
 }
 
 /// Uses local filesystem hashing (for local machines without transport context).
@@ -76,7 +90,7 @@ pub fn detect_drift_reported(lock: &StateLock, machine: Option<&Machine>) -> Dri
             census.skipped(id, &rl.resource_type, SkipReason::NoConfigLoaded);
         }
     }
-    DriftReport { findings, census }
+    DriftReport::new(findings, census)
 }
 
 /// Check a non-file resource for drift by running its state_query_script.
@@ -92,44 +106,47 @@ fn check_nonfile_drift(
         Err(_) => return None,
     };
 
-    match crate::transport::exec_script_timeout(machine, &query, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => {
-            // STRONG contract: query stdout may be empty when state absent.
-            //
-            // forjar#360: masked with the SAME field list the baseline was
-            // taken under (the caller has already refused to compare when the
-            // two disagree), so `ignore_drift: ["mode"]` suppresses the mode
-            // and leaves content, owner, group and existence being watched.
-            let actual_hash = hasher::hash_string_or_sentinel(
-                &crate::core::observation_mask::masked_for(&out.stdout, resource),
-            );
-            if actual_hash != stored_live_hash {
-                Some(DriftFinding {
-                    resource_id: id.to_string(),
-                    resource_type: rl.resource_type.clone(),
-                    expected_hash: stored_live_hash.to_string(),
-                    actual_hash,
-                    detail: format!("{} state changed", rl.resource_type),
-                })
-            } else {
-                None
-            }
+    let out = match unmeasured::read(machine, &query) {
+        unmeasured::Reading::Answered(out) => out,
+        // forjar#549: an unanswered query says nothing about the resource.
+        unmeasured::Reading::Unmeasured(why) => {
+            return Some(DriftFinding::unmeasured(
+                id,
+                rl.resource_type.clone(),
+                stored_live_hash,
+                why,
+            ))
         }
-        Ok(out) => Some(DriftFinding {
+    };
+    if !out.success() {
+        return Some(DriftFinding {
             resource_id: id.to_string(),
             resource_type: rl.resource_type.clone(),
             expected_hash: stored_live_hash.to_string(),
             actual_hash: "ERROR".to_string(),
             detail: format!("state query failed: {}", out.stderr.trim()),
-        }),
-        Err(e) => Some(DriftFinding {
-            resource_id: id.to_string(),
-            resource_type: rl.resource_type.clone(),
-            expected_hash: stored_live_hash.to_string(),
-            actual_hash: "ERROR".to_string(),
-            detail: format!("transport error: {e}"),
-        }),
+        });
     }
+    // STRONG contract: query stdout may be empty when state absent.
+    //
+    // forjar#360: masked with the SAME field list the baseline was taken under
+    // (the caller has already refused to compare when the two disagree), so
+    // `ignore_drift: ["mode"]` suppresses the mode and leaves content, owner,
+    // group and existence being watched.
+    let actual_hash = hasher::hash_string_or_sentinel(&crate::core::observation_mask::masked_for(
+        &out.stdout,
+        resource,
+    ));
+    if actual_hash == stored_live_hash {
+        return None;
+    }
+    Some(DriftFinding {
+        resource_id: id.to_string(),
+        resource_type: rl.resource_type.clone(),
+        expected_hash: stored_live_hash.to_string(),
+        actual_hash,
+        detail: format!("{} state changed", rl.resource_type),
+    })
 }
 
 /// Full drift detection: files via hash comparison, non-file resources via state_query_script.
@@ -177,7 +194,7 @@ pub fn detect_drift_full_reported(
         &mut census,
     ));
     census_declared_but_unlocked(lock, resources, &mut census);
-    DriftReport { findings, census }
+    DriftReport::new(findings, census)
 }
 
 /// Count what this config declares for this machine that the lock has never
@@ -220,115 +237,137 @@ fn detect_nonfile_drift(
 ) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
     for (id, rl) in &lock.resources {
-        // A task carrying a completion_check belongs to `task_check`, which has
-        // already recorded its verdict and its census entry. Running the state
-        // query here as well would execute the very same command a second time
-        // — `task::state_query_script` IS `verdict::single(<the check>)` — and
-        // report one violated guard as two findings.
-        if resources.get(id).is_some_and(task_check::owns) {
-            continue;
-        }
-        // A SERVICE-mode task is not owned by `task_check` (its lock digest was
-        // written against the PID-file query), so it reaches the state query
-        // here — and `task::state_query_script` still prefers the declared
-        // `completion_check` when there are no output artifacts. Under
-        // `run_task_checks: false` that is a config-declared command about to
-        // run on a read-only surface (E05 quorum, agy lane): decline it under
-        // the same closed-set reason, so the census says so.
-        if !opts.run_task_checks
-            && resources.get(id).is_some_and(|r| {
-                r.resource_type == ResourceType::Task && r.completion_check.is_some()
-            })
-        {
-            census.skipped(
-                id,
-                &rl.resource_type,
-                census::SkipReason::TaskChecksDisabled,
-            );
-            continue;
-        }
-        // FILE RESOURCES ARE NOT EXCLUDED ANY MORE.
-        //
-        // This read `|| rl.resource_type == ResourceType::File`, added with the
-        // comment "already handled by detect_drift_impl" — which was FALSE when
-        // written. `source:` support had landed 3h49m earlier the same evening
-        // without extending `build_resource_details`, so a `source:` file never
-        // gets a `content_hash` and `detect_drift_impl` returns None for it
-        // (absence of evidence rendered as cleanliness). A later refactor folded
-        // the two ifs together and deleted the comment, so the false premise
-        // stopped being visible at the line.
-        //
-        // Measured on the fleet before this change: 320 of 329 locked file
-        // resources carried NO content_hash — 97% invisible to drift — while
-        // 323 carried a `live_hash` that nothing read. That hash comes from
-        // `state_query_script` run ON THE TARGET through the transport and
-        // covers content, owner, group, mode and existence, so it is strictly
-        // stronger than the controller-side bytes-only `content_hash`.
-        // (forjar#305.)
-        // `Drifted` IS RE-CHECKED. It means "needs work", not "stop looking".
-        //
-        // This read `!= Converged`, which was correct while nothing ever wrote
-        // `Drifted`. #307 started writing it — and turned the drift tripwire
-        // into a gate that fires ONCE and then reports clean forever over a
-        // still-tampered file:
-        //
-        //     tripwire before        -> 1 (drift detected, correct)
-        //     apply --dry-run        -> lock status becomes `drifted`
-        //     tripwire after         -> 0 (CLEAN) while bytes are still TAMPERED
-        //
-        // That is strictly worse than the #305 blindness it replaced: a gate
-        // that never fired gets distrusted, a gate that fires once and then
-        // lies gets TRUSTED. `--tripwire` is the CI gate. (forjar#310.)
-        //
-        // Failed/Unknown stay excluded: their lock hash records an apply that
-        // did not complete, so it is not a baseline anything can be compared
-        // against. `Drifted` is different — it was written by an apply that
-        // OBSERVED a converged resource move, so the recorded hash is exactly
-        // the baseline drift detection needs.
-        if rl.status != ResourceStatus::Converged && rl.status != ResourceStatus::Drifted {
-            census.skipped(id, &rl.resource_type, SkipReason::NotConverged);
-            continue;
-        }
-        if should_ignore_drift(id, resources) {
-            census.skipped(id, &rl.resource_type, SkipReason::IgnoreDrift);
-            continue;
-        }
-        // `None` = NOT OBSERVED, not "unchanged" (see ResourceLock::observed):
-        // this is the call site that read the wrong digest for five months.
-        //
-        // It is also the line that made every `--refresh`-seeded resource
-        // invisible (forjar#380): seeding writes `observed: None`, so this
-        // `continue` fires for a resource an apply DID find converged. For a
-        // task the assertion is now run regardless, above; for the rest there
-        // is genuinely no baseline to compare against, so the honest move is to
-        // count it as uninspected rather than pass over it in silence.
-        let Some(stored_live_hash) = rl.observed_state() else {
-            census.skipped(id, &rl.resource_type, SkipReason::NoObservedState);
-            continue;
-        };
-        let Some(resource) = resources.get(id) else {
-            census.skipped(id, &rl.resource_type, SkipReason::NotInConfig);
-            continue;
-        };
-        // forjar#360: the baseline was hashed under whatever mask was in force
-        // when it was taken. Adding `ignore_drift: ["mode"]` to an
-        // already-converged resource leaves an UNMASKED baseline, and comparing
-        // a masked live reading against it manufactures drift on the exact
-        // field the operator asked forjar to ignore — which, since forjar#307,
-        // then blocks the apply that would fix it. An incomparable baseline is
-        // an absence of evidence, so it is censused, not reported.
-        if crate::core::observation_mask::recorded_mask(rl)
-            != crate::core::observation_mask::mask_key(resource)
-        {
-            census.skipped(id, &rl.resource_type, SkipReason::ObservationMaskChanged);
-            continue;
-        }
-        census.inspected(id, &rl.resource_type);
-        if let Some(f) = check_nonfile_drift(id, rl, resource, machine, stored_live_hash) {
-            findings.push(f);
+        match nonfile_step(id, rl, resources, opts) {
+            NonfileStep::NotMine => {}
+            NonfileStep::Skip(reason) => census.skipped(id, &rl.resource_type, reason),
+            NonfileStep::Compare(resource, stored_live_hash) => {
+                census.inspected(id, &rl.resource_type);
+                findings.extend(check_nonfile_drift(
+                    id,
+                    rl,
+                    resource,
+                    machine,
+                    stored_live_hash,
+                ));
+            }
         }
     }
     findings
+}
+
+/// What the state-query detector does with one lock entry.
+///
+/// Split out of `detect_nonfile_drift` so that each decision keeps the note that
+/// explains it while the loop stays small enough to read.
+enum NonfileStep<'a> {
+    /// Another detector owns this resource's verdict and its census entry.
+    NotMine,
+    /// Declined, and the census says why.
+    Skip(SkipReason),
+    /// Query the target and compare against this recorded baseline.
+    Compare(&'a Resource, &'a str),
+}
+
+fn nonfile_step<'a>(
+    id: &str,
+    rl: &'a crate::core::types::ResourceLock,
+    resources: &'a indexmap::IndexMap<String, Resource>,
+    opts: DriftOptions,
+) -> NonfileStep<'a> {
+    let declared = resources.get(id);
+    // A task carrying a completion_check belongs to `task_check`, which has
+    // already recorded its verdict and its census entry. Running the state
+    // query here as well would execute the very same command a second time
+    // — `task::state_query_script` IS `verdict::single(<the check>)` — and
+    // report one violated guard as two findings.
+    if declared.is_some_and(task_check::owns) {
+        return NonfileStep::NotMine;
+    }
+    // A SERVICE-mode task is not owned by `task_check` (its lock digest was
+    // written against the PID-file query), so it reaches the state query
+    // here — and `task::state_query_script` still prefers the declared
+    // `completion_check` when there are no output artifacts. Under
+    // `run_task_checks: false` that is a config-declared command about to
+    // run on a read-only surface (E05 quorum, agy lane): decline it under
+    // the same closed-set reason, so the census says so.
+    if !opts.run_task_checks
+        && declared
+            .is_some_and(|r| r.resource_type == ResourceType::Task && r.completion_check.is_some())
+    {
+        return NonfileStep::Skip(SkipReason::TaskChecksDisabled);
+    }
+    // FILE RESOURCES ARE NOT EXCLUDED ANY MORE.
+    //
+    // This read `|| rl.resource_type == ResourceType::File`, added with the
+    // comment "already handled by detect_drift_impl" — which was FALSE when
+    // written. `source:` support had landed 3h49m earlier the same evening
+    // without extending `build_resource_details`, so a `source:` file never
+    // gets a `content_hash` and `detect_drift_impl` returns None for it
+    // (absence of evidence rendered as cleanliness). A later refactor folded
+    // the two ifs together and deleted the comment, so the false premise
+    // stopped being visible at the line.
+    //
+    // Measured on the fleet before this change: 320 of 329 locked file
+    // resources carried NO content_hash — 97% invisible to drift — while
+    // 323 carried a `live_hash` that nothing read. That hash comes from
+    // `state_query_script` run ON THE TARGET through the transport and
+    // covers content, owner, group, mode and existence, so it is strictly
+    // stronger than the controller-side bytes-only `content_hash`.
+    // (forjar#305.)
+    // `Drifted` IS RE-CHECKED. It means "needs work", not "stop looking".
+    //
+    // This read `!= Converged`, which was correct while nothing ever wrote
+    // `Drifted`. #307 started writing it — and turned the drift tripwire
+    // into a gate that fires ONCE and then reports clean forever over a
+    // still-tampered file:
+    //
+    //     tripwire before        -> 1 (drift detected, correct)
+    //     apply --dry-run        -> lock status becomes `drifted`
+    //     tripwire after         -> 0 (CLEAN) while bytes are still TAMPERED
+    //
+    // That is strictly worse than the #305 blindness it replaced: a gate
+    // that never fired gets distrusted, a gate that fires once and then
+    // lies gets TRUSTED. `--tripwire` is the CI gate. (forjar#310.)
+    //
+    // Failed/Unknown stay excluded: their lock hash records an apply that
+    // did not complete, so it is not a baseline anything can be compared
+    // against. `Drifted` is different — it was written by an apply that
+    // OBSERVED a converged resource move, so the recorded hash is exactly
+    // the baseline drift detection needs.
+    if rl.status != ResourceStatus::Converged && rl.status != ResourceStatus::Drifted {
+        return NonfileStep::Skip(SkipReason::NotConverged);
+    }
+    if should_ignore_drift(id, resources) {
+        return NonfileStep::Skip(SkipReason::IgnoreDrift);
+    }
+    // `None` = NOT OBSERVED, not "unchanged" (see ResourceLock::observed):
+    // this is the call site that read the wrong digest for five months.
+    //
+    // It is also the line that made every `--refresh`-seeded resource
+    // invisible (forjar#380): seeding writes `observed: None`, so this
+    // `continue` fires for a resource an apply DID find converged. For a
+    // task the assertion is now run regardless, above; for the rest there
+    // is genuinely no baseline to compare against, so the honest move is to
+    // count it as uninspected rather than pass over it in silence.
+    let Some(stored_live_hash) = rl.observed_state() else {
+        return NonfileStep::Skip(SkipReason::NoObservedState);
+    };
+    let Some(resource) = declared else {
+        return NonfileStep::Skip(SkipReason::NotInConfig);
+    };
+    // forjar#360: the baseline was hashed under whatever mask was in force
+    // when it was taken. Adding `ignore_drift: ["mode"]` to an
+    // already-converged resource leaves an UNMASKED baseline, and comparing
+    // a masked live reading against it manufactures drift on the exact
+    // field the operator asked forjar to ignore — which, since forjar#307,
+    // then blocks the apply that would fix it. An incomparable baseline is
+    // an absence of evidence, so it is censused, not reported.
+    if crate::core::observation_mask::recorded_mask(rl)
+        != crate::core::observation_mask::mask_key(resource)
+    {
+        return NonfileStep::Skip(SkipReason::ObservationMaskChanged);
+    }
+    NonfileStep::Compare(resource, stored_live_hash)
 }
 
 mod census;
@@ -340,12 +379,14 @@ mod ignore;
 mod image;
 mod lockless;
 mod task_check;
+mod unmeasured;
 
 pub use census::{DriftCensus, SkipReason};
 pub use file::{check_file_drift, check_file_drift_via_transport};
 pub use image::check_image_drift;
 pub use lockless::{detect_drift_lockless, lockless_dry_run_ids};
 pub use task_check::DriftOptions;
+pub use unmeasured::UNMEASURED;
 
 #[cfg(test)]
 mod tests_basic;
@@ -373,3 +414,5 @@ mod tests_lifecycle;
 mod tests_task_checks;
 #[cfg(test)]
 mod tests_transport;
+#[cfg(test)]
+mod tests_unmeasured;

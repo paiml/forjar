@@ -7,6 +7,7 @@
 
 use super::census::{DriftCensus, SkipReason};
 use super::ignore::should_ignore_drift;
+use super::unmeasured::{self, Reading};
 use super::{DriftFinding, DRIFT_QUERY_TIMEOUT_SECS};
 use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
@@ -125,33 +126,37 @@ pub fn check_file_drift_via_transport(
     let script = format!(
         "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
     );
-    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => {
-            let actual = hash_remote_content(&out, path, machine)?;
-            if actual != expected_hash {
-                Some(file_drift_finding(
-                    resource_id,
-                    expected_hash,
-                    actual,
-                    format!("{path} content changed"),
-                ))
-            } else {
-                None
-            }
+    let out = match unmeasured::read(machine, &script) {
+        Reading::Answered(out) => out,
+        // forjar#549: `ssh` exiting 255 used to reach the arm below as `Ok`
+        // and be reported MISSING — the verdict for a file a REACHED host lacks.
+        Reading::Unmeasured(why) => {
+            return Some(DriftFinding::unmeasured(
+                resource_id,
+                ResourceType::File,
+                expected_hash,
+                format!("{path} not measured: {why}"),
+            ))
         }
-        Ok(out) => Some(file_drift_finding(
+    };
+    if !out.success() {
+        return Some(file_drift_finding(
             resource_id,
             expected_hash,
             "MISSING".to_string(),
             format!("{} not accessible: {}", path, out.stderr.trim()),
-        )),
-        Err(e) => Some(file_drift_finding(
-            resource_id,
-            expected_hash,
-            "ERROR".to_string(),
-            format!("transport error: {e}"),
-        )),
+        ));
     }
+    let actual = hash_remote_content(&out, path, machine)?;
+    if actual == expected_hash {
+        return None;
+    }
+    Some(file_drift_finding(
+        resource_id,
+        expected_hash,
+        actual,
+        format!("{path} content changed"),
+    ))
 }
 
 /// Drift detection for file resources, respecting lifecycle.ignore_drift.

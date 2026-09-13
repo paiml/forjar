@@ -8,7 +8,8 @@
 //! the census bug (forjar#380) lived entirely in the first one.
 
 use super::apply_helpers::run_notify;
-use super::colors::{green, red};
+use super::colors::{green, red, yellow};
+use super::drift::DriftScan;
 use crate::core::types;
 use crate::tripwire::drift;
 
@@ -22,39 +23,51 @@ pub(super) fn census_json(name: &str, census: &drift::DriftCensus) -> serde_json
 }
 
 /// Print drift summary (JSON or text).
-pub(super) fn print_drift_summary(
-    machines_checked: u32,
-    total_drift: usize,
-    all_findings: &[serde_json::Value],
-    censuses: &[serde_json::Value],
-    json: bool,
-) -> Result<(), String> {
+pub(super) fn print_drift_summary(scan: &DriftScan, json: bool) -> Result<(), String> {
     // A `--json` consumer was as blind as a human reading the text output:
     // `drift_count: 0` over an unstated population. The census ships in both
     // surfaces or the machine-readable one becomes the lying half.
-    let inspected: u64 = censuses
-        .iter()
-        .filter_map(|c| c["inspected"].as_u64())
-        .sum();
-    let skipped: u64 = censuses.iter().filter_map(|c| c["skipped"].as_u64()).sum();
+    let sum = |key: &str| -> u64 { scan.censuses.iter().filter_map(|c| c[key].as_u64()).sum() };
+    let (inspected, skipped) = (sum("inspected"), sum("skipped"));
     if json {
         let report = serde_json::json!({
-            "machines_checked": machines_checked,
-            "drift_count": total_drift,
+            "machines_checked": scan.machines_checked,
+            "drift_count": scan.total_drift,
+            "unmeasured_count": scan.total_unmeasured,
             "resources_inspected": inspected,
             "resources_skipped": skipped,
-            "census": censuses,
-            "findings": all_findings,
+            "resources_unmeasured": sum("unmeasured"),
+            "census": scan.censuses,
+            "findings": scan.findings,
+            "unmeasured": scan.unmeasured,
         });
         let output =
             serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{output}");
-    } else if total_drift > 0 {
+    } else if scan.total_drift > 0 {
         println!();
         println!(
             "{}",
-            red(&format!("Drift detected: {total_drift} resource(s)"))
+            red(&format!("Drift detected: {} resource(s)", scan.total_drift))
         );
+        if scan.total_unmeasured > 0 {
+            println!(
+                "  and {} unmeasured: the target did not answer.",
+                scan.total_unmeasured
+            );
+        }
+    } else if scan.total_unmeasured > 0 {
+        // forjar#549: never the green verdict. Nothing drifted among what was
+        // measured, and this line exists for what was not.
+        println!();
+        println!(
+            "{}",
+            yellow(&format!(
+                "Drift unknown: {} resource(s) unmeasured — the target did not answer.",
+                scan.total_unmeasured
+            ))
+        );
+        println!("  {inspected} resource(s) inspected, {skipped} not inspected.");
     } else {
         println!("{}", green("No drift detected."));
         // The verdict and its population on adjacent lines, because the verdict
@@ -92,4 +105,31 @@ pub(super) fn send_drift_notification(
             &[("machine", machine_str), ("drift_count", &drift_str)],
         );
     }
+}
+
+/// One finding: a `--json` row, or the three lines a human reads.
+pub(super) fn render_finding(
+    name: &str,
+    f: &drift::DriftFinding,
+    label: String,
+    json: bool,
+    rows: &mut Vec<serde_json::Value>,
+) {
+    if json {
+        rows.push(serde_json::json!({
+            "machine": name,
+            "resource": f.resource_id,
+            "detail": f.detail,
+            "expected_hash": f.expected_hash,
+            "actual_hash": f.actual_hash,
+        }));
+        return;
+    }
+    // forjar#488: NAME THE MACHINE ON THE ROW. Aggregated output whose rows do
+    // not say which box they came from cannot be attributed after the fact, and
+    // that is precisely how gx10's `bashrc` was read as yoga's — the operator
+    // went looking for a resource that the config in hand does not contain.
+    println!("  {label}: {} on {name} ({})", f.resource_id, f.detail);
+    println!("    Expected: {}", f.expected_hash);
+    println!("    Actual:   {}", f.actual_hash);
 }

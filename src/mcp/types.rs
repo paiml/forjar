@@ -114,6 +114,11 @@ pub struct DriftOutput {
     /// was never inspected.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unchecked: Vec<String>,
+    /// forjar#549: resources whose query the target never answered — neither
+    /// clean nor drifted. Each is also named in `unchecked`, so a caller that
+    /// reads only `drifted` and `unchecked` cannot mistake one for clean.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmeasured: Vec<DriftFindingOutput>,
     /// forjar#407: THE DENOMINATOR, one entry per machine that had a lock —
     /// `DriftCensus::to_json()` plus the machine name, exactly the shape
     /// `forjar drift --json` has published since forjar#380.
@@ -130,6 +135,8 @@ pub struct DriftOutput {
     /// Resources in scope that nothing queried — skipped, with the reasons
     /// broken down per machine in `census`.
     pub resources_skipped: usize,
+    /// forjar#549: resources a detector asked about whose target never answered.
+    pub resources_unmeasured: usize,
     /// forjar#372: config-declared subprocesses this unattended surface
     /// declined to run. `drift` now resolves templates so it can regenerate a
     /// state query, and template resolution is where a `sops`/`op` secrets
