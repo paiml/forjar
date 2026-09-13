@@ -4,7 +4,7 @@
     cargo clippy --tests        clean
     cargo fmt --all             clean
     python3 yaml.safe_load      all 20 workflow files parse, before and after
-    actionlint                  base 0bb6cb57: 22 findings · this branch: 15
+    actionlint                  base 0bb6cb57: 22 findings · this branch: 12
     bash -n                     the new glibc step parses, on both the x86_64
                                 and the aarch64 substitution
     the glibc step, run         x86_64: `builder: ldd (Ubuntu GLIBC
@@ -18,9 +18,17 @@
                                 25 runners, every one Linux; 0 macOS, 0 Windows
     analyze_vacuous_tests       below
 
-The 15 actionlint findings that remain are pre-existing shellcheck infos inside
+The 12 actionlint findings that remain are pre-existing shellcheck infos inside
 `run:` blocks — `SC2012`, `SC2035`, `SC2016`, `SC2013`, `SC2086`, `SC2010` — and
-none is in a block this branch wrote. The drop from 22 is the unknown-label
+none is in a block this branch wrote. AN EARLIER VERSION OF THIS FILE SAID 15 AND
+SAID THE SAME THING, and the two could not both be true: three of that fifteen were
+`SC2016` inside the `Record the glibc floor` step this branch WROTE. They are
+markdown backticks in a `printf` FORMAT string, which must reach the step summary
+literally, so they now carry a named `# shellcheck disable=SC2016` with that reason
+and the count is 12 — the count without the step at all. Found by a review lane
+reading this file against `actionlint` rather than against the receipt.
+
+The drop from 22 is the unknown-label
 noise that `.github/actionlint.yaml` removes; without that file every
 `clean-room` in the repository reports as an unknown label and the real findings
 are buried.

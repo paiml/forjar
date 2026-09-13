@@ -3962,7 +3962,7 @@ roadmap:
 - id: PMAT-547
   github_issue: 547
   item_type: task
-  title: every CI job runs on the fleet — 31 workflow jobs were dispatched to GitHub-hosted runners
+  title: every CI job runs on the fleet — 31 JOBS of one run were dispatched to GitHub-hosted runners, from 33 hosted runner DECLARATIONS (a matrix declaration expands to several jobs, and not every job runs on every push)
   release: 1.30.0
   status: completed
   priority: high
