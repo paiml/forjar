@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-09-13
+
+The third cut under the two-day cadence (PMAT-225; due 2026-09-13T19:55:10Z).
+Nine PRs. One changes what forjar SAYS about a machine it could not reach; the
+other eight are the gates and records that decide when a cut may happen at all,
+and most of them were found by RUNNING the 1.29.0 machinery rather than by
+reading it — including one in which `/releases/latest` had been serving a
+four-version-old binary for days while gate R called the release fine.
+
 ### Fixed
 
 - **`forjar drift` reported a host it could not reach as drifted (PMAT-549, #549).**
@@ -46,6 +55,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--tripwire` will read an unreachable host as clean, so judge `unmeasured` as
   well. paiml/infra#560 is one, measured: exit 0 and `no unexcused drift` over a
   host nothing answers.
+
+### Changed
+
+- **The latest release is the latest release (PMAT-534, #534).** Measured
+  2026-09-12: `repos/paiml/forjar/releases/latest` resolved to v1.25.2 while
+  v1.26.0, v1.27.0 and v1.28.0 were all `prerelease=false draft=false` and days
+  newer. Every `curl -L .../releases/latest/download/…`, every badge and every
+  script following that URL got a four-version-old binary, for days, while gate
+  R reported the release fine. A release is BORN a prerelease (PMAT-166) so no
+  consumer sees a half-uploaded one; nothing was checking that it stopped being
+  one.
+
+- **A PR and its commits name one ticket (PMAT-540, #540).** PMAT-535 closed the
+  BRANCH half at push time, where the pull request does not yet exist and its
+  title is typed afterwards — so `fix/ci-lint` with a PR titled `(PMAT-520)`
+  reproduced #532's misattribution untouched. Gate A holds the PR object, the
+  merge commit and the receipt, so it compares the id the PR is filed under
+  against what the merge actually claims.
+
+- **CI selects the dogfood gate the change can move (PMAT-542, #542).** The
+  PMAT-237 classifier decides WHETHER the heavy jobs run and works — 3 of the
+  last 25 merged PRs were `code=false` and skipped everything — but one boolean
+  covered all of them, so a change to `scripts/` or `tests/` also paid for a
+  release build and two gates that read a surface it cannot reach.
+
+- **A branch names the ticket its work claims (PMAT-535, #535).** The branch name
+  is load-bearing for three gates and nothing checked it: gate A resolves the
+  receipt path from it, gate E the quorum slug, gate T the release WINDOW.
+  Measured on #532, pushed from `PMAT-520-book-v1.29.0` while every commit
+  trailer, the title and the receipt said PMAT-531: every window arm credited
+  PMAT-520 — already SHIPPED in 1.29.0 — to v1.30.0, and PMAT-531 was invisible
+  to all of them.
+
+- **The SIGPIPE class is closed, and the rule covers the tree (PMAT-240, #530).**
+  A pipeline whose right-hand side can exit first — `grep -q`, `grep -m`,
+  `head`, `jq -e` — makes the left side take SIGPIPE, and under `set -o pipefail`
+  that is 141: gate T reported UNMEASURED on about one run in three. PMAT-239
+  had fixed three instances and written a rule covering THREE FILES; its own
+  census found eighteen more sites and thirteen were still present.
+
+- **Gate T reads the cookbook's LOCK, not its requirement (PMAT-537, #537).**
+  What `cargo` builds in the cookbook is what `Cargo.lock` pins, so a
+  requirement that merely ADMITS the release is not evidence the release was
+  what got built.
+
+- **The 1.29.0 release record (PMAT-533, #533).** forjar 1.29.0 on crates.io,
+  docs.rs built, 14 release assets, `/releases/latest` resolving to it, and
+  `make dogfood-published VERSION=1.29.0` exiting 0 — the surface and the 18
+  documented invocations measured against what crates.io serves, including 98
+  cookbook configs. Five false sentences were caught before the record became
+  the record.
+
+- **Book v1.29.0, and the first cookbook commit any release has named
+  (PMAT-531, #531).** `release-goal.sh cut v1.29.0 --next v1.30.0`: thirteen
+  PRs, sixteen tickets, the dogfood and crux documents, and `7c100454` — the
+  paiml/forjar-cookbook commit the release was qualified against. Every release
+  before this one claimed to have been dogfooded against a cookbook nobody
+  named.
 
 ## [1.29.0] - 2026-09-11
 
