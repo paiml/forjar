@@ -174,3 +174,83 @@ fn text_output_names_unmeasured_and_never_calls_it_clean_or_drifted() {
         "an unreachable resource was printed as DRIFTED:\n{stdout}\n{stderr}"
     );
 }
+
+/// The unreachable fleet plus a machine the controller answers for, whose file
+/// has drifted: one resource drifted, one unmeasured.
+fn mixed_fleet(dir: &Path) -> (PathBuf, PathBuf) {
+    let (_, state_dir) = unreachable_fleet(dir);
+    let bait = dir.join("on-controller.txt");
+    let tampered = dir.join("tampered.txt");
+    std::fs::write(&tampered, "tampered").expect("write tampered");
+    let cfg = dir.join("mixed.yaml");
+    std::fs::write(
+        &cfg,
+        format!(
+            "version: \"1.0\"\nname: e05\nmachines:\n  web:\n    hostname: web\n\
+             \x20   addr: 203.0.113.9\n    user: root\n  box:\n    hostname: box\n\
+             \x20   addr: 127.0.0.1\n    user: root\nresources:\n  conf:\n    type: file\n\
+             \x20   machine: web\n    path: {}\n    content: \"controller copy\"\n  local-conf:\n\
+             \x20   type: file\n    machine: box\n    path: {}\n    content: \"original\"\n",
+            bait.display(),
+            tampered.display()
+        ),
+    )
+    .expect("write mixed config");
+    write_lock(
+        &state_dir,
+        "box",
+        &format!(
+            "  local-conf:\n    type: file\n    status: converged\n    hash: \"h\"\n\
+             \x20   details:\n      path: \"{}\"\n      content_hash: \"blake3:not-the-tampered-bytes\"\n",
+            tampered.display()
+        ),
+    );
+    (cfg, state_dir)
+}
+
+/// FALSIFY-549-003 — with drift and unmeasured both present, the tripwire exit is
+/// drift's (1), and the drift alert fires: the definite finding is the stronger
+/// statement. This run is also the control for FALSIFY-549-004's marker.
+#[test]
+fn drift_takes_the_exit_code_when_a_run_has_drift_and_unmeasured() {
+    let d = tempfile::tempdir().expect("tempdir");
+    let (cfg, state_dir) = mixed_fleet(d.path());
+    let marker = d.path().join("alert-fired");
+    let alert = format!("touch '{}'", marker.display());
+    let (code, stdout, stderr) = run_drift(
+        &cfg,
+        &state_dir,
+        &["--json", "--tripwire", "--alert-cmd", &alert],
+    );
+    let report = report_of(&stdout, &stderr);
+    assert_eq!(report["drift_count"].as_u64(), Some(1), "{report}");
+    assert_eq!(report["unmeasured_count"].as_u64(), Some(1), "{report}");
+    assert_eq!(
+        code,
+        Some(1),
+        "drift must set the exit code over unmeasured.\nstderr: {stderr}"
+    );
+    assert!(
+        marker.exists(),
+        "the drift alert did not fire on real drift: {stderr}"
+    );
+}
+
+/// FALSIFY-549-004 — an unmeasured-only run fires no drift alert: nothing drifted.
+#[test]
+fn an_unmeasured_only_run_fires_no_drift_alert() {
+    let d = tempfile::tempdir().expect("tempdir");
+    let (cfg, state_dir) = unreachable_fleet(d.path());
+    let marker = d.path().join("alert-fired");
+    let alert = format!("touch '{}'", marker.display());
+    let (code, _stdout, stderr) = run_drift(
+        &cfg,
+        &state_dir,
+        &["--json", "--tripwire", "--alert-cmd", &alert],
+    );
+    assert_eq!(code, Some(4), "stderr: {stderr}");
+    assert!(
+        !marker.exists(),
+        "a run that measured nothing fired the DRIFT alert: {stderr}"
+    );
+}

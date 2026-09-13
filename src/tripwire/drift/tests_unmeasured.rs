@@ -207,3 +207,31 @@ fn an_unanswered_docker_inspect_is_unmeasured_not_an_error() {
     assert!(f.is_unmeasured(), "{}: {}", f.actual_hash, f.detail);
     assert!(f.resource_type == ResourceType::Image);
 }
+
+// forjar#549, round two: the properties a review lane found no test for.
+
+#[test]
+fn a_remote_script_that_exits_255_over_ssh_is_read_as_unmeasured() {
+    // The documented cost of the rule: ssh cannot tell its own 255 from the
+    // script's, so the reading errs toward "not known", never toward an answer.
+    let script_said = exited(255, "deploy-guard: refusing to run twice");
+    assert!(why(classify(&machine("203.0.113.9"), script_said)).is_some());
+}
+
+#[test]
+fn an_unanswered_state_query_is_unmeasured_not_an_error() {
+    let service = super::tests_full::make_service_resource(Some("nginx"));
+    let rl = crate::core::types::ResourceLock {
+        resource_type: ResourceType::Service,
+        status: crate::core::types::ResourceStatus::Converged,
+        applied_at: None,
+        duration_seconds: None,
+        hash: "blake3:desired".to_string(),
+        observed: None,
+        details: std::collections::HashMap::new(),
+    };
+    let f =
+        super::check_nonfile_drift("svc", &rl, &service, &machine("203.0.113.9"), "blake3:live")
+            .expect("a service nobody queried must not read as converged");
+    assert!(f.is_unmeasured(), "{}: {}", f.actual_hash, f.detail);
+}
