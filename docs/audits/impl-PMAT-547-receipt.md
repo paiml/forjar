@@ -1,6 +1,27 @@
 # Implementation receipt — PMAT-547 — every CI job runs on the fleet
 
-verdict: PASS — thirty-four runner declarations across eighteen workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room, X64]`, the two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Thirteen cases, seven killers.
+verdict: PASS — **thirty-three** `ubuntu-` runner declarations across **seventeen** workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room, X64]`, and no `ubuntu-` declaration remains anywhere in `.github/workflows/`. The two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Thirteen cases, seven killers.
+
+Three numbers, because three rounds of review lanes each disputed a different
+reading of one of them. Measured on `origin/main` and on this head:
+
+| | main | this head |
+|---|---|---|
+| `ubuntu-` declarations (`runs-on`, matrix `runner:`, matrix `os:`) | 33 | **0** |
+| fleet declarations (`self-hosted`) | 14 | 48 |
+| `macos-`/`windows-` declarations | 7 | 7 |
+
+So: **33 MOVED** (hosted → fleet). The **14** already on the fleet —
+`release.yml`'s ten and `proofs.yml`'s four — did not move; they gained the `X64`
+label. 33 + 14 = 47 and the head carries 48, so **one fleet declaration is new**.
+The 7 macOS and Windows legs are unchanged and are the expected map that
+`the_platforms_the_fleet_cannot_serve_are_exactly_these` asserts.
+
+An earlier draft of this receipt said "thirty-four moved", which was this author
+counting 48 − 14 and calling the difference a move. A declaration that was already
+on the fleet and gained a label did not move, and a declaration this branch created
+was never anywhere else. The three rows above are the numbers; the prose no longer
+carries any count the table does not.
 
 ## What was measured
 
