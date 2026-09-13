@@ -2,9 +2,10 @@
 
 use super::apply::*;
 use super::apply_helpers::*;
+use super::colors::{red, yellow};
 use super::drift_lockless::{dry_run_lockless, scan_lockless};
 use super::drift_report::{
-    census_json, print_drift_summary, run_drift_alert, send_drift_notification,
+    census_json, print_drift_summary, render_finding, run_drift_alert, send_drift_notification,
 };
 use super::drift_state::{collect_machine_locks, machine_state_dirs, refuse_out_of_scope};
 use super::helpers::*;
@@ -20,18 +21,18 @@ pub(super) struct ScanOptions {
     pub(super) detect: drift::DriftOptions,
 }
 
-/// Check one machine for drift, appending findings to all_findings (JSON) or printing text.
+/// Check one machine for drift, accumulating into `acc` (JSON rows) or printing text.
 ///
-/// Returns the drift count AND the census — forjar#380. Returning the count
+/// Accumulates the drift count AND the census — forjar#380. Returning the count
 /// alone is what let `No drift detected.` stand in for both "checked 62
 /// resources, all clean" and "checked none of them".
 fn check_machine_drift(
     name: &str,
     lock: &types::StateLock,
     config: Option<&types::ForjarConfig>,
-    all_findings: &mut Vec<serde_json::Value>,
+    acc: &mut DriftScan,
     scan: ScanOptions,
-) -> (usize, drift::DriftCensus) {
+) {
     let ScanOptions { detect: opts, .. } = scan;
     print_machine_header(name, &format!("{} resources", lock.resources.len()), scan);
 
@@ -54,7 +55,7 @@ fn check_machine_drift(
         (Some(m), None) => drift::detect_drift_reported(lock, Some(m)),
         _ => drift::detect_drift_reported(lock, None),
     };
-    report_machine_findings(name, report, all_findings, scan)
+    report_machine_findings(name, report, acc, scan);
 }
 
 /// `Checking <machine> (<scope>)...`, before the scan that may take a minute.
@@ -80,11 +81,16 @@ pub(super) fn print_machine_header(name: &str, scope: &str, scan: ScanOptions) {
 pub(super) fn report_machine_findings(
     name: &str,
     report: drift::DriftReport,
-    all_findings: &mut Vec<serde_json::Value>,
+    acc: &mut DriftScan,
     scan: ScanOptions,
-) -> (usize, drift::DriftCensus) {
+) {
     let ScanOptions { json, .. } = scan;
     let drift::DriftReport { findings, census } = report;
+    // forjar#549: a query the target never answered is its own verdict — not a
+    // drift finding and not a clean one — so it is counted, rendered and gated
+    // apart from both.
+    let (unmeasured, drifted): (Vec<_>, Vec<_>) =
+        findings.into_iter().partition(|f| f.is_unmeasured());
 
     // THE DENOMINATOR PRINTS EVERY TIME, drift or no drift. It is worth least
     // when there IS drift (the findings speak for themselves) and most when
@@ -94,41 +100,22 @@ pub(super) fn report_machine_findings(
             println!("  {line}");
         }
     }
+    acc.censuses.push(census_json(name, &census));
+    acc.total_drift += drifted.len();
+    acc.total_unmeasured += unmeasured.len();
 
-    if findings.is_empty() {
+    if drifted.is_empty() && unmeasured.is_empty() {
         if !json {
             println!("  No drift detected.");
         }
-        return (0, census);
+        return;
     }
-
-    for f in &findings {
-        if json {
-            all_findings.push(serde_json::json!({
-                "machine": name,
-                "resource": f.resource_id,
-                "detail": f.detail,
-                "expected_hash": f.expected_hash,
-                "actual_hash": f.actual_hash,
-            }));
-        } else {
-            // forjar#488: NAME THE MACHINE ON THE ROW. Aggregated output whose
-            // rows do not say which box they came from cannot be attributed
-            // after the fact, and that is precisely how gx10's `bashrc` was
-            // read as yoga's — the operator went looking for a resource that
-            // the config in hand does not contain.
-            println!(
-                "  {}: {} on {} ({})",
-                red("DRIFTED"),
-                f.resource_id,
-                name,
-                f.detail
-            );
-            println!("    Expected: {}", f.expected_hash);
-            println!("    Actual:   {}", f.actual_hash);
-        }
+    for f in &drifted {
+        render_finding(name, f, red("DRIFTED"), json, &mut acc.findings);
     }
-    (findings.len(), census)
+    for f in &unmeasured {
+        render_finding(name, f, yellow("UNMEASURED"), json, &mut acc.unmeasured);
+    }
 }
 
 /// Auto-remediate drifted resources by re-applying.
@@ -229,15 +216,14 @@ fn scan_machines_for_drift(
     }
 
     // Parallel: check each machine in its own thread
-    let results: Vec<_> = std::thread::scope(|s| {
+    let parts: Vec<DriftScan> = std::thread::scope(|s| {
         let handles: Vec<_> = machine_locks
             .iter()
             .map(|(name, lock)| {
                 s.spawn(move || {
-                    let mut findings = Vec::new();
-                    let (count, census) =
-                        check_machine_drift(name, lock, config, &mut findings, scan_opts);
-                    (count, findings, census_json(name, &census))
+                    let mut part = DriftScan::default();
+                    check_machine_drift(name, lock, config, &mut part, scan_opts);
+                    part
                 })
             })
             .collect();
@@ -245,13 +231,11 @@ fn scan_machines_for_drift(
     });
 
     let mut scan = DriftScan {
-        machines_checked: results.len() as u32,
+        machines_checked: parts.len() as u32,
         ..Default::default()
     };
-    for (count, mut findings, census) in results {
-        scan.total_drift += count;
-        scan.findings.append(&mut findings);
-        scan.censuses.push(census);
+    for part in parts {
+        scan.absorb(part);
     }
     Ok(scan)
 }
@@ -262,7 +246,22 @@ pub(super) struct DriftScan {
     pub(super) machines_checked: u32,
     pub(super) total_drift: usize,
     pub(super) findings: Vec<serde_json::Value>,
+    /// forjar#549: resources whose target never answered. Counted in both
+    /// output modes; rows are collected under `--json` only, like `findings`.
+    pub(super) total_unmeasured: usize,
+    pub(super) unmeasured: Vec<serde_json::Value>,
     pub(super) censuses: Vec<serde_json::Value>,
+}
+
+impl DriftScan {
+    /// Fold one machine's scan into the run's.
+    fn absorb(&mut self, mut part: DriftScan) {
+        self.total_drift += part.total_drift;
+        self.total_unmeasured += part.total_unmeasured;
+        self.findings.append(&mut part.findings);
+        self.unmeasured.append(&mut part.unmeasured);
+        self.censuses.append(&mut part.censuses);
+    }
 }
 
 /// Sequential scan fallback for 0-1 machines.
@@ -276,10 +275,7 @@ fn scan_sequential(
         ..Default::default()
     };
     for (name, lock) in machine_locks {
-        let (count, census) =
-            check_machine_drift(name, lock, config, &mut scan.findings, scan_opts);
-        scan.total_drift += count;
-        scan.censuses.push(census_json(name, &census));
+        check_machine_drift(name, lock, config, &mut scan, scan_opts);
     }
     Ok(scan)
 }
@@ -347,20 +343,12 @@ pub(crate) fn cmd_drift(
         scope_ref,
         scan_opts,
     )?;
+    print_drift_summary(&scan, json)?;
     let DriftScan {
-        machines_checked,
         total_drift,
-        findings: all_findings,
-        censuses,
+        total_unmeasured,
+        ..
     } = scan;
-
-    print_drift_summary(
-        machines_checked,
-        total_drift,
-        &all_findings,
-        &censuses,
-        json,
-    )?;
 
     if total_drift > 0 {
         if let Some(cmd) = alert_cmd {
@@ -383,6 +371,16 @@ pub(crate) fn cmd_drift(
 
     if tripwire_mode && total_drift > 0 {
         return Err(format!("{total_drift} drift finding(s)"));
+    }
+    // forjar#549: DRIFT WINS when both are present, because a definite finding
+    // is the stronger statement. Unmeasured alone is not a pass: it exits with
+    // the connection class (4), because the question was never answered.
+    if tripwire_mode && total_unmeasured > 0 {
+        return Err(crate::core::error::ForjarError::connection(format!(
+            "{}: {total_unmeasured} resource(s)",
+            crate::core::error::DRIFT_UNMEASURED_MARKER
+        ))
+        .into_untyped());
     }
 
     Ok(())

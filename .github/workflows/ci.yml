@@ -109,6 +109,11 @@ jobs:
       # ones. One resolver, in one dialect, in a place that runs it.
       - name: Every contract citation must resolve
         run: cargo test --locked --test falsification_contract_citations_resolve
+      # forjar#549: a drift query the target never answered is UNMEASURED, not
+      # drift. Asks 203.0.113.9 (TEST-NET-3) over ssh, so it waits out the
+      # connect timeout once per test.
+      - name: An unanswered drift query is not drift
+        run: cargo test --locked --test falsification_drift_unmeasured_is_not_drift
       # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
       - name: The binary advertises no undeclared transport
         run: cargo test --locked --test e2e_transport_absence_t

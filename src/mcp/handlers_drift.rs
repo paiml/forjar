@@ -86,11 +86,13 @@ const UNATTENDED: drift::DriftOptions = drift::DriftOptions {
 #[derive(Default)]
 struct Scan {
     findings: Vec<DriftFindingOutput>,
+    unmeasured: Vec<DriftFindingOutput>,
     unchecked: Vec<String>,
     census: Vec<serde_json::Value>,
     declined: Vec<String>,
     inspected: usize,
     skipped: usize,
+    unmeasured_total: usize,
 }
 
 impl Scan {
@@ -100,12 +102,23 @@ impl Scan {
     fn absorb(&mut self, machine: &str, report: drift::DriftReport) {
         let drift::DriftReport { findings, census } = report;
         for f in &findings {
-            self.findings.push(DriftFindingOutput {
+            let row = DriftFindingOutput {
                 resource: f.resource_id.clone(),
                 expected_hash: f.expected_hash.clone(),
                 actual_hash: f.actual_hash.clone(),
                 detail: f.detail.clone(),
-            });
+            };
+            if f.is_unmeasured() {
+                // forjar#549: not drift, and not clean. Also named in
+                // `unchecked`, the field GH-208 gave callers for "not looked at".
+                self.unchecked.push(format!(
+                    "{machine}: {} unmeasured — {}",
+                    f.resource_id, f.detail
+                ));
+                self.unmeasured.push(row);
+            } else {
+                self.findings.push(row);
+            }
         }
         for id in census.skipped_ids(drift::SkipReason::TaskChecksDisabled) {
             self.declined.push(format!(
@@ -115,6 +128,7 @@ impl Scan {
         }
         self.inspected += census.inspected_total();
         self.skipped += census.skipped_total();
+        self.unmeasured_total += census.unmeasured_total();
         let mut value = census.to_json();
         if let Some(obj) = value.as_object_mut() {
             obj.insert("machine".to_string(), serde_json::json!(machine));
@@ -128,9 +142,11 @@ impl Scan {
             drifted: !self.findings.is_empty(),
             findings: self.findings,
             unchecked: self.unchecked,
+            unmeasured: self.unmeasured,
             census: self.census,
             resources_inspected: self.inspected,
             resources_skipped: self.skipped,
+            resources_unmeasured: self.unmeasured_total,
             unattended_skipped,
         }
     }
