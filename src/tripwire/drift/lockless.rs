@@ -66,7 +66,7 @@ pub fn detect_drift_lockless(
             findings.push(f);
         }
     }
-    DriftReport { findings, census }
+    DriftReport::new(findings, census)
 }
 
 /// Is this resource in scope for this machine's lockless scan?
@@ -175,6 +175,24 @@ mod tests {
         let report = detect_drift_lockless("sandbox", &machine(), &res, DriftOptions::default());
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].resource_id, "guard");
+    }
+
+    /// forjar#549: an assertion the target never answered is unmeasured, and the
+    /// lockless census says so rather than counting it inspected.
+    #[test]
+    fn an_unanswered_assertion_is_unmeasured_not_inspected() {
+        let unreachable: Machine =
+            serde_yaml_ng::from_str("hostname: sandbox\naddr: 203.0.113.9").unwrap();
+        let res = resources(vec![("guard", task("true"))]);
+        let report = detect_drift_lockless("sandbox", &unreachable, &res, DriftOptions::default());
+        assert_eq!(report.findings.len(), 1);
+        assert!(
+            report.findings[0].is_unmeasured(),
+            "{}",
+            report.findings[0].detail
+        );
+        assert_eq!(report.census.unmeasured_total(), 1);
+        assert_eq!(report.census.inspected_total(), 0);
     }
 
     /// What needs a baseline is COUNTED, attributed to the missing lock.

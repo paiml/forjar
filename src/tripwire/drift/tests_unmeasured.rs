@@ -182,3 +182,28 @@ fn a_directory_listing_that_answered_is_compared_like_any_digest() {
     .expect("a different listing is drift");
     assert_eq!(changed.actual_hash, digest);
 }
+
+// forjar#549: every detector reads through `read`, not only the file detector.
+
+#[test]
+fn an_unanswered_completion_check_is_unmeasured_not_a_failed_guard() {
+    let guard = crate::core::types::Resource {
+        resource_type: ResourceType::Task,
+        machine: crate::core::types::MachineTarget::Single("web".to_string()),
+        command: Some("exit 1".to_string()),
+        completion_check: Some("true".to_string()),
+        ..Default::default()
+    };
+    let f = super::task_check::check_task_drift("guard", &guard, &machine("203.0.113.9"))
+        .expect("a guard nobody evaluated must not read as satisfied");
+    assert!(f.is_unmeasured(), "{}: {}", f.actual_hash, f.detail);
+    assert!(f.resource_type == ResourceType::Task);
+}
+
+#[test]
+fn an_unanswered_docker_inspect_is_unmeasured_not_an_error() {
+    let f = super::image::check_image_drift("img", "web", "sha256:abc", &machine("203.0.113.9"))
+        .expect("an image nobody inspected must not read as deployed");
+    assert!(f.is_unmeasured(), "{}: {}", f.actual_hash, f.detail);
+    assert!(f.resource_type == ResourceType::Image);
+}

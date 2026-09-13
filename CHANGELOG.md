@@ -36,8 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory listing the host refused is now an `ERROR` finding.
 
   A remote script that itself exits 255 over SSH is also read as unmeasured,
-  which errs toward "not known", never toward clean. `apply`'s pre-apply drift
-  check is unchanged.
+  which errs toward "not known", never toward clean. `apply` still treats an
+  unmeasured resource as observed drift and plans to reconcile it, as it did the
+  old `MISSING` finding; the line it prints now says `not measured` where it said
+  `not accessible`.
+
+  **Upgrading a `--json` consumer:** an unmeasured resource is no longer in
+  `findings`. A consumer that judges only `findings` and runs drift without
+  `--tripwire` will read an unreachable host as clean, so judge `unmeasured` as
+  well. paiml/infra#560 is one, measured: exit 0 and `no unexcused drift` over a
+  host nothing answers.
 
 ## [1.29.0] - 2026-09-11
 
