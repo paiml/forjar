@@ -81,6 +81,36 @@ choose, and one pins the architecture:
 
 M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The survivors are exactly the cases that assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. RE-MEASURED AT THIS HEAD, where the suite is twelve: M4 kills six of the twelve — the four controls, `the_parser_finds_the_runners_that_are_there` and `the_platforms_the_fleet_cannot_serve_are_exactly_these` — and six survive, the four absence-assertions plus `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` and `controls::a_fleet_job_is_not_mistaken_for_a_hosted_one`. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
 
+### A fleet job cannot share the runner user's ~/.cargo, and that is part of the move
+
+24 fleet jobs that run cargo now declare
+
+```yaml
+CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+```
+
+**This exposure ARRIVED WITH THE MOVE and is not a separate fix.** On a
+GitHub-hosted runner every job has a private `~/.cargo` by construction, so a job
+that had never left GitHub had never been on the shared surface. On the fleet,
+sixteen clean-room runners share one `~/.cargo` while an hourly reaper deletes
+`registry/src` entries by mtime, under live builds — paiml/infra#430 — and the
+failure it produces is a cargo error naming a file that vanished mid-build:
+`No such file or directory (os error 2)`. Moving a cargo job onto a shared
+registry and leaving it there is not a smaller change than this one; it is the
+same change with the consequence unhandled.
+
+`proofs.yml:ledger-replay` had already hit it and already carried this exact
+line, with a comment naming infra#430. It was one job's footnote; this branch
+makes it the rule, and six jobs that were on the fleet BEFORE this branch
+(`proofs.yml:kani`, release.yml's four, `bench`) carried the same exposure
+unnoticed until the census that this ticket's parser made possible.
+
+The path is outside the workspace, so it survives the checkout clean: a cache
+per (runner, job), not a cold download per run. `a_fleet_job_that_runs_cargo_
+keeps_its_registry_to_itself` is the invariant and M6 is its killer — one fleet
+job loses its private `CARGO_HOME` and that one case dies while the other eleven
+stay green.
+
 ### What the review round changed here
 
 A lane claimed four shapes could hide a hosted runner from this parser, all

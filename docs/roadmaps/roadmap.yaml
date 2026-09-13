@@ -3975,6 +3975,7 @@ roadmap:
   - 'a falsification test refuses a hosted runner label in .github/workflows/**, parsing the YAML rather than grepping it, so a label in a comment is prose and a label in a matrix is a finding'
   - 'the macOS and Windows legs the fleet has no hardware for are counted rather than deleted, so adding an eighth fails (there are seven: lint.yml macos x2, nightly.yml macos x2 + windows x1, release.yml macos x2) and dropping one is a decision someone writes down'
   - 'a job that names self-hosted also names a pool, so a lint job cannot land on a GPU box'
+  - 'every fleet job that runs cargo declares a private CARGO_HOME, because the exposure ARRIVES WITH THE MOVE: on a GitHub-hosted runner each job has a private ~/.cargo by construction, while sixteen clean-room runners share one and an hourly reaper deletes registry/src under live builds (paiml/infra#430). Moving a cargo job onto the shared registry and leaving it there is the same change with the consequence unhandled'
   phases: []
   subtasks: []
   estimated_effort: null
