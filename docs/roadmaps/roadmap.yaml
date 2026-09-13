@@ -3973,7 +3973,7 @@ roadmap:
   acceptance_criteria:
   - 'no workflow in this repository names a GitHub-hosted runner for a Linux job'
   - 'a falsification test refuses a hosted runner label in .github/workflows/**, parsing the YAML rather than grepping it, so a label in a comment is prose and a label in a matrix is a finding'
-  - 'the macOS and Windows legs the fleet has no hardware for are counted rather than deleted, so adding a seventh fails and dropping one is a decision someone writes down'
+  - 'the macOS and Windows legs the fleet has no hardware for are counted rather than deleted, so adding an eighth fails (there are seven: lint.yml macos x2, nightly.yml macos x2 + windows x1, release.yml macos x2) and dropping one is a decision someone writes down'
   - 'a job that names self-hosted also names a pool, so a lint job cannot land on a GPU box'
   phases: []
   subtasks: []

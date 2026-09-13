@@ -62,11 +62,11 @@ Log §6.
 
 ## Falsification
 
-`tests/falsification_every_ci_job_runs_on_the_fleet/` parses the workflow YAML — split into `main.rs` (the six invariants), `controls.rs` (five fixtures) and `scan.rs` (the parser), because one file reached the 500-line gate at 539 lines and CI's `file-health` ratchet refused it, so a hosted label in a comment is prose and one inside a matrix is a finding.
+`tests/falsification_every_ci_job_runs_on_the_fleet/` parses the workflow YAML — split into `main.rs` (the seven invariants), `controls.rs` (five fixtures) and `scan.rs` (the parser), because one file reached the 500-line gate at 539 lines and CI's `file-health` ratchet refused it, so a hosted label in a comment is prose and one inside a matrix is a finding.
 
 **It caught a site this change's own converter missed.** `nightly.yml:73` read `runner: ubuntu-24.04-arm   # native ARM64 build (GA, free for public repos)`; the converter matched a runner value to end-of-line, so the trailing comment made the value not match, and the script reported success while a hosted ARM runner stayed. That is the argument for parsing over grepping, made by the change's own tooling against itself.
 
-Eleven cases. Four are the invariants, five are controls a review lane's findings
+Twelve cases. Seven are invariants, five are controls a review lane's findings
 turned into fixtures, one counts the jobs whose runner this repository does not
 choose, and one pins the architecture:
 
@@ -77,8 +77,9 @@ choose, and one pins the architecture:
 | `a_fleet_job_names_a_pool_and_not_just_self_hosted` | M3 — `runs-on: self-hosted` alone |
 | `the_parser_finds_the_runners_that_are_there` | M4 — `runner_labels` returns nothing |
 | `a_fleet_job_names_the_architecture_it_needs` | M5 — one fleet job drops its `X64` |
+| `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` | M6 — one fleet job loses its private `CARGO_HOME` |
 
-M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The four survivors are exactly the four that assert an ABSENCE, and a blinded parser reports nothing hosted, so all four pass while measuring nothing. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
+M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The survivors are exactly the cases that assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. RE-MEASURED AT THIS HEAD, where the suite is twelve: M4 kills six of the twelve — the four controls, `the_parser_finds_the_runners_that_are_there` and `the_platforms_the_fleet_cannot_serve_are_exactly_these` — and six survive, the four absence-assertions plus `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` and `controls::a_fleet_job_is_not_mistaken_for_a_hosted_one`. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
 
 ### What the review round changed here
 
@@ -114,7 +115,7 @@ hosted label. `Scan` now counts coverage jobs on any runner, the debug-info
 assertion uses that denominator, and the rule that lane 1 called an exemption
 stays an exemption.
 
-All 10 cases of the new suite and all 10 of `falsification_hosted_jobs_do_not_cache_target`
+All 12 cases of the new suite and all 10 of `falsification_hosted_jobs_do_not_cache_target`
 are green, with the eight workflow-reading suites. `actionlint` findings across
 the workflow directory fall 22 → 15, none added.
 
