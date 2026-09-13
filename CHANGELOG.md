@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`forjar drift` reported a host it could not reach as drifted (PMAT-549, #549).**
+  Every detector read a query the target never answered as the target's answer.
+  Over SSH, `ssh` exits 255 when it cannot connect, and the transport hands that
+  back as a finished command, so the file detector printed `MISSING`, the word a
+  reached host earns for a file that is really gone. Measured on 1.29.0 against
+  203.0.113.9 (TEST-NET-3): `drift_count 1`, `actual_hash MISSING`, detail
+  `… not accessible: ssh: connect to host 203.0.113.9 port 22: Connection timed
+  out`. A timeout became `ERROR`, and a task whose `completion_check` never ran
+  became `completion_check: FAIL`. A directory whose second query, its `ls -la`
+  listing, failed or never came back was reported clean.
+
+  A transport error, or exit 255 from an SSH transport, is now `UNMEASURED`. One
+  reader, `tripwire::drift::unmeasured`, decides it for every query the file,
+  task, image and state-query detectors make, so they cannot disagree. The
+  census gives it its own count, never inspected and never skipped, so
+  `in_scope` is `inspected + skipped + unmeasured`. `--json` lists it under
+  `unmeasured` rather than `findings`, adds `unmeasured_count` and
+  `resources_unmeasured`, and keeps `drift_count` equal to the length of
+  `findings`. Text output never prints `No drift detected.` while anything went
+  unmeasured. `--tripwire` exits 4, the connection class, when nothing drifted
+  and something went unmeasured; real drift still sets the exit code.
+  `--alert-cmd`, `policy.notify.on_drift` and `--auto-remediate` still act on
+  drift only, so an unreachable host no longer triggers them. The MCP `drift`
+  verb splits the same way and names each unmeasured resource in `unchecked`. A
+  directory listing the host refused is now an `ERROR` finding.
+
+  A remote script that itself exits 255 over SSH is also read as unmeasured,
+  which errs toward "not known", never toward clean. `apply`'s pre-apply drift
+  check is unchanged.
+
 ## [1.29.0] - 2026-09-11
 
 The second cut under the two-day cadence (PMAT-225; due 2026-09-12T16:07:14Z).

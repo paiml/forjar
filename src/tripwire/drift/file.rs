@@ -49,27 +49,45 @@ pub fn check_file_drift(
     }
 }
 
-/// Compute the hash of a remote file or directory via transport.
-fn hash_remote_content(
+/// What the target holds at a path, as both the drift and the apply side read it.
+#[derive(Debug)]
+pub(super) enum RemoteContent {
+    /// The target answered: a file's bytes, or a directory's `ls -la`, digested.
+    Digest(String),
+    /// The target answered with a failure: a directory whose listing it could
+    /// not produce. The text is the listing's stderr.
+    Failed(String),
+    /// The target never answered the listing (forjar#549).
+    Unmeasured(String),
+}
+
+/// Digest a remote file from the first query's output, or a directory from the
+/// second query (`ls -la`) this function makes.
+fn remote_content(
     out: &crate::transport::ExecOutput,
     path: &str,
     machine: &Machine,
-) -> Option<String> {
+) -> RemoteContent {
     // STRONG contract: `hash_string` rejects empty input. Drift queries may
     // legitimately return empty stdout when the file is missing or empty —
     // use `hash_string_or_sentinel` to stay inside the contract.
-    if out.stdout.trim() == "__DIR__" {
-        let ls_script = format!("ls -la '{path}'");
-        match crate::transport::exec_script_timeout(
-            machine,
-            &ls_script,
-            Some(DRIFT_QUERY_TIMEOUT_SECS),
-        ) {
-            Ok(ls_out) if ls_out.success() => Some(hasher::hash_string_or_sentinel(&ls_out.stdout)),
-            _ => None,
+    if out.stdout.trim() != "__DIR__" {
+        return RemoteContent::Digest(hasher::hash_string_or_sentinel(&out.stdout));
+    }
+    listing_digest(unmeasured::read(machine, &format!("ls -la '{path}'")))
+}
+
+/// forjar#549, the second query. A directory's digest comes from a listing, and
+/// that query can go unanswered or fail as easily as the first. Both used to
+/// become `None`, which the drift caller's `?` turned into no finding at all: a
+/// clean verdict over a listing nobody read.
+pub(super) fn listing_digest(listing: Reading) -> RemoteContent {
+    match listing {
+        Reading::Answered(ls) if ls.success() => {
+            RemoteContent::Digest(hasher::hash_string_or_sentinel(&ls.stdout))
         }
-    } else {
-        Some(hasher::hash_string_or_sentinel(&out.stdout))
+        Reading::Answered(ls) => RemoteContent::Failed(ls.stderr.trim().to_string()),
+        Reading::Unmeasured(why) => RemoteContent::Unmeasured(why),
     }
 }
 
@@ -110,7 +128,13 @@ pub fn remote_path_digest(path: &str, machine: &Machine) -> Option<String> {
         "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
     );
     match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => hash_remote_content(&out, path, machine),
+        // The apply side records no baseline it did not read: a listing that
+        // failed or never came back leaves no `content_hash`, and drift then
+        // says `no hash recorded in the lock` instead of comparing to nothing.
+        Ok(out) if out.success() => match remote_content(&out, path, machine) {
+            RemoteContent::Digest(digest) => Some(digest),
+            RemoteContent::Failed(_) | RemoteContent::Unmeasured(_) => None,
+        },
         _ => None,
     }
 }
@@ -147,16 +171,44 @@ pub fn check_file_drift_via_transport(
             format!("{} not accessible: {}", path, out.stderr.trim()),
         ));
     }
-    let actual = hash_remote_content(&out, path, machine)?;
-    if actual == expected_hash {
-        return None;
-    }
-    Some(file_drift_finding(
+    content_verdict(
         resource_id,
+        path,
         expected_hash,
-        actual,
-        format!("{path} content changed"),
-    ))
+        remote_content(&out, path, machine),
+    )
+}
+
+/// The drift verdict for what the target holds at `path`.
+pub(super) fn content_verdict(
+    resource_id: &str,
+    path: &str,
+    expected_hash: &str,
+    content: RemoteContent,
+) -> Option<DriftFinding> {
+    match content {
+        RemoteContent::Digest(actual) if actual == expected_hash => None,
+        RemoteContent::Digest(actual) => Some(file_drift_finding(
+            resource_id,
+            expected_hash,
+            actual,
+            format!("{path} content changed"),
+        )),
+        RemoteContent::Unmeasured(why) => Some(DriftFinding::unmeasured(
+            resource_id,
+            ResourceType::File,
+            expected_hash,
+            format!("{path} listing not measured: {why}"),
+        )),
+        // The host answered, and what it said is that the listing the baseline
+        // was digested from cannot be produced now. That is not clean.
+        RemoteContent::Failed(stderr) => Some(file_drift_finding(
+            resource_id,
+            expected_hash,
+            "ERROR".to_string(),
+            format!("{path} listing failed: {stderr}"),
+        )),
+    }
 }
 
 /// Drift detection for file resources, respecting lifecycle.ignore_drift.

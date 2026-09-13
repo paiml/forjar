@@ -1,6 +1,7 @@
 //! forjar#549: the reader, the census and the tripwire class for UNMEASURED.
 
 use super::census::DriftCensus;
+use super::file::{content_verdict, listing_digest};
 use super::unmeasured::{census_unmeasured, classify, Reading};
 use super::{DriftFinding, DriftReport, SkipReason, UNMEASURED};
 use crate::core::error::{classify_untyped, ErrorClass, DRIFT_UNMEASURED_MARKER};
@@ -134,4 +135,50 @@ fn the_tripwire_marker_exits_with_the_connection_class() {
         classify_untyped("1 drift finding(s)"),
         ErrorClass::Connection
     );
+}
+
+// forjar#549, the second query: a directory is digested from a listing.
+
+#[test]
+fn a_directory_listing_that_never_came_back_is_unmeasured_not_clean() {
+    let stderr = "ssh: connect to host 203.0.113.9 port 22: Connection timed out";
+    let unanswered = classify(&machine("203.0.113.9"), exited(255, stderr));
+    let f = content_verdict("conf", "/srv/site", "blake3:x", listing_digest(unanswered))
+        .expect("a listing nobody read must not be a clean verdict");
+    assert!(f.is_unmeasured(), "{}", f.actual_hash);
+    assert!(f.detail.contains("203.0.113.9"), "{}", f.detail);
+}
+
+#[test]
+fn a_directory_listing_that_failed_is_neither_clean_nor_unmeasured() {
+    let stderr = "ls: cannot open directory '/srv/site': Permission denied";
+    let refused = classify(&machine("203.0.113.9"), exited(2, stderr));
+    let f = content_verdict("conf", "/srv/site", "blake3:x", listing_digest(refused))
+        .expect("a listing the host refused must not be a clean verdict");
+    assert_eq!(f.actual_hash, "ERROR");
+    assert!(f.detail.contains("Permission denied"), "{}", f.detail);
+}
+
+#[test]
+fn a_directory_listing_that_answered_is_compared_like_any_digest() {
+    let listing = || {
+        classify(
+            &machine("203.0.113.9"),
+            Ok(ExecOutput {
+                exit_code: 0,
+                stdout: "total 0\n".to_string(),
+                stderr: String::new(),
+            }),
+        )
+    };
+    let digest = crate::tripwire::hasher::hash_string_or_sentinel("total 0\n");
+    assert!(content_verdict("conf", "/srv/site", &digest, listing_digest(listing())).is_none());
+    let changed = content_verdict(
+        "conf",
+        "/srv/site",
+        "blake3:other",
+        listing_digest(listing()),
+    )
+    .expect("a different listing is drift");
+    assert_eq!(changed.actual_hash, digest);
 }
