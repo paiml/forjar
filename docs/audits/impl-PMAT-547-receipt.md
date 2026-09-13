@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-547 — every CI job runs on the fleet
 
-verdict: PASS — thirty-three runner declarations across seventeen workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room]`, the two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Four cases, four killers. Seven legs remain on GitHub because the fleet has no macOS and no Windows runner; they are counted, not hidden.
+verdict: PASS — thirty-four runner declarations across eighteen workflow files moved from GitHub-hosted runners to `[self-hosted, clean-room, X64]`, the two that needed more than a label were rebuilt around what the fleet can actually do, three comments the move made false were rewritten, and a falsification test that PARSES the workflows keeps the count from growing back. Thirteen cases, seven killers.
 
 ## What was measured
 
@@ -38,9 +38,15 @@ forjar to `gpu-nodes` is one checkbox, and a job building
 `x86_64-unknown-linux-gnu` handed an ARM64 runner uploads an artifact that is
 WRONG rather than missing.
 
-Fifty declarations across eighteen files now say `[self-hosted, clean-room, X64]`.
-Seventeen of them were already on the fleet before this branch — `release.yml`'s
-ten and `proofs.yml`'s — carrying the same unstated assumption.
+Forty-eight declarations across eighteen files now say `[self-hosted, clean-room,
+X64]` — forty `runs-on:` and eight matrix `runner:` entries. A plain string grep
+returns FIFTY; two of those are prose in comments (`binary-release.yml` lines 5
+and 176), which is the difference between grepping and parsing that this whole
+ticket is about, found in this receipt by a review lane.
+FOURTEEN of them were already on the fleet before this branch — `release.yml`'s ten
+and `proofs.yml`'s four — carrying the same unstated assumption. `bench.yml` is NOT
+among them: both of its jobs read `runs-on: ubuntu-latest` on `main` and this
+branch moved them, which an earlier draft of this receipt had the wrong way round.
 
 Log §10.
 
@@ -78,8 +84,35 @@ choose, and one pins the architecture:
 | `the_parser_finds_the_runners_that_are_there` | M4 — `runner_labels` returns nothing |
 | `a_fleet_job_names_the_architecture_it_needs` | M5 — one fleet job drops its `X64` |
 | `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` | M6 — one fleet job loses its private `CARGO_HOME` |
+| `controls::a_mixed_case_linux_label_is_still_a_linux_label` | M7 — `runs-on: Ubuntu-latest` in audit.yml |
 
 M4 is the vacuity guard and it is not decoration. Re-run at `607e229b` after the round grew the suite to ten cases, and re-aimed at `push_labels` because the round rewrote `runner_labels`, **M4 kills six of the ten, not one** — every case that reads through the parser. The survivors are exactly the cases that assert an ABSENCE, and a blinded parser reports nothing hosted, so they pass while measuring nothing. RE-MEASURED AT THIS HEAD, where the suite is twelve: M4 kills six of the twelve — the four controls, `the_parser_finds_the_runners_that_are_there` and `the_platforms_the_fleet_cannot_serve_are_exactly_these` — and six survive, the four absence-assertions plus `a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself` and `controls::a_fleet_job_is_not_mistaken_for_a_hosted_one`. That is the failure `the_parser_finds_the_runners_that_are_there` exists to catch. An earlier draft of this receipt said "four single kills, no collateral": true of a four-case suite, false of this one. M1, M2 and M3 do each kill exactly one case. Every mutation ran against the committed tree and the tree was restored after each.
+
+### The case that owns the rule was blind to case, and a lane found it
+
+`scan::hosted_label` lower-cases before it matches — the receipt above says so and
+a control pins it. The two call sites in `main.rs` did NOT: they filtered
+`hosted_sites()` with a bare `label.starts_with("ubuntu-")`.
+
+Measured, by putting `runs-on: Ubuntu-latest` into `audit.yml`:
+
+```
+before: the_platforms_the_fleet_cannot_serve_are_exactly_these ... FAILED   (11 passed, 1 failed)
+after:  no_linux_job_asks_github_for_a_runner ... FAILED                    (12 passed, 1 failed)
+```
+
+The suite never failed open — a mixed-case Linux label was caught either way — so
+nothing could have shipped. What was wrong is WHICH case caught it: the platform
+census fired and reported a Linux runner as "a platform the fleet cannot serve",
+while `no_linux_job_asks_github_for_a_runner`, the case whose doc comment reads
+*this is the whole ticket*, stayed green. A green invariant that cannot see its
+own violation is the shape this repository keeps finding, and it was in the suite
+written to catch that shape.
+
+`scan::linux_label` lower-cases, both call sites use it, and
+`controls::a_mixed_case_linux_label_is_still_a_linux_label` pins it. M7 is the
+killer above: with the fix in place the mutation kills the case that owns the rule,
+and only that one.
 
 ### A fleet job cannot share the runner user's ~/.cargo, and that is part of the move
 
@@ -145,9 +178,15 @@ hosted label. `Scan` now counts coverage jobs on any runner, the debug-info
 assertion uses that denominator, and the rule that lane 1 called an exemption
 stays an exemption.
 
-All 12 cases of the new suite and all 10 of `falsification_hosted_jobs_do_not_cache_target`
+All 13 cases of the new suite and all 10 of `falsification_hosted_jobs_do_not_cache_target`
 are green, with the eight workflow-reading suites. `actionlint` findings across
-the workflow directory fall 22 → 15, none added.
+the workflow directory fall 22 → 12, none added. An earlier draft said 15 and
+claimed none was added, and both halves could not be true: three of the fifteen
+were SC2016 inside the `Record the glibc floor` step this branch WROTE. They are
+markdown backticks in a `printf` FORMAT string and must reach the step summary
+literally, so they carry a named `# shellcheck disable=SC2016` with that reason
+rather than a receipt sentence explaining them away. Measured after: 12, which is
+the count without the step at all. Found by a review lane.
 
 Log §8.
 

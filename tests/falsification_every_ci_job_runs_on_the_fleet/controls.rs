@@ -5,7 +5,7 @@
 //! Split out of `main.rs` when that file reached this repository's 500-line
 //! gate.
 
-use crate::scan::{fixture, hosted_in};
+use crate::scan::{fixture, hosted_in, linux_label};
 
 // ---------------------------------------------------------------------------
 // Controls. Every one of these is a shape a review lane claimed could hide a
@@ -119,5 +119,30 @@ jobs:
         hosted_in(&doc).is_empty(),
         "a fleet job was reported as hosted: {:?}",
         hosted_in(&doc)
+    );
+}
+
+/// A mixed-case Linux label is a LINUX label, and the case that owns the rule
+/// is the one that must see it.
+///
+/// Measured before `linux_label` existed: `runs-on: Ubuntu-latest` in audit.yml
+/// left `no_linux_job_asks_github_for_a_runner` — "this is the whole ticket" —
+/// GREEN, and failed `the_platforms_the_fleet_cannot_serve_are_exactly_these`
+/// instead, which reported a Linux runner as a platform the fleet cannot serve.
+/// The suite caught it, so nothing shipped; it caught it in the wrong place with
+/// a message that named the wrong problem, which is how a green invariant comes
+/// to mean nothing. Found by a review lane.
+#[test]
+fn a_mixed_case_linux_label_is_still_a_linux_label() {
+    assert!(linux_label("Ubuntu-latest"), "Ubuntu-latest is Linux");
+    assert!(linux_label("UBUNTU-24.04"), "UBUNTU-24.04 is Linux");
+    assert!(
+        linux_label(" ubuntu-latest "),
+        "surrounding space is not a platform"
+    );
+    assert!(!linux_label("macos-latest"), "macos-latest is not Linux");
+    assert!(
+        !linux_label("self-hosted"),
+        "a fleet label must not be read as a hosted Linux one"
     );
 }

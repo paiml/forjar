@@ -46,7 +46,7 @@
 mod controls;
 mod scan;
 
-use scan::{hosted_sites, job_runs_cargo, runner_labels, workflows};
+use scan::{hosted_sites, job_runs_cargo, linux_label, runner_labels, workflows};
 use serde_yaml_ng::Value;
 use std::collections::BTreeMap;
 
@@ -230,7 +230,7 @@ fn the_jobs_that_delegate_their_runner_are_exactly_these() {
 fn no_linux_job_asks_github_for_a_runner() {
     let linux: Vec<_> = hosted_sites()
         .into_iter()
-        .filter(|(_, _, label)| label.starts_with("ubuntu-"))
+        .filter(|(_, _, label)| linux_label(label))
         .collect();
     assert!(
         linux.is_empty(),
@@ -253,7 +253,7 @@ fn no_linux_job_asks_github_for_a_runner() {
 fn the_platforms_the_fleet_cannot_serve_are_exactly_these() {
     let mut found: BTreeMap<String, usize> = BTreeMap::new();
     for (file, _, label) in hosted_sites() {
-        if label.starts_with("ubuntu-") {
+        if linux_label(&label) {
             continue; // the case above owns those
         }
         *found.entry(format!("{file}:{label}")).or_default() += 1;

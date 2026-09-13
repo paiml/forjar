@@ -273,6 +273,10 @@ jobs:
             | sort -V | tail -1)"
           [ -n "$demanded" ] || demanded="none found (static, or strings unavailable)"
           printf 'builder: %s\nbinary demands at most GLIBC_%s\n' "$builder" "$demanded"
+          # shellcheck disable=SC2016  # the backticks below are MARKDOWN code
+          # fences in a printf FORMAT string, not command substitutions: they must
+          # reach $GITHUB_STEP_SUMMARY literally. Disabled by name with a reason
+          # rather than left as three findings a receipt then has to explain away.
           {
             printf '### glibc floor — `%s`\n\n' "$TARGET"
             printf -- '- builder: `%s`\n' "$builder"

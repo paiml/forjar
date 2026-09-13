@@ -46,6 +46,18 @@ pub(crate) fn workflows() -> Vec<(String, Value)> {
 /// rather than against a fixed list because GitHub adds images (`ubuntu-26.04`,
 /// `macos-27`) faster than a list here would be updated, and a list that is
 /// behind fails open.
+/// Is this label a LINUX hosted runner? Lower-cases first, for the same reason
+/// `hosted_label` does: GitHub accepts `Ubuntu-latest` and a case-sensitive check
+/// lets it through. Measured on this branch before this function existed — an
+/// `Ubuntu-latest` in audit.yml left `no_linux_job_asks_github_for_a_runner`, the
+/// case that OWNS the rule, green, and failed
+/// `the_platforms_the_fleet_cannot_serve_are_exactly_these` instead, which reported
+/// it as a platform the fleet cannot serve. The suite went red either way; it went
+/// red in the wrong place with a message that named the wrong problem.
+pub(crate) fn linux_label(v: &str) -> bool {
+    v.trim().to_ascii_lowercase().starts_with("ubuntu-")
+}
+
 pub(crate) fn hosted_label(v: &str) -> bool {
     let v = v.trim().to_ascii_lowercase();
     v.starts_with("ubuntu-") || v.starts_with("macos-") || v.starts_with("windows-")
