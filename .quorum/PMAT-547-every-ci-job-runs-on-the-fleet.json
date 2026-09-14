@@ -4,7 +4,7 @@
   "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
   "base": "ddd0c441",
   "base_commit": "ddd0c4414956be1a40e5dee0424993c619a99d81",
-  "diff_sha256": "ea3c6e8e7f2c9f76b86d5969ca75720c7c280ab5",
+  "diff_sha256": "80b8f57e188412889bbfdab525e96a6b9542059e",
   "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
   "quorum": {
     "lanes": [
@@ -87,7 +87,7 @@
   },
   "evidence": {
     "claims_digest": ".quorum/evidence/fleet-runners-judges.md",
-    "total_bytes": 19324,
+    "total_bytes": 19409,
     "files": [
       {
         "path": ".quorum/evidence/fleet-runners-claims.md",
@@ -112,9 +112,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 9890,
-        "sha256": "9cdcade6dc73268f58407582e119a311ed848746840811bac0abb19140fa32ae",
-        "blob": "52c6808980130cb18ef2fab4be1fe10c21976712"
+        "bytes": 9975,
+        "sha256": "1ce377cd5f03b2a7f1dd98e849f11790dda936090cb92cce752370555ed03de9",
+        "blob": "522802aa9e4ea79eb18b10cb722e1ab5339de0a6"
       },
       {
         "path": ".quorum/evidence/fleet-runners-agy.md",
