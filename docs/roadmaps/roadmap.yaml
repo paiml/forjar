@@ -4112,3 +4112,22 @@ roadmap:
   - orch:fable
   - release:v1.31.0
   notes: 'Measured on PR #545, run 34685410794, by reading the runner back from the API rather than from the workflow file: dogfood-surface, classify and doctests all reported runner=GitHub Actions <n> with labels=ubuntu-latest. Thirty-three runner declarations across seventeen files named a hosted runner and every pull request spent them. The fleet (gh api orgs/paiml/actions/runners, 2026-09-12) is 25 runners and every one is Linux, so every Linux site moves to [self-hosted, clean-room] and the seven macOS/Windows legs cannot move at all. Two moves needed more than a label: nightly.yml built aarch64 natively on a hosted ARM runner and now cross-builds the way release.yml already does on the fleet, and binary-release.yml was pinned to ubuntu-22.04 for glibc 2.35 -- that pin is gone, so the build now MEASURES the glibc floor the binary demands and REFUSES anything above GLIBC_CEILING=2.35, which is the floor 22.04 enforced.'
+- id: PMAT-558
+  github_issue: 558
+  item_type: task
+  title: 'ORCH-001: CLAUDE.md carries the orchestrator routing rule, so a model-gate refusal has a rule to point at'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-14T13:35:47Z
+  updated: 2026-09-14T13:35:47Z
+  spec: null
+  acceptance_criteria:
+  - 'AUTO-IMPL-SKILL-003. Adds a delimited <!-- paiml-implement:orch-routing v1 --> block to CLAUDE.md: opus is the default orchestrator; --model fable only for a ticket labelled orch:fable whose roadmap notes: carries an orch-basis:; review/plan-grill/five-whys/research/single-module impl go to agy lanes before any Claude subagent and the orchestrator re-runs every acceptance command; one ticket per session; Fable is the reserve bucket while quota.sh binding prints fable_binding=true. Replaces PR #512''s PMAT-235, which collided with a completed ticket of the same id on main.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  release: 1.31.0
