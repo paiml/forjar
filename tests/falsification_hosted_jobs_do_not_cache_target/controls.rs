@@ -263,8 +263,9 @@ jobs:
 }
 
 /// `Swatinem/rust-cache` caches the build directory too — and it is already the
-/// house idiom on four hosted jobs here (mutation, quorum, convergence,
-/// behavior). Switching `coverage.yml` to it is the obvious "speed this lane
+/// house idiom on four jobs here (mutation, quorum, convergence, behavior),
+/// which were hosted until PMAT-547 moved them to the fleet and are therefore
+/// now exempt from the cache rule. Switching `coverage.yml` to it is the "speed
 /// up" edit, and against the first draft of this guard that edit reproduced
 /// #386 with every assertion still green, because `is_cache_action` required
 /// the `uses` string to start with `actions/cache`.

@@ -34,7 +34,7 @@ concurrency:
 jobs:
   audit:
     name: every release describes itself
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 20
     steps:
       - name: Checkout

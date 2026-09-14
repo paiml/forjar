@@ -4015,24 +4015,6 @@ roadmap:
   labels:
   - kind:code
   notes: null
-- id: PMAT-547
-  github_issue: 547
-  item_type: task
-  title: every CI job runs on the fleet — 31 workflow jobs were dispatched to GitHub-hosted runners
-  release: 1.31.0
-  status: planned
-  priority: medium
-  assigned_to: null
-  created: 2026-09-13T19:04:40Z
-  updated: 2026-09-13T19:04:40Z
-  spec: null
-  acceptance_criteria: []
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
 - id: PMAT-550
   github_issue: 550
   item_type: task
@@ -4105,3 +4087,28 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-547
+  github_issue: 547
+  item_type: task
+  title: every CI job runs on the fleet — 31 JOBS of one run were dispatched to GitHub-hosted runners, from 33 hosted runner DECLARATIONS (a matrix declaration expands to several jobs, and not every job runs on every push)
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T10:03:38Z
+  updated: 2026-09-12T10:03:38Z
+  spec: null
+  acceptance_criteria:
+  - 'no workflow in this repository names a GitHub-hosted runner for a Linux job'
+  - 'a falsification test refuses a hosted runner label in .github/workflows/**, parsing the YAML rather than grepping it, so a label in a comment is prose and a label in a matrix is a finding'
+  - 'the macOS and Windows legs the fleet has no hardware for are counted rather than deleted, so adding an eighth fails (there are seven: lint.yml macos x2, nightly.yml macos x2 + windows x1, release.yml macos x2) and dropping one is a decision someone writes down'
+  - 'a job that names self-hosted also names a pool, so a lint job cannot land on a GPU box'
+  - 'every fleet job that runs cargo declares a private CARGO_HOME, because the exposure ARRIVES WITH THE MOVE: on a GitHub-hosted runner each job has a private ~/.cargo by construction, while sixteen clean-room runners share one and an hourly reaper deletes registry/src under live builds (paiml/infra#430). Moving a cargo job onto the shared registry and leaving it there is the same change with the consequence unhandled'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.31.0
+  notes: 'Measured on PR #545, run 34685410794, by reading the runner back from the API rather than from the workflow file: dogfood-surface, classify and doctests all reported runner=GitHub Actions <n> with labels=ubuntu-latest. Thirty-three runner declarations across seventeen files named a hosted runner and every pull request spent them. The fleet (gh api orgs/paiml/actions/runners, 2026-09-12) is 25 runners and every one is Linux, so every Linux site moves to [self-hosted, clean-room] and the seven macOS/Windows legs cannot move at all. Two moves needed more than a label: nightly.yml built aarch64 natively on a hosted ARM runner and now cross-builds the way release.yml already does on the fleet, and binary-release.yml was pinned to ubuntu-22.04 for glibc 2.35 -- that pin is gone, so the build now MEASURES the glibc floor the binary demands and REFUSES anything above GLIBC_CEILING=2.35, which is the floor 22.04 enforced.'

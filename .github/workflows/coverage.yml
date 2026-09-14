@@ -73,9 +73,10 @@ jobs:
   # way to keep a floor is to measure it every time rather than to reason about
   # when it could not have moved. Twelve minutes of the ~131 a PR used to cost.
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 45
     env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
       # See note 2 above. Scoped to this lane — the repo's profiles are untouched.
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only

@@ -67,7 +67,7 @@ jobs:
   # ledger defect — 34 minutes, the single most expensive job a PR pays for,
   # and it cannot be affected by a change that touches no code.
   classify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:
@@ -79,7 +79,20 @@ jobs:
 
   kani:
     name: kani
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     if: >-
       github.event_name != 'pull_request' ||
       contains(github.event.pull_request.labels.*.name, 'proofs')
@@ -174,7 +187,7 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -216,7 +229,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: ledger-replay
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     # forjar#447 (second signature, measured on the host 2026-09-03): all 16
     # clean-room runners share ONE $HOME/.cargo registry, and two sweepers
     # delete extracted crate sources by age (the hourly ci-reaper's
@@ -265,7 +278,7 @@ jobs:
 
   contracts:
     name: contracts
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     # UNCONDITIONAL, unlike kani/lean. Those are label-gated because they cost
     # ~35 min of compilation; this is a YAML parse over 30 files and costs
     # seconds. A validator that only runs on labelled PRs is absent on the PRs
@@ -333,7 +346,7 @@ jobs:
 
   proofs:
     name: proofs
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     needs: [classify, kani, lean, contracts, ledger-replay]
     if: always()
     steps:
