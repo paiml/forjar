@@ -283,6 +283,31 @@ jobs:
             printf -- '- binary demands at most: `GLIBC_%s`\n' "$demanded"
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # AND IT IS A GATE, not only a record (PMAT-547, review round 9).
+          #
+          # This leg was pinned to ubuntu-22.04 precisely so the gnu binaries could
+          # not demand more than glibc 2.35. Moving it to the fleet removed that pin,
+          # and a measurement that never fails is not what the pin was: a fleet
+          # upgraded to a newer glibc would publish binaries that refuse to start on
+          # an old host, silently, exactly as before the pin existed. A review lane
+          # named it as a weakened gate and it was right.
+          #
+          # 2.35 is not a guess: it is the floor ubuntu-22.04 enforced. Measured on
+          # the fleet today, the binary demands GLIBC_2.34, so this ceiling passes
+          # with room and fires the day the fleet moves past what the pin allowed.
+          # Raising it is a decision someone writes here, in the open, with a reason.
+          GLIBC_CEILING=2.35
+          case "$demanded" in
+            none*) ;;   # static or unreadable: the arms above already say which
+            *)
+              highest="$(printf '%s\n%s\n' "$demanded" "$GLIBC_CEILING" | sort -V | tail -1)"
+              if [ "$highest" != "$GLIBC_CEILING" ]; then
+                echo "::error::${TARGET} demands GLIBC_${demanded}, above the ${GLIBC_CEILING} floor ubuntu-22.04 used to enforce. A host with an older glibc cannot start this binary. Either lower what the build links against, or raise GLIBC_CEILING here with a reason."
+                exit 1
+              fi
+              ;;
+          esac
+
       - name: Package archive
         id: package
         run: |
