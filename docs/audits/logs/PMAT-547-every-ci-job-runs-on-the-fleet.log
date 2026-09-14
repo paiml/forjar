@@ -145,7 +145,7 @@
   legs" in the next.
 
   $ actionlint .github/workflows/*.yml   # findings across the directory
-  base 0bb6cb57: 22      this branch: 15
+  base 0bb6cb57: 22      this branch: 12  (an earlier draft said 15 and claimed none was added; three of that fifteen were SC2016 in the glibc step this branch wrote, which now carry a named disable)
 
   (.github/actionlint.yaml now declares the fleet's labels; without it
   actionlint reports every `clean-room` as an unknown label and the real
