@@ -2,8 +2,8 @@
   "kind": "code",
   "issue": "PMAT-547 (closes forjar#547) — every CI job runs on the fleet. Measured on PR #545 run 34685410794 by reading runner_name back from the API rather than from the workflow file, three of this repository's own jobs reported `runner=GitHub Actions <n>` with `labels=ubuntu-latest`. Thirty-three runner declarations across seventeen workflow files named a GitHub-hosted runner and every pull request spent them. The fleet is 25 runners, every one Linux, so every Linux declaration moves to [self-hosted, clean-room] and seven macOS/Windows legs cannot move at all.",
   "branch": "PMAT-547-every-ci-job-runs-on-the-fleet",
-  "base": "0bb6cb57",
-  "base_commit": "0bb6cb5700373fdf151f956e57861127a21cb0ee",
+  "base": "ddd0c441",
+  "base_commit": "ddd0c4414956be1a40e5dee0424993c619a99d81",
   "diff_sha256": "b218dd9321d002b682a1ec2387264b9a1e6924db",
   "recorded_at": "after the round that found a suite this branch had broken without running it, and four shapes of runs-on that hid a hosted runner from its own parser",
   "quorum": {
