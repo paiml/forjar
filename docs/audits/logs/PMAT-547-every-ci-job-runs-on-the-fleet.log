@@ -99,8 +99,11 @@
     builder: ldd (Ubuntu GLIBC 2.35-0ubuntu3.11) 2.35
     binary demands at most GLIBC_2.34
 
-  and the same two lines into $GITHUB_STEP_SUMMARY. It never fails the build: a
-  release that raises the floor is a decision for a reader, not for a step.
+  and the same two lines into $GITHUB_STEP_SUMMARY. It also FAILS the build above
+  GLIBC_CEILING=2.35 — the floor ubuntu-22.04 enforced before this branch removed
+  the pin. An earlier version of this log said it never fails and that a release
+  raising the floor is a decision for a reader; two review lanes called that a
+  weakened gate and they were right. 2.34 demanded against a 2.35 ceiling today.
 
 ### 6. the comments that became false
 

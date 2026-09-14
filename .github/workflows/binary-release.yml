@@ -248,8 +248,11 @@ jobs:
       # the fleet has. An unmeasured floor is not a floor, so record it: the
       # builder's own glibc, and the highest GLIBC_ version the binary actually
       # demands -- which is the number that decides whether an old host can run
-      # it. Never fails the build: it is a measurement, and a release that
-      # raises the floor is a decision for a reader, not for this step.
+      # it. AND it fails the build above GLIBC_CEILING=2.35, the floor ubuntu-22.04
+      # enforced before this branch removed the pin. An earlier version of this
+      # comment said the step never fails and that raising the floor is a reader's
+      # decision; that made a disclosed weakening out of an enforced gate, and two
+      # review lanes refused it.
       - name: Record the glibc floor this binary demands
         if: ${{ !contains(matrix.target, 'musl') }}
         run: |

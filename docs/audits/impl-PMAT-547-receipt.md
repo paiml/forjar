@@ -75,7 +75,7 @@ Log §10.
 
 **`nightly.yml` built aarch64 natively.** `cargo build --release --target aarch64-unknown-linux-gnu` works on a hosted ARM runner and cannot work on an x86_64 fleet host: no aarch64 linker, and `vendored-openssl` needs a cross C toolchain. `release.yml` has been building that same target on `[self-hosted, clean-room]` all along with `cross build`, so the leg takes the proven path rather than a new one.
 
-**`binary-release.yml` was pinned to `ubuntu-22.04` for glibc 2.35.** A binary linked against a newer glibc refuses to start on an older host, and that pin was the only thing holding the floor. The pin is gone and the fleet's glibc is not something the workflow could know before it ran — so it measures it. A new step records the builder's glibc and the highest `GLIBC_` version the binary demands, to the log and the job summary, on every release. Verified locally against a real forjar binary: builder 2.35, binary demands at most `GLIBC_2.34`. It never fails the build, because a release that raises the floor is a decision for a reader and not for a step.
+**`binary-release.yml` was pinned to `ubuntu-22.04` for glibc 2.35.** A binary linked against a newer glibc refuses to start on an older host, and that pin was the only thing holding the floor. The pin is gone and the fleet's glibc is not something the workflow could know before it ran — so it measures it AND refuses what the pin would have refused. A new step records the builder's glibc and the highest `GLIBC_` version the binary demands, and exits 1 when that exceeds `GLIBC_CEILING=2.35` — the floor 22.04 held, to the log and the job summary, on every release. Verified locally against a real forjar binary: builder 2.35, binary demands at most `GLIBC_2.34`. It never fails the build, because a release that raises the floor is a decision for a reader and not for a step.
 
 Log §5.
 
@@ -215,7 +215,15 @@ Log §8.
 
 - **Seven legs still run on GitHub.** Two macOS in `lint.yml`, two macOS and one Windows in `nightly.yml`, two macOS in `release.yml` — seven legs across four `(file, label)` pairs, counted as `{lint.yml:macos-latest: 2, nightly.yml:macos-latest: 2, nightly.yml:windows-latest: 1, release.yml:macos-latest: 2}`. The fleet has no such hardware. They can be removed only by dropping this project's coverage of those platforms, which is a decision for a person, or by adding a mac and a Windows box to the fleet. The test makes adding an eighth fail.
 - **The conversion is not proven on the fleet by this branch.** Whether all thirty-three jobs actually pass on `clean-room` is decided by CI on this PR and by the workflows that only run on a schedule or a tag — `nightly.yml`, `binary-release.yml`, `mutation.yml`, `stress.yml`, `proofs.yml`. The `cross` path and the guarded `musl-tools` install are both copied from `release.yml`, which already runs on the fleet, but a scheduled workflow will not be observed until it next fires.
-- **The glibc floor is recorded, not enforced.** Nothing fails if a future fleet image raises it. Making it a floor needs a number someone is willing to commit to, and this branch does not invent one.
+- **The glibc floor is ENFORCED again, at 2.35.** An earlier version of this line
+  said "recorded, not enforced — nothing fails if a future fleet image raises it",
+  and that was a weakened gate disclosed rather than a gate. Two review lanes said
+  so. The number nobody wanted to invent did not need inventing: 2.35 is the floor
+  `ubuntu-22.04` enforced before the pin was removed, so restoring it restores what
+  was there rather than choosing something new. The step exits 1 above it, naming
+  the target and the demanded version. Measured today: the binary demands 2.34, so
+  the ceiling passes with room and fires the day the fleet moves past what the pin
+  allowed.
 - **`actionlint` is still not run in CI.** `.github/actionlint.yaml` makes a local run useful; wiring it into the PR lane is separate work.
 - **The architecture pin is a guess about capacity, not about need.** Every runner forjar can reach is X64, so `[self-hosted, clean-room, X64]` costs nothing today. If forjar is ever given the ARM64 `gpu-nodes` group deliberately — to build an aarch64 artifact natively instead of under `cross` — the pin is what has to be relaxed, one job at a time, and `a_fleet_job_names_the_architecture_it_needs` is where the decision gets written down.
 
