@@ -42,7 +42,8 @@
 
 use super::census::{DriftCensus, SkipReason};
 use super::ignore::should_ignore_drift;
-use super::{DriftFinding, DRIFT_QUERY_TIMEOUT_SECS};
+use super::unmeasured::{self, Reading};
+use super::DriftFinding;
 use crate::core::types::{Machine, Resource, ResourceType, TaskMode};
 
 /// Per-invocation bounds on how much work a drift run may do on the target.
@@ -187,23 +188,31 @@ pub(super) fn check_task_drift(
             ))
         }
     };
-    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => None,
-        Ok(out) => Some(finding(
-            resource_id,
-            "completion_check: FAIL",
-            format!(
-                "completion_check fails on {}: {}",
-                machine.hostname,
-                marker(&out)
-            ),
-        )),
-        Err(e) => Some(finding(
-            resource_id,
-            "ERROR",
-            format!("transport error: {e}"),
-        )),
+    let out = match unmeasured::read(machine, &script) {
+        Reading::Answered(out) => out,
+        // forjar#549: a check that never ran has not failed. Reporting it as
+        // `completion_check: FAIL` pages for a guard nobody evaluated.
+        Reading::Unmeasured(why) => {
+            return Some(DriftFinding::unmeasured(
+                resource_id,
+                ResourceType::Task,
+                "completion_check: pass",
+                why,
+            ))
+        }
+    };
+    if out.success() {
+        return None;
     }
+    Some(finding(
+        resource_id,
+        "completion_check: FAIL",
+        format!(
+            "completion_check fails on {}: {}",
+            machine.hostname,
+            marker(&out)
+        ),
+    ))
 }
 
 /// The verdict marker the check printed (`task=pending`), or its stderr.

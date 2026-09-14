@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-09-13
+
+The third cut under the two-day cadence (PMAT-225; due 2026-09-13T19:55:10Z).
+Nine PRs. One changes what forjar SAYS about a machine it could not reach; the
+other eight are the gates and records that decide when a cut may happen at all,
+and most of them were found by RUNNING the 1.29.0 machinery rather than by
+reading it — including one in which `/releases/latest` had been serving a
+four-version-old binary for days while gate R called the release fine.
+
+
+**`forjar drift` reported a host it could not reach as drifted (PMAT-549, #549).**
+Every detector read a query the target never answered as the target's answer.
+Over SSH, `ssh` exits 255 when it cannot connect, and the transport hands that
+back as a finished command, so the file detector printed `MISSING`, the word a
+reached host earns for a file that is really gone. Measured on 1.29.0 against
+203.0.113.9 (TEST-NET-3): `drift_count 1`, `actual_hash MISSING`, detail
+`… not accessible: ssh: connect to host 203.0.113.9 port 22: Connection timed
+out`. A timeout became `ERROR`, and a task whose `completion_check` never ran
+became `completion_check: FAIL`. A directory whose second query, its `ls -la`
+listing, failed or never came back was reported clean.
+
+A transport error, or exit 255 from an SSH transport, is now `UNMEASURED`. One
+reader, `tripwire::drift::unmeasured`, decides it for every query the file,
+task, image and state-query detectors make, so they cannot disagree. The
+census gives it its own count, never inspected and never skipped, so
+`in_scope` is `inspected + skipped + unmeasured`. `--json` lists it under
+`unmeasured` rather than `findings`, adds `unmeasured_count` and
+`resources_unmeasured`, and keeps `drift_count` equal to the length of
+`findings`. Text output never prints `No drift detected.` while anything went
+unmeasured. `--tripwire` exits 4, the connection class, when nothing drifted
+and something went unmeasured; real drift still sets the exit code.
+`--alert-cmd`, `policy.notify.on_drift` and `--auto-remediate` still act on
+drift only, so an unreachable host no longer triggers them. The MCP `drift`
+verb splits the same way and names each unmeasured resource in `unchecked`. A
+directory listing the host refused is now an `ERROR` finding.
+
+A remote script that itself exits 255 over SSH is also read as unmeasured,
+which errs toward "not known", never toward clean. `apply` still treats an
+unmeasured resource as observed drift and plans to reconcile it, as it did the
+old `MISSING` finding; the line it prints now says `not measured` where it said
+`not accessible`.
+
+*Upgrading a `--json` consumer:* an unmeasured resource is no longer in
+`findings`. A consumer that judges only `findings` and runs drift without
+`--tripwire` will read an unreachable host as clean, so judge `unmeasured` as
+well. paiml/infra#560 is one, measured: exit 0 and `no unexcused drift` over a
+host nothing answers.
+
+
+**The latest release is the latest release (PMAT-534, #534).** Measured
+2026-09-12: `repos/paiml/forjar/releases/latest` resolved to v1.25.2 while
+v1.26.0, v1.27.0 and v1.28.0 were all `prerelease=false draft=false` and days
+newer. Every `curl -L .../releases/latest/download/…`, every badge and every
+script following that URL got a four-version-old binary, for days, while gate
+R reported the release fine. A release is BORN a prerelease (PMAT-166) so no
+consumer sees a half-uploaded one; nothing was checking that it stopped being
+one.
+
+**A PR and its commits name one ticket (PMAT-540, #540).** PMAT-535 closed the
+BRANCH half at push time, where the pull request does not yet exist and its
+title is typed afterwards — so `fix/ci-lint` with a PR titled `(PMAT-520)`
+reproduced #532's misattribution untouched. Gate A holds the PR object, the
+merge commit and the receipt, so it compares the id the PR is filed under
+against what the merge actually claims.
+
+**CI selects the dogfood gate the change can move (PMAT-542, #542).** The
+PMAT-237 classifier decides WHETHER the heavy jobs run and works — 3 of the
+last 25 merged PRs were `code=false` and skipped everything — but one boolean
+covered all of them, so a change to `scripts/` or `tests/` also paid for a
+release build and two gates that read a surface it cannot reach.
+
+**A branch names the ticket its work claims (PMAT-535, #535).** The branch name
+is load-bearing for three gates and nothing checked it: gate A resolves the
+receipt path from it, gate E the quorum slug, gate T the release WINDOW.
+Measured on #532, pushed from `PMAT-520-book-v1.29.0` while every commit
+trailer, the title and the receipt said PMAT-531: every window arm credited
+PMAT-520 — already SHIPPED in 1.29.0 — to v1.30.0, and PMAT-531 was invisible
+to all of them.
+
+**The SIGPIPE class is closed, and the rule covers the tree (PMAT-240, #530).**
+A pipeline whose right-hand side can exit first — `grep -q`, `grep -m`,
+`head`, `jq -e` — makes the left side take SIGPIPE, and under `set -o pipefail`
+that is 141: gate T reported UNMEASURED on about one run in three. PMAT-239
+had fixed three instances and written a rule covering THREE FILES; its own
+census found eighteen more sites and thirteen were still present.
+
+**Gate T reads the cookbook's LOCK, not its requirement (PMAT-537, #537).**
+What `cargo` builds in the cookbook is what `Cargo.lock` pins, so a
+requirement that merely ADMITS the release is not evidence the release was
+what got built.
+
+**The 1.29.0 release record (PMAT-533, #533).** forjar 1.29.0 on crates.io,
+docs.rs built, 14 release assets, `/releases/latest` resolving to it, and
+`make dogfood-published VERSION=1.29.0` exiting 0 — the surface and the 18
+documented invocations measured against what crates.io serves, including 98
+cookbook configs. Five false sentences were caught before the record became
+the record.
+
+**Book v1.29.0, and the first cookbook commit any release has named
+(PMAT-531, #531).** `release-goal.sh cut v1.29.0 --next v1.30.0`: thirteen
+PRs, sixteen tickets, the dogfood and crux documents, and `7c100454` — the
+paiml/forjar-cookbook commit the release was qualified against. Every release
+before this one claimed to have been dogfooded against a cookbook nobody
+named.
+
 ## [1.29.0] - 2026-09-11
 
 The second cut under the two-day cadence (PMAT-225; due 2026-09-12T16:07:14Z).

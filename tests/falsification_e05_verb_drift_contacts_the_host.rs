@@ -114,26 +114,26 @@ fn drift_over_an_unreachable_machine_must_not_answer_clean() {
         "forjar#407: the verb answered clean about 203.0.113.9 without contacting it: {out}"
     );
 
-    let conf = out["findings"]
-        .as_array()
-        .and_then(|f| f.iter().find(|f| f["resource"] == "conf"))
-        .unwrap_or_else(|| panic!("no verdict for `conf`: {out}"));
-    let actual = conf["actual_hash"].as_str().unwrap_or("");
+    // forjar#549: UNMEASURED, not drift. 1.29.0 answered MISSING — also what a
+    // REACHED host answers for an absent file — so the transport failure read
+    // as a verdict about the file.
+    let findings = out["findings"].as_array().cloned().unwrap_or_default();
     assert!(
-        actual == "ERROR" || actual == "MISSING",
-        "an unroutable host cannot yield a real content hash; `{actual}` proves the \
-         controller's filesystem was read instead. detail={}",
-        conf["detail"]
+        findings.iter().all(|f| f["resource"] != "conf"),
+        "an unanswered query was reported as drift: {out}"
     );
-    // `MISSING` is also what a REACHED host answers for an absent file, so the
-    // detail must show the transport failing to reach 203.0.113.9 — otherwise
-    // an environment where TEST-NET-3 routes somewhere would pass vacuously
-    // (E05 quorum, agy lane).
+    let conf = out["unmeasured"]
+        .as_array()
+        .and_then(|u| u.iter().find(|f| f["resource"] == "conf"))
+        .unwrap_or_else(|| panic!("no unmeasured verdict for `conf`: {out}"));
+    assert_eq!(conf["actual_hash"], "UNMEASURED", "{out}");
+    // The detail must show the transport failing to reach 203.0.113.9 —
+    // otherwise an environment where TEST-NET-3 routes somewhere would pass
+    // vacuously (E05 quorum, agy lane).
     let detail = conf["detail"].as_str().unwrap_or("");
     assert!(
-        detail.contains("203.0.113.9") || detail.contains("not accessible"),
-        "the verdict must come from a failed attempt to reach the target, not from a \
-         successful read somewhere: {detail}"
+        detail.contains("203.0.113.9"),
+        "the verdict must come from a failed attempt to reach the target: {detail}"
     );
 }
 

@@ -11,11 +11,14 @@
 //! `GH=false` is "gh cannot answer", and a stub is "gh answers this".
 //! Nothing here touches the network or the real repository.
 
-#![allow(dead_code)]
+#![allow(unused)]
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+
+mod gh;
+pub(crate) use gh::*;
 
 /// The fixture's own version, and therefore the tag the script looks for.
 pub(crate) const VERSION: &str = "0.0.2";
@@ -377,25 +380,6 @@ pub(crate) fn published_fixture() -> Fixture {
         root,
         head,
     }
-}
-
-/// A `gh` that answers BOTH questions the published state asks it: the release
-/// object for `gh release view`, and the PR window for everything else. The
-/// pre-tag fixture's stub answers every invocation with the PR array, which
-/// `jq -r .isPrerelease` cannot index — a stub that answers the wrong question
-/// is a fixture defect, not a gate finding.
-pub(crate) fn stub_gh_published(dir: &Path, head: &str, draft: &str) -> String {
-    let p = dir.join("gh-published");
-    let body = format!(
-        r#"{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{head}"}},"headRefName":"{HEAD_REF}"}}"#
-    );
-    let release = format!(r#"{{"tagName":"{PREV_TAG}","isPrerelease":false,"isDraft":{draft}}}"#);
-    let script = format!(
-        "#!/usr/bin/env bash\nif [ \"${{1:-}}\" = release ]; then\n  printf '%s' '{release}'\n  exit 0\nfi\nprintf '%s' '[{body}]'\n"
-    );
-    std::fs::write(&p, script).expect("write stub");
-    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-    p.to_string_lossy().into_owned()
 }
 
 /// `cargo` and `curl` answering the way a published release makes them answer.

@@ -6,7 +6,8 @@
 
 use super::census::{DriftCensus, SkipReason};
 use super::ignore::should_ignore_drift;
-use super::{DriftFinding, DRIFT_QUERY_TIMEOUT_SECS};
+use super::unmeasured::{self, Reading};
+use super::DriftFinding;
 use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 
 /// FJ-2106/E15: Check all image-type resources for drift.
@@ -66,42 +67,45 @@ pub fn check_image_drift(
     let script = format!(
         "docker inspect {container_name} --format '{{{{.Image}}}}' 2>/dev/null || echo 'NOT_RUNNING'"
     );
-    match crate::transport::exec_script_timeout(machine, &script, Some(DRIFT_QUERY_TIMEOUT_SECS)) {
-        Ok(out) if out.success() => {
-            let actual = out.stdout.trim().to_string();
-            if actual == "NOT_RUNNING" {
-                Some(DriftFinding {
-                    resource_id: resource_id.to_string(),
-                    resource_type: ResourceType::Image,
-                    expected_hash: expected_digest.to_string(),
-                    actual_hash: "NOT_RUNNING".to_string(),
-                    detail: format!("container {container_name} is not running"),
-                })
-            } else if actual != expected_digest {
-                Some(DriftFinding {
-                    resource_id: resource_id.to_string(),
-                    resource_type: ResourceType::Image,
-                    expected_hash: expected_digest.to_string(),
-                    actual_hash: actual,
-                    detail: "deployed image differs from built image".to_string(),
-                })
-            } else {
-                None
-            }
+    let out = match unmeasured::read(machine, &script) {
+        Reading::Answered(out) => out,
+        // forjar#549: an unanswered `docker inspect` says nothing about the image.
+        Reading::Unmeasured(why) => {
+            return Some(DriftFinding::unmeasured(
+                resource_id,
+                ResourceType::Image,
+                expected_digest,
+                why,
+            ))
         }
-        Ok(out) => Some(DriftFinding {
+    };
+    if !out.success() {
+        return Some(DriftFinding {
             resource_id: resource_id.to_string(),
             resource_type: ResourceType::Image,
             expected_hash: expected_digest.to_string(),
             actual_hash: "ERROR".to_string(),
             detail: format!("docker inspect failed: {}", out.stderr.trim()),
-        }),
-        Err(e) => Some(DriftFinding {
+        });
+    }
+    let actual = out.stdout.trim().to_string();
+    if actual == "NOT_RUNNING" {
+        Some(DriftFinding {
             resource_id: resource_id.to_string(),
             resource_type: ResourceType::Image,
             expected_hash: expected_digest.to_string(),
-            actual_hash: "ERROR".to_string(),
-            detail: format!("transport error: {e}"),
-        }),
+            actual_hash: "NOT_RUNNING".to_string(),
+            detail: format!("container {container_name} is not running"),
+        })
+    } else if actual != expected_digest {
+        Some(DriftFinding {
+            resource_id: resource_id.to_string(),
+            resource_type: ResourceType::Image,
+            expected_hash: expected_digest.to_string(),
+            actual_hash: actual,
+            detail: "deployed image differs from built image".to_string(),
+        })
+    } else {
+        None
     }
 }

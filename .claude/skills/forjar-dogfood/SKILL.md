@@ -82,6 +82,22 @@ code, it does not run in CI, and it cannot be shown to go red. They are now
 window in `scripts/dogfood/lib/window.sh`, with falsifiers in
 `tests/falsification_dogfood_harness_and_quorum.rs`.
 
+**The promotion to a full release is a STEP, and gate R checks it (PMAT-534).**
+A release is born a prerelease so no consumer sees a half-uploaded asset set,
+and GitHub never makes a prerelease `latest`. Clearing the flag does NOT move
+the pointer — `make_latest` is fixed when the flag is written — so the promotion
+must say `--latest`:
+
+```bash
+gh release edit v<ver> --repo paiml/forjar --prerelease=false --latest
+```
+
+Measured 2026-09-12: `repos/paiml/forjar/releases/latest` resolved to v1.25.2
+while v1.26.0, v1.27.0 and v1.28.0 were all full releases days newer, because
+that step existed only as one line of a workflow's output. `make release-check`
+now refuses a full release the URL does not point at, and reports a prerelease
+with the command that ends it.
+
 ## Frame — do this first, in this order (this is not a gate)
 
 ```bash
