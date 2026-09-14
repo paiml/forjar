@@ -150,8 +150,9 @@ report rather than a measurement.
      one **ARM64**. forjar reaches only the X64 group today because groups 3 and
      5 are `visibility=selected` — an access-control accident, not a property of
      the label, and one checkbox away from handing an
-     `x86_64-unknown-linux-gnu` build an ARM64 runner. Fifty declarations across
-     eighteen files now say `[self-hosted, clean-room, X64]`; seventeen of them
+     `x86_64-unknown-linux-gnu` build an ARM64 runner. FORTY-EIGHT declarations across
+     eighteen files now say `[self-hosted, clean-room, X64]` — a string grep returns
+     fifty and two of those are prose comments — and FOURTEEN of them
      were already on the fleet before this branch with the same unstated
      assumption. The case is
      `tests/falsification_every_ci_job_runs_on_the_fleet/controls.rs:106`.
