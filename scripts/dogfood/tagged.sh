@@ -42,6 +42,18 @@
 #   T5  from dogfood_floor on, the dogfood receipt and the crux document a row
 #       names exist at HEAD, the receipt ends in its END marker and reaches
 #       exactly one verdict
+#   T8b from cookbook_floor the named cookbook commit's Cargo.LOCK must pin the
+#       version being released, not merely a requirement that admits it. A
+#       requirement is a range; the lock is what cargo builds. Measured on
+#       7c100454, the commit v1.29.0's row named: the manifest says `1.2` and
+#       the lock says 1.2.1, so the gate blessed a cookbook compiled twenty-seven
+#       minors behind the release it was recorded as qualifying (PMAT-537).
+#   T9  while a cut is in flight, any "<N> PRs across <M> tickets" claim in the
+#       release's own CHANGELOG section equals what the window measures. The
+#       1.29.0 cut wrote "Thirteen" over twelve merged PRs — the thirteenth was
+#       its own, unmerged, PR — and three review lanes caught it by hand on the
+#       last read. Silence is not a claim and a stale count between releases is
+#       not this gate's business.
 #   T6  next.tag is above the newest tag, next.due is exactly the newest cut
 #       plus cadence_days, and the cut is not OVERDUE: past next.due with PRs
 #       merged since the tag and Cargo.toml still at the tagged version, this
@@ -62,6 +74,22 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 fail() {
   echo "GATE T FAIL $1"
   exit 1
+}
+
+# A count as a CHANGELOG spells it, or empty for one this arm cannot spell.
+# Empty is UNMEASURED at the call site rather than a silent pass: a release
+# with more than twenty PRs is possible and must not read as "no claim".
+number_word() {
+  case "$1" in
+    0) echo "Zero" ;;   1) echo "One" ;;      2) echo "Two" ;;
+    3) echo "Three" ;;  4) echo "Four" ;;     5) echo "Five" ;;
+    6) echo "Six" ;;    7) echo "Seven" ;;    8) echo "Eight" ;;
+    9) echo "Nine" ;;   10) echo "Ten" ;;     11) echo "Eleven" ;;
+    12) echo "Twelve" ;; 13) echo "Thirteen" ;; 14) echo "Fourteen" ;;
+    15) echo "Fifteen" ;; 16) echo "Sixteen" ;; 17) echo "Seventeen" ;;
+    18) echo "Eighteen" ;; 19) echo "Nineteen" ;; 20) echo "Twenty" ;;
+    *) echo "" ;;
+  esac
 }
 
 # shellcheck source=scripts/dogfood/lib/window.sh
@@ -102,7 +130,11 @@ reachable_tags_from_floor() {
 # The tag just below $1 among the tags reachable from it -> LOWER.
 lower_tag_of() {
   local rc=0 t
-  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+  # PMAT-239: one capture and one awk, never a three-stage pipe whose last
+  # two stages exit early and leave git holding a closed pipe.
+  local all
+  all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} exited ${rc}: the lower bound of ${1}'s window cannot be read — UNMEASURED"
   fi
@@ -163,6 +195,143 @@ labels_of_release() {
   done
 }
 
+# T8 (PMAT-241): the cookbook moved with the release.
+#
+# The cookbook is where forjar is USED rather than described: gate D validates
+# every one of its configs against the built artifact, and `make
+# dogfood-published VERSION=x.y.z` does it against what crates.io actually
+# serves. Nothing recorded WHICH cookbook that was, and paiml/forjar-cookbook's
+# master had not moved since 2026-08-29 — four releases — while four tags went
+# out claiming to be dogfooded against it.
+#
+# The row names the commit; this checks that the commit exists on the cookbook
+# and that its Cargo.toml admits the version that shipped. A release whose
+# cookbook cannot build against it is a release the cookbook does not describe.
+cookbook_of_release() {
+  local row="$1" tag="$2" ver="$3" sha rc=0 crc=0 lrc=0 body raw op req lock locked
+  sha="$(printf '%s' "$row" | jq -r '.cookbook // ""')"
+  if [ -z "$sha" ]; then
+    fail "${tag} is at or above cookbook_floor and its row names no cookbook: commit — nothing records which paiml/forjar-cookbook the release was qualified against (take it from \`git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master\` when the cut is made)"
+  fi
+  case "$sha" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+    *) fail "${tag}: cookbook: \"${sha}\" is not a commit sha — the field names the cookbook commit the release was qualified against, not a branch or a tag, because a branch moves and this must not" ;;
+  esac
+  body="$("$GH" api "repos/paiml/forjar-cookbook/contents/Cargo.toml?ref=${sha}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)" || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$body" ]; then
+    fail "${tag}: paiml/forjar-cookbook has no readable Cargo.toml at ${sha} — either the commit is not on the cookbook or GitHub could not answer, and both are UNMEASURED"
+  fi
+  # THE REQUIREMENT, READ THE WAY CARGO WOULD.
+  #
+  # Four things review lanes caught in earlier versions of this parser, each of
+  # them a WRONG MEASUREMENT rather than a miss: it matched `forjar = ` in any
+  # table, so a dev-dependency was read as the real one; it required the value
+  # to start with a digit, so `^1.2` — the spelling Cargo writes by default —
+  # produced an empty requirement and the gate said "declares no forjar version
+  # requirement", which is false; it read a trailing comment, so
+  # `forjar = "1.2" # version = "2.0"` measured 2.0; and it said nothing about
+  # a multi-clause requirement it cannot evaluate.
+  #
+  # awk keeps the section, cuts the comment, takes the first `forjar` entry in
+  # `[dependencies]` or `[workspace.dependencies]`, and returns the requirement
+  # STRING — operator included, because the operator is half of what the
+  # requirement means. The comparison below then decides, and refuses by name
+  # anything it cannot read.
+  local raw
+  raw="$(printf '%s\n' "$body" | awk '
+    function uncomment(s,   i, c, q, out) {
+      # A trailing `# version = "2.0"` was read as the requirement, so
+      # `forjar = "1.2" # version = "2.0"` measured 2.0. Cut at the first `#`
+      # outside a string, the way TOML reads one.
+      q = 0; out = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "#" && !q) break
+        if (c == "\"") q = !q
+        out = out c
+      }
+      return out
+    }
+    /^\[/ { dep = ($0 == "[dependencies]" || $0 == "[workspace.dependencies]"); next }
+    !dep { next }
+    /^forjar[[:space:]]*=/ {
+      line = uncomment($0)
+      if (match(line, /version[[:space:]]*=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); sub(/^version[[:space:]]*=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+      if (match(line, /=[[:space:]]*"[^"]*"/)) {
+        v = substr(line, RSTART, RLENGTH); sub(/^=[[:space:]]*"/, "", v); sub(/"$/, "", v)
+        print v; exit
+      }
+    }')"
+  if [ -z "$raw" ]; then
+    fail "${tag}: the cookbook at ${sha} declares no forjar version requirement under [dependencies] or [workspace.dependencies] — a path or git dependency pins no version, and nothing there says what the cookbook was qualified against"
+  fi
+  case "$raw" in
+    *,*|*\ *) fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\", a multi-clause requirement this gate does not evaluate — say so rather than guess (widen the gate, or pin the cookbook with a single caret)" ;;
+  esac
+  # THE OPERATOR IS PART OF THE REQUIREMENT. `~1.2` and `=1.2` stop at 1.3.0
+  # where `^1.2` runs to 2.0.0, so reading all three as a caret admits versions
+  # Cargo refuses — wider, which is the direction that produces a false green.
+  case "$raw" in
+    \^*) op='^'; req="${raw#^}" ;;
+    \~*) op='~'; req="${raw#\~}" ;;
+    =*)  op='='; req="${raw#=}" ;;
+    *)   op='^'; req="$raw" ;;
+  esac
+  dogfood_req_admits "$ver" "$op" "$req" || crc=$?
+  if [ "$crc" -eq 4 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar \"${raw}\" and the release is ${ver} — this gate evaluates a caret, tilde or exact requirement over one to three numeric components, and one of those two is not, so it says so rather than measure the wrong thing (\`sort -V\` puts a pre-release ABOVE the version it precedes, and bash reads a component of \`3-9\` as a subtraction)"
+  fi
+  if [ "$crc" -eq 2 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw}, which ${ver} is older than — the release shipped a version the cookbook cannot use, so the cookbook must be bumped as part of the cut"
+  fi
+  if [ "$crc" -eq 3 ]; then
+    fail "${tag}: the cookbook at ${sha} requires forjar ${raw} and the release is ${ver} — that requirement stops at ${DOGFOOD_REQ_UPPER}, so the cookbook cannot build against what shipped and must be bumped as part of the cut"
+  fi
+  if [ "$crc" -ne 0 ]; then
+    fail "${tag}: dogfood_req_admits ${ver} ${op} ${req} exited ${crc}, which is not a verdict this gate knows — UNMEASURED"
+  fi
+  # THE LOCK IS WHAT CARGO BUILDS (PMAT-537).
+  #
+  # Everything above reads the REQUIREMENT, and a requirement is a range. Cargo
+  # compiles the LOCK. Measured on 7c100454 — the exact commit v1.29.0's row
+  # names — `Cargo.toml` says `forjar = { version = "1.2" }` and `Cargo.lock`
+  # says `version = "1.2.1"`. `^1.2` admits 1.29.0, so this arm printed
+  # `requires forjar 1.2 ok` about a cookbook that compiles a version
+  # twenty-seven minors older than the release it was recorded as qualifying.
+  #
+  # WHICH OF THREE READINGS. "Every tagged release updates forjar-cookbook"
+  # could mean the lock resolves to the released version, or to anything the
+  # requirement admits that is not older than the previous release, or merely
+  # that the requirement admits the release. The last is what existed and is
+  # the one that produced the defect. THIS GATE TAKES THE FIRST: the cookbook's
+  # lock must pin exactly the version being released.
+  #
+  # That is an obligation on a second repository and it is stated rather than
+  # implied: a cut now requires a cookbook commit whose lock has been updated to
+  # the version being cut. It is the only reading under which "was qualified
+  # against" is true of the thing that was actually compiled, which is the whole
+  # point of naming a commit at all.
+  lock="$("$GH" api "repos/paiml/forjar-cookbook/contents/Cargo.lock?ref=${sha}" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)" || lrc=$?
+  if [ "$lrc" -ne 0 ] || [ -z "$lock" ]; then
+    fail "${tag}: paiml/forjar-cookbook has no readable Cargo.lock at ${sha} — the requirement is a range and the LOCK is what cargo builds, so without it nothing is known about the version that cookbook actually compiles: UNMEASURED"
+  fi
+  locked="$(awk '
+    /^name = "forjar"$/ { want = 1; next }
+    want && /^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/"$/, "", v); print v; exit }
+    /^\[\[package\]\]/ { want = 0 }' <<<"$lock")"
+  if [ -z "$locked" ]; then
+    fail "${tag}: the cookbook's Cargo.lock at ${sha} pins no forjar version — a lock with no entry for the crate under test measures nothing, and nothing is not a pass"
+  fi
+  if [ "$locked" != "$ver" ]; then
+    fail "${tag}: the cookbook at ${sha} LOCKS forjar ${locked} and the release is ${ver} — the requirement ${raw} admits it, but a requirement is a range and the lock is what cargo builds, so that cookbook was never compiled against this release. Update paiml/forjar-cookbook's Cargo.lock to ${ver} and name the resulting commit here (PMAT-537)"
+  fi
+
+  echo "GATE T ${tag} cookbook ${sha} requires forjar ${raw} and locks ${locked} ok"
+}
+
 # T5: the dogfood receipt and crux document of row $1 (tag $2, version $3).
 receipts_of_release() {
   local row="$1" tag="$2" ver="$3" rc=0 path text last n
@@ -204,6 +373,7 @@ dogfood_releases_field '.cadence_days'; CADENCE_DAYS="$DOGFOOD_FIELD"
 dogfood_releases_field '.floor'; FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.harness_floor'; HARNESS_FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.dogfood_floor'; DOGFOOD_FLOOR="$DOGFOOD_FIELD"
+dogfood_releases_field '.cookbook_floor // ""'; COOKBOOK_FLOOR="$DOGFOOD_FIELD"
 dogfood_releases_field '.next.tag'; NEXT_TAG="$DOGFOOD_FIELD"
 dogfood_releases_field '.next.due'; NEXT_DUE="$DOGFOOD_FIELD"
 for t in "$FLOOR" "$HARNESS_FLOOR" "$DOGFOOD_FLOOR"; do
@@ -259,9 +429,13 @@ for tag in $TAGS; do
   if dogfood_semver_ge "$tag" "$DOGFOOD_FLOOR"; then
     receipts_of_release "$row" "$tag" "${tag#v}"
   fi
+  if [ -n "${COOKBOOK_FLOOR:-}" ] && dogfood_semver_ge "$tag" "$COOKBOOK_FLOOR"; then
+    cookbook_of_release "$row" "$tag" "${tag#v}"
+  fi
   n=0
   for _ in $DOGFOOD_WINDOW_TICKETS; do n=$((n + 1)); done
   tickets_checked=$((tickets_checked + n))
+  DOGFOOD_LEDGER_TICKETS="${DOGFOOD_LEDGER_TICKETS:-} ${DOGFOOD_WINDOW_TICKETS}"
   echo "GATE T ${tag} cut ${DOGFOOD_TAG_DATE}: ${DOGFOOD_PR_COUNT} PR(s), ${n} ticket(s) labelled release:${tag} ok"
   checked=$((checked + 1))
 done
@@ -289,6 +463,34 @@ for t in $DOGFOOD_WINDOW_TICKETS; do
   esac
 done
 
+# T7 (PMAT-236): A SHIPPED TICKET SAYS IT SHIPPED.
+#
+# T2 and T4 reconcile the ledger and the `release:<tag>` labels, and neither
+# looks at `status`. So the roadmap said none of the 1.28.0 work had started on
+# the day 1.28.0 shipped: sixteen tickets across five releases read `planned` or
+# `inprogress` while their labels were correct, and no gate went red for it
+# (PMAT-235 backfilled them). The label is the link a release needs; the status
+# is what a person reads, and a record only half true is the kind that is
+# trusted right up until it matters.
+# The open window's tickets too: their PRs have merged, so the work has landed
+# and `completed` is what PMAT-235 established that means. This is the arm that
+# catches the drift as it happens rather than five releases later.
+check_status() {
+  local t="$1" where="$2"
+  dogfood_row_status "$t"
+  case "$DOGFOOD_ROW_STATUS" in
+    completed|cancelled) ;;
+    "") fail "${t} ${where} and has no status on its roadmap row — UNMEASURED" ;;
+    *) fail "${t} ${where} and its roadmap row still reads status: ${DOGFOOD_ROW_STATUS}: the work has landed and the roadmap says it has not started (move it with: pmat work edit ${t} -s inprogress && pmat work edit ${t} -s completed)" ;;
+  esac
+}
+for t in $DOGFOOD_LEDGER_TICKETS; do
+  check_status "$t" "is named by a tagged release in docs/roadmaps/releases.yaml"
+done
+for t in $DOGFOOD_WINDOW_TICKETS; do
+  check_status "$t" "is named by a PR merged since ${NEWEST}"
+done
+
 dogfood_epoch "$NEXT_DUE"; due="$DOGFOOD_EPOCH"
 dogfood_cargo_version
 case "$DOGFOOD_CARGO_VERSION" in
@@ -299,6 +501,65 @@ esac
 if [ "$NOW" -gt "$due" ] && [ "$DOGFOOD_PR_COUNT" -gt 0 ] && [ -z "$in_flight" ]; then
   fail "the cut of ${NEXT_TAG} is OVERDUE by $(( (NOW - due) / 3600 ))h: due ${NEXT_DUE} (${NEWEST} cut + ${CADENCE_DAYS} day(s)), ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST}, and Cargo.toml is still at ${DOGFOOD_CARGO_VERSION}"
 fi
+# T9 (PMAT-520): WHILE A CUT IS IN FLIGHT, THE CHANGELOG COUNTS WHAT MERGED.
+#
+# The 1.29.0 cut said "Thirteen PRs across sixteen tickets" and twelve PRs and
+# fifteen tickets had merged. Nobody had miscounted: the thirteenth is the cut's
+# own PR, which has not merged and never will have when the sentence is written.
+# Three review lanes caught it by hand, on the last read before it became the
+# permanent record of what the release was. No gate asked.
+#
+# The window is already measured two arms above — the same numbers gate A and
+# gate E enumerate — so the join costs nothing. The claim is read from the
+# release's own CHANGELOG section, in the ONE shape a cut writes it: a leading
+# "<N> PRs across <M> tickets". A section that makes no such claim is not
+# failed for silence; a section that makes one and gets it wrong is.
+#
+# Only while a cut is in flight. Before one, the section does not exist; after
+# the tag, the window has moved on and the sentence is correctly about a window
+# that has closed.
+if [ -n "$in_flight" ] && git cat-file -e "HEAD:CHANGELOG.md" 2>/dev/null; then
+  changelog="$(git show "HEAD:CHANGELOG.md")"
+  # A HERE-STRING, NOT A PIPE. `printf | awk '\''… exit'\''` closes the pipe when
+  # awk leaves early, printf takes SIGPIPE, and under `set -o pipefail` the whole
+  # gate dies 141 with no verdict. This arm did exactly that on its first run —
+  # the same class as PMAT-239, in the file that already carries a rule against
+  # it, written by someone who had read the rule.
+  claim="$(awk -v ver="${DOGFOOD_CARGO_VERSION}" '
+    index($0, "## [" ver "]") == 1 { inside = 1; next }
+    inside && index($0, "## [") == 1 { exit }
+    inside && match($0, /[A-Za-z]+ PRs? across [A-Za-z]+ tickets?/) {
+      print substr($0, RSTART, RLENGTH); exit
+    }' <<<"$changelog")"
+  if [ -n "$claim" ]; then
+    n_tickets=0
+    for _ in $DOGFOOD_WINDOW_TICKETS; do n_tickets=$((n_tickets + 1)); done
+    # The counts are written as words, which is how a CHANGELOG reads. Only the
+    # range a release plausibly spans is spelled; anything outside it is
+    # UNMEASURED and says so rather than passing.
+    want_prs="$(number_word "$DOGFOOD_PR_COUNT")"
+    want_tickets="$(number_word "$n_tickets")"
+    if [ -z "$want_prs" ] || [ -z "$want_tickets" ]; then
+      fail "CHANGELOG [${DOGFOOD_CARGO_VERSION}] claims \"${claim}\" and the window measures ${DOGFOOD_PR_COUNT} PR(s) and ${n_tickets} ticket(s), which this arm cannot spell as words — UNMEASURED, and an unmeasured claim is not a checked one"
+    fi
+    # COMPARED IN LOWERCASE. A count is capitalised when it opens a sentence and
+    # not when it does not, and which of those a release's prose happens to use
+    # is nobody's business but the writer's. Measured: this very cut wrote
+    # "Twelve PRs across fifteen tickets" and the speller produced "Fifteen",
+    # which is a disagreement about typography dressed as a disagreement about
+    # the window.
+    want="${want_prs} PRs across ${want_tickets} tickets"
+    lc_claim="$(printf '%s' "$claim" | tr '[:upper:]' '[:lower:]')"
+    lc_want="$(printf '%s' "$want" | tr '[:upper:]' '[:lower:]')"
+    lc_prs="$(printf '%s' "$want_prs" | tr '[:upper:]' '[:lower:]')"
+    lc_tickets="$(printf '%s' "$want_tickets" | tr '[:upper:]' '[:lower:]')"
+    case "$lc_claim" in
+      "$lc_want"|"${lc_prs} pr across ${lc_tickets} tickets"|"${lc_prs} prs across ${lc_tickets} ticket"|"${lc_prs} pr across ${lc_tickets} ticket") ;;
+      *) fail "CHANGELOG [${DOGFOOD_CARGO_VERSION}] claims \"${claim}\" and the window measures \"${want}\": ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carrying ${n_tickets} ticket(s). A cut's own PR has not merged when the sentence is written, and counting it is the error this arm exists for (PMAT-520)" ;;
+    esac
+  fi
+fi
+
 if [ -n "$in_flight" ]; then
   clock="$in_flight"
 elif [ "$NOW" -gt "$due" ]; then
@@ -307,7 +568,7 @@ else
   clock="due ${NEXT_DUE}, $(( (due - NOW) / 3600 ))h left"
 fi
 
-echo "GATE T PASS ${checked} tagged release(s) since ${FLOOR} reconcile with git and GitHub and ${tickets_checked} ticket(s) carry their tag; ${open_tagged} of ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carry release:${NEXT_TAG}; ${clock}"
+echo "GATE T PASS ${checked} tagged release(s) since ${FLOOR} reconcile with git and GitHub and ${tickets_checked} ticket(s) carry their tag and say they shipped; ${open_tagged} ticket(s) from ${DOGFOOD_PR_COUNT} PR(s) merged since ${NEWEST} carry release:${NEXT_TAG}; ${clock}"
 
 # mutation: change `dogfood_iso $((newest_cut + CADENCE_DAYS * 86400))` to
 # `dogfood_iso $((newest_cut + CADENCE_DAYS * 86400))` — the derived due

@@ -53,7 +53,13 @@ PR_PAGE_LIMIT=200
 # the day the tag list fails to fetch.
 dogfood_prev_tag() {
   local rc=0 tag
-  tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)" || rc=$?
+  # PMAT-239: no pipe. `git tag … | head -1` has head exit after one line,
+  # git take SIGPIPE, and pipefail report 141 — the same defect that made this
+  # gate call a readable registry UNMEASURED at random. Capture, then take the
+  # first line with parameter expansion: one process, no signal.
+  local tags
+  tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)" || rc=$?
+  tag="${tags%%$'\n'*}"
   if [ "$rc" -ne 0 ]; then
     fail "git tag --merged HEAD exited ${rc} — the lower bound of the PR window cannot be read, so the window is UNMEASURED"
   fi
@@ -122,7 +128,13 @@ dogfood_tag_date() {
 # counted), inside UPPER (this window), or neither (merged after UPPER,
 # reported and not counted).
 dogfood_prs_between() {
-  local lower="$1" upper="$2"
+  DOGFOOD_WINDOW_UNMEASURED=""
+  # PMAT-229: the soft switch is the THIRD ARGUMENT, never an environment
+  # variable. An earlier version read `${DOGFOOD_WINDOW_SOFT:-0}`, which any
+  # operator could export into their shell and every gate would inherit —
+  # a release gate softened from outside is exactly the hole this must not
+  # open. An argument cannot be inherited.
+  local lower="$1" upper="$2" soft="${3:-}"
   local rc=0 raw n jrc=0 i=0 num oid arc prev_rc keep='[]'
   dogfood_ref_date "$lower"
   raw="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${DOGFOOD_REF_DATE}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName,title,body 2>&1)" || rc=$?
@@ -151,7 +163,12 @@ dogfood_prs_between() {
     prev_rc=0
     git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?
     if [ "$prev_rc" -eq 0 ]; then
-      echo "  #${num} ${oid} is inside ${lower} (the previous release) — not counted"
+      # PMAT-228: STDERR. This is a diagnostic about a PR that is NOT in the
+      # window, and `release-goal.sh cut` captures this function's stdout to
+      # build the row it writes into docs/roadmaps/releases.yaml — where the
+      # v1.28.0 booking carried this very line, made a YAML comment by the
+      # accident of its leading `#`, which is why nothing complained.
+      echo "  #${num} ${oid} is inside ${lower} (the previous release) — not counted" >&2
       DOGFOOD_PR_PREVIOUS=$((DOGFOOD_PR_PREVIOUS + 1))
       i=$((i + 1))
       continue
@@ -164,7 +181,8 @@ dogfood_prs_between() {
     case "$arc" in
       0) keep="$(printf '%s' "$keep" | jq -c --arg o "$oid" '. + [$o]')" ;;
       1)
-        echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted"
+        # PMAT-228: stderr, for the same reason as the note above.
+        echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted" >&2
         DOGFOOD_PR_OUTSIDE=$((DOGFOOD_PR_OUTSIDE + 1))
         ;;
       *) fail "git merge-base --is-ancestor ${oid} ${upper} exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
@@ -185,6 +203,23 @@ dogfood_prs_between() {
     fail "git rev-list --count ${lower}..${upper} exited ${crc}: whether anything landed since ${lower} cannot be read — UNMEASURED"
   fi
   if [ "$DOGFOOD_PR_COUNT" -eq 0 ] && [ "$commits_since" -gt 0 ]; then
+    # PMAT-229: THE STATUS LINE MAY RENDER THIS; NO GATE MAY PASS OVER IT.
+    #
+    # A third argument of `soft` records the refusal instead of taking it,
+    # and only `release-goal.sh show` passes it. On a feature branch — which is where
+    # an operator reads the cadence — the branch's own commits are in no merged
+    # PR, so this fired and `make release-goal` printed no goal at all: not the
+    # tag, not the due instant, not the bar. None of those depend on the
+    # unmeasured commits; only the merged count does, and it is printed as
+    # UNMEASURED. The caller still exits non-zero.
+    #
+    # scripts/dogfood/tagged.sh never passes it and is unchanged: a release gate
+    # that rendered a degraded line would be a gate that passed on an
+    # unmeasured window.
+    if [ "$soft" = "soft" ]; then
+      DOGFOOD_WINDOW_UNMEASURED="${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED"
+      return 0
+    fi
     fail "${commits_since} commit(s) reached ${upper} since ${lower} and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it"
   fi
 }
@@ -257,14 +292,42 @@ dogfood_roadmap_rows() {
     /^  labels:/    { inlist = 1; next }
     inlist && /^  - / { print id " " $2; next }
     { inlist = 0 }')"
+  # PMAT-236: the STATUS of every row, from the same single read. Gate T
+  # reconciles the ledger and the labels and never looked at this, so the
+  # roadmap could say a shipped ticket had not started — and did, for sixteen
+  # tickets across five releases, with nothing going red.
+  DOGFOOD_ROW_STATUSES="$(printf '%s\n' "$text" | awk '
+    /^- id: /        { id = $3; next }
+    /^  status: /    { if (id != "") { print id " " $2; id = "" } next }')"
   DOGFOOD_ROW_IDS_LOADED=1
+}
+
+# The status of row $1 -> DOGFOOD_ROW_STATUS (empty when the row has none).
+dogfood_row_status() {
+  local rc=0 hit
+  dogfood_roadmap_rows
+  # ONE PROCESS. `grep … | head -1` is the same defect one line over: head
+  # exits after the first line, grep takes SIGPIPE, and pipefail reports 141 —
+  # which is exactly what PMAT-239 is about. awk matches, prints and exits by
+  # itself, with nothing to signal.
+  hit="$(awk -v id="$1" '$1 == id { print $2; exit }' <<< "$DOGFOOD_ROW_STATUSES")" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "awk exited ${rc} reading the status of $1 — UNMEASURED"
+  fi
+  DOGFOOD_ROW_STATUS="$hit"
 }
 
 # Is $1 a roadmap row? Exit 0 or 1 — usable in `if`, never under `$(...)`.
 dogfood_is_row() {
   local rc=0
   dogfood_roadmap_rows
-  printf '%s\n' "$DOGFOOD_ROW_IDS" | grep -q -x -F -- "$1" || rc=$?
+  # PMAT-239: a HERE-STRING, never a pipe. `grep -q` exits at the first match
+  # and closes the pipe; `printf` then takes SIGPIPE, and under `set -o
+  # pipefail` the pipeline's status becomes 141. Measured on main: gate T
+  # reported `grep exited 141 looking PMAT-225 up in the ticket registry —
+  # UNMEASURED` on one run and passed on the next two, which is a gate that
+  # fails CI at random. A here-string has no second process to kill.
+  grep -q -x -F -- "$1" <<< "$DOGFOOD_ROW_IDS" || rc=$?
   if [ "$rc" -gt 1 ]; then
     fail "grep exited ${rc} looking $1 up in the ticket registry — UNMEASURED"
   fi

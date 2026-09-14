@@ -1,0 +1,12 @@
+== RED: main's scripts/dogfood and scripts/release-goal.sh over this branch's tests (fixes COMMITTED at cc6c0231)
+test a_release_at_the_cookbook_floor_without_its_cookbook_commit_is_red ... FAILED
+test a_cookbook_commit_that_cannot_be_read_is_unmeasured_and_red ... FAILED
+test a_release_below_the_cookbook_floor_is_not_asked_for_one ... ok
+test a_cookbook_field_that_is_not_a_commit_sha_is_red ... FAILED
+test result: FAILED. 19 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.47s
+== restore
+(nothing above = restored)
+== GREEN, three suites
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.58s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.56s

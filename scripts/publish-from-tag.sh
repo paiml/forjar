@@ -85,7 +85,12 @@ manifest_version() {
 }
 
 tag_version="${TAG#v}"
-cargo_toml_version="$(git show "$TAG:Cargo.toml" | manifest_version | head -n1)"
+# PMAT-240: capture, then take the first line with a parameter expansion.
+# `git show | manifest_version | head -n1` leaves git and sed writing into a
+# pipe head has closed, and this script publishes to crates.io — a 141 here is
+# a release that stops with no reason given.
+_manifest_versions="$(git show "$TAG:Cargo.toml" | manifest_version)"
+cargo_toml_version="${_manifest_versions%%$'\n'*}"
 [[ -n "$cargo_toml_version" ]] ||
   die "refusing: no [package] version found in $TAG:Cargo.toml"
 [[ "$cargo_toml_version" = "$tag_version" ]] ||

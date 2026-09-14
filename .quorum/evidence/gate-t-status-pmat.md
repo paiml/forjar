@@ -1,0 +1,9 @@
+# Quorum evidence — PMAT-236 + PMAT-238 + PMAT-239 — pmat and the gates
+
+- `kind-gate.sh`: kind=code. `model-gate.sh`: model=opus class=opus decision=admit basis=file. `goal.sh set`: refused under R-5; `goal.sh worker` declared the round. Routing: impl `route=agy-goal w=1.00 basis=absent note=fable-binding effort=1[U]` (self); review `route=agy-quorum w=1.00 basis=absent effort=1[U]` (delegate, three lanes).
+- `pmat work add` now REFUSES to mint an id from `max(id) + 1` — "two agents working at once both compute it, both are right locally, and the merge keeps one entry per id" — so PMAT-238, PMAT-239 and PMAT-240 were minted with `--id`. Recorded because it changed how a ticket is opened mid-session.
+- `pmat work edit` moved PMAT-232, PMAT-235 and PMAT-237 to completed through the enforced lifecycle; those three are the drift this branch's new arm exists to catch, and it caught them.
+- Gates: 19 + 2 + 18 green at HEAD across the three suites; three cases red against main's scripts (docs/audits/logs/PMAT-236-gate-tests.log); the pattern rule red when one leaky pipeline is appended (docs/audits/logs/PMAT-239-sigpipe-census.log); gate T green against the live repository, printing `26 ticket(s) carry their tag and say they shipped; 8 ticket(s) from 7 PR(s) merged since v1.28.0`.
+- `pmat analyze vacuous-tests --path tests --format json`: 0 in the touched test files.
+- Gate F's mutation arm: nothing under src/ changes, so it measures zero (PMAT-216 unchanged). Coverage is not gated and the 95% floor was measured at 95.69% on the PMAT-237 branch that introduced the split.
+- I-3 `transcript-gate.sh`: `PASS transcript-gate: attempted=26 denied=0 running_peak=1 slots=3 segments=894 files=26 (agent_calls=26 resumes=0 workflow_started=0; denied from hook log) (session <this session>, rule=explicit)`.

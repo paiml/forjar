@@ -1,0 +1,138 @@
+{
+ "kind": "code",
+ "issue": "PMAT-542 (closes forjar#542) — the PR lane selects the gate the change can move. PMAT-237's classifier decides WHETHER the heavy jobs run; it cannot decide WHICH, so a scripts/- or tests/-only PR paid 21.3 of a 25.2-minute critical path for a release build and two gates that measure the built binary's surface, which its diff cannot reach. Measured over the 25 PRs merged as of cddf78cd: 3 code=false, 15 can move a gate, 7 cannot.",
+ "branch": "PMAT-542-per-gate-selection",
+ "base": "cddf78cd",
+ "base_commit": "cddf78cdd5d3b8d561241e564bd20000f30a3211",
+ "diff_sha256": "b6ccaec11c260eb9755974f7fddfa9b43ef936d9",
+ "recorded_at": "after the round that found the selection failed OPEN on the two gates' own fixtures and their shared binary resolver",
+ "quorum": {
+  "lanes": [
+   "lane 1 (conv-14b4704d)",
+   "lane 2 (conv-295ed1ee)",
+   "lane 3 (conv-a84090fe)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes, dispatched in a single message with --not-before pinned to the dispatch instant and out_dir keyed by ticket AND session id. A FULL clone this time, not a --shared one: the previous round's third lane could run no git command at all because a shared clone's alternates point outside the sandbox.",
+  "kill_rule": "six claims and the standing instruction. THE SELECTION FAILED OPEN on the gates' own fixtures and their shared resolver — two lanes quoted the same sentence about what gate C and gate D read and both were right — and no case in the suite could have caught it. The first fix over-corrected and was measured collapsing the saving from seven PRs to two.",
+  "claims_confirmed": 5,
+  "claims_refuted": 8,
+  "refuted_claims": [
+   "That gate C reads only the built binary and docs/audits/surface_audit.csv, and gate D only the binary, README.md and that CSV. Both run scripts/dogfood/lib/binary.sh; gate C evaluates tests/fixtures/dogfood/local-files.yaml two ways; gate D runs everything against the whole fixture tree and opens Cargo.toml.",
+   "That tests/* and scripts/* outside scripts/dogfood/ are harmless for the two gates. Both fixtures and the shared resolver live under exactly those prefixes, so a PR editing the very fixture gate C compares would have skipped gate C.",
+   "That closing the hole is free. Selecting the whole of scripts/dogfood/ was measured against the same 25 PRs and collapsed the saving from seven to two.",
+   "That an absent base is handled. The action fell back to HEAD~1, so a workflow_dispatch re-run of a twenty-commit branch was classified from ONE commit.",
+   "That the workflow cases assert on what the workflow does. A bare substring test is satisfied by a comment carrying the same words.",
+   "That the dogfood steps sum to the job's 25.2 minutes. 9.0 + 6.2 + 6.1 + 3.8 is 25.1; the 0.1 is setup and checkout.",
+   "That the roadmap row carries the measured figure. It still ended 'Measured version: 56% of PRs', a number corrected everywhere else.",
+   "That 'all the new cases are RED against origin/main' says as much as it sounds like. Four of them read the workflow files, so the claim holds only because the proof reverts all three non-Rust files together."
+  ],
+  "lane_errors": [
+   "the orchestrator's delegate hit its 30-turn limit before writing a receipt — the tenth time in this session. All three lane JSONs were already on disk with exit 0 and were read directly; nothing was taken from a summary that was never written."
+  ]
+ },
+ "falsification": {
+  "test": "every_path_the_two_gates_name_is_selected_by_the_classifier re-derives the closure from scripts/dogfood/surface.sh and scripts/dogfood/docs.sh on every run — every tests/fixtures/ and lib/ path they name — and asserts the classifier selects each, so a gate that starts reading a new fixture turns the suite red rather than blinding itself. the_fixtures_and_the_shared_resolver_are_not_harmless pins the three paths the round found, and asserts their siblings are still NOT selected so the arm cannot buy safety by selecting everything.",
+  "test_file": "tests/falsification_pr_lane_selects_the_gate_the_change_can_move.rs",
+  "cargo_test_target": "falsification_pr_lane_selects_the_gate_the_change_can_move",
+  "reverted": "scripts/ci/changed-class.sh, .github/workflows/ci.yml and .github/actions/changed-class/action.yml checked out from origin/main over this branch, both suites run with --no-fail-fast, and the three files restored from the NAMED commit 51cc9400 rather than from HEAD.",
+  "observed_failure": "the classifier printed 0 `gates=` lines for [\"src/core/mod.rs\"]; exactly one is the contract",
+  "still_green_when_reverted": "12 of PMAT-237's 13 cases in falsification_pr_lane_runs_what_the_change_can_break. The thirteenth reads job names out of the workflow, and the revert puts back a job called dogfood, so its red is the rename and not the class."
+ },
+ "crux": {
+  "systems": [
+   "Bazel (target-level change pruning from the action graph, not from path globs)",
+   "Nix (a derivation is rebuilt exactly when its input closure hash moves)",
+   "Kubernetes Prow (run_if_changed regexes per presubmit job)",
+   "Buck2 (dep-file-based incrementality: the inputs a rule actually read)"
+  ],
+  "verdict": "accept(every surveyed system prunes work by an input closure rather than by a directory name, and the two that prune by regex -- Prow -- are the ones that ship the failure this round found: a job whose real inputs drift out of its pattern silently stops running. forjar cannot compute a true input closure for a shell gate, so it does the next honest thing: the closure is DERIVED BY READING THE TWO GATES and a test re-derives it on every run, which is Buck2's dep-file idea done by hand. Where forjar is WORSE than all four: the selection is a hand-written allow-list in one shell case statement, and its correctness rests on that one re-derivation case rather than on the build system observing what the gate opened. Where it is better than Prow: a not-selected gate prints NOT-SELECTED rather than nothing, so a reader can tell a skipped measurement from a passing one.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, against a FULL clone",
+  "verdict": "3/3 FAIL; a selection failing open on the gates' own fixtures, a pre-existing base narrowing, four assertions a comment could satisfy, and three numbers that did not reconcile",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-542",
+  "tools": [
+   "cargo test --no-fail-fast (2 suites, green and reverted)",
+   "cargo clippy --all-targets -- -D warnings",
+   "cargo fmt --all -- --check",
+   "bashrs lint (head and base)",
+   "bash -n",
+   "pmat analyze vacuous-tests",
+   "analyze_vacuous_tests",
+   "python3 yaml.safe_load on both workflow files",
+   "scripts/ci/changed-class.sh over 25 merged PRs",
+   "scripts/quorum-gate.sh PRINT_HASH",
+   "gh pr list / gh pr view / gh api actions jobs",
+   "gh issue create",
+   "goal.sh worker"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "414 of 19687 #[test] fns cannot fail (2.1%) across 2173 parsed files; 3 more skip silently when a fixture is missing. None of the 27 cases appears. Necessary and NOT sufficient, and this ticket is the example: no case was vacuous by the analyzer's measure and the suite still could not have found the fail-open hole. What separates a real case from a decorative one here is the RED run; what separates a sound selection from an unsound one is reading the two gate scripts, which is now a case of its own.",
+  "bashrs": "0 errors on scripts/ci/changed-class.sh and 0 errors on origin/main's copy. 3 warnings / 7 infos against 2 / 4 — one warning and three infos added, all on the new case arms and the if chain.",
+  "quality_gate": "14 + 13 green at HEAD; clippy clean; fmt clean; both workflow files parse as YAML; the pre-commit complexity gate refused one case at Cognitive 27 > 25 and it was split into two helpers and the case",
+  "tool_defects_found": [
+   "the paiml-implement delegate hit its 30-turn limit before writing a receipt, for the tenth time in this session. Recorded in the agy note; it belongs to that repository."
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/per-gate-selection-judges.md",
+  "total_bytes": 13851,
+  "files": [
+   {
+    "path": ".quorum/evidence/per-gate-selection-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1340,
+    "sha256": "407a7818599b03d4978cdbaac8ab07c7fb6739babf38d7264a3fe939558246c0",
+    "blob": "906a3697e1b965294413f041c9d62476ed7ad0b3"
+   },
+   {
+    "path": ".quorum/evidence/per-gate-selection-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1124,
+    "sha256": "0d43d266d561df28ab617d1b01648ba22d21b258278b687a05580ff8ea289cee",
+    "blob": "9482f3e346dbb26ff8c820d25855a1070053fbcb"
+   },
+   {
+    "path": ".quorum/evidence/per-gate-selection-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 8161,
+    "sha256": "e8f65e7880215f2cf19ccab99e9cce16bc12546ec3d63745a36767717ef69d03",
+    "blob": "37bdab2c54ba3616907b74b9dcad503f95332a80"
+   },
+   {
+    "path": ".quorum/evidence/per-gate-selection-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1237,
+    "sha256": "5e41207036dcdf92f6269ddaf6210c2f9c8d55803cbb7498d6ec4cb730ad35f2",
+    "blob": "4fcc01c1b3a549ef07df7500b59249c7ee50f195"
+   },
+   {
+    "path": ".quorum/evidence/per-gate-selection-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1989,
+    "sha256": "67cea5a9e5dd1cd1bddbfcc55c1fad87aeb0685cf796ca1c53dd5aceb89cfec0",
+    "blob": "5b93fbf98d3fb61f55a7b12e139da56e8d310a49"
+   }
+  ]
+ }
+}

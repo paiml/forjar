@@ -114,7 +114,11 @@ PY
 # The tag just below $1 among the tags reachable from $1 -> LOWER.
 lower_tag_of() {
   local rc=0 t
-  t="$(git tag --list 'v*' --sort=-v:refname --merged "$1" | grep -v -x -F -- "$1" | head -1)" || rc=$?
+  # PMAT-239: one capture and one awk, never a three-stage pipe whose last
+  # two stages exit early and leave git holding a closed pipe.
+  local all
+  all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} failed (exit ${rc})"
   fi
@@ -140,8 +144,9 @@ window_prs() {
 # PMAT-225 quorum refuted a `window` that omitted them — its output and the
 # ledger's rows were not the same text).
 cmd_window() {
-  local tag="${1:-}" lower upper cutline receipts=""
+  local tag="${1:-}" lower upper cutline receipts="" cookbook_floor cookbook=""
   dogfood_load_releases
+  dogfood_releases_field '.cookbook_floor // ""'; cookbook_floor="$DOGFOOD_FIELD"
   dogfood_releases_field '.dogfood_floor'
   if [ -n "$tag" ]; then
     git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || fail "no such tag: ${tag}"
@@ -150,6 +155,18 @@ cmd_window() {
     if dogfood_semver_ge "$tag" "$DOGFOOD_FIELD"; then
       receipts="    dogfood: docs/audits/dogfood-${tag#v}-receipt.md
     crux: docs/audits/crux-${tag#v}.md"
+    fi
+    # PMAT-241: the cookbook commit this release was qualified against. Taken
+    # from the cookbook's canonical branch at the moment of the cut, because
+    # that is what `make dogfood-published VERSION=` will have run gates C and
+    # D against. A branch name would move; a sha does not.
+    if [ -n "$cookbook_floor" ] && dogfood_semver_ge "$tag" "$cookbook_floor"; then
+      local ls rc2=0
+      ls="$(git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master)" || rc2=$?
+      if [ "$rc2" -ne 0 ] || [ -z "$ls" ]; then
+        fail "git ls-remote on paiml/forjar-cookbook exited ${rc2}: the cookbook commit this release is qualified against cannot be read, and an unread one must not be written down"
+      fi
+      cookbook="    cookbook: ${ls%%[[:space:]]*}"
     fi
   else
     dogfood_prev_tag; lower="$DOGFOOD_PREV_TAG"; upper="HEAD"
@@ -164,12 +181,14 @@ cmd_window() {
   echo "    prs: [${PRS}]"
   echo "    tickets: [$(printf '%s' "$TICKETS" | sed 's/ /, /g')]"
   [ -z "$receipts" ] || echo "$receipts"
+  [ -z "$cookbook" ] || echo "$cookbook"
   [ -z "$STRAYS" ] || echo "    # stray ids (no row, no alias): ${STRAYS}"
   [ -z "$UNTICKETED" ] || echo "    # PRs naming no roadmap ticket: ${UNTICKETED}"
 }
 
 cmd_show() {
   local next due cadence_h elapsed_h left_h filled bar i merged tagged=0 t dirty sha color reset=""
+  DOGFOOD_WINDOW_UNMEASURED=""
   dogfood_load_releases
   dogfood_releases_field '.next.tag'; next="$DOGFOOD_FIELD"
   dogfood_releases_field '.next.due'; due="$DOGFOOD_FIELD"
@@ -178,14 +197,24 @@ cmd_show() {
   dogfood_tag_date "$DOGFOOD_PREV_TAG"
   dogfood_epoch "$DOGFOOD_TAG_DATE"; elapsed_h=$(( (NOW - DOGFOOD_EPOCH) / 3600 ))
   dogfood_epoch "$due"; left_h=$(( (DOGFOOD_EPOCH - NOW) / 3600 ))
-  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD
-  window_tickets
-  merged=0
-  for t in $TICKETS; do
-    merged=$((merged + 1))
-    dogfood_row_labels "$t"
-    case " $DOGFOOD_LABELS " in *" release:${next} "*) tagged=$((tagged + 1)) ;; esac
-  done
+  # PMAT-229: the status line renders what it can and says what it cannot.
+  # An operator runs `make release-goal` from a feature branch, where the
+  # branch's own commits are in no merged PR; refusing to print the due
+  # instant and the bar because the MERGED COUNT is unmeasurable made the
+  # cadence unreadable exactly where the work happens. Gate T is unchanged.
+  dogfood_prs_between "$DOGFOOD_PREV_TAG" HEAD soft
+  if [ -n "${DOGFOOD_WINDOW_UNMEASURED:-}" ]; then
+    merged=UNMEASURED
+    tagged=UNMEASURED
+  else
+    window_tickets
+    merged=0
+    for t in $TICKETS; do
+      merged=$((merged + 1))
+      dogfood_row_labels "$t"
+      case " $DOGFOOD_LABELS " in *" release:${next} "*) tagged=$((tagged + 1)) ;; esac
+    done
+  fi
   filled=$(( elapsed_h * 10 / cadence_h ))
   [ "$filled" -le 10 ] || filled=10
   [ "$filled" -ge 0 ] || filled=0
@@ -209,6 +238,12 @@ cmd_show() {
     "$merged" "$tagged" "$due" "$DOGFOOD_RELEASES_NEXT_LINE" "$DOGFOOD_PREV_TAG" "$sha" "$dirty"
   [ -z "$STRAYS" ] || echo "stray ids: ${STRAYS}"
   [ -z "$UNTICKETED" ] || echo "PRs naming no roadmap ticket: ${UNTICKETED}"
+  # The line is rendered and the exit code is still the truth: a script that
+  # read this as a pass would be reading a degraded line as a measured one.
+  if [ -n "${DOGFOOD_WINDOW_UNMEASURED:-}" ]; then
+    echo "release-goal: ${DOGFOOD_WINDOW_UNMEASURED}" >&2
+    return 2
+  fi
 }
 
 cmd_sync() {

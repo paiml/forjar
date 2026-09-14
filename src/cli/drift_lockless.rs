@@ -13,7 +13,6 @@
 
 use super::drift::{print_dry_run_report, print_machine_header, report_machine_findings};
 use super::drift::{DriftScan, ScanOptions};
-use super::drift_report::census_json;
 use crate::core::types;
 use crate::tripwire::drift;
 use std::path::Path;
@@ -39,10 +38,8 @@ pub(super) fn scan_lockless(
         };
         print_machine_header(&name, SCOPE_NOTE, scan_opts);
         let report = drift::detect_drift_lockless(&name, machine, &resolved, scan_opts.detect);
-        let (count, census) = report_machine_findings(&name, report, &mut scan.findings, scan_opts);
+        report_machine_findings(&name, report, &mut scan, scan_opts);
         scan.machines_checked += 1;
-        scan.total_drift += count;
-        scan.censuses.push(census_json(&name, &census));
     }
     Ok(scan)
 }

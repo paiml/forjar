@@ -5,7 +5,7 @@
 #   test: cargo test --lib (self-hosted clean-room)
 #   lint: cargo clippy --all-targets -- -D warnings + cargo fmt --check
 #   coverage: cargo llvm-cov + codecov upload
-#   security: cargo audit (ubuntu-latest, continue-on-error)
+#   security: cargo audit (fleet, continue-on-error)
 #   provenance: SLSA attest-build-provenance
 #   gate: aggregates test+lint results
 #
@@ -26,7 +26,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PMAT-237: what can this change break? One job, one decision, and every
+  # heavy job below gates on it. The release gate (`make dogfood-release`) is
+  # untouched and still runs everything.
+  classify:
+    runs-on: [self-hosted, clean-room, X64]
+    outputs:
+      code: ${{ steps.class.outputs.code }}
+      gate_c: ${{ steps.class.outputs.gate_c }}
+      gate_d: ${{ steps.class.outputs.gate_d }}
+      gates: ${{ steps.class.outputs.gates }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: class
+        uses: ./.github/actions/changed-class
+
   ci:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
     with:
       repo: ${{ github.event.repository.name }}
@@ -43,7 +62,20 @@ jobs:
   # then dirties the tree and skips release creation entirely.
   lockfile:
     name: lockfile-preflight
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -67,8 +99,23 @@ jobs:
   # is the same "guard nobody runs" shape as #242 and #298. Add new structural
   # guards to this list, or accept that they are documentation.
   examples-validate:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: examples-validate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -88,6 +135,11 @@ jobs:
       # ones. One resolver, in one dialect, in a place that runs it.
       - name: Every contract citation must resolve
         run: cargo test --locked --test falsification_contract_citations_resolve
+      # forjar#549: a drift query the target never answered is UNMEASURED, not
+      # drift. Asks 203.0.113.9 (TEST-NET-3) over ssh, so it waits out the
+      # connect timeout once per test.
+      - name: An unanswered drift query is not drift
+        run: cargo test --locked --test falsification_drift_unmeasured_is_not_drift
       # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
       - name: The binary advertises no undeclared transport
         run: cargo test --locked --test e2e_transport_absence_t
@@ -152,11 +204,16 @@ jobs:
       # without passwordless sudo that file was green against the fd-3 emitter
       # too. FORJAR_REQUIRE_SUDO_TESTS=1 turns each of those skips into a panic
       # naming the missing capability, so a green step here means the gated
-      # tests RAN, under real sudo, not that they declined to. ubuntu-latest
-      # satisfies the gate by GitHub's documented hosted-runner environment
-      # (the `runner` user is non-root and has passwordless sudo) — that is
-      # cited, not measured here, which is why the switch is set: if it ever
-      # stops holding, this step fails loudly instead of skipping silently.
+      # tests RAN, under real sudo, not that they declined to.
+      #
+      # PMAT-547 moved this job from ubuntu-latest to the fleet, and with it
+      # the only thing the old comment could offer: GitHub DOCUMENTS that a
+      # hosted runner's `runner` user is non-root with passwordless sudo, and
+      # documents nothing about ours. So the citation is gone and only the
+      # switch is left — which is the half that was ever load-bearing. If a
+      # fleet runner does not give this step passwordless sudo, the step fails
+      # loudly naming the missing capability instead of skipping silently.
+      # Unmeasured is not the same as satisfied, and this is how it says so.
       - name: The sudo transport survives closefrom under real sudo (required, not skippable)
         env:
           FORJAR_REQUIRE_SUDO_TESTS: "1"
@@ -180,8 +237,23 @@ jobs:
   # The gates are load-bearing in one direction only: dropping `cli` must not
   # break the library, and nothing in the default lane would ever notice if it did.
   no-default-features:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: no-default-features
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -200,8 +272,23 @@ jobs:
   # because it conflicts with that job's `--lib` target selection. So the PR lane
   # needs its own job. Deterministic and offline; ~8s of doctests once built.
   doctests:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
     name: doctests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -217,53 +304,164 @@ jobs:
   # F (coverage + mutants), G (pv contracts) and H (crux reconcile) need pmat
   # and pv, which are provisioned on the clean-room hosts by forjar.yaml, so
   # they run there through `make dogfood-release`.
-  dogfood:
-    runs-on: ubuntu-latest
+  # PMAT-542: the gates that MEASURE THE BUILT BINARY, and the release build
+  # they need, run only when the change can move them. Measured on the 25 PRs
+  # merged as of cddf78cd: 7 were code=true and could reach neither gate, and
+  # each paid 21.3 minutes of a 25.2-minute critical path for a surface its diff
+  # could not touch. The guard tests below are a separate job because they are
+  # cheap and every code change can move them.
+  #
+  # THIS IS A LATENCY CHANGE, NOT A COVERAGE CHANGE. `make dogfood-release` runs
+  # A-H and T over the whole window before any tag, and the `gate` job below
+  # refuses this job's skip whenever `gates` says it should have run.
+  dogfood-surface:
+    if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
+    needs: classify
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Build the artifact the surface gate measures
+      - name: Build the artifact the surface gates measure
         run: cargo build --release --locked
       - name: Gate C — surface from the built artifact
+        if: needs.classify.outputs.gate_c == 'true'
         run: bash scripts/dogfood/surface.sh
+      - name: Gate C — NOT-SELECTED
+        if: needs.classify.outputs.gate_c != 'true'
+        run: echo "GATE C NOT-SELECTED this change touches nothing gate C reads (the built binary, docs/audits/surface_audit.csv, scripts/dogfood/surface.sh) — measured in full by make dogfood-release before the tag"
       - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
+        if: needs.classify.outputs.gate_d == 'true'
         run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
       - name: Gate D — documented invocations run against fixtures
+        if: needs.classify.outputs.gate_d == 'true'
         run: bash scripts/dogfood/docs.sh
         env:
           COOKBOOK: ${{ runner.temp }}/forjar-cookbook
+      - name: Gate D — NOT-SELECTED
+        if: needs.classify.outputs.gate_d != 'true'
+        run: echo "GATE D NOT-SELECTED this change touches nothing gate D reads (the built binary, README.md, docs/audits/surface_audit.csv, scripts/dogfood/docs.sh) — measured in full by make dogfood-release before the tag"
+
+  dogfood-guards:
+    if: needs.classify.outputs.code == 'true'
+    needs: classify
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Guard tests
-        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree
+        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
   gate:
-    runs-on: ubuntu-latest
-    needs: [ci, lockfile, examples-validate, no-default-features, doctests, dogfood]
+    runs-on: [self-hosted, clean-room, X64]
+    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:
       - name: Check required jobs
+        env:
+          CODE: ${{ needs.classify.outputs.code }}
+          GATES: ${{ needs.classify.outputs.gates }}
         run: |
-          if [ "${{ needs.ci.result }}" != "success" ]; then
-            echo "ci failed: ${{ needs.ci.result }}"
+          # PMAT-237: a job may be SKIPPED only because the change cannot reach
+          # it. The gate re-reads the class rather than trusting the skip: if
+          # the change IS code and a heavy job did not run, that is a hole, not
+          # a saving, and this gate refuses it by name.
+          # Written with explicit `if`, not `[ … ] && return 0`: an AND-list
+          # that fails at statement level exits the step under `bash -e` before
+          # the message is printed, and a gate that fails silently is half a
+          # gate.
+          # THE CLASS ITSELF MUST HAVE BEEN MEASURED (PMAT-237).
+          #
+          # If `classify` fails or is cancelled its output is EMPTY, every heavy
+          # job's `if` is false so they all skip, and a gate that read an empty
+          # class as "not code" would pass over a change nothing tested. A
+          # review lane found exactly that. An unmeasured class is code.
+          if [ "${{ needs.classify.result }}" != "success" ]; then
+            echo "::error::classify did not run (${{ needs.classify.result }}), so nothing knows what this change can break"
             exit 1
           fi
+          if [ -z "$CODE" ]; then
+            echo "::error::the class is empty — treating it as code and refusing"
+            exit 1
+          fi
+          # PMAT-542: the SELECTION must have been measured too. The classifier
+          # prints `none` and never the empty string, exactly so that "nothing
+          # was selected" and "nothing computed a selection" cannot look the
+          # same here. An empty value is the second one.
+          if [ -z "$GATES" ]; then
+            echo "::error::the gate selection is empty — nothing measured which gates this change can move, and an unmeasured selection is not a selection"
+            exit 1
+          fi
+
+          ok() {
+            case "$2" in
+              success) return 0 ;;
+              skipped)
+                if [ "$CODE" != "true" ]; then
+                  echo "$1: skipped — the change touches nothing it reads"
+                  return 0
+                fi
+                echo "::error::$1 was skipped on a change the classifier called code"
+                return 1
+                ;;
+              *)
+                echo "::error::$1: $2"
+                return 1
+                ;;
+            esac
+          }
+          ok "ci" "${{ needs.ci.result }}" || exit 1
           if [ "${{ needs.lockfile.result }}" != "success" ]; then
             echo "lockfile preflight failed: ${{ needs.lockfile.result }}"
             exit 1
           fi
-          if [ "${{ needs.examples-validate.result }}" != "success" ]; then
-            echo "examples-validate failed: ${{ needs.examples-validate.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.no-default-features.result }}" != "success" ]; then
-            echo "no-default-features failed: ${{ needs.no-default-features.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.doctests.result }}" != "success" ]; then
-            echo "doctests failed: ${{ needs.doctests.result }}"
-            exit 1
-          fi
-          if [ "${{ needs.dogfood.result }}" != "success" ]; then
-            echo "dogfood gates failed: ${{ needs.dogfood.result }}"
-            exit 1
-          fi
+          ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1
+          ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
+          ok "doctests" "${{ needs.doctests.result }}" || exit 1
+          ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+          # PMAT-542: dogfood-surface skips on its OWN condition, which is
+          # `gates != none` rather than the class. Re-read the selection here
+          # for the same reason `ok` re-reads the class: a skip is a claim until
+          # the thing that decided it says so.
+          case "${{ needs.dogfood-surface.result }}" in
+            success) echo "dogfood-surface: ran gates $GATES" ;;
+            skipped)
+              if [ "$CODE" != "true" ]; then
+                echo "dogfood-surface: skipped — the change touches nothing it reads"
+              elif [ "$GATES" = "none" ]; then
+                echo "dogfood-surface: NOT-SELECTED — this change can move neither gate C nor gate D; both are measured in full by make dogfood-release before the tag"
+              else
+                echo "::error::dogfood-surface was skipped while the selection says $GATES"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::dogfood-surface: ${{ needs.dogfood-surface.result }}"
+              exit 1
+              ;;
+          esac
           echo "All required jobs passed"
 

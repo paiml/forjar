@@ -14,9 +14,12 @@
 
 #![allow(dead_code)]
 
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+
+#[path = "stub.rs"]
+mod stub;
+pub(crate) use stub::*;
 
 pub(crate) const FLOOR: &str = "v0.0.1";
 pub(crate) const NEXT: &str = "v0.0.2";
@@ -51,11 +54,20 @@ pub(crate) fn write(root: &Path, rel: &str, body: &str) {
     std::fs::write(p, body).expect("write");
 }
 
+/// A row whose id is prefixed `planned:` is written with `status: planned`;
+/// every other row is `completed`. PMAT-236 made the status part of what gate
+/// T reconciles — a ticket a release names must say it shipped — so a fixture
+/// that wrote every row as `planned` would make every case red for a reason no
+/// case is about.
 pub(crate) fn roadmap(rows: &[(&str, &[&str])]) -> String {
     let mut text = String::from("roadmap_version: '1.0'\nroadmap:\n");
     for (id, labels) in rows {
+        let (id, status) = match id.strip_prefix("planned:") {
+            Some(rest) => (rest, "planned"),
+            None => (*id, "completed"),
+        };
         text.push_str(&format!(
-            "- id: {id}\n  title: fixture row\n  status: planned\n  updated: 2026-01-01T00:00:00Z\n"
+            "- id: {id}\n  title: fixture row\n  status: {status}\n  updated: 2026-01-01T00:00:00Z\n"
         ));
         if labels.is_empty() {
             text.push_str("  labels: []\n");
@@ -84,10 +96,19 @@ pub(crate) struct Case {
     pub(crate) dogfood_floor: &'static str,
     /// Whether the dogfood receipt and crux document exist at HEAD.
     pub(crate) receipts: bool,
+    /// The `cookbook_floor:` the ledger declares; empty declares none, which
+    /// is the state of every release before v1.29.0 (PMAT-241).
+    pub(crate) cookbook_floor: &'static str,
+    /// The `cookbook:` the floor's row declares; empty writes no such field.
+    pub(crate) cookbook: &'static str,
     /// The version Cargo.toml carries at HEAD.
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
     pub(crate) shipped_branch: &'static str,
+    /// The `CHANGELOG.md` the fixture commits, or none. T9 reads the section
+    /// for `version` and joins any "<N> PRs across <M> tickets" claim in it
+    /// against the measured window (PMAT-520).
+    pub(crate) changelog: &'static str,
     /// The world BEFORE the cut is booked: v0.0.1 exists and the ledger still
     /// says next is v0.0.1 (due = v0.0.0's cut + cadence) with no rows.
     pub(crate) pre_cut: bool,
@@ -105,8 +126,11 @@ impl Default for Case {
             due_skew: 0,
             dogfood_floor: FLOOR,
             receipts: true,
+            cookbook_floor: "",
+            cookbook: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
+            changelog: "",
             pre_cut: false,
         }
     }
@@ -116,19 +140,13 @@ pub(crate) struct Fixture {
     pub(crate) _dir: tempfile::TempDir,
     pub(crate) root: PathBuf,
     pub(crate) gh: String,
+    /// The PR list the stub answers with, kept so a case that re-stubs `gh`
+    /// to answer a cookbook contents request keeps the SAME window. A case
+    /// that rebuilt the JSON by hand dropped the open window's PR and went red
+    /// for a reason it was not about.
+    pub(crate) prs: String,
     /// The floor tag's creation instant, as seconds.
     pub(crate) cut: i64,
-}
-
-pub(crate) fn stub_gh(dir: &Path, json: &str) -> String {
-    let p = dir.join("gh");
-    std::fs::write(
-        &p,
-        format!("#!/usr/bin/env bash\ncat <<'FIXTURE_JSON'\n{json}\nFIXTURE_JSON\n"),
-    )
-    .expect("write stub");
-    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-    p.to_string_lossy().into_owned()
 }
 
 pub(crate) fn iso(epoch: i64) -> String {
@@ -142,6 +160,24 @@ pub(crate) fn iso(epoch: i64) -> String {
 /// v0.0.0 (below the floor) -> PR #10 -> v0.0.1 (the floor) -> PR #11 (the
 /// open window) -> the declaration commit. Tags are annotated and pushed to a
 /// bare origin, so their creation instant is the tagger date, as forjar's are.
+/// `cookbook_floor: <tag>\n`, or nothing when the case declares none.
+fn cookbook_floor_line(case: &Case) -> String {
+    if case.cookbook_floor.is_empty() {
+        String::new()
+    } else {
+        format!("cookbook_floor: {}\n", case.cookbook_floor)
+    }
+}
+
+/// `    cookbook: <sha>\n` on the floor's row, or nothing.
+fn cookbook_row_line(case: &Case) -> String {
+    if case.cookbook.is_empty() {
+        String::new()
+    } else {
+        format!("    cookbook: {}\n", case.cookbook)
+    }
+}
+
 pub(crate) fn fixture(case: Case) -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("repo");
@@ -225,14 +261,15 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     let due = iso(cut + 2 * 86400 + case.due_skew);
     let mut ledger = if case.pre_cut {
         format!(
-            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
             case.dogfood_floor,
+            cookbook_floor_line(&case),
             iso(base_cut + 2 * 86400)
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\nreleases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n",
-        case.dogfood_floor, case.declared_prs
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {
@@ -254,6 +291,9 @@ pub(crate) fn fixture(case: Case) -> Fixture {
             case.version
         ),
     );
+    if !case.changelog.is_empty() {
+        write(&root, "CHANGELOG.md", case.changelog);
+    }
     if case.receipts {
         write(
             &root,
@@ -275,6 +315,7 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         _dir: dir,
         root,
         gh,
+        prs: json,
         cut,
     }
 }
@@ -346,6 +387,23 @@ pub(crate) fn run(fx: &Fixture, after_cut: i64) -> Run {
 pub(crate) const AN_HOUR: i64 = 3600;
 
 impl Fixture {
+    /// Answer the cookbook's `Cargo.toml` with `cargo_toml`, keeping the
+    /// window this fixture already declared (PMAT-241). The lock answers with
+    /// the released version, so a manifest case measures the manifest.
+    pub(crate) fn cookbook_manifest(&mut self, cargo_toml: &str) {
+        self.gh = stub_gh_with_cookbook(self._dir.path(), &self.prs.clone(), cargo_toml);
+    }
+
+    /// Answer both of the cookbook's files (PMAT-537).
+    pub(crate) fn cookbook_files(&mut self, cargo_toml: &str, cargo_lock: &str) {
+        self.gh = stub_gh_with_cookbook_files(
+            self._dir.path(),
+            &self.prs.clone(),
+            cargo_toml,
+            cargo_lock,
+        );
+    }
+
     pub(crate) fn assert_committed(&self, rel: &str) {
         let out = git(&self.root, &["cat-file", "-e", &format!("HEAD:{rel}")]);
         assert!(out.status.success(), "{rel} must be at HEAD");

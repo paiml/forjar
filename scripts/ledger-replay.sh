@@ -113,7 +113,10 @@ if [ "$still" -gt 0 ]; then
     echo "FAIL: $still ledger defect(s) still reproduce:"
     for i in "${STILL_LIST[@]}"; do
         echo "  - $i"
-        sed 's/^/      /' "$WORK/$i.out" | head -12
+        # PMAT-240: head FIRST. `sed file | head -12` leaves sed writing into a
+        # pipe head has closed; this way head reads the file and sed consumes
+        # everything head produced, so nothing exits early on a full pipe.
+        head -12 "$WORK/$i.out" | sed 's/^/      /'
     done
     rc=1
 fi

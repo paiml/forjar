@@ -21,11 +21,34 @@
 #                     does gate — a job running scripts/dogfood/*.sh — is measured here. Was:
 #                     .github/workflows edit this ticket may not make.
 #   cb-200            reports (enabled); Arm 1 exempts exactly it, Arm 5 enforces the ratchet ceiling.
+#   cb-2110..cb-2115  (Arm 7) report (enabled); Arm 1 exempts exactly those five, Arm 7
+#                     enforces the per-check ceilings in scripts/ratchets/cb21xx-baseline.json
+#                     (PMAT-521) and refuses a ceiling that RISES without a written
+#                     justification for that check (PMAT-531). CB-2113 is NOT among
+#                     them: it is branch-local and satisfiable, so it stays in Arm 1's net.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 REPO="paiml/forjar"
+
+# The tree a raise is measured against: one the author of the raise did not
+# write. Overridable for a fixture, never for a shortcut.
+BASE_REF="${COMPLY_BASE_REF:-origin/main}"
+
+# The five comply checks pmat 3.40 added that this repository has never
+# satisfied. Arm 1 exempts EXACTLY these, Arm 7 enforces their recorded
+# ceilings, and the list is written out rather than matched by prefix so that
+# a SIXTH check in the same family fails Arm 1 instead of inheriting an
+# exemption nobody granted it.
+CB21XX=(
+  "CB-2110"
+  "CB-2111"
+  "CB-2112"
+  "CB-2114"
+  "CB-2115"
+)
+CB21XX_BASE="scripts/ratchets/cb21xx-baseline.json"
 
 # The number of bashrs ERROR-severity findings the repository is known to carry.
 # MAY ONLY SHRINK. Recorded 1: scripts/ledger-replay.sh SEC011. Raising it is
@@ -96,15 +119,19 @@ except Exception as e:
     print("UNPARSED: " + str(e))
     sys.exit(0)
 bad = []
+exempt = tuple(x + ":" for x in sys.argv[1:])
 for c in d.get("checks", []) or []:
     name = str(c.get("name", "?"))
-    if str(c.get("status", "")).lower() == "fail" and not name.startswith("CB-200:"):
-        bad.append(name)
+    if str(c.get("status", "")).lower() != "fail":
+        continue
+    if name.startswith("CB-200:") or name.startswith(exempt):
+        continue
+    bad.append(name)
 print("\n".join(bad))
-')"
+' "${CB21XX[@]}")"
 if [ -n "$other_fails" ]; then
   printf '%s\n' "$other_fails"
-  fail "pmat comply check reports failing check(s) other than CB-200 (CB-200 is owned by the ratchet in Arm 5)"
+  fail "pmat comply check reports failing check(s) other than CB-200 and the five owned by the ratchet in Arm 7 (${CB21XX[*]})"
 fi
 
 # ------------------------------------------------ Arm 2: the protection ruleset
@@ -260,7 +287,219 @@ if [ "$gate_effect_rc" -ne 0 ]; then
   fail "gate effect (Arm 6, the CB-2100 replacement): ${gate_effect}"
 fi
 
-echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) and ${n_others} other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; required check(s) [${contexts}] reach a dogfood gate; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
+# ------------------------------- Arm 7: the CB-2110..CB-2115 ratchet (PMAT-243)
+#
+# pmat 3.40 added six comply checks this repository has never satisfied, and
+# gate B — a release blocker — went red on main between the 1.28.0 cut (green,
+# 2026-09-10) and the 1.29.0 one. Not one of them is a regression from any
+# ticket in that window: they are a NEW OBLIGATION arriving with a tool upgrade,
+# over a backlog that has been there all along.
+#
+# The doctrine forbids a skip. It does not forbid RECORDING what is true and
+# refusing to let it get worse, which is what CB-200 already does one arm above.
+# So the five are exempt from Arm 1 and OWNED here, against a dated ceiling that
+# MAY ONLY SHRINK.
+#
+# The number comes from the SAME comply run Arm 1 made — one measurement, not
+# two that can disagree. pmat's own `.pmat-ratchet.toml` was tried first and
+# cannot serve: a metric whose `command` runs `pmat comply check` re-enters
+# CB-2102, which runs every metric's command again, without bound (measured — a
+# single comply run is 3 seconds and five such metrics did not finish in ten
+# minutes).
+#
+# UNMEASURED IS FAIL, both ways round. A check the roster no longer carries
+# would report nothing and read as zero findings, which is the largest
+# improvement in the project's history and a rotted id spelled identically. So
+# a missing check fails here, and so does a check whose message carries no
+# count.
+[ -f "$CB21XX_BASE" ] || fail "no ${CB21XX_BASE} — the CB-2110..CB-2115 ceilings are undeclared, and an undeclared ceiling is not a passed one"
+
+# A CEILING MAY NOT RISE WITHOUT A WRITTEN REASON (PMAT-531).
+#
+# "MAY ONLY SHRINK" is the rule this file states and nothing enforced it: the
+# ceilings are a JSON file, and raising one is a one-character edit that turns
+# every future regression green. The schema has carried a `justification` field
+# since it was written; nothing read it.
+#
+# Measured the day it mattered. Correcting PMAT-240's false `status: completed`
+# turned a closed roadmap row into an open one, CB-2112 and CB-2114 each grew by
+# one, and gate B went red — correctly, because the growth was real. CB-2114 was
+# fixed by real work; CB-2112 was RAISED, because the row keeps its historical id
+# and no sync can rename it. That raise is legitimate and it is exactly the shape
+# an illegitimate one has.
+#
+# So the comparison is against the baseline as the BASE BRANCH has it, which is a
+# tree the author of a raise did not write, and a raise without
+# `justification.<CHECK>` naming that check is refused BY NAME. Lowering needs
+# nothing. A baseline the base does not carry yet is a new file, and new files
+# declare rather than raise.
+cb21xx_raise_rc=0
+cb21xx_raise="$(python3 -c '
+import json, subprocess, sys
+
+path = sys.argv[1]
+base = sys.argv[2]
+now = json.load(open(path))["ceiling"]
+p = subprocess.run(["git", "show", "%s:%s" % (base, path)],
+                   capture_output=True, text=True)
+if p.returncode != 0:
+    print("declared: %s is new on this branch, so nothing is raised" % path)
+    raise SystemExit(0)
+try:
+    was_doc = json.loads(p.stdout)
+except Exception as e:
+    print("UNMEASURED: %s does not parse at %s (%s), so a raise would be invisible" % (path, base, e))
+    raise SystemExit(2)
+was = was_doc["ceiling"]
+reasons = json.load(open(path)).get("justification", {}) or {}
+bad = []
+for cid, cap in sorted(now.items()):
+    if cid in was and cap > was[cid] and not str(reasons.get(cid, "")).strip():
+        bad.append("%s raised %d -> %d with no justification.%s" % (cid, was[cid], cap, cid))
+if bad:
+    print("RAISED WITHOUT A REASON: " + "; ".join(bad))
+    raise SystemExit(1)
+raised = [c for c in sorted(now) if c in was and now[c] > was[c]]
+if raised:
+    print("raised with a written reason: " + ", ".join(raised))
+else:
+    print("no ceiling raised")
+' "$CB21XX_BASE" "$BASE_REF" 2>&1)" || cb21xx_raise_rc=$?
+if [ "$cb21xx_raise_rc" -ne 0 ]; then
+  fail "the CB-2110..CB-2115 ceilings (Arm 7): ${cb21xx_raise} — a ceiling that may only shrink is a rule nobody enforced until PMAT-531; raising one needs a reason in ${CB21XX_BASE} under \"justification\", reviewed like any other change"
+fi
+cb21xx_rc=0
+# STDERR IS CAPTURED TOO (2>&1). Three review lanes found that a `sys.exit("…")`
+# writes to stderr while `$( )` takes stdout, so the arm would go red with an
+# EMPTY detail — the gate saying nothing is the shape of defect this repository
+# exists to refuse. Every diagnostic below is a `print` on stdout, and the
+# redirect catches anything that still escapes, a traceback included.
+cb21xx="$(printf '%s' "$comply_json" | python3 -c '
+import json, re, sys
+
+def die(msg, code):
+    print(msg)
+    raise SystemExit(code)
+
+base_path = sys.argv[1]
+exempt = sys.argv[2:]
+try:
+    base = json.load(open(base_path))
+    ceiling = base["ceiling"]
+except Exception as e:
+    die("UNMEASURED: %s does not read as a baseline (%s) — an unreadable ceiling "
+        "is not a passed one" % (base_path, e), 2)
+
+# THE TWO LISTS ARE ONE LIST. Arm 1 exempts by the array and this arm judges by
+# the baseline keys; a check in the array and NOT in the baseline is exempted
+# from Arm 1 and ignored here — waived entirely, by nobody, in two files that
+# each look correct alone. Refuted by a review lane. The gate now refuses the
+# mismatch itself rather than leaving it to a test that runs only in CI.
+if sorted(exempt) != sorted(ceiling):
+    die("UNMEASURED: the gate exempts %s and the baseline records ceilings for %s "
+        "— a check in one list and not the other is either unowned or unmeasured"
+        % (sorted(exempt), sorted(ceiling)), 2)
+
+raw = sys.stdin.read()
+i = raw.find("{")
+if i < 0:
+    die("UNMEASURED: comply output carries no JSON object", 2)
+try:
+    d = json.loads(raw[i:])
+except Exception as e:
+    # Measured: a gh 403 body with literal newlines inside a check message makes
+    # this output invalid JSON. A gate that dies with a traceback there is red
+    # for the right reason and unreadable about it; say which it is.
+    die("UNMEASURED: comply output does not parse as JSON (%s) — every count it "
+        "would have carried is unmeasured, which is not a passed ceiling" % e, 2)
+
+seen, over, unmeasured = {}, [], []
+for c in d.get("checks", []) or []:
+    name = str(c.get("name", ""))
+    cid = name.split(":", 1)[0]
+    if cid not in ceiling:
+        continue
+    # A SECOND ENTRY UNDER ONE ID MUST NOT OVERWRITE THE FIRST. Today the roster
+    # carries 172 checks and no duplicate id, so this is a latent hazard rather
+    # than an observed defect — but the failure mode a lane named is that a
+    # later Pass silently replaces an earlier Fail, and a ratchet that can lose
+    # a finding to dictionary assignment is not a ratchet.
+    if cid in seen:
+        unmeasured.append("%s appears twice in the roster; a second entry would "
+                          "overwrite the first and could hide a finding" % cid)
+        continue
+    status = str(c.get("status", "")).lower()
+    msg = str(c.get("message", ""))
+    if status == "pass":
+        seen[cid] = 0
+        continue
+    m = re.match(r"\s*(\d+)\s+finding", msg)
+    if not m:
+        unmeasured.append("%s reports %s with no finding count in its message" % (cid, status))
+        continue
+    seen[cid] = int(m.group(1))
+
+absent = []
+for cid, cap in sorted(ceiling.items()):
+    if cid not in seen and not any(cid in u for u in unmeasured):
+        absent.append(cid)
+    elif seen.get(cid, 0) > cap:
+        over.append("%s: %d finding(s), ceiling %d (recorded %s)"
+                    % (cid, seen[cid], cap, base["recorded"]))
+
+# ABSENT FROM THE ROSTER: TWO CAUSES, ONE VERDICT, TWO DIFFERENT REPAIRS.
+#
+# Both are UNMEASURED and both are red — a check that reports nothing is spelled
+# the same as a check reporting zero findings, and this arm must never read the
+# second into the first. But WHY it is absent decides what a reader does next,
+# and the two are distinguishable: if the whole family is gone, the installed
+# tool does not carry these checks; if one of several is gone, that id rotted.
+#
+# Measured 2026-09-11: the family was in the roster at 14:00 and gone at 18:34,
+# with `pmat --version` reading 3.40.0 both times. The binary had been rebuilt
+# from a different source state — its banner went from a commit hash and
+# `worktree: clean` to `commit: unknown` — and CB-148, which the earlier build
+# reported as "RETIRED, superseded by CB-2110", was live again. A ratchet whose
+# subject can leave the roster on a local rebuild has to say so in those words,
+# or the next reader spends an hour looking for the rot.
+if absent and len(absent) == len(ceiling):
+    unmeasured.append("NONE of %s is in the comply roster this pmat carries (%d checks). The "
+                      "installed tool does not run the checks this ratchet owns -- the family was "
+                      "in the roster earlier the same day under the same version string, so "
+                      "compare `pmat --version` and its build against the instrument field of %s "
+                      "before looking for a rotted id"
+                      % (", ".join(absent), len(d.get("checks", []) or []), base_path))
+elif absent:
+    unmeasured.append("%s not in the comply roster this run, while the rest of the family is — "
+                      "an id that has rotted reports nothing, which is spelled the same as zero "
+                      "findings" % ", ".join(absent))
+
+if unmeasured:
+    die("UNMEASURED: " + "; ".join(unmeasured), 2)
+if over:
+    die("REGRESSION: " + "; ".join(over), 1)
+print(" ".join("%s=%d/%d" % (c, seen[c], ceiling[c]) for c in sorted(ceiling)))
+' "$CB21XX_BASE" "${CB21XX[@]}" 2>&1)" || cb21xx_rc=$?
+if [ "$cb21xx_rc" -ne 0 ]; then
+  fail "the CB-2110..CB-2115 ratchet (Arm 7): ${cb21xx}"
+fi
+
+echo "GATE B PASS comply clean; ruleset ${ruleset_id} requires [${contexts}]; ${#gates[@]} gate script(s) and ${n_others} other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; ratchet ${cb21xx} held; required check(s) [${contexts}] reach a dogfood gate; legacy bashrs errors ${errors} <= ${BASHRS_ERROR_CEILING}"
 
 # mutation: set BASHRS_ERROR_CEILING=0 — Arm 4 then reports the known
 # scripts/ledger-replay.sh SEC011 finding as a regression and the gate exits 1.
+#
+# Arm 7's own address: lower any ceiling in scripts/ratchets/cb21xx-baseline.json
+# by one and the arm reports REGRESSION naming that check, the count and the
+# ceiling. Delete the `justification` block while a ceiling is above the base
+# branch's and the raise arm refuses it, naming the check and both numbers —
+# measured on the raise that introduced it.
+# tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives the counting
+# arm; tests/falsification_cb21xx_ceiling_raise_needs_a_reason.rs drives the
+# raise arm over a temp git repository, in all six directions. Removing a check from the CB21XX array instead turns Arm 1 red for it
+# by name, which is the other direction and the one that matters more: an
+# exemption nobody granted is how a ratchet becomes a waiver.
+# tests/falsification_cb21xx_ratchet_holds_the_ceiling.rs drives both, plus the
+# two UNMEASURED shapes — a check that has left the roster, and one reporting
+# Fail with no count — because a ceiling that only looks upward greets a rotted
+# predicate as perfection.

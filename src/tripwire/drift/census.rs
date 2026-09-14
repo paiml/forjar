@@ -90,6 +90,18 @@ struct Entry {
     /// looked at, and reporting it as skipped would understate the coverage
     /// exactly as badly as the silence this module replaces overstates it.
     skipped: Option<SkipReason>,
+    /// forjar#549: a detector put the question to the target and no answer came
+    /// back. Set only after every detector has run, and it WINS over inspected:
+    /// counting an unanswered query as coverage is the false clean this census
+    /// exists to prevent.
+    unmeasured: bool,
+}
+
+impl Entry {
+    /// Asked, and answered.
+    fn is_inspected(&self) -> bool {
+        self.skipped.is_none() && !self.unmeasured
+    }
 }
 
 /// Per-resource record of a drift run's coverage over one machine.
@@ -111,6 +123,7 @@ impl DriftCensus {
             Entry {
                 resource_type: resource_type.clone(),
                 skipped: None,
+                unmeasured: false,
             },
         );
     }
@@ -125,31 +138,46 @@ impl DriftCensus {
         self.entries.entry(id.to_string()).or_insert_with(|| Entry {
             resource_type: resource_type.clone(),
             skipped: Some(reason),
+            unmeasured: false,
         });
     }
 
-    /// Resources this run had an opinion about — inspected plus skipped.
+    /// Record that a detector asked the target about this resource and got no
+    /// answer (forjar#549). Overrides an inspected entry and a skipped one: the
+    /// question was put, so it was not skipped, and nothing came back, so it was
+    /// not inspected.
+    pub(super) fn unmeasured(&mut self, id: &str, resource_type: &ResourceType) {
+        let entry = self.entries.entry(id.to_string()).or_insert_with(|| Entry {
+            resource_type: resource_type.clone(),
+            skipped: None,
+            unmeasured: true,
+        });
+        entry.skipped = None;
+        entry.unmeasured = true;
+    }
+
+    /// Resources this run had an opinion about — inspected, unmeasured or skipped.
     pub fn in_scope(&self) -> usize {
         self.entries.len()
     }
 
     /// Resources a detector actually asked the target about.
     pub fn inspected_total(&self) -> usize {
-        self.entries
-            .values()
-            .filter(|e| e.skipped.is_none())
-            .count()
+        self.entries.values().filter(|e| e.is_inspected()).count()
     }
 
     /// Resources in scope that nothing asked the target about.
     pub fn skipped_total(&self) -> usize {
-        self.in_scope() - self.inspected_total()
+        self.entries
+            .values()
+            .filter(|e| e.skipped.is_some())
+            .count()
     }
 
     /// Inspected counts keyed by resource type, e.g. `{"file": 6, "task": 2}`.
     pub fn inspected_by_type(&self) -> BTreeMap<String, usize> {
         let mut counts = BTreeMap::new();
-        for entry in self.entries.values().filter(|e| e.skipped.is_none()) {
+        for entry in self.entries.values().filter(|e| e.is_inspected()) {
             *counts
                 .entry(entry.resource_type.to_string())
                 .or_insert(0usize) += 1;
@@ -181,7 +209,21 @@ impl DriftCensus {
             .collect()
     }
 
-    /// The two lines every drift run prints, drift or no drift.
+    /// Resources a detector asked about that the target never answered.
+    pub fn unmeasured_total(&self) -> usize {
+        self.entries.values().filter(|e| e.unmeasured).count()
+    }
+
+    /// The ids that went unmeasured, sorted by id.
+    pub fn unmeasured_ids(&self) -> Vec<&str> {
+        self.entries
+            .iter()
+            .filter(|(_, e)| e.unmeasured)
+            .map(|(id, _)| id.as_str())
+            .collect()
+    }
+
+    /// The lines every drift run prints, drift or no drift.
     ///
     /// The second line is omitted when nothing was skipped — that is the only
     /// case in which `No drift detected.` on its own is the whole truth.
@@ -199,6 +241,15 @@ impl DriftCensus {
                 render_counts(self.skipped_by_reason().into_iter())
             ));
         }
+        // forjar#549: never folded into either number above. An unanswered
+        // query is not coverage and not a skip, and it must not read as clean.
+        if self.unmeasured_total() > 0 {
+            lines.push(format!(
+                "unmeasured {}: {} (the target did not answer; neither clean nor drifted)",
+                self.unmeasured_total(),
+                self.unmeasured_ids().join(", ")
+            ));
+        }
         lines
     }
 
@@ -210,6 +261,7 @@ impl DriftCensus {
             "in_scope": self.in_scope(),
             "inspected": self.inspected_total(),
             "skipped": self.skipped_total(),
+            "unmeasured": self.unmeasured_total(),
             "inspected_by_type": self.inspected_by_type(),
             "skipped_by_reason": self.skipped_by_reason(),
         })

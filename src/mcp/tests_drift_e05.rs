@@ -86,17 +86,23 @@ async fn drift_over_an_unreachable_machine_must_not_answer_clean() {
         out.unchecked
     );
 
+    // forjar#549: the verdict for `conf` is UNMEASURED, not a drift finding.
+    // 1.29.0 answered MISSING here — the word a REACHED host earns for a file
+    // that is really gone — and so paged for a host nobody reached.
+    assert!(
+        out.findings.iter().all(|f| f.resource != "conf"),
+        "an unanswered query was reported as drift: {:?}",
+        out.findings
+    );
     let finding = out
-        .findings
+        .unmeasured
         .iter()
         .find(|f| f.resource == "conf")
-        .unwrap_or_else(|| panic!("no verdict for `conf`: {:?}", out.findings));
+        .unwrap_or_else(|| panic!("no unmeasured verdict for `conf`: {out:?}"));
+    assert_eq!(finding.actual_hash, crate::tripwire::drift::UNMEASURED);
     assert!(
-        finding.actual_hash == "ERROR" || finding.actual_hash == "MISSING",
-        "the target was never asked: an unroutable host cannot yield a real \
-         content hash, so `{}` proves the controller's filesystem was read \
-         instead. detail={}",
-        finding.actual_hash,
+        finding.detail.contains("203.0.113.9"),
+        "the verdict must come from a failed attempt to reach 203.0.113.9: {}",
         finding.detail
     );
 }

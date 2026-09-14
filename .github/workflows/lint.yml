@@ -17,11 +17,33 @@ jobs:
   clippy:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        features: ["", encryption]
+        # PMAT-547: the Linux leg names the fleet, not a GitHub-hosted label.
+        # Spelled as `include:` rather than a nested list under `os:` so the
+        # runner of each leg is one unambiguous value a reader can check.
+        #
         # Windows excluded: openssl-sys vendored build requires Perl/NASM
         # which is unreliable on GH runners. Sovereign-ci handles lint on Linux.
-    runs-on: ${{ matrix.os }}
+        #
+        # macos-latest is the ONE runner this file still asks GitHub for, and
+        # it is here because `gh api orgs/paiml/actions/runners` reports 25
+        # runners and every one of them is Linux. It cannot move until the
+        # fleet has a mac.
+        include:
+          - runner: [self-hosted, clean-room, X64]
+            features: ""
+          - runner: [self-hosted, clean-room, X64]
+            features: encryption
+          - runner: macos-latest
+            features: ""
+          - runner: macos-latest
+            features: encryption
+    runs-on: ${{ matrix.runner }}
+    # infra#430, as on the fleet jobs above: the clean-room runners share one
+    # ~/.cargo and an hourly reaper deletes registry/src under live builds. The
+    # macOS/Windows legs of this matrix get a private registry too, which costs
+    # them nothing -- a hosted runner's registry is cold every time anyway.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
@@ -60,7 +82,7 @@ jobs:
   # PR *and* is now over 500. A pre-existing over-limit file (the declarative
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

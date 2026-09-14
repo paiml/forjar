@@ -64,13 +64,42 @@ count_lines() {
   printf '%s\n' "$n"
 }
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+# PMAT-240: one awk rather than `sed Cargo.toml | head -1`, which leaves sed
+# writing into a pipe head has already closed.
+#
+# NOT byte-for-byte the same reader, and a review lane measured the
+# difference: the old sed anchored the closing quote at end of line, so
+# `version = "1.29.0" # a comment` — valid TOML — yielded NOTHING and this
+# script failed with "cannot read version". The awk stops at the closing
+# quote and reads 1.29.0. That is a behaviour CHANGE and it is the right
+# direction, but it is a change rather than a preservation.
+version="$(awk '/^version = "/ { v = $0; sub(/^version = "/, "", v); sub(/".*/, "", v); print v; exit }' Cargo.toml)"
 if [ -z "$version" ]; then
   fail "cannot read version from Cargo.toml — there is no release to check"
 fi
 TAG="v${version}"
 CRUX="docs/audits/crux-${version}.md"
 
+# TWO KINDS OF PENDING, AND THEY ARE NOT THE SAME SENTENCE (PMAT-234).
+#
+# There was one flat `pending` string, and the verdict read
+# `PASS pre-tag: … PENDING until the tag is cut: …` whenever ANY note was in
+# it. Arm 6 adds a note after EVERY SUCCESSFUL RELEASE — Cargo.toml is back at
+# the tag's version, so no cut is in flight and no crux document is owed — so
+# the line said `pre-tag` and `until the tag is cut` about a release that was
+# tagged, published, on crates.io and rendered on docs.rs. A verdict that says
+# the opposite of the truth at the one moment a reader most wants to believe it
+# is worse than no verdict.
+#
+# `note_pretag` is for the arms whose obligation does not exist YET because the
+# tag does not: the tag, the GitHub release, crates.io, docs.rs. `note_pending`
+# is for everything else — a note about the tree, true whether or not a tag
+# exists — and it never licenses the words `pre-tag`.
+pretag=""
+note_pretag() {
+  pretag="${pretag}${1}, "
+}
+crux_state=""
 pending=""
 note_pending() {
   pending="${pending}${1}, "
@@ -103,13 +132,13 @@ fi
 
 if [ "$remote_tagged" -eq 0 ]; then
   if [ "$local_tagged" -eq 1 ]; then
-    note_pending "tag ${TAG} exists only in this checkout and was never pushed"
+    note_pretag "tag ${TAG} exists only in this checkout and was never pushed"
   else
-    note_pending "tag ${TAG} not cut"
+    note_pretag "tag ${TAG} not cut"
   fi
-  note_pending "no GitHub release"
-  note_pending "not on crates.io"
-  note_pending "not on docs.rs"
+  note_pretag "no GitHub release"
+  note_pretag "not on crates.io"
+  note_pretag "not on docs.rs"
 else
   if [ "$local_tagged" -eq 0 ]; then
     fail "origin serves ${TAG} ($(printf '%s\n' "$remote_ls" | awk 'NR == 1 {print $1}')) and this checkout does not have it, so nothing about the released commit can be examined here — UNMEASURED (run: git fetch --tags origin), and a version the remote already carries is never reported as not-yet-cut"
@@ -138,6 +167,58 @@ else
   draft="$(printf '%s' "$rel" | jq -r '.isDraft')"
   if [ "$draft" = "true" ]; then
     fail "the GitHub release for ${TAG} is still a DRAFT: it is invisible to everyone but its author"
+  fi
+
+  # --------------------------- Arm 2b: /releases/latest resolves to this release
+  #
+  # MEASURED 2026-09-12, before it was corrected by hand:
+  # repos/paiml/forjar/releases/latest resolved to v1.25.2 while v1.26.0,
+  # v1.27.0 and v1.28.0 were all `prerelease=false draft=false` and days newer.
+  # Anyone following that URL got a four-version-old binary -- every
+  # `curl -L .../releases/latest/download/...`, every badge, every script.
+  #
+  # WHY. A release is BORN a prerelease here (release.yml, PMAT-166) and GitHub
+  # never makes a prerelease latest. Clearing the flag afterwards does NOT
+  # recompute the pointer: `make_latest` is decided when the flag is written, so
+  # `gh release edit <tag> --prerelease=false` leaves latest exactly where it
+  # was. The promotion has to say `--latest`, and the step that was supposed to
+  # perform it was written down nowhere and checked by nothing.
+  #
+  # A PRERELEASE IS A DELIBERATE STATE and this arm does not force it. forjar
+  # publishes a rolling `nightly` prerelease, and a release still waiting on
+  # `make dogfood-published VERSION=` is legitimately one. That case is
+  # REPORTED, with the command that ends it. What is refused is a FULL release
+  # that is not the latest one -- the shape every stale pointer above had.
+  rc=0
+  latest_rel="$("$GH" api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>&1)" || rc=$?
+  unread=""
+  if [ "$rc" -ne 0 ]; then
+    unread="${GH} api repos/${REPO}/releases/latest exited ${rc} (${latest_rel})"
+  elif [ -z "$latest_rel" ]; then
+    unread="repos/${REPO}/releases/latest answered with exit 0 and no tag_name"
+  fi
+  # A pointer that did not answer is judged against what the release IS.
+  #
+  # /releases/latest serves the newest release that is neither a prerelease nor
+  # a draft, and 404s when there is none -- MEASURED 2026-09-12 on
+  # electron/electron, whose newest release v45.0.0-alpha.6 is a prerelease and
+  # whose /releases/latest answers v44.3.0, two releases older, and on a
+  # repository with no releases at all, where gh exits 1 with HTTP 404. So for a
+  # repository whose releases are ALL prereleases the 404 is the ORDINARY state,
+  # and refusing it would contradict the paragraph above -- the arm would force
+  # to latest exactly the deliberate prerelease it promises not to. Reported.
+  #
+  # For a FULL release the same silence is UNMEASURED and refused: a full
+  # release the pointer cannot be read for is the state the four stale releases
+  # above were in, and assuming it points here is the silence they lived in.
+  if [ -n "$unread" ] && [ "$prerelease" = "true" ]; then
+    note_pending "the release for ${TAG} is a PRERELEASE and where repos/${REPO}/releases/latest points could not be read (${unread}) — GitHub never makes a prerelease latest, so nothing following that URL gets ${TAG} either way (promote it with: gh release edit ${TAG} --repo ${REPO} --prerelease=false --latest)"
+  elif [ -n "$unread" ]; then
+    fail "${unread} — where that URL points is UNMEASURED, and unmeasured is not the same as pointing here"
+  elif [ "$prerelease" = "true" ]; then
+    note_pending "the release for ${TAG} is a PRERELEASE, so repos/${REPO}/releases/latest resolves to ${latest_rel} and nothing following that URL will get ${TAG} (promote it with: gh release edit ${TAG} --repo ${REPO} --prerelease=false --latest)"
+  elif [ "$latest_rel" != "$TAG" ]; then
+    fail "the GitHub release for ${TAG} is a full release and repos/${REPO}/releases/latest still resolves to ${latest_rel}: every installer, badge and script that follows that URL gets ${latest_rel}, not ${TAG}. GitHub fixes 'latest' when the prerelease flag is WRITTEN and never recomputes it, so clearing the flag alone leaves the pointer where it was — run: gh release edit ${TAG} --repo ${REPO} --latest"
   fi
 
   # ------------------------------------------------- Arm 3: crates.io serves it
@@ -172,7 +253,12 @@ fi
 # refutation. This is the release-time completeness check on the same
 # obligation: every PR that got INTO this release must have left a receipt.
 prev_rc=0
-prev_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | grep -vxF -- "$TAG" | head -1)" || prev_rc=$?
+# PMAT-240: one awk over a captured list. The old shape was `git tag … |
+# grep -vxF … | head -1`: head leaves after one line, grep takes SIGPIPE, git
+# takes SIGPIPE, and under pipefail the whole gate reported the PR window
+# UNMEASURED at random — which is exactly the symptom PMAT-239 chased in gate T.
+_all_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
+prev_tag="$(awk -v skip="$TAG" '$0 != skip { print; exit }' <<<"$_all_tags")" || prev_rc=$?
 if [ "$prev_rc" -gt 1 ]; then
   fail "grep exited ${prev_rc} selecting the previous tag — the PR window is UNMEASURED"
 fi
@@ -333,10 +419,25 @@ fi
 # that tag's, the cut for THIS version has happened (or is happening) and the
 # obligation is live: the file must exist AND the reconciliation must actually
 # PASS, not merely be present.
-latest_tag="$(git tag --list 'v*' --sort=-v:refname --merged HEAD | head -1)"
+# PMAT-240: capture, then take the first line with a parameter expansion.
+# `git tag … | head -1` makes git take SIGPIPE when head leaves, and under
+# pipefail that is a 141 the caller reads as "the tag list is UNMEASURED".
+_latest_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
+latest_tag="${_latest_tags%%$'\n'*}"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
-  note_pending "no ${CRUX}: Cargo.toml is still at ${latest_tag}'s version (${version}), no release is being cut"
+  # THE NOTE SAYS WHAT IS TRUE, NOT WHAT IS CONVENIENT (PMAT-234, found by two
+  # review lanes). It used to open with "no ${CRUX}", asserting the document
+  # was absent — and on this repository right now it is present and 13KB long.
+  # A verdict line being fixed for saying false things must not keep one of its
+  # own. What is true here is that no crux document is OWED, because no cut is
+  # in flight; whether one happens to exist is a separate fact, and it is
+  # measured rather than assumed.
+  crux_state="absent"
+  if [ -f "$CRUX" ]; then
+    crux_state="present"
+  fi
+  note_pending "no ${CRUX} is owed (it is ${crux_state}): Cargo.toml is still at ${latest_tag}'s version (${version}), so no release is being cut and its reconciliation is not re-run here"
 else
   if [ ! -f "$CRUX" ]; then
     fail "no ${CRUX}: this version's behaviour changes have no recorded comparison against other systems (run scripts/dogfood/crux-reconcile.sh for the rows it wants)"
@@ -349,12 +450,26 @@ else
   fi
 fi
 
+# The words `pre-tag` and `until the tag is cut` are spoken ONLY when the tag
+# is genuinely not there. Any other note is reported as what it is, on either
+# side of that line, so a reader is never told a published release is pending.
 if [ -n "$pending" ]; then
-  echo "GATE R PASS pre-tag: ${n_prs} PR(s) since ${prev_tag} (GitHub reports ${n_returned} merged in that window, ${n_after} of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: ${pending%, }"
+  also="; also pending: ${pending%, }"
+  post="; also pending: ${pending%, }"
 else
-  echo "GATE R PASS ${TAG} is on main and on origin; GitHub release published (prerelease=${prerelease}); crates.io serves ${CRATE} ${published}; docs.rs built the docs; ${n_prs} PR(s) since ${prev_tag} (of ${n_returned} GitHub reports merged in that window) all carry receipt=ok; ${CRUX} present"
+  also=""
+  post="; ${CRUX} present"
+fi
+if [ -n "$pretag" ]; then
+  echo "GATE R PASS pre-tag: ${n_prs} PR(s) since ${prev_tag} (GitHub reports ${n_returned} merged in that window, ${n_after} of them after this HEAD) all carry receipt=ok; PENDING until the tag is cut: ${pretag%, }${also}"
+else
+  echo "GATE R PASS ${TAG} is on main and on origin; GitHub release published (prerelease=${prerelease}); crates.io serves ${CRATE} ${published}; docs.rs built the docs; ${n_prs} PR(s) since ${prev_tag} (of ${n_returned} GitHub reports merged in that window) all carry receipt=ok${post}"
 fi
 
+# mutation: change Arm 2b's `elif [ "$latest_rel" != "$TAG" ]` to
+# `elif false`, and a full release that /releases/latest does not point at
+# passes -- exactly the four-release staleness this arm was written for;
+# `a_full_release_that_is_not_latest_is_named_and_red` goes RED.
 # mutation: change `if [ "$status" != "ok" ]` below the report loop to
 # `if [ "$status" = "missing" ]` — a waived or thin receipt then sets nothing
 # and this arm passes a release over a PR whose quorum was waived or never

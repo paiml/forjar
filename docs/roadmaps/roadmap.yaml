@@ -1830,11 +1830,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'sudo: true ran nothing for a non-root user — the wrapper passed the script on fd 3 and sudo closes fd 3'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-05T08:49:18Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on lambda-labs, forjar 1.24.0: in_declared_privilege_context (src/core/codegen/dispatch.rs) emits ''sudo bash /dev/fd/3 3<<DELIM'' for every sudo: true resource run by a non-root user. sudo''s closefrom default closes every descriptor >= 3 before exec, so the elevated bash reports ''/dev/fd/3: No such file or directory'' and exits 127 — apply, check and state_query alike, since all three share the wrapper. Repro: ''sudo bash /dev/fd/3 3<<<echo'' fails, ''sudo bash -s <<<echo'' works. The unit tests asserted the TEXT of the form and stayed green. Fix: cross the sudo boundary as a private 0600 temp file (mktemp, quoted heredoc, ''sudo bash <tmp>'', EXIT trap removes it), keeping stdin as the transport left it. Tests: unit test asserting no /dev/fd in the sudo form; integration test that EXECUTES the wrapper under real sudo (gated on uid != 0 and ''sudo -n true''), asserting exit code, stdout and that the temp file is gone; discrimination proven by reverting the emitter.'
@@ -1898,11 +1898,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'GO: generation ownership and stack-scoped restore — spec first (schema 1.2 owner+machines per generation; restore identity on non-owner stacks)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-06T08:09:20Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2431,18 +2431,17 @@ roadmap:
   notes: 'Found through the PMAT-163 merge review 5: the ratchet was UNMEASURED with CB-200 disabled and
     REGRESSED (651 > 27) with it enabled; the falsifier in the baseline file shows the instrument changed.'
 - id: PMAT-204
-  kind: code
   github_issue: null
   item_type: task
   title: 'S2: any file resource whose PATH contains 666 or 777 fails to apply — bashrs SEC017 matches the literal path text on the generated chmod line, and forjar''s I8 gate refuses the script'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-07T16:00:00Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria:
-  - 'a file resource at a path containing 666 or 777 (e.g. /opt/app666/config) applies, and the falsification test that pins it is RED before the fix'
+  - a file resource at a path containing 666 or 777 (e.g. /opt/app666/config) applies, and the falsification test that pins it is RED before the fix
   - 'forjar refuses a world-writable declared mode (0666, 0777, any mode with the world-write bit) with its own error, which bashrs SEC017 does NOT catch: measured 2026-09-07 with bashrs 7.0.1, `chmod ''0666'' ''/tmp/plain/t''` produces no finding at all'
   - 'a genuine bare `chmod 666` in a user-supplied command: still fails I8 validation through SEC017, unchanged'
   phases: []
@@ -2453,15 +2452,14 @@ roadmap:
   - release:v1.26.0
   notes: 'Found by the coverage job of PR #476 on 2026-09-07: drift_sees_content_tamper_source failed because mktemp produced /tmp/.tmp5k666T and the generated `chmod ''0644'' ''/tmp/.tmp5k666T/target.txt''` tripped SEC017. Pre-existing on main; the test is sound and the bug is real — the same script with a plain path lints clean (measured). Not caused by PMAT-163.'
 - id: PMAT-137
-  kind: code
   github_issue: null
   item_type: task
   title: 'CRUX-0: autonomous audit→tickets→implement→dogfood→release program (spec docs/specifications/forjar-architecture-crux-audit.md)'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria:
   - 'Umbrella for the 2026-09-02 program. Stages S1-S6. GitHub #403-#417, #422, #423.'
@@ -2472,7 +2470,7 @@ roadmap:
   - kind:code
   - release:v1.25.0
   - release:v1.25.2
-  notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).'
+  notes: Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).
 - id: PMAT-145
   kind: code
   github_issue: null
@@ -2877,7 +2875,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token.'
+  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token. SUPERSEDES PMAT-233 (2026-09-11): the mechanism is now measured, not inferred. On run 34530301814 the homebrew job reached `Cloning into /tmp/tap` for the first time -- PMAT-230''s fixes carried it past two earlier failures -- and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step declares `GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}` and its log shows `GH_TOKEN:` with an empty value, while the one sibling step that declares a token takes it from `secrets.GITHUB_TOKEN` and logs `GH_TOKEN: ***`. That is this ticket''s missing secret seen from the inside: the name resolves to nothing, so the clone URL authenticates as nobody. The homebrew job is not on publish-release''s needs, so it has never blocked a release; it has simply never worked.'
 - id: PMAT-205
   kind: code
   github_issue: null
@@ -2958,18 +2956,17 @@ roadmap:
   - kind:code
   notes: 'Found by the PMAT-165 release quorum (two lanes). It predates the 1.26.0 cut and no PR in that window maps to PMAT-137, so gate A never reads it; the schema is still the schema. Deferred to 1.27.'
 - id: PMAT-208
-  kind: code
   github_issue: null
   item_type: task
   title: 'S1: release.yml''s dist-artifacts job resolves checksums from the release download URL, which 404s while the release is still a draft — the 1.26.0 run failed there and the release had to be finished by hand'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-08T15:30:00Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria:
-  - 'dist-artifacts downloads SHA256SUMS from the draft release with gh (authenticated, works on drafts) and passes --checksums-file, so it never depends on the public download URL'
+  - dist-artifacts downloads SHA256SUMS from the draft release with gh (authenticated, works on drafts) and passes --checksums-file, so it never depends on the public download URL
   - 'a falsification test pins the workflow shape: the dist step passes --checksums-file and the step that fetches it runs before it'
   phases: []
   subtasks: []
@@ -3049,19 +3046,18 @@ roadmap:
   - release:v1.27.0
   notes: 'Filed by the operator 2026-09-08 as #487, measured on two machines. The refuse-loudly guard pattern (exit 1, name the make target) is the one forjar itself makes necessary for an ephemeral-token registration, and it armed a latch. The first fix made --refresh green while leaving status: failed on disk, so the next plain apply re-latched; caught by re-running the operator''s sequence end to end against the real binary. The second half persists what --refresh measured. drift skipping not-converged entries is recorded as the remaining half and is not fixed here.'
 - id: PMAT-215
-  kind: code
   github_issue: 487
   item_type: task
   title: drift SKIPS resources the lock records as not converged, so it is blind to exactly the resources the lock believes are broken (#487 second half)
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-08T19:09:43Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:54Z
   spec: null
   acceptance_criteria:
-  - 'drift evaluates a resource the lock records as not converged rather than counting it in the skipped census'
-  - 'the census still distinguishes what was inspected from what was not, and a resource that cannot be evaluated is still never silently counted as clean'
+  - drift evaluates a resource the lock records as not converged rather than counting it in the skipped census
+  - the census still distinguishes what was inspected from what was not, and a resource that cannot be evaluated is still never silently counted as clean
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3091,20 +3087,19 @@ roadmap:
   - kind:code
   notes: 'Found while gating 1.27.0. cargo mutants reports "ERROR interrupted / scenario execution internal error err=interrupted phase=Test" and writes no outcomes.json, immediately after "Found N mutants to test". Reproduced four times: with --in-diff on the release diff, with --baseline skip, and with --file src/cli/drift_state.rs, which shares nothing with the release diff. So it is NOT this branch. Memory was not the cause on the last three attempts (107 GB free). One suspect worth checking first: src/core/store/mutation_runner.rs emits pkill -f ''<resource_id>'', and a pkill -f inside a test can match processes outside the test, which is a self-match hazard this fleet has hit before. The 95% line floor is unaffected and was measured green (96.38%) by cargo llvm-cov --fail-under-lines 95, exit 0.'
 - id: PMAT-217
-  kind: code
   github_issue: 452
   item_type: task
   title: forjar-contracts coverage_map_enrichment asserts an aprender kernel against forjar's IaC corpus, and hides it behind a sibling-directory check, so cargo test --workspace is red on a fleet workstation and vacuously green in CI (#452)
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-09T07:36:06Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'cargo test --workspace passes from a path whose grandparent contains a sibling aprender checkout, which is the fleet workstation layout'
-  - 'no test uses "is a sibling checkout present" as a proxy for "does THIS repo ship the corpus this test queries" — the two are different questions and only the second decides whether the assertion can hold'
-  - 'a test that needs a corpus forjar does not ship is gated by the aprender-corpus feature and says so in its ignore reason, exactly as violations_enrichment already is'
+  - cargo test --workspace passes from a path whose grandparent contains a sibling aprender checkout, which is the fleet workstation layout
+  - no test uses "is a sibling checkout present" as a proxy for "does THIS repo ship the corpus this test queries" — the two are different questions and only the second decides whether the assertion can hold
+  - a test that needs a corpus forjar does not ship is gated by the aprender-corpus feature and says so in its ignore reason, exactly as violations_enrichment already is
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3113,21 +3108,20 @@ roadmap:
   - release:v1.28.0
   notes: 'Found while gating PMAT-215, where it turned the workspace gate red and first produced a wrong conclusion. coverage_map_enrichment queries softmax, an aprender kernel, against forjar''s IaC corpus and asserts the results are non-empty. It early-returns unless CARGO_MANIFEST_DIR/../.. has a sibling aprender, so it passes vacuously in CI and in any worktree outside ~/src and runs for real on a workstation that has aprender checked out. A test whose verdict depends on what else is on the developer''s disk is worse than a plain failure. Its immediate sibling violations_enrichment already carries the right cfg_attr(not(feature = "aprender-corpus"), ignore = ...) citing #452. NARROWED after reading the file: crates/forjar-contracts/src/query/cross_project_tests.rs uses a sibling-directory check deliberately and documents it (has_sibling_repos, "In CI, only this repo is checked out so siblings are absent"), and those tests guard their assertions with it rather than asserting past it. That idiom is not the defect and is left alone. The defect is using that same check as a proxy for a DIFFERENT question: a neighbouring aprender checkout does not put softmax contracts into forjar''s index, so the guard passes and the assertion then cannot hold.'
 - id: PMAT-219
-  kind: code
   github_issue: 485
   item_type: task
   title: 'S1: build_resource_details hashes the CONTROLLER''s filesystem for every non-container machine, so a remote file resource''s lock baseline is the workstation''s copy of that path — permanent false drift on any resource whose path also exists locally (#485)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-09T08:44:58Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'the content_hash a lock entry records for a file on a REMOTE machine is read through the transport, never from the controller''s filesystem'
-  - 'when the read cannot reach the target, no content_hash is recorded at all — an absent baseline is honest, a wrong one is not'
-  - 'a local machine still hashes locally, because exec_script dispatches pepita > container > local > ssh and a local target is the controller'
-  - 'a falsification test proves the recorded hash is not the controller''s copy when the two differ, without needing SSH'
+  - the content_hash a lock entry records for a file on a REMOTE machine is read through the transport, never from the controller's filesystem
+  - when the read cannot reach the target, no content_hash is recorded at all — an absent baseline is honest, a wrong one is not
+  - a local machine still hashes locally, because exec_script dispatches pepita > container > local > ssh and a local target is the controller
+  - a falsification test proves the recorded hash is not the controller's copy when the two differ, without needing SSH
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3137,20 +3131,19 @@ roadmap:
   - release:v1.28.0
   notes: 'Refiled by the operator on #485 with the mechanism, after my first close asserted the wrong one. build_resource_details reads through the transport ONLY for is_container_transport(); every other machine, INCLUDING PLAIN SSH, takes the else branch and hashes the CONTROLLER at that path. So a fleet resource declaring /home/noah/.bashrc records the WORKSTATION''s copy as its baseline. This is forjar#305''s root cause, fixed on the READ side (check_file_resource_drift now dispatches through exec_script) and left live on the WRITE side, which is why drift''s Actual is right and its Expected is a third file. It explains all four of the operator''s measurements, including why the stored value matches neither the declaration nor the live file, and why exactly the resources whose paths also exist on the controller are the ones that never converge. The prescription is already written in the sibling module: exec_script dispatches pepita > container > local > ssh, so a local machine still hashes locally and nothing needs a special case.'
 - id: PMAT-220
-  kind: code
   github_issue: 495
   item_type: task
   title: 'S1: machine_is_local excludes a container but not a pepita namespace, so the build-IO probe, the pre-plan probe and output verification may read the CONTROLLER''s filesystem on a namespace''s behalf and report the answer as the target''s (#495)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-09T11:35:29Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'no code decides whether it may read THIS host''s filesystem on a machine''s behalf using a predicate that forgets a pepita namespace'
+  - no code decides whether it may read THIS host's filesystem on a machine's behalf using a predicate that forgets a pepita namespace
   - 'each of the four machine_is_local call sites is judged on its own: the three that gate a controller-side READ move to the strict predicate, and the exec dispatch is measured before it is touched rather than changed on the strength of the other three'
-  - 'a falsification test fails if a controller-side read is gated on a predicate that admits a namespace'
+  - a falsification test fails if a controller-side read is gated on a predicate that admits a namespace
   - 'nothing that was local before stops being local: a genuinely local machine keeps every behaviour it had'
   phases: []
   subtasks: []
@@ -3160,22 +3153,21 @@ roadmap:
   - release:v1.28.0
   notes: 'Found by three review lanes during PMAT-219 and filed rather than fixed there, because widening machine_is_local under four callers this ticket had not measured is exactly the move that turns one fix into a regression. machine_is_local checks !is_container_transport plus a local address; drift''s reads_the_controller, now transport::controller_answers_for, also checks !is_pepita_transport, and says why: a pepita machine commonly declares addr 127.0.0.1 and its files live inside the namespace. exec_script dispatches pepita FIRST, so anything that must agree with what exec_script will actually do has to exclude it. The four sites are src/core/task/probe.rs:289, src/core/executor/mod.rs:426, src/core/executor/output_verify.rs:54 and src/transport/mod.rs:288. The fourth needs care: exec_script handles pepita before reaching that line, so tightening there may be a no-op or may not, and that is to be measured rather than assumed. machine_is_local''s own doc already asks for the fix: one definition, one place.'
 - id: PMAT-221
-  kind: code
   github_issue: 497
   item_type: task
   title: 'S1: the planner cannot tell ''probed, nothing stale'' from ''never probed'', so a task on any non-local machine plans NoOp when its sources change and says nothing (#497)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-09T14:31:13Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
   - 'the planner distinguishes a resource it probed and found nothing stale from a resource it never probed: a converged task whose declared build I/O could not be measured on its machine is named in the plan, per (resource, machine), with the reason'
   - 'the action does not change: an unprobed converged task still plans NoOp (a rebuild-every-run would break f(f(x)) = f(x) at the plan level and make every remote task rebuild for ever); what changes is that the plan SAYS so'
   - 'every shipped plan surface carries it: the TTY rendering, plan --json, the MCP/HTTP/verb PlanOutput, the dry-run body and a sealed plan file, in the forjar#342/#372 shape: a TOTAL list (present, possibly empty) beside a PARTIAL prose disclosure that names forjar drift / --refresh as the instrument that can answer'
-  - 'a plan with nothing unprobed is byte-identical to today on every surface and every previously sealed plan file still verifies'
-  - 'the probe-coverage predicate has ONE definition, shared by probe_config, the executor pre-plan probe and the planner census'
+  - a plan with nothing unprobed is byte-identical to today on every surface and every previously sealed plan file still verifies
+  - the probe-coverage predicate has ONE definition, shared by probe_config, the executor pre-plan probe and the planner census
   - 'a falsification test drives the binary: a task converged on a loopback machine whose address is then changed to a remote one plans NoOp AND discloses; with the disclosure removed the test fails'
   phases: []
   subtasks: []
@@ -3186,22 +3178,21 @@ roadmap:
   - release:v1.28.0
   notes: 'orch-basis:M>=3 — five owning modules measured before the ticket was opened: src/core/types (ExecutionPlan), src/core/planner (the fallthrough at determine_present_action), src/core/task/probe.rs (the coverage predicate probe_config and the executor pre-plan probe both inline), src/cli (print_helpers, plan_json, plan_file, apply_dry_run, mod.rs bridge) and src/mcp (PlanOutput). Filed from PMAT-220 by three review lanes: probes.get(id) returning None falls through to the config-hash comparison, so a converged task whose inputs changed on a machine this host does not answer for plans NoOp with its YAML unchanged. True for every SSH target since the probe existed; #495 added namespaces to the set. The repository''s own doctrine (scripts/dogfood, DriftCensus) is that an UNMEASURED check must never print the same thing as a passed one; the planner has no census. The cheap and honest fix the issue asks for is disclosure at the planner boundary in the forjar#342 shape, not a remote probe (that is --refresh''s opt-in round trip).'
 - id: PMAT-222
-  kind: code
   github_issue: 499
   item_type: task
   title: 'S1: the build-I/O probe map is keyed by resource id alone, so a resource declared on a local and a remote machine plans the remote row from the local probe (#499)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-09T16:58:00Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
   - 'the probe map is keyed by (machine, resource id): a digest only ever answers for the tree it was taken on, and a lookup for a (resource, machine) the probe never visited returns nothing'
-  - 'a task declared on a local and a remote machine whose LOCAL inputs changed plans Update on the local row and NoOp on the remote row, and the remote row is named in the unprobed census; before this ticket the remote row planned Update from the local probe'
-  - 'a task declared on a local and a remote machine whose local inputs are fresh plans NoOp on both rows and the remote row is still named; nothing about the forjar#497 disclosure regresses'
-  - 'the census decides from the map alone whether a (resource, machine) was measured; the coverage predicate only words the reason, and keeps its one definition'
-  - 'both producers (probe_config and the executor pre-plan probe) and both consumers (determine_present_action and the census) read the keyed map; a probe map keyed by resource id alone no longer exists in src/'
+  - a task declared on a local and a remote machine whose LOCAL inputs changed plans Update on the local row and NoOp on the remote row, and the remote row is named in the unprobed census; before this ticket the remote row planned Update from the local probe
+  - a task declared on a local and a remote machine whose local inputs are fresh plans NoOp on both rows and the remote row is still named; nothing about the forjar#497 disclosure regresses
+  - the census decides from the map alone whether a (resource, machine) was measured; the coverage predicate only words the reason, and keeps its one definition
+  - both producers (probe_config and the executor pre-plan probe) and both consumers (determine_present_action and the census) read the keyed map; a probe map keyed by resource id alone no longer exists in src/
   - 'a falsification test drives the binary: a task converged on [loopback, TEST-NET] with its local input then rewritten plans 1 to change, the remote row is NoOp and named; with the key reverted to the resource id the test fails'
   phases: []
   subtasks: []
@@ -3212,18 +3203,17 @@ roadmap:
   - release:v1.28.0
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (probe_all inserts one IoDigest per resource id, probe_config wraps it), src/core/executor/mod.rs (the pre-plan probe is the second producer), src/core/planner/mod.rs (determine_present_action looks the digest up by resource id for every (resource, machine) it plans) and src/core/planner/unprobed.rs (the census asks the machine predicate before the map because the map cannot answer per machine). Filed from PMAT-221 by one teamwork lane and three quorum lanes and left unfixed there on purpose: forjar#497 discloses an absent probe, this re-keys the map under every consumer. The defect is the forjar#485 shape one level up: a hash taken on the controller reported as a fact about a remote tree, invisible because the number is a correct hash of the wrong tree. Multi-machine task resources with declared build I/O are exactly the fleet''s build boxes. The fix the issue names: key by (machine, resource_id) so the lock''s per-machine input_hash/output_hash is compared against a probe of the same machine, never another.'
 - id: PMAT-223
-  kind: code
   github_issue: 501
   item_type: task
   title: 'S1: record_io_hashes writes a hash of the controller''s tree into every machine''s lock, and check_task_input_cache reads it back for a remote cache: true task (#501)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-10T05:54:53Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'record_io_hashes takes the machine and records nothing for a machine this host does not answer for; an absent input_hash reads as "no recorded input hash" in staleness_reason, never as clean'
+  - record_io_hashes takes the machine and records nothing for a machine this host does not answer for; an absent input_hash reads as "no recorded input hash" in staleness_reason, never as clean
   - 'check_task_input_cache hashes against probe_base_dir(resource), the base record_io_hashes used, so a cache: true task can hit the cache at all; before this ticket the reader hashed state_dir.parent() and the expanded path inside the hash never matched the writer''s'
   - 'check_task_input_cache refuses to answer for a machine this host does not answer for: a cache: true task on a remote machine is never skipped from the controller''s tree'
   - 'the coverage predicate keeps its one definition: probe.rs references transport::controller_answers_for exactly once and both the writer and the cache reader go through the same wrapper'
@@ -3238,21 +3228,20 @@ roadmap:
   - release:v1.28.0
   notes: 'orch-basis:M>=3 — four owning modules measured before the ticket was opened: src/core/task/probe.rs (record_io_hashes has no machine argument and hashes probe_base_dir on the controller), src/core/executor/resource_ops.rs (record_success calls it for every (resource, machine) it converges, with the machine in hand), src/core/executor/resource_meta.rs with machine_b.rs (check_task_input_cache hashes state_dir.parent() and reads the lock''s input_hash for any machine; task_inputs_are_cached is its one caller) and src/transport/mod.rs (controller_answers_for, the one definition #485/#495/#497/#499 share). Filed from PMAT-222 by the review lanes and confirmed by reading: the #485 shape in the write path. Measured by hand on 643363b3 before the ticket was opened: a cache: true task converged on loopback and re-applied with a changed command and unchanged inputs ran again on every apply, with working_dir under the sandbox AND with working_dir equal to the state directory''s parent — hash_inputs folds the expanded file path into the hash, so the writer''s absolute working_dir base and the reader''s state-dir base can never agree. The cache is dead today, which is what hides the remote half: once the reader uses the writer''s base, a remote cache: true task would be skipped from the controller''s hash unless the reader refuses to answer for a machine this host cannot read. The fix the issue names: the machine guard on both sides through the one predicate, and the writer''s base on the reader.'
 - id: PMAT-224
-  kind: code
   github_issue: 491
   item_type: task
   title: 'S2: the committed-quorum gate has no shape a kind:triage branch can satisfy, so every triage PR must be waived (#491)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-10T08:58:02Z
-  updated: 2026-09-10T11:09:53Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'a citation into a documentation file the branch touches (docs/**.md, docs/roadmaps/roadmap.yaml) anchors a claim under the same at-base and as-added rules as a Rust file, so the 33% floor is reachable by a branch that writes no Rust; a citation into a file the branch does not touch still anchors nothing'
+  - a citation into a documentation file the branch touches (docs/**.md, docs/roadmaps/roadmap.yaml) anchors a claim under the same at-base and as-added rules as a Rust file, so the 33% floor is reachable by a branch that writes no Rust; a citation into a file the branch does not touch still anchors nothing
   - 'a receipt may declare kind: triage; the gate then requires the diff to lie within docs/audits/**, docs/roadmaps/roadmap.yaml and .quorum/** and refuses by name a triage receipt over any other file'
   - 'for kind: triage the falsification block declares not_applicable with a reason and the gate prints exactly what it did not verify; for every other receipt the revert-the-hunk checks are unchanged and a code-shaped diff with no falsification still fails'
-  - 'every other floor — lanes, judges, refuters, at least one refuted claim as text, crux, agy_teamwork, pmat, evidence provenance and redaction — applies to a triage receipt unchanged; no waiver key is involved'
+  - every other floor — lanes, judges, refuters, at least one refuted claim as text, crux, agy_teamwork, pmat, evidence provenance and redaction — applies to a triage receipt unchanged; no waiver key is involved
   - 'a falsification test drives scripts/quorum-gate.sh and scripts/quorum_evidence.py over fixture repositories: a triage-shaped diff with a triage receipt passes, a triage receipt over a diff touching src/ is refused, a code-shaped diff with no falsification still fails, and a documentation citation anchors only when the file is touched; with the triage arm removed the passing case fails'
   - 'the triage rail that admits only docs/audits/** and docs/roadmaps/roadmap.yaml lives in the paiml-implement skill (kind-gate.sh), outside this repository: the receipt names it as the remaining half and files or fixes it there'
   phases: []
@@ -3315,19 +3304,18 @@ roadmap:
   - release:v1.28.0
   notes: 'orch-basis:release — the cut of v1.28.0 under the two-day cadence PMAT-225 declared (due 2026-09-10T22:10:01Z). Third-plus ticket in session 94370bba: goal.sh set refuses under R-5; proceeding on the user''s verbatim "continue autonomously using pmat-implement: ensure all tickets/work are linked to tagged releases using \"pmat goal\" style and ensuring frequent releases/dogfood after every 2 days (tickets/pull requests must be tagged/triaged continuously)". The release ledger sits outside the quorum gate''s triage rail (PMAT-224 predates PMAT-225), so a booking PR could anchor nothing; the rail widening ships in this cut so the booking (PMAT-227) can be kind: triage.'
 - id: PMAT-227
-  kind: triage
   github_issue: null
   item_type: task
   title: 'book v1.28.0 in the release ledger: the row from the tag, the open goal v1.29.0, and gate T green on main again'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T16:08:44Z
-  updated: 2026-09-10T16:08:45Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'docs/roadmaps/releases.yaml carries the v1.28.0 row written by scripts/release-goal.sh cut v1.28.0 --next v1.29.0 — cut = the tag''s creatordate, prs and tickets = the measured window v1.27.0..v1.28.0 — and next.tag v1.29.0 with next.due = cut + 2 days exactly; the row is byte-identical to release-goal.sh window v1.28.0'
-  - 'this ticket carries release:v1.29.0 (the open window) and every row labelled release:v1.28.0 is in the v1.28.0 window (cut moved none)'
+  - docs/roadmaps/releases.yaml carries the v1.28.0 row written by scripts/release-goal.sh cut v1.28.0 --next v1.29.0 — cut = the tag's creatordate, prs and tickets = the measured window v1.27.0..v1.28.0 — and next.tag v1.29.0 with next.due = cut + 2 days exactly; the row is byte-identical to release-goal.sh window v1.28.0
+  - this ticket carries release:v1.29.0 (the open window) and every row labelled release:v1.28.0 is in the v1.28.0 window (cut moved none)
   - 'scripts/dogfood/tagged.sh is green on the branch and on main after the merge: GATE T PASS 6 tagged release(s) since v1.25.0 … 0 of 0 PR(s) merged since v1.28.0 …, and scripts/release-goal.sh show names v1.29.0'
   - 'the diff touches only docs/roadmaps/releases.yaml, docs/roadmaps/roadmap.yaml, docs/audits/** and .quorum/** — the kind: triage rail PMAT-226 widened — and the quorum artifact declares kind: triage with falsification.not_applicable'
   phases: []
@@ -3339,19 +3327,18 @@ roadmap:
   - release:v1.29.0
   notes: 'orch-basis:release — the booking half of the 1.28.0 cut (PMAT-226): a tag''s row can only be written after the tag exists (its cut instant is the tagger date; gate T T2 is red for a row naming a tag origin lacks), so every release is two PRs and this is the second. Classify + link, no code: the repo''s quorum gate admits it on the triage rail as of PMAT-226. Fifth ticket of session 94370bba; goal.sh set refuses under R-5; proceeding on the user''s verbatim instruction quoted on PMAT-226. The skill''s own kind:triage rail (issue-universe snapshot, batches) is for issue triage and does not fit a ledger booking; kind-gate.sh''s output is recorded in the receipt and the code-shaped receipt rows are kept.'
 - id: PMAT-228
-  kind: code
   github_issue: null
   item_type: task
   title: 'release-goal.sh cut pastes the window library''s not-counted note into the ledger: the note is printed on stdout and cut captures stdout'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T16:11:37Z
-  updated: 2026-09-10T16:34:39Z
+  updated: 2026-09-11T08:30:43Z
   spec: null
   acceptance_criteria:
-  - 'scripts/dogfood/lib/window.sh prints its "is inside <prev> (the previous release) — not counted" note on stderr, or scripts/release-goal.sh cut and window filter it; the ledger row cut writes is byte-identical to window''s row with no note line'
-  - 'a fixture case in tests/falsification_release_goal_cut_books_the_tag.rs whose window carries the previous release''s own PR asserts the booked file contains no line matching "not counted"; it is red without the fix'
+  - scripts/dogfood/lib/window.sh prints its "is inside <prev> (the previous release) — not counted" note on stderr, or scripts/release-goal.sh cut and window filter it; the ledger row cut writes is byte-identical to window's row with no note line
+  - a fixture case in tests/falsification_release_goal_cut_books_the_tag.rs whose window carries the previous release's own PR asserts the booked file contains no line matching "not counted"; it is red without the fix
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3360,15 +3347,14 @@ roadmap:
   - release:v1.29.0
   notes: 'Measured 2026-09-10 booking v1.28.0 (PMAT-227): cut wrote `  #490 54e36f13… is inside v1.27.0 (the previous release) — not counted` as line 55 of docs/roadmaps/releases.yaml, a YAML comment by accident of the leading #. Removed by hand in PMAT-227; the code fix belongs here with its test.'
 - id: PMAT-229
-  kind: code
   github_issue: null
   item_type: task
   title: release-goal.sh show refuses to render the goal on any branch with unmerged commits, so the cadence status line is unreadable exactly where work happens
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T16:34:38Z
-  updated: 2026-09-10T16:34:39Z
+  updated: 2026-09-11T08:30:43Z
   spec: null
   acceptance_criteria:
   - 'scripts/release-goal.sh show renders the goal line on a branch whose own commits are not yet in a merged PR: the tag, the bar, the due instant and basis= are printed, the counts that cannot be measured are marked UNMEASURED rather than printed as a number, and the exit code stays non-zero so a script cannot read the degraded line as a pass'
@@ -3382,21 +3368,20 @@ roadmap:
   - release:v1.29.0
   notes: 'Found by the PMAT-227 quorum (all three lanes refuted the claim that show prints the goal on the branch). Measured 2026-09-10 on PMAT-227-book-v1.28.0: `bash scripts/release-goal.sh show` exits 2 with `2 commit(s) reached HEAD since v1.28.0 and GitHub reports no merged PR containing any of them`, printing no goal line; the same ledger in a worktree at main prints `v1.29.0 … due 2026-09-12T16:07:14Z basis=docs/roadmaps/releases.yaml:L61`. The refusal is correct for gate T (a release gate) and wrong for the status line `make release-goal`, which an operator runs while ON a feature branch — the due instant and the elapsed bar do not depend on the unmerged commits, only the merged count does. This is the continuous half of PMAT-225''s brief: a cadence you cannot read from where you work is not a cadence you keep.'
 - id: PMAT-230
-  kind: code
   github_issue: null
   item_type: task
   title: the release workflow's two gh release download calls write to a fixed path on a runner that is not ephemeral, so the second release on that runner dies and a stale checksums file would otherwise be read as this release's
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T18:46:12Z
-  updated: 2026-09-10T18:46:13Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
   - 'every `gh release download` in .github/workflows/** passes --clobber, and none passes --skip-existing: a leftover file from the previous release must be overwritten, never kept, because the step that reads it (test -s, then dist --checksums-file) cannot tell a fresh checksums file from a stale one'
-  - 'a rule in tests/falsification_release_workflow_shape.rs asserts it over every workflow file, is red against the workflow as it stands today (both release.yml call sites), and names the call site it refuses'
+  - a rule in tests/falsification_release_workflow_shape.rs asserts it over every workflow file, is red against the workflow as it stands today (both release.yml call sites), and names the call site it refuses
   - 'actionlint passes and the v1.28.0 release completes when release.yml is re-dispatched from main with the fix: dist-artifacts green, publish-release un-drafts, install.sh attached'
-  - 'the two other fixed /tmp paths release.yml writes into on the same non-ephemeral runners are cleared before they are written — /tmp/dist-output in dist-artifacts (whose whole contents are uploaded as the release artifact) and /tmp/tap in homebrew (where git clone exits 128 over an existing directory) — and rule 10 asserts the clear exists AND precedes the write, red when either guard is dropped or moved after it'
+  - the two other fixed /tmp paths release.yml writes into on the same non-ephemeral runners are cleared before they are written — /tmp/dist-output in dist-artifacts (whose whole contents are uploaded as the release artifact) and /tmp/tap in homebrew (where git clone exits 128 over an existing directory) — and rule 10 asserts the clear exists AND precedes the write, red when either guard is dropped or moved after it
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3406,20 +3391,19 @@ roadmap:
   - release:v1.29.0
   notes: 'orch-basis:release — a release blocker, found by the v1.28.0 cut. dist-artifacts died with `/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or `--skip-existing` to skip file)`, leaving the release a draft prerelease with 13 assets and no installer. The file is a leftover from a PREVIOUS release on the same non-ephemeral clean-room runner. The repository already learned this exact lesson one job over: the checksums job carries the comment `THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT IS NOT EPHEMERAL` and clears /tmp/release-assets first, after v1.18.0 shipped a 10-line SHA256SUMS with four lines belonging to 1.17.0. dist-artifacts and homebrew download into /tmp and /tmp/checksums with no guard at all. --skip-existing must be refused as well as absent: it would satisfy the step`s `test -s` guard with the PREVIOUS release`s checksums and embed them in install.sh, which is the v1.18.0 failure again with a friendlier exit code.'
 - id: PMAT-231
-  kind: triage
   github_issue: null
   item_type: task
   title: 'record the v1.28.0 release: the receipt, gate R, and the two release-workflow defects that shipping it exposed'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:30Z
-  updated: 2026-09-10T23:57:33Z
+  updated: 2026-09-11T05:29:55Z
   spec: null
   acceptance_criteria:
-  - 'docs/audits/release-1.28.0-receipt.md records the tag, the published release and its 14 assets, crates.io, docs.rs, every gate measured on the tagged sha, and the by-hand step with its reason'
-  - 'scripts/dogfood/release-check.sh (gate R) passes on the published release, and make dogfood-published VERSION=1.28.0 is recorded with its verdict'
-  - 'the two defects shipping the release exposed are filed as roadmap rows with their measurements, and every new row carries release:v1.29.0 from the moment it is minted'
+  - docs/audits/release-1.28.0-receipt.md records the tag, the published release and its 14 assets, crates.io, docs.rs, every gate measured on the tagged sha, and the by-hand step with its reason
+  - scripts/dogfood/release-check.sh (gate R) passes on the published release, and make dogfood-published VERSION=1.28.0 is recorded with its verdict
+  - the two defects shipping the release exposed are filed as roadmap rows with their measurements, and every new row carries release:v1.29.0 from the moment it is minted
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3427,22 +3411,22 @@ roadmap:
   - kind:triage
   - orch:fable
   - release:v1.29.0
-  notes: 'orch-basis:release — the closing record of the 1.28.0 release. The release was published by hand with `gh release edit --draft=false --prerelease` because publish-release declined to (PMAT-232), and promoted to a full release after `make dogfood-published VERSION=1.28.0` passed, which is the operator step the workflow names; everything else was done by the workflow. Sixth-plus ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user''s verbatim instruction quoted on PMAT-226. Three quorum lanes refuted three facts in the first draft of the receipt — a rounded crates.io timestamp, a miscounted cancellation, and this very notes field, which a row-patching bug had left null — and all three were corrected.'
+  notes: orch-basis:release — the closing record of the 1.28.0 release. The release was published by hand with `gh release edit --draft=false --prerelease` because publish-release declined to (PMAT-232), and promoted to a full release after `make dogfood-published VERSION=1.28.0` passed, which is the operator step the workflow names; everything else was done by the workflow. Sixth-plus ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user's verbatim instruction quoted on PMAT-226. Three quorum lanes refuted three facts in the first draft of the receipt — a rounded crates.io timestamp, a miscounted cancellation, and this very notes field, which a row-patching bug had left null — and all three were corrected.
 - id: PMAT-232
-  kind: code
   github_issue: null
   item_type: task
   title: publish-release cannot un-draft a release a previous run created, so a re-dispatch leaves the release a draft for ever
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:31Z
-  updated: 2026-09-10T23:57:33Z
+  updated: 2026-09-11T10:33:34Z
   spec: null
   acceptance_criteria:
   - 'release.yml publish-release un-drafts the release whenever every asset job succeeded, not only when THIS run created it: a workflow_dispatch re-run over a release a previous run created must publish it'
-  - 'the assertion that the release is prerelease=true draft=false runs on the same condition, so an un-draft that did not happen is a failure rather than a skip'
-  - 'a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today'
+  - the assertion runs UNCONDITIONALLY and asserts only that the release is not a draft, so an un-draft that did not happen is a failure rather than a skip; prerelease=true is deliberately not asserted, because a re-dispatch over a release an operator has promoted to a full release must leave it promoted, and rule 4 already asserts prerelease=true draft=true for a run that creates one
+  - the edit is conditional on the release BEING a draft, so that same re-dispatch cannot demote a published release back to a prerelease
+  - a rule in tests/falsification_release_workflow_shape.rs pins it and is red against the workflow as it stands today
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3451,41 +3435,39 @@ roadmap:
   - release:v1.29.0
   notes: 'Measured 2026-09-10 on run 34530301814, the re-dispatch that carried PMAT-230''s fix: every asset job succeeded, publish-release reported success, and the release stayed draft=true — because the step is guarded by `if [ "${{ needs.create-release.outputs.created }}" = "true" ]` and this run did not create the release, the earlier failed run did. The assertion that would have caught it is behind the same guard, so the job passes while doing nothing. A release whose creating run fails after create-release can therefore never be published by the workflow; v1.28.0 was un-drafted by hand.'
 - id: PMAT-233
-  kind: code
   github_issue: null
   item_type: task
   title: the homebrew job's tap push has an empty GH_TOKEN, so it fails authentication on every release
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-10T23:57:32Z
-  updated: 2026-09-10T23:57:33Z
+  updated: 2026-09-11T19:56:38Z
   spec: null
   acceptance_criteria:
-  - 'the homebrew job''s Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication'
+  - the homebrew job's Publish to Homebrew tap step receives a token that can push to paiml/homebrew-tap, and the step fails loudly if the token is empty rather than reaching git and failing on authentication
   - 'the tap URL never carries a secret that is not set: an empty ${GH_TOKEN} produces a URL that authenticates as nobody'
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.29.0
   notes: 'Measured 2026-09-10 on run 34530301814: the step reached `Cloning into /tmp/tap` for the first time — PMAT-230''s fixes carried it past the checksums download and the leftover directory — and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step log shows `GH_TOKEN:` with an empty value while every other step in the job shows `GH_TOKEN: ***`, so the secret is not wired into this step. The homebrew job is not on publish-release''s needs, so this has never blocked a release; it has simply never worked.'
 - id: PMAT-234
   kind: code
   github_issue: null
   item_type: task
   title: gate R's verdict line says PASS pre-tag and PENDING until the tag is cut whenever ANY arm is pending, so after every successful release it reports the opposite of the truth
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-11T00:00:33Z
-  updated: 2026-09-11T00:00:34Z
+  updated: 2026-09-11T13:30:35Z
   spec: null
   acceptance_criteria:
   - 'scripts/dogfood/release-check.sh distinguishes the arms that are pending BECAUSE THE TAG DOES NOT EXIST from every other pending note: after a published release its verdict line names the tag, the release, crates.io and docs.rs as measured, and lists any remaining pending note as what it actually is'
   - 'the summary never says pre-tag when origin serves the tag, and never says PENDING until the tag is cut about a note that has nothing to do with the tag'
-  - 'a falsification case drives the script over a fixture where the tag exists and one non-tag arm is pending, and asserts the verdict line says neither'
+  - 'four falsification cases drive the script over a fixture in the state a finished release leaves: the published one says neither phrase, the pre-tag one still says both, a failed docs build is still RED, and the one remaining note does not claim a present file is missing'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -3496,18 +3478,656 @@ roadmap:
 - id: PMAT-235
   github_issue: null
   item_type: task
-  title: 'ORCH-001: orchestrator routing rule (AUTO-IMPL-SKILL-003)'
+  title: 'sync the roadmap''s status field with what actually shipped: 16 tickets named by a tagged release or a merged PR still read planned or inprogress'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T05:30:56Z
+  updated: 2026-09-11T10:33:34Z
+  spec: null
+  acceptance_criteria:
+  - 'every ticket named by a row of docs/roadmaps/releases.yaml, and every ticket of a PR merged since the newest tag, reads status: completed'
+  - the status is moved with `pmat work edit <id> -s inprogress` then `-s completed` — the tool refuses Planned -> Completed directly — and never by editing the YAML by hand
+  - 'the diff carries no semantic change outside status, updated and the top-level kind: field the tool drops; every dropped kind: field is shown to be duplicated by a kind:* label, and every release:<tag> label is intact'
+  - pmat work validate passes and gate T stays green
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:state — measured 2026-09-11: 13 of the 25 tickets named by a tagged release read planned or inprogress, as did the three merged since v1.28.0. The ledger and the release:<tag> labels were correct throughout; only the status field drifted, because gate T checks labels and nothing checks status (PMAT-236). `pmat work edit` enforces a lifecycle — Planned -> Completed is refused, Planned -> Inprogress -> Completed is the legal path — and drops any top-level field it does not know, which cost 14 rows their `kind:` field; every one of them carries the matching `kind:*` label, which is what kind-gate.sh reads first, so nothing was lost. Ticket of session 94370bba; goal.sh set refuses under R-5, proceeding on the user''s instruction to sync the tickets and the roadmap with pmat.'
+- id: PMAT-236
+  github_issue: null
+  item_type: task
+  title: gate T does not check a shipped ticket's status, so the roadmap's status field drifted for 16 tickets across five releases without a single gate going red
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T05:30:57Z
+  updated: 2026-09-11T11:48:50Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/dogfood/tagged.sh gains an arm: every ticket named by a row of docs/roadmaps/releases.yaml has status: completed on its roadmap row, and the gate is red by name for one that does not'
+  - the arm reads the roadmap at the same ref as the rest of gate T and names the ticket, its release and its actual status in the failure
+  - a fixture case in tests/falsification_release_goals_are_measured.rs drives the gate over a repository whose shipped ticket is still planned, and is red without the arm
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Found by the PMAT-235 sync: 16 tickets across five releases (v1.25.2 through the open v1.29.0 window) carried a correct release:<tag> label and an untouched status of planned or inprogress, and no gate anywhere went red for it. Gate T checks the label in both directions and never looks at the status, so the roadmap said none of the 1.28.0 work had started on the day it shipped. The label is the link a release needs; the status is what a person reads.'
+- id: PMAT-237
+  github_issue: null
+  item_type: task
+  title: 'a PR pays the full release suite even when it touches no code: 8 of the last 10 merged PRs changed no src/ and each still spent ~131 job-minutes on ledger-replay, dogfood, bench, coverage and the workspace tests'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T08:37:16Z
+  updated: 2026-09-11T10:33:34Z
+  spec: null
+  acceptance_criteria:
+  - 'scripts/ci/changed-class.sh is the ONE decision: it reads a file list and prints code=true|false, is an allow-list of the harmless rather than a deny-list of the heavy, and treats an unclassified path, an unreadable diff and README.md / docs/audits/surface_audit.csv / contracts/** as code'
+  - tests/falsification_pr_lane_runs_what_the_change_can_break.rs drives that script with fabricated file lists in both directions, and is red under the registered mutation (the unclassified arm made harmless)
+  - the five heavy jobs — ci, dogfood, examples-validate, no-default-features, doctests in ci.yml, ledger-replay in proofs.yml, coverage, benchmark — run only when the class says code, and ci.yml's gate and proofs.yml's aggregator each REFUSE a skip when the class says code, so a saving cannot become a hole
+  - the class is computed by one composite action that calls the one script, and a rule asserts every gated workflow uses it
+  - 'make dogfood-release is untouched: the release gate still runs everything'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:state — measured 2026-09-11 on the ten most recently merged PRs: EIGHT touched no src/ at all, and every one still paid about 131 job-minutes — ledger-replay 34, dogfood 26, bench 18, the workspace suite 14, coverage 12, ci/lint 7, ci/coverage 7, examples-validate 6. The critical path was about 50 minutes per PR on a fleet of 20 runners shared with every other paiml repository, which is why a docs-only booking PR waited ninety minutes for a runner during the v1.28.0 release. The release gate is not touched and still runs everything; what changes is what a PR pays for what it changed. The allow-list direction is the whole safety argument: being wrong costs forty minutes of CI one way and ships untested code the other, and those are not the same mistake.'
+- id: PMAT-238
+  github_issue: null
+  item_type: task
+  title: 'gate T''s verdict line counted tickets against PRs: two tickets in one PR printed 8 of 7 PR(s) merged'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T11:48:50Z
+  spec: null
+  acceptance_criteria:
+  - gate T's verdict line says how many TICKETS carry the next tag and how many PRs they came from, never one count of the other
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `8 of 7 PR(s) merged since v1.28.0 carry release:v1.29.0`, because PR #515 carried two tickets (PMAT-228 and PMAT-229) while the arm counts tickets and the sentence said PRs. Harmless arithmetic, and the single line an operator is told to read said something impossible.'
+- id: PMAT-239
+  github_issue: null
+  item_type: task
+  title: 'gate T dies with grep exited 141 at random: a pipe into grep -q takes SIGPIPE under pipefail, so a passing gate reports UNMEASURED'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T10:36:13Z
+  updated: 2026-09-11T11:48:50Z
+  spec: null
+  acceptance_criteria:
+  - no pipeline in scripts/dogfood/lib/window.sh feeds a process that exits early (grep -q, head) from a printf, so no pipeline can return 141 under set -o pipefail
+  - gate T run repeatedly against the same tree reports the same verdict every time
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on main: `GATE T FAIL grep exited 141 looking PMAT-225 up in the ticket registry — UNMEASURED` on one run, PASS on the next two. 141 is 128+13, SIGPIPE: `printf … | grep -q` has grep exit at the first match and close the pipe, printf takes the signal, and pipefail makes that the pipeline''s status. The gate was right to refuse an unmeasured read; the read should not have been unmeasurable.'
+- id: PMAT-240
+  kind: code
+  github_issue: 530
+  item_type: task
+  title: 'the SIGPIPE class is repository-wide: 13 more pipelines under set -o pipefail feed a process that exits early, so any of them can report 141 and turn a passing gate UNMEASURED'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T11:03:11Z
+  updated: 2026-09-12T03:40:38Z
+  spec: null
+  acceptance_criteria:
+  - every pipeline in scripts/**.sh whose right-hand side can exit before its left-hand side finishes (grep -q, grep -m, head, jq -e) is rewritten as one process, a here-string, or with the exit status of the left-hand side explicitly accepted; docs/audits/logs/PMAT-239-sigpipe-census.log is the list as it stood
+  - 'a rule refuses a new one: no script under scripts/ that sets pipefail may pipe printf, cat, sed or git into grep -q, grep -m, head or jq -e'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.30.0
+  notes: 'Found while fixing PMAT-239, by grepping for the pattern rather than for the one instance. 18 more sites across scripts/dogfood/, scripts/release-goal.sh, scripts/publish-from-tag.sh, scripts/cb200-ratchet.sh and scripts/ledger-replay.sh — including `git tag --list … | head -1` in four different gates, which is the same shape that made gate T report `grep exited 141 … UNMEASURED` at random. One instance being fixed says nothing about the others; the census is committed so the next pass has the list. PMAT-236''s own first draft added a NINETEENTH (grep | head -1 | cut) and it was caught by this same census before it was pushed. on 2026-09-11 the row read status completed while thirteen pipelines of the shape were still in scripts/ and NEITHER acceptance criterion had been met. It was planned when it was minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so, and no gate asked: gate T''s T7 arm refuses a SHIPPED ticket that says planned and permits a ticket that says completed and never shipped. `pmat work edit` refuses Completed -> Planned and Completed -> InProgress as invalid transitions, so this row is corrected TEXTUALLY and deliberately: a lifecycle rule that keeps a false completed in the record is the wrong rule for this case, and a row claiming eighteen pipelines were fixed while thirteen are still there is the exact shape of half-true record PMAT-235 and PMAT-236 exist to refuse — three review lanes caught it on the v1.29.0 booking, where `release-goal.sh cut` had moved a ticket nobody had done into the next window. Back to planned.'
+  release: 1.30.0
+- id: PMAT-241
+  kind: code
+  github_issue: null
+  item_type: task
+  title: 'every tagged release must move the cookbook with it: paiml/forjar-cookbook master has not moved since 2026-08-29 and ten tags have gone out since, none of which records which cookbook commit it was qualified against'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T11:51:08Z
+  updated: 2026-09-11T12:58:08Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/roadmaps/releases.yaml declares cookbook_floor and every row at or above it names the paiml/forjar-cookbook commit the release was qualified against'
+  - 'gate T refuses a row that names no cookbook commit, names a branch rather than a commit, names one the cookbook does not carry (UNMEASURED), or names one whose Cargo.toml declares a forjar requirement the released version does not satisfy under Cargo''s caret, tilde and exact rules rather than under `>=`'
+  - 'scripts/release-goal.sh window <tag> emits the field from `git ls-remote https://github.com/paiml/forjar-cookbook refs/heads/master` so `cut` books it, and refuses to write one it could not read'
+  - 'eight cases drive the arm: missing, a branch name, an unreadable commit, a release below the floor which is asked for nothing, the requirement read the way Cargo writes it, a cookbook that cannot build against the release, the operator and the comment, and a 35-row table of the requirement rule itself'
+  - 'the forjar-dogfood skill and CLAUDE.md say that the cookbook is part of the release and that a cookbook which cannot use the release is bumped as part of the cut'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'orch-basis:release — measured 2026-09-11: paiml/forjar-cookbook master is 7c100454, dated 2026-08-29T15:05:21Z, and ten v* tags have been cut since (v1.22.0 through v1.28.0, counted in seconds from the tagger dates). Gate D validates its 98 configs against the built artifact on every dogfood run and `make dogfood-published VERSION=` does it against what crates.io serves, so the cookbook IS exercised — but nothing recorded which cookbook, and nothing required it to move. cookbook_floor is v1.29.0 rather than the existing floor: retrofitting the ten releases whose cookbook commit nobody recorded would be inventing the record, not keeping it.'
+- id: PMAT-520
+  kind: code
+  github_issue: 520
+  item_type: task
+  title: 'cut v1.29.0: version, CHANGELOG, the crux audit, the dogfood receipt and the tag'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T23:38:42Z
+  spec: null
+  acceptance_criteria:
+  - Cargo.toml and Cargo.lock are bumped together, which PR CI's lockfile-preflight enforces
+  - the ten behaviour bullets of this window are written under CHANGELOG [1.29.0] — [Unreleased] was EMPTY with twelve tickets merged behind it
+  - docs/audits/crux-1.29.0.md reconciles every one of those bullets with >= 3 named systems, and says where forjar is WORSE than the default
+  - '`make dogfood-release` exits 0 and docs/audits/dogfood-1.29.0-receipt.md records the nine GATE lines verbatim'
+  - the ledger row is booked by `scripts/release-goal.sh cut v1.29.0 --next v1.30.0` and names the paiml/forjar-cookbook commit the release was qualified against (PMAT-241)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  - release:v1.30.0
+  notes: 'orch-basis:release — the cut is due 2026-09-12T16:07:14Z under cadence_days 2. Left OPEN in its own PR: CB-2113 (Commit Traceability, new in pmat 3.40) refuses a commit whose Pmat-Ticket names a ticket already completed, so a cut ticket is marked completed by the NEXT PR rather than its own.'
+  release: 1.29.0
+- id: PMAT-521
+  kind: code
+  github_issue: 521
+  item_type: task
+  title: 'pmat 3.40 added six comply checks (CB-2110..CB-2115) this repository has never satisfied and gate B is red on main: 24 roadmap items with no GitHub issue, 34 with no release binding, 49 specs with no front-matter and no review'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T14:20:00Z
+  updated: 2026-09-11T15:56:37Z
+  spec: null
+  acceptance_criteria:
+  - the six checks are measured on main with the count per check recorded in a dated baseline, the way scripts/ratchets/cb200-baseline.json records CB-200's
+  - a ratchet script enforces that ceiling, may only see it shrink, and is an arm of gate B — so the disables in .pmat.yaml are a change of instrument and not a reduction in what is asserted
+  - gate B is green again on main and the ratchet is red when any of the six counts grows by one
+  - 'the id-convention question is ANSWERED rather than assumed: CB-2112 wants a ticket id''s tail to be its GitHub issue number (pmat#1240) and all 241 existing ids predate that; `pmat work add` no longer accepts --id'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'Measured 2026-09-11 on origin/main with pmat 3.40.0, and green on 2026-09-10 when 1.28.0 was cut: CB-2110 49 NO-FRONT-MATTER, CB-2111 49 UNJUDGEABLE (downstream of CB-2110), CB-2112 35 (NO-ISSUE 25, TAIL-MISMATCH 10), CB-2113 branch-local, CB-2114 35 NO-RELEASE, CB-2115 43 (ORPHAN-ROADMAP 25, ORPHAN-GITHUB 8, DRIFT 10). Gate B is a release blocker and the doctrine forbids a skip, so the release cannot proceed until either the checks pass or the ratchet exists. This is NOT a regression from any ticket in this window — it is a new obligation from a pmat upgrade, and the honest response is to record the measured state and refuse any growth.'
+  release: 1.29.0
+- id: PMAT-522
+  kind: code
+  github_issue: 522
+  item_type: task
+  title: 'a ratchet measurement that runs `pmat comply check` re-enters the ratchet: 9,740 processes and load 3,026 on an idle 48-core box'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T16:10:00Z
+  updated: 2026-09-11T17:39:57Z
+  spec: null
+  acceptance_criteria:
+  - scripts/ratchets/comply-count.sh refuses to run under its own sentinel, exits non-zero and prints NO count — a 0 would read as the check reporting no findings
+  - the sentinel is exported, so the child `pmat comply check` sees it, and it is tested before it is set
+  - 'a process cap bounds a cycle nobody anticipated, measured in THREADS because RLIMIT_NPROC is per-user and counts threads: a fixed cap and a process-derived one each killed the script on a machine already running 226 processes and 2,352 threads'
+  - no committed ratchet config may name this script or run `pmat comply`, so the declaration that opens the loop is refused too
+  - four falsification cases drive all four, and the measurement still works with the cap on
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.29.0
+  notes: 'Caused by this session, on 2026-09-11, while trying pmat''s own .pmat-ratchet.toml mechanism for PMAT-521 before switching to the gate B arm. `pmat comply check` evaluates .pmat-ratchet.toml and runs every measurement command; one of those commands ran `pmat comply check`. Measured by the operator: 9,740 processes, 5,781 comply-count.sh, 1,462 pmat comply check, load average 379 peaking at 3,026, CPU pressure some/10s 83%. Killed by renicing the set to 19 then SIGKILL on the root. The .pmat-ratchet.toml was never committed and is not on disk, so the cycle cannot occur here today — the absence of an input is not a safeguard. pmat has no recursion guard either; that half is upstream.'
+  release: 1.29.0
+- id: PMAT-526
+  kind: code
+  github_issue: 526
+  item_type: task
+  title: 'gate D''s version arm does not catch the case its own comment names: a README pinning a minor the crate has moved past'
+  release: 1.30.0
   status: planned
   priority: medium
   assigned_to: null
-  created: 2026-09-11T01:44:51Z
-  updated: 2026-09-11T01:44:51Z
+  created: 2026-09-11T18:55:00Z
+  updated: 2026-09-11T18:55:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
+  - 'a README at the current minor, and one deliberately ahead within the same major, are still green'
+  - 'the staleness bound is written down with its reason rather than implied by the comparison — a caret in a README is deliberately loose, so the rule is a bound and not equality, and that is a judgement someone has to make explicitly'
+  - 'falsification cases drive both directions, and the existing 18 documented invocations stay green'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
+- id: PMAT-528
+  kind: code
+  github_issue: 528
+  item_type: task
+  title: 'gate T''s status arm is one-directional: it refuses "shipped but says planned" and permits "says completed but never shipped"'
+  release: 1.30.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-11T20:15:00Z
+  updated: 2026-09-11T20:15:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window'
+  - 'a ticket completed outside any window, and one legitimately completed inside one, are both still green — a ticket can be closed as obsolete, folded into another, or finished before the floor, so the predicate cannot be "every completed ticket is named by a release"'
+  - 'falsification cases drive all three, and the corrected PMAT-240 row is the regression case'
+  - 'whether the work lifecycle should admit a documented correction is decided here rather than left: `pmat work edit` refuses Completed -> Planned and Completed -> InProgress, so a row wrongly marked completed cannot be corrected by the tool'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
+- id: PMAT-529
+  kind: code
+  github_issue: 529
+  item_type: task
+  title: 'release-goal.sh moves a CANCELLED ticket''s release label into the next window, forever'
+  release: 1.30.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T20:15:00Z
+  updated: 2026-09-11T20:15:00Z
+  spec: null
+  acceptance_criteria:
+  - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
+  - 'a ticket cancelled AFTER it was labelled for a window that already shipped keeps its historical label — the ledger row records what was in the release, and rewriting it would be inventing history'
+  - 'falsification cases drive both directions'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
+- id: PMAT-531
+  kind: triage
+  github_issue: 531
+  item_type: task
+  title: 'book v1.29.0 in the release ledger, and correct the two false records the booking round found'
+  release: 1.30.0
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-11T20:25:00Z
+  updated: 2026-09-11T20:25:00Z
+  spec: null
+  acceptance_criteria:
+  - 'the booked row''s cut, PRs, tickets, dogfood, crux and cookbook are byte-identical to `release-goal.sh window v1.29.0` — and it is the FIRST row to name the cookbook commit the release was qualified against (PMAT-241)'
+  - 'next.tag is v1.30.0 and next.due is exactly the cut instant plus cadence_days'
+  - 'no cancelled row carries a label for an open window'
+  - 'the CB-21xx ratchet holds, with any raise carrying a written justification rather than a silent edit'
+  - 'gate T is green on main once this merges'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.30.0
+  notes: 'The booking half of the three-PR release shape. Its PR merged AFTER the v1.29.0 tag, so by the window rule — the same one gates A and E apply — it is v1.30.0 work, and gate T said so by name on main: a ticket claiming a release it was not in is a fabricated link. The booking is ABOUT v1.29.0 and IN v1.30.0, and the ledger row records what was in the release. Gate T is red on main between the tag and this merge, by design: the tag exists and no row declares it. Three review lanes read the booking and found two false records — PMAT-240 completed while thirteen of its own sites remained, and PMAT-233 cancelled but labelled for the next window — and both gates that should have caught them are filed as PMAT-528 and PMAT-529.'
+- id: PMAT-533
+  kind: triage
+  github_issue: 533
+  item_type: task
+  title: 'the v1.29.0 release record: tag, release, crates.io, docs.rs, and the window that closed'
+  release: 1.30.0
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-12T08:00:00Z
+  updated: 2026-09-12T08:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'docs/audits/release-1.29.0-receipt.md records the tag, the GitHub release, the crates.io version, the docs.rs build and the per-PR quorum receipts, ending in its END marker with exactly one verdict line'
+  - 'no ticket carries release:v1.29.0 unless a PR in that window names it'
+  - 'gate T and gate R are both green on main afterwards'
+  - '`make dogfood-published VERSION=1.29.0` runs gates C and D against what crates.io actually serves'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - orch:fable
+  - release:v1.30.0
+  notes: 'The third PR of the release shape. Gate T was red on main after the booking for one reason it named precisely: PMAT-531 carried release:v1.29.0 and its PR merged after the tag.'
+- id: PMAT-534
+  kind: code
+  github_issue: 534
+  item_type: task
+  title: 'GitHub''s "latest release" pointed at v1.25.2 for four releases, because nothing marks a release latest'
+  release: 1.30.0
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T08:00:00Z
+  updated: 2026-09-12T08:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'gate R refuses a released version that is not what repos/:owner/:repo/releases/latest resolves to, naming both'
+  - 'a deliberate prerelease is still allowed and says so, rather than being forced to latest'
+  - 'the promotion is either performed by the release flow or is a named, checked step of the release procedure — not an unwritten one'
+  - 'falsification cases drive a stale pointer, a correct one, and a deliberate prerelease'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Measured 2026-09-12 before it was corrected by hand: repos/paiml/forjar/releases/latest resolved to v1.25.2 while v1.26.0, v1.27.0 and v1.28.0 were all prerelease=false draft=false. Anyone resolving that URL got a four-version-old binary for days. Two causes: release.yml un-drafts with --prerelease so a tag-triggered release lands as a prerelease and nothing performs the promotion; and --prerelease=false alone does not recompute latest, which needs --latest. Gate R READS isPrerelease and reports it, never asserts it, and never asks what /releases/latest resolves to — so it was green for four releases while what a user downloads was stale.'
+- id: PMAT-535
+  kind: code
+  github_issue: 535
+  item_type: task
+  title: a branch named for the wrong ticket silently credits a shipped ticket to the next release window
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T08:40:00Z
+  updated: 2026-09-12T03:40:38Z
+  spec: null
+  acceptance_criteria:
+  - a PR whose branch-resolved ticket differs from its Pmat-Ticket trailer is named and red, in whichever gate reads it first
+  - the two agreeing is still green, and a branch with no ticket id is still handled by the existing fallback to title then body
+  - falsification cases drive the disagreement, the agreement, and the fallback
+  - 'PMAT-520 carrying release:v1.30.0 is the regression case: it should not be demanded once the rule is fixed'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by three review lanes on the v1.29.0 release record. PMAT-520 shipped in 1.29.0 — its PR #527''s merge commit IS the commit v1.29.0 points at — and also carries release:v1.30.0, which gate T demanded. The window rule resolves a PR''s ticket from the first PMAT-<n> in the BRANCH NAME, and the booking PR #532 was pushed from PMAT-520-book-v1.29.0 while its ticket is PMAT-531 (trailer, title and receipt all say 531). So every window arm resolves #532 to PMAT-520, PMAT-520 claims two releases, and PMAT-531 is invisible to all of them. The branch name is LOAD-BEARING for three gates — A resolves a receipt path from it, E resolves .quorum/<slug>.json from it, T resolves the window from it — and nothing checks it against the trailer.'
+  release: 1.30.0
+- id: PMAT-537
+  kind: code
+  github_issue: 537
+  item_type: task
+  title: 'the cookbook gate reads the requirement and never the lockfile: every release since 1.2.1 was "qualified against" a cookbook that builds forjar 1.2.1'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T09:30:00Z
+  updated: 2026-09-12T02:02:22Z
+  spec: null
+  acceptance_criteria:
+  - gate T reads the cookbook commit's Cargo.lock as well as its Cargo.toml, and refuses a row whose cookbook does not build the released version
+  - a cookbook with no lockfile, or one the gate cannot read, is UNMEASURED and red — never a pass
+  - the choice between the three readings of "updates forjar-cookbook" is written down with its reason, because the strongest one puts a real obligation on a second repository
+  - falsification cases drive a matching lock, a stale lock, a missing lock and an unreadable one
+  - the cookbook itself is updated so 1.29.0 is the first release this is true of
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Measured on 7c100454, the exact commit v1.29.0''s ledger row names: Cargo.toml says `forjar = { version = "1.2" }` and Cargo.lock says `version = "1.2.1"`. `^1.2` admits 1.29.0 so gate T prints `cookbook 7c100454 requires forjar 1.2 ok`, while what that cookbook actually compiles is forjar 1.2.1 — twenty-seven minor versions behind the release it is recorded as qualifying. PMAT-241 built the link and the link points at something that was never built against the release. The cookbook is where forjar is USED: cookbook-qualify, the scoring bridge and every recipe score it produces are compiled against whatever its lockfile pins, so those scores have been measured against 1.2.1 while the repository shipped 1.3 through 1.29.'
+  release: 1.30.0
+- id: PMAT-540
+  kind: code
+  github_issue: 540
+  item_type: task
+  title: 'the window rule validates the branch name and not the PR title: the same misattribution is still reachable'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T10:20:00Z
+  updated: 2026-09-12T10:20:00Z
+  spec: null
+  acceptance_criteria:
+  - a merged PR whose title-resolved or body-resolved ticket disagrees with its merge commit's Pmat-Ticket line is named and red in gate A
+  - the trailer is read the way PMAT-535 reads it, by the line and not by %(trailers:key=...), which returns nothing for a squash message ending in bullet paragraphs
+  - a PR with no ticket in any of the three sources is still UNMEASURED and red, as it is today
+  - falsification cases drive the disagreement, the agreement, and the no-ticket case
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'Found by a three-lane review round on PMAT-535. PMAT-535 refuses, at push time, a branch that names a PMAT-<n> no commit being pushed claims — but the window rule reads BRANCH, then TITLE, then BODY, and the arm can only see the first. A branch named fix/ci-lint (the naming this repository''s own guidelines suggest for work with no ticket) with a PR titled ''(PMAT-520)'' and a trailer saying PMAT-531 reproduces PR #532''s misattribution exactly, and nothing refuses it. It cannot live in the pre-push hook: at push time the pull request does not exist and its title is typed afterwards. It belongs in gate A, which already holds the PR object, the merge commit and the receipt, so it can compare all three sources rather than taking the first that matches.'
+  release: 1.30.0
+- id: PMAT-542
+  kind: code
+  github_issue: 542
+  item_type: task
+  title: 'the PR lane rebuilds the binary for 7 of 25 PRs that cannot move the gates it builds it for: 21.3 of 25.2 critical-path minutes'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T11:05:00Z
+  updated: 2026-09-12T11:05:00Z
+  spec: null
+  acceptance_criteria:
+  - changed-class.sh emits a per-gate selection alongside code=, and cases drive src/ selecting both, README-only selecting D, a receipt-and-scripts diff selecting neither, and each gate's own script selecting itself
+  - an unclassified path selects EVERY gate, the same direction PMAT-237's an_unclassified_path_is_code holds
+  - a not-selected gate prints NOT-SELECTED with its reason and never PASS, asserted by a case, because that is the whole difference between this and a --skip
+  - the workflow gate refuses a skipped dogfood-surface whenever the selection says it should have run, and refuses an empty selection as unmeasured
+  - make dogfood-release is unchanged and still runs A-H and T over the whole window
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.30.0
+  notes: 'A refinement of PMAT-237, which already works — 3 of the last 25 merged PRs were code=false and skipped every heavy job. What it cannot do is decide WHICH heavy gate: one boolean for all of them, so a change to scripts/ or tests/ — which genuinely needs the guard tests — also pays for a release build and two gates that read a surface it cannot reach. Measured on CI run 34670955910: dogfood is the critical path at 25.2 min (build 9.0, gate C 6.2, gate D 6.1, guard tests 3.8) against 6.3 min for the next-longest job. Of the 25 PRs merged as of cddf78cd, run through changed-class.sh itself, 15 can move gate C or D and 7 cannot. The figure moved twice under measurement: a first estimate said 14 from a trigger set too narrow, a review round then found the selection failed OPEN for tests/fixtures/** and scripts/dogfood/lib/** (both gates read them), and closing that honestly costs three PRs. 7 is what the shipped classifier measures. Gate C reads the built binary and docs/audits/surface_audit.csv; gate D reads the binary, README.md and that same CSV. Operator standing instruction: always Pareto-optimize PR vs pre-release on the 80/20 rule. Measured version: 28% of PRs pay nothing at all instead of 21.3 minutes, 75% faster on those, 149 job-minutes over the 25, no floor lowered.'
+  release: 1.30.0
+- id: PMAT-549
+  github_issue: 549
+  item_type: task
+  title: 'drift reports a completion_check that timed out as DRIFTED: an unmeasured resource must be its own verdict'
+  release: 1.30.0
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T07:00:59Z
+  updated: 2026-09-13T19:17:07Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar#549. transport timeout on a 60s-limited completion_check rendered as DRIFTED with Actual: ERROR. Invites allowlisting a converged resource.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.30.0
+  notes: null
+- id: PMAT-555
+  github_issue: 555
+  item_type: task
+  title: 'release: forjar 1.30.0 — a query the target never answered is UNMEASURED, not drift'
+  release: 1.30.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T18:52:55Z
+  updated: 2026-09-13T18:52:55Z
   spec: null
   acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
-  - kind:docs
-  - orch-routing
+  - kind:code
   notes: null
+- id: PMAT-546
+  github_issue: 546
+  item_type: task
+  title: 'PVL-F1: proofs.yml aggregate not required; dogfood/contracts.sh invoked by no workflow; lean job lacks `if:` while its caller is label-gated'
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:39Z
+  updated: 2026-09-13T19:04:39Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-550
+  github_issue: 550
+  item_type: task
+  title: drift reports DRIFTED and no apply converges it — --force and --refresh both plan '0 to change' on a resource drift just flagged
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:40Z
+  updated: 2026-09-13T19:04:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-552
+  github_issue: 552
+  item_type: task
+  title: 'a drift run exits 1, not the drift class 10: the classifier matches a string the drift path never emits'
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-553
+  github_issue: 553
+  item_type: task
+  title: remote_path_digest turns an unanswered query into None, outside the unmeasured reader
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-554
+  github_issue: 554
+  item_type: task
+  title: the quorum gate's hash covers a file the quorum itself writes, so every verdict invalidates its own receipt
+  release: 1.31.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-13T19:04:41Z
+  updated: 2026-09-13T19:04:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-547
+  github_issue: 547
+  item_type: task
+  title: every CI job runs on the fleet — 31 JOBS of one run were dispatched to GitHub-hosted runners, from 33 hosted runner DECLARATIONS (a matrix declaration expands to several jobs, and not every job runs on every push)
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-12T10:03:38Z
+  updated: 2026-09-12T10:03:38Z
+  spec: null
+  acceptance_criteria:
+  - 'no workflow in this repository names a GitHub-hosted runner for a Linux job'
+  - 'a falsification test refuses a hosted runner label in .github/workflows/**, parsing the YAML rather than grepping it, so a label in a comment is prose and a label in a matrix is a finding'
+  - 'the macOS and Windows legs the fleet has no hardware for are counted rather than deleted, so adding an eighth fails (there are seven: lint.yml macos x2, nightly.yml macos x2 + windows x1, release.yml macos x2) and dropping one is a decision someone writes down'
+  - 'a job that names self-hosted also names a pool, so a lint job cannot land on a GPU box'
+  - 'every fleet job that runs cargo declares a private CARGO_HOME, because the exposure ARRIVES WITH THE MOVE: on a GitHub-hosted runner each job has a private ~/.cargo by construction, while sixteen clean-room runners share one and an hourly reaper deletes registry/src under live builds (paiml/infra#430). Moving a cargo job onto the shared registry and leaving it there is the same change with the consequence unhandled'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - release:v1.31.0
+  notes: 'Measured on PR #545, run 34685410794, by reading the runner back from the API rather than from the workflow file: dogfood-surface, classify and doctests all reported runner=GitHub Actions <n> with labels=ubuntu-latest. Thirty-three runner declarations across seventeen files named a hosted runner and every pull request spent them. The fleet (gh api orgs/paiml/actions/runners, 2026-09-12) is 25 runners and every one is Linux, so every Linux site moves to [self-hosted, clean-room] and the seven macOS/Windows legs cannot move at all. Two moves needed more than a label: nightly.yml built aarch64 natively on a hosted ARM runner and now cross-builds the way release.yml already does on the fleet, and binary-release.yml was pinned to ubuntu-22.04 for glibc 2.35 -- that pin is gone, so the build now MEASURES the glibc floor the binary demands and REFUSES anything above GLIBC_CEILING=2.35, which is the floor 22.04 enforced.'
+- id: PMAT-558
+  github_issue: 558
+  item_type: task
+  title: 'ORCH-001: CLAUDE.md carries the orchestrator routing rule, so a model-gate refusal has a rule to point at'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-14T13:35:47Z
+  updated: 2026-09-14T13:35:47Z
+  spec: null
+  acceptance_criteria:
+  - 'AUTO-IMPL-SKILL-003. Adds a delimited <!-- paiml-implement:orch-routing v1 --> block to CLAUDE.md: opus is the default orchestrator; --model fable only for a ticket labelled orch:fable whose roadmap notes: carries an orch-basis:; review/plan-grill/five-whys/research/single-module impl go to agy lanes before any Claude subagent and the orchestrator re-runs every acceptance command; one ticket per session; Fable is the reserve bucket while quota.sh binding prints fable_binding=true. Replaces PR #512''s PMAT-235, which collided with a completed ticket of the same id on main.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  release: 1.31.0

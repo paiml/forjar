@@ -2,7 +2,7 @@ name: Binary Release
 
 # Attaches cross-compiled `forjar` binaries to a GitHub Release as tar.gz +
 # sha256 on github-hosted runners. This runs in parallel with the existing
-# release.yml (which uses [self-hosted, clean-room] runners) and is the
+# release.yml (which uses [self-hosted, clean-room, X64] runners) and is the
 # durable path for binary attachment — github-hosted runners are not
 # subject to self-hosted infra availability/queueing.
 #
@@ -53,10 +53,12 @@ env:
 
 jobs:
   # Resolve the tag once and make sure the GitHub Release exists before any
-  # build leg runs — hosted runners only, no self-hosted dependency.
+  # build leg runs. This used to say "hosted runners only, no self-hosted
+  # dependency" and was a deliberate choice; PMAT-547 reverses it, because a
+  # GitHub-hosted runner is not something this project may spend.
   ensure-release:
     name: Ensure release exists
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -96,12 +98,34 @@ jobs:
   build:
     name: ${{ matrix.target }}
     needs: ensure-release
-    # 22.04 pins the gnu builds to glibc 2.35 — binaries built on
-    # ubuntu-latest (24.04, glibc 2.39) refuse to run on older hosts.
-    # musl legs are static and aarch64 legs build inside cross containers,
-    # so only the x86_64-gnu leg actually needs this, but one runner keeps
-    # the matrix uniform.
-    runs-on: ubuntu-22.04
+    # THIS LEG WAS PINNED TO ubuntu-22.04 AND IS NO LONGER PINNED TO ANYTHING.
+    #
+    # 22.04 pinned the gnu builds to glibc 2.35, because a binary linked
+    # against a newer glibc refuses to start on an older host and
+    # ubuntu-latest had moved to 24.04 / glibc 2.39. PMAT-547 moves the leg to
+    # the fleet, whose glibc is whatever the fleet has — which is not a thing
+    # this workflow could measure before it ran.
+    #
+    # So it measures it. The step below records the builder's glibc and the
+    # maximum GLIBC_ version the produced binary demands, into the job summary
+    # and the log, on every release. musl legs are static and aarch64 legs
+    # build inside cross containers, so only the x86_64-gnu leg is exposed;
+    # the record is what turns "we think it still runs on old hosts" into a
+    # number a reader can check against the oldest host they care about.
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished:
+    #   couldn't read .../registry/src/.../<crate>/src/<file>.rs: No such file
+    #   error: could not parse/generate dep info at: .../deps/<crate>.d
+    # MEASURED on this branch: msrv and coverage both died that way the first
+    # time PMAT-547 moved them off GitHub-hosted runners, where each job had a
+    # private ~/.cargo by construction. A registry private to this runner takes
+    # the job off the shared surface. The path is outside the workspace, so it
+    # survives the checkout clean and is a cache rather than a cold download.
+    # The host-side fix is paiml/infra's.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     strategy:
       fail-fast: false
       matrix:
@@ -147,11 +171,25 @@ jobs:
         if: ${{ !matrix.cross }}
         run: rustup target add ${{ matrix.target }}
 
+      # PMAT-547: this leg moved from a hosted runner to the fleet, where
+      # apt-get may be absent and sudo may not be passwordless. release.yml
+      # already builds musl targets on [self-hosted, clean-room, X64] and guards the
+      # call exactly this way, so this is the shape that is known to work
+      # there. If musl-tools is already present -- which is why the guard is
+      # safe -- the build proceeds; if it is genuinely missing AND cannot be
+      # installed, the build fails at the link step naming what it wanted,
+      # which is a better failure than apt-get exiting 127 here.
       - name: Install musl tools
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends musl-tools
+          if command -v musl-gcc >/dev/null 2>&1; then
+            echo "musl-gcc already present: $(command -v musl-gcc)"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends musl-tools
+          else
+            echo "::warning::musl-gcc is absent and apt-get is not available on this runner. The build will reach the link step and fail there naming the missing linker. Install musl-tools on the fleet image, or give this leg a runner that has it." >&2
+          fi
 
       # Cross is used for aarch64 targets — pinned to v0.2.5 (matches the
       # legacy release.yml convention).
@@ -205,6 +243,74 @@ jobs:
           fi
           ls -la "$BIN_PATH"
 
+      # PMAT-547. The gnu legs used to be pinned to ubuntu-22.04 so they linked
+      # against glibc 2.35; the pin is gone and the fleet's glibc is whatever
+      # the fleet has. An unmeasured floor is not a floor, so record it: the
+      # builder's own glibc, and the highest GLIBC_ version the binary actually
+      # demands -- which is the number that decides whether an old host can run
+      # it. AND it fails the build above GLIBC_CEILING=2.35, the floor ubuntu-22.04
+      # enforced before this branch removed the pin. An earlier version of this
+      # comment said the step never fails and that raising the floor is a reader's
+      # decision; that made a disclosed weakening out of an enforced gate, and two
+      # review lanes refused it.
+      - name: Record the glibc floor this binary demands
+        if: ${{ !contains(matrix.target, 'musl') }}
+        run: |
+          TARGET="${{ matrix.target }}"
+          BIN_PATH="target/${TARGET}/release/forjar"
+          # `ldd --version` reports the glibc of the HOST running this step.
+          # For the aarch64 leg the binary was built inside a cross container
+          # on an x86_64 host, so the host's glibc is not the one it linked
+          # against and printing it would be a measurement of the wrong thing.
+          # The DEMANDED floor below is read out of the binary itself and is
+          # correct on every leg; the builder line is only claimed where it is
+          # true.
+          case "$TARGET" in
+            x86_64-unknown-linux-gnu)
+              builder="$(ldd --version 2>/dev/null | head -1 || echo 'ldd unavailable')" ;;
+            *)
+              builder="not applicable — ${TARGET} was cross-built, so this host's glibc is not what it linked against" ;;
+          esac
+          demanded="$(strings -a "$BIN_PATH" 2>/dev/null \
+            | sed -n 's/.*GLIBC_\([0-9][0-9.]*\).*/\1/p' \
+            | sort -V | tail -1)"
+          [ -n "$demanded" ] || demanded="none found (static, or strings unavailable)"
+          printf 'builder: %s\nbinary demands at most GLIBC_%s\n' "$builder" "$demanded"
+          # shellcheck disable=SC2016  # the backticks below are MARKDOWN code
+          # fences in a printf FORMAT string, not command substitutions: they must
+          # reach $GITHUB_STEP_SUMMARY literally. Disabled by name with a reason
+          # rather than left as three findings a receipt then has to explain away.
+          {
+            printf '### glibc floor — `%s`\n\n' "$TARGET"
+            printf -- '- builder: `%s`\n' "$builder"
+            printf -- '- binary demands at most: `GLIBC_%s`\n' "$demanded"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # AND IT IS A GATE, not only a record (PMAT-547, review round 9).
+          #
+          # This leg was pinned to ubuntu-22.04 precisely so the gnu binaries could
+          # not demand more than glibc 2.35. Moving it to the fleet removed that pin,
+          # and a measurement that never fails is not what the pin was: a fleet
+          # upgraded to a newer glibc would publish binaries that refuse to start on
+          # an old host, silently, exactly as before the pin existed. A review lane
+          # named it as a weakened gate and it was right.
+          #
+          # 2.35 is not a guess: it is the floor ubuntu-22.04 enforced. Measured on
+          # the fleet today, the binary demands GLIBC_2.34, so this ceiling passes
+          # with room and fires the day the fleet moves past what the pin allowed.
+          # Raising it is a decision someone writes here, in the open, with a reason.
+          GLIBC_CEILING=2.35
+          case "$demanded" in
+            none*) ;;   # static or unreadable: the arms above already say which
+            *)
+              highest="$(printf '%s\n%s\n' "$demanded" "$GLIBC_CEILING" | sort -V | tail -1)"
+              if [ "$highest" != "$GLIBC_CEILING" ]; then
+                echo "::error::${TARGET} demands GLIBC_${demanded}, above the ${GLIBC_CEILING} floor ubuntu-22.04 used to enforce. A host with an older glibc cannot start this binary. Either lower what the build links against, or raise GLIBC_CEILING here with a reason."
+                exit 1
+              fi
+              ;;
+          esac
+
       - name: Package archive
         id: package
         run: |
@@ -243,7 +349,7 @@ jobs:
   checksums:
     name: Aggregate SHA256SUMS
     needs: [ensure-release, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     steps:
       - name: Regenerate and upload SHA256SUMS
         env:
@@ -296,7 +402,7 @@ jobs:
   summary:
     name: Summary
     needs: [ensure-release, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
     if: always()
     steps:
       - name: Write summary

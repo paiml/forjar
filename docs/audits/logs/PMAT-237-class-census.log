@@ -1,0 +1,47 @@
+== the jobs a PR still pays for, by class
+-- a record-only change (roadmap row, receipt, quorum evidence):
+code=false
+   -> ci, dogfood, examples-validate, no-default-features, doctests, ledger-replay and benchmark SKIP; coverage, lockfile-preflight, file-health, quorum, lint and the gate still run
+
+-- this very branch:
+code=true
+   -> every heavy job runs on this PR, which is the point: the change does not skip its own review
+
+== every path a test reads from the real tree, and how it is classified
+   docs/audits/crux-1.26.0.md                                 code=true
+   docs/audits/dogfood-0.0.1-receipt.md                       code=false
+   docs/audits/impl-PMAT-237-receipt.md                       code=false
+   docs/audits/logs/PMAT-237-x.log                            code=false
+   docs/audits/surface_audit.csv                              code=true
+   docs/audits/triage-ledger-999.md                           code=false
+   docs/book/src                                              code=true
+   docs/book/src/06-mcp.md                                    code=true
+   docs/book/src/other.md                                     code=true
+   docs/roadmaps/notes.md                                     code=false
+   docs/roadmaps/releases.yaml                                code=false
+   docs/roadmaps/roadmap.yaml                                 code=false
+   docs/specifications/forjar-state-generation-ownership.md   code=true
+   docs/thing.rs                                              code=false
+   .quorum/branch-A.json                                      code=false
+   .quorum/branch-B.json                                      code=false
+   .quorum/enforce.json                                       code=true
+   .quorum/evidence/release-claims.md                         code=false
+   .quorum/evidence/triage-claims.md                          code=false
+   .quorum/evidence/x.md                                      code=false
+   .quorum/PMAT-237-x.json                                    code=false
+
+== the registered mutation and the wiring mutations
+== the registered mutation: the unclassified arm made harmless
+test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+== restored
+== the wiring mutations: one heavy job ungated, and the gate trusting a skip
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+== restored; whole suite
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+== the 95% floor, measured on this branch
+$ cargo llvm-cov --workspace --locked --summary-only --fail-under-lines 95
+TOTAL                                                            414353             17857    95.69%       27000              1945    92.80%      293543             10485    96.43%           0                 0         -
+rc=0
+   95.69% lines, 92.80% regions — above the floor, and the margin is narrower than the 96.38% the 1.27.0 receipt recorded and the 96.45% of the 1.28.0 cut.

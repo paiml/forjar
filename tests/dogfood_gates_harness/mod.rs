@@ -288,12 +288,20 @@ impl Run {
 }
 
 pub(crate) fn run(fx: &Fixture, script: &str, gh: &str) -> Run {
-    let out = Command::new("bash")
-        .arg(fx.root.join(format!("scripts/dogfood/{script}")))
+    run_env(fx, script, gh, &[])
+}
+
+/// The same run with extra environment — PMAT-540's `TRAILER_FLOOR` is set this
+/// way, so a case can move the floor without editing the script under test.
+pub(crate) fn run_env(fx: &Fixture, script: &str, gh: &str, env: &[(&str, &str)]) -> Run {
+    let mut cmd = Command::new("bash");
+    cmd.arg(fx.root.join(format!("scripts/dogfood/{script}")))
         .current_dir(&fx.root)
-        .env("GH", gh)
-        .output()
-        .expect("bash must run");
+        .env("GH", gh);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let out = cmd.output().expect("bash must run");
     let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&out.stderr));
     Run {
@@ -307,6 +315,17 @@ pub(crate) fn run(fx: &Fixture, script: &str, gh: &str) -> Run {
 /// the case wants. Both gates read the receipts AT HEAD, so they are committed
 /// here rather than merely written.
 pub(crate) fn fixture(impl_receipt: Option<&str>, quorum_receipt: Option<&str>) -> Fixture {
+    fixture_msg(impl_receipt, quorum_receipt, "squash-merged work (#77)")
+}
+
+/// The same repository with the squash merge's MESSAGE under the caller's
+/// control — PMAT-540 reads `Pmat-Ticket:` out of it, and a fixture that could
+/// not write one could not drive the arm at all.
+pub(crate) fn fixture_msg(
+    impl_receipt: Option<&str>,
+    quorum_receipt: Option<&str>,
+    message: &str,
+) -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("repo");
     std::fs::create_dir_all(&root).expect("mkdir repo");
@@ -357,7 +376,7 @@ pub(crate) fn fixture(impl_receipt: Option<&str>, quorum_receipt: Option<&str>) 
         write(&root, &quorum_receipt_path(), body);
     }
     git(&root, &["add", "-A"]);
-    git(&root, &["commit", "-qm", "squash-merged work (#77)"]);
+    git(&root, &["commit", "-qm", message]);
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
     let tagged = stdout_of(&git(
         &root,

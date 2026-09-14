@@ -1,0 +1,125 @@
+{
+  "kind": "code",
+  "issue": "PMAT-228 + PMAT-229 — two release-goal reporting defects, one branch and one review. PMAT-228: dogfood_prs_between reported the PRs it did NOT count on stdout, and release-goal.sh cut captures that stdout to build the ledger row, so the v1.28.0 booking carried a census note into docs/roadmaps/releases.yaml where a leading # made it a YAML comment; both notes go to stderr. PMAT-229: release-goal.sh show shares gate T's window and printed NO goal at all on any branch whose commits are in no merged PR — every feature branch, and every place an operator reads the cadence; it renders the tag, bar, due instant and basis now, prints UNMEASURED for the two counts it cannot measure, and still exits non-zero, while scripts/dogfood/tagged.sh stays byte-identical.",
+  "branch": "PMAT-228-notes-go-to-stderr",
+  "base": "0c1277c6",
+  "base_commit": "0c1277c6bf6f914c4edddd3e93e669ea6239a6b4",
+  "diff_sha256": "7b12112075abba4af0317be6b299a44c5886615d",
+  "recorded_at": "after the shared round and the hardening it confirmed",
+  "quorum": {
+    "lanes": [
+      "lane 1 (no output)",
+      "lane 2 (conv-3a9ae6fd)",
+      "lane 3 (conv-14c10dab)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "one round of three lanes at cdd03571 with the base pinned at 0c1277c6, judging both tickets together. Two lanes returned FAIL; one returned no structured output and is recorded rather than dropped. Nine of twelve claims confirmed by both returning lanes.",
+    "kill_rule": "the brief named the attack rather than hoping a lane would find it: could the soft switch leak from a caller's environment into a gate run? Both returning lanes answered yes, independently. The hole was closed one commit later — the switch is the third positional argument now, which cannot be inherited — and no_environment_variable_can_soften_the_gate pins it. One round for two tickets is deliberate: three lanes each would have cost six lanes to judge nine changed lines, and batching is the only way to spend less without lowering a floor.",
+    "claims_confirmed": 9,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "The soft switch was readable from the environment (`${DOGFOOD_WINDOW_SOFT:-0}`), refuted by both returning lanes independently: an operator exporting that name in a shell profile would soften every gate that sources the library, silently. Corrected at 50073b89 — it is the third positional argument of dogfood_prs_between, passed by show and by nothing else — with a case that runs gate T with the name exported and asserts a real verdict and no degraded line.",
+      "As worded: 'nothing else in that function changes' — refuted by one lane, because PMAT-229's soft path is in the same function. The claim meant 'nothing else about the census output' and said it badly; the receipts now state that the two tickets share dogfood_prs_between.",
+      "As worded: 'docs/audits/logs/PMAT-228-gate-tests.log records both RED cases' — refuted by both lanes: the file did not exist at the commit they judged. It was written at the next commit with --no-fail-fast, because an earlier run had stopped at the first failing binary and left one red case unmeasured. The same error as PMAT-231's row count and the same fix: measure the commit, not the moment."
+    ],
+    "lane_errors": [
+      "Lane 1 returned no structured output. The round is three lanes wide on paper and two in evidence, and every confirmed claim rests on two independent re-runs rather than three."
+    ]
+  },
+  "falsification": {
+    "test": "a_census_note_is_reported_and_never_reaches_the_ledger (the note is said AND the ledger does not contain it) and the_status_line_renders_the_goal_when_the_merged_count_is_unmeasurable (the goal line, the word UNMEASURED, a non-zero exit, and the gate over the same window still red)",
+    "test_file": "tests/falsification_release_goals_are_measured.rs",
+    "cargo_test_target": "falsification_release_goals_are_measured",
+    "reverted": "main's scripts/release-goal.sh and scripts/dogfood/lib/window.sh checked out over this branch's tests (git checkout main -- …), then restored with git checkout HEAD --; --no-fail-fast so every binary reports",
+    "observed_failure": "both cases fail: a_census_note_is_reported_and_never_reaches_the_ledger (1 passed, 1 failed) and the_status_line_renders_the_goal_when_the_merged_count_is_unmeasurable (13 passed, 1 failed); with the scripts restored, 19 + 2 + 14 green (docs/audits/logs/PMAT-228-gate-tests.log). no_environment_variable_can_soften_the_gate is GREEN against main too and is recorded as a regression guard rather than a falsifier: main has no soft path to soften.",
+    "still_green_when_reverted": "the 19 cases of falsification_dogfood_harness_and_quorum, which drive the same library through gates A and E and prove the change is confined to the two call sites it names"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/reporting-judges.md",
+    "total_bytes": 17419,
+    "files": [
+      {
+        "path": ".quorum/evidence/reporting-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2446,
+        "sha256": "1662bde548d5d4e759458c26a7277cd64e20e312dc8ac4e3c2aa169b35a703d2",
+        "blob": "2a1af2f962d38f2beb3363a55be8d6d0fa1da9c9"
+      },
+      {
+        "path": ".quorum/evidence/reporting-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 5098,
+        "sha256": "e902f39af56368adf33dc4d59cb78ecc446b1b8da5bf3d9b4fd970d7df953611",
+        "blob": "6d93bcc4361200b18e571c583cf6d99825aa8992"
+      },
+      {
+        "path": ".quorum/evidence/reporting-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6882,
+        "sha256": "a827eb56d95450829d3e26c92e73a391f30f68dec4a5555a818f9f0484664c68",
+        "blob": "3bcc7225a999b380065dda4e42209e840ac6b54c"
+      },
+      {
+        "path": ".quorum/evidence/reporting-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1347,
+        "sha256": "49e1aecb24cbdd2f56e012555727e75687e7cdb7dc3734793e916a7d12f5b386",
+        "blob": "abe9fed94baf2aeae8ab85adfa9f7891b7d6a53b"
+      },
+      {
+        "path": ".quorum/evidence/reporting-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1646,
+        "sha256": "bebf80621f3d159ee2890c77173a846365a68e96582ffb60c0d1e8614f69496e",
+        "blob": "95e7d55e1fb0af78047dcd04cd7d5ed42f202e7d"
+      }
+    ]
+  },
+  "crux": {
+    "systems": [
+      "Terraform",
+      "Ansible",
+      "Kubernetes",
+      "Nix"
+    ],
+    "verdict": "accept(all four surveyed systems separate the machine-readable result of a command from the human-readable narration of it — Terraform's -json plan against its rendered plan, Ansible's callback plugins against the JSON result object, kubectl's -o json against its table, nix build's --json against its progress bar — and in all four the narration goes to the stream the machine does not read [X]. forjar had one function writing both to stdout, and a caller that captured it wrote a narration line into a data file [V]. The second half has no direct analogue: none of the four has a status command that shares a gate's predicate, because none of them has this repository's rule that an unmeasured check is a failing one. Rendering the measurable part while failing on the rest is the shape that rule implies, and it is why the exit code did not move.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed lanes, review-only, base pinned by SHA, writes=false; two returned, one produced nothing; the delegate hit its 30-turn cap after the lanes wrote their files",
+    "verdict": "2 FAIL, 1 no output; nine claims confirmed by both returning lanes, three refuted, the important one already closed"
+  },
+  "pmat": {
+    "ticket": "PMAT-228",
+    "tools": [
+      "kind-gate.sh",
+      "model-gate.sh",
+      "goal.sh (set refused R-5; worker declared the shared round)",
+      "route.sh",
+      "transcript-gate.sh",
+      "pmat work edit -s (both tickets to completed through the enforced lifecycle)",
+      "pmat work validate",
+      "cargo test --no-fail-fast",
+      "bashrs lint",
+      "scripts/dogfood/tagged.sh",
+      "scripts/release-goal.sh show",
+      "pmat hooks install --strict",
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path tests --format json on this branch: 43 of 4718 tests examined flagged tree-wide; 0 in either touched test file. Nothing to accept.",
+    "quality_gate": "19 + 2 + 14 green at HEAD across the three suites that drive these scripts; both new cases red against main's scripts (docs/audits/logs/PMAT-228-gate-tests.log, --no-fail-fast so both report); bashrs 0 errors on both changed scripts; scripts/dogfood/tagged.sh byte-identical to main's; gate T green on the branch. No cargo build of src/ was needed and nothing under src/ changes.",
+    "limit": "the review lanes judged cdd03571 and HEAD is two commits past it; the hardening they prompted was verified by the orchestrator with its own case rather than by a second round, and this artifact says so. One lane returned nothing. The committed-quorum gate anchors a code receipt only on .rs and the root manifests, so a branch whose substance is two shell files must anchor its claims on its tests — PMAT-224's named gap, still true."
+  }
+}

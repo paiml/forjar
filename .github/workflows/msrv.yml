@@ -15,7 +15,14 @@ concurrency:
 
 jobs:
   msrv:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, clean-room, X64]
+    # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
+    # reaper deletes registry/src entries by mtime -- under a live build, which
+    # makes rustc read a source file that has just vanished. MEASURED on this
+    # branch: this job died that way the first time PMAT-547 moved it off a
+    # GitHub-hosted runner, where it had a private ~/.cargo by construction.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 

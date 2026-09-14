@@ -105,6 +105,14 @@ impl fmt::Display for ErrorClass {
 /// apart, because there is only one string.
 pub const I8_VALIDATION_MARKER: &str = "I8 violation — script failed bashrs validation";
 
+/// The headline of a `forjar drift --tripwire` run that found no drift in what it
+/// measured but could not measure everything (forjar#549).
+///
+/// `src/cli/drift.rs::cmd_drift` stamps it through [`ForjarError::connection`]:
+/// the run exits 4 — not 0, and not the drift class — because the question was
+/// never answered.
+pub const DRIFT_UNMEASURED_MARKER: &str = "drift unmeasured — the target did not answer";
+
 /// Markers a MIGRATED producer stamps into its message so that the class it
 /// DECLARED survives a not-yet-typed `Result<_, String>` boundary.
 ///
@@ -116,6 +124,9 @@ const DECLARED_MARKERS: &[(&str, ErrorClass)] = &[
     // src/transport/mod.rs::validate_before_exec — the I8 bashrs gate. Reaches
     // `dispatch` through `exec_script` (78 call sites, still `String`).
     (I8_VALIDATION_MARKER, ErrorClass::Validation),
+    // src/cli/drift.rs::cmd_drift — `--tripwire` over resources whose target
+    // never answered (forjar#549). Reaches main through `Result<(), String>`.
+    (DRIFT_UNMEASURED_MARKER, ErrorClass::Connection),
 ];
 
 /// An error that knows what kind of failure it is.

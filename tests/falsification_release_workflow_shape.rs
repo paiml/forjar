@@ -284,11 +284,60 @@ fn rule5_publish_release_job_shape() {
         "PMAT-166 rule 5: publish-release must un-draft via \
          `gh release edit ... --draft=false --prerelease`:\n{job}"
     );
+    // PMAT-232 REPLACES PMAT-166's `prerelease=true draft=false` ASSERTION.
+    //
+    // The old one could only ever run for a release THIS run created, because
+    // both the edit and the assertion were guarded by
+    // `needs.create-release.outputs.created`. The v1.28.0 release is what that
+    // cost: the run that created the release died in dist-artifacts, and the
+    // re-dispatch that carried the fix reported success while doing nothing,
+    // leaving a draft nobody but its author could see. A release whose creating
+    // run fails after `create-release` could never be published at all.
+    //
+    // The property is now the one that matters and it is unconditional: after
+    // this job the release is not a draft. `prerelease=true` is deliberately
+    // NOT asserted here, because a re-dispatch over a release an operator has
+    // already promoted to a full release must leave it promoted — that is what
+    // `draft=true` gating the edit protects — and rule 4 already asserts
+    // `prerelease=true draft=true` for a run that creates one.
+    let code = job
+        .split("run: |")
+        .nth(1)
+        .expect("PMAT-232 rule 5: publish-release has no `run:` block");
+    // The edit is conditional on the release being a draft, and the check
+    // comes BEFORE it: otherwise a re-dispatch over a release an operator has
+    // promoted to a full release demotes it back to a prerelease. Measured —
+    // an earlier version of this rule was satisfied by the `--draft=false` in
+    // the edit command itself and stayed green through both mutations.
+    let edit = code
+        .find("gh release edit")
+        .expect("PMAT-232 rule 5: publish-release no longer runs `gh release edit`");
+    let guard = code.find("draft=true").unwrap_or(usize::MAX);
     assert!(
-        job.contains("prerelease=true draft=false"),
-        "PMAT-166 rule 5: publish-release must assert \
-         `prerelease=true draft=false` after un-drafting:\n{job}"
+        guard < edit,
+        "PMAT-232 rule 5: publish-release edits the release without first testing \
+         that it IS a draft, so a re-dispatch over a release already promoted to a \
+         full release demotes it back to a prerelease:\n{job}"
     );
+    // And it FAILS when the release is still a draft at the end. A job that
+    // reports success while doing nothing is the whole of PMAT-232.
+    assert!(
+        code[edit..].contains("draft=false")
+            && code.contains("::error::")
+            && code.contains("exit 1"),
+        "PMAT-232 rule 5: publish-release must re-read the release after the edit \
+         and exit non-zero with an ::error:: if it is still a draft:\n{job}"
+    );
+    for guard in ["needs.create-release.outputs.created", "outputs.created"] {
+        assert!(
+            !code.contains(guard),
+            "PMAT-232 rule 5: publish-release gates on `{guard}`. That is the \
+             defect this rule exists for: a release created by an earlier, failed \
+             run is left a draft for ever, and the job reports success while doing \
+             nothing. Publish whatever is still a draft, and assert the end state \
+             unconditionally:\n{job}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------

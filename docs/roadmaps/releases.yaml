@@ -15,6 +15,14 @@
 #                regime, PMAT-163); below it a window may hold unticketed PRs
 # dogfood_floor  from here every tag has docs/audits/dogfood-<ver>-receipt.md
 #                and docs/audits/crux-<ver>.md at HEAD
+# cookbook_floor from here every tag names the paiml/forjar-cookbook commit it
+#                was qualified against, and that commit's Cargo.toml must admit
+#                the released version. The cookbook is where forjar is used
+#                rather than described: `make dogfood-published VERSION=x.y.z`
+#                runs gates C and D against what crates.io serves, and gate D
+#                validates every cookbook config against it. Nothing recorded
+#                which cookbook that was, and the cookbook's master had not
+#                moved in four releases (PMAT-241).
 # releases[]     tag, cut (the tag's creation instant, UTC), prs (every PR whose
 #                merge commit the tag contains and the previous tag does not),
 #                tickets (every roadmap row those PRs name in branch or title)
@@ -27,6 +35,9 @@ cadence_days: 2
 floor: v1.25.0
 harness_floor: v1.26.0
 dogfood_floor: v1.26.0
+# From the next cut. Retrofitting the ten releases whose cookbook commit
+# nobody recorded would be inventing the record, not keeping it.
+cookbook_floor: v1.29.0
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
@@ -58,6 +69,13 @@ releases:
     tickets: [PMAT-215, PMAT-217, PMAT-219, PMAT-220, PMAT-221, PMAT-222, PMAT-223, PMAT-224, PMAT-225, PMAT-226]
     dogfood: docs/audits/dogfood-1.28.0-receipt.md
     crux: docs/audits/crux-1.28.0.md
+  - tag: v1.29.0
+    cut: 2026-09-11T19:55:10Z
+    prs: [509, 510, 511, 513, 514, 515, 516, 517, 518, 519, 523, 524, 527]
+    tickets: [PMAT-227, PMAT-228, PMAT-229, PMAT-230, PMAT-231, PMAT-232, PMAT-234, PMAT-235, PMAT-236, PMAT-237, PMAT-238, PMAT-239, PMAT-241, PMAT-520, PMAT-521, PMAT-522]
+    dogfood: docs/audits/dogfood-1.29.0-receipt.md
+    crux: docs/audits/crux-1.29.0.md
+    cookbook: 0be3e1ec5481af5160c2bacd4311eaaa2b73904f
 next:
-  tag: v1.29.0
-  due: 2026-09-12T16:07:14Z
+  tag: v1.30.0
+  due: 2026-09-13T19:55:10Z

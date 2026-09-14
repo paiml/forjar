@@ -1,0 +1,14 @@
+### the guard
+COMPLY_COUNT_ACTIVE=1 …  comply-count: refusing to run inside itself — pmat comply check re-entered the ratchet (forjar#522)
+  exit=3
+unguarded …              49
+  exit=0
+
+### the units the cap is measured in
+processes now: 232
+threads now:   2424
+
+### the four cases
+test no_committed_ratchet_config_names_this_script ... ok
+test the_sentinel_reaches_the_child_process ... ok
+test a_recursive_invocation_is_refused_and_prints_no_count ... ok

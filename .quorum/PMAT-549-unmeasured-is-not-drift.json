@@ -1,0 +1,140 @@
+{
+  "kind": "code",
+  "issue": "PMAT-549 (closes forjar#549) — a query the target never answered is UNMEASURED, not drift. A transport error or ssh's own exit 255 became a MISSING finding: counted in drift_count, alerted on, and exit 1 under --tripwire. The fleet had two states where it needed three — clean, drifted, and not known.",
+  "branch": "PMAT-549-unmeasured-is-not-drift",
+  "base": "777fc9a7",
+  "base_commit": "777fc9a7d5b18da714f1ac639f61df8c4264fc87",
+  "diff_sha256": "39abb8b9cb22b8b9c98ace1adb10ff825a8d3db1",
+  "recorded_at": "after two rounds: the first killed four of eight claims and every kill produced a code change; the second confirmed all eight and named four properties no test covered, which the head then covered",
+  "quorum": {
+    "lanes": [
+      "round one, head 830ff969 — lane 1 the reader and the first queries (FAIL, 9 findings), lane 2 the CLI, MCP and apply surfaces (FAIL, 20), lane 3 the tests and the infra consumer (do-not-implement-as-written, 2), plus a prior-art survey lane (FAIL: DOES NOT MATCH on two of three points)",
+      "round two, head 37096656 — lane 1 the reader, every transport call, the listing and the census (FAIL, 8), lane 2 the CLI and MCP surfaces and what apply, alert, notify and remediate do (PASS, 10), lane 3 the tests, the CHANGELOG and FALSIFY-VE-025 (PASS, 8)",
+      "round two teamwork lane over the whole change (PASS, 5 findings)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "rounds": "two rounds of three sandboxed agy quorum lanes against a standalone clone, each followed by three judges reading every lane's findings verbatim under the kill rule. Round one on gemini-3.1-pro-high throughout; round two on gemini-3.1-pro-high, gemini-3.8-flash-high and gemini-3.7-flash-high.",
+    "kill_rule": "one verified counterexample kills a claim however many lanes confirmed it, and it must be a cited line reproduced with sed -n at HEAD; an absence is verified only by the judge's own search over all of src/ and tests/; a judgment question inside a claim is answered in the reason and does not decide the ruling. Round two's lane 1 raised three refutations and all three judges rejected them: apply prints d.detail, which comes from the detectors.",
+    "claims_confirmed": 9,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "That no report is constructed without DriftReport::new. The lockless path built its report as a struct literal, so its census never learned which resources went unmeasured and unmeasured_total was 0 on every lockless run. Corrected: the invariant holds for reports built by DriftReport::new; at the round-one head the lockless path built its own and skipped the marking.",
+      "That apply behaviour is unchanged. Apply prints each finding's detail and this change rewrote it. Corrected: apply still consumes every finding from detect_drift_full and still plans to reconcile an unmeasured resource, exactly as it did the old MISSING one; the line it prints now says `not measured` where it said `not accessible`.",
+      "That the tests discriminate. No test asserted that the image or task detectors emit UNMEASURED — both arms existed and nothing would have caught their removal. Corrected: the tests discriminated for the file path only; the image and task arms were implemented, claimed and untested until this head.",
+      "That paiml/infra's drift-tripwire.sh will now SEE unmeasured resources outside findings. It reads findings, drift_count and machines_checked and nothing else. Corrected: it will not see them, it is blind to them — drift_count 0 against 0 findings, exit 0, `no unexcused drift` for a host that answered nothing. Fixed downstream in paiml/infra#561."
+    ],
+    "lane_errors": [
+      "the round-two teamwork lane ended with `LANE ISOLATION VIOLATED — a shared ref changed`. The ref was moved by the orchestrator's own commit in another worktree while the lane ran; the reflog names that commit and its author, and the lane's clone was removed byte-identical. The check credits every shared-ref change to the lane and cannot tell a lane's write from a concurrent commit by the party that dispatched it."
+    ]
+  },
+  "falsification": {
+    "test": "four integration cases and eleven unit cases. an_unreachable_resource_is_unmeasured_not_drifted pins the state itself; text_output_names_unmeasured_and_never_calls_it_clean_or_drifted pins the wording; drift_takes_the_exit_code_when_a_run_has_drift_and_unmeasured pins the precedence when both are present; an_unmeasured_only_run_fires_no_drift_alert pins that the alert does not fire for a host nothing answered.",
+    "test_file": "tests/falsification_drift_unmeasured_is_not_drift.rs",
+    "cargo_test_target": "falsification_drift_unmeasured_is_not_drift",
+    "reverted": "origin/main's src/ checked out over the head in a scratch worktree with the branch's tests kept: all 4 cases of falsification_drift_unmeasured_is_not_drift fail, and drift_over_an_unreachable_machine_must_not_answer_clean fails in the E05 suite while its four neighbours stay green. Then fourteen targeted mutations over committed trees, each restored by name; each kills the test that owns it and nothing else, and every control run is green.",
+    "observed_failure": "forjar#549: a resource nothing could reach was reported as a drift FINDING: {\"machines_checked\":1,\"drift_count\":1,...} — and an unmeasured-only tripwire run exits Some(1) where the branch exits Some(4), with stderr `error: 1 drift finding(s)`",
+    "still_green_when_reverted": "the other four E05 cases, which is the point: reverting breaks the unreachable-host case and nothing else in that suite."
+  },
+  "crux": {
+    "systems": [
+      "Nagios (a plugin exits 0/1/2/3 and check_by_ssh exits UNKNOWN when it cannot reach the target; CRITICAL outranks UNKNOWN, so a caller alerting only on CRITICAL treats an unreachable host as fine)",
+      "Prometheus (reachability is its own series, up == 0; threshold queries over an unscraped target return nothing and fire nothing, so without an alert on up == 0 a dead target looks clean)",
+      "Terraform (plan -detailed-exitcode exits 1 for an error and 2 for a diff; the error halts the run, so it wins over the diff and the caller never sees a false clean)"
+    ],
+    "verdict": "accept-with-two-disclosures(the separation MATCHES prior art — UNMEASURED is its own state, as UNKNOWN and up == 0 are, folded into neither drift nor clean — and the precedence matches Nagios, where drift wins as CRITICAL outranks UNKNOWN. Two points do NOT match and both predate this change: a tripwire run with drift exits 1 rather than the drift class 10, because the error string is `N drift finding(s)` and the legacy classifier at src/core/error.rs:278 looks for `drift detected`; and without --tripwire the command exits 0 whatever it found. The MCP verb's drifted:false when only unmeasured remain is the E05 contract, which tells an agent to read drifted together with unchecked. The survey was ruled CONFIRMED by all three judges, including its two mismatches.)"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two rounds of three sandboxed agy quorum lanes, review-only, writes=false, each round followed by three judges; round two also ran a teamwork lane over the whole change",
+    "verdict": "round one 0/3 PASS (FAIL, FAIL, do-not-implement-as-written) and 4 of 8 claims killed; round two 2/3 PASS with lane 1's three refutations rejected by all three judges, 8 of 8 confirmed, teamwork PASS",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "writes": false,
+    "sandbox": true,
+    "out_dir": "keyed by ticket AND session id"
+  },
+  "pmat": {
+    "ticket": "PMAT-549",
+    "tools": [
+      "cargo test --locked --lib tripwire::drift (495 passed)",
+      "cargo test --locked --test falsification_drift_unmeasured_is_not_drift (4 passed)",
+      "cargo test --locked --test falsification_e05_verb_drift_contacts_the_host (5 passed)",
+      "cargo test --locked --lib mcp:: (70 passed)",
+      "cargo clippy --locked --all-targets -- -D warnings",
+      "cargo fmt --all -- --check",
+      "pmat analyze vacuous-tests",
+      "analyze_vacuous_tests",
+      "bash scripts/quorum-gate.sh (PRINT_HASH)",
+      "forjar drift over 203.0.113.9 with 1.28.0 and with this branch",
+      "paiml/infra machines/fleet-hosts/drift-tripwire.sh, end to end, both binaries"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "432 of 19736 #[test] fns cannot fail (2.2%) across 2181 parsed files, plus 3 that skip silently. None is in a file this branch touches; the nearest is test_fj016_detect_drift_full_codegen_error_skips in src/tripwire/drift/tests_full.rs, which the branch does not touch. Necessary and not sufficient, and this row is why: round one killed a claim because two detector arms had no test at all, and a scan asking whether a test CAN fail cannot see an arm no test reaches.",
+    "quality_gate": "fmt clean, clippy -D warnings clean, 495 + 70 unit and 9 integration cases green at the head; fourteen mutations each red, every control green",
+    "tool_defects_found": [
+      "agy-lane's isolation check attributes a concurrent commit by the orchestrator to the lane: the round-two teamwork lane reported LANE ISOLATION VIOLATED for a branch ref the orchestrator moved from another worktree while the lane ran.",
+      "candidate follow-ups filed from this row: the tripwire's drift exit class (1, not 10) and remote_path_digest reading outside unmeasured::read."
+    ]
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/unmeasured-judges.md",
+    "total_bytes": 25358,
+    "files": [
+      {
+        "path": ".quorum/evidence/unmeasured-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 4124,
+        "sha256": "bb62cc31638a2910a9c274e4d17626b15988b99f82030b01022ceac3e317db5c",
+        "blob": "9d2cbc55ad5d199deccc543ce63e8e6e981813db"
+      },
+      {
+        "path": ".quorum/evidence/unmeasured-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2932,
+        "sha256": "22f8794fbf54b031e562ce7b44987eecc6fabea882db3cb1b125890a0eae62b5",
+        "blob": "9c4fa68b4ade8af6b96361314c650b591eabcf5c"
+      },
+      {
+        "path": ".quorum/evidence/unmeasured-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 8832,
+        "sha256": "0988cfbc448cd0fbbb4977c9435c3121dc468031e8b88b9145408078e0105f01",
+        "blob": "2d7b41b1f2e2b5a30170a6ac694900563e4d0d0c"
+      },
+      {
+        "path": ".quorum/evidence/unmeasured-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1905,
+        "sha256": "7741eaf58721e8547c3696def9ad03947d1c4dfcfb4b8ec3f992ed83ac464627",
+        "blob": "015db32801ce1f491ef9a53d21580032497a6dca"
+      },
+      {
+        "path": ".quorum/evidence/unmeasured-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 2582,
+        "sha256": "d5b3a87cf818bccff9f2112c0e7f91f2d65f0ce165c0635aa85c7bf48d937b19",
+        "blob": "cb6644de49733810647efe7bf0034f8c2f6b5538"
+      },
+      {
+        "path": ".quorum/evidence/unmeasured-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 4983,
+        "sha256": "8dd3b2c4f1f3fe91ad3d5317d8d7c8c6b07ec184286d720a0485945c511aae9f",
+        "blob": "b630148c78d6723fa0f8846b6159e064946d0ee0"
+      }
+    ]
+  }
+}

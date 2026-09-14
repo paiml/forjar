@@ -302,7 +302,10 @@ n_inv="$(printf '%s\n' "$report" | sed -n 's/^COUNT //p')"
 if [ "${n_inv:-0}" -lt "$MIN_INVOCATIONS" ]; then
   fail "README.md holds ${n_inv:-0} fenced forjar invocation(s), floor is ${MIN_INVOCATIONS} — a README that documents nothing passes every check above"
 fi
-if printf '%s\n' "$report" | grep -q '^FAILURE '; then
+# PMAT-240: a here-string, not a pipe. `grep -q` exits on its first match,
+# printf takes SIGPIPE, and under `set -o pipefail` the gate dies 141 with no
+# verdict — the same class PMAT-239 fixed three instances of.
+if grep -q '^FAILURE ' <<<"$report"; then
   printf '%s\n' "$report" | grep '^FAILURE ' | sed 's/^FAILURE /  /'
   fail "$(printf '%s\n' "$report" | grep -c '^FAILURE ') documented invocation(s) or claim(s) do not hold"
 fi

@@ -24,7 +24,7 @@ asking for "the dogfood" got a different document, with no error and no diff.
 
 | Gate | What it asserts | Where it runs |
 |------|-----------------|---------------|
-| **A** | Every PR merged since the last tag carries `docs/audits/impl-<ticket>-receipt.md`, ending in its END marker, with exactly one verdict | `scripts/dogfood/harness.sh` |
+| **A** | Every PR merged since the last tag carries `docs/audits/impl-<ticket>-receipt.md`, ending in its END marker, with exactly one verdict — and, from `TRAILER_FLOOR`, is filed under a ticket its own merge commit does not CONTRADICT: if the commit claims any `Pmat-Ticket:`, the PR's ticket must be among them (PMAT-540) | `scripts/dogfood/harness.sh` |
 | **B** | `pmat comply check` passes against the committed config | `scripts/dogfood/comply.sh` |
 | **C** | The declared transport surface equals the surface the built binary exposes | `scripts/dogfood/surface.sh` |
 | **D** | Every documented `forjar …` invocation runs, and every count README claims is the derived one | `scripts/dogfood/docs.sh` |
@@ -32,7 +32,7 @@ asking for "the dogfood" got a different document, with no error and no diff.
 | **F** | Coverage ≥ 95% line, and 0 mutant survivors in the diff | `scripts/dogfood/coverage.sh` |
 | **G** | Every contract validates, lints, and resolves its falsifiers to tests that run in `ci / gate` | `scripts/dogfood/contracts.sh` |
 | **H** | Every `[Unreleased]` behaviour bullet has a crux row with ≥3 systems | `scripts/dogfood/crux-reconcile.sh` |
-| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>`, every ticket merged since the newest tag carries `release:<next.tag>`, and the next cut is not overdue (PMAT-225) | `scripts/dogfood/tagged.sh` |
+| **T** | Every tagged release since the floor has a row in `docs/roadmaps/releases.yaml` whose cut, PRs and tickets are what git and GitHub say; every shipped ticket carries `release:<tag>` and says `status: completed`, every ticket merged since the newest tag carries `release:<next.tag>`, the next cut is not overdue, from `cookbook_floor` every release names a paiml/forjar-cookbook commit whose `Cargo.toml` admits AND whose `Cargo.lock` pins the released version, and while a cut is in flight the CHANGELOG's own PR and ticket counts equal what the window measures (PMAT-225, PMAT-236, PMAT-241, PMAT-520, PMAT-537) | `scripts/dogfood/tagged.sh` |
 
 All nine are **mechanical**: shell, no agent. `make dogfood-release` runs
 every one of them and fails on the first RED. T is the release-goal gate: the
@@ -42,7 +42,36 @@ on the roadmap rows, the measured side is git and GitHub, and
 status line — `<next tag> <bar> <elapsed>h/<cadence>h left=<h> · <merged>
 merged, <tagged> tagged · due <instant> basis=…`. After a tag,
 `scripts/release-goal.sh cut <tag> --next <next>` writes the row and moves the
-labels; before one, `scripts/release-goal.sh sync` labels the open window. This skill does not re-implement
+labels; before one, `scripts/release-goal.sh sync` labels the open window.
+
+**The cookbook is part of the release, not a downstream of it (PMAT-241).**
+paiml/forjar-cookbook is where forjar is USED rather than described: gate D
+validates every one of its configs against the built artifact, and `make
+dogfood-published VERSION=x.y.z` does it against what crates.io actually
+serves. Nothing recorded which cookbook that was, and the cookbook's master had
+not moved since 2026-08-29 while ten tags went out claiming to be dogfooded
+against it. From `cookbook_floor` every ledger row names the cookbook commit
+the release was qualified against — `release-goal.sh window <tag>` takes it
+from `git ls-remote … refs/heads/master` at the moment of the cut, so `cut`
+books it — and gate T refuses a row that names none, names a branch instead of
+a commit, names a commit the cookbook does not carry, or names one whose
+`Cargo.toml` cannot admit the version that shipped — read as CARGO reads it:
+`forjar = "1.2"` is a caret, `>=1.2.0, <2.0.0`, so a plain `>=` would pass
+2.0.0 against a cookbook that cannot build with it.
+
+**And the requirement is not the measurement — the LOCK is (PMAT-537).** A
+requirement is a range; `cargo` compiles what `Cargo.lock` pins. Measured on
+the first commit any release ever named: the manifest said `1.2` and the lock
+said **1.2.1**, so the gate blessed a cookbook compiled twenty-seven minors
+behind the release it was recorded as qualifying. Gate T reads both now and
+refuses a row whose cookbook lock is not exactly the released version; a lock
+it cannot read, or one with no forjar in it, is UNMEASURED and red.
+
+**So the cookbook is bumped and pushed as PART OF THE CUT, before the tag**,
+and the cut names the resulting commit. That is an obligation on a second
+repository and it is stated here rather than implied. It was done the other way
+round exactly once — for 1.29.0, where the cookbook was bumped after the tag
+and the row corrected — and the receipt for that says so. This skill does not re-implement
 a gate, does not decide a gate, and does not paraphrase a gate's output — it
 runs the Make target and quotes the `GATE <letter> …` line each script printed.
 
@@ -52,6 +81,22 @@ code, it does not run in CI, and it cannot be shown to go red. They are now
 `scripts/dogfood/harness.sh` and `scripts/dogfood/quorum.sh`, sharing one
 window in `scripts/dogfood/lib/window.sh`, with falsifiers in
 `tests/falsification_dogfood_harness_and_quorum.rs`.
+
+**The promotion to a full release is a STEP, and gate R checks it (PMAT-534).**
+A release is born a prerelease so no consumer sees a half-uploaded asset set,
+and GitHub never makes a prerelease `latest`. Clearing the flag does NOT move
+the pointer — `make_latest` is fixed when the flag is written — so the promotion
+must say `--latest`:
+
+```bash
+gh release edit v<ver> --repo paiml/forjar --prerelease=false --latest
+```
+
+Measured 2026-09-12: `repos/paiml/forjar/releases/latest` resolved to v1.25.2
+while v1.26.0, v1.27.0 and v1.28.0 were all full releases days newer, because
+that step existed only as one line of a workflow's output. `make release-check`
+now refuses a full release the URL does not point at, and reports a prerelease
+with the command that ends it.
 
 ## Frame — do this first, in this order (this is not a gate)
 

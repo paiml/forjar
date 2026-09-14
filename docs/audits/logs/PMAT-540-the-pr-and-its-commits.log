@@ -1,0 +1,157 @@
+PMAT-540 — the PR and its commits name one ticket
+=================================================
+
+### 1. the two parsers on the commit the rule exists for
+b4719737 is PR #532's merge commit. Its message ENDS like this:
+    | Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+    | 
+    | ---------
+    | 
+    | Co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+  GitHub appends that `---------` + Co-authored-by paragraph itself, and it
+  becomes the last paragraph -- the only place git looks for trailers:
+  git's %(trailers), whole:                       Co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+  git's own %(trailers:key=Pmat-Ticket,valueonly): (nothing)
+  read by the LINE:                              PMAT-531 
+  pmat's CB-2113 asks git the same way -- src/services/commit_traceability/mod.rs:275
+  -- so an arm built on git's parser would be blind to the exact commit
+  it exists for.
+
+### 2. the rule against the thirty most recently merged PRs
+(ids RESOLVED before comparison, the way gate A resolves a PR's own id)
+PR     branch                                        filed-under verdict
+#543   PMAT-542-per-gate-selection                   PMAT-542   ok
+#541   PMAT-535-a-branch-names-its-own-ticket        PMAT-535   ok
+#539   PMAT-240-sigpipe-class                        PMAT-240   ok
+#538   PMAT-537-the-cookbook-lock-is-the-measurement PMAT-537   ok
+#536   PMAT-533-release-1.29.0-record                PMAT-533   ok
+#532   PMAT-520-book-v1.29.0                         PMAT-520   MISMATCH: commits claim PMAT-531
+#527   PMAT-520-release-1.29.0                       PMAT-520   ok
+#524   PMAT-522-comply-count-recursion-guard         PMAT-522   ok
+#523   PMAT-521-cb21xx-ratchet                       PMAT-521   ok
+#519   PMAT-234-gate-r-says-what-is-pending          PMAT-234   ok
+#518   PMAT-241-every-release-updates-the-cookbook   PMAT-241   ok
+#517   PMAT-236-gate-t-checks-status                 PMAT-236   ok
+#516   PMAT-237-pr-lane-pareto                       PMAT-237   ok
+#515   PMAT-228-notes-go-to-stderr                   PMAT-228   ok
+#514   PMAT-232-publish-a-draft-it-did-not-create    PMAT-232   ok
+#513   PMAT-235-sync-shipped-status                  PMAT-235   ok
+#511   PMAT-231-record-1.28.0                        PMAT-231   ok
+#510   PMAT-230-release-download-clobber             PMAT-230   ok
+#509   PMAT-227-book-v1.28.0                         PMAT-227   ok
+#508   PMAT-226-release-1.28.0                       PMAT-226   ok
+#507   PMAT-225-release-goals                        PMAT-225   ok
+#505   PMAT-224-quorum-gate-triage-shape             PMAT-224   ok
+#504   PMAT-223-io-hash-answers-for-its-machine      PMAT-223   ok
+#502   PMAT-222-probe-keyed-by-machine               PMAT-222   ok
+#500   PMAT-221-planner-names-what-it-did-not-probe  PMAT-221   ok
+#498   PMAT-220-one-definition-of-local              PMAT-220   ok
+#496   PMAT-218-details-content-hash-asks-the-machine PMAT-219   ok
+#494   PMAT-217-contracts-test-reaches-outside-the-repo PMAT-217   ok
+#493   PMAT-215-drift-evaluates-broken-entries       PMAT-215   ok
+#490   release-1.27.0-fleet-p0                       PMAT-212   ok
+
+  agree: 29    mismatch: 1    no trailer at all: 0
+
+### 3. gate A on this repository, with the floor and without it
+with the shipped floor (b4719737 = PR #532's own merge commit):
+  GATE A #543 PMAT-542 docs/audits/impl-PMAT-542-receipt.md ok
+  GATE A #541 PMAT-535 docs/audits/impl-PMAT-535-receipt.md ok
+  GATE A #539 PMAT-240 docs/audits/impl-PMAT-240-receipt.md ok
+  GATE A #538 PMAT-537 docs/audits/impl-PMAT-537-receipt.md ok
+  GATE A #536 PMAT-533 docs/audits/impl-PMAT-533-receipt.md ok
+  GATE A #532 PMAT-520 predates the trailer floor b4719737 — not judged on what its commits claim
+  GATE A #532 PMAT-520 docs/audits/impl-PMAT-520-receipt.md ok
+  GATE A PASS 6 of 6 merged PR(s) since v1.29.0 carry a harness receipt
+
+with a floor this repository does not carry (TRAILER_FLOOR=deadbeef...):
+  GATE A #543 PMAT-542 docs/audits/impl-PMAT-542-receipt.md ok
+  GATE A #541 PMAT-535 docs/audits/impl-PMAT-535-receipt.md ok
+  GATE A #539 PMAT-240 docs/audits/impl-PMAT-240-receipt.md ok
+  GATE A #538 PMAT-537 docs/audits/impl-PMAT-537-receipt.md ok
+  GATE A #536 PMAT-533 docs/audits/impl-PMAT-533-receipt.md ok
+  GATE A FAIL PR #532 is filed under PMAT-520 -- from its branch 'PMAT-520-book-v1.29.0', then its title -- and its merge commit b4719737775ab1ebdb493e019affd0230c994ed8 claims PMAT-531. Gate A resolves
+
+### 4. RED — the seven cases against origin/main's gate A
+  reverted: M  scripts/dogfood/harness.sh
+       Running tests/falsification_dogfood_harness_and_quorum.rs 
+  running 19 tests
+  test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+       Running tests/falsification_gate_a_the_pr_and_its_commits_name_one_ticket.rs 
+  running 9 tests
+      a_floor_this_repository_does_not_carry_exempts_nothing
+      a_mismatch_gits_own_parser_cannot_see_is_still_refused
+      a_pr_below_the_trailer_floor_is_not_judged_and_says_so
+      a_pr_whose_commits_claim_another_ticket_is_named_and_red
+      the_shipped_floor_is_the_commit_it_says_it_is
+  test result: FAILED. 4 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+  restoring from HEAD
+  tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+
+### 5. the three guards are not vacuous — each killed by its own mutation
+
+MUTATION 1: compare RAW ids, never resolving through alias:<id>.
+  running 9 tests
+      a_claim_that_resolves_through_an_alias_agrees
+  test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+MUTATION 2: drop the 'only when the commits claim SOMETHING' guard.
+  running 9 tests
+      a_merge_commit_that_claims_nothing_is_not_this_arms_finding
+  test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+MUTATION 3: refuse every PR (the arm's case with no matching branch).
+  running 9 tests
+      a_claim_that_resolves_through_an_alias_agrees
+      a_pr_whose_commits_claim_its_own_ticket_passes
+      the_arm_reads_a_claim_gits_own_parser_cannot_see
+  test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+  restored; tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+MUTATION 4: read the trailers with GIT'S OWN PARSER instead of the line.
+  running 9 tests
+      a_floor_this_repository_does_not_carry_exempts_nothing
+      a_mismatch_gits_own_parser_cannot_see_is_still_refused
+      a_pr_whose_commits_claim_another_ticket_is_named_and_red
+  test result: FAILED. 6 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+  restored; tree:  M docs/audits/logs/PMAT-540-the-pr-and-its-commits.log 
+
+### 6. every case is killed by something
+  case                                              killed by
+  ------------------------------------------------- ----------------------------
+  a_pr_whose_commits_claim_another_ticket_is_named   removal, M4
+  a_mismatch_gits_own_parser_cannot_see_is_refused   removal, M4
+  a_pr_below_the_trailer_floor_is_not_judged         removal
+  a_floor_this_repository_does_not_carry_exempts_..  removal, M4
+  the_shipped_floor_is_the_commit_it_says_it_is      removal
+  a_claim_that_resolves_through_an_alias_agrees      M1, M3
+  a_merge_commit_that_claims_nothing_is_not_this...  M2
+  a_pr_whose_commits_claim_its_own_ticket_passes     M3
+  the_arm_reads_a_claim_gits_own_parser_cannot_see   M3
+
+  M1 = compare raw ids, never resolving alias:<id>
+  M2 = drop the "only when the commits claim SOMETHING" guard
+  M3 = make the match arm unreachable, refusing every PR
+  M4 = read the trailers with git's own parser instead of the line
+
+  Nine cases, nine killers. The four that survive REMOVAL are over-refusal
+  guards by construction -- they assert the arm does not fire -- and each is
+  killed by a mutation that makes it fire wrongly.
+
+### 7. what this branch would have paid, under PMAT-542's selection
+  the whole diff:            code=true gate_c=true gate_d=true gates=C,D 
+  the diff without .github/: code=true gate_c=false gate_d=false gates=none 
+  The one .github/ line is this suite being added to the guard job's list. Gate
+  C and gate D read nothing else this branch touches, so without it the branch
+  would be the first `gates=none` PR since PMAT-542 landed -- 21.3 of 25.2
+  critical-path minutes, not paid.
+
+  It is paid on purpose. The integration suites DO run in CI under the coverage
+  job (`cargo llvm-cov` builds and runs every test binary), so naming this one
+  in the guard list buys ORDERING -- a fast red before the slow jobs -- rather
+  than coverage. Its sibling falsification_dogfood_harness_and_quorum is already
+  in that list.
+
+PMAT-540-LOG-END

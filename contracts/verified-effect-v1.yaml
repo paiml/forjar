@@ -302,6 +302,16 @@ invariants:
       command claiming an effect it never caused, but a command claiming a
       MEASUREMENT it never took.
 
+  - id: INV-UNANSWERED-IS-NOT-A-VERDICT
+    statement: >-
+      A question the target never answered is reported as unmeasured, never as a
+      finding and never as clean. `drift --tripwire` over a host nothing answers
+      printed `actual_hash: MISSING` and "error: 1 drift finding(s)" with exit 1,
+      which is the verdict for a file a reached host lacks: ssh exiting 255 was
+      read as the file's answer. Unmeasured resources are listed apart from the
+      findings, counted apart in the census, and exit with the connection class
+      (4) when nothing drifted.
+
 proof_obligations:
   - type: soundness
     property: "Reported success entails the claimed effect occurred"
@@ -1269,6 +1279,60 @@ falsification_tests:
       installer. Every user's first command is `--help` or a mistyped flag, and
       both hit an undefined function; the release gate says PASS because it
       grades text it wrote itself rather than behaviour it observed.
+    owner: forjar
+
+  - id: FALSIFY-VE-025
+    rule: INV-UNANSWERED-IS-NOT-A-VERDICT
+    prediction: >-
+      `drift --tripwire --json` over a host nothing answers lists the resource as
+      unmeasured and exits 4: never a drift finding (exit 1), never clean (exit 0).
+    test: |
+      D=$(mktemp -d); cd "$D"
+      cat > forjar.yaml <<'EOF'
+      version: "1.0"
+      name: ve025
+      machines:
+        web: {hostname: web, addr: 203.0.113.9, user: root}
+      resources:
+        conf: {type: file, machine: web, path: /etc/ve025.conf, content: "x"}
+      EOF
+      mkdir -p state/web
+      cat > state/web/state.lock.yaml <<'EOF'
+      schema: "1.0"
+      machine: web
+      hostname: web
+      generated_at: now
+      generator: test
+      blake3_version: "1"
+      resources:
+        conf:
+          type: file
+          status: converged
+          hash: "h"
+          details: {path: /etc/ve025.conf, content_hash: "blake3:0"}
+      EOF
+      $FORJAR drift -f forjar.yaml --state-dir state --tripwire --json > out.json 2> err.txt; echo "exit=$?"
+      grep -Eo '"(drift_count|unmeasured_count)": *[0-9]+|"actual_hash": *"[A-Z]+"' out.json
+      tail -1 err.txt
+    expected_red: |
+      exit=1
+      "drift_count": 1
+      "actual_hash": "MISSING"
+      error: 1 drift finding(s)
+    red_is_reachable: >-
+      Executed 2026-09-13 against the installed 1.28.0; the output above is the
+      transcript. 203.0.113.9 is TEST-NET-3, so nothing can answer, and the run
+      took 5 seconds. The same script against the forjar#549 branch build printed
+      exit=4, "drift_count": 0, "unmeasured_count": 1, "actual_hash": "UNMEASURED"
+      and "error: drift unmeasured — the target did not answer: 1 resource(s)".
+      GREEN requires exit=4, drift_count 0, unmeasured_count 1 and no MISSING.
+      The Rust falsifier is the falsification_drift_unmeasured_is_not_drift
+      integration test, which CI's examples-validate job runs by name.
+    if_fails: >-
+      A fleet tripwire cannot tell "the file changed" from "the switch is down".
+      It pages for drift on every network fault, and the cheapest remedy on offer
+      is to allowlist the resource, which blinds the tripwire to real drift on it
+      for good.
     owner: forjar
 
 enforcement:

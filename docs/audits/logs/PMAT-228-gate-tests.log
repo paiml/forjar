@@ -1,0 +1,13 @@
+== RED: main's scripts/release-goal.sh and scripts/dogfood/lib/window.sh over this branch's tests
+   (all fixes COMMITTED at 50073b89; --no-fail-fast so every binary reports)
+test a_census_note_is_reported_and_never_reaches_the_ledger ... FAILED
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+test the_status_line_renders_the_goal_when_the_merged_count_is_unmeasurable ... FAILED
+test no_environment_variable_can_soften_the_gate ... ok
+test result: FAILED. 13 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
+== restore
+(nothing above = restored)
+== GREEN: the three suites that drive these scripts
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
