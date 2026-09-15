@@ -64,3 +64,5 @@ marked `[X]`. Recorded in the audit's own Method section, because the difference
 between "a lane surveyed this" and "the author wrote it" is a provenance claim,
 and this repository's whole thesis is that unstated provenance is where false
 records come from.
+
+DOGFOOD-1.30.0-RECEIPT-END

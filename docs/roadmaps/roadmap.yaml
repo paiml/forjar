@@ -3984,7 +3984,7 @@ roadmap:
   item_type: task
   title: 'release: forjar 1.30.0 — a query the target never answered is UNMEASURED, not drift'
   release: 1.30.0
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-13T18:52:55Z
@@ -4093,7 +4093,7 @@ roadmap:
   item_type: task
   title: every CI job runs on the fleet — 31 JOBS of one run were dispatched to GitHub-hosted runners, from 33 hosted runner DECLARATIONS (a matrix declaration expands to several jobs, and not every job runs on every push)
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T10:03:38Z
@@ -4118,7 +4118,7 @@ roadmap:
   item_type: task
   title: drift exits 0 over 'Drift detected' unless --tripwire is passed — fail-open by default (infra#605 second signature)
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T13:23:55Z
