@@ -105,7 +105,7 @@ equations:
     invariants:
       - "Writes through save_lock, so the .b3 sidecar is rewritten with each lock"
       - "Needs no manifest: the fleet's locks belong to many manifests"
-      - "Scope is `<state_dir>/<machine>/state.lock.yaml`, one level: a --workspace dir is a state dir of its own and is restamped by naming it; forjar.lock.yaml (the GlobalLock) is restamped by every apply through state::stamp and is not walked; an encrypted .yaml.age lock is not walked"
+      - "Scope is `<state_dir>/<machine>/state.lock.yaml`, one level: a nested state dir (`state/<name>/`, what `-w` selects) is a state dir of its own and is restamped by naming it; forjar.lock.yaml (the GlobalLock) is restamped by every apply through state::stamp and is not walked; an encrypted .yaml.age lock is not walked"
       - "An unreadable state dir is an error, never `0 lock(s) restamped`"
       - "Each restamped lock is named with its before and after"
 
