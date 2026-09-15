@@ -2,10 +2,10 @@
  "kind": "code",
  "issue": "PMAT-560 (forjar#560) — a `service` resource asked the host `is-active` and `is-enabled` and nothing else; on yoga, 2026-09-15, both were true of github-runner-ephemeral.service while the loaded unit ran run-ephemeral-docker-v3.sh, a file the repository never declared, and the check reported converged. Declared `exec_start` / `exec_sha256` are now checked against what systemd reports for the LOADED unit and the bytes at the LIVE path.",
  "branch": "PMAT-560-unit-exec-parity",
- "base": "8b2ccedd",
- "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
- "diff_sha256": "271a4ece1756afa79352d47e4fe4eab6987e8d1d",
- "recorded_at": "after two review rounds — the first found the space split that turned the wrong program into the declared one, the second found the separator's own limit undocumented — and after six mutations run against the committed tree",
+ "base": "bfac33cf",
+ "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
+ "diff_sha256": "b56a234170d0e0dcea4fd870f3c372c30584306a",
+ "recorded_at": "after two review rounds — the first found the space split that turned the wrong program into the declared one, the second found the separator's own limit undocumented — and after six mutations run against the committed tree; rebased onto main after #563 squash-merged (CHANGELOG and ledger conflicts resolved by keeping both sides)",
  "quorum": {
   "lanes": [
    "round 1 lane 1 — gemini-3.1-pro-high (FAIL)",
