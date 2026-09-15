@@ -4151,3 +4151,98 @@ roadmap:
   labels:
   - kind:triage
   notes: null
+- id: PMAT-558
+  github_issue: 558
+  item_type: task
+  title: CLAUDE.md does not say which model orchestrates a ticket here, so it is chosen by habit (ORCH-001)
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#558.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-559
+  github_issue: 559
+  item_type: task
+  title: '`forjar validate` says OK to a manifest `apply` refuses: template resolution is not part of validation, so `{{.Names}}` (a docker --format) passes val'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#559.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-561
+  github_issue: 561
+  item_type: task
+  title: lock keyed by (machine, stack), host-resident; apply refuses a manifest-sha mismatch without --adopt; generator field records the real writer
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#561.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-566
+  github_issue: 566
+  item_type: task
+  title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:38Z
+  updated: 2026-09-15T17:55:38Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-567
+  github_issue: 567
+  item_type: task
+  title: 'lint.yml on the fleet: a clean-room runner has no cargo-clippy for the 1.89 toolchain — first fleet run of lint after PMAT-547'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:38Z
+  updated: 2026-09-15T17:55:38Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#567.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
