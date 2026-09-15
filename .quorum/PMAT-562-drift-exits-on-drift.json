@@ -1,0 +1,136 @@
+{
+ "kind": "code",
+ "issue": "PMAT-562 (forjar#562; paiml/infra#605 second signature) — `forjar drift` printed `Drift detected: 2 resource(s)` and exited 0 on yoga and gx10 under 1.30.0; the verdict reached the exit code only with `--tripwire`, a documented, opt-in honest mode — the forjar#352 class. Now any DRIFTED line exits 1 on every run, an unmeasured-only run exits 4, and `--tripwire` is accepted and inert.",
+ "branch": "PMAT-562-drift-exits-on-drift",
+ "base": "8b2ccedd",
+ "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
+ "diff_sha256": "79435113f165ef081ca44435242adbf07b1c06c6",
+ "recorded_at": "after the round that found ten documentation sites still selling the flag, and after a mutation the branch's own no-op test failed to kill",
+ "quorum": {
+  "lanes": [
+   "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
+   "lane 2 — gemini-3.8-flash-high (lane-2.json, NO-VERDICT: API 503, carried PASS not counted)",
+   "lane 3 — gemini-3.7-flash-high (lane-3.json, PASS)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at d1347afe, dispatched in one message, --not-before pinned to the dispatch instant, out_dir keyed by ticket AND session id; lane-reduce agreed=false partial=true (one voided lane, the two counted split FAIL/PASS)",
+  "kill_rule": "the FAIL lane's ten documentation sites were each re-grepped here and fixed (22a53170); its two NotFound test cases were re-run here and in lane 3's clone and pass; mutation M2 was run against the committed tree and survived, so the test it exposed was strengthened before this receipt was written",
+  "claims_confirmed": 6,
+  "claims_refuted": 4,
+  "refuted_claims": [
+   "That the book's every claim about drift's exit code was corrected in the first commit. Ten sites still sold --tripwire as the exit-code switch or said exit 10 (01-getting-started, 06-cli, forjar-spec, examples/image_drift.rs, error.rs's own doc comments); fourteen fixed once the cookbook chapter was grepped too.",
+   "That tripwire_is_a_no_op asserted the flag changes nothing. Mutation M2 (let the flag decorate the error message) survived: the case compared stdout only and the verdict line is on stderr. It compares stderr now and the re-run kills it.",
+   "That the branch leaves the CB-21xx ratchet where main has it. CB-2114 read 35 against 34: the new roadmap row had no release: and its issue no milestone. The ceiling file's convention was applied; 34 after. CB-2112 (36) and CB-2115 (49) are main's own debt, measured 36 and 50 there.",
+   "That the acceptance command is green in every clone. Lane 1 saw two cli::tests_check_2 cases die with NotFound; both pass here and in lane 3's clone, neither is in the diff — a sandbox artefact, named rather than explained away."
+  ],
+  "lane_errors": [
+   "lane 2: API error UNAVAILABLE 503 (no capacity for gemini-3.8-flash-high) after 1177 s; envelope ERROR, carried PASS voided by lane-reduce",
+   "the delegate hit its 30-turn cap before returning a receipt (paiml-implement#141, third time this session); lane JSONs and reduce.json were on disk and read directly"
+  ]
+ },
+ "falsification": {
+  "test": "five cases through the binary: one tampered file resource exits 1 with no flag (the regression); a converged stack exits 0 (the control); --tripwire changes neither exit, stdout nor stderr; --json exits 1 with drift_count >= 1; the help no longer describes --tripwire as the way to get an exit code. Plus four lib cases that had pinned the fail-open default (src/cli/tests_check.rs, src/cli/tests_drift.rs), inverted to assert the reject.",
+  "test_file": "tests/falsification_drift_verdict_reaches_the_exit_code.rs",
+  "cargo_test_target": "falsification_drift_verdict_reaches_the_exit_code",
+  "reverted": "three mutations over the COMMITTED tree, each restored by name from HEAD. M1 restores `_tripwire_compat && ` before the return: 3 of 5 red (regression, json, no-op), control green. M2 lets the flag append ' [tripwire]' to the error message: SURVIVED the stdout-only comparison, so the no-op case now compares stderr too (46c1e7cb) and the re-run kills exactly it. M3 rejects unconditionally: kills exactly the control. `git status --porcelain` empty after each.",
+  "observed_failure": "Drift detected: 2 resource(s) / rc=0 — forjar 1.30.0 on yoga and gx10, 2026-09-15 11:51Z; reproduced at 8b2ccedd with one tampered file resource on 127.0.0.1: rc=0 without a flag, rc=1 with --tripwire",
+  "still_green_when_reverted": "the eleven drift-touching integration suites this repository already had (falsification_drift_*, apply_sees_the_target_file, e02, e05, ignore_drift_*), 93 cases, plus the workspace at 19,779"
+ },
+ "crux": {
+  "systems": [
+   "Terraform (`plan -detailed-exitcode`: the changes-present exit is opt-in — the shape removed here)",
+   "git (`diff --exit-code` / `--quiet`: same opt-in shape; scripts must remember the flag)",
+   "Ansible (`--check --diff` exits non-zero on failure only; `changed` never reaches the exit code)",
+   "Kubernetes (`kubectl diff` exits 1 when differences are found, with no flag — the one surveyed default that already matches)"
+  ],
+  "verdict": "accept(three of four surveyed tools carry the fail-open default forjar had, and it is the industry norm rather than a forjar invention: a diff verb that exits 0 over a diff unless asked. kubectl diff is the counterexample and the shape adopted. forjar's case is stronger than any of theirs because `drift` has one job and one consumer — a cron line or a CI step reads the code and never the text — so a verdict that stays on stdout is a verdict nobody reads. Where forjar is WEAKER than Terraform after this change: exit 1 is shared with a general error, where -detailed-exitcode distinguishes 2 (changes) from 1 (error); the book points a script that needs the distinction at --json's drift_count.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan, against self-contained clones of the PR worktree",
+  "verdict": "1 FAIL / 1 PASS / 1 NO-VERDICT (503); the FAIL's ten documentation sites and one sandbox test failure were each re-executed here; agreed=false partial=true from lane-reduce",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-562",
+  "tools": [
+   "cargo test --workspace --no-fail-fast (339 targets)",
+   "cargo clippy --all-targets -D warnings",
+   "cargo fmt --all -- --check",
+   "bash scripts/dogfood/surface.sh (GATE C PASS)",
+   "bash scripts/dogfood/docs.sh (GATE D PASS)",
+   "bash scripts/dogfood/contracts.sh (GATE G PASS)",
+   "bash scripts/dogfood/comply.sh (GATE B FAIL, main's CB-21xx debt; not worse here)",
+   "bash scripts/ratchets/comply-count.sh CB-2112|CB-2114|CB-2115 on this head and on origin/main",
+   "pv validate contracts/drift-verdict-exit-v1.yaml",
+   "analyze_vacuous_tests",
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh",
+   "goal.sh worker / route.sh"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "not re-run on this branch; every new case has a control that fails on the opposite verdict, and three mutations were executed rather than reasoned (one survived and was closed). Necessary and not sufficient.",
+  "bashrs": "not applicable: this branch changes no .sh file",
+  "quality_gate": "19,779 workspace tests green at 7089415e; clippy clean; fmt clean; gates C, D, G PASS; gate B red on main (CB-2112 36>35, CB-2115 50>43) and equal-or-better here (36 / 34 / 49)",
+  "tool_defects_found": [
+   "the paiml-implement delegate hit its 30-turn cap before writing a receipt, again (paiml-implement#141)",
+   "one tampered file resource prints two DRIFTED lines and `Drift detected: 2 resource(s)` — the count is findings, not resources; pre-existing, not this ticket"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/drift-exit-judges.md",
+  "total_bytes": 15350,
+  "files": [
+   {
+    "path": ".quorum/evidence/drift-exit-claims.md",
+    "bytes": 1966,
+    "sha256": "24868e19d370c74789849bc3012d19fe409585876a87e6d71d6d7737a89cf550",
+    "blob": "7af491cac5883ab4721b68373ad1155b37706c81",
+    "roles": [
+     "claims"
+    ]
+   },
+   {
+    "path": ".quorum/evidence/drift-exit-lanes.md",
+    "bytes": 3303,
+    "sha256": "83ceda744aabd9966d3261e8e56ae5175addafc094c40634926d31289feb454c",
+    "blob": "688aa004dae25148f4036b8cb65ae6ac9ba0f1c2",
+    "roles": [
+     "lanes"
+    ]
+   },
+   {
+    "path": ".quorum/evidence/drift-exit-judges.md",
+    "bytes": 5433,
+    "sha256": "d64e3011399e7bcefd15f38c0bd9cc40a0cd18a3adeee3cb8e9b8d03bac9e09a",
+    "blob": "8742518722bb9ff34c55a3d87856592469ccd079",
+    "roles": [
+     "judges",
+     "crux"
+    ]
+   },
+   {
+    "path": ".quorum/evidence/drift-exit-agy.md",
+    "bytes": 1552,
+    "sha256": "f472eafb09b5532f42191f570231c73224bb41edc8f75aeb2fb78cf3dc38b56c",
+    "blob": "8acd1c96d571d83f0251154d011f51695f476521",
+    "roles": [
+     "agy"
+    ]
+   },
+   {
+    "path": ".quorum/evidence/drift-exit-pmat.md",
+    "bytes": 3096,
+    "sha256": "e11ee1811991246ac5266d5ffa106d464d7a12f79700604821660f8d34ed3146",
+    "blob": "117126f65e5d174a82ea8e32d1bc82f10d50e615",
+    "roles": [
+     "pmat"
+    ]
+   }
+  ]
+ }
+}
