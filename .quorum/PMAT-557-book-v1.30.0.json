@@ -4,24 +4,27 @@
  "branch": "PMAT-557-book-v1.30.0",
  "base": "bfac33cf",
  "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
- "diff_sha256": "689320fce8c2caad9c75d45ca410ef9ef81eb1d4",
+ "diff_sha256": "383767e1c427fd84b7ac3944d30263b819b5d9e0",
  "recorded_at": "after gate T passed on the branch and one review round in which no lane could reach GitHub",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
    "lane 2 — gemini-3.7-flash-high (lane-2.json, PASS)",
-   "lane 3 — gemini-3.1-pro-high (lane-3.json, PASS)"
+   "lane 3 — gemini-3.1-pro-high (lane-3.json, PASS)",
+   "merge-rail round 1 — gemini-3.1-pro-high FAIL, gemini-3.7-flash-high PASS, gemini-3.1-pro-high FAIL (head 05a58ba9)"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
-  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones at 2edf43c7, --not-before pinned, out_dir keyed by ticket AND session id; agreed=false (2 PASS / 1 FAIL), partial_reasons recording two lanes sharing a model id",
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones at 2edf43c7, --not-before pinned, out_dir keyed by ticket AND session id; agreed=false (2 PASS / 1 FAIL), partial_reasons recording two lanes sharing a model id; a merge-rail round over head 05a58ba9: 2 FAIL / 1 PASS, one FAIL right (a digest sentence, the ticket's scope), one refuted",
   "kill_rule": "lane 1's single FAIL (a commit message) was checked against the commit and the later commit it promised; every GitHub-side claim the lanes could not measure (gate T, the window, the cookbook lock, CB-21xx) was re-run by the orchestrator on the branch",
   "claims_confirmed": 5,
-  "claims_refuted": 3,
+  "claims_refuted": 5,
   "refuted_claims": [
    "That commit b3b04c1f's message claims the cookbook field was replaced. It says the field still names 0be3e1ec and will be replaced before the PR is opened — which d68fa31a does.",
    "That the lanes measured gate T and the window. gh returned 401 in every sandbox; both were UNMEASURED there and re-run by the orchestrator (GATE T PASS).",
-   "That every lane honoured the no-writes brief. Lane 1 wrote diff.txt into its own clone; agy-lane.sh kept it; the worktree was untouched."
+   "That every lane honoured the no-writes brief. Lane 1 wrote diff.txt into its own clone; agy-lane.sh kept it; the worktree was untouched.",
+   "That the three shipped rows change only their status: line (this author). PMAT-555 and PMAT-562 also bump updated: and gain release labels from the cut and sync steps; the digest now says so.",
+   "That the diff edited PMAT-545 and PMAT-527 instead of PMAT-555 and PMAT-526 (merge-rail lane 3). Every changed line was attributed to its row at HEAD; the edits are on PMAT-547/555/562 and PMAT-526/528/529."
   ],
   "lane_errors": [
    "gh unauthenticated in every sandbox: tagged.sh, release-goal.sh window and comply-count.sh UNMEASURED inside the lanes",
@@ -44,7 +47,7 @@
   "ran": true,
   "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan",
   "verdict": "1 FAIL / 2 PASS; the FAIL refuted against the commit history; agreed=false from lane-reduce",
-  "rounds": 1,
+  "rounds": 2,
   "lanes_per_round": 3,
   "writes": false,
   "sandbox": true,
@@ -75,7 +78,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/book-1300-judges.md",
-  "total_bytes": 10607,
+  "total_bytes": 11957,
   "files": [
    {
     "path": ".quorum/evidence/book-1300-claims.md",
@@ -101,9 +104,9 @@
      "judges",
      "crux"
     ],
-    "bytes": 3798,
-    "sha256": "31dd50c0e4ef794c672c401f252f826b3a0f9f1cc8e5e0f5c84b48fda390c123",
-    "blob": "1cfc09d91d209e64ec6cd8036b9c2ac565d7e7ca"
+    "bytes": 5148,
+    "sha256": "4c143d22e77f0c5b5746e48ed1cc0e3087bdb90b86474fce95597983a2fd3e72",
+    "blob": "1880d479f267a205c93b7984e7ff91b134c40ec0"
    },
    {
     "path": ".quorum/evidence/book-1300-agy.md",
