@@ -4112,3 +4112,21 @@ roadmap:
   - orch:fable
   - release:v1.31.0
   notes: 'Measured on PR #545, run 34685410794, by reading the runner back from the API rather than from the workflow file: dogfood-surface, classify and doctests all reported runner=GitHub Actions <n> with labels=ubuntu-latest. Thirty-three runner declarations across seventeen files named a hosted runner and every pull request spent them. The fleet (gh api orgs/paiml/actions/runners, 2026-09-12) is 25 runners and every one is Linux, so every Linux site moves to [self-hosted, clean-room] and the seven macOS/Windows legs cannot move at all. Two moves needed more than a label: nightly.yml built aarch64 natively on a hosted ARM runner and now cross-builds the way release.yml already does on the fleet, and binary-release.yml was pinned to ubuntu-22.04 for glibc 2.35 -- that pin is gone, so the build now MEASURES the glibc floor the binary demands and REFUSES anything above GLIBC_CEILING=2.35, which is the floor 22.04 enforced.'
+- id: PMAT-562
+  github_issue: 562
+  item_type: task
+  title: drift exits 0 over 'Drift detected' unless --tripwire is passed — fail-open by default (infra#605 second signature)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-15T13:23:55Z
+  updated: 2026-09-15T13:23:55Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar drift printed ''Drift detected: 2 resource(s)'' and exited 0 on yoga/gx10 (forjar 1.30.0, 2026-09-15). --tripwire made the exit code true; the default was fail-open. Fix: exit 1 on any DRIFTED line without a flag; --tripwire becomes a no-op kept for compatibility. Refs paiml/infra#605, forjar#562.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
