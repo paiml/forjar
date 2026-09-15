@@ -166,10 +166,10 @@ enforcement:
 falsification_tests:
   - id: FALSIFY-WRITER-001
     rule: "every_write_names_its_writer"
-    prediction: "Serialising `lock` instead of `stamped_for_write(lock)` in save_lock turns four of the five cases red"
+    prediction: "Serialising `lock` instead of `stamped_for_write(lock)` in save_lock turns every case in the suite red"
     test: "tests/falsification_lock_names_its_writer.rs::a_write_stamps_the_real_writer_and_keeps_the_creator"
     if_fails: "The file carries whatever the struct carried — the fleet's 1.1.1, again"
-    measured: "5 of 5 RED before src/core/state/mod.rs::stamped_for_write existed (the restamp case for the missing flag, the other four for the stale field)."
+    measured: "5 of 5 RED before src/core/state/mod.rs::stamped_for_write existed (the restamp case for the missing flag, the other four for the stale field). With the suite at six cases, the mutation run against the committed tree kills 6 of 6."
 
   - id: FALSIFY-WRITER-002
     rule: "the_creator_is_kept"
