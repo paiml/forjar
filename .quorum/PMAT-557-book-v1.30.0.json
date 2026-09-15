@@ -4,14 +4,15 @@
  "branch": "PMAT-557-book-v1.30.0",
  "base": "bfac33cf",
  "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
- "diff_sha256": "383767e1c427fd84b7ac3944d30263b819b5d9e0",
+ "diff_sha256": "e595c5f04a9ce286d1c8b7a2065b1f3bd66d9547",
  "recorded_at": "after gate T passed on the branch and one review round in which no lane could reach GitHub",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
    "lane 2 — gemini-3.7-flash-high (lane-2.json, PASS)",
    "lane 3 — gemini-3.1-pro-high (lane-3.json, PASS)",
-   "merge-rail round 1 — gemini-3.1-pro-high FAIL, gemini-3.7-flash-high PASS, gemini-3.1-pro-high FAIL (head 05a58ba9)"
+   "merge-rail round 1 — gemini-3.1-pro-high FAIL, gemini-3.7-flash-high PASS, gemini-3.1-pro-high FAIL (head 05a58ba9)",
+   "merge-rail round 2 — gemini-3.1-pro-high FAIL (the wrong-rows claim again, refuted by the per-id comparison), gemini-3.7-flash-high PASS, gemini-3.1-pro-high PASS (head ce25c2f5)"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
@@ -47,7 +48,7 @@
   "ran": true,
   "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan",
   "verdict": "1 FAIL / 2 PASS; the FAIL refuted against the commit history; agreed=false from lane-reduce",
-  "rounds": 2,
+  "rounds": 3,
   "lanes_per_round": 3,
   "writes": false,
   "sandbox": true,
@@ -65,7 +66,8 @@
    "pmat work sync --check-only",
    "python3 yaml.safe_load (roadmap.yaml)",
    "paiml-implement kind-gate.sh (refuses releases.yaml on the triage rail — the skill's rule is stale against this repository's)",
-   "PRINT_HASH=1 bash scripts/quorum-gate.sh"
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh",
+   "per-row YAML comparison (yaml.safe_load at origin/main and HEAD, rows by id)"
   ],
   "vacuous_tests_in_touched_paths": 0,
   "vacuous_scan": "pmat analyze vacuous-tests run on the branch; the diff touches no test and no source file, so the touched-path count is 0 by construction and the scan's repo-wide figure is unchanged from main",
@@ -78,7 +80,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/book-1300-judges.md",
-  "total_bytes": 11957,
+  "total_bytes": 12845,
   "files": [
    {
     "path": ".quorum/evidence/book-1300-claims.md",
@@ -104,9 +106,9 @@
      "judges",
      "crux"
     ],
-    "bytes": 5148,
-    "sha256": "4c143d22e77f0c5b5746e48ed1cc0e3087bdb90b86474fce95597983a2fd3e72",
-    "blob": "1880d479f267a205c93b7984e7ff91b134c40ec0"
+    "bytes": 5446,
+    "sha256": "5ee307882dc01e4a2a191d4c57a1afb7d474a0462e66d3e6f4d7ee8207405167",
+    "blob": "8cab41fd884b80789bcdfe860ff560ea6c08ab67"
    },
    {
     "path": ".quorum/evidence/book-1300-agy.md",
@@ -122,9 +124,9 @@
     "roles": [
      "pmat"
     ],
-    "bytes": 2109,
-    "sha256": "a99938c5da97de41148fec55af20a4cb057df539274e2737086ebd984e4da90c",
-    "blob": "db157763572dc0922387dea4f00c922957f288f5"
+    "bytes": 2699,
+    "sha256": "c205aec602d247d84260f17813fd07741e7499ec6de14aea976d0b34a82e0f8e",
+    "blob": "2c2d989965c4b01fac2cb68f10c21daadf1ce15f"
    }
   ]
  }
