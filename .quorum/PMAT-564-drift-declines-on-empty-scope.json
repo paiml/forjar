@@ -4,7 +4,7 @@
  "branch": "PMAT-564-drift-declines-on-empty-scope",
  "base": "8b2ccedd",
  "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
- "diff_sha256": "fb5cb485ff82bab49c57ea1fd0ae3451e37b2999",
+ "diff_sha256": "1c0d2808cc664df3f00c13e7216c94ab8ce6956a",
  "recorded_at": "stacked on PMAT-562 (PR #563) — the diff against main includes that branch; re-bound when this branch is rebased onto the squash-merged #563",
  "quorum": {
   "lanes": [
@@ -81,7 +81,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/drift-decline-judges.md",
-  "total_bytes": 14269,
+  "total_bytes": 14339,
   "files": [
    {
     "path": ".quorum/evidence/drift-decline-claims.md",
@@ -107,9 +107,9 @@
      "judges",
      "crux"
     ],
-    "bytes": 5403,
-    "sha256": "6def5d0f3ce0af0191bd41a285ac7cbc1182a21869c0c5a3682bf656bfb24d6a",
-    "blob": "74279a658e4fc46ea1151599e57bb2764530ed80"
+    "bytes": 5473,
+    "sha256": "2275c8a00730ca93232ba763ad8c0236b7292394d6ac057c2fd0981e4a27507f",
+    "blob": "3828f9a3a8f11eda0e2e1ca7b3233032fd693a31"
    },
    {
     "path": ".quorum/evidence/drift-decline-agy.md",
