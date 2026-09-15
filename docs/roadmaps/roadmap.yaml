@@ -4267,3 +4267,21 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-560
+  github_issue: 560
+  item_type: task
+  title: verify-systemd-units checks unit presence, not what executes — declare exec_sha256 per unit resource and fail on live ExecStart path or script hash ≠ declared
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-15T11:39:03Z
+  updated: 2026-09-15T11:39:03Z
+  spec: null
+  acceptance_criteria:
+  - 'Repro (live, yoga, 2026-09-15): github-runner-ephemeral.service declared in machines/yoga/forjar-ephemeral.yaml with ExecStart=run-ephemeral-docker.sh; on the box ExecStart=/opt/github-runner-ephemeral/run-ephemeral-docker-v3.sh; verify-systemd-units reports converged. Fix: declare exec_sha256 per unit resource; fail on live ExecStart path != declared or sha256(script) != exec_sha256. Contract contracts/forjar-unit-exec-parity-v1.yaml. GH #560.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
