@@ -293,6 +293,63 @@ fn the_state_query_reports_the_live_program_and_its_digest() {
 }
 
 #[test]
+fn a_program_path_with_a_space_is_read_whole() {
+    // Found by the review quorum: a split on bare spaces read
+    // `/opt/my app/run.sh` as `/opt/my`, so a unit running the right program
+    // at a path with a space was divergent, and a unit running `/opt/my`
+    // while `/opt/my app/run.sh` was declared... also divergent, by luck.
+    // systemd's own field separator is ` ; `, and that is what is split on.
+    let host = FakeHost::new();
+    fs::create_dir_all(host.dir.path().join("my app")).unwrap();
+    let spaced = host.script("my app/run.sh", DECLARED_BYTES);
+    assert!(spaced.contains(' '), "{spaced}");
+    let r = service(Some(&spaced), Some(&sha256_hex(DECLARED_BYTES)));
+
+    let out = host.run(&check_script(&r), &spaced);
+    assert_eq!(code(&out), 0, "stdout:\n{}", stdout(&out));
+    let q = stdout(&host.run(&state_query_script(&r), &spaced));
+    assert!(q.contains(&format!("exec_start={spaced}\n")), "{q}");
+}
+
+#[test]
+fn a_divergence_is_named_on_stderr_where_check_and_apply_report_from() {
+    // `cli::check` prints a failing script's STDERR under `exit 1`, and the
+    // executor reports a failed apply from stderr. A marker on stdout alone
+    // tells the operator "exit 1" and nothing about what the unit runs.
+    let host = FakeHost::new();
+    let declared = host.script("run.sh", DECLARED_BYTES);
+    let v3 = host.script("run-v3.sh", V3_BYTES);
+    let r = service(Some(&declared), Some(&sha256_hex(DECLARED_BYTES)));
+
+    for script in [check_script(&r), apply_script(&r)] {
+        let out = host.run(&script, &v3);
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            err.contains("exec_start_diverged:") && err.contains(&v3),
+            "stderr must name the live program:\n{err}"
+        );
+        assert!(
+            err.contains("exec_sha256_diverged:") && err.contains(&sha256_hex(V3_BYTES)),
+            "stderr must name the live digest:\n{err}"
+        );
+    }
+}
+
+#[test]
+fn an_uppercase_digest_would_be_permanently_divergent() {
+    // Why `validate` refuses it: the host compares the declaration as a
+    // STRING against `sha256sum`, which prints lowercase. A resource that
+    // slipped past validation with the right digest in uppercase can never
+    // pass — measured here by building the resource directly.
+    let host = FakeHost::new();
+    let declared = host.script("run.sh", DECLARED_BYTES);
+    let upper = sha256_hex(DECLARED_BYTES).to_uppercase();
+    let r = service(Some(&declared), Some(&upper));
+    let out = host.run(&check_script(&r), &declared);
+    assert_ne!(code(&out), 0, "stdout:\n{}", stdout(&out));
+}
+
+#[test]
 fn the_fake_host_matches_a_real_systemctl_line() {
     // The fixture's value is only as good as its fidelity. This is the exact
     // line systemd 249 printed for `systemctl show -p ExecStart --value

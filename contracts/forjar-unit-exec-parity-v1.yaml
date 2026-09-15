@@ -30,10 +30,15 @@ metadata:
       O1  path(ExecStart(loaded(u))) = p                         (when p declared)
       O2  sha256(bytes at path(ExecStart(loaded(u)))) = h        (when h declared)
 
-    and the resource is converged iff every declared obligation holds. The
-    predicate is read from the LOADED unit (`systemctl show`), not from the unit
-    file forjar wrote, and O2 hashes the LIVE program, never the declared path.
-    N obligations, 0 failed — the count is what the check reports.
+    and the resource is converged iff its presence assertions (`is-active` /
+    `is-enabled`, as `state` and `enabled` declare them) hold AND every
+    declared obligation holds. The predicate is read from the LOADED unit
+    (`systemctl show`), not from the unit file forjar wrote, and O2 hashes the
+    LIVE program, never the declared path. Each obligation is one marker line
+    on the check's stdout (`exec_start:` / `exec_sha256:` when it holds,
+    `exec_*_diverged:` when it does not, the latter also on stderr where
+    `forjar check` reports from); the resource passes iff no `_diverged`
+    marker was printed — N obligations, 0 failed, read from the exit code.
 
   references:
     - "issue: https://github.com/paiml/forjar/issues/560"
@@ -82,6 +87,8 @@ equations:
     invariants:
       - "live(u) is read from the MANAGER, never from the unit file at /etc/systemd/system"
       - "An unloaded unit yields live(u) = ∅, and ∅ ≠ p for every p — absence is divergence, never parity"
+      - "The path is cut at systemd's own ` ; ` field separator, so `/opt/my app/run.sh` is read whole"
+      - "A divergent marker is written to stdout (the verdict convention) AND stderr (what `forjar check` and a failed apply report from)"
       - "A `systemctl show` that fails yields the same ∅ — an unmeasured program reads as divergent, never as a pass and never as an opaque abort"
     notes: |
       `systemctl show` on an unloaded unit prints an EMPTY line and exits 0
@@ -105,7 +112,8 @@ equations:
 
   each_obligation_is_independent:
     formula: |
-      converged(u) ⟺ (p declared ⟹ O1(u, p)) ∧ (h declared ⟹ O2(u, h))
+      converged(u) ⟺ present(u) ∧ (p declared ⟹ O1(u, p)) ∧ (h declared ⟹ O2(u, h))
+      present(u)   ⟺ (state = running ⟹ active(u)) ∧ (state = stopped ⟹ ¬active(u)) ∧ (enabled ⟺ is-enabled(u))
       undeclared(u) ⟹ check(u) = check_before_PMAT_560(u) ∧ query(u) = query_before_PMAT_560(u)
     domain: "u a service resource"
     codomain: "bool"
@@ -188,6 +196,18 @@ proof_obligations:
     applies_to: all
     enforced_by: "src/core/parser/service_exec_validate.rs::tests::a_relative_program_is_refused, a_malformed_digest_is_refused"
 
+  - type: invariant
+    property: "A program path containing a space is read whole"
+    formal: "live(u) = '/opt/my app/run.sh' ⟹ O1(u, '/opt/my app/run.sh')"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_program_path_with_a_space_is_read_whole"
+
+  - type: invariant
+    property: "A divergence is named where the operator reads"
+    formal: "¬converged(u) ⟹ stderr(check(u)) ∋ exec_*_diverged ∧ stderr(apply(u)) ∋ exec_*_diverged"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_divergence_is_named_on_stderr_where_check_and_apply_report_from"
+
   - type: completeness
     property: "Parity holds on the fleet's declared units, through the real transport"
     formal: "∀ host ∈ {intel, yoga, gx10}, ∀ u declared with exec_*: forjar check reports converged after the declaration lands and the box is reconciled"
@@ -254,15 +274,32 @@ falsification_tests:
 
   - id: FALSIFY-EXEC-005
     rule: "parity_reads_the_loaded_unit"
-    prediction: "Reading exit 0 from systemctl show as 'answered' lets an unloaded unit pass a declared exec_start"
+    prediction: "Skipping the path assertion when systemctl show prints nothing — treating exit 0 with empty output as 'nothing to compare' — lets an unloaded unit pass a declared exec_start; the assertion as written compares the empty path and fails"
     test: "tests/falsification_unit_exec_parity.rs::an_unloaded_unit_is_not_converged"
     if_fails: "Absence is read as parity"
 
   - id: FALSIFY-EXEC-006
     rule: "digest_is_of_the_live_program"
-    prediction: "Accepting an uppercase or 16-char digest at parse time yields a resource that is permanently divergent by construction"
+    prediction: "An uppercase digest that reached the host would never pass (the host compares strings against lowercase sha256sum output), which is why validate refuses it; both halves are tested — the refusal, and the divergence a bypassed refusal would produce"
     test: "src/core/parser/service_exec_validate.rs::tests::a_malformed_digest_is_refused"
+    test_secondary: "tests/falsification_unit_exec_parity.rs::an_uppercase_digest_would_be_permanently_divergent"
     if_fails: "The operator learns of the typo as a check that never passes rather than at validate"
+
+  - id: FALSIFY-EXEC-007
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Splitting the systemctl line on a bare space instead of ` ; ` reads `/opt/my app/run.sh` as `/opt/my` and turns this red"
+    test: "tests/falsification_unit_exec_parity.rs::a_program_path_with_a_space_is_read_whole"
+    if_fails: "A legal program path is misread, and the misread path is what gets hashed"
+    measured: |
+      The first cut of src/resources/service_exec.rs split on `/[ ;]/`. Two of
+      three review lanes found it by reading the awk; this test was written
+      against that cut and was RED before the separator changed.
+
+  - id: FALSIFY-EXEC-008
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Dropping the `>&2` echo leaves `forjar check` printing `exit 1` with no line naming the live program"
+    test: "tests/falsification_unit_exec_parity.rs::a_divergence_is_named_on_stderr_where_check_and_apply_report_from"
+    if_fails: "The operator sees a failure and not what the unit runs — the yoga investigation, repeated"
 
 # No kani_harnesses. `metadata.kind: pattern`: every obligation here quantifies
 # over what a MANAGER reports and what BYTES sit at a path on a host. A bounded
@@ -279,7 +316,7 @@ qa_gate:
     - "each_obligation_is_independent"
     - "apply_refuses_the_wrong_program"
     - "drift_sees_the_swap"
-  pass_criteria: "All 6 falsification tests pass; the completeness obligation is discharged on the fleet, not here"
+  pass_criteria: "All 8 falsification tests pass; the completeness obligation is discharged on the fleet, not here"
   falsification: "Delete the `assertions.extend(service_exec::assertions(resource, name))` line in src/resources/service.rs::check_script"
 
 verification_level: L3

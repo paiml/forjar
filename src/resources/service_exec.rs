@@ -42,13 +42,30 @@ const SHA: &str = "__fj_unit_sha";
 /// an unmeasured program must read as divergent, never as an opaque death and
 /// never as a pass. The awk reads every line and prints the first path: no
 /// `head`, so nothing upstream is left writing into a closed pipe under
-/// `pipefail` (the SIGPIPE class, PMAT-240).
+/// `pipefail` (the SIGPIPE class, PMAT-240). Fields are split on systemd's
+/// own ` ; ` separator, not on a bare space — `/opt/my app/run.sh` is a
+/// legal program path and a space-split read it as `/opt/my` (found by the
+/// PMAT-560 review quorum, 2 of 3 lanes).
 pub fn probe(name: &str) -> String {
     let n = sh_squote(name);
     format!(
         "{LIVE}=$( {{ systemctl show -p ExecStart --value {n} 2>/dev/null || echo; }} | \
-         awk -F'path=' 'NF>1 && !done {{ split($2, a, /[ ;]/); print a[1]; done=1 }}')\n\
+         awk -F' ; ' '!done && sub(/^\\{{ path=/, \"\", $1) {{ print $1; done=1 }}')\n\
          {SHA}=$( {{ sha256sum \"${LIVE}\" 2>/dev/null || echo missing; }} | awk '{{print $1}}')"
+    )
+}
+
+/// The divergent branch: the marker, to stdout AND stderr.
+///
+/// stdout is the `verdict` convention and what the state query is hashed
+/// from. stderr is what the operator sees: `cli::check` prints only a failing
+/// script's stderr under `exit 1`, and the executor reports a failed apply
+/// from stderr too — so a marker on stdout alone names what the unit runs to
+/// nobody (found by the PMAT-560 review quorum).
+fn diverged(prefix: &str, live_expr: &str) -> String {
+    format!(
+        "__fj_m={}{live_expr}; echo \"$__fj_m\"; echo \"$__fj_m\" >&2",
+        sh_squote(prefix)
     )
 }
 
@@ -66,9 +83,9 @@ pub fn assertions(resource: &Resource, name: &str) -> Vec<String> {
         out.push(verdict::assert_block(
             &format!("[ \"${LIVE}\" = {} ]", sh_squote(path)),
             &format!("echo {}", sh_squote(&format!("exec_start:{name}:{path}"))),
-            &format!(
-                "echo {}\"${{{LIVE}:-none}}\"",
-                sh_squote(&format!("exec_start_diverged:{name}:declared={path}:live="))
+            &diverged(
+                &format!("exec_start_diverged:{name}:declared={path}:live="),
+                &format!("\"${{{LIVE}:-none}}\""),
             ),
         ));
     }
@@ -79,11 +96,9 @@ pub fn assertions(resource: &Resource, name: &str) -> Vec<String> {
                 "echo {}",
                 sh_squote(&format!("exec_sha256:{name}:{digest}"))
             ),
-            &format!(
-                "echo {}\"${SHA}\"",
-                sh_squote(&format!(
-                    "exec_sha256_diverged:{name}:declared={digest}:live="
-                ))
+            &diverged(
+                &format!("exec_sha256_diverged:{name}:declared={digest}:live="),
+                &format!("\"${SHA}\""),
             ),
         ));
     }
@@ -121,7 +136,7 @@ pub fn apply_tail(resource: &Resource, name: &str) -> Vec<String> {
     out.extend(assertions);
     out.push(verdict::exit_if_diverged(&format!(
         "FORJAR_FAIL: {name} executes something other than what was declared \
-         (exec_start / exec_sha256); see the exec_*_diverged marker above"
+         (exec_start / exec_sha256); the exec_*_diverged line above names what it runs"
     )));
     out
 }

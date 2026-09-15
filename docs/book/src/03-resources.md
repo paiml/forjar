@@ -246,18 +246,23 @@ Either field alone is honoured: `exec_sha256` alone pins the bytes and lets the
 path float; `exec_start` alone pins the path. A service that declares neither
 behaves exactly as before, and its observed state does not change.
 
-When parity fails, `forjar check` exits non-zero with a marker naming what the
-unit actually runs (`exec_start_diverged:<unit>:declared=…:live=…`), `forjar
-apply` **fails the resource** rather than reporting a started-and-enabled unit
-converged (the unit file is another resource's to converge), and `forjar drift`
-sees a program swapped after apply because the live path and digest are part
-of the observed state. An unloaded unit — `systemctl show` prints an empty line
-for it — is a divergence, not a pass.
+When parity fails, `forjar check` exits non-zero and prints the marker that
+names what the unit actually runs — the live program path
+(`exec_start_diverged:<unit>:declared=…:live=/opt/…/run-v3.sh`) or the live
+digest (`exec_sha256_diverged:<unit>:declared=…:live=9de9af…`); the marker is
+written to the script's stderr as well as its stdout, because stderr is what
+`check` shows under a failure. `forjar apply` **fails the resource** with the
+same line rather than reporting a started-and-enabled unit converged (the
+unit file is another resource's to converge), and `forjar drift` sees a
+program swapped after apply because the live path and digest are part of the
+observed state. An unloaded unit — `systemctl show` prints an empty line for
+it — is a divergence, not a pass.
 
 `forjar validate` refuses a relative `exec_start` and any `exec_sha256` that is
 not 64 lowercase hex characters: both would be permanently divergent by
 construction, since the host compares them as strings against what `systemctl`
-and `sha256sum` print.
+and `sha256sum` print. A `{{…}}` template in either field is left for the
+resolver, as every format check does.
 
 Three things to know before declaring it:
 
