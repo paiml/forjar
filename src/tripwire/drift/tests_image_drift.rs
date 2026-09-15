@@ -143,3 +143,28 @@ lifecycle:
         "resources with ignore_drift should be skipped"
     );
 }
+
+/// PMAT-564: a locked image the config does not declare is another
+/// manifest's, and is skipped as such — never inspected, never graded, and
+/// the census says why. Before this, the detector walked the lock alone and
+/// `census.inspected` overwrote the `NotInConfig` skip the state-query
+/// detector had recorded for the same id.
+#[test]
+fn an_undeclared_locked_image_is_skipped_as_not_in_config() {
+    let lock = make_image_lock("app", "sha256:abc", "my-app");
+    let machine: Machine = serde_yaml_ng::from_str("hostname: m\naddr: 127.0.0.1").unwrap();
+    let resources = IndexMap::new();
+    let mut census = DriftCensus::new();
+    let findings = image::detect_image_drift(&lock, &machine, &resources, &mut census);
+    assert!(
+        findings.is_empty(),
+        "an undeclared image must not be graded"
+    );
+    assert_eq!(census.inspected_total(), 0);
+    assert_eq!(
+        census.skipped_ids(SkipReason::NotInConfig),
+        vec!["app"],
+        "the census must name why: {:?}",
+        census.skipped_by_reason()
+    );
+}

@@ -26,6 +26,17 @@ pub(super) fn detect_image_drift(
         if rl.resource_type != ResourceType::Image {
             continue;
         }
+        // PMAT-564: the config is the scope. This detector runs only with a
+        // config in hand (`detect_drift_full_reported`), and a locked image the
+        // config does not declare belongs to another manifest — skipped, as
+        // the file and state-query detectors skip it. Found by a review lane:
+        // `census.inspected` overwrites a skip, so this detector alone could
+        // grade an entry the non-file detector had just censused as
+        // `in the lock, not in the config`.
+        if !resources.contains_key(id) {
+            census.skipped(id, &rl.resource_type, SkipReason::NotInConfig);
+            continue;
+        }
         if rl.status != ResourceStatus::Converged {
             census.skipped(id, &rl.resource_type, SkipReason::NotConverged);
             continue;

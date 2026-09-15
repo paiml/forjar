@@ -85,8 +85,8 @@ equations:
     domain: "config a manifest, lock the machine's lock, id a lock entry"
     codomain: "census entry"
     invariants:
-      - "A locked resource the config does not declare is never graded — no DRIFTED line names it, in text or --json"
-      - "A resource is inspected OR skipped, never both: the census cannot contradict itself"
+      - "A locked resource the config does not declare is never graded — no DRIFTED line names it, in text or --json — by the file, state-query, task-check AND image detectors"
+      - "A resource is inspected OR skipped, never both: the census cannot contradict itself. `census.inspected` OVERWRITES a skip, so every detector that walks the lock must ask the config first; a detector that does not is how the contradiction arises"
       - "Without a config (bare `drift`, no `-f`), the lock is the only scope and every entry is still graded — the forjar#385 path is unchanged"
 
   zero_coverage_declines:
@@ -144,6 +144,13 @@ proof_obligations:
     enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::json_output_declines_with_the_same_code"
 
   - type: invariant
+    property: "The image detector honours the scope too"
+    formal: "config loaded ∧ id ∈ lock.images ∧ id ∉ config ⟹ census[id] = skipped(NotInConfig) ∧ inspected = 0"
+    applies_to: all
+    enforced_by: "src/tripwire/drift/tests_image_drift.rs::an_undeclared_locked_image_is_skipped_as_not_in_config"
+    notes: "Found by the review quorum (one lane of three read image.rs): the image detector walked the lock alone, and `census.inspected` overwrites a skip, so it could grade an entry the state-query detector had just censused as not-in-config."
+
+  - type: invariant
     property: "An unmeasured resource outranks a decline"
     formal: "declared = 1 ∧ inspected = 0 ∧ unmeasured = 1 ⟹ exit 4"
     applies_to: all
@@ -194,6 +201,12 @@ falsification_tests:
     if_fails: "An unreachable host reads as 'nothing to measure' instead of 'could not measure'"
     measured: "This is the mutation the first cut WAS; the two cases went red and named it."
 
+  - id: FALSIFY-DECLINE-005
+    rule: "the_config_is_the_scope"
+    prediction: "Dropping the `resources.contains_key(id)` guard from src/tripwire/drift/image.rs turns the image case red: the undeclared image is inspected and, with docker absent, graded as drifted"
+    test: "src/tripwire/drift/tests_image_drift.rs::an_undeclared_locked_image_is_skipped_as_not_in_config"
+    if_fails: "Another manifest's container is reported under this manifest's name, and the census calls it skipped"
+
   - id: FALSIFY-DECLINE-004
     rule: "zero_coverage_declines"
     prediction: "Declining unconditionally turns the partially-locked control and the fully-inspected control red"
@@ -211,7 +224,7 @@ qa_gate:
   checks:
     - "the_config_is_the_scope"
     - "zero_coverage_declines"
-  pass_criteria: "All 4 falsification tests pass"
+  pass_criteria: "All 5 falsification tests pass"
   falsification: "Delete the `decline_on_empty_scope(cfg, &scan)?` call in src/cli/drift.rs::cmd_drift"
 
 verification_level: L3
