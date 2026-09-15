@@ -53,6 +53,7 @@
  "pmat": {
   "ticket": "PMAT-557",
   "tools": [
+   "analyze_vacuous_tests",
    "bash scripts/dogfood/tagged.sh (gate T, four FAILs then PASS)",
    "bash scripts/release-goal.sh cut v1.30.0 --next v1.31.0",
    "bash scripts/release-goal.sh sync",
@@ -64,7 +65,7 @@
    "PRINT_HASH=1 bash scripts/quorum-gate.sh"
   ],
   "vacuous_tests_in_touched_paths": 0,
-  "vacuous_scan": "not applicable: no test and no code in the diff",
+  "vacuous_scan": "pmat analyze vacuous-tests run on the branch; the diff touches no test and no source file, so the touched-path count is 0 by construction and the scan's repo-wide figure is unchanged from main",
   "bashrs": "not applicable: no .sh file changed",
   "quality_gate": "gate T PASS on the branch; gate B CB-2112 37->34 and CB-2115 53->45, still above the 43 ceiling until the #568/#569/#570 rows land",
   "tool_defects_found": [
