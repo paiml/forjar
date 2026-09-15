@@ -3,8 +3,8 @@
  "issue": "PMAT-560 (forjar#560) — a `service` resource asked the host `is-active` and `is-enabled` and nothing else; on yoga, 2026-09-15, both were true of github-runner-ephemeral.service while the loaded unit ran run-ephemeral-docker-v3.sh, a file the repository never declared, and the check reported converged. Declared `exec_start` / `exec_sha256` are now checked against what systemd reports for the LOADED unit and the bytes at the LIVE path.",
  "branch": "PMAT-560-unit-exec-parity",
  "base": "cb94fc21",
- "base_commit": "cb94fc211fda74f5052694a028e21a557a2fcd82",
- "diff_sha256": "8708c6511407994c36ded12e42616c14ce102707",
+ "base_commit": "d324c57eca4ef6a0c1b57599d2b12e49ef6c4d47",
+ "diff_sha256": "9b7532da3f59ca8b6892a0bcf5a687a6f58c2b2c",
  "recorded_at": "rebased onto main after #563 and then #571 (the v1.30.0 booking) merged; conflicts were append-only (roadmap rows, estimates ledger) and kept both sides",
  "quorum": {
   "lanes": [
