@@ -312,6 +312,25 @@ fn a_program_path_with_a_space_is_read_whole() {
 }
 
 #[test]
+fn a_space_split_cannot_turn_the_wrong_program_into_the_declared_one() {
+    // THE EXIT-0 HOLE the first cut had, as the review lane described it:
+    // declared `<dir>/run.sh` (right bytes there), while the unit runs
+    // `<dir>/run.sh evil` — a different file whose name merely begins with
+    // the declared one. A space-split read the live path as `<dir>/run.sh`,
+    // equal to the declaration, then hashed THAT file: parity, exit 0, over
+    // the wrong program.
+    let host = FakeHost::new();
+    let declared = host.script("run.sh", DECLARED_BYTES);
+    let evil = host.script("run.sh evil", V3_BYTES);
+    let r = service(Some(&declared), Some(&sha256_hex(DECLARED_BYTES)));
+
+    let out = host.run(&check_script(&r), &evil);
+    assert_ne!(code(&out), 0, "stdout:\n{}", stdout(&out));
+    let s = stdout(&out);
+    assert!(s.contains(&format!("live={evil}")), "{s}");
+}
+
+#[test]
 fn a_divergence_is_named_on_stderr_where_check_and_apply_report_from() {
     // `cli::check` prints a failing script's STDERR under `exit 1`, and the
     // executor reports a failed apply from stderr. A marker on stdout alone

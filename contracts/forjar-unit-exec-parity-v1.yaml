@@ -287,8 +287,9 @@ falsification_tests:
 
   - id: FALSIFY-EXEC-007
     rule: "parity_reads_the_loaded_unit"
-    prediction: "Splitting the systemctl line on a bare space instead of ` ; ` reads `/opt/my app/run.sh` as `/opt/my` and turns this red"
+    prediction: "Splitting the systemctl line on a bare space instead of ` ; ` reads `/opt/my app/run.sh` as `/opt/my`, and reads a unit running `<dir>/run.sh evil` as running the declared `<dir>/run.sh` — parity, exit 0, over the wrong program"
     test: "tests/falsification_unit_exec_parity.rs::a_program_path_with_a_space_is_read_whole"
+    test_secondary: "tests/falsification_unit_exec_parity.rs::a_space_split_cannot_turn_the_wrong_program_into_the_declared_one"
     if_fails: "A legal program path is misread, and the misread path is what gets hashed"
     measured: |
       The first cut of src/resources/service_exec.rs split on `/[ ;]/`. Two of
