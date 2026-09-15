@@ -1,7 +1,8 @@
 # PMAT-557 — adjudicated claims
 
-One round of three sandboxed agy quorum lanes: 1 FAIL, 2 PASS, not agreed.
-Five confirmations and three refutations, every GitHub-side claim re-run by
+Two rounds of three sandboxed agy quorum lanes — the paiml-implement review
+(1 FAIL, 2 PASS) and the merge rail's first round (2 FAIL, 1 PASS), neither
+agreed. Five confirmations and five refutations, every GitHub-side claim re-run by
 the orchestrator because no lane could reach GitHub. The row is what the tag
 and the window say; the one sentence a lane called false was not.
 
@@ -35,8 +36,9 @@ and the window say; the one sentence a lane called false was not.
    say completed (lanes 1, 2 and 3 against git log).
    - evidence: #556, #548 and #563 are on main; the rows at
      `docs/roadmaps/roadmap.yaml:3982`, `docs/roadmaps/roadmap.yaml:4091` and
-     `docs/roadmaps/roadmap.yaml:4116` change only their `status:` line, and
-     CB-2112's ISSUE-CLOSED count falls from 3 to 0.
+     `docs/roadmaps/roadmap.yaml:4116` change their `status:` line, and the
+     cut and sync steps also bump `updated:` on PMAT-555 and PMAT-562 and add
+     their release label; CB-2112's ISSUE-CLOSED count falls from 3 to 0.
 
 5. [labels] That PMAT-526, PMAT-528 and PMAT-529 did not ship in v1.30.0, so
    moving their `release:` label to v1.31.0 is correct (all three lanes).
@@ -66,3 +68,22 @@ and the window say; the one sentence a lane called false was not.
    - corrected: lane 1 wrote `diff.txt` into its own sandbox clone;
      `agy-lane.sh` kept the clone and printed so; the shared worktree stayed at
      `2edf43c7`, and the clone was removed after the finding was recorded.
+
+4. [status-only] That the three shipped rows "change only their `status:`
+   line" (this author, in this digest as first written; found by the merge
+   rail's lane 1, gemini-3.1-pro-high).
+   - corrected: attributing every changed line of the roadmap diff to its row
+     shows PMAT-555 and PMAT-562 also bump `updated:` and gain their release
+     label — written by `release-goal.sh cut` and `sync`, not by hand — while
+     PMAT-547 changes only `status:`. The sentence in the CONFIRMED item above
+     now says exactly that; the change itself was right and the description of
+     it was not.
+
+5. [wrong-rows] That the diff marked PMAT-545 completed instead of PMAT-555 and
+   moved PMAT-527's label instead of PMAT-526's (the merge rail's lane 3,
+   gemini-3.1-pro-high, reading hunk context).
+   - corrected: every added and removed line of `docs/roadmaps/roadmap.yaml` was
+     attributed to the row it falls in at HEAD. The status changes are on
+     PMAT-547, PMAT-555 and PMAT-562; the label moves are on PMAT-526, PMAT-528
+     and PMAT-529; PMAT-545 and PMAT-527 are untouched. The lane read the line
+     above each hunk as the row the hunk edits.

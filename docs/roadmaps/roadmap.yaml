@@ -4146,6 +4146,7 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'Gate T on main: v1.30.0 is reachable from HEAD and has no row in docs/roadmaps/releases.yaml. Book it with scripts/release-goal.sh cut v1.30.0 --next v1.31.0, naming the paiml/forjar-cookbook commit that locks forjar 1.30.0 (paiml/forjar-cookbook#21). Refs forjar#557.'
+  - 'Repair every record gate T and gate B refuse on the way, because the 1.31.0 cut cannot pass either while they stand: the 1.30.0 dogfood receipt end marker; release labels on rows the window did not ship; status completed on rows whose PRs merged and issues closed (CB-2112 ISSUE-CLOSED); roadmap rows for open issues that have none (CB-2115 ORPHAN-GITHUB), each minted from its issue with a release and milestone so CB-2114 does not grow.'
   phases: []
   subtasks: []
   estimated_effort: null
