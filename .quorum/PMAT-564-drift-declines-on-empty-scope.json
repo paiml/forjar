@@ -4,8 +4,8 @@
  "branch": "PMAT-564-drift-declines-on-empty-scope",
  "base": "bfac33cf",
  "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
- "diff_sha256": "2bcc833eb54d7c23ce47e5a5404c1474e708334b",
- "recorded_at": "rebased onto main after #563 squash-merged (bfac33cf); the diff is PMAT-564's alone",
+ "diff_sha256": "0d5ea438508cb82963fd74fe3229cf1357a8427d",
+ "recorded_at": "rebased onto main after #563 merged; decline_on_empty_scope then split into src/cli/drift_decline.rs for the 500-line file-health gate",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
@@ -81,7 +81,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/drift-decline-judges.md",
-  "total_bytes": 14339,
+  "total_bytes": 14374,
   "files": [
    {
     "path": ".quorum/evidence/drift-decline-claims.md",
@@ -107,9 +107,9 @@
      "judges",
      "crux"
     ],
-    "bytes": 5473,
-    "sha256": "2275c8a00730ca93232ba763ad8c0236b7292394d6ac057c2fd0981e4a27507f",
-    "blob": "3828f9a3a8f11eda0e2e1ca7b3233032fd693a31"
+    "bytes": 5508,
+    "sha256": "cb3e7eae1ec5352d05d9abb549e3f65b69306a57e7ef9569cc0404b449e6c167",
+    "blob": "7ab46844b72f3406f21c30f1719aaa2a6d00ced5"
    },
    {
     "path": ".quorum/evidence/drift-decline-agy.md",
