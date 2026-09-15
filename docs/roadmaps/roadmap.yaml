@@ -4131,3 +4131,22 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-557
+  github_issue: 557
+  item_type: task
+  title: 'ledger: book v1.30.0 — the release was tagged and never declared (gate T red on main), and the cookbook commit it was qualified against'
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-15T17:38:13Z
+  updated: 2026-09-15T17:38:13Z
+  spec: null
+  acceptance_criteria:
+  - 'Gate T on main: v1.30.0 is reachable from HEAD and has no row in docs/roadmaps/releases.yaml. Book it with scripts/release-goal.sh cut v1.30.0 --next v1.31.0, naming the paiml/forjar-cookbook commit that locks forjar 1.30.0 (paiml/forjar-cookbook#21). Refs forjar#557.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  notes: null
