@@ -1,8 +1,10 @@
 # PMAT-562 — adjudicated claims
 
-One round of three sandboxed agy quorum lanes: 1 FAIL, 1 PASS, 1 voided (API
-503). Six confirmations and four refutations, every one re-measured on this
-host before it was acted on. The verdict held; what did not hold was the
+Two rounds of three sandboxed agy quorum lanes — the paiml-implement review
+(1 FAIL, 1 PASS, 1 voided on an API 503) and the merge rail's second round
+over the head that carried the rustls bump (2 PASS, 1 FAIL). Six
+confirmations and five refutations, every one re-measured on this host
+before it was acted on. The verdict held; what did not hold was the
 branch's claim to have finished the documentation, and one of its own tests'
 claim to be asserting what its name said.
 
@@ -91,3 +93,14 @@ claim to be asserting what its name said.
      and named here because a lane's red that the author explains away is the
      shape a reviewer should be able to check. The command to check it:
      `cargo test --lib -- cli::tests_check_2::tests::test_fj017_check_machine_filter`.
+
+5. [lock-scope] That the rustls advisory bump (828052d9) changed the lock
+   for rustls only (this author, in that commit's subject).
+   - corrected: the merge rail's lane 3 (gemini-3.1-pro-high) read
+     `Cargo.lock:3760` and found tempfile's dependency re-resolved from
+     `getrandom 0.4.3` to `0.3.4` — admitted by tempfile 3.27.0's
+     `>=0.3.0, <0.5`, but nothing asked for it and the receipt was silent.
+     Reverted by hand in fe9fce31; `cargo metadata --locked` accepts the lock,
+     `cargo audit` is clean, and the diff against main now touches
+     `Cargo.lock:3154` (rustls 0.23.43 → 0.23.45) and nothing else in that file.
+
