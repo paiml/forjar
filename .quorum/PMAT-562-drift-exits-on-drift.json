@@ -4,8 +4,8 @@
  "branch": "PMAT-562-drift-exits-on-drift",
  "base": "8b2ccedd",
  "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
- "diff_sha256": "79435113f165ef081ca44435242adbf07b1c06c6",
- "recorded_at": "after the round that found ten documentation sites still selling the flag, and after a mutation the branch's own no-op test failed to kill",
+ "diff_sha256": "ba9d52e94887261c761f947113b3ca5f1d906ec8",
+ "recorded_at": "after the round that found ten documentation sites still selling the flag, and after a mutation the branch's own no-op test failed to kill; re-bound after the rustls advisory bump (828052d9)",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
@@ -70,7 +70,8 @@
    "pv validate contracts/drift-verdict-exit-v1.yaml",
    "analyze_vacuous_tests",
    "PRINT_HASH=1 bash scripts/quorum-gate.sh",
-   "goal.sh worker / route.sh"
+   "goal.sh worker / route.sh",
+   "cargo audit / cargo deny check advisories (RUSTSEC-2026-0285 on rustls 0.23.43 — bumped to 0.23.45, lock-only, after ci/security went red on every PR)"
   ],
   "vacuous_tests_in_touched_paths": 0,
   "vacuous_scan": "not re-run on this branch; every new case has a control that fails on the opposite verdict, and three mutations were executed rather than reasoned (one survived and was closed). Necessary and not sufficient.",
