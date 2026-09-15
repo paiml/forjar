@@ -1,12 +1,31 @@
 //! What `lifecycle.ignore_drift` is allowed to say.
 //!
-//! The STRUCT stays in `resource.rs` beside the field that carries it; the
-//! impl lives here so there is exactly ONE place that decides what an
-//! `ignore_drift` entry means, and the parser and the tripwire cannot drift
-//! apart on it (forjar#335 was precisely that — the schema said "field
-//! list", the engine read "any entry means everything").
+//! The struct and its impl live here together so there is exactly ONE place
+//! that decides what an `ignore_drift` entry means, and the parser and the
+//! tripwire cannot drift apart on it (forjar#335 was precisely that — the
+//! schema said "field list", the engine read "any entry means everything").
+//! The struct moved out of `resource.rs` with PMAT-560, which put that file
+//! over the 500-line health limit; `Resource.lifecycle` still carries it.
 
-use super::resource::LifecycleRules;
+use serde::{Deserialize, Serialize};
+
+/// FJ-1220: Lifecycle protection rules for a resource.
+///
+/// Controls how a resource is handled during destroy, replacement, and drift detection.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleRules {
+    /// Prevent this resource from being destroyed (forjar destroy skips with warning)
+    #[serde(default)]
+    pub prevent_destroy: bool,
+
+    /// Write new version before removing old (avoids config-absent window)
+    #[serde(default)]
+    pub create_before_destroy: bool,
+
+    /// Fields whose drift is suppressed (reported as "suppressed" not "detected")
+    #[serde(default)]
+    pub ignore_drift: Vec<String>,
+}
 
 impl LifecycleRules {
     /// The ONLY `ignore_drift` entry forjar implements: suppress every

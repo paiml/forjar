@@ -85,6 +85,8 @@ pub(crate) fn resolve_resource_inputs(
 
     // Service/naming fields
     r.name = resolve_opt(&r.name, inputs)?;
+    r.exec.exec_start = resolve_opt(&r.exec.exec_start, inputs)?;
+    r.exec.exec_sha256 = resolve_opt(&r.exec.exec_sha256, inputs)?;
     r.image = resolve_opt(&r.image, inputs)?;
     r.restart = resolve_opt(&r.restart, inputs)?;
     r.command = resolve_opt(&r.command, inputs)?;

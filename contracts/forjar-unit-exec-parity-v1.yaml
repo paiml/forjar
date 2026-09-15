@@ -1,0 +1,323 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-15"
+  author: "PAIML Engineering"
+  description: |
+    Unit exec parity (PMAT-560, paiml/forjar#560) — a `service` resource is
+    converged only while the unit systemd has LOADED executes the program that
+    was declared, byte for byte.
+
+    Origin. yoga, 2026-09-15. `github-runner-ephemeral.service` was declared in
+    paiml/infra `machines/yoga/forjar-ephemeral.yaml` with a unit file whose
+    `ExecStart` named `run-ephemeral-docker.sh`. The loaded unit executed
+    `/opt/github-runner-ephemeral/run-ephemeral-docker-v3.sh` — root-owned,
+    mtime 2026-09-10 17:28, the product of a 95-minute hand iteration (v1 →
+    v2 → v3) the repository never saw — and every check reported the service
+    converged. The `service` resource asked the host `is-active` and
+    `is-enabled`, and both were true of a unit running code nobody had
+    reviewed. The five-whys in infra's `docs/audits/autonomous-run-2026-09-15.md`
+    terminates in this mechanism: "forjar converges the declaration, and
+    nothing verifies the executable behind it."
+
+    The layers are unit → `ExecStart` → script bytes. Until this contract
+    forjar checked the first and reported for the stack.
+
+    Obligations. For every declared unit u with `exec_start` p and/or
+    `exec_sha256` h:
+
+      O1  path(ExecStart(loaded(u))) = p                         (when p declared)
+      O2  sha256(bytes at path(ExecStart(loaded(u)))) = h        (when h declared)
+
+    and the resource is converged iff its presence assertions (`is-active` /
+    `is-enabled`, as `state` and `enabled` declare them) hold AND every
+    declared obligation holds. The predicate is read from the LOADED unit
+    (`systemctl show`), not from the unit file forjar wrote, and O2 hashes the
+    LIVE program, never the declared path. Each obligation is one marker line
+    on the check's stdout (`exec_start:` / `exec_sha256:` when it holds,
+    `exec_*_diverged:` when it does not, the latter also on stderr where
+    `forjar check` reports from); the resource passes iff no `_diverged`
+    marker was printed — N obligations, 0 failed, read from the exit code.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/560"
+    - "paiml/infra docs/audits/autonomous-run-2026-09-15.md — the five-whys terminus"
+    - "src/resources/service_exec.rs — probe, assertions, query lines, apply tail"
+    - "src/resources/service.rs — the service handler these fragments compose into"
+    - "src/core/types/service_exec_types.rs — ExecParity, is_sha256_hex"
+    - "src/core/parser/service_exec_validate.rs — parse-time refusal of an unmatchable declaration"
+    - "tests/falsification_unit_exec_parity.rs — executes the generated shell against a fake host"
+    - "systemd: `systemctl show -p ExecStart --value` prints `{ path=… ; argv[]=… }`, and an empty line for an unloaded unit"
+    - "RFC 2119 keywords used throughout"
+
+  quorum_validation:
+    - system: "systemd (unit loading, drop-ins, `systemctl show`)"
+      adopted: |
+        The loaded unit is the truth, not the unit file: drop-in overrides and
+        edited files are folded in by the manager, and `systemctl show`
+        reports the result. Reading the file forjar wrote would confirm the
+        write and say nothing about what runs.
+      encoded_as: "equation `parity_reads_the_loaded_unit`"
+    - system: "Nix / Guix (content-addressed store paths)"
+      adopted: |
+        Identity is the hash of the bytes, not the path. A path can hold
+        different bytes than the ones reviewed; only the digest says which.
+      encoded_as: "equation `digest_is_of_the_live_program`"
+    - system: "Sigstore / in-toto / SLSA (verify the artifact, not the pointer)"
+      adopted: |
+        A pointer (the unit name, the declared path) resolving to the wrong
+        artifact is the standing hazard, and the answer is per-artifact
+        verification. `exec_sha256` is the artifact check; `exec_start` is the
+        pointer check; each is independently declarable.
+      encoded_as: "equation `each_obligation_is_independent`"
+    - system: "Ansible / Puppet (present-but-wrong hosts)"
+      adopted: |
+        A host that has the thing but the wrong version of it is a divergence,
+        never a no-op. The apply path refuses to report convergence over it.
+      encoded_as: "equation `apply_refuses_the_wrong_program`"
+
+equations:
+  parity_reads_the_loaded_unit:
+    formula: |
+      live(u) = path(ExecStart(systemctl show -p ExecStart --value u))
+      O1(u, p) ⟺ live(u) = p
+    domain: "u a unit name, p an absolute path"
+    codomain: "bool"
+    invariants:
+      - "live(u) is read from the MANAGER, never from the unit file at /etc/systemd/system"
+      - "An unloaded unit yields live(u) = ∅, and ∅ ≠ p for every p — absence is divergence, never parity"
+      - "The path is cut at systemd's own ` ; ` field separator, so `/opt/my app/run.sh` is read whole"
+      - "A divergent marker is written to stdout (the verdict convention) AND stderr (what `forjar check` and a failed apply report from)"
+      - "A `systemctl show` that fails yields the same ∅ — an unmeasured program reads as divergent, never as a pass and never as an opaque abort"
+    notes: |
+      `systemctl show` on an unloaded unit prints an EMPTY line and exits 0
+      (measured, systemd 249). A parser that took exit 0 as "answered" would
+      read an unloaded unit as parity with nothing declared.
+
+  digest_is_of_the_live_program:
+    formula: |
+      O2(u, h) ⟺ sha256(read(live(u))) = h
+    domain: "u a unit name, h ∈ [0-9a-f]{64}"
+    codomain: "bool"
+    invariants:
+      - "The digest is taken over the file at live(u), NEVER over the declared exec_start"
+      - "live(u) = ∅ ⟹ the digest is `missing`, which equals no h"
+      - "Declared h is compared as a string against `sha256sum` output, so h MUST be 64 lowercase hex — an uppercase or short h is refused at parse time rather than being permanently divergent"
+    notes: |
+      Hashing the declared path is the tempting bug: it confirms the file
+      forjar just wrote (which the `file` resource already proved) and says
+      nothing about the unit. On yoga the declared path held the right bytes
+      and the unit ran a different file.
+
+  each_obligation_is_independent:
+    formula: |
+      converged(u) ⟺ present(u) ∧ (p declared ⟹ O1(u, p)) ∧ (h declared ⟹ O2(u, h))
+      present(u)   ⟺ (state = running ⟹ active(u)) ∧ (state = stopped ⟹ ¬active(u)) ∧ (enabled ⟺ is-enabled(u))
+      undeclared(u) ⟹ check(u) = check_before_PMAT_560(u) ∧ query(u) = query_before_PMAT_560(u)
+    domain: "u a service resource"
+    codomain: "bool"
+    invariants:
+      - "exec_sha256 alone pins the bytes and lets the path float; exec_start alone pins the path"
+      - "A service declaring neither asks exactly the questions it always asked, and its observed digest does not move — no fleet resource is re-baselined by this change"
+      - "Presence (is-active, is-enabled) is still asserted, first, and still counts"
+
+  apply_refuses_the_wrong_program:
+    formula: |
+      apply(u) exits 0 ⟹ converged(u)
+    domain: "u a service resource with a declared obligation"
+    codomain: "exit status"
+    invariants:
+      - "Starting and enabling a unit that executes the wrong program is not convergence"
+      - "The apply fails with the divergence marker on stdout and one FORJAR_FAIL line on stderr; the unit file is another resource's to converge"
+
+  drift_sees_the_swap:
+    formula: |
+      declared(u) ⟹ query(u) ∋ exec_start=live(u) ∧ query(u) ∋ exec_sha256=sha256(read(live(u)))
+    domain: "u a service resource with a declared obligation"
+    codomain: "state-query stdout"
+    invariants:
+      - "A program swapped after apply moves the observed digest, so `forjar drift` reports it without waiting for a check"
+
+proof_obligations:
+  - type: invariant
+    property: "A unit executing a different path than declared is not converged"
+    formal: "live(u) ≠ p ⟹ check(u) ≠ 0 ∧ stdout ∋ exec_start_diverged:u:…:live=live(u)"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_unit_executing_a_different_path_is_not_converged"
+    notes: "THE REGRESSION. Fails on 1.30.0: the check exits 0 with only active:/enabled: markers."
+
+  - type: invariant
+    property: "A unit executing different bytes at the declared path is not converged"
+    formal: "live(u) = p ∧ sha256(read(p)) ≠ h ⟹ check(u) ≠ 0 ∧ stdout ∌ exec_start_diverged"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_unit_executing_the_declared_path_with_different_bytes_is_not_converged"
+
+  - type: invariant
+    property: "The digest names the live program's bytes"
+    formal: "stdout ∋ exec_sha256_diverged:…:live=sha256(read(live(u)))"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::the_digest_is_taken_over_the_live_program_not_the_declared_path"
+
+  - type: invariant
+    property: "A converged unit still reports converged"
+    formal: "live(u) = p ∧ sha256(read(p)) = h ⟹ check(u) = 0"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_unit_executing_the_declared_bytes_at_the_declared_path_is_converged"
+    notes: "The control. Without it, `always diverged` discharges every other obligation here."
+
+  - type: invariant
+    property: "An unloaded unit is not converged"
+    formal: "live(u) = ∅ ⟹ check(u) ≠ 0"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::an_unloaded_unit_is_not_converged"
+
+  - type: invariant
+    property: "An undeclared service is byte-identical in check and query"
+    formal: "undeclared(u) ⟹ check(u) ∌ ExecStart ∧ query(u) ∌ exec_"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_unit_with_no_exec_declaration_keeps_the_presence_check"
+
+  - type: invariant
+    property: "Apply exits non-zero over the wrong program and zero over the right one"
+    formal: "apply(u) = 0 ⟺ converged(u)"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::apply_refuses_to_report_converged_over_the_wrong_executable"
+
+  - type: invariant
+    property: "The state query moves when the program does"
+    formal: "query(u | live=v1) ≠ query(u | live=v3)"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::the_state_query_reports_the_live_program_and_its_digest"
+
+  - type: invariant
+    property: "An unmatchable declaration is refused at parse time"
+    formal: "¬absolute(p) ∨ ¬hex64(h) ⟹ validate fails"
+    applies_to: all
+    enforced_by: "src/core/parser/service_exec_validate.rs::tests::a_relative_program_is_refused, a_malformed_digest_is_refused"
+
+  - type: invariant
+    property: "A program path containing a space is read whole"
+    formal: "live(u) = '/opt/my app/run.sh' ⟹ O1(u, '/opt/my app/run.sh')"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_program_path_with_a_space_is_read_whole"
+
+  - type: invariant
+    property: "A divergence is named where the operator reads"
+    formal: "¬converged(u) ⟹ stderr(check(u)) ∋ exec_*_diverged ∧ stderr(apply(u)) ∋ exec_*_diverged"
+    applies_to: all
+    enforced_by: "tests/falsification_unit_exec_parity.rs::a_divergence_is_named_on_stderr_where_check_and_apply_report_from"
+
+  - type: completeness
+    property: "Parity holds on the fleet's declared units, through the real transport"
+    formal: "∀ host ∈ {intel, yoga, gx10}, ∀ u declared with exec_*: forjar check reports converged after the declaration lands and the box is reconciled"
+    applies_to: all
+    enforced_by: "paiml/infra machines/*/forjar*.yaml — exec_start/exec_sha256 on every service resource whose unit runs a script"
+    notes: |
+      A LOCAL FAKE HOST CANNOT DISCHARGE THIS. The fixture's `systemctl` prints
+      the line systemd 249 prints; a real box is where drop-ins, sudo and a
+      root-only 0700 script are exercised. Recorded as the gap it is, not
+      as passed.
+
+enforcement:
+  the_probe_reads_the_manager:
+    description: |
+      `service_exec::probe` MUST read `systemctl show -p ExecStart --value`
+      and MUST NOT read the unit file. A future "optimisation" that greps
+      /etc/systemd/system/<u>.service confirms the write and misses every
+      drop-in and every hand edit — the yoga shape exactly.
+    check: "src/resources/service_exec.rs::probe"
+    severity: "ERROR"
+  the_digest_reads_the_live_path:
+    description: |
+      `sha256sum` MUST be applied to the shell variable the probe filled from
+      the manager, never to the declared `exec_start` literal.
+    check: "src/resources/service_exec.rs::probe"
+    severity: "ERROR"
+  undeclared_emits_nothing:
+    description: |
+      Every fragment MUST be gated on `ExecParity::is_declared`, so no fleet
+      service is re-baselined by this change. `src/core/observation_mask.rs`
+      states the same rule for `ignore_drift`: a change that moves no digest
+      on the fleet.
+    check: "src/resources/tests_service_exec.rs::undeclared_emits_nothing"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-EXEC-001
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Removing the exec assertions from check_script turns the regression test red while presence tests stay green"
+    test: "tests/falsification_unit_exec_parity.rs::a_unit_executing_a_different_path_is_not_converged"
+    if_fails: "The check still asks only is-active/is-enabled; a unit running unreviewed code reports converged (the yoga shape)"
+    measured: |
+      RED on 1.30.0 before the fix: 8 of 10 tests in the suite failed, the two
+      that passed being the fixture-fidelity test and the undeclared control.
+      GREEN with src/resources/service_exec.rs wired in.
+
+  - id: FALSIFY-EXEC-002
+    rule: "digest_is_of_the_live_program"
+    prediction: "Hashing the declared path instead of $__fj_unit_prog turns this red: the declared path holds the declared bytes while the unit runs v3"
+    test: "tests/falsification_unit_exec_parity.rs::the_digest_is_taken_over_the_live_program_not_the_declared_path"
+    if_fails: "The digest confirms the file forjar wrote and proves nothing about the unit"
+
+  - id: FALSIFY-EXEC-003
+    rule: "each_obligation_is_independent"
+    prediction: "Emitting the probe unconditionally moves every fleet service's observed digest and turns this red"
+    test: "tests/falsification_unit_exec_parity.rs::a_unit_with_no_exec_declaration_keeps_the_presence_check"
+    if_fails: "Every service on the fleet is re-baselined and reports converged-not-unchanged on its next apply"
+
+  - id: FALSIFY-EXEC-004
+    rule: "apply_refuses_the_wrong_program"
+    prediction: "Dropping the apply tail lets apply exit 0 over a unit running run-v3.sh"
+    test: "tests/falsification_unit_exec_parity.rs::apply_refuses_to_report_converged_over_the_wrong_executable"
+    if_fails: "forjar apply reports converged over the wrong program; the check would catch it later, the apply summary would not"
+
+  - id: FALSIFY-EXEC-005
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Skipping the path assertion when systemctl show prints nothing — treating exit 0 with empty output as 'nothing to compare' — lets an unloaded unit pass a declared exec_start; the assertion as written compares the empty path and fails"
+    test: "tests/falsification_unit_exec_parity.rs::an_unloaded_unit_is_not_converged"
+    if_fails: "Absence is read as parity"
+
+  - id: FALSIFY-EXEC-006
+    rule: "digest_is_of_the_live_program"
+    prediction: "An uppercase digest that reached the host would never pass (the host compares strings against lowercase sha256sum output), which is why validate refuses it; both halves are tested — the refusal, and the divergence a bypassed refusal would produce"
+    test: "src/core/parser/service_exec_validate.rs::tests::a_malformed_digest_is_refused"
+    test_secondary: "tests/falsification_unit_exec_parity.rs::an_uppercase_digest_would_be_permanently_divergent"
+    if_fails: "The operator learns of the typo as a check that never passes rather than at validate"
+
+  - id: FALSIFY-EXEC-007
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Splitting the systemctl line on a bare space instead of ` ; ` reads `/opt/my app/run.sh` as `/opt/my`, and reads a unit running `<dir>/run.sh evil` as running the declared `<dir>/run.sh` — parity, exit 0, over the wrong program"
+    test: "tests/falsification_unit_exec_parity.rs::a_program_path_with_a_space_is_read_whole"
+    test_secondary: "tests/falsification_unit_exec_parity.rs::a_space_split_cannot_turn_the_wrong_program_into_the_declared_one"
+    if_fails: "A legal program path is misread, and the misread path is what gets hashed"
+    measured: |
+      The first cut of src/resources/service_exec.rs split on `/[ ;]/`. Two of
+      three review lanes found it by reading the awk; this test was written
+      against that cut and was RED before the separator changed.
+
+  - id: FALSIFY-EXEC-008
+    rule: "parity_reads_the_loaded_unit"
+    prediction: "Dropping the `>&2` echo leaves `forjar check` printing `exit 1` with no line naming the live program"
+    test: "tests/falsification_unit_exec_parity.rs::a_divergence_is_named_on_stderr_where_check_and_apply_report_from"
+    if_fails: "The operator sees a failure and not what the unit runs — the yoga investigation, repeated"
+
+# No kani_harnesses. `metadata.kind: pattern`: every obligation here quantifies
+# over what a MANAGER reports and what BYTES sit at a path on a host. A bounded
+# model of systemd would prove the model. The falsifiers execute the emitted
+# shell instead, against a fixture whose one line is the line systemd printed.
+
+qa_gate:
+  id: F-EXEC-001
+  name: "Unit Exec Parity"
+  description: "a service is converged only while the loaded unit executes the declared program, byte for byte"
+  checks:
+    - "parity_reads_the_loaded_unit"
+    - "digest_is_of_the_live_program"
+    - "each_obligation_is_independent"
+    - "apply_refuses_the_wrong_program"
+    - "drift_sees_the_swap"
+  pass_criteria: "All 8 falsification tests pass; the completeness obligation is discharged on the fleet, not here"
+  falsification: "Delete the `assertions.extend(service_exec::assertions(resource, name))` line in src/resources/service.rs::check_script"
+
+verification_level: L3

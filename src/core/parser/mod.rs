@@ -19,6 +19,7 @@ mod known_fields;
 mod policy;
 mod recipes;
 mod resource_types;
+mod service_exec_validate;
 pub(crate) mod unknown_fields;
 mod validation;
 

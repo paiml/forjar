@@ -6,7 +6,7 @@
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
-use crate::resources::verdict;
+use crate::resources::{service_exec, verdict};
 
 /// FJ-2720: the CHECK-path systemd guard, which exits 2 = NOT APPLICABLE.
 ///
@@ -74,9 +74,13 @@ pub fn check_script(resource: &Resource) -> String {
     // cannot show that a service is converged, and saying "pass" there is the
     // defect this release exists to remove; saying "fail" would break every
     // service resource in container CI. `check` maps 2 to skip.
+    // PMAT-560: what the loaded unit EXECUTES, once declared. Presence was
+    // the only question for five months; see `service_exec`.
+    let mut assertions = vec![active, enablement];
+    assertions.extend(service_exec::assertions(resource, name));
     format!(
         "{SYSTEMD_CHECK_GUARD}\n{}",
-        verdict::check_script_from(&[active, enablement])
+        verdict::check_script_from(&assertions)
     )
 }
 
@@ -117,6 +121,10 @@ pub fn apply_script(resource: &Resource) -> String {
         lines.push(format!("systemctl reload-or-restart '{name}'"));
     }
 
+    // PMAT-560: a unit that is up and enabled but runs the wrong program is
+    // not converged; the apply fails rather than reporting it so.
+    lines.extend(service_exec::apply_tail(resource, name));
+
     lines.join("\n")
 }
 
@@ -126,6 +134,7 @@ pub fn state_query_script(resource: &Resource) -> String {
     format!(
         "{SYSTEMD_GUARD}\n\
          echo \"active=$(systemctl is-active '{name}' 2>/dev/null || echo 'unknown')\"\n\
-         echo \"enabled=$(systemctl is-enabled '{name}' 2>/dev/null || echo 'unknown')\""
+         echo \"enabled=$(systemctl is-enabled '{name}' 2>/dev/null || echo 'unknown')\"{}",
+        service_exec::query_lines(resource, name)
     )
 }

@@ -1,0 +1,140 @@
+{
+ "kind": "code",
+ "issue": "PMAT-560 (forjar#560) — a `service` resource asked the host `is-active` and `is-enabled` and nothing else; on yoga, 2026-09-15, both were true of github-runner-ephemeral.service while the loaded unit ran run-ephemeral-docker-v3.sh, a file the repository never declared, and the check reported converged. Declared `exec_start` / `exec_sha256` are now checked against what systemd reports for the LOADED unit and the bytes at the LIVE path.",
+ "branch": "PMAT-560-unit-exec-parity",
+ "base": "cb94fc21",
+ "base_commit": "d324c57eca4ef6a0c1b57599d2b12e49ef6c4d47",
+ "diff_sha256": "9b7532da3f59ca8b6892a0bcf5a687a6f58c2b2c",
+ "recorded_at": "rebased onto main after #563 and then #571 (the v1.30.0 booking) merged; conflicts were append-only (roadmap rows, estimates ledger) and kept both sides",
+ "quorum": {
+  "lanes": [
+   "round 1 lane 1 — gemini-3.1-pro-high (FAIL)",
+   "round 1 lane 2 — gemini-3.8-flash-high (voided: API 503, carried FAIL)",
+   "round 1 lane 3 — gemini-3.7-flash-high (PASS)",
+   "round 2 lane 1 — gemini-3.1-pro-high (PASS with 2 findings)",
+   "round 2 lane 2 — gemini-3.8-flash-high (voided: API 503, carried PASS)",
+   "round 2 lane 3 — gemini-3.7-flash-high (PASS)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "two rounds of three sandboxed agy quorum lanes, review-only, self-contained clones, --not-before pinned per round, out_dir keyed by ticket AND session id; round 1 at 8337cab5 (agreed=false, partial=true), round 2 at 921ed4b6 (agreed=false, partial=true, one lane voided)",
+  "kill_rule": "every counted FAIL finding and every voided lane's findings were re-read or re-executed on this host; the exit-0 shape round 1 reasoned about was reproduced in the fixture before the separator changed, and every contract falsifier's mutation was run rather than reasoned",
+  "claims_confirmed": 6,
+  "claims_refuted": 6,
+  "refuted_claims": [
+   "That the awk read the whole program path. It split on /[ ;]/, so a unit running `<dir>/run.sh evil` read as running the declared `<dir>/run.sh`, hashed the declared file, and exited 0 over the wrong program. The separator is systemd's own ` ; ` now.",
+   "That the divergence marker tells the operator what runs. cli::check prints a failing script's stderr under exit 1 and the marker was on stdout only; it goes to both now.",
+   "That FALSIFY-EXEC-005 named a real mutation and FALSIFY-EXEC-006 tested its prediction. 005 described an exit code the shell never reads; 006 cited only the parse-time refusal. Reworded, and the runtime half added as a case.",
+   "That the contract's converged was 'every declared obligation holds' and that check reports 'N obligations, 0 failed'. Presence is part of convergence and check reports markers and an exit code.",
+   "That the book's marker 'names what the unit runs' held for the digest marker, and that validate refuses any non-hex digest. The digest marker names a digest, and a template is left to the resolver.",
+   "That no program path defeats the parse. A path containing ` ; ` is misread (divergent, the failing direction) — now the stated limit."
+  ],
+  "lane_errors": [
+   "gemini-3.8-flash-high returned API 503 in both rounds; voided by lane-reduce each time",
+   "round 1: the delegate hit its 30-turn cap and was resumed once to reduce; agy-lane.sh died of SIGPIPE at its KEPT branch after a writes=false lane left 270 untracked paths in its own clone (isolation held)"
+  ]
+ },
+ "falsification": {
+  "test": "fourteen cases executing the emitted check, apply and state-query shell against a fake host whose systemctl prints the ExecStart line systemd 249 prints: a different path, different bytes at the declared path, the digest over the live program, the converged control, a digest alone, an unloaded unit, the undeclared control, apply both ways, the query moving with the program, a path with a space, `run.sh evil` never read as `run.sh`, the marker on stderr, an uppercase digest permanently divergent, and the fixture's fidelity to a real systemd line",
+  "test_file": "tests/falsification_unit_exec_parity.rs",
+  "cargo_test_target": "falsification_unit_exec_parity",
+  "reverted": "six mutations over the COMMITTED tree at a9fd3024, each restored from HEAD: MA (check stops extending with the exec assertions) kills 9 of 14; MB (re-hash the declared path) kills the live-digest and stderr cases; MC (probe an undeclared service) kills the undeclared control; MD (drop the apply tail) kills the apply and stderr cases; ME (split on a bare space) kills the space-in-path and run.sh-evil cases; MF (marker to stdout only) kills the stderr case. `git status --porcelain -- src tests` empty after each.",
+  "observed_failure": "RED 8 of 10 on 1.30.0's service.rs with the test file in place — the check exited 0 with only active:/enabled: markers over a unit whose loaded ExecStart named a file the declaration did not",
+  "still_green_when_reverted": "the workspace: 339 targets, 19,805 passed at a9fd3024, including tests_service (40 cases), the observe/known_fields/resolver reflection gates, and the golden desired-state hash once repinned"
+ },
+ "crux": {
+  "systems": [
+   "systemd (the manager's loaded unit, drop-ins folded in, is what `systemctl show` reports; the unit file is not)",
+   "Kubernetes (an image referenced by `@sha256:` digest is pulled and verified by digest; a tag is a pointer)",
+   "Nix (a store path's identity is the hash of its contents, not its name)",
+   "Sigstore / in-toto (verify the artifact, not the pointer to it)",
+   "Ansible and Puppet (a present-but-wrong resource is a change, not a no-op)"
+  ],
+  "verdict": "accept(every surveyed system that cares what executes identifies it by content and asks the thing that runs it: Kubernetes pins images by digest, Nix names paths by hash, Sigstore verifies the artifact. forjar asked presence questions of the unit and none of the program. Where forjar is WEAKER after this change: it verifies argv[0] of the first ExecStart only, where a digest-pinned container image covers everything the entrypoint loads — a wrapper script that execs an undeclared second script is still unverified. Where it is stronger than a lint over the unit file: it reads the manager, so a drop-in or a hand edit is seen.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "two rounds of three sandboxed agy quorum lanes, review-only, writes=false",
+  "verdict": "round 1: 1 FAIL / 1 PASS / 1 voided; round 2: 2 PASS / 1 voided; every finding from both rounds, voided lanes included, re-read and acted on",
+  "rounds": 2,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-560",
+  "tools": [
+   "cargo test --workspace --no-fail-fast (339 targets)",
+   "cargo clippy --all-targets -D warnings",
+   "cargo fmt --all -- --check",
+   "bashrs lint (the emitted apply script)",
+   "bash scripts/dogfood/contracts.sh (GATE G PASS)",
+   "pv validate contracts/forjar-unit-exec-parity-v1.yaml",
+   "systemctl show -p ExecStart --value ssh.service (fixture fidelity)",
+   "analyze_vacuous_tests",
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh",
+   "goal.sh / route.sh / phase-boundary.sh"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "not re-run on this branch; every new case has a control that fails on the opposite verdict and six mutations were executed, each killing its named case. Necessary and not sufficient.",
+  "bashrs": "the emitted apply script lints at 0 errors after the probe moved to brace groups and a variable name without `exec` (SC2031 and SEC016 fired on the first cut); no .sh file in the repository changed",
+  "quality_gate": "19,805 workspace tests green at a9fd3024; clippy clean; fmt clean; gate G PASS; the golden desired-state hash repinned with an upgrade note (two new Resource fields move every recorded hash once, as #403/#406 did)",
+  "tool_defects_found": [
+   "agy-lane.sh SIGPIPEs at its KEPT branch (`head -n 3` under pipefail) when a writes=false lane leaves a large porcelain — exit 141 after every assertion passed, no KEPT line printed",
+   "the paiml-implement delegate hit its 30-turn cap before reducing in round 1"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/unit-exec-judges.md",
+  "total_bytes": 14291,
+  "files": [
+   {
+    "path": ".quorum/evidence/unit-exec-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1905,
+    "sha256": "5eb632692e8e4be4b5cb856f29e5143568e2db2578ef13081f1138f60aff8a45",
+    "blob": "5daee291d9518de205f3d8862a61dafabf6ddd25"
+   },
+   {
+    "path": ".quorum/evidence/unit-exec-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 2638,
+    "sha256": "64a17125a10e8fb36749d5c64f43379d7823131846edf9db5cb7d0c579e1187f",
+    "blob": "ff1e23fd970852e47b6b80c666d8d75d43ea5eee"
+   },
+   {
+    "path": ".quorum/evidence/unit-exec-judges.md",
+    "roles": [
+     "judges",
+     "crux"
+    ],
+    "bytes": 5615,
+    "sha256": "a284803776ce8179793490e49d1823fee3529a948b56decf5bfbdd0ff560aad3",
+    "blob": "6b9d71a3f61c341821af569f90468e2d978d44b2"
+   },
+   {
+    "path": ".quorum/evidence/unit-exec-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1403,
+    "sha256": "6bd949b57b36986116c842debfc94cc53ede620dd3eb12efc1da77dad4bff247",
+    "blob": "396ab0be524b5f8dd56c34a55c626b1e992b70da"
+   },
+   {
+    "path": ".quorum/evidence/unit-exec-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2730,
+    "sha256": "c82a54fc6274d9f5b06057e778253326506997d8f564dc6e4708f25eb5668fe6",
+    "blob": "d1d22fbce4ce415a63f96829d95aeb471503cc78"
+   }
+  ]
+ }
+}

@@ -45,6 +45,11 @@ fn resolve_core_fields(
     r.group = resolve_opt(&r.group, params, machines, secrets)?;
     r.mode = resolve_opt(&r.mode, params, machines, secrets)?;
     r.name = resolve_opt(&r.name, params, machines, secrets)?;
+    // PMAT-560: `exec_start: {{params.eph_dir}}/run.sh` is the shape every
+    // fleet manifest will use; an unresolved literal would never equal what
+    // systemd reports and the parity check would be permanently divergent.
+    r.exec.exec_start = resolve_opt(&r.exec.exec_start, params, machines, secrets)?;
+    r.exec.exec_sha256 = resolve_opt(&r.exec.exec_sha256, params, machines, secrets)?;
     r.options = resolve_opt(&r.options, params, machines, secrets)?;
     r.command = resolve_opt(&r.command, params, machines, secrets)?;
     r.schedule = resolve_opt(&r.schedule, params, machines, secrets)?;

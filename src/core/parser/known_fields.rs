@@ -41,6 +41,9 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "name",
     "enabled",
     "restart_on",
+    // PMAT-560: service exec parity
+    "exec_start",
+    "exec_sha256",
     "triggers",
     "fstype",
     "options",

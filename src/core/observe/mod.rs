@@ -100,6 +100,10 @@ static FIELDS: &[(&str, Observability)] = &[
     ("completion_check", Observability::Observed { alt: "false # forjar-alt-completion-check" }),
     ("action", Observability::Unobservable("names an operation to perform, not a state the host can report")),
     ("restart_on", Observability::Unobservable("a trigger condition, not observable state; the host cannot say what would have restarted it")),
+    // PMAT-560: `service`'s state query reports the loaded unit's ExecStart
+    // program and the sha256 of the file at that path, once either is declared.
+    ("exec_start", Observability::Observed { alt: "/tmp/forjar-alt-exec.sh" }),
+    ("exec_sha256", Observability::Observed { alt: "0000000000000000000000000000000000000000000000000000000000000000" }),
 ];
 
 /// Every field whose mutation changes `hash_desired_state`, found by reflection.
