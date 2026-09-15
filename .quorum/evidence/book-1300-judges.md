@@ -11,16 +11,18 @@ and the window say; the one sentence a lane called false was not.
    `prs` and `tickets` are exactly the window between v1.29.0 and v1.30.0
    (all three lanes against git; the orchestrator against GitHub).
    - evidence: `docs/roadmaps/releases.yaml:79` onward holds the row; the tag's
-     creatordate is 22:52:01+02:00, which is 20:52:01Z; `release-goal.sh window
-     v1.30.0` prints the same ten PRs and eleven tickets, #548 and #563 counted
-     as merged after the tag and #527 as inside v1.29.0.
+     creatordate is 22:52:01+02:00, which is 20:52:01Z;
+     `release-goal.sh window v1.30.0` prints the same ten PRs and eleven
+     tickets, #548 and #563 counted as merged after the tag and #527 as inside
+     v1.29.0.
 
 2. [cookbook] That the named cookbook commit locks the version that shipped
    (the orchestrator, through gate T's own reader of the cookbook's Cargo.lock).
-   - evidence: gate T prints `v1.30.0 cookbook 60acf9c9… requires forjar 1.30
-     and locks 1.30.0 ok`. The row the cut script wrote named 0be3e1ec, which
-     locks 1.29.0, and gate T refused it by name — that refusal is why
-     paiml/forjar-cookbook#21 exists.
+   - evidence: gate T prints, for this branch,
+     `v1.30.0 cookbook 60acf9c9 requires forjar 1.30 and locks 1.30.0 ok`.
+     The row the cut script wrote named 0be3e1ec, which locks 1.29.0, and gate
+     T refused it by name — that refusal is why paiml/forjar-cookbook#21
+     exists.
 
 3. [marker] That appending `DOGFOOD-1.30.0-RECEIPT-END` is honest: the receipt
    ends on a complete sentence and carries exactly one `verdict:` line (lanes
