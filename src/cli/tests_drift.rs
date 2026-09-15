@@ -212,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fj017_drift_no_tripwire_still_reports() {
+    fn test_fj017_drift_reports_and_rejects_without_a_flag() {
         // Exercises the total_drift > 0 && !tripwire_mode path (Ok, not Err)
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
@@ -253,8 +253,10 @@ mod tests {
         };
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        // tripwire_mode=false: drift detected but should still be Ok(())
-        cmd_drift(
+        // PMAT-562: no flag, drift detected — the verdict is a reject. This
+        // test used to assert `Ok(())` here, which was the fail-open default
+        // measured on the fleet as `Drift detected: 2 resource(s)` / rc=0.
+        let verdict = cmd_drift(
             Path::new("nonexistent.yaml"),
             &state,
             None,
@@ -267,8 +269,11 @@ mod tests {
             None, // no env_file
             false, // all_stacks
             false,
-        )
-        .unwrap();
+        );
+        assert!(
+            verdict.as_ref().is_err_and(|e| e.contains("drift finding(s)")),
+            "{verdict:?}"
+        );
     }
 
     #[test]
@@ -312,8 +317,9 @@ mod tests {
         };
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        // JSON drift output should not panic
-        cmd_drift(
+        // JSON drift output should not panic, and the verdict is the same
+        // reject the text renderer returns (PMAT-562).
+        let verdict = cmd_drift(
             Path::new("nonexistent.yaml"),
             &state,
             None,
@@ -326,8 +332,11 @@ mod tests {
             None, // no env_file
             false, // all_stacks
             false,
-        )
-        .unwrap();
+        );
+        assert!(
+            verdict.as_ref().is_err_and(|e| e.contains("drift finding(s)")),
+            "{verdict:?}"
+        );
     }
 
     /// PMAT-197 regression: a resource whose fields contain `{{params.*}}`
