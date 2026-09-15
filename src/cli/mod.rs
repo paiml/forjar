@@ -166,6 +166,7 @@ mod lock_merge;
 mod lock_ops;
 mod lock_output;
 mod lock_repair;
+mod lock_restamp;
 mod lock_security;
 mod logs;
 mod logs_follow;

@@ -22,8 +22,12 @@ pub(crate) fn dispatch_lock_cmd(cmd: Commands) -> Result<(), String> {
             verify,
             dry_run,
             json,
+            restamp,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+            if restamp {
+                return super::lock_restamp::cmd_lock_restamp(&sd, dry_run, json);
+            }
             cmd_lock(
                 &file,
                 &sd,

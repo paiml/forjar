@@ -33,6 +33,37 @@ pub fn load_lock(state_dir: &Path, machine: &str) -> Result<Option<StateLock>, S
     Ok(Some(lock))
 }
 
+/// What this binary writes into `generator`: the writer's own name and version.
+///
+/// PMAT-565: `forjar --version` prints exactly this, so the lock and the
+/// binary that wrote it can be compared by eye and by `grep`.
+pub fn writer_stamp() -> String {
+    format!("forjar {}", env!("CARGO_PKG_VERSION"))
+}
+
+/// The lock as it will be WRITTEN: `generator` names this binary, and the
+/// value it replaces becomes `created_by` the first time.
+///
+/// PMAT-565 (forjar#565, paiml/infra#605 third signature). `generator` was
+/// stamped once by `new_lock` and never touched again while `generated_at`
+/// rolled on every apply — four fleet locks under one 1.30.0 binary said
+/// 1.1.1, 1.13.1, 1.27.0 and 1.10.0, two of them rewritten in the same
+/// minute. The pair was a claim no version of forjar could have made.
+///
+/// Done HERE, in the one writer every path goes through, rather than at each
+/// caller: a caller that forgets is exactly how the field went stale. The
+/// creator is preserved, not erased — `forjar 1.1.1` is a true fact about
+/// who wrote the file first, and `forjar-refresh 1.x` / `(reconstructed)`
+/// markers stay legible as provenance.
+pub fn stamped_for_write(lock: &StateLock) -> StateLock {
+    let mut out = lock.clone();
+    if out.created_by.is_none() && !out.generator.is_empty() {
+        out.created_by = Some(out.generator.clone());
+    }
+    out.generator = writer_stamp();
+    out
+}
+
 /// Save a lock file atomically (write to temp, then rename).
 #[contract("execution-safety-v1", equation = "atomic_write")]
 pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
@@ -44,7 +75,9 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
             .map_err(|e| format!("cannot create dir {}: {}", parent.display(), e))?;
     }
 
-    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {e}"))?;
+    // PMAT-565: the file names its writer, whatever the struct carried.
+    let stamped = stamped_for_write(lock);
+    let yaml = serde_yaml_ng::to_string(&stamped).map_err(|e| format!("serialize error: {e}"))?;
 
     // Write to temp file, then rename for crash-safe persistence
     let tmp_path = path.with_extension("lock.yaml.tmp");
