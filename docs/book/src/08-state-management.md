@@ -573,8 +573,11 @@ Until 1.31.0 `generator` was stamped once, when the lock was first created,
 and never touched again while `generated_at` rolled on every apply — four
 fleet locks under one 1.30.0 binary said `forjar 1.1.1`, `1.13.1`, `1.27.0`
 and `1.10.0` (paiml/infra#605). `forjar lock --restamp --state-dir <dir>`
-rewrites every lock under a state dir through the writer in one run (with
-`--dry-run` to list, `--json` to report); a second run changes nothing.
+rewrites every `<machine>/state.lock.yaml` directly under a state dir through
+the writer in one run (with `--dry-run` to list, `--json` to report); a second
+run changes nothing. Run it once per `--workspace` dir; it leaves
+`forjar.lock.yaml` (restamped by every apply) and encrypted `.yaml.age` locks
+alone.
 
 #### ResourceLock Fields
 

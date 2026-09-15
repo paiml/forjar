@@ -80,7 +80,8 @@ equations:
     codomain: "the generator field of the file on disk"
     invariants:
       - "The struct's own `generator` is never what the file gets: a fake first-writer string is overwritten by the real writer"
-      - "Every path writes through save_lock — apply's finalize, --refresh, repair, restamp — so no path can forget"
+      - "Every path that writes a StateLock goes through save_lock — apply's finalize, --refresh, apply --drift, lock, lock-repair (both the minimal lock and the normalised form), lock-migrate, restamp. lock-repair and lock-migrate used a bare fs::write until the review quorum read them; that also left the .b3 sidecar stale"
+      - "lock-restore copies a snapshot's bytes and lock-tag prepends a comment to the file's bytes: neither serialises a StateLock, neither stamps, and the next stamping write moves whatever generator they left into created_by"
       - "`generated_at` and `generator` are now a pair one binary could have written"
 
   the_creator_is_kept:
@@ -104,6 +105,7 @@ equations:
     invariants:
       - "Writes through save_lock, so the .b3 sidecar is rewritten with each lock"
       - "Needs no manifest: the fleet's locks belong to many manifests"
+      - "Scope is `<state_dir>/<machine>/state.lock.yaml`, one level: a --workspace dir is a state dir of its own and is restamped by naming it; forjar.lock.yaml (the GlobalLock) is restamped by every apply through state::stamp and is not walked; an encrypted .yaml.age lock is not walked"
       - "An unreadable state dir is an error, never `0 lock(s) restamped`"
       - "Each restamped lock is named with its before and after"
 
@@ -140,6 +142,13 @@ proof_obligations:
     enforced_by: "tests/falsification_lock_names_its_writer.rs::lock_restamp_converges_every_lock_in_one_run"
 
   - type: invariant
+    property: "lock-repair writes through the writer, sidecar included"
+    formal: "unparseable lock; lock-repair ⟹ generator = writer ∧ created_by = 'forjar-repair' ∧ .b3 exists"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::lock_repair_writes_through_the_writer_sidecar_included"
+    notes: "Found by the review quorum: lock-repair and lock-migrate wrote with a bare fs::write, so the contract's own 'every path' sentence was false when first written, and the sidecar those paths left behind was stale."
+
+  - type: invariant
     property: "An unreadable state dir is an error, and a current lock is left alone"
     formal: "restamp(missing dir) = Err; restamp(dir with a current lock) rewrites 0 bytes"
     applies_to: all
@@ -174,6 +183,12 @@ falsification_tests:
     test: "tests/falsification_lock_names_its_writer.rs::a_legacy_lock_migrates_its_stale_generator_into_created_by"
     if_fails: "The fleet's first writers are erased on the first restamp"
 
+  - id: FALSIFY-WRITER-005
+    rule: "every_write_names_its_writer"
+    prediction: "Restoring the bare fs::write in src/cli/lock_repair.rs turns the repair case red on the generator and on the missing sidecar"
+    test: "tests/falsification_lock_names_its_writer.rs::lock_repair_writes_through_the_writer_sidecar_included"
+    if_fails: "A repaired lock names forjar-repair as its writer forever, and the next apply is refused on integrity"
+
   - id: FALSIFY-WRITER-004
     rule: "one_run_converges_the_fleet"
     prediction: "Writing on --dry-run, or skipping the sidecar by bypassing save_lock, turns the restamp case red"
@@ -192,7 +207,7 @@ qa_gate:
     - "every_write_names_its_writer"
     - "the_creator_is_kept"
     - "one_run_converges_the_fleet"
-  pass_criteria: "All 4 falsification tests pass"
+  pass_criteria: "All 5 falsification tests pass"
   falsification: "Serialise `lock` instead of `stamped_for_write(lock)` in src/core/state/mod.rs::save_lock"
 
 verification_level: L3
