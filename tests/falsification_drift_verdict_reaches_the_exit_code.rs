@@ -142,8 +142,8 @@ fn a_converged_stack_still_exits_0() {
 fn tripwire_is_a_no_op() {
     let st = converged();
     st.tamper();
-    let (plain, plain_out, _) = st.drift(&[]);
-    let (flagged, flagged_out, _) = st.drift(&["--tripwire"]);
+    let (plain, plain_out, plain_err) = st.drift(&[]);
+    let (flagged, flagged_out, flagged_err) = st.drift(&["--tripwire"]);
     assert_eq!(plain, Some(1));
     assert_eq!(
         flagged, plain,
@@ -152,6 +152,13 @@ fn tripwire_is_a_no_op() {
     assert_eq!(
         plain_out, flagged_out,
         "--tripwire must not change what is printed either"
+    );
+    // stderr too: the verdict line lives there (`error: N drift finding(s)`),
+    // and a mutation that let the flag decorate it survived a stdout-only
+    // comparison (mutation M2, measured while writing the receipt).
+    assert_eq!(
+        plain_err, flagged_err,
+        "--tripwire must not change stderr either"
     );
 }
 
