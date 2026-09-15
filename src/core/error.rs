@@ -114,6 +114,13 @@ pub const I8_VALIDATION_MARKER: &str = "I8 violation — script failed bashrs va
 /// never answered.
 pub const DRIFT_UNMEASURED_MARKER: &str = "drift unmeasured — the target did not answer";
 
+/// The headline of a `forjar drift` run that inspected NONE of the resources
+/// it was asked about (PMAT-564, paiml/infra#605): a decline, exit 2, never a
+/// verdict about resources from another manifest and never a clean exit over
+/// zero coverage. The count follows the marker: `declined: inspected 0 of 10
+/// declared; no lock holds them`.
+pub const DRIFT_DECLINED_MARKER: &str = "declined: inspected 0 of";
+
 /// Markers a MIGRATED producer stamps into its message so that the class it
 /// DECLARED survives a not-yet-typed `Result<_, String>` boundary.
 ///
@@ -128,6 +135,12 @@ const DECLARED_MARKERS: &[(&str, ErrorClass)] = &[
     // src/cli/drift.rs::cmd_drift — `--tripwire` over resources whose target
     // never answered (forjar#549). Reaches main through `Result<(), String>`.
     (DRIFT_UNMEASURED_MARKER, ErrorClass::Connection),
+    // src/cli/drift.rs::cmd_drift — zero of the declared resources inspected
+    // (PMAT-564). Exit 2 is `decline` in the verdict vocabulary this fleet
+    // reads (`0 accept · 1 reject · 2 decline · 3 error`); the class that
+    // carries 2 here is Partial, and "nothing of what you asked about was
+    // measured" is the partial-est answer there is.
+    (DRIFT_DECLINED_MARKER, ErrorClass::Partial),
 ];
 
 /// An error that knows what kind of failure it is.
