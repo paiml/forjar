@@ -4,25 +4,27 @@
  "branch": "PMAT-562-drift-exits-on-drift",
  "base": "8b2ccedd",
  "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
- "diff_sha256": "ba9d52e94887261c761f947113b3ca5f1d906ec8",
+ "diff_sha256": "a62c8d2a95094c6f33823b2be18086815fa1f85a",
  "recorded_at": "after the round that found ten documentation sites still selling the flag, and after a mutation the branch's own no-op test failed to kill; re-bound after the rustls advisory bump (828052d9)",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
    "lane 2 — gemini-3.8-flash-high (lane-2.json, NO-VERDICT: API 503, carried PASS not counted)",
-   "lane 3 — gemini-3.7-flash-high (lane-3.json, PASS)"
+   "lane 3 — gemini-3.7-flash-high (lane-3.json, PASS)",
+   "merge-rail round 2 — gemini-3.1-pro-high PASS, gemini-3.7-flash-high PASS, gemini-3.1-pro-high FAIL (docs/audits/quorum-PMAT-562.json.lanes, head 53959006)"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
-  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at d1347afe, dispatched in one message, --not-before pinned to the dispatch instant, out_dir keyed by ticket AND session id; lane-reduce agreed=false partial=true (one voided lane, the two counted split FAIL/PASS)",
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at d1347afe, dispatched in one message, --not-before pinned to the dispatch instant, out_dir keyed by ticket AND session id; lane-reduce agreed=false partial=true (one voided lane, the two counted split FAIL/PASS); a second, merge-rail round over the head with the rustls bump: 2 PASS, 1 FAIL on the getrandom re-resolution, acted on in fe9fce31",
   "kill_rule": "the FAIL lane's ten documentation sites were each re-grepped here and fixed (22a53170); its two NotFound test cases were re-run here and in lane 3's clone and pass; mutation M2 was run against the committed tree and survived, so the test it exposed was strengthened before this receipt was written",
   "claims_confirmed": 6,
-  "claims_refuted": 4,
+  "claims_refuted": 5,
   "refuted_claims": [
    "That the book's every claim about drift's exit code was corrected in the first commit. Ten sites still sold --tripwire as the exit-code switch or said exit 10 (01-getting-started, 06-cli, forjar-spec, examples/image_drift.rs, error.rs's own doc comments); fourteen fixed once the cookbook chapter was grepped too.",
    "That tripwire_is_a_no_op asserted the flag changes nothing. Mutation M2 (let the flag decorate the error message) survived: the case compared stdout only and the verdict line is on stderr. It compares stderr now and the re-run kills it.",
    "That the branch leaves the CB-21xx ratchet where main has it. CB-2114 read 35 against 34: the new roadmap row had no release: and its issue no milestone. The ceiling file's convention was applied; 34 after. CB-2112 (36) and CB-2115 (49) are main's own debt, measured 36 and 50 there.",
-   "That the acceptance command is green in every clone. Lane 1 saw two cli::tests_check_2 cases die with NotFound; both pass here and in lane 3's clone, neither is in the diff — a sandbox artefact, named rather than explained away."
+   "That the acceptance command is green in every clone. Lane 1 saw two cli::tests_check_2 cases die with NotFound; both pass here and in lane 3's clone, neither is in the diff — a sandbox artefact, named rather than explained away.",
+   "That the rustls advisory bump changed the lock for rustls only. The merge rail's lane 3 read Cargo.lock:3760: tempfile's getrandom had been re-resolved 0.4.3 -> 0.3.4, admitted by its manifest but asked for by nobody and unexplained. Reverted by hand; the lock diff is rustls alone."
   ],
   "lane_errors": [
    "lane 2: API error UNAVAILABLE 503 (no capacity for gemini-3.8-flash-high) after 1177 s; envelope ERROR, carried PASS voided by lane-reduce",
@@ -49,8 +51,8 @@
  "agy_teamwork": {
   "ran": true,
   "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan, against self-contained clones of the PR worktree",
-  "verdict": "1 FAIL / 1 PASS / 1 NO-VERDICT (503); the FAIL's ten documentation sites and one sandbox test failure were each re-executed here; agreed=false partial=true from lane-reduce",
-  "rounds": 1,
+  "verdict": "1 FAIL / 1 PASS / 1 NO-VERDICT (503); the FAIL's ten documentation sites and one sandbox test failure were each re-executed here; agreed=false partial=true from lane-reduce; round 2 (merge rail, head 53959006): 2 PASS / 1 FAIL, the FAIL a Cargo.lock re-resolution the bump had dragged in, reverted",
+  "rounds": 2,
   "lanes_per_round": 3,
   "writes": false,
   "sandbox": true,
@@ -84,7 +86,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/drift-exit-judges.md",
-  "total_bytes": 15350,
+  "total_bytes": 16128,
   "files": [
    {
     "path": ".quorum/evidence/drift-exit-claims.md",
@@ -106,9 +108,9 @@
    },
    {
     "path": ".quorum/evidence/drift-exit-judges.md",
-    "bytes": 5433,
-    "sha256": "d64e3011399e7bcefd15f38c0bd9cc40a0cd18a3adeee3cb8e9b8d03bac9e09a",
-    "blob": "8742518722bb9ff34c55a3d87856592469ccd079",
+    "bytes": 6211,
+    "sha256": "0d8f00c8a9ae991535971ba648cde99dbc1334804042c51ea29cba0923179cf0",
+    "blob": "7c1a07ef185036c98f12b24739b03999353b2535",
     "roles": [
      "judges",
      "crux"
