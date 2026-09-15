@@ -427,7 +427,10 @@ fn decline_on_empty_scope(cfg: &types::ForjarConfig, scan: &DriftScan) -> Result
         .iter()
         .filter_map(|c| c["inspected"].as_u64())
         .sum();
-    if declared == 0 || inspected > 0 {
+    // forjar#549: an UNMEASURED resource was asked about and did not answer.
+    // That is its own verdict (exit 4), and it outranks a decline: the
+    // question was put. A decline is for a run that put no question at all.
+    if declared == 0 || inspected > 0 || scan.total_unmeasured > 0 {
         return Ok(());
     }
     let reasons: std::collections::BTreeSet<String> = scan
@@ -437,9 +440,10 @@ fn decline_on_empty_scope(cfg: &types::ForjarConfig, scan: &DriftScan) -> Result
         .flat_map(|o| o.keys().cloned())
         .filter(|k| k != "in the lock, not in the config")
         .collect();
-    let lock_only = reasons
-        .iter()
-        .all(|k| k.starts_with("declared here, absent from the lock") || k.starts_with("no lock"));
+    let lock_only = !reasons.is_empty()
+        && reasons.iter().all(|k| {
+            k.starts_with("declared here, absent from the lock") || k.starts_with("no lock")
+        });
     let why = if lock_only {
         "no lock holds them".to_string()
     } else {

@@ -215,7 +215,17 @@ fn no_task_checks_over_an_absent_state_dir_inspects_nothing_and_admits_it() {
 
     let (out, ok) = sb.run(&["drift", "-m", "sandbox", "--tripwire", "--no-task-checks"]);
 
-    assert!(ok, "--no-task-checks must not execute the check:\n{out}");
+    // PMAT-564: nothing was executed, and a run that inspected 0 of 2 is a
+    // DECLINE (exit 2), not a pass — "exit 0 over zero information is the
+    // defect this whole file descends from", as the case below says.
+    assert!(
+        !ok,
+        "--no-task-checks inspected nothing and must decline:\n{out}"
+    );
+    assert!(
+        out.contains("declined: inspected 0 of 2 declared"),
+        "the decline must name the count:\n{out}"
+    );
     assert!(
         out.contains("inspected 0 of 2"),
         "the run must admit it inspected nothing:\n{out}"

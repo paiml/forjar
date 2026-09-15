@@ -189,7 +189,17 @@ fn no_task_checks_reports_what_it_declined() {
 
     let (out, ok) = sb.run(&["drift", "-m", "sandbox", "--tripwire", "--no-task-checks"]);
 
-    assert!(ok, "--no-task-checks must not execute the check:\n{out}");
+    // PMAT-564: a run that inspected 0 of what it was asked about DECLINES
+    // (exit 2) rather than exiting 0 over zero coverage. The flag is still
+    // honoured — nothing was executed — and the census still says so.
+    assert!(
+        !ok,
+        "--no-task-checks inspected nothing and must decline, not pass:\n{out}"
+    );
+    assert!(
+        out.contains("declined: inspected 0 of 1 declared") && out.contains("--no-task-checks"),
+        "the decline must name the count and the flag that skipped the work:\n{out}"
+    );
     assert!(
         out.contains("--no-task-checks"),
         "the skipped population must name the flag that skipped it:\n{out}"
@@ -223,7 +233,16 @@ fn a_guard_the_lock_never_heard_of_is_counted_as_uninspected() {
 
     let (out, ok) = sb.run(&["drift", "-m", "sandbox"]);
 
-    assert!(ok, "{out}");
+    // PMAT-564: the count is owed AND the run declines — 0 of 1 declared
+    // resources were inspected, so there is no verdict to give (exit 2).
+    assert!(
+        !ok,
+        "zero coverage of the declared guard is a decline:\n{out}"
+    );
+    assert!(
+        out.contains("declined: inspected 0 of 1 declared; no lock holds them"),
+        "{out}"
+    );
     assert!(
         out.contains("skipped 1: declared here, absent from the lock 1"),
         "a declared guard the lock has never heard of must be COUNTED, not \
