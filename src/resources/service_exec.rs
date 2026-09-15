@@ -45,7 +45,9 @@ const SHA: &str = "__fj_unit_sha";
 /// `pipefail` (the SIGPIPE class, PMAT-240). Fields are split on systemd's
 /// own ` ; ` separator, not on a bare space — `/opt/my app/run.sh` is a
 /// legal program path and a space-split read it as `/opt/my` (found by the
-/// PMAT-560 review quorum, 2 of 3 lanes).
+/// PMAT-560 review quorum, 2 of 3 lanes). A path containing the
+/// three-character separator itself is the accepted limit: it is misread and
+/// reports divergent, which is the failing direction, and the book says so.
 pub fn probe(name: &str) -> String {
     let n = sh_squote(name);
     format!(

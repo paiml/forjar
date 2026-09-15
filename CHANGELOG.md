@@ -45,7 +45,8 @@ unit converged, and the state query carries the live path and digest so
 `drift` sees a program swapped after apply. An unloaded unit is a divergence.
 A service declaring neither field emits exactly what it always did and its
 observed digest does not move. `validate` refuses a relative `exec_start` or a
-digest that is not 64 lowercase hex, since the host compares both as strings.
+digest that is not 64 lowercase hex (a `{{…}}` template in either is left to
+the resolver), since the host compares both as strings.
 Contract `contracts/forjar-unit-exec-parity-v1.yaml`; the falsification suite
 executes the emitted shell against a fake host whose `systemctl` prints the
 line systemd 249 prints, and was RED 8/10 on 1.30.0.

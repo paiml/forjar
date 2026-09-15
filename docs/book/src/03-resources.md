@@ -264,7 +264,7 @@ construction, since the host compares them as strings against what `systemctl`
 and `sha256sum` print. A `{{…}}` template in either field is left for the
 resolver, as every format check does.
 
-Three things to know before declaring it:
+Four things to know before declaring it:
 
 - **The program is argv[0].** For `ExecStart=/opt/x/run.sh` that is the
   script. For `ExecStart=/bin/bash /opt/x/run.sh` it is `/bin/bash`, and the
@@ -276,6 +276,10 @@ Three things to know before declaring it:
 - **A root-only script needs `sudo: true`** on the service resource, or
   `sha256sum` cannot read it and the digest reports `missing` — a divergence,
   never a pass.
+- **The program path is cut at systemd's own ` ; ` field separator** (space,
+  semicolon, space) when `systemctl show`'s line is read. A path containing
+  that three-character sequence is misread and reports divergent; a path
+  containing a bare space is read whole.
 
 ## Mount
 
