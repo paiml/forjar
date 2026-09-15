@@ -4122,7 +4122,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-15T13:23:55Z
-  updated: 2026-09-15T13:23:55Z
+  updated: 2026-09-15T18:04:13Z
   spec: null
   acceptance_criteria:
   - 'forjar drift printed ''Drift detected: 2 resource(s)'' and exited 0 on yoga/gx10 (forjar 1.30.0, 2026-09-15). --tripwire made the exit code true; the default was fail-open. Fix: exit 1 on any DRIFTED line without a flag; --tripwire becomes a no-op kept for compatibility. Refs paiml/infra#605, forjar#562.'
@@ -4131,6 +4131,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.31.0
   notes: null
 - id: PMAT-557
   github_issue: 557
