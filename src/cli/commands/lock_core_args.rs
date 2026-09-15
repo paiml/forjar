@@ -32,6 +32,14 @@ pub struct LockArgs {
     /// Output as JSON
     #[arg(long)]
     pub json: bool,
+
+    /// PMAT-565: rewrite every `<machine>/state.lock.yaml` under --state-dir
+    /// through the writer, so `generator` names THIS binary and the value it
+    /// replaces is kept as `created_by`. One run converges a fleet whose locks
+    /// still name the version that first wrote them; needs no config file.
+    /// Combine with --dry-run to list what would change.
+    #[arg(long)]
+    pub restamp: bool,
 }
 
 /// CLI arguments for `lock prune`.

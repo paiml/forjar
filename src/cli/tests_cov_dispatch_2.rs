@@ -267,6 +267,7 @@ resources:
             verify: false,
             dry_run: false,
             json: false,
+            restamp: false,
         }));
         assert!(result.is_ok());
     }
@@ -285,6 +286,7 @@ resources:
             verify: false,
             dry_run: false,
             json: true,
+            restamp: false,
         }));
         assert!(result.is_ok());
     }

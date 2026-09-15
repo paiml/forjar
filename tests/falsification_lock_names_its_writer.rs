@@ -151,12 +151,21 @@ fn apply_rewrites_the_writer() {
         String::from_utf8_lossy(&ok.stderr)
     );
 
-    // Forge a stale writer the way the fleet's locks carry one, then apply again.
-    let text = read_lock_text(&state, "box").replace(
-        &format!("generator: {}", writer()),
-        "generator: forjar 1.1.1",
+    // Forge a legacy lock the way the fleet's carry one — a stale writer and
+    // no `created_by` at all — then apply again.
+    let text = read_lock_text(&state, "box")
+        .replace(
+            &format!("generator: {}", writer()),
+            "generator: forjar 1.1.1",
+        )
+        .lines()
+        .filter(|l| !l.starts_with("created_by:"))
+        .map(|l| format!("{l}\n"))
+        .collect::<String>();
+    assert!(
+        text.contains("generator: forjar 1.1.1") && !text.contains("created_by"),
+        "{text}"
     );
-    assert!(text.contains("generator: forjar 1.1.1"), "{text}");
     fs::write(state.join("box").join("state.lock.yaml"), &text).unwrap();
     // The integrity sidecar no longer matches the forged file; reseal it so the
     // second apply is refused for nothing but what this test is about.
