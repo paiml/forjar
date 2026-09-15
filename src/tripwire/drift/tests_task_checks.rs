@@ -32,6 +32,7 @@ fn lock_with(id: &str, entry: ResourceLock) -> StateLock {
         hostname: "box".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     }

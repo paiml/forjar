@@ -38,6 +38,7 @@ mod tests {
             hostname: "m1".into(),
             generated_at: "now".into(),
             generator: "forjar".into(),
+            created_by: None,
             blake3_version: "1.8".into(),
             resources,
         };

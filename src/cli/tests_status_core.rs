@@ -315,6 +315,7 @@ mod tests {
             hostname: "webbox.example.com".to_string(),
             generated_at: "2026-02-16T14:00:00Z".to_string(),
             generator: "forjar 0.1.0".to_string(),
+            created_by: None,
             blake3_version: "1.8".to_string(),
             resources,
         };

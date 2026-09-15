@@ -63,6 +63,7 @@ pub fn reconstruct_at(
             last_ts
         },
         generator: format!("forjar {} (reconstructed)", env!("CARGO_PKG_VERSION")),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     })

@@ -90,6 +90,7 @@ fn write_bench_lock(state_dir: &std::path::Path, n: usize) {
         hostname: "bench-host".to_string(),
         generated_at: "2026-02-26T00:00:00Z".to_string(),
         generator: "forjar-bench".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -302,6 +303,7 @@ fn mem_store_lock_save_load_100r() {
         hostname: "bench-host".to_string(),
         generated_at: "2026-02-26T00:00:00Z".to_string(),
         generator: "forjar-bench".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

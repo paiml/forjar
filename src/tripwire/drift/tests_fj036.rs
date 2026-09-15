@@ -44,6 +44,7 @@ fn test_fj036_drift_with_changed_hash() {
         hostname: "test-box".to_string(),
         generated_at: "2026-02-25T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -95,6 +96,7 @@ fn test_fj036_drift_absent_resource_no_drift() {
         hostname: "test-box".to_string(),
         generated_at: "2026-02-25T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -139,6 +141,7 @@ fn test_detect_drift_service_resource() {
         hostname: "test-box".to_string(),
         generated_at: "2026-02-25T10:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -188,6 +191,7 @@ fn test_detect_drift_directory_resource() {
         hostname: "test-box".to_string(),
         generated_at: "2026-02-25T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

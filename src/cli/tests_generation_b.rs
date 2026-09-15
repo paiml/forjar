@@ -43,6 +43,7 @@ fn lock_to_tuples_some_lock() {
         hostname: "host".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -66,6 +67,7 @@ fn lock_to_tuples_empty_resources() {
         hostname: "host".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: indexmap::IndexMap::new(),
     };
@@ -126,6 +128,7 @@ fn count_lock_resources_with_locks() {
         hostname: "host".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();
@@ -241,6 +244,7 @@ fn load_gen_locks_with_machines() {
         hostname: "host".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: indexmap::IndexMap::new(),
     };
@@ -337,6 +341,7 @@ fn setup_with_generations(dir: &std::path::Path) -> std::path::PathBuf {
         hostname: "host".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();

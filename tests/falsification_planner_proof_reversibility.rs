@@ -323,6 +323,7 @@ fn make_lock(resource_id: &str, hash: &str, status: ResourceStatus) -> StateLock
         hostname: "web-01".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.0".into(),
         resources,
     }

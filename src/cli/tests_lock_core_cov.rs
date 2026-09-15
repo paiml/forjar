@@ -11,6 +11,7 @@ fn make_lock(machine: &str, resources: IndexMap<String, ResourceLock>) -> StateL
         hostname: "localhost".to_string(),
         generated_at: "2026-03-08T12:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     }

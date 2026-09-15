@@ -160,6 +160,7 @@ fn plan_noop_when_converged_same_hash() {
         hostname: "m1".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.8".into(),
         resources: IndexMap::new(),
     };
@@ -193,6 +194,7 @@ fn plan_updates_when_hash_differs() {
         hostname: "m1".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.8".into(),
         resources: IndexMap::new(),
     };
@@ -224,6 +226,7 @@ fn plan_destroys_absent_resource() {
         hostname: "m1".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.8".into(),
         resources: IndexMap::new(),
     };

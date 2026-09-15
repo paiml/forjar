@@ -33,6 +33,7 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
                         format!("{ts}Z")
                     },
                     generator: "forjar-repair".to_string(),
+                    created_by: None,
                     blake3_version: "1.5".to_string(),
                     resources: indexmap::IndexMap::new(),
                 };

@@ -198,6 +198,7 @@ fn main() {
         hostname: "web-01".into(),
         generated_at: "2026-03-09T00:00:00Z".into(),
         generator: "forjar".into(),
+        created_by: None,
         blake3_version: "1".into(),
         resources: lock_resources,
     };
