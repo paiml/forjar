@@ -2,10 +2,10 @@
  "kind": "code",
  "issue": "PMAT-564 (forjar#564; paiml/infra#605 first signature) — `forjar drift -f forjar-ephemeral.yaml` on yoga inspected 0 of the 10 resources that manifest declares, graded two files from forjar.yaml (a manifest it was not given, in a category its own census called skipped), printed `Drift detected: 2 resource(s)` and exited 0. Now a run that inspected none of its declared resources declines with exit 2 and names the count, and no detector grades a locked resource the config does not declare.",
  "branch": "PMAT-564-drift-declines-on-empty-scope",
- "base": "bfac33cf",
- "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
- "diff_sha256": "0d5ea438508cb82963fd74fe3229cf1357a8427d",
- "recorded_at": "rebased onto main after #563 merged; decline_on_empty_scope then split into src/cli/drift_decline.rs for the 500-line file-health gate",
+ "base": "cb94fc21",
+ "base_commit": "cb94fc211fda74f5052694a028e21a557a2fcd82",
+ "diff_sha256": "5a04c2918dabf470df371cae00df8ebb691f6f1f",
+ "recorded_at": "rebased onto main after #571 (the v1.30.0 booking) merged; the merge-rail artifact the file-health commit swept in was removed from the branch",
  "quorum": {
   "lanes": [
    "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
