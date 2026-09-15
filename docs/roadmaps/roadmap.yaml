@@ -4116,7 +4116,8 @@ roadmap:
   github_issue: 562
   item_type: task
   title: drift exits 0 over 'Drift detected' unless --tripwire is passed — fail-open by default (infra#605 second signature)
-  status: planned
+  release: 1.31.0
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-09-15T13:23:55Z

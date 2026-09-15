@@ -63,7 +63,8 @@ pub enum ErrorClass {
     /// Exit 4 — we could not REACH the target: SSH or container transport
     /// refused, timed out, or died. Retryable in principle.
     Connection,
-    /// Exit 10 — drift detected (`forjar drift` found a non-zero diff).
+    /// Exit 10 — reserved. No producer emits it: a `forjar drift` verdict
+    /// exits 1 (PMAT-562).
     Drift,
 }
 
@@ -163,7 +164,8 @@ impl ForjarError {
         Self::new(ErrorClass::Partial, message)
     }
 
-    /// Exit 10 — drift detected.
+    /// Exit 10 — reserved; nothing calls this since PMAT-562 made a drift
+    /// verdict exit 1. Kept so the class stays constructible in tests.
     pub fn drift(message: impl Into<String>) -> Self {
         Self::new(ErrorClass::Drift, message)
     }

@@ -181,7 +181,7 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd 
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `-m, --machine` | all | Filter to specific machine |
 | `--state-dir` | `state` | Directory for lock files |
-| `--tripwire` | false | Exit non-zero on any drift (for CI/cron) |
+| `--tripwire` | false | Accepted for compatibility; changes nothing — any drift exits 1 on every run (PMAT-562) |
 | `--alert-cmd` | — | Run command on drift detection (sets `$FORJAR_DRIFT_COUNT`) |
 | `--auto-remediate` | false | Auto-fix drift: force re-apply all resources to restore desired state |
 | `--dry-run` | false | List resources that would be checked without connecting to machines |
@@ -1128,7 +1128,7 @@ forjar fmt -f forjar.yaml --check
 set -euo pipefail
 
 # 1. Check for drift before applying
-forjar drift -f forjar.yaml --state-dir state/ --tripwire || {
+forjar drift -f forjar.yaml --state-dir state/ || {
     echo "Drift detected — review before deploying"
     exit 1
 }
@@ -1150,11 +1150,11 @@ git commit -m "forjar: deploy $(date -I)"
 #!/bin/bash
 # Run via cron or systemd timer
 
-forjar drift -f forjar.yaml --state-dir state/ --tripwire \
+forjar drift -f forjar.yaml --state-dir state/ \
   --alert-cmd "/opt/scripts/notify.sh" \
   --json > /var/log/forjar-drift.json 2>&1
 
-# --tripwire exits non-zero on drift
+# any drift exits 1 — no flag needed
 # --alert-cmd runs notify script with $FORJAR_DRIFT_COUNT
 ```
 
@@ -1177,8 +1177,8 @@ These flags work with all commands:
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success (no errors, no drift with `--tripwire`) |
-| 1 | Error (validation failure, apply failure, drift detected with `--tripwire`, unformatted file with `fmt --check`) |
+| 0 | Success (no errors, no drift) |
+| 1 | Error (validation failure, apply failure, drift detected, unformatted file with `fmt --check`) |
 
 ## Command Reference
 
@@ -1266,8 +1266,8 @@ Detects unauthorized changes by comparing live state to lock file:
 # Basic drift check
 forjar drift -f forjar.yaml --state-dir state/
 
-# Tripwire mode (non-zero exit on drift)
-forjar drift -f forjar.yaml --state-dir state/ --tripwire
+# Any drift exits 1 — the same command is the CI gate
+forjar drift -f forjar.yaml --state-dir state/
 
 # Full drift (re-query all resource types via transport)
 forjar drift -f forjar.yaml --state-dir state/ --full
@@ -1428,7 +1428,7 @@ forjar plan -f forjar.yaml --state-dir state/ && \
 forjar apply -f forjar.yaml --state-dir state/
 
 # Drift check → Auto-remediate
-forjar drift -f forjar.yaml --state-dir state/ --tripwire || \
+forjar drift -f forjar.yaml --state-dir state/ || \
 forjar apply -f forjar.yaml --state-dir state/ --force
 ```
 
@@ -1437,7 +1437,7 @@ forjar apply -f forjar.yaml --state-dir state/ --force
 ```bash
 # Apply to staging first, then production
 forjar apply -f forjar.yaml --state-dir state-staging/ -p env=staging
-forjar drift -f forjar.yaml --state-dir state-staging/ --tripwire
+forjar drift -f forjar.yaml --state-dir state-staging/
 # If staging looks good:
 forjar apply -f forjar.yaml --state-dir state-production/ -p env=production
 ```

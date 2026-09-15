@@ -1000,7 +1000,7 @@ Drift detected on lambda: 1 resource
 When `policy.tripwire: true`, forjar can run as a periodic check (via cron or systemd timer):
 
 ```bash
-forjar drift --tripwire --alert-cmd "notify-send 'forjar: drift on {{machine}}'"
+forjar drift --alert-cmd "notify-send 'forjar: drift on {{machine}}'"
 ```
 
 This hashes all managed files and compares to lock state. Any unauthorized change triggers the alert. Because BLAKE3 hashes are microsecond-fast, this can run every minute on thousands of files with negligible overhead.
@@ -1290,7 +1290,7 @@ Options:
   -f, --file <PATH>          Config file path (default: forjar.yaml)
   -m, --machine <NAME>       Check specific machine only
   --state-dir <PATH>         State directory (default: state)
-  --tripwire                 Exit non-zero on any drift (for cron/CI)
+  --tripwire                 Accepted, inert: any drift exits 1 on every run (PMAT-562)
   --alert-cmd <CMD>          Run command on drift detection (sets $FORJAR_DRIFT_COUNT)
   --auto-remediate           Auto-fix drift: force re-apply all drifted resources
   --dry-run                  List resources that would be checked without connecting
