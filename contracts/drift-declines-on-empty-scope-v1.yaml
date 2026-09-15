@@ -45,14 +45,14 @@ metadata:
     - "src/core/error.rs — DRIFT_DECLINED_MARKER, class Partial (exit 2)"
     - "tests/falsification_drift_declines_on_empty_scope.rs — driven through the binary"
     - "tests/falsification_drift_unmeasured_is_not_drift.rs — the precedence: an unmeasured resource (exit 4) outranks a decline"
-    - "prior art: Terraform refuses to plan a config whose backend holds no matching state rather than diffing against another workspace; ansible-playbook exits 0 over a play that matched no hosts unless `any_errors_fatal`/`fail_on_no_hosts` is set — the fail-open default; kubectl diff over a manifest whose objects are absent shows creations, never another namespace's objects"
+    - "prior art: Terraform refuses to plan a config whose backend holds no matching state rather than diffing against another environment's state; ansible-playbook exits 0 over a play that matched no hosts unless `any_errors_fatal`/`fail_on_no_hosts` is set — the fail-open default; kubectl diff over a manifest whose objects are absent shows creations, never another namespace's objects"
 
   quorum_validation:
-    - system: "Terraform (workspaces, `terraform plan` against a backend)"
+    - system: "Terraform (state backends, `terraform plan`)"
       adopted: |
         State is keyed and a plan is drawn only against the state that
-        matches the configuration: `plan` never diffs workspace A's state
-        against workspace B's config. forjar's lock is keyed by machine, so a
+        matches the configuration: `plan` never diffs environment A's state
+        against environment B's config. forjar's lock is keyed by machine, so a
         second manifest on the same machine could be graded against the first
         one's entries. Adopted: the config is the scope; a locked resource the
         config does not declare is skipped, never graded.
