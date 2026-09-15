@@ -1,0 +1,198 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-15"
+  author: "PAIML Engineering"
+  description: |
+    The per-machine lock names the binary that WROTE it, on every write, and
+    keeps the name of the binary that created it (PMAT-565, forjar#565,
+    paiml/infra#605 third signature).
+
+    Measured, four fleet locks under one 1.30.0 binary, 2026-09-15:
+
+      state/yoga/state.lock.yaml   generator: forjar 1.1.1    generated_at: 2026-09-15T09:19:01Z
+      state/gx10/state.lock.yaml   generator: forjar 1.13.1   generated_at: 2026-09-15T09:18:56Z
+      machines/gx10/state/forjar.lock.yaml          generator: forjar 1.27.0
+      machines/gx10/state/gx10/state.lock.yaml      generator: forjar 1.10.0
+
+    Two files rewritten in the same minute by the same binary, claiming two
+    different, long-gone writers. `state::new_lock` stamped `generator` once;
+    `executor::finalize_machine` refreshed `generated_at` on every apply;
+    nothing refreshed `generator`. The pair `(generator, generated_at)` was a
+    claim no version of forjar could have made — the artifact lied about
+    itself, the same class as exit-0-over-red.
+
+    The fix lives in the ONE writer. `state::save_lock` serialises
+    `stamped_for_write(lock)`: `generator` becomes `writer_stamp()` (what
+    `forjar --version` prints) and, when `created_by` is unset, the value being
+    replaced becomes `created_by`. Done at the writer rather than at each
+    caller because a caller that forgets is exactly how the field went stale
+    for twenty-nine minor versions.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/565"
+    - "issue: https://github.com/paiml/infra/issues/605 — third signature, the four-lock table"
+    - "issue: https://github.com/paiml/forjar/issues/561 — the host-resident lock, which asks for created_by/last_written_by; this contract lands the write-side half"
+    - "src/core/state/mod.rs::save_lock — the one writer"
+    - "src/core/state/mod.rs::stamped_for_write — the stamp"
+    - "src/core/state/mod.rs::writer_stamp — what the binary calls itself"
+    - "src/core/types/state_types.rs — StateLock.created_by, serde default"
+    - "src/cli/lock_restamp.rs::cmd_lock_restamp — the one-shot"
+    - "tests/falsification_lock_names_its_writer.rs — through the writer and the binary"
+    - "prior art: Terraform state carries `terraform_version` and rewrites it on every write; Nix profile generations record the nix version that built them; git objects carry no writer but every ref update is logged with the writer in reflog"
+
+  quorum_validation:
+    - system: "Terraform (state file `terraform_version`, `serial`)"
+      adopted: |
+        Every write of the state file records the Terraform version that
+        wrote it, and refuses a state written by a NEWER version. forjar
+        had the field and never rewrote it. Adopted the every-write stamp;
+        the version-ordering refusal is forjar#561's.
+      encoded_as: "equation `every_write_names_its_writer`"
+    - system: "Nix (profile generations, `nix-env --list-generations`)"
+      adopted: |
+        A generation is immutable and records what produced it; a newer
+        generation is a new file, not an edit of the old one's header.
+        forjar's lock is rewritten in place, so the analogue is: the creator
+        is kept as its own field and the writer moves.
+      encoded_as: "equation `the_creator_is_kept`"
+    - system: "git (reflog)"
+      adopted: |
+        The object store records no writer, but every ref update is logged
+        with who moved it and when. forjar's `generated_at` was the `when`
+        with no `who`; `generator` is now the `who`.
+      encoded_as: "equation `every_write_names_its_writer`"
+    - system: "systemd (`/var/lib` unit state, `systemctl daemon-reload`)"
+      adopted: |
+        Persistent unit state is rewritten by the running manager and never
+        claims to be from an older one. A fleet-wide correction is one
+        command (`daemon-reload`), not a wait for each unit to be touched —
+        the shape of `lock --restamp`.
+      encoded_as: "equation `one_run_converges_the_fleet`"
+
+equations:
+  every_write_names_its_writer:
+    formula: |
+      save_lock(dir, L) ⟹ load_lock(dir, L.machine).generator = writer_stamp()
+      writer_stamp() = "forjar " ‖ CARGO_PKG_VERSION = stdout(forjar --version)
+    domain: "L any StateLock, whatever its in-memory generator says"
+    codomain: "the generator field of the file on disk"
+    invariants:
+      - "The struct's own `generator` is never what the file gets: a fake first-writer string is overwritten by the real writer"
+      - "Every path writes through save_lock — apply's finalize, --refresh, repair, restamp — so no path can forget"
+      - "`generated_at` and `generator` are now a pair one binary could have written"
+
+  the_creator_is_kept:
+    formula: |
+      created_by(after) = created_by(before) if set
+                        = generator(before)  otherwise
+    domain: "before = the lock as loaded, after = the lock as written"
+    codomain: "the created_by field"
+    invariants:
+      - "Set once, never rolled: a second write by another version leaves it alone"
+      - "A legacy file with no created_by (every fleet lock before 1.31.0) gets its stale generator as created_by on its first write — `forjar 1.1.1` becomes a true fact about who wrote it first, not a false one about who wrote it last"
+      - "serde default: a pre-1.31.0 file still parses; skip_serializing_if keeps a fresh lock's YAML free of a null"
+
+  one_run_converges_the_fleet:
+    formula: |
+      lock --restamp --state-dir D ⟹ ∀ m ∈ machines_with_locks(D): generator(D/m) = writer_stamp()
+      lock --restamp --dry-run     ⟹ no file under D changes
+      lock --restamp; lock --restamp ⟹ the second run restamps 0
+    domain: "D a state dir with N per-machine locks"
+    codomain: "the N files, and the report"
+    invariants:
+      - "Writes through save_lock, so the .b3 sidecar is rewritten with each lock"
+      - "Needs no manifest: the fleet's locks belong to many manifests"
+      - "An unreadable state dir is an error, never `0 lock(s) restamped`"
+      - "Each restamped lock is named with its before and after"
+
+proof_obligations:
+  - type: invariant
+    property: "A write stamps the real writer and keeps the creator"
+    formal: "L.generator = FAKE; save_lock(L) ⟹ file.generator = writer ∧ file.created_by = FAKE"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::a_write_stamps_the_real_writer_and_keeps_the_creator"
+    notes: "THE REGRESSION. RED before: the file carried FAKE as its generator, exactly as the fleet's locks carry 1.1.1."
+
+  - type: invariant
+    property: "The creator is set once and the writer every time"
+    formal: "two writes with different in-memory generators ⟹ created_by = the first, generator = writer"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::the_creator_is_set_once_and_the_writer_every_time"
+
+  - type: invariant
+    property: "A legacy lock migrates its stale generator into created_by"
+    formal: "file without created_by, generator = 'forjar 1.1.1'; load; save ⟹ generator = writer ∧ created_by = 'forjar 1.1.1'"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::a_legacy_lock_migrates_its_stale_generator_into_created_by"
+
+  - type: invariant
+    property: "The apply path rewrites the writer"
+    formal: "forge a legacy lock; forjar apply ⟹ generator = writer ∧ created_by = the forged value"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::apply_rewrites_the_writer"
+
+  - type: invariant
+    property: "lock --restamp converges every lock in one run, dry-run writes nothing, a second run is a no-op"
+    formal: "3 legacy locks; --dry-run ⟹ unchanged; run ⟹ 3 restamped, sidecars present; run ⟹ 0 restamped"
+    applies_to: all
+    enforced_by: "tests/falsification_lock_names_its_writer.rs::lock_restamp_converges_every_lock_in_one_run"
+
+  - type: invariant
+    property: "An unreadable state dir is an error, and a current lock is left alone"
+    formal: "restamp(missing dir) = Err; restamp(dir with a current lock) rewrites 0 bytes"
+    applies_to: all
+    enforced_by: "src/cli/lock_restamp.rs::tests::an_unreadable_state_dir_is_an_error_not_zero, a_lock_already_naming_this_binary_is_left_alone"
+
+enforcement:
+  the_stamp_is_in_the_writer:
+    description: |
+      `save_lock` MUST serialise `stamped_for_write(lock)`, never `lock`.
+      Moving the stamp to callers reintroduces the class: one caller that
+      forgets, and the field is stale again for another twenty-nine versions.
+    check: "src/core/state/mod.rs::save_lock"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-WRITER-001
+    rule: "every_write_names_its_writer"
+    prediction: "Serialising `lock` instead of `stamped_for_write(lock)` in save_lock turns four of the five cases red"
+    test: "tests/falsification_lock_names_its_writer.rs::a_write_stamps_the_real_writer_and_keeps_the_creator"
+    if_fails: "The file carries whatever the struct carried — the fleet's 1.1.1, again"
+    measured: "5 of 5 RED before src/core/state/mod.rs::stamped_for_write existed (the restamp case for the missing flag, the other four for the stale field)."
+
+  - id: FALSIFY-WRITER-002
+    rule: "the_creator_is_kept"
+    prediction: "Dropping the `created_by.is_none()` guard (overwriting the creator on every write) turns the set-once case red"
+    test: "tests/falsification_lock_names_its_writer.rs::the_creator_is_set_once_and_the_writer_every_time"
+    if_fails: "created_by rolls with generator and records nothing generator does not"
+
+  - id: FALSIFY-WRITER-003
+    rule: "the_creator_is_kept"
+    prediction: "Leaving created_by unset when the loaded file had none turns the legacy case red"
+    test: "tests/falsification_lock_names_its_writer.rs::a_legacy_lock_migrates_its_stale_generator_into_created_by"
+    if_fails: "The fleet's first writers are erased on the first restamp"
+
+  - id: FALSIFY-WRITER-004
+    rule: "one_run_converges_the_fleet"
+    prediction: "Writing on --dry-run, or skipping the sidecar by bypassing save_lock, turns the restamp case red"
+    test: "tests/falsification_lock_names_its_writer.rs::lock_restamp_converges_every_lock_in_one_run"
+    if_fails: "A preview that writes, or a restamp that leaves every .b3 stale and the next apply refused on integrity"
+
+# No kani_harnesses. `metadata.kind: pattern`: the property is the content of
+# a file after a write through the binary; the falsifiers exercise the writer
+# and the binary rather than a model of them.
+
+qa_gate:
+  id: F-WRITER-001
+  name: "Lock Names Its Writer"
+  description: "generator is the binary that wrote the file, on every write; created_by is the first writer, kept; lock --restamp converges a fleet in one run"
+  checks:
+    - "every_write_names_its_writer"
+    - "the_creator_is_kept"
+    - "one_run_converges_the_fleet"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Serialise `lock` instead of `stamped_for_write(lock)` in src/core/state/mod.rs::save_lock"
+
+verification_level: L3

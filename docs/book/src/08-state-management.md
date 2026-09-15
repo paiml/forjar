@@ -103,7 +103,8 @@ schema: '1.0'
 machine: intel
 hostname: mac-server
 generated_at: 2026-02-16T16:44:39Z
-generator: forjar 0.1.0
+generator: forjar 1.31.0          # the binary that wrote this file, every write
+created_by: forjar 0.1.0          # the first writer, kept
 blake3_version: '1.8'
 resources:
   bash-aliases:
@@ -534,8 +535,9 @@ Every lock file follows this schema:
 schema: '1.0'                    # Lock file format version
 machine: web-server              # Machine key from config
 hostname: web1                   # Machine hostname
-generated_at: 2026-02-25T14:00:00Z  # ISO 8601 UTC timestamp
-generator: forjar 0.1.0         # Generator string
+generated_at: 2026-02-25T14:00:00Z  # ISO 8601 UTC timestamp of the last write
+generator: forjar 1.31.0        # the binary that wrote the file (every write)
+created_by: forjar 0.1.0        # the first writer, set once (absent on pre-1.31.0 locks)
 blake3_version: '1.8'           # BLAKE3 library version
 resources:                       # Map of resource_id → ResourceLock
   resource-name:
@@ -561,10 +563,18 @@ The following tables document every field in the `StateLock` and `ResourceLock` 
 | `schema` | `String` | `schema` | (required) | Lock file format version, currently `"1.0"` |
 | `machine` | `String` | `machine` | (required) | Machine key from the forjar.yaml config |
 | `hostname` | `String` | `hostname` | (required) | Machine hostname as declared in config |
-| `generated_at` | `String` | `generated_at` | (required) | ISO 8601 UTC timestamp of lock generation |
-| `generator` | `String` | `generator` | (required) | Generator string, e.g. `"forjar 0.1.0"` |
+| `generated_at` | `String` | `generated_at` | (required) | ISO 8601 UTC timestamp of the last write |
+| `generator` | `String` | `generator` | (required) | The binary that WROTE the file, e.g. `"forjar 1.31.0"` — what `forjar --version` prints; stamped on every write since 1.31.0 (PMAT-565) |
+| `created_by` | `Option<String>` | `created_by` | absent | The first writer — the `generator` value the first stamping write replaced. Set once, never rolled; absent on locks written before 1.31.0 until their next write |
 | `blake3_version` | `String` | `blake3_version` | (required) | BLAKE3 library version used for hashing, e.g. `"1.8"` |
 | `resources` | `IndexMap<String, ResourceLock>` | `resources` | (required) | Ordered map of resource ID to resource lock entry |
+
+Until 1.31.0 `generator` was stamped once, when the lock was first created,
+and never touched again while `generated_at` rolled on every apply — four
+fleet locks under one 1.30.0 binary said `forjar 1.1.1`, `1.13.1`, `1.27.0`
+and `1.10.0` (paiml/infra#605). `forjar lock --restamp --state-dir <dir>`
+rewrites every lock under a state dir through the writer in one run (with
+`--dry-run` to list, `--json` to report); a second run changes nothing.
 
 #### ResourceLock Fields
 

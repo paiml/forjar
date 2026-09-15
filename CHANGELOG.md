@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.31.0] - 2026-09-16
 
+**The per-machine lock names the binary that wrote it, on every write
+(PMAT-565, #565; paiml/infra#605 third signature).** Measured across four
+fleet locks under one 1.30.0 binary: `generator: forjar 1.1.1` and `forjar
+1.13.1` on two files rewritten in the same minute, `generated_at` current on
+both — the field was stamped once when the lock was created and never touched
+again, so the pair was a claim no version of forjar could have made. Now
+`state::save_lock`, the one writer every path goes through, stamps
+`generator` with the writing binary (exactly what `forjar --version` prints)
+on every write, and moves the value it replaces into a new `created_by` the
+first time, so the creator is named rather than erased and a lock written
+before 1.31.0 still parses. `forjar lock --restamp --state-dir <dir>`
+rewrites every lock under a state dir through the same writer in one run,
+sidecars included — `--dry-run` lists, `--json` reports, a second run changes
+nothing — so a fleet converges in one command rather than on the next
+incidental apply. Contract `contracts/lock-names-its-writer-v1.yaml`; five
+cases through the writer and the binary, all RED before.
+
 **`forjar drift` declines — exit 2, the count named — when it inspected none
 of the resources it was asked about, and never grades a resource from a
 manifest it was not given (PMAT-564, #564; paiml/infra#605 first
