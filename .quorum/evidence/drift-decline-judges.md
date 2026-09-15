@@ -11,7 +11,7 @@ wrong.
 1. [n-from-config] That the declared count N comes from the config's
    resources targeting the scanned machines and never from the lock's
    `in_scope` (all three lanes).
-   - evidence: `src/cli/drift.rs:413` builds N from `cfg.resources`,
+   - evidence: `src/cli/drift_decline.rs:27` builds N from `cfg.resources`,
      filtered to non-recipe resources whose `machine` names a scanned
      machine; a `machine: [a, b]` resource with only `a` scanned counts once;
      `-m` narrows the scanned set and therefore N. The lock is never read
@@ -20,7 +20,7 @@ wrong.
 
 2. [unmeasured-outranks] That an unmeasured resource keeps forjar#549's exit
    4 rather than being declined (lanes 1 and 2 measured; lane 3 read).
-   - evidence: `src/cli/drift.rs:433` returns before declining when
+   - evidence: `src/cli/drift_decline.rs:41` returns before declining when
      `total_unmeasured > 0`; mutation M3 removes that guard and two
      FALSIFY-549 cases go red with exit 2 in place of 4 — which is exactly
      the first cut of this branch, caught by the suite before any lane saw it.
@@ -45,7 +45,7 @@ wrong.
 5. [message] That `no lock holds them` is printed only when every skip reason
    for the declared resources is absence from the lock, and mixed reasons
    are named (all three lanes).
-   - evidence: `src/cli/drift.rs:448`; the opted-out case prints
+   - evidence: `src/cli/drift_decline.rs:56`; the opted-out case prints
      `skipped: --no-task-checks` and the test asserts the flag is named.
 
 6. [control] That a partially locked manifest is graded, not declined, and
@@ -76,7 +76,7 @@ wrong.
    pre-expansion (lanes 1 and 3 — two resamples of one model, agreeing).
    - corrected: `load_drift_config` calls `parse_and_validate`, which
      expands recipes, `count:` and `for_each:` before the config reaches
-     `cmd_drift`, so `src/cli/drift.rs:413` counts expanded resources. Lane
+     `cmd_drift`, so `src/cli/drift_decline.rs:27` counts expanded resources. Lane
      2 said so; two lanes sharing a model id were wrong together, which is
      why `partial_reasons` records the duplicate.
 
@@ -85,7 +85,7 @@ wrong.
    - corrected: it declined whenever inspected == 0, and
      `falsification_drift_unmeasured_is_not_drift` went red on two cases —
      an unreachable host was "nothing to measure" instead of "could not
-     measure". The unmeasured guard at `src/cli/drift.rs:433` was added and
+     measure". The unmeasured guard at `src/cli/drift_decline.rs:41` was added and
      the two cases went green untouched; three older cases that asserted
      exit 0 over `inspected 0 of N` were inverted to the decline they had
      always described.

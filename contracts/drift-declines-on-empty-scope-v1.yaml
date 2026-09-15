@@ -40,7 +40,7 @@ metadata:
     - "issue: https://github.com/paiml/forjar/issues/564"
     - "issue: https://github.com/paiml/infra/issues/605 — first signature, verbatim"
     - "issue: https://github.com/paiml/forjar/issues/488 — the wide walk, the same class"
-    - "src/cli/drift.rs::decline_on_empty_scope — the predicate"
+    - "src/cli/drift_decline.rs::decline_on_empty_scope — the predicate (split out of drift.rs for the 500-line file-health gate)"
     - "src/tripwire/drift/file.rs::detect_file_drift_scoped — the config as the file detector's scope"
     - "src/core/error.rs — DRIFT_DECLINED_MARKER, class Partial (exit 2)"
     - "tests/falsification_drift_declines_on_empty_scope.rs — driven through the binary"

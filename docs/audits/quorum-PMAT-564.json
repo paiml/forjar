@@ -1,0 +1,207 @@
+{
+  "ticket": "PMAT-564",
+  "base": "origin/main",
+  "base_resolved": "origin/main",
+  "base_note": "no origin/origin/main exists; judged against the local ref",
+  "head": "56441f17ade7df4d6c9734c645b2e8b40a75b601",
+  "diff_sha256": "0f27466a53153336d0c1f7c76145a86ec6d44cccd33b7f006ce8c17deee77c8d",
+  "width": 3,
+  "executor": "agy",
+  "prompt_mode": "inline",
+  "prompt_bytes": 83972,
+  "author": {
+    "model": "opus",
+    "family": "claude",
+    "source": "flag"
+  },
+  "agreed": true,
+  "lanes": [
+    {
+      "lane": 1,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "The diff implements the ticket's requirements exactly as specified. A drift run that inspects 0 of N declared resources now correctly declines (exit 2) and names N. Furthermore, a locked resource not declared in the config is correctly skipped by both the file and image detectors, preventing resources from other manifests from being falsely graded. The receipt claims are fully backed by the diff, including preserving exit 4 for unmeasured resources, correctly calculating N from the config (not the lock), and allowing a single inspected resource to prevent a decline. All acceptance tests and falsification mutations pass and assert the expected behavior.",
+      "findings": [],
+      "raw_bytes": 2578,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "grounding_check": "parity",
+      "model": "gemini-3.1-pro-high",
+      "model_measured": "gemini-3.1-pro-high",
+      "model_source": "measured",
+      "family": "gemini"
+    },
+    {
+      "lane": 2,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "Diff PMAT-564 fully satisfies the ticket requirements: (1) forjar drift declines with exit code 2 and reports 'declined: inspected 0 of N declared; no lock holds them' (or explicit skip reasons) when 0 of N declared resources in scope are inspected, (2) N is computed strictly from the config's resources targeting scanned machines, (3) unmeasured resources maintain precedence (exit 4), (4) all detectors (file, task, state-query, image) properly scope to the manifest and skip undeclared locked resources as NotInConfig without grading them, and (5) rigorous falsification tests through the binary enforce every contract invariant.",
+      "findings": [
+        {
+          "claim": "decline_on_empty_scope is called when a config is loaded and not all_stacks, declining before a drift verdict is drawn if zero declared resources were inspected",
+          "file": "src/cli/drift.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 352
+        },
+        {
+          "claim": "declared count is derived from config resources targeting scanned machines, never from lock in_scope",
+          "file": "src/cli/drift.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 412
+        },
+        {
+          "claim": "total_unmeasured > 0 outranks decline and returns Ok(()), preserving exit code 4",
+          "file": "src/cli/drift.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 433
+        },
+        {
+          "claim": "DRIFT_DECLINED_MARKER maps to ErrorClass::Partial (exit code 2)",
+          "file": "src/core/error.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 143
+        },
+        {
+          "claim": "detect_file_drift_scoped skips undeclared locked files as NotInConfig when declared_only is true",
+          "file": "src/tripwire/drift/file.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 246
+        },
+        {
+          "claim": "detect_image_drift skips undeclared locked images as NotInConfig",
+          "file": "src/tripwire/drift/image.rs",
+          "fix": "No fix needed; implementation is correct",
+          "grounding": "cited",
+          "line": 36
+        },
+        {
+          "claim": "falsification suite verifies zero coverage decline with count (exit 2), separation of foreign resources, census consistency, partial lock grading, and json parity",
+          "file": "tests/falsification_drift_declines_on_empty_scope.rs",
+          "fix": "No fix needed; test coverage is complete",
+          "grounding": "cited",
+          "line": 139
+        }
+      ],
+      "raw_bytes": 6044,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "grounding_check": "parity",
+      "model": "gemini-3.7-flash-high",
+      "model_measured": "gemini-3.7-flash-high",
+      "model_source": "measured",
+      "family": "gemini"
+    },
+    {
+      "lane": 3,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "The implementation matches the ticket requirements perfectly. \n\n- `forjar drift -f X` now declines (exit 2) if 0 out of N declared resources were inspected, correctly skipping over any unmeasured logic (leaving it to exit 4) and falling through if even 1 resource was inspected. The declared count N correctly derives from the config targeting the scanned machines, ignoring the lock's own larger scope.\n- `detect_file_drift_scoped` now asks the config first and skips the resource as `NotInConfig` if it isn't declared, fixing the issue where it graded another manifest's files.\n- `detect_image_drift` adds the same guard to prevent its census inspection from overriding `NotInConfig` skips from other detectors.\n- The 6 acceptance tests explicitly falsify the regression, verify the decline correctly names the uninspected resources, ensure unmeasured resources are untouched, and test JSON output.\n\nNo claims in the receipt were refuted, and no gates appear to be weakened by the change.",
+      "findings": [],
+      "raw_bytes": 4445,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "grounding_check": "parity",
+      "model": "gemini-3.1-pro-high",
+      "model_measured": "gemini-3.1-pro-high",
+      "model_source": "measured",
+      "family": "gemini"
+    }
+  ],
+  "dissent": [],
+  "dedup": [
+    {
+      "file": "src/cli/drift.rs",
+      "line": 352,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "decline_on_empty_scope is called when a config is loaded and not all_stacks, declining before a drift verdict is drawn if zero declared resources were inspected"
+      ]
+    },
+    {
+      "file": "src/cli/drift.rs",
+      "line": 412,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "declared count is derived from config resources targeting scanned machines, never from lock in_scope"
+      ]
+    },
+    {
+      "file": "src/cli/drift.rs",
+      "line": 433,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "total_unmeasured > 0 outranks decline and returns Ok(()), preserving exit code 4"
+      ]
+    },
+    {
+      "file": "src/core/error.rs",
+      "line": 143,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "DRIFT_DECLINED_MARKER maps to ErrorClass::Partial (exit code 2)"
+      ]
+    },
+    {
+      "file": "src/tripwire/drift/file.rs",
+      "line": 246,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "detect_file_drift_scoped skips undeclared locked files as NotInConfig when declared_only is true"
+      ]
+    },
+    {
+      "file": "src/tripwire/drift/image.rs",
+      "line": 36,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "detect_image_drift skips undeclared locked images as NotInConfig"
+      ]
+    },
+    {
+      "file": "tests/falsification_drift_declines_on_empty_scope.rs",
+      "line": 139,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "falsification suite verifies zero coverage decline with count (exit 2), separation of foreign resources, census consistency, partial lock grading, and json parity"
+      ]
+    }
+  ],
+  "uncovered": [],
+  "coverage_source": "lanes",
+  "partial": false,
+  "partial_reasons": [
+    "lane models: only 2 distinct model ids across 3 lanes (gemini-3.1-pro-high, gemini-3.7-flash-high) — lanes sharing an id are resamples, not independent reviewers (PMAT-125)"
+  ],
+  "auto_merge": {
+    "checked": true,
+    "was_armed": false,
+    "disarmed": false,
+    "note": "auto-merge not armed"
+  },
+  "lint": {
+    "ok": true,
+    "output": "receipt complete: kind=artifact lanes=3 author=opus/claude"
+  }
+}
