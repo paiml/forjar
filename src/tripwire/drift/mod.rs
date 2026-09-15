@@ -2,7 +2,7 @@
 
 use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
-use file::{detect_drift_impl, detect_drift_with_lifecycle};
+use file::detect_drift_impl;
 use ignore::should_ignore_drift;
 
 /// A single drift finding.
@@ -172,7 +172,10 @@ pub fn detect_drift_full_reported(
     opts: DriftOptions,
 ) -> DriftReport {
     let mut census = DriftCensus::new();
-    let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources, &mut census);
+    // PMAT-564: the config is the scope. A locked file the config does not
+    // declare is skipped here, as it always was one detector down.
+    let mut findings =
+        file::detect_file_drift_scoped(lock, Some(machine), resources, &mut census, true);
     findings.extend(task_check::detect_task_drift(
         lock,
         machine,

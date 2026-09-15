@@ -347,6 +347,11 @@ pub(crate) fn cmd_drift(
         scan_opts,
     )?;
     print_drift_summary(&scan, json)?;
+    // PMAT-564: a run that inspected NONE of what it was asked about declines
+    // before any verdict is drawn from it.
+    if let Some(cfg) = config.as_ref().filter(|_| !all_stacks) {
+        super::drift_decline::decline_on_empty_scope(cfg, &scan)?;
+    }
     let DriftScan {
         total_drift,
         total_unmeasured,

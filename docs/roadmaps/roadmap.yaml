@@ -4248,3 +4248,22 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-564
+  github_issue: 564
+  item_type: task
+  title: drift with 0 of N declared resources in the lock grades another manifest's files and exits 0 — must decline (exit 2) and name N (infra#605 first signature)
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-15T14:26:51Z
+  updated: 2026-09-15T14:26:51Z
+  spec: null
+  acceptance_criteria:
+  - 'Verbatim on yoga (forjar 1.30.0, 2026-09-15): drift -f forjar-ephemeral.yaml inspected 0 of its 10 declared resources, graded gitconfig/zshrc from forjar.yaml, exited 0. Fix: decline (exit 2, stderr names N) when 0 of N declared are in the lock; a locked resource the config does not declare is skipped, never graded. Refs paiml/infra#605, forjar#564.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null

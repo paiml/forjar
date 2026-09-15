@@ -87,6 +87,7 @@ mod dist_verify_tier2_stage;
 mod doctor;
 mod doctor_machine;
 mod drift;
+mod drift_decline;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;

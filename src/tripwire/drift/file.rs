@@ -218,10 +218,33 @@ pub(super) fn detect_drift_with_lifecycle(
     resources: &indexmap::IndexMap<String, Resource>,
     census: &mut DriftCensus,
 ) -> Vec<DriftFinding> {
+    detect_file_drift_scoped(lock, machine, resources, census, false)
+}
+
+/// The file detector, with or without the config as its scope.
+///
+/// PMAT-564 (forjar#564, paiml/infra#605): with a config in hand
+/// (`declared_only`), a lock entry the config does not declare is SKIPPED as
+/// `NotInConfig`, exactly as the non-file detector has always done. This
+/// detector walked the LOCK and never asked, so `drift -f b.yaml` graded two
+/// files from `a.yaml` — and the same run's census called that category
+/// skipped. Without a config (`detect_drift_impl`) the lock is the only scope
+/// there is, and every entry is still graded.
+pub(super) fn detect_file_drift_scoped(
+    lock: &StateLock,
+    machine: Option<&Machine>,
+    resources: &indexmap::IndexMap<String, Resource>,
+    census: &mut DriftCensus,
+    declared_only: bool,
+) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
 
     for (id, rl) in &lock.resources {
         if rl.resource_type != ResourceType::File {
+            continue;
+        }
+        if declared_only && !resources.contains_key(id) {
+            census.skipped(id, &rl.resource_type, SkipReason::NotInConfig);
             continue;
         }
         if rl.status != ResourceStatus::Converged {

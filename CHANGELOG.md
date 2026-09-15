@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`forjar drift` declines — exit 2, the count named — when it inspected none
+of the resources it was asked about, and never grades a resource from a
+manifest it was not given (PMAT-564, #564; paiml/infra#605 first
+signature).** Measured on yoga under 1.30.0: `drift -f forjar-ephemeral.yaml`
+inspected 0 of the 10 resources that manifest declares, graded two files from
+`forjar.yaml` — a manifest the run was not given, in the very category its own
+census line called skipped — printed `Drift detected: 2 resource(s)` and
+exited 0. The file detector walked the lock and never asked whether the
+config declared the entry; the non-file detector always had. Now a locked
+resource the config does not declare is skipped as `in the lock, not in the
+config` by every detector, and a run whose declared resources were inspected
+0 of N exits 2 with `declined: inspected 0 of N declared; no lock holds them`
+(or the skip reasons, e.g. `--no-task-checks`). N is the config's count, never
+the lock's. One inspected resource is enough to be graded rather than
+declined; an unmeasured resource — asked and unanswered — outranks a decline
+and keeps forjar#549's exit 4; `--json` declines with the same code; a bare
+`drift` with no `-f` still grades every lock entry. Contract
+`contracts/drift-declines-on-empty-scope-v1.yaml`; the suite runs the binary
+and was RED 5/6 on the unfixed source.
+
 **`forjar drift` exits 1 on any DRIFTED line, on every run, with no flag
 (PMAT-562, #562; paiml/infra#605 second signature).** Measured on yoga and
 gx10 under 1.30.0: `Drift detected: 2 resource(s)` followed by `rc=0`. The
