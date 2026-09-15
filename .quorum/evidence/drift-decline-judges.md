@@ -38,9 +38,9 @@ wrong.
 
 4. [no-config-unchanged] That the no-config path still grades every lock
    entry (all three lanes).
-   - evidence: `src/tripwire/drift/file.rs:342` — `detect_drift_impl` calls
-     the scoped detector with `declared_only = false`; the guard at
-     `src/tripwire/drift/file.rs:246` is inert there.
+   - evidence: `detect_drift_impl` in `src/tripwire/drift/file.rs` calls the
+     scoped detector with `declared_only = false`, so the guard at
+     `src/tripwire/drift/file.rs:246` is inert on the no-config path.
 
 5. [message] That `no lock holds them` is printed only when every skip reason
    for the declared resources is absence from the lock, and mixed reasons
@@ -68,7 +68,7 @@ wrong.
      `src/tripwire/drift/image.rs`, found the image detector walking the
      lock with no config check at `src/tripwire/drift/image.rs:36`, and
      `census.inspected` overwriting a skip. The guard is there now, with
-     `src/tripwire/drift/tests_image_drift.rs:153` failing without it (M5),
+     `an_undeclared_locked_image_is_skipped_as_not_in_config` in `src/tripwire/drift/tests_image_drift.rs` failing without it (M5),
      and the contract names every detector and the census rule that makes
      the guard necessary.
 
