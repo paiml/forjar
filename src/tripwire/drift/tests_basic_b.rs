@@ -97,6 +97,7 @@ fn test_fj016_detect_drift_with_machine_local() {
         hostname: "local".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -153,6 +154,7 @@ fn test_fj016_detect_drift_with_machine_local_drift() {
         hostname: "local".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -218,6 +220,7 @@ fn test_fj016_detect_drift_multiple_files() {
         hostname: "test".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -279,6 +282,7 @@ fn test_fj016_missing_content_hash_skipped() {
         hostname: "test".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -318,6 +322,7 @@ fn test_fj016_full_drift_non_string_live_hash_skipped() {
         hostname: "test".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

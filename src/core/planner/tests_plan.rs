@@ -44,6 +44,7 @@ fn test_fj004_plan_all_unchanged() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -79,6 +80,7 @@ fn test_fj004_plan_update_on_hash_mismatch() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -114,6 +116,7 @@ fn test_fj004_plan_destroy() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -148,6 +151,7 @@ fn test_fj004_plan_failed_resource_gets_retried() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -228,6 +232,7 @@ fn test_fj004_multi_machine_partial_lock() {
             hostname: "a".to_string(),
             generated_at: "2026-01-01T00:00:00Z".to_string(),
             generator: "forjar".to_string(),
+            created_by: None,
             blake3_version: "1.8".to_string(),
             resources: a_resources,
         },
@@ -354,6 +359,7 @@ fn test_fj132_plan_mixed_actions() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -410,6 +416,7 @@ fn test_gh97_second_plan_over_converged_locks_is_noop() {
         hostname: "m1".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

@@ -24,6 +24,7 @@ fn test_fj016_full_drift_skips_non_file_without_live_hash() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -78,6 +79,7 @@ fn test_fj016_full_drift_skips_non_converged() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -126,6 +128,7 @@ fn test_fj016_full_drift_skips_missing_resource_config() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -313,6 +316,7 @@ fn test_fj016_detect_drift_full_matching_live_hash() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };
@@ -358,6 +362,7 @@ fn test_fj016_detect_drift_full_mismatched_live_hash() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };
@@ -401,6 +406,7 @@ fn test_fj016_detect_drift_full_codegen_error_skips() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };

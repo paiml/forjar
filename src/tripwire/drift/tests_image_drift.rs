@@ -32,6 +32,7 @@ fn make_image_lock(resource_id: &str, manifest_digest: &str, container_name: &st
         hostname: "build-01".into(),
         generated_at: "2026-03-07T00:00:00Z".into(),
         generator: "forjar-test".into(),
+        created_by: None,
         blake3_version: "1.5.0".into(),
         resources,
     }

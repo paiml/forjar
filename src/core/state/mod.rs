@@ -269,6 +269,7 @@ pub fn new_lock(machine: &str, hostname: &str) -> StateLock {
         hostname: hostname.to_string(),
         generated_at: now_iso8601(),
         generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: indexmap::IndexMap::new(),
     }

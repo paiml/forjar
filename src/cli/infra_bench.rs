@@ -223,6 +223,7 @@ fn setup_bench_state(dir: &std::path::Path) -> Result<std::path::PathBuf, String
         hostname: "bench-host".to_string(),
         generated_at: "2026-02-26T00:00:00Z".to_string(),
         generator: "forjar-bench".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

@@ -14,6 +14,7 @@ fn test_lock(machine: &str) -> StateLock {
         hostname: machine.to_string(),
         generated_at: String::new(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1".to_string(),
         resources: indexmap::IndexMap::new(),
     }

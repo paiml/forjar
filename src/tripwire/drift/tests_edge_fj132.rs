@@ -38,6 +38,7 @@ fn test_fj132_detect_drift_with_local_machine() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -100,6 +101,7 @@ fn test_fj132_detect_drift_with_machine_drift_detected() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -154,6 +156,7 @@ fn test_fj132_detect_drift_drifted_status_skipped() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -196,6 +199,7 @@ fn test_fj132_detect_drift_unknown_status_skipped() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -243,6 +247,7 @@ fn test_fj132_detect_drift_full_skips_file_resources() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };
@@ -292,6 +297,7 @@ fn test_fj132_detect_drift_full_non_file_no_live_hash() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };
