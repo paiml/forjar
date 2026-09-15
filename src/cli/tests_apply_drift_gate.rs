@@ -49,6 +49,7 @@ mod tests {
             hostname: "localhost".to_string(),
             generated_at: "2026-03-03T12:00:00Z".to_string(),
             generator: "forjar-test".to_string(),
+            created_by: None,
             blake3_version: "1.5.5".to_string(),
             resources,
         };

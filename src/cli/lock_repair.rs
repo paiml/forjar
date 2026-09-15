@@ -33,11 +33,15 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
                         format!("{ts}Z")
                     },
                     generator: "forjar-repair".to_string(),
+                    created_by: None,
                     blake3_version: "1.5".to_string(),
                     resources: indexmap::IndexMap::new(),
                 };
-                if let Ok(yaml) = serde_yaml_ng::to_string(&minimal) {
-                    let _ = std::fs::write(&lock_path, yaml);
+                // PMAT-565: through the one writer, so the repaired lock names
+                // this binary (`forjar-repair` survives as its created_by) and
+                // its .b3 sidecar is rewritten with it — a bare fs::write left
+                // the sidecar stale and the next apply refused on integrity.
+                if crate::core::state::save_lock(state_dir, &minimal).is_ok() {
                     repaired += 1;
                 }
             }
@@ -92,10 +96,14 @@ pub(crate) fn cmd_lock_normalize(state_dir: &Path, json: bool) -> Result<(), Str
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
-            let new_content = serde_yaml_ng::to_string(&lock)
-                .map_err(|e| format!("Failed to serialize lock: {e}"))?;
+            // PMAT-565: compare against what the writer would WRITE, and write
+            // through it — a normalised lock names this binary and keeps its
+            // sidecar consistent.
+            let new_content =
+                serde_yaml_ng::to_string(&crate::core::state::stamped_for_write(&lock))
+                    .map_err(|e| format!("Failed to serialize lock: {e}"))?;
             if new_content != content {
-                std::fs::write(&lock_path, &new_content)
+                crate::core::state::save_lock(state_dir, &lock)
                     .map_err(|e| format!("Failed to write lock: {e}"))?;
                 normalized += 1;
             }

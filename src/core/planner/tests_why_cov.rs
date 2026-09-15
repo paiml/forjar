@@ -27,6 +27,7 @@ fn make_lock(
             hostname: "localhost".to_string(),
             generated_at: "2026-03-08T12:00:00Z".to_string(),
             generator: "test".to_string(),
+            created_by: None,
             blake3_version: "1.5.5".to_string(),
             resources,
         },

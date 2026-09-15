@@ -93,6 +93,7 @@ fn test_fj131_detect_drift_skips_failed_resources() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -133,6 +134,7 @@ fn test_fj131_detect_drift_skips_non_string_path() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -174,6 +176,7 @@ fn test_fj131_detect_drift_skips_non_string_content_hash() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -217,6 +220,7 @@ fn test_fj131_detect_drift_no_content_hash_skipped() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -250,6 +254,7 @@ fn test_fj131_detect_drift_skips_non_file_resources() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -309,6 +314,7 @@ fn test_fj131_detect_drift_multiple_resources() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

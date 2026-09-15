@@ -46,6 +46,7 @@ fn test_fj016_detect_drift_empty_lock() {
         hostname: "test-box".to_string(),
         generated_at: "2026-02-16T14:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: indexmap::IndexMap::new(),
     };
@@ -89,6 +90,7 @@ fn test_fj016_detect_drift_converged_file_with_drift() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -135,6 +137,7 @@ fn test_fj016_detect_drift_no_drift_when_matching() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -177,6 +180,7 @@ fn test_fj016_detect_drift_skips_non_converged() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -210,6 +214,7 @@ fn test_fj016_detect_drift_skips_non_file_types() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -240,6 +245,7 @@ fn test_fj016_detect_drift_missing_path_detail() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -280,6 +286,7 @@ fn test_fj016_detect_drift_non_string_path_skipped() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -320,6 +327,7 @@ fn test_fj016_detect_drift_non_string_content_hash_skipped() {
         hostname: "test-box".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 0.1.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

@@ -75,6 +75,7 @@ fn test_fj016_detect_drift_full_file_plus_service() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: lock_resources,
     };

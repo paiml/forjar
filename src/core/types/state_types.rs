@@ -87,8 +87,17 @@ pub struct StateLock {
     /// When the lock was generated
     pub generated_at: String,
 
-    /// Generator version
+    /// The binary that WROTE this file, stamped on every write by
+    /// `state::save_lock` (PMAT-565). Until then it was the first writer's
+    /// version, never updated, while `generated_at` rolled — four fleet locks
+    /// under one 1.30.0 binary said 1.1.1, 1.13.1, 1.27.0 and 1.10.0.
     pub generator: String,
+
+    /// The first writer — whatever `generator` said before the first write
+    /// that stamped it (PMAT-565). Set once, never rolled. Absent on every
+    /// lock written before 1.31.0, so `default` keeps those files parsing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<String>,
 
     /// BLAKE3 version
     pub blake3_version: String,

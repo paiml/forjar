@@ -97,6 +97,7 @@ fn why_noop_matching_hash() {
         hostname: "m1".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.8".into(),
         resources: IndexMap::new(),
     };
@@ -124,6 +125,7 @@ fn why_destroy_absent() {
         hostname: "m1".into(),
         generated_at: "now".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1.8".into(),
         resources: IndexMap::new(),
     };

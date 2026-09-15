@@ -31,6 +31,7 @@ fn lock_with(resources: &[(&str, ResourceLock)]) -> StateLock {
         hostname: "host".into(),
         generated_at: "2026-03-09T00:00:00Z".into(),
         generator: "test".into(),
+        created_by: None,
         blake3_version: "1".into(),
         resources: map,
     }
