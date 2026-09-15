@@ -27,3 +27,11 @@
     kind-gate.sh (paiml-implement)        refuses: releases.yaml is outside the
                                           skill's triage rail (see the agy file)
     PRINT_HASH=1 bash scripts/quorum-gate.sh   the diff hash in the receipt
+    per-row YAML comparison               yaml.safe_load of roadmap.yaml at
+                                          origin/main and at HEAD, rows keyed by
+                                          id, fields compared: 6 rows added,
+                                          0 removed, 6 rows changed
+                                          (PMAT-526/528/529/547/555/562),
+                                          PMAT-545 and PMAT-527 identical — the
+                                          instrument that settles which rows a
+                                          hunk edits

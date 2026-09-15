@@ -82,8 +82,12 @@ and the window say; the one sentence a lane called false was not.
 5. [wrong-rows] That the diff marked PMAT-545 completed instead of PMAT-555 and
    moved PMAT-527's label instead of PMAT-526's (the merge rail's lane 3,
    gemini-3.1-pro-high, reading hunk context).
-   - corrected: every added and removed line of `docs/roadmaps/roadmap.yaml` was
-     attributed to the row it falls in at HEAD. The status changes are on
-     PMAT-547, PMAT-555 and PMAT-562; the label moves are on PMAT-526, PMAT-528
-     and PMAT-529; PMAT-545 and PMAT-527 are untouched. The lane read the line
-     above each hunk as the row the hunk edits.
+   - corrected: the YAML at `origin/main` and at HEAD was parsed and every row
+     compared by its `id`, which no hunk layout can blur: 213 rows at base, 219
+     at head, six added (PMAT-557/558/559/561/566/567), none removed; changed
+     rows are exactly PMAT-526/528/529 (labels, updated), PMAT-547 (status),
+     PMAT-555 and PMAT-562 (status, labels, updated); PMAT-545 and PMAT-527 are
+     byte-identical as parsed. The same lane model repeated the claim in the
+     merge rail's second round and was refuted by the same comparison; the two
+     other lanes in that round passed. The lane read the line above each hunk
+     as the row the hunk edits.
