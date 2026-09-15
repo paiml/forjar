@@ -174,7 +174,7 @@ resources:
 
         // alert_cmd touches a file when drift detected
         let alert_cmd = format!("touch {}", alert_marker.display());
-        cmd_drift(
+        let verdict = cmd_drift(
             Path::new("nonexistent.yaml"),
             &state,
             None,
@@ -187,8 +187,13 @@ resources:
             None, // no env_file
             false, // all_stacks
             false,
-        )
-        .unwrap();
+        );
+        // PMAT-562: the alert fired AND the verdict is a reject — a run that
+        // found drift no longer returns Ok with no flag.
+        assert!(
+            verdict.as_ref().is_err_and(|e| e.contains("drift finding(s)")),
+            "{verdict:?}"
+        );
 
         // Verify alert command ran
         assert!(alert_marker.exists());
@@ -303,14 +308,18 @@ resources:
         // Tamper with the file
         std::fs::write(&target, "tampered content").unwrap();
 
-        // Drift with auto-remediate should detect and fix
-        cmd_drift(
+        // Drift with auto-remediate should detect and fix. PMAT-562: a
+        // remediated finding was still a finding, so the run is a reject.
+        let verdict = cmd_drift(
             &config, &state, None, false, None, true, // auto_remediate
             false, false, false, None, // no env_file
             false, // all_stacks
             false,
-        )
-        .unwrap();
+        );
+        assert!(
+            verdict.as_ref().is_err_and(|e| e.contains("drift finding(s)")),
+            "{verdict:?}"
+        );
 
         // File should be restored to original content
         let content = std::fs::read_to_string(&target).unwrap();

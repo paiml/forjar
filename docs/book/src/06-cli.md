@@ -1488,8 +1488,7 @@ forjar apply -f forjar.yaml --state-dir state/
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (validation, apply failure, etc.) |
-| 2 | Drift detected (for `drift` command) |
+| 1 | Error (validation, apply failure, etc.) — and a `drift` verdict: any DRIFTED line exits 1 on every run, no flag (PMAT-562) |
 
 Scripts can use exit codes for automation:
 
@@ -1579,11 +1578,15 @@ Forjar uses structured exit codes to distinguish error categories. The main bina
 | Code | Meaning | Example |
 |------|---------|---------|
 | 0 | Success — all resources converged | `apply`, `validate`, `plan` |
-| 1 | General error | Unexpected failures, I/O errors |
+| 1 | General error; a `drift` verdict (reject) | Unexpected failures, I/O errors; `drift` with any DRIFTED line, on every run |
 | 2 | Partial failure — some resources failed | `apply` with mixed results |
 | 3 | Configuration error — invalid YAML or missing fields | `validate`, `plan` |
-| 4 | Connection error — SSH or container transport | `apply`, `drift` |
-| 10 | Drift detected — non-zero diff | `drift --tripwire` |
+| 4 | Connection error — SSH or container transport; `drift` that could not measure a resource and found no drift | `apply`, `drift` |
+| 10 | Reserved (`ErrorClass::Drift`); no command emits it | — |
+
+Until 1.31.0 a drift verdict reached the exit code only with `--tripwire` —
+`Drift detected: 2 resource(s)` followed by `rc=0` was measured on the fleet
+(paiml/infra#605). The flag is still accepted and changes nothing (PMAT-562).
 
 ### Per-Command Details
 
@@ -1593,7 +1596,7 @@ Forjar uses structured exit codes to distinguish error categories. The main bina
 | `validate` | Config is valid | Parse error, schema violation, cycle detected | -- |
 | `plan` | Plan generated | Config invalid, state directory unreadable | -- |
 | `apply` | All resources converged or unchanged | Any resource failed, config invalid, transport error | -- |
-| `drift` | No drift found | Config invalid, state unreadable, transport error | Drift detected (`--tripwire`) |
+| `drift` | No drift found | Drift detected (any run); config invalid, state unreadable | -- (4: a resource could not be measured and none drifted) |
 | `status` | Status displayed | State directory missing or unreadable | -- |
 | `history` | Events displayed | Event log missing or corrupt | -- |
 | `show` | Resolved config displayed | Config invalid, template resolution failure | -- |
@@ -1612,16 +1615,19 @@ Forjar uses structured exit codes to distinguish error categories. The main bina
 ```bash
 # Gate deployment on validation + drift check
 forjar validate -f forjar.yaml || exit 1
-forjar drift -f forjar.yaml --tripwire
+forjar drift -f forjar.yaml
 case $? in
     0) echo "Clean — proceeding with deploy" ;;
-    2) echo "Drift detected — investigate before deploying"; exit 1 ;;
+    1) echo "Drift detected, or drift could not run — read the output"; exit 1 ;;
+    4) echo "A machine could not be measured — not a pass"; exit 1 ;;
     *) echo "Error running drift check"; exit 1 ;;
 esac
 forjar apply -f forjar.yaml
 ```
 
-The distinction between exit code 1 (tool error) and exit code 2 (drift signal) allows scripts to differentiate between "forjar failed to run" and "forjar ran successfully and found drift."
+A drift verdict and a tool error share exit 1: both are a reject, and the
+output says which. `--json` carries `drift_count` for a script that needs the
+distinction.
 
 ### `forjar mcp`
 

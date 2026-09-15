@@ -160,7 +160,7 @@ forjar plan -f test-config.yaml
 forjar apply -f test-config.yaml --state-dir /tmp/test-state
 
 # Check for drift (should be zero)
-forjar drift -f test-config.yaml --state-dir /tmp/test-state --tripwire
+forjar drift -f test-config.yaml --state-dir /tmp/test-state
 
 # Apply again (should be idempotent)
 forjar apply -f test-config.yaml --state-dir /tmp/test-state
@@ -230,7 +230,7 @@ jobs:
       - name: Check drift
         run: |
           forjar drift -f test-config.yaml \
-            --state-dir /tmp/test-state --tripwire
+            --state-dir /tmp/test-state
 ```
 
 ### Forjar Repository CI Jobs
@@ -269,7 +269,7 @@ ls /tmp/review-scripts/
 forjar apply -f forjar.yaml --auto-commit
 
 # 5. Post-apply drift check
-forjar drift -f forjar.yaml --tripwire
+forjar drift -f forjar.yaml
 ```
 
 ## Monitoring After Deployment
@@ -279,7 +279,7 @@ forjar drift -f forjar.yaml --tripwire
 ```bash
 # Cron: check drift every 15 minutes
 */15 * * * * forjar drift -f /opt/infra/forjar.yaml \
-  --tripwire --alert-cmd "/opt/scripts/alert.sh" \
+  --alert-cmd "/opt/scripts/alert.sh" \
   >> /var/log/forjar-drift.log 2>&1
 ```
 
@@ -366,7 +366,7 @@ resources:
 forjar apply -f forjar.yaml --tag canary -m canary-web1
 
 # Verify
-forjar drift -f forjar.yaml --tripwire -m canary-web1
+forjar drift -f forjar.yaml -m canary-web1
 
 # If good, deploy to all
 forjar apply -f forjar.yaml --tag web
@@ -411,7 +411,7 @@ forjar drift -f forjar.yaml -m web-server
 forjar drift -f forjar.yaml --auto-remediate -m web-server
 
 # Verify drift is resolved
-forjar drift -f forjar.yaml --tripwire -m web-server
+forjar drift -f forjar.yaml -m web-server
 ```
 
 ## GitOps Workflow
@@ -430,7 +430,7 @@ Developer                    CI                          Production
     │                        │                               │
     ├── merge PR ──────────► │                               │
     │                        ├── apply ──────────────────────► │
-    │                        ├── drift --tripwire ──────────► │
+    │                        ├── drift ────────────────────► │
     │                        ├── commit state ──► git          │
     │                        │                               │
 ```
@@ -465,7 +465,7 @@ jobs:
       - name: Post-apply drift check
         run: |
           forjar drift -f forjar.yaml \
-            --state-dir state/ --tripwire
+            --state-dir state/
 
       - name: Push state
         run: |
@@ -482,7 +482,7 @@ jobs:
 
 4. **Use ephemeral containers** — Integration tests in containers are cheap and fast. Never test on production.
 
-5. **Monitor drift continuously** — `--tripwire` in cron catches unauthorized changes early.
+5. **Monitor drift continuously** — `drift` in cron catches unauthorized changes early; its exit code is the verdict.
 
 6. **Audit scripts before apply** — `forjar plan --output-dir` lets you review the exact shell scripts before they run on your machines.
 
@@ -492,7 +492,7 @@ jobs:
 
 9. **Test templates separately** — Use `forjar show --json` to verify template resolution before applying.
 
-10. **Set up scheduled drift checks** — A cron job running `forjar drift --tripwire` catches unauthorized changes within minutes.
+10. **Set up scheduled drift checks** — A cron job running `forjar drift` catches unauthorized changes within minutes.
 
 ## Testing Patterns
 
@@ -795,9 +795,9 @@ jobs:
       - name: Install and apply
         run: |
           cargo install forjar
-          forjar drift -f forjar.yaml --state-dir state/ --tripwire || true
+          forjar drift -f forjar.yaml --state-dir state/ || true
           forjar apply -f forjar.yaml --state-dir state/
-          forjar drift -f forjar.yaml --state-dir state/ --tripwire
+          forjar drift -f forjar.yaml --state-dir state/
 
       - name: Commit state
         run: |

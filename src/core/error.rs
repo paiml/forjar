@@ -28,7 +28,7 @@
 //! | 2    | [`ErrorClass::Partial`]    | partial failure — some resources failed |
 //! | 3    | [`ErrorClass::Validation`] | bad input: YAML, validation, I8 gate |
 //! | 4    | [`ErrorClass::Connection`] | could not reach the target — retryable |
-//! | 10   | [`ErrorClass::Drift`]      | drift detected                      |
+//! | 10   | [`ErrorClass::Drift`]      | reserved — no producer emits it; a `drift` verdict exits 1 (PMAT-562) |
 //!
 //! What changed is HOW the code is chosen: from a VARIANT a producer declares,
 //! not from prose a consumer guesses at. What the codes MEAN is unchanged.

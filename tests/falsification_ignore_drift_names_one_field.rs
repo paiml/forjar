@@ -111,7 +111,14 @@ impl Sandbox {
     fn drift_json(&self) -> serde_json::Value {
         let (out, _) = self.run(&["drift", "--json"]);
         let start = out.find('{').unwrap_or_else(|| panic!("no JSON:\n{out}"));
-        serde_json::from_str(&out[start..]).unwrap_or_else(|e| panic!("bad JSON ({e}):\n{out}"))
+        // The first JSON document only: `run` merges stderr into stdout, and
+        // since PMAT-562 a drifting run also prints its verdict there
+        // (`error: N drift finding(s)`) after the report.
+        serde_json::Deserializer::from_str(&out[start..])
+            .into_iter::<serde_json::Value>()
+            .next()
+            .unwrap_or_else(|| panic!("no JSON document:\n{out}"))
+            .unwrap_or_else(|e| panic!("bad JSON ({e}):\n{out}"))
     }
 
     fn chmod(&self, mode: u32) {

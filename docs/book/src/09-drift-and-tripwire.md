@@ -127,7 +127,7 @@ Checking gx10 (no lock — assertions only)...
 ```
 
 That is a *smaller* answer, not an invalid one, and every line it prints says
-so. `--tripwire` still exits non-zero on the findings.
+so. The findings still exit 1.
 
 Two neighbouring cases stay fatal, because neither can produce a true answer:
 
@@ -205,17 +205,25 @@ forjar drift -f forjar.yaml --json
 }
 ```
 
-### Tripwire Mode
+### The exit code is the verdict
 
-Use `--tripwire` to exit non-zero on any drift — ideal for CI/cron:
+Any DRIFTED line exits 1, on every run, with no flag — a drift verdict is a
+reject, and a cron line or a CI step reads it without asking:
 
 ```bash
 # Exit code 1 if any drift detected
-forjar drift -f forjar.yaml --tripwire
+forjar drift -f forjar.yaml
 
 # Use in CI pipeline
-forjar drift -f forjar.yaml --tripwire || notify-slack "Drift detected!"
+forjar drift -f forjar.yaml || notify-slack "Drift detected!"
 ```
+
+Until 1.31.0 this needed `--tripwire`, and `Drift detected: 2 resource(s)`
+followed by `rc=0` was measured on the fleet (paiml/infra#605): the default was
+fail-open, and the caller had to know to ask for the exit code that means what
+the output says. `--tripwire` is still accepted so existing cron lines keep
+parsing; it changes nothing (PMAT-562). A run that could not measure a resource
+and found no drift exits 4 (forjar#549).
 
 ### Alert Commands
 
@@ -245,7 +253,7 @@ Add a cron job to check for drift periodically:
 
 ```bash
 # Check every 15 minutes, alert on drift
-*/15 * * * * cd /opt/infra && forjar drift -f forjar.yaml --tripwire --alert-cmd "/opt/scripts/drift-alert.sh" >> /var/log/forjar-drift.log 2>&1
+*/15 * * * * cd /opt/infra && forjar drift -f forjar.yaml --alert-cmd "/opt/scripts/drift-alert.sh" >> /var/log/forjar-drift.log 2>&1
 ```
 
 ### Systemd Timer
@@ -260,7 +268,7 @@ Description=Forjar drift detection
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/infra
-ExecStart=/usr/local/bin/forjar drift -f forjar.yaml --tripwire --alert-cmd "/opt/scripts/alert.sh"
+ExecStart=/usr/local/bin/forjar drift -f forjar.yaml --alert-cmd "/opt/scripts/alert.sh"
 
 # /etc/systemd/system/forjar-drift.timer
 [Unit]
@@ -475,7 +483,7 @@ b3sum /etc/nginx/nginx.conf
 
 1. **Run drift checks before every apply** — `forjar drift` before `forjar apply` shows what changed since the last apply.
 
-2. **Use `--tripwire` in CI** — Catches unauthorized changes before they accumulate.
+2. **Run `drift` in CI** — its exit code is the verdict; catches unauthorized changes before they accumulate.
 
 3. **Monitor anomalies weekly** — `forjar anomaly` identifies resources that need attention.
 
@@ -772,7 +780,7 @@ Tripwire mode turns drift detection into a binary signal: **clean** (exit 0) or 
 
 ```bash
 # CI gate: block deploy if drift detected
-forjar drift -f forjar.yaml --tripwire
+forjar drift -f forjar.yaml
 if [ $? -ne 0 ]; then
     echo "Drift detected — resolve before deploying"
     exit 1
@@ -828,7 +836,7 @@ for machine in web db cache monitor; do
 done
 
 # Check by tag for targeted verification
-forjar drift -f forjar.yaml --tag critical --tripwire
+forjar drift -f forjar.yaml --tag critical
 ```
 
 ### Drift Suppression

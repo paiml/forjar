@@ -625,7 +625,7 @@ done
 |-----------|---------|
 | 0 | Success |
 | 1 | General error (validation, transport, config) |
-| 1 | Drift detected (with `--tripwire` flag) |
+| 1 | Drift detected (any run; `--tripwire` is a no-op since PMAT-562) |
 | 2 | CLI argument error |
 
 ## Common Patterns That Cause Issues

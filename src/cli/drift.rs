@@ -285,7 +285,10 @@ pub(crate) fn cmd_drift(
     config_path: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
-    tripwire_mode: bool,
+    // PMAT-562 (forjar#562, paiml/infra#605): accepted and ignored. The verdict
+    // reaches the exit code on EVERY run now; `--tripwire` stays parseable so
+    // no cron line on the fleet breaks, and it changes nothing.
+    _tripwire_compat: bool,
     alert_cmd: Option<&str>,
     auto_remediate: bool,
     dry_run: bool,
@@ -369,13 +372,19 @@ pub(crate) fn cmd_drift(
         }
     }
 
-    if tripwire_mode && total_drift > 0 {
+    // PMAT-562: the verdict IS the exit code, with no flag. `Drift detected:
+    // 2 resource(s)` followed by rc=0 was measured on yoga and gx10 (paiml/
+    // infra#605): the default was fail-open and `--tripwire` was the way to
+    // ask for the truth — the forjar#352 class, where the flag that makes the
+    // tool honest is opt-in. A drift finding is a reject (1); a remediated
+    // finding was still a finding.
+    if total_drift > 0 {
         return Err(format!("{total_drift} drift finding(s)"));
     }
     // forjar#549: DRIFT WINS when both are present, because a definite finding
     // is the stronger statement. Unmeasured alone is not a pass: it exits with
     // the connection class (4), because the question was never answered.
-    if tripwire_mode && total_unmeasured > 0 {
+    if total_unmeasured > 0 {
         return Err(crate::core::error::ForjarError::connection(format!(
             "{}: {total_unmeasured} resource(s)",
             crate::core::error::DRIFT_UNMEASURED_MARKER

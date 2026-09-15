@@ -25,7 +25,9 @@ pub struct DriftArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 
-    /// Exit non-zero on any drift (for CI/cron)
+    /// Accepted for compatibility; changes nothing. A drift verdict exits 1
+    /// on every run (PMAT-562) — it used to reach the exit code only with this
+    /// flag, which made the default fail-open.
     #[arg(long)]
     pub tripwire: bool,
 
