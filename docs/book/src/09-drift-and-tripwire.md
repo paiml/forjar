@@ -225,6 +225,20 @@ the output says. `--tripwire` is still accepted so existing cron lines keep
 parsing; it changes nothing (PMAT-562). A run that could not measure a resource
 and found no drift exits 4 (forjar#549).
 
+A run that inspected **none** of the resources the manifest declares —
+because no lock holds them, or because `--no-task-checks` skipped the only
+work there was — **declines** with exit 2 and names the count:
+
+```text
+error: declined: inspected 0 of 10 declared; no lock holds them
+```
+
+It never grades a resource from another manifest: with two stacks on one
+machine, `drift -f b.yaml` skips `a.yaml`'s locked entries as `in the lock,
+not in the config` rather than reporting their drift under B's name (PMAT-564,
+measured on yoga where exactly that had happened). One inspected resource is
+enough to be graded; a declined run is one that measured nothing.
+
 ### Alert Commands
 
 Run a custom command when drift is detected:

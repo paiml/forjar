@@ -1,0 +1,217 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-15"
+  author: "PAIML Engineering"
+  description: |
+    A `forjar drift` run that inspected NONE of the resources it was asked
+    about DECLINES — exit 2, the count named — and never grades a resource
+    from a manifest it was not given (PMAT-564, forjar#564, paiml/infra#605
+    first signature).
+
+    Measured, forjar 1.30.0, yoga, 2026-09-15 11:51Z:
+
+      $ forjar drift -f machines/yoga/forjar-ephemeral.yaml
+        inspected 2 of 103 resource(s) in scope: file 2
+        skipped 101: declared here, absent from the lock 10, in the lock,
+        not in the config 65, ...
+        DRIFTED: gitconfig on yoga (...)
+        DRIFTED: zshrc on yoga (...)
+      Drift detected: 2 resource(s)
+      rc=0
+
+    "declared here, absent from the lock 10" is every resource the manifest
+    declares: inspected 0 of them. The two it graded belong to
+    `machines/yoga/forjar.yaml`, which this invocation did not name — and the
+    same census calls "in the lock, not in the config" a SKIP category, so the
+    run contradicted itself. `eph-wrapper`, whose bytes did not match its
+    declared source, was silent.
+
+    Mechanism: the file detector walked the LOCK and never asked whether the
+    config declared the entry; the non-file detector asked and skipped
+    `NotInConfig`. Zero coverage of the question, a verdict about something
+    else, exit 0 — the forjar#488 shape, and the fleet's "0 violations over 0
+    files" signature.
+
+    Exit vocabulary: 0 accept · 1 reject · 2 decline · 3 error.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/564"
+    - "issue: https://github.com/paiml/infra/issues/605 — first signature, verbatim"
+    - "issue: https://github.com/paiml/forjar/issues/488 — the wide walk, the same class"
+    - "src/cli/drift.rs::decline_on_empty_scope — the predicate"
+    - "src/tripwire/drift/file.rs::detect_file_drift_scoped — the config as the file detector's scope"
+    - "src/core/error.rs — DRIFT_DECLINED_MARKER, class Partial (exit 2)"
+    - "tests/falsification_drift_declines_on_empty_scope.rs — driven through the binary"
+    - "tests/falsification_drift_unmeasured_is_not_drift.rs — the precedence: an unmeasured resource (exit 4) outranks a decline"
+    - "prior art: Terraform refuses to plan a config whose backend holds no matching state rather than diffing against another workspace; ansible-playbook exits 0 over a play that matched no hosts unless `any_errors_fatal`/`fail_on_no_hosts` is set — the fail-open default; kubectl diff over a manifest whose objects are absent shows creations, never another namespace's objects"
+
+  quorum_validation:
+    - system: "Terraform (workspaces, `terraform plan` against a backend)"
+      adopted: |
+        State is keyed and a plan is drawn only against the state that
+        matches the configuration: `plan` never diffs workspace A's state
+        against workspace B's config. forjar's lock is keyed by machine, so a
+        second manifest on the same machine could be graded against the first
+        one's entries. Adopted: the config is the scope; a locked resource the
+        config does not declare is skipped, never graded.
+      encoded_as: "equation `the_config_is_the_scope`"
+    - system: "Ansible (`fail_on_no_hosts`, `any_errors_fatal`)"
+      adopted: |
+        A play whose pattern matched NO hosts skips silently and the playbook
+        exits 0 unless the operator opts into failing — the same fail-open
+        default this contract removes for zero inspected resources. Adopted
+        the opposite default: zero coverage declines.
+      encoded_as: "equation `zero_coverage_declines`"
+    - system: "Kubernetes (`kubectl diff`, namespaces)"
+      adopted: |
+        A manifest whose objects do not exist yet diffs as creations, in the
+        manifest's own namespace; objects in another namespace are never
+        shown. The verdict is always about the objects that were named.
+      encoded_as: "equation `the_config_is_the_scope`"
+    - system: "Nix (`nix build` with no matching derivation)"
+      adopted: |
+        An attribute that names nothing is an error, not a successful build of
+        nothing. forjar's exit-2 decline is the same refusal to report success
+        over an empty question.
+      encoded_as: "equation `zero_coverage_declines`"
+
+equations:
+  the_config_is_the_scope:
+    formula: |
+      config loaded ∧ id ∈ lock.files ∧ id ∉ config.resources
+        ⟹ census[id] = skipped(NotInConfig) ∧ id ∉ findings
+    domain: "config a manifest, lock the machine's lock, id a lock entry"
+    codomain: "census entry"
+    invariants:
+      - "A locked resource the config does not declare is never graded — no DRIFTED line names it, in text or --json"
+      - "A resource is inspected OR skipped, never both: the census cannot contradict itself"
+      - "Without a config (bare `drift`, no `-f`), the lock is the only scope and every entry is still graded — the forjar#385 path is unchanged"
+
+  zero_coverage_declines:
+    formula: |
+      config loaded ∧ ¬all_stacks
+        ∧ declared(config, scanned machines) = N > 0
+        ∧ inspected = 0 ∧ unmeasured = 0
+        ⟹ exit = 2 ∧ stderr ∋ "declined: inspected 0 of N declared"
+    domain: "N the config's non-recipe resources targeting a scanned machine"
+    codomain: "process exit status"
+    invariants:
+      - "The count N is the config's, never the lock's `in_scope` (which counts another manifest's entries)"
+      - "When every declared resource was skipped for want of a lock entry (absent from the lock, or no lock at all) the message ends `no lock holds them`; otherwise it names the skip reasons (e.g. `--no-task-checks`)"
+      - "An UNMEASURED resource outranks a decline: the question was put and not answered, which is forjar#549's verdict (exit 4), not this one"
+      - "One inspected resource is enough: a partially locked manifest is graded, not declined"
+      - "--json declines with the same code — the renderer does not own the verdict"
+
+proof_obligations:
+  - type: invariant
+    property: "A manifest none of whose resources are locked declines with the count"
+    formal: "declared = 3 ∧ inspected = 0 ⟹ exit 2 ∧ stderr ∋ 'declined: inspected 0 of 3 declared; no lock holds them'"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::a_manifest_none_of_whose_resources_are_locked_is_declined_with_the_count"
+    notes: "THE REGRESSION. RED on the unfixed source: exit 1 (post-PMAT-562) over a-one and a-two, graded from a manifest the run was not given."
+
+  - type: invariant
+    property: "Another manifest's tampered file is never graded"
+    formal: "tamper(a-one) ∧ drift(-f b.yaml) ⟹ stdout ∌ 'DRIFTED: a-one'"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::another_manifests_resources_are_never_graded"
+
+  - type: invariant
+    property: "The census never both inspects and skips a locked, undeclared resource"
+    formal: "resources_inspected = 0 ∧ skipped_by_reason['in the lock, not in the config'] = 2 ∧ skipped_by_reason['declared here, absent from the lock'] = 3"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::a_locked_resource_outside_the_config_is_skipped_not_inspected"
+
+  - type: invariant
+    property: "A partially locked manifest is inspected, not declined; its drift is a reject"
+    formal: "inspected = 1 ⟹ exit 0; then tamper ⟹ exit 1 ∧ DRIFTED"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::a_partially_locked_manifest_is_inspected_not_declined"
+    notes: "The control. Without it `exit 2 always` discharges the regression."
+
+  - type: invariant
+    property: "The applied manifest is fully inspected"
+    formal: "drift(-f a.yaml) ⟹ exit 0 ∧ 'inspected 2 of 2'"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::the_applied_manifest_is_fully_inspected"
+
+  - type: invariant
+    property: "--json declines with the same code"
+    formal: "drift(-f b.yaml, --json) ⟹ exit 2 ∧ stderr ∋ the decline"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_declines_on_empty_scope.rs::json_output_declines_with_the_same_code"
+
+  - type: invariant
+    property: "An unmeasured resource outranks a decline"
+    formal: "declared = 1 ∧ inspected = 0 ∧ unmeasured = 1 ⟹ exit 4"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_unmeasured_is_not_drift.rs::an_unreachable_resource_is_unmeasured_not_drifted, an_unmeasured_only_run_fires_no_drift_alert"
+    notes: "The first cut of decline_on_empty_scope fired here and turned two FALSIFY-549 cases red (exit 2 for 4). The precedence was added and the cases went green without being touched."
+
+  - type: invariant
+    property: "An opted-out or never-locked run declines and still prints its census"
+    formal: "--no-task-checks ∧ declared = 1 ⟹ exit 2 ∧ stdout ∋ 'inspected 0 of 1' ∧ stderr ∋ '--no-task-checks'"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_is_not_blind_to_task_guards.rs::no_task_checks_reports_what_it_declined, a_guard_the_lock_never_heard_of_is_counted_as_uninspected"
+
+enforcement:
+  the_file_detector_asks_the_config:
+    description: |
+      `detect_file_drift_scoped(.., declared_only = true)` MUST be what the
+      config-scoped path calls. Calling `detect_drift_with_lifecycle` there
+      restores the lock-walk that graded another manifest's files.
+    check: "src/tripwire/drift/mod.rs::detect_drift_full_reported"
+    severity: "ERROR"
+  the_decline_is_before_the_verdict:
+    description: |
+      `decline_on_empty_scope` runs before `total_drift` is read, so a run
+      that measured nothing cannot reach the drift or the unmeasured exit.
+    check: "src/cli/drift.rs::cmd_drift"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-DECLINE-001
+    rule: "zero_coverage_declines"
+    prediction: "Deleting the `decline_on_empty_scope(cfg, &scan)?` call in cmd_drift turns the regression, the --json case and the two opted-out cases red"
+    test: "tests/falsification_drift_declines_on_empty_scope.rs::a_manifest_none_of_whose_resources_are_locked_is_declined_with_the_count"
+    if_fails: "A run that inspected nothing exits 1 over another manifest's files (or 0 over none) — the yoga measurement"
+    measured: |
+      RED on the unfixed source: 5 of 6 cases in the suite, the fully-inspected
+      control passing. Measured by reverting src/ with the test in place.
+
+  - id: FALSIFY-DECLINE-002
+    rule: "the_config_is_the_scope"
+    prediction: "Passing `declared_only = false` from detect_drift_full_reported lets a.yaml's tampered a-one be graded under drift -f b.yaml"
+    test: "tests/falsification_drift_declines_on_empty_scope.rs::another_manifests_resources_are_never_graded"
+    if_fails: "The operator is told about resources they did not ask about, and the census contradicts the findings"
+
+  - id: FALSIFY-DECLINE-003
+    rule: "zero_coverage_declines"
+    prediction: "Declining whenever inspected == 0 (dropping the unmeasured guard) turns FALSIFY-549-002 and -004 red with exit 2 in place of 4"
+    test: "tests/falsification_drift_unmeasured_is_not_drift.rs::an_unreachable_resource_is_unmeasured_not_drifted"
+    if_fails: "An unreachable host reads as 'nothing to measure' instead of 'could not measure'"
+    measured: "This is the mutation the first cut WAS; the two cases went red and named it."
+
+  - id: FALSIFY-DECLINE-004
+    rule: "zero_coverage_declines"
+    prediction: "Declining unconditionally turns the partially-locked control and the fully-inspected control red"
+    test: "tests/falsification_drift_declines_on_empty_scope.rs::a_partially_locked_manifest_is_inspected_not_declined"
+    if_fails: "Every run declines and the verdict is worthless"
+
+# No kani_harnesses. `metadata.kind: pattern`: the property is a process exit
+# status over two manifests and one lock directory; the falsifiers run the
+# binary rather than model it.
+
+qa_gate:
+  id: F-DECLINE-001
+  name: "Drift Declines On Empty Scope"
+  description: "zero coverage of the declared resources is a decline (exit 2), and a resource the config does not declare is never graded"
+  checks:
+    - "the_config_is_the_scope"
+    - "zero_coverage_declines"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Delete the `decline_on_empty_scope(cfg, &scan)?` call in src/cli/drift.rs::cmd_drift"
+
+verification_level: L3

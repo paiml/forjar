@@ -1579,7 +1579,7 @@ Forjar uses structured exit codes to distinguish error categories. The main bina
 |------|---------|---------|
 | 0 | Success — all resources converged | `apply`, `validate`, `plan` |
 | 1 | General error; a `drift` verdict (reject) | Unexpected failures, I/O errors; `drift` with any DRIFTED line, on every run |
-| 2 | Partial failure — some resources failed | `apply` with mixed results |
+| 2 | Partial failure — some resources failed; a `drift` DECLINE — 0 of N declared resources inspected (PMAT-564) | `apply` with mixed results; `drift -f X` where no lock holds X's resources |
 | 3 | Configuration error — invalid YAML or missing fields | `validate`, `plan` |
 | 4 | Connection error — SSH or container transport; `drift` that could not measure a resource and found no drift | `apply`, `drift` |
 | 10 | Reserved (`ErrorClass::Drift`); no command emits it | — |
@@ -1596,7 +1596,7 @@ Until 1.31.0 a drift verdict reached the exit code only with `--tripwire` —
 | `validate` | Config is valid | Parse error, schema violation, cycle detected | -- |
 | `plan` | Plan generated | Config invalid, state directory unreadable | -- |
 | `apply` | All resources converged or unchanged | Any resource failed, config invalid, transport error | -- |
-| `drift` | No drift found | Drift detected (any run); config invalid, state unreadable | -- (4: a resource could not be measured and none drifted) |
+| `drift` | No drift found | Drift detected (any run); config invalid, state unreadable | Declined: inspected 0 of N declared (4: a resource could not be measured and none drifted) |
 | `status` | Status displayed | State directory missing or unreadable | -- |
 | `history` | Events displayed | Event log missing or corrupt | -- |
 | `show` | Resolved config displayed | Config invalid, template resolution failure | -- |
@@ -1619,6 +1619,7 @@ forjar drift -f forjar.yaml
 case $? in
     0) echo "Clean — proceeding with deploy" ;;
     1) echo "Drift detected, or drift could not run — read the output"; exit 1 ;;
+    2) echo "Declined: none of the declared resources are in the lock — apply first"; exit 1 ;;
     4) echo "A machine could not be measured — not a pass"; exit 1 ;;
     *) echo "Error running drift check"; exit 1 ;;
 esac
