@@ -1,0 +1,133 @@
+{
+ "kind": "triage",
+ "issue": "PMAT-557 (forjar#557) — v1.30.0 was tagged on 2026-09-13 and never declared in docs/roadmaps/releases.yaml, so gate T was red on main. The row is booked from the tag and the window, names the paiml/forjar-cookbook commit that locks 1.30.0 (cookbook#21), and the receipt, label and roadmap-row debt gate T and gate B found on the way is repaired.",
+ "branch": "PMAT-557-book-v1.30.0",
+ "base": "bfac33cf",
+ "base_commit": "bfac33cff068545610ce1771208d81db502333d8",
+ "diff_sha256": "e595c5f04a9ce286d1c8b7a2065b1f3bd66d9547",
+ "recorded_at": "after gate T passed on the branch and one review round in which no lane could reach GitHub",
+ "quorum": {
+  "lanes": [
+   "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
+   "lane 2 — gemini-3.7-flash-high (lane-2.json, PASS)",
+   "lane 3 — gemini-3.1-pro-high (lane-3.json, PASS)",
+   "merge-rail round 1 — gemini-3.1-pro-high FAIL, gemini-3.7-flash-high PASS, gemini-3.1-pro-high FAIL (head 05a58ba9)",
+   "merge-rail round 2 — gemini-3.1-pro-high FAIL (the wrong-rows claim again, refuted by the per-id comparison), gemini-3.7-flash-high PASS, gemini-3.1-pro-high PASS (head ce25c2f5)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones at 2edf43c7, --not-before pinned, out_dir keyed by ticket AND session id; agreed=false (2 PASS / 1 FAIL), partial_reasons recording two lanes sharing a model id; a merge-rail round over head 05a58ba9: 2 FAIL / 1 PASS, one FAIL right (a digest sentence, the ticket's scope), one refuted",
+  "kill_rule": "lane 1's single FAIL (a commit message) was checked against the commit and the later commit it promised; every GitHub-side claim the lanes could not measure (gate T, the window, the cookbook lock, CB-21xx) was re-run by the orchestrator on the branch",
+  "claims_confirmed": 5,
+  "claims_refuted": 5,
+  "refuted_claims": [
+   "That commit b3b04c1f's message claims the cookbook field was replaced. It says the field still names 0be3e1ec and will be replaced before the PR is opened — which d68fa31a does.",
+   "That the lanes measured gate T and the window. gh returned 401 in every sandbox; both were UNMEASURED there and re-run by the orchestrator (GATE T PASS).",
+   "That every lane honoured the no-writes brief. Lane 1 wrote diff.txt into its own clone; agy-lane.sh kept it; the worktree was untouched.",
+   "That the three shipped rows change only their status: line (this author). PMAT-555 and PMAT-562 also bump updated: and gain release labels from the cut and sync steps; the digest now says so.",
+   "That the diff edited PMAT-545 and PMAT-527 instead of PMAT-555 and PMAT-526 (merge-rail lane 3). Every changed line was attributed to its row at HEAD; the edits are on PMAT-547/555/562 and PMAT-526/528/529."
+  ],
+  "lane_errors": [
+   "gh unauthenticated in every sandbox: tagged.sh, release-goal.sh window and comply-count.sh UNMEASURED inside the lanes",
+   "lane 1 wrote a file into its own clone despite the brief"
+  ]
+ },
+ "falsification": {
+  "not_applicable": "a ledger booking: the branch changes docs/roadmaps/releases.yaml, docs/roadmaps/roadmap.yaml, one docs/audits receipt's end marker and its own .quorum receipt, and no code, so there is no hunk to revert. Its evidence is gate T measured on the branch — FAIL (no row) -> FAIL (receipt marker) -> FAIL (cookbook locks 1.29.0) -> FAIL (label) -> PASS — and the CB-21xx counts before and after."
+ },
+ "crux": {
+  "systems": [
+   "Kubernetes (every release's notes and artifacts are recorded by the release team, not inferred later from tags)",
+   "Terraform (a provider release is registered with its version and checksums before it is resolvable)",
+   "Nix (a channel update names the exact nixpkgs commit it was built from)",
+   "SLSA (provenance binds an artifact to the source revision that produced it)"
+  ],
+  "verdict": "accept(the surveyed systems record a release when it is made and bind it to what it was built and qualified against. forjar's ledger is the same idea done late: v1.30.0 went out undeclared, and its cookbook was never bumped to it. The booking can record the release honestly after the fact; it cannot make the cookbook commit predate the tag, and says so.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan",
+  "verdict": "1 FAIL / 2 PASS; the FAIL refuted against the commit history; agreed=false from lane-reduce",
+  "rounds": 3,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-557",
+  "tools": [
+   "analyze_vacuous_tests",
+   "bash scripts/dogfood/tagged.sh (gate T, four FAILs then PASS)",
+   "bash scripts/release-goal.sh cut v1.30.0 --next v1.31.0",
+   "bash scripts/release-goal.sh sync",
+   "bash scripts/release-goal.sh window v1.30.0",
+   "bash scripts/ratchets/comply-count.sh CB-2112 CB-2114 CB-2115",
+   "pmat work sync --check-only",
+   "python3 yaml.safe_load (roadmap.yaml)",
+   "paiml-implement kind-gate.sh (refuses releases.yaml on the triage rail — the skill's rule is stale against this repository's)",
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh",
+   "per-row YAML comparison (yaml.safe_load at origin/main and HEAD, rows by id)"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "pmat analyze vacuous-tests run on the branch; the diff touches no test and no source file, so the touched-path count is 0 by construction and the scan's repo-wide figure is unchanged from main",
+  "bashrs": "not applicable: no .sh file changed",
+  "quality_gate": "gate T PASS on the branch; gate B CB-2112 37->34 and CB-2115 53->45, still above the 43 ceiling until the #568/#569/#570 rows land",
+  "tool_defects_found": [
+   "paiml-implement kind-gate.sh's triage rail omits docs/roadmaps/releases.yaml, which forjar's quorum-gate.sh admits since PMAT-226",
+   "release-goal.sh cut copies the previous row's cookbook commit rather than refusing one that does not lock the new release"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/book-1300-judges.md",
+  "total_bytes": 12845,
+  "files": [
+   {
+    "path": ".quorum/evidence/book-1300-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1473,
+    "sha256": "61c9a5f06e6b22f56302a9f0d768653dc9a6fa1e19de4b31d067aeadcabc0520",
+    "blob": "51031fddec17da621f9292a4b18c28236a7b2c22"
+   },
+   {
+    "path": ".quorum/evidence/book-1300-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1889,
+    "sha256": "b0da7cbec3959d23a441e44cf7fe866e9b9246c8fc06fefb78e05d3bfb2cebb3",
+    "blob": "8ceaa74c3900a6fa135eb4f5eebb60a59b6e1ee4"
+   },
+   {
+    "path": ".quorum/evidence/book-1300-judges.md",
+    "roles": [
+     "judges",
+     "crux"
+    ],
+    "bytes": 5446,
+    "sha256": "5ee307882dc01e4a2a191d4c57a1afb7d474a0462e66d3e6f4d7ee8207405167",
+    "blob": "8cab41fd884b80789bcdfe860ff560ea6c08ab67"
+   },
+   {
+    "path": ".quorum/evidence/book-1300-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1338,
+    "sha256": "02386bbab2cfe49e287b29c164c0497769b7a3e76d1d612e3d0d599ad2dce69f",
+    "blob": "f13f76880bc74028b56e23b991753cdba0059257"
+   },
+   {
+    "path": ".quorum/evidence/book-1300-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2699,
+    "sha256": "c205aec602d247d84260f17813fd07741e7499ec6de14aea976d0b34a82e0f8e",
+    "blob": "2c2d989965c4b01fac2cb68f10c21daadf1ce15f"
+   }
+  ]
+ }
+}

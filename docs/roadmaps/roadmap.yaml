@@ -3717,7 +3717,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-09-11T18:55:00Z
+  updated: 2026-09-15T17:40:03Z
   spec: null
   acceptance_criteria:
   - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
@@ -3730,7 +3730,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.30.0
+  - release:v1.31.0
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
 - id: PMAT-528
   kind: code
@@ -3742,7 +3742,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-11T20:15:00Z
+  updated: 2026-09-15T17:40:03Z
   spec: null
   acceptance_criteria:
   - 'gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window'
@@ -3755,7 +3755,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.30.0
+  - release:v1.31.0
   notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
 - id: PMAT-529
   kind: code
@@ -3767,7 +3767,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-11T20:15:00Z
+  updated: 2026-09-15T17:40:03Z
   spec: null
   acceptance_criteria:
   - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
@@ -3779,7 +3779,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.30.0
+  - release:v1.31.0
   notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
 - id: PMAT-531
   kind: triage
@@ -3984,11 +3984,11 @@ roadmap:
   item_type: task
   title: 'release: forjar 1.30.0 — a query the target never answered is UNMEASURED, not drift'
   release: 1.30.0
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-13T18:52:55Z
-  updated: 2026-09-13T18:52:55Z
+  updated: 2026-09-15T17:40:03Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -3996,6 +3996,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.30.0
   notes: null
 - id: PMAT-546
   github_issue: 546
@@ -4092,7 +4093,7 @@ roadmap:
   item_type: task
   title: every CI job runs on the fleet — 31 JOBS of one run were dispatched to GitHub-hosted runners, from 33 hosted runner DECLARATIONS (a matrix declaration expands to several jobs, and not every job runs on every push)
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-12T10:03:38Z
@@ -4117,14 +4118,130 @@ roadmap:
   item_type: task
   title: drift exits 0 over 'Drift detected' unless --tripwire is passed — fail-open by default (infra#605 second signature)
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T13:23:55Z
-  updated: 2026-09-15T13:23:55Z
+  updated: 2026-09-15T18:04:13Z
   spec: null
   acceptance_criteria:
   - 'forjar drift printed ''Drift detected: 2 resource(s)'' and exited 0 on yoga/gx10 (forjar 1.30.0, 2026-09-15). --tripwire made the exit code true; the default was fail-open. Fix: exit 1 on any DRIFTED line without a flag; --tripwire becomes a no-op kept for compatibility. Refs paiml/infra#605, forjar#562.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.31.0
+  notes: null
+- id: PMAT-557
+  github_issue: 557
+  item_type: task
+  title: 'ledger: book v1.30.0 — the release was tagged and never declared (gate T red on main), and the cookbook commit it was qualified against'
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-15T17:38:13Z
+  updated: 2026-09-15T17:38:13Z
+  spec: null
+  acceptance_criteria:
+  - 'Gate T on main: v1.30.0 is reachable from HEAD and has no row in docs/roadmaps/releases.yaml. Book it with scripts/release-goal.sh cut v1.30.0 --next v1.31.0, naming the paiml/forjar-cookbook commit that locks forjar 1.30.0 (paiml/forjar-cookbook#21). Refs forjar#557.'
+  - 'Repair every record gate T and gate B refuse on the way, because the 1.31.0 cut cannot pass either while they stand: the 1.30.0 dogfood receipt end marker; release labels on rows the window did not ship; status completed on rows whose PRs merged and issues closed (CB-2112 ISSUE-CLOSED); roadmap rows for open issues that have none (CB-2115 ORPHAN-GITHUB), each minted from its issue with a release and milestone so CB-2114 does not grow.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  notes: null
+- id: PMAT-558
+  github_issue: 558
+  item_type: task
+  title: CLAUDE.md does not say which model orchestrates a ticket here, so it is chosen by habit (ORCH-001)
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#558.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-559
+  github_issue: 559
+  item_type: task
+  title: '`forjar validate` says OK to a manifest `apply` refuses: template resolution is not part of validation, so `{{.Names}}` (a docker --format) passes val'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#559.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-561
+  github_issue: 561
+  item_type: task
+  title: lock keyed by (machine, stack), host-resident; apply refuses a manifest-sha mismatch without --adopt; generator field records the real writer
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:37Z
+  updated: 2026-09-15T17:55:37Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#561.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-566
+  github_issue: 566
+  item_type: task
+  title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:38Z
+  updated: 2026-09-15T17:55:38Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-567
+  github_issue: 567
+  item_type: task
+  title: 'lint.yml on the fleet: a clean-room runner has no cargo-clippy for the 1.89 toolchain — first fleet run of lint after PMAT-547'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-15T17:55:38Z
+  updated: 2026-09-15T17:55:38Z
+  spec: null
+  acceptance_criteria:
+  - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#567.
   phases: []
   subtasks: []
   estimated_effort: null
