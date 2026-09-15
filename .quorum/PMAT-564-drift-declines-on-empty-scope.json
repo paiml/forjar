@@ -1,0 +1,134 @@
+{
+ "kind": "code",
+ "issue": "PMAT-564 (forjar#564; paiml/infra#605 first signature) — `forjar drift -f forjar-ephemeral.yaml` on yoga inspected 0 of the 10 resources that manifest declares, graded two files from forjar.yaml (a manifest it was not given, in a category its own census called skipped), printed `Drift detected: 2 resource(s)` and exited 0. Now a run that inspected none of its declared resources declines with exit 2 and names the count, and no detector grades a locked resource the config does not declare.",
+ "branch": "PMAT-564-drift-declines-on-empty-scope",
+ "base": "8b2ccedd",
+ "base_commit": "8b2ccedd687fcbd28008ae25498145446e0455b1",
+ "diff_sha256": "fb5cb485ff82bab49c57ea1fd0ae3451e37b2999",
+ "recorded_at": "stacked on PMAT-562 (PR #563) — the diff against main includes that branch; re-bound when this branch is rebased onto the squash-merged #563",
+ "quorum": {
+  "lanes": [
+   "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
+   "lane 2 — gemini-3.7-flash-high (lane-2.json, PASS)",
+   "lane 3 — gemini-3.1-pro-high (lane-3.json, PASS)"
+  ],
+  "judges": 3,
+  "refuters_per_claim": 3,
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at bd1664a8, diffed against the base branch PMAT-562-drift-exits-on-drift, --not-before pinned, out_dir keyed by ticket AND session id; lane-reduce agreed=false (2 PASS / 1 FAIL), partial_reasons recording two lanes sharing a model id",
+  "kill_rule": "the FAIL lane's image-detector finding was confirmed by reading image.rs (the other two lanes never opened it) and fixed with a unit test that fails without the guard; the point two resampled lanes agreed on and got wrong (expansion timing) was settled by reading load_drift_config; five mutations were run against the committed tree",
+  "claims_confirmed": 7,
+  "claims_refuted": 4,
+  "refuted_claims": [
+   "That a locked resource the config does not declare is skipped as not-in-config by every detector. The image detector walked the lock with no config check, and census.inspected overwrites a skip, so it could grade another manifest's image. Guarded, with a unit test.",
+   "That N counts count:/for_each: resources pre-expansion (two lanes sharing a model id). load_drift_config calls parse_and_validate, which expands them before cmd_drift sees the config.",
+   "That the first cut of the decline was correct. It declined over an unreachable host and turned two FALSIFY-549 cases red (exit 2 for 4); the unmeasured guard fixed it and the cases went green untouched.",
+   "That every lane left its clone byte-identical. Lane 1 wrote a three-line file into its own clone; agy-lane.sh kept the clone and said so; the shared checkout was clean."
+  ],
+  "lane_errors": [
+   "lane 1 wrote test_image_skip.rs into its own sandbox clone despite a NO WRITES brief (KEPT, isolation held)",
+   "the delegate's dispatch-local model config first matched fanout.sh's lane-*.json glob (children=4) and was renamed before lane-reduce ran"
+  ]
+ },
+ "falsification": {
+  "test": "six cases through the binary with two manifests on one machine: the decline with its count; another manifest's tampered file never graded; the census never both inspects and skips a locked, undeclared resource; a partially locked manifest is graded, not declined, and its drift is a reject; the applied manifest is fully inspected; --json declines with the same code. Plus a unit case that an undeclared locked image is skipped as not-in-config, and three older cases inverted from exit 0 over 'inspected 0 of N' to the decline they described.",
+  "test_file": "tests/falsification_drift_declines_on_empty_scope.rs",
+  "cargo_test_target": "falsification_drift_declines_on_empty_scope",
+  "reverted": "five mutations over the COMMITTED tree, each restored from HEAD. M1 deletes the decline call: the regression and --json cases red. M2 passes declared_only=false: 5 of 6 red. M3 drops the unmeasured guard: two FALSIFY-549 cases red with exit 2 for 4. M4 declines whenever declared > 0: the partially-locked control and the applied manifest red. M5 drops the image detector's config guard: its unit case red. `git status --porcelain` empty after each.",
+  "observed_failure": "inspected 2 of 103 … declared here, absent from the lock 10 … DRIFTED: gitconfig on yoga … Drift detected: 2 resource(s), rc=0 — forjar 1.30.0 on yoga, 2026-09-15 11:51Z; reproduced with two local manifests: RED 5 of 6 with src/ reverted under the test file",
+  "still_green_when_reverted": "the drift suites this repository already had — scopes_to_the_config_it_was_given, measures_a_broken_guard, apply_sees_the_target_file, ignore_drift_names_one_field, e05 — and the workspace"
+ },
+ "crux": {
+  "systems": [
+   "Terraform (a plan is drawn only against the state its backend holds for that configuration)",
+   "Ansible (a play matching no hosts skips and exits 0 unless fail_on_no_hosts — the fail-open default removed here)",
+   "Kubernetes (`kubectl diff` over absent objects shows creations in the manifest's own namespace, never another's)",
+   "Nix (an attribute that names nothing is an error, not a successful build of nothing)"
+  ],
+  "verdict": "accept(three of four surveyed systems key a comparison to what it was asked about and refuse an empty question; Ansible is the fail-open counterexample. forjar's defect was worse than Ansible's — it did not merely skip, it graded another manifest's resources under this one's name. Where forjar remains weaker: `--dry-run` previews with nothing inspected and exits 0, by design, since a preview has no verdict to give.)"
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only, writes=false, mode=plan",
+  "verdict": "1 FAIL / 2 PASS; the FAIL's finding confirmed and fixed; agreed=false from lane-reduce",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "writes": false,
+  "sandbox": true,
+  "out_dir": "keyed by ticket AND session id"
+ },
+ "pmat": {
+  "ticket": "PMAT-564",
+  "tools": [
+   "cargo test (the six drift suites, the image unit tests, the error-class tests)",
+   "cargo test --workspace --no-fail-fast (340 targets)",
+   "cargo clippy --all-targets -D warnings",
+   "cargo fmt --all -- --check",
+   "bash scripts/dogfood/surface.sh (GATE C PASS)",
+   "bash scripts/dogfood/docs.sh (GATE D PASS)",
+   "bash scripts/dogfood/contracts.sh (GATE G PASS)",
+   "pv validate contracts/drift-declines-on-empty-scope-v1.yaml",
+   "analyze_vacuous_tests",
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh"
+  ],
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "not re-run; every case has a control that fails on the opposite verdict and five mutations were executed. Necessary and not sufficient.",
+  "bashrs": "not applicable: no .sh file changed",
+  "quality_gate": "drift suites green; clippy and fmt clean; gates C, D, G PASS; gate B red on main's CB-21xx debt and not worse here",
+  "tool_defects_found": [
+   "a writes=false agy lane wrote into its own clone",
+   "fanout.sh counts any lane-*.json in out_dir, including a delegate's model config"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/drift-decline-judges.md",
+  "total_bytes": 14269,
+  "files": [
+   {
+    "path": ".quorum/evidence/drift-decline-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2063,
+    "sha256": "661f3b6f1c970c13fb291ce06f312cb158cc7b4f50c7098093f085415cf1bdb6",
+    "blob": "7d5bc97dc977f6ae5f97f66eddd5acd410043cbf"
+   },
+   {
+    "path": ".quorum/evidence/drift-decline-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 2820,
+    "sha256": "4aee5157d8e7020c2c19e532885c35f7c6403036e6a45a5a318528d96dc058c2",
+    "blob": "206b8c11bd474e1205a8d9d7d8d2ebb3f9840204"
+   },
+   {
+    "path": ".quorum/evidence/drift-decline-judges.md",
+    "roles": [
+     "judges",
+     "crux"
+    ],
+    "bytes": 5403,
+    "sha256": "6def5d0f3ce0af0191bd41a285ac7cbc1182a21869c0c5a3682bf656bfb24d6a",
+    "blob": "74279a658e4fc46ea1151599e57bb2764530ed80"
+   },
+   {
+    "path": ".quorum/evidence/drift-decline-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1439,
+    "sha256": "ebc121d4ed242e4402bd77be5939299c70f63e3158cbe8cac6c86a1dd803d467",
+    "blob": "b3d1faff099a112efd26947e53442f0f8bb1b6b7"
+   },
+   {
+    "path": ".quorum/evidence/drift-decline-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2544,
+    "sha256": "e115ebdaa987becdb5f28737356d8b003bbf806cd8dc62a5f4a8d020fc7bf372",
+    "blob": "ad0fab07da9910be58a715733c7a510529a36ef2"
+   }
+  ]
+ }
+}
