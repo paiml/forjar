@@ -32,8 +32,9 @@ and the window say; the one sentence a lane called false was not.
 4. [completed] That PMAT-555, PMAT-547 and PMAT-562 shipped and their rows may
    say completed (lanes 1, 2 and 3 against git log).
    - evidence: #556, #548 and #563 are on main; the rows at
-     `docs/roadmaps/roadmap.yaml:3982`, `:4091` and `:4116` change only their
-     `status:` line, and CB-2112's ISSUE-CLOSED count falls from 3 to 0.
+     `docs/roadmaps/roadmap.yaml:3982`, `docs/roadmaps/roadmap.yaml:4091` and
+     `docs/roadmaps/roadmap.yaml:4116` change only their `status:` line, and
+     CB-2112's ISSUE-CLOSED count falls from 3 to 0.
 
 5. [labels] That PMAT-526, PMAT-528 and PMAT-529 did not ship in v1.30.0, so
    moving their `release:` label to v1.31.0 is correct (all three lanes).
