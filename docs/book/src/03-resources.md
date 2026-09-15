@@ -206,6 +206,72 @@ resources:
     depends_on: [nginx-conf]
 ```
 
+### Exec Parity — what the unit actually runs
+
+`state` and `enabled` say whether a unit is up and wired. They say nothing
+about **which program** the unit executes. On a fleet host a hand-edited unit,
+a drop-in override, or a `run.sh` iterated into `run-v3.sh` beside it is
+active, enabled, and running code the repository never saw — and every check
+reports it converged.
+
+Declare the program and its bytes, and forjar asks systemd for the loaded
+unit's `ExecStart` and hashes the file **it** names:
+
+```yaml
+resources:
+  runner-wrapper:
+    type: file
+    machine: yoga
+    path: /opt/github-runner-ephemeral/run-ephemeral-docker.sh
+    source: machines/clean-room/runner/run-ephemeral-docker.sh
+    mode: "0755"
+
+  runner:
+    type: service
+    machine: yoga
+    name: github-runner-ephemeral
+    state: running
+    enabled: true
+    exec_start: /opt/github-runner-ephemeral/run-ephemeral-docker.sh
+    exec_sha256: 73650015d566aead…   # sha256sum <script> | cut -d' ' -f1
+    depends_on: [runner-wrapper]
+```
+
+| Field | What is compared | Read from |
+|-------|------------------|-----------|
+| `exec_start` | the loaded unit's `ExecStart` program path | `systemctl show -p ExecStart --value <unit>` — drop-ins and edits included |
+| `exec_sha256` | sha256 of the file at the **live** `ExecStart` path | `sha256sum` over what systemd reports, never over the declared path |
+
+Either field alone is honoured: `exec_sha256` alone pins the bytes and lets the
+path float; `exec_start` alone pins the path. A service that declares neither
+behaves exactly as before, and its observed state does not change.
+
+When parity fails, `forjar check` exits non-zero with a marker naming what the
+unit actually runs (`exec_start_diverged:<unit>:declared=…:live=…`), `forjar
+apply` **fails the resource** rather than reporting a started-and-enabled unit
+converged (the unit file is another resource's to converge), and `forjar drift`
+sees a program swapped after apply because the live path and digest are part
+of the observed state. An unloaded unit — `systemctl show` prints an empty line
+for it — is a divergence, not a pass.
+
+`forjar validate` refuses a relative `exec_start` and any `exec_sha256` that is
+not 64 lowercase hex characters: both would be permanently divergent by
+construction, since the host compares them as strings against what `systemctl`
+and `sha256sum` print.
+
+Three things to know before declaring it:
+
+- **The program is argv[0].** For `ExecStart=/opt/x/run.sh` that is the
+  script. For `ExecStart=/bin/bash /opt/x/run.sh` it is `/bin/bash`, and the
+  digest would be bash's — write the unit so the script is the program (a
+  shebang and `0755`), which is also what makes systemd's `ExecStart=` line
+  say what runs.
+- **A unit with several `ExecStart=` lines** (`Type=oneshot`) is checked on
+  its first.
+- **A root-only script needs `sudo: true`** on the service resource, or
+  `sha256sum` cannot read it and the digest reports `missing` — a divergence,
+  never a pass.
+
 ## Mount
 
 Manage filesystem mounts.

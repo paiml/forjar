@@ -4,6 +4,7 @@ use super::backup_sync_validate::validate_backup_sync;
 use super::disk_budget_validate::validate_disk_budget;
 use super::nas_archive_validate::validate_nas_archive;
 use super::overlay_interface_validate::validate_overlay_interface;
+use super::service_exec_validate::validate_service_exec;
 use super::*;
 
 /// Validate type-specific required fields for a resource.
@@ -108,6 +109,7 @@ fn validate_service(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
             message: format!("resource '{id}' (service) has no name"),
         });
     }
+    validate_service_exec(id, resource, errors);
     if let Some(ref state) = resource.state {
         let valid = ["running", "stopped", "enabled", "disabled"];
         if !valid.contains(&state.as_str()) {

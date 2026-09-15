@@ -89,6 +89,27 @@ pub fn check_script_from(assertions: &[String]) -> String {
     format!("{FLAG}=0\n{}\nexit \"${FLAG}\"", assertions.join("\n"))
 }
 
+/// The flag's initialisation, for an APPLY script that ends with assertions.
+///
+/// `check_script_from` initialises the flag itself; an apply script runs
+/// under `set -u`, so it must be initialised before the first assertion.
+pub fn flag_init() -> String {
+    format!("{FLAG}=0")
+}
+
+/// Fail an apply script whose trailing assertions raised the flag.
+///
+/// PMAT-560: an apply that starts and enables a unit executing the wrong
+/// program has not converged the declaration, and `forjar apply` reads the
+/// exit code as the verdict. The message goes to stderr, where the executor
+/// reports a failed resource from; the markers already went to stdout.
+pub fn exit_if_diverged(message: &str) -> String {
+    format!(
+        "if [ \"${FLAG}\" = 1 ]; then\n  echo {} >&2\n  exit 1\nfi",
+        sh_squote(message)
+    )
+}
+
 /// Convenience for the overwhelmingly common single-assertion case.
 pub fn single(condition: &str, converged_marker: &str, divergent_marker: &str) -> String {
     check_script_from(&[assert_that(condition, converged_marker, divergent_marker)])

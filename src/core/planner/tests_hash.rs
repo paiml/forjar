@@ -143,8 +143,11 @@ fn test_golden_hash_pinned_value() {
     // Repinned for #406: `Resource` gained `sensitive`, and since #403 the
     // canonical form serialises EVERY field, so a new field moves every
     // recorded hash — a one-time fleet re-converge, named in the changelog.
+    // Repinned again for PMAT-560 (#560): `exec_start` / `exec_sha256`, the
+    // service exec-parity fields, flattened in from `ExecParity`. Same
+    // migration, same note in the changelog.
     assert_eq!(
-        hash, "blake3:8702d3d90f36257293c018e8fae98270d0ce4bb852cbe096500aeac6f4436e15",
+        hash, "blake3:d23f27010e87a5a3daa3d4549d58b821921742e94508e9bb6614e64b25aed042",
         "Golden hash changed — the canonical desired-state form moved. Read the \
          comment above before repinning: this is a fleet-wide re-converge."
     );

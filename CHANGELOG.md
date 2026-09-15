@@ -27,6 +27,29 @@ and keeps forjar#549's exit 4; `--json` declines with the same code; a bare
 `contracts/drift-declines-on-empty-scope-v1.yaml`; the suite runs the binary
 and was RED 5/6 on the unfixed source.
 
+**A `service` is converged only while the loaded unit executes the declared
+program (PMAT-560, #560).** Measured on yoga, 2026-09-15: `github-runner-
+ephemeral.service` was declared with a unit file whose `ExecStart` named
+`run-ephemeral-docker.sh`, the unit systemd had loaded executed
+`run-ephemeral-docker-v3.sh` — root-owned, five days old, a hand iteration the
+repository never saw — and every check reported the service converged. The
+resource asked the host `is-active` and `is-enabled`, and both were true of a
+unit running unreviewed code. Two optional fields close the gap: `exec_start`
+is the path systemd must report as the loaded unit's `ExecStart` program (read
+with `systemctl show`, so a drop-in or an edited file is seen for what it is),
+and `exec_sha256` is the sha256 of the file at the LIVE path — never of the
+declared one, which would confirm the file forjar wrote and prove nothing
+about the unit. `check` exits non-zero with a marker naming what actually
+runs, `apply` fails the resource rather than reporting a started-and-enabled
+unit converged, and the state query carries the live path and digest so
+`drift` sees a program swapped after apply. An unloaded unit is a divergence.
+A service declaring neither field emits exactly what it always did and its
+observed digest does not move. `validate` refuses a relative `exec_start` or a
+digest that is not 64 lowercase hex, since the host compares both as strings.
+Contract `contracts/forjar-unit-exec-parity-v1.yaml`; the falsification suite
+executes the emitted shell against a fake host whose `systemctl` prints the
+line systemd 249 prints, and was RED 8/10 on 1.30.0.
+
 **`forjar drift` exits 1 on any DRIFTED line, on every run, with no flag
 (PMAT-562, #562; paiml/infra#605 second signature).** Measured on yoga and
 gx10 under 1.30.0: `Drift detected: 2 resource(s)` followed by `rc=0`. The
@@ -42,6 +65,16 @@ has exited 1 since #549; they now say 1, and `ErrorClass::Drift` (10) is
 recorded as reserved and unemitted. Contract
 `contracts/drift-verdict-exit-v1.yaml`; the suite runs the binary and was RED
 4/5 on 1.30.0.
+
+### Upgrade note — `exec_start` / `exec_sha256` are new `Resource` fields, so every hash moves once (#560)
+
+Since #403 the desired-state hash covers every serialised field of
+`Resource`, so adding the two exec-parity fields moves every recorded lock
+hash: the first `forjar apply` after upgrading replans every resource as
+`Update` once, and every `state: absent` resource as `Destroy` once. This is
+the same one-time re-converge #403 documents for any new field and #406 did
+for `sensitive:`. Run `forjar plan` first and read it; then one `forjar
+apply`; the second plan is clean. `forjar reseal` is NOT the migration.
 
 ## [1.30.0] - 2026-09-13
 

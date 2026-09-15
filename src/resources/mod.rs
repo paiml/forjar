@@ -22,10 +22,13 @@ pub mod package;
 pub mod package_check;
 pub mod pepita;
 pub mod service;
+pub mod service_exec;
 pub mod sync_tools;
 pub mod task;
 #[cfg(test)]
 mod tests_service;
+#[cfg(test)]
+mod tests_service_exec;
 #[cfg(test)]
 mod tests_task;
 #[cfg(test)]
