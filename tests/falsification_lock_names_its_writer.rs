@@ -288,3 +288,47 @@ fn lock_restamp_converges_every_lock_in_one_run() {
         String::from_utf8_lossy(&again.stdout)
     );
 }
+
+/// The paths that used to bypass the writer. `lock-repair` wrote a minimal
+/// lock and the normalised form with a bare `fs::write`, and `lock-migrate`
+/// did the same — none stamped, and none rewrote the `.b3` sidecar, so the
+/// next apply was refused on integrity. Found by the review quorum (two lanes
+/// of three); every StateLock write is through `save_lock` now.
+#[test]
+fn lock_repair_writes_through_the_writer_sidecar_included() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    fs::create_dir_all(state.join("broken")).unwrap();
+    fs::write(
+        state.join("broken").join("state.lock.yaml"),
+        "this: is: not: a lock\n",
+    )
+    .unwrap();
+
+    let out = Command::new(FORJAR)
+        .args(["lock-repair", "--state-dir", state.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let back = load_lock(&state, "broken")
+        .unwrap()
+        .expect("repaired lock parses");
+    assert_eq!(
+        back.generator,
+        writer(),
+        "the repaired lock must name the binary that wrote it"
+    );
+    assert_eq!(
+        back.created_by.as_deref(),
+        Some("forjar-repair"),
+        "and keep the repair marker as its creator"
+    );
+    assert!(
+        state.join("broken").join("state.lock.yaml.b3").exists(),
+        "a lock written without its sidecar is refused by the next apply"
+    );
+}

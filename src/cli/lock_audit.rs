@@ -329,9 +329,8 @@ pub(crate) fn cmd_lock_migrate(
             if let Ok(mut lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 if lock.schema == from_version && lock.schema != target_version {
                     lock.schema = target_version.to_string();
-                    let new_data = serde_yaml_ng::to_string(&lock)
-                        .map_err(|e| format!("Failed to serialize: {e}"))?;
-                    std::fs::write(&lock_path, new_data)
+                    // PMAT-565: through the one writer — stamped, sidecar rewritten.
+                    crate::core::state::save_lock(state_dir, &lock)
                         .map_err(|e| format!("Failed to write: {e}"))?;
                     migrated += 1;
                 }

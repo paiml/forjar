@@ -50,7 +50,7 @@ pub fn writer_stamp() -> String {
 /// 1.1.1, 1.13.1, 1.27.0 and 1.10.0, two of them rewritten in the same
 /// minute. The pair was a claim no version of forjar could have made.
 ///
-/// Done HERE, in the one writer every path goes through, rather than at each
+/// Done HERE, in the one writer every StateLock write goes through, rather than at each
 /// caller: a caller that forgets is exactly how the field went stale. The
 /// creator is preserved, not erased — `forjar 1.1.1` is a true fact about
 /// who wrote the file first, and `forjar-refresh 1.x` / `(reconstructed)`
