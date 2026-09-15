@@ -170,10 +170,10 @@ The BLAKE3 hash of the desired state matches the lock file — nothing to do.
 forjar drift -f forjar.yaml --state-dir state/
 ```
 
-If someone manually changes the machine (e.g., removes a package), drift detection will flag it. Use `--tripwire` in CI to exit non-zero on drift:
+If someone manually changes the machine (e.g., removes a package), drift detection will flag it, and the exit code says so — any drift exits 1, so a CI step needs no flag:
 
 ```bash
-forjar drift -f forjar.yaml --state-dir state/ --tripwire
+forjar drift -f forjar.yaml --state-dir state/
 ```
 
 ## Adding More Resources
@@ -696,13 +696,13 @@ $EDITOR forjar.yaml   # update the resource definition
 forjar apply -f forjar.yaml --state-dir state/
 ```
 
-### Step 6: Automate with Tripwire Mode
+### Step 6: Automate in Cron or CI
 
-For CI or cron-based monitoring, use `--tripwire` to exit non-zero when drift is
-found:
+For CI or cron-based monitoring, run `drift` and read its exit code: any drift
+exits 1, with no flag (`--tripwire` is accepted and changes nothing):
 
 ```bash
-forjar drift -f forjar.yaml --state-dir state/ --tripwire
+forjar drift -f forjar.yaml --state-dir state/
 echo $?   # 0 = no drift, 1 = drift detected
 ```
 

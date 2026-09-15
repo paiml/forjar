@@ -186,8 +186,8 @@ forjar drift -f forjar.yaml
 # Machine-specific
 forjar drift -f forjar.yaml -m web-server
 
-# CI mode — exit non-zero on any drift
-forjar drift -f forjar.yaml --tripwire
+# Any drift exits 1 — the same command is the CI gate
+forjar drift -f forjar.yaml
 
 # Auto-fix drift
 forjar drift -f forjar.yaml --auto-remediate

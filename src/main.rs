@@ -31,7 +31,8 @@ struct Cli {
 ///  2 — Partial failure (some resources failed)
 ///  3 — Configuration error (invalid YAML, missing fields)
 ///  4 — Connection error (SSH, container transport)
-/// 10 — Drift detected (non-zero diff in `forjar drift`)
+/// 10 — Reserved (`ErrorClass::Drift`): nothing emits it. A `forjar drift`
+///      verdict exits 1 on every run (PMAT-562); an unmeasured run exits 4.
 ///
 /// The code comes from the error's CLASS — a variant of
 /// `forjar::core::error::ErrorClass` — not from matching its text. `main` used

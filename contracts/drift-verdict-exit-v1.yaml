@@ -1,0 +1,181 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-09-15"
+  author: "PAIML Engineering"
+  description: |
+    The verdict `forjar drift` prints is the exit code it returns, on every
+    run, with no flag (PMAT-562, forjar#562, paiml/infra#605 second signature).
+
+    Measured, forjar 1.30.0, yoga and gx10, 2026-09-15 11:51Z:
+
+        DRIFTED: gitconfig on yoga (/home/noah/.gitconfig content changed)
+        DRIFTED: zshrc on yoga (/home/noah/.zshrc content changed)
+      Drift detected: 2 resource(s)
+      rc=0
+
+    `--tripwire` ("Exit non-zero on any drift (for CI/cron)") existed, so the
+    behaviour was DOCUMENTED — which is what makes it a design defect rather
+    than a bug: the default was fail-open and the caller had to know to ask for
+    the exit code that means what the output says. forjar#352 was the same
+    class (`--refresh` could only invalidate, never satisfy): the flag that
+    makes the tool tell the truth must not be opt-in.
+
+    Exit vocabulary (PVL / ONT-001 §3.4): 0 accept · 1 reject · 2 decline ·
+    3 error. A drift verdict is a reject. `--tripwire` already exited 1
+    (FALSIFY-549-003 pins it), so the NUMBER does not move; the DEFAULT does.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/562"
+    - "issue: https://github.com/paiml/infra/issues/605 — second signature"
+    - "issue: https://github.com/paiml/forjar/issues/352 — the class: an honest mode that is opt-in"
+    - "src/cli/drift.rs::cmd_drift — the verdict, unconditional"
+    - "src/cli/commands/misc_args.rs — `--tripwire`, kept and inert"
+    - "tests/falsification_drift_verdict_reaches_the_exit_code.rs — driven through the binary"
+    - "prior art: `terraform plan -detailed-exitcode` (2 = changes present) is opt-in and was the model for --tripwire; `git diff --exit-code` likewise; `ansible-playbook --check` exits non-zero on failure only"
+
+  quorum_validation:
+    - system: "Terraform (`plan -detailed-exitcode`)"
+      adopted: |
+        Terraform makes the change-present exit code OPT-IN, exactly the shape
+        this contract removes: `terraform plan` exits 0 over a plan full of
+        changes unless the flag is passed. That is the industry default, and it
+        is the defect. Adopted the exit vocabulary, rejected the opt-in.
+      encoded_as: "equation `verdict_is_the_exit_code`"
+    - system: "git (`diff --exit-code`, `diff --quiet`)"
+      adopted: |
+        Same opt-in shape: `git diff` exits 0 whether or not there is a diff,
+        and scripts must remember `--exit-code`. The comparison shows how
+        widespread the fail-open default is, and why a fleet cron line inherits
+        it without anyone deciding to.
+      encoded_as: "equation `tripwire_is_inert`"
+    - system: "Ansible (`--check --diff`, play recap)"
+      adopted: |
+        A check-mode run exits non-zero on FAILURE only; `changed` in the recap
+        never reaches the exit code. Ansible therefore has the same gap; forjar
+        closes it because `drift` has exactly one job, and a verdict that stays
+        on stdout is a verdict a cron line never reads.
+      encoded_as: "equation `verdict_is_the_exit_code`"
+    - system: "Kubernetes (`kubectl diff`)"
+      adopted: |
+        `kubectl diff` exits 1 when differences are found, with no flag — the
+        one surveyed tool whose default already matches this contract, and the
+        shape adopted here.
+      encoded_as: "equation `verdict_is_the_exit_code`"
+
+equations:
+  verdict_is_the_exit_code:
+    formula: |
+      drift(config, state) prints ≥1 DRIFTED line ⟹ exit = 1
+      drift(config, state) prints 0 DRIFTED lines ∧ unmeasured = 0 ⟹ exit = 0
+    domain: "config a manifest, state a lock dir, every declared machine reachable"
+    codomain: "process exit status"
+    invariants:
+      - "No flag is needed: the default is the honest mode"
+      - "The exit code is the same for text and `--json` output — the renderer does not own the verdict"
+      - "A remediated finding (`--auto-remediate`) was still a finding: the run is a reject"
+      - "Unmeasured with no drift exits 4 (forjar#549), unchanged; drift wins when both are present"
+
+  tripwire_is_inert:
+    formula: |
+      ∀ (config, state): drift(config, state, --tripwire) ≡ drift(config, state)
+        in exit code AND in output
+    domain: "config a manifest, state a lock dir"
+    codomain: "(exit status, stdout)"
+    invariants:
+      - "`--tripwire` is still PARSED, so no cron line on the fleet breaks"
+      - "It changes nothing: the verdict cannot be opted out of by omitting it"
+      - "Its help text no longer describes it as the way to get an exit code — that sentence documented the defect"
+
+proof_obligations:
+  - type: invariant
+    property: "One drifted file resource exits 1 with no flag"
+    formal: "tamper(file) ⟹ drift() = 1 ∧ stdout ∋ DRIFTED"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::a_drifted_file_resource_exits_1_without_any_flag"
+    notes: "THE REGRESSION. rc=0 on 1.30.0 — 4 of 5 cases in the suite were RED before src/cli/drift.rs::cmd_drift dropped the `tripwire_mode &&` guard."
+
+  - type: invariant
+    property: "A converged stack exits 0"
+    formal: "¬tamper ⟹ drift() = 0"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::a_converged_stack_still_exits_0"
+    notes: "The control. Without it `exit 1` unconditionally discharges every other obligation here."
+
+  - type: invariant
+    property: "--tripwire changes neither exit code nor output"
+    formal: "drift(--tripwire) = drift() in (exit, stdout)"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::tripwire_is_a_no_op"
+
+  - type: invariant
+    property: "--json exits 1 on drift too"
+    formal: "tamper ⟹ drift(--json) = 1 ∧ report.drift_count ≥ 1"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::json_output_exits_1_on_drift_too"
+
+  - type: invariant
+    property: "The help no longer sells --tripwire as the exit-code switch"
+    formal: "help(drift) ∌ 'Exit non-zero on any drift (for CI/cron)' ∧ help(drift) ∋ '--tripwire'"
+    applies_to: all
+    enforced_by: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::help_no_longer_describes_tripwire_as_the_way_to_get_an_exit_code"
+
+  - type: invariant
+    property: "The in-process verdict is a reject when the alert fired and when remediation ran"
+    formal: "alert fired ⟹ cmd_drift = Err(drift finding(s)); remediated ⟹ cmd_drift = Err(drift finding(s))"
+    applies_to: all
+    enforced_by: "src/cli/tests_check.rs::test_drift_alert_cmd, test_drift_auto_remediate"
+
+enforcement:
+  the_guard_is_gone:
+    description: |
+      `cmd_drift` MUST return the drift error unconditionally. Re-introducing
+      `tripwire_mode &&` — or any flag — in front of it restores the fail-open
+      default this contract exists to remove.
+    check: "src/cli/drift.rs::cmd_drift"
+    severity: "ERROR"
+
+falsification_tests:
+  - id: FALSIFY-DRIFT-EXIT-001
+    rule: "verdict_is_the_exit_code"
+    prediction: "Restoring `tripwire_mode && ` before `total_drift > 0` in src/cli/drift.rs::cmd_drift turns the regression case red (rc=0) while the converged control stays green"
+    test: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::a_drifted_file_resource_exits_1_without_any_flag"
+    if_fails: "A cron line reads a drifted fleet as clean — the yoga/gx10 measurement, again"
+    measured: |
+      RED on 1.30.0 (8b2ccedd + the test file): 4 of 5 cases failed, the
+      converged control passing. GREEN once the guard was removed.
+
+  - id: FALSIFY-DRIFT-EXIT-002
+    rule: "tripwire_is_inert"
+    prediction: "Making --tripwire do anything (a different exit, an extra line) turns this red"
+    test: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::tripwire_is_a_no_op"
+    if_fails: "Two spellings of the same command disagree, and the fleet's cron lines spell it the old way"
+
+  - id: FALSIFY-DRIFT-EXIT-003
+    rule: "verdict_is_the_exit_code"
+    prediction: "A renderer-owned exit (exit 1 only in text mode) turns this red"
+    test: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::json_output_exits_1_on_drift_too"
+    if_fails: "The JSON consumer — paiml/infra's tripwire script — reads a drifted report with rc=0"
+
+  - id: FALSIFY-DRIFT-EXIT-004
+    rule: "verdict_is_the_exit_code"
+    prediction: "Unconditional `exit 1` turns the control red"
+    test: "tests/falsification_drift_verdict_reaches_the_exit_code.rs::a_converged_stack_still_exits_0"
+    if_fails: "Every clean run is a reject and the signal is worthless"
+
+# No kani_harnesses. `metadata.kind: pattern`: the property is a process exit
+# status over a lock directory and a tampered file on disk; the falsifiers run
+# the binary rather than model it.
+
+qa_gate:
+  id: F-DRIFT-EXIT-001
+  name: "Drift Verdict Exit"
+  description: "any DRIFTED line exits 1, on every run, with no flag"
+  checks:
+    - "verdict_is_the_exit_code"
+    - "tripwire_is_inert"
+  pass_criteria: "All 4 falsification tests pass"
+  falsification: "Restore `tripwire_mode && ` before `total_drift > 0` in src/cli/drift.rs::cmd_drift"
+
+verification_level: L3

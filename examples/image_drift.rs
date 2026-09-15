@@ -38,5 +38,5 @@ fn main() {
     println!("\n=== CLI Usage ===\n");
     println!("  forjar drift -f config.yaml         # check all resources including images");
     println!("  forjar drift -f config.yaml --json   # JSON output");
-    println!("  forjar drift -f config.yaml --tripwire   # exit non-zero on drift");
+    println!("  forjar drift -f config.yaml         # exits 1 on any drift, no flag");
 }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`forjar drift` exits 1 on any DRIFTED line, on every run, with no flag
+(PMAT-562, #562; paiml/infra#605 second signature).** Measured on yoga and
+gx10 under 1.30.0: `Drift detected: 2 resource(s)` followed by `rc=0`. The
+verdict reached the exit code only with `--tripwire`, which was documented —
+and that is what made it a design defect: the default was fail-open and the
+caller had to know to ask for the exit code that means what the output says,
+the forjar#352 class. The flag is still accepted and changes nothing: same
+verdict, same output, same exit, with or without it. `--json` exits 1 too; a
+finding `--auto-remediate` repaired was still a finding; a run that could not
+measure a resource and found no drift still exits 4 (forjar#549). The book's
+exit-code tables said 2 in one place and 10 in another for a verdict that
+has exited 1 since #549; they now say 1, and `ErrorClass::Drift` (10) is
+recorded as reserved and unemitted. Contract
+`contracts/drift-verdict-exit-v1.yaml`; the suite runs the binary and was RED
+4/5 on 1.30.0.
+
 ## [1.30.0] - 2026-09-13
 
 The third cut under the two-day cadence (PMAT-225; due 2026-09-13T19:55:10Z).

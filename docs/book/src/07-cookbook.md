@@ -497,7 +497,7 @@ forjar rollback -f forjar.yaml -n 3
 forjar rollback -f forjar.yaml -m web-server
 
 # 5. Verify drift is clean after rollback
-forjar drift -f forjar.yaml --tripwire
+forjar drift -f forjar.yaml
 ```
 
 Rollback reads the previous `forjar.yaml` from git history, compares it to the current config, and re-applies the old version with `--force`.
@@ -540,7 +540,7 @@ jobs:
         run: forjar apply -f forjar.yaml --auto-commit
 
       - name: Verify no drift
-        run: forjar drift -f forjar.yaml --tripwire
+        run: forjar drift -f forjar.yaml
 ```
 
 ### Scheduled Drift Detection
@@ -558,7 +558,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for drift
-        run: forjar drift -f forjar.yaml --tripwire --json
+        run: forjar drift -f forjar.yaml --json
 
       - name: Anomaly report
         run: forjar anomaly --min-events 1 --json
@@ -581,7 +581,7 @@ forjar anomaly --json | jq '.findings[] | .resource + ": " + (.reasons | join(",
 # Common patterns and what they mean:
 #   "high churn (z=3.9)"     → Resource re-converging too often, check dependencies
 #   "high failure rate (80%)" → Resource consistently failing, investigate root cause
-#   "2 drift event(s)"       → Someone is making manual changes, enforce via drift --tripwire
+#   "2 drift event(s)"       → Someone is making manual changes, enforce via drift (its exit code is the verdict)
 ```
 
 Combine with scheduled drift checks for proactive maintenance:
@@ -591,7 +591,7 @@ Combine with scheduled drift checks for proactive maintenance:
 # maintenance.sh — run weekly
 
 # 1. Check for drift
-forjar drift -f forjar.yaml --tripwire --json > /tmp/drift-report.json
+forjar drift -f forjar.yaml --json > /tmp/drift-report.json
 
 # 2. Auto-remediate if drift found
 DRIFT_COUNT=$(jq '.drift_count' /tmp/drift-report.json)
@@ -1098,7 +1098,7 @@ machines:
 forjar apply -f forjar.yaml --state-dir state/ -m canary
 
 # Step 2: Verify canary
-forjar drift -f forjar.yaml --state-dir state/ -m canary --tripwire
+forjar drift -f forjar.yaml --state-dir state/ -m canary
 
 # Step 3: Apply to remaining machines
 forjar apply -f forjar.yaml --state-dir state/ -m web-02
@@ -1166,7 +1166,7 @@ rm -rf state/
 forjar apply -f forjar.yaml --state-dir state/
 
 # Verify entire fleet
-forjar drift -f forjar.yaml --state-dir state/ --tripwire
+forjar drift -f forjar.yaml --state-dir state/
 forjar anomaly --state-dir state/ --min-events 1
 ```
 
