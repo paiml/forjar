@@ -28,8 +28,9 @@ reports, a second run changes nothing — so a fleet converges in one command
 rather than on the next incidental apply. It does not descend into
 `--workspace` subdirectories (run it once per workspace dir), does not touch
 `forjar.lock.yaml` (the global lock, which `apply` already restamps), and
-skips encrypted `.yaml.age` locks. Contract `contracts/lock-names-its-writer-v1.yaml`; five
-cases through the writer and the binary, all RED before.
+skips encrypted `.yaml.age` locks. Contract `contracts/lock-names-its-writer-v1.yaml`; six
+cases through the writer and the binary — five RED before the stamp existed,
+the sixth (`lock-repair`) added when the review found the bypass.
 
 **`forjar drift` declines — exit 2, the count named — when it inspected none
 of the resources it was asked about, and never grades a resource from a
