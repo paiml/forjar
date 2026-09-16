@@ -3717,7 +3717,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-09-15T17:40:03Z
+  updated: 2026-09-16T09:13:55Z
   spec: null
   acceptance_criteria:
   - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
@@ -3730,7 +3730,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.31.0
+  - release:v1.32.0
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
 - id: PMAT-528
   kind: code
@@ -3742,7 +3742,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-15T17:40:03Z
+  updated: 2026-09-16T09:13:55Z
   spec: null
   acceptance_criteria:
   - 'gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window'
@@ -3755,7 +3755,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.31.0
+  - release:v1.32.0
   notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
 - id: PMAT-529
   kind: code
@@ -3767,7 +3767,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-15T17:40:03Z
+  updated: 2026-09-16T09:13:55Z
   spec: null
   acceptance_criteria:
   - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
@@ -3779,7 +3779,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.31.0
+  - release:v1.32.0
   notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
 - id: PMAT-531
   kind: triage
@@ -4294,7 +4294,7 @@ roadmap:
   item_type: task
   title: 'release: forjar 1.31.0 — the drift verdict is the exit code, a scope it could not inspect is declined, and a unit is converged only while it runs the declared program'
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-16T04:36:03Z
@@ -4361,4 +4361,22 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  notes: null
+- id: PMAT-576
+  github_issue: 576
+  item_type: task
+  title: 'ledger: book v1.31.0 — the row from the tag, the cookbook commit that locks it, and the next cut declared'
+  release: 1.32.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-16T09:13:44Z
+  updated: 2026-09-16T09:14:10Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - release:v1.32.0
   notes: null
