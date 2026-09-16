@@ -4382,3 +4382,75 @@ roadmap:
   - kind:triage
   - release:v1.32.0
   notes: null
+- id: PMAT-579
+  github_issue: 579
+  item_type: task
+  title: 'apply and plan must refuse when the running binary is not the version the manifest pins'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-16T11:02:45Z
+  updated: 2026-09-16T11:02:45Z
+  spec: null
+  acceptance_criteria:
+  - 'See paiml/forjar#579. A manifest that pins stack-tool-forjar to version X can be applied by a binary at version Y, and nothing says so. Measured on paiml/infra 2026-09-16: the lambda-labs apply of a 1.31.0 pin was performed by the 1.30.0 binary and the intel apply by 1.31.0, from the same operator minutes apart, with no warning either time. Done when apply and plan refuse on a mismatch unless the run is scoped to the tool resource itself with -r stack-tool-forjar, which is the one case that must stay allowed because it is how the upgrade happens. Falsifier: pin X, run with binary Y, assert refusal; add -r stack-tool-forjar, assert it proceeds.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-580
+  github_issue: 580
+  item_type: bug
+  title: 'the per-machine lock generator field is never refreshed, so every apply receipt names the wrong binary'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T11:02:45Z
+  updated: 2026-09-16T11:02:45Z
+  spec: null
+  acceptance_criteria:
+  - 'See paiml/forjar#580. finalize_machine in src/core/executor/machine_b.rs refreshes generated_at and saves, but never assigns lock.generator, so the field keeps whatever version first created the file. Measured across paiml/infra state: intel says forjar 0.1.0 for an apply the event log stamps 1.30.0; gx10 says 1.13.1, yoga 1.1.1, lambda-labs 1.4.0, mini 1.6.1, none of them right. src/cli/lock_audit.rs only asserts the string starts with forjar, so the audit for this field cannot fail on the thing that is wrong with it. Done when finalize_machine stamps the running version and lock_audit reports a mismatch as information. Falsifier: take a lock reading forjar 0.1.0, apply with the current binary, assert the header now names it; that test is red against todays tree.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-581
+  github_issue: 581
+  item_type: feature
+  title: 'remote resources have no content key, so an SSH target plans NoOp over changed sources'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T11:02:45Z
+  updated: 2026-09-16T11:02:45Z
+  spec: null
+  acceptance_criteria:
+  - 'See paiml/forjar#581. forjar#497 closed the disclosure half; this is the capability half. unprobed.rs states that the probe is only taken for machines this host answers for, so every SSH target has planned NoOp over changed sources for as long as the probe has existed, and the action is left alone on purpose. paiml/infra carries 35 hand-rolled activation checks across 6 configs standing in for the missing primitive. Done when a resource can declare a controller-side content key that plans Update on a changed source without contacting the host, keeping f(f(x)) equal to f(x). Falsifier: declare the key, apply, change one byte of the source, plan, assert Update with no host access between the two plans; revert and assert NoOp.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-582
+  github_issue: 582
+  item_type: bug
+  title: 'drift with a missing state dir inspects a fraction of the scope and still returns a drift verdict'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-16T11:02:45Z
+  updated: 2026-09-16T11:02:45Z
+  spec: null
+  acceptance_criteria:
+  - 'See paiml/forjar#582. forjar#569 declines only at 0 of N, so a partial inspection returns an ordinary verdict. Measured 2026-09-16 on one host at one commit: with the canonical state dir, 9 DRIFTED exit 1; with the default state dir, which does not exist in any worktree because state is gitignored, inspected 40 of 153 and Drift detected 2 resources, also exit 1. A third session reading the same host and commit got 3. Done when a partial inspection is distinguishable from a complete one by exit code, and when the resolved state dir is named in the output. Falsifier: run drift against a lock holding none of the manifest resources and assert the exit code differs from the same drift found against a complete lock; today both are 1.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
