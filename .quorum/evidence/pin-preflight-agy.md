@@ -1,7 +1,9 @@
 # PMAT-579 / PMAT-581 / PMAT-582 — the agy rounds
 
 Every round is three sandboxed `agy` review lanes, review-only, in their own
-clones with push removed, `writes=false`, against `main` at 583a58ea. The
+clones with push removed, `writes=false`, against `main` at 583a58ea for rounds 1 to 3; the branch was then rebased onto
+0edfe2d5 (forjar#570, which also touched the roadmap) without conflict, so the
+merge rail's own round runs on the rebased head with that merge base. The
 per-round table in `pin-preflight-lanes.md` is the ONLY place this receipt
 counts rounds; no other file restates the number.
 

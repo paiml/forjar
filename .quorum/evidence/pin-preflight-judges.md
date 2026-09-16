@@ -44,7 +44,8 @@ its lanes blessed is a tally with extra steps.
 
 5. [kind-code-labels-are-true] That each row's `kind:code` label is true about
    the work it registers, and that this repo uses the label that way.
-   - evidence: at the merge base the roadmap carries 115 `kind:code` and 7
+   - evidence: at 583a58ea, and again at 0edfe2d5 after the rebase, the roadmap
+     carries 115 `kind:code` and 7
      `kind:triage` labels, the latter on bookings such as the 1.30.0 ledger
      row at `docs/roadmaps/roadmap.yaml:4154`; with these three rows it is 118
      and 7. The distinction from the DIFF's kind is drawn at
