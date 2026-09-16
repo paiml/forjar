@@ -39,6 +39,15 @@ manifest and its done-when is a drift verdict 1.30.0 cannot give.
 - `CHANGELOG.md` — the `[1.31.0]` heading over the three behaviour paragraphs
 - `docs/audits/crux-1.31.0.md` — one comparison row per bullet, >= 3 systems each
 - `docs/audits/dogfood-1.31.0-receipt.md`, `docs/audits/logs/PMAT-574-cut.log`
+- `docs/audits/impl-PMAT-574-receipt.md` — this file. A review lane read the
+  list above, found it did not name the receipt doing the listing, and filed it;
+  the omission was real and is corrected here. The lane's other half — that the
+  file is an unrequested addition — is refuted by `scripts/dogfood/harness.sh`,
+  which fails gate A for any merged PR whose ticket has no
+  `docs/audits/impl-<ticket>-receipt.md` at HEAD ending in
+  `IMPL-<ticket>-RECEIPT-END`
+- `.quorum/PMAT-574-release-1.31.0.json` and `.quorum/evidence/release-1.31.0-*.md`
+  — the quorum receipt gate E requires, and the round that produced it
 - `docs/roadmaps/roadmap.yaml` — the bookkeeping below
 - `README.md` — both version lines, 1.30 → 1.31. Gate D passed either way
   (Cargo reads `forjar = "1.30"` as `>=1.30.0, <2.0.0`, which admits 1.31.0),
