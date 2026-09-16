@@ -1,9 +1,12 @@
-# PMAT-574 — the agy round
+# PMAT-574 — the agy rounds
 
-Five rounds of three sandboxed `agy` quorum lanes, review-only, against `main`
-at 9884334a. Per-round lanes, models and verdicts are the table in
-`release-1.31.0-lanes.md`; this file records the properties that hold across all
-five.
+Every round is three sandboxed `agy` quorum lanes, review-only, in their own
+clones with push removed, `writes=false`, against `main` at 9884334a. THE
+PER-ROUND TABLE IN `release-1.31.0-lanes.md` IS THE ONLY PLACE THIS RECEIPT
+COUNTS ROUNDS: this file and `release-1.31.0-claims.md` deliberately restate no
+number, because a count repeated in four files is a count that goes stale in
+three of them — which two separate rounds caught, and which is the reason for
+this rule.
 
 Models used: `gemini-3.1-pro-high`, `gemini-3.8-flash-high`,
 `gemini-3.8-flash-medium`, `gemini-3.6-flash-high`, `gemini-3.6-flash-medium`,

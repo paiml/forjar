@@ -24,6 +24,7 @@ file the round is reviewing.
 | 6 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` PASS | `gemini-3.6-flash-low` NO-VERDICT (503, no capacity) | not agreed |
 | 7 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` NO-VERDICT (503, no capacity) | `gemini-3.6-flash-high` PASS | not agreed |
 | 8 | `gemini-3.1-pro-high` FAIL (4 findings, all this evidence's own stale counts) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` PASS | not agreed |
+| 9 | `gemini-3.1-pro-high` FAIL (4) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` FAIL (4) | not agreed — two lanes found the same stale counts, and this rewrite is the structural answer |
 
 `gemini-3.8-flash-*` returned NO-VERDICT in all three rounds it ran in — a SUCCESS
 envelope carrying no verdict object each time. That is a property of the lane,

@@ -28,12 +28,13 @@ The claims put to the three lanes were:
    in the crux document, in the impl receipt and in the ticket's own
    `release: 1.32.0` — rather than left for a reader to notice.
 
-These claims were put to five rounds of three lanes each, review-only,
-sandboxed, `writes=false`, on the successive heads 203d8a65, e65a1fad (twice),
-1da75f21 and b0ccb46a — each round on the head that existed when it started,
-because each round that raised a real finding produced a fix. Models are
-declared and measured per round in `release-1.31.0-lanes.md`; every round used
-three distinct ids, none in the author's family.
+These claims were put to every round in the table in
+`release-1.31.0-lanes.md` — each on the head that existed when that round
+started, because a round that raises a real finding produces a fix and the fix
+moves the head. Every round ran three lanes, review-only, sandboxed,
+`writes=false`, with three distinct model ids, none in the author's family. The
+count of rounds is not restated here on purpose; the table is the one place it
+lives.
 
 ## What the round could NOT adjudicate, and who did
 

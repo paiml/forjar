@@ -1,12 +1,10 @@
 # PMAT-574 — adjudicated claims
 
-Eight rounds of three sandboxed agy quorum lanes (1: 1 FAIL 2 NO-VERDICT; 2:
-2 PASS 1 NO-VERDICT; 3: 1 FAIL 1 PASS 1 NO-VERDICT; 4: 2 FAIL 1 PASS; 5: 1 FAIL
-1 PASS 1 NO-VERDICT; 6: 2 PASS 1 NO-VERDICT; 7: 2 PASS 1 NO-VERDICT; 8: 1 FAIL
-2 PASS). Rounds 6 and 7 raised NO finding at all and collapsed only because a
-lane hit `UNAVAILABLE (code 503): No capacity`; round 8's finding is this
-file's own arithmetic, fixed here.
-Six confirmations and ten refutations. Three of the nine refutations
+The rounds, their lanes and their verdicts are the table in
+`release-1.31.0-lanes.md`, which is the only place they are counted. What
+matters here is the adjudication, and it is stated once: the items below are
+every claim this branch put at risk, six CONFIRMED and eleven REFUTED.
+ Three of the refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
 refuting authority. A reader who sees `judges: 3` should read it as the three
@@ -160,6 +158,18 @@ tiers.
       three rounds and four refutations where the digest said five and nine, and
       two "three rounds" phrases survived in the evidence prose. Corrected here,
       and the round count now tracks the table in `release-1.31.0-lanes.md`.
+
+11. [counts-repeated-in-four-files] That restating the round count and the
+    refutation count in each evidence file was workable.
+    - evidence: rounds 8 and 9 each refuted it, and round 9 did so from two
+      lanes at once — `release-1.31.0-agy.md` still said five rounds,
+      `release-1.31.0-claims.md` still listed heads up to b0ccb46a, and this
+      file's opening still said nine refutations while its items numbered ten.
+      A count repeated in four files goes stale in three. The structural answer
+      is in the tree: the per-round table in `release-1.31.0-lanes.md` is now
+      the ONLY place rounds are counted and heads are named, the adjudication
+      count is stated once here, and the other two files refer rather than
+      repeat.
 
 ## Lane findings that did NOT survive
 
