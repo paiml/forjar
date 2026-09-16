@@ -1,8 +1,9 @@
 # PMAT-574 — adjudicated claims
 
-Three rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2
-NO-VERDICT; round 2: 2 PASS 1 NO-VERDICT; round 3: 1 FAIL 1 PASS 1 NO-VERDICT).
-Six confirmations and six refutations. Three of the four refutations
+Four rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2 NO-VERDICT;
+round 2: 2 PASS 1 NO-VERDICT; round 3: 1 FAIL 1 PASS 1 NO-VERDICT; round 4:
+2 FAIL 1 PASS).
+Six confirmations and eight refutations. Three of the four refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
 refuting authority. A reader who sees `judges: 3` should read it as the three
@@ -116,6 +117,27 @@ tiers.
      total that contradicts its own breakdown is exactly the black box this
      receipt format exists to refuse. Corrected to the measured 42.
 
+7. [gate-r-counts-six] That gate R's "6 PR(s) since v1.30.0" contradicts the 5
+   the other gates report, as round 4's lane 1 claimed.
+   - evidence: both numbers are right about different windows, and the receipt
+     quotes each tool verbatim. `gh pr list` merged after the tag's timestamp
+     returns exactly five: #571, #569, #568, #563, #548. Gate R's six are those
+     five plus #556 — the release PR whose squash commit IS the v1.30.0 tag
+     (`git rev-list -n1 v1.30.0` and #556's merge commit are both ddd0c441), so
+     a window anchored on the tag COMMIT includes the PR that produced it while
+     a window anchored after it does not. The receipt now says so where it
+     quotes gate R.
+
+8. [changelog-should-cite-the-pr] That the CHANGELOG entry for PMAT-564 should
+   cite #569 (the PR) rather than #564, as round 4's lane 1 claimed.
+   - evidence: the file's own convention is the ISSUE. Every 1.30.0 paragraph
+     reads the same way — `(PMAT-549, #549)`, `(PMAT-534, #534)`,
+     `(PMAT-540, #540)`, `(PMAT-542, #542)`, `(PMAT-535, #535)` — ticket then
+     issue, never the PR. `CHANGELOG.md:12` follows it with
+     `(PMAT-564, #564; paiml/infra#605 first signature)`. The paragraph also
+     merged with #569 and rewriting it here would edit shipped text to match a
+     convention the repository does not use.
+
 ## Lane findings that did NOT survive
 
 Round 3's lane 1 raised six findings. Two are the refutations above. The other
@@ -138,6 +160,14 @@ All four off-by-one citations point the same direction, which is worth naming:
 a lane reading a unified diff counts added lines, and a file counts its own. The
 lane was right twice about arithmetic it could do from the text, and wrong four
 times about line numbers it inferred rather than read.
+
+Round 4 repeated the same mistake from two lanes at once — `gemini-3.1-pro-high`
+and `gemini-3.6-flash-medium` both insisted the first bullet is `CHANGELOG.md:13`
+and the version line `README.md:97`. Re-measured at HEAD by reading each blob
+out of git and numbering it with awk, so the number printed is the file's own: `CHANGELOG.md:10` is the heading, `:11` is blank,
+`:12` is the bullet; `README.md:95` is a comment, `:96` is the version line. Two
+lanes agreeing does not move a measurement, and this is the second round in
+which the agreement was wrong in the same direction.
 
 ## The kill rule
 

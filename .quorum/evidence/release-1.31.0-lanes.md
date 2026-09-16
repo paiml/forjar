@@ -10,10 +10,18 @@ returning a finding that was then ignored.
 | 1 | `gemini-3.1-pro-high` FAIL (1 finding) | `gemini-3.8-flash-high` NO-VERDICT | `gpt-oss-120b-medium` NO-VERDICT (503, no capacity) | not agreed |
 | 2 | `gemini-3.1-pro-high` PASS | `gemini-3.8-flash-high` NO-VERDICT | `gemini-3.6-flash-high` PASS | not agreed |
 | 3 | `gemini-3.1-pro-high` FAIL (6 findings) | `gemini-3.8-flash-medium` NO-VERDICT | `gemini-3.6-flash-high` PASS | not agreed |
+| 4 | `gemini-3.1-pro-high` FAIL (2 findings) | `gemini-3.6-flash-high` PASS | `gemini-3.6-flash-medium` FAIL (line-number claims) | not agreed |
 
 `gemini-3.8-flash-*` returned NO-VERDICT in all three rounds — a SUCCESS
 envelope carrying no verdict object each time. That is a property of the lane,
 not of the branch, and it is why the round width kept collapsing to two.
+
+Round 4 produced two findings worth answering and one repeat: gate R's "6 PR(s)
+since v1.30.0" against the other gates' 5 (both right, different windows — the
+six include #556, whose squash commit IS the tag), and a claim that the
+CHANGELOG should cite the PR rather than the issue (refuted by the file's own
+convention, `(PMAT-549, #549)` and four more like it). Its third was the
+line-number claim two lanes now share and neither measured.
 
 Round 3's lane 1 was the most valuable review of the three rounds: six findings,
 two of which refuted claims the author had written into the cut log and the
