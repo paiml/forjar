@@ -1,0 +1,70 @@
+# forjar 1.31.0 cut — the reds, and what cleared each
+
+Every red below was cleared BEFORE the commit `make dogfood-release` then
+measured, which is why the run itself is nine-for-nine on its first attempt.
+The reds are recorded here because a gate that was never red proves nothing
+about itself.
+
+### RED — gate H, before the crux rows matched the keys it greps
+GATE H FAIL 3 behaviour bullet(s) under [1.31.0] have no row in docs/audits/crux-1.31.0.md — the rows above are the keys each must contain
+  forjar drift declines — exit 2,
+  A service is converged only while
+  forjar drift exits 1 on any
+
+The rows existed. They read `| (1) \`forjar drift\` declines — exit 2, …`, and
+`crux_row()` greps the bullet's first six words as a FIXED string: "forjar drift
+declines — exit 2, the" does not occur in "`forjar drift` declines". The
+backticks came out of the key span.
+
+### GREEN — gate H
+GATE H PASS 3 of 3 behaviour bullet(s) under [1.31.0] reconciled in docs/audits/crux-1.31.0.md, each naming >= 3 of the 28 surveyed systems
+
+### RED — gate B arm 7, measured on the branch before the ledger repair
+CB-2112 37 finding(s), ceiling 35 (NO-ISSUE 24, TAIL-MISMATCH 10, ISSUE-CLOSED 3)
+CB-2114 36 finding(s), ceiling 34 (NO-RELEASE 36)
+CB-2115 49 finding(s), ceiling 43 (ORPHAN-ROADMAP 27, ORPHAN-GITHUB 11, DRIFT 11)
+
+The growth was this window's, and the ratchet named every part of it:
+  ISSUE-CLOSED / ORPHAN-ROADMAP  PMAT-557 #557, PMAT-560 #560, PMAT-564 #564 —
+                                 merged PRs whose rows still said planned or
+                                 inprogress while GitHub had closed the issue
+  ORPHAN-GITHUB                  #565 #572 #573 — issues filed during the window
+                                 with no roadmap row
+  NO-RELEASE                     PMAT-560 and the newly minted rows
+  DRIFT                          PMAT-559's row title was TRUNCATED when it was
+                                 minted, so it no longer equals #559's title
+
+### GREEN — after the repair, measured on the committed tree by the gate itself
+GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=34/35 CB-2114=34/34 CB-2115=42/43 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
+
+### the composition, measured either side (pmat comply check)
+before: CB-2112 37 (NO-ISSUE 24, TAIL-MISMATCH 10, ISSUE-CLOSED 3); CB-2114 36 NO-RELEASE; CB-2115 49 (ORPHAN-ROADMAP 27, ORPHAN-GITHUB 11, DRIFT 11)
+after:  CB-2112 34 (NO-ISSUE 24, TAIL-MISMATCH 10);                 CB-2114 34 NO-RELEASE; CB-2115 42 (ORPHAN-ROADMAP 24, ORPHAN-GITHUB  8, DRIFT 10)
+
+CB-2114's repair is two rows, not four: PMAT-560 gained `release: 1.31.0`, and
+PMAT-574's own row was minted without one and then given `release: 1.31.0`. The
+three rows minted for #565, #572 and #573 were each created WITH
+`release: 1.32.0`, so they added no NO-RELEASE finding to remove. 36 - 2 = 34,
+which is what the gate measured.
+
+CB-2115 read 43 once, from `scripts/ratchets/comply-count.sh` against the
+working tree at 05:00Z, and 42 every time since — gate B on the committed tree,
+and a re-measurement at 06:40Z whose composition (24 + 8 + 10) sums to 42. The
+first draft of this log explained the difference as "the receipts this commit
+had not yet added", and a review lane refuted it: markdown receipts cannot move
+ORPHAN-ROADMAP, ORPHAN-GITHUB or DRIFT. What is true is narrower and worth
+more: `pmat comply` reads GitHub LIVE and stamps each run with its own
+`snapshot: gh paiml/forjar taken <ts>`, so two runs minutes apart are two
+measurements of a moving source, and the composition that SUMS is the one to
+trust. No ceiling is lowered here in any case: a ceiling may only be lowered
+from a measurement of the COMMITTED tree, and the tree that carries these
+numbers is the one the next commit makes.
+
+### REFUSED — the commit-msg hook, on the first attempt at the cut commit
+PMAT commit-msg: Pmat-Ticket PMAT-574 is completed — work belongs to an open item, and CB-2113 refuses this commit in CI.
+  leave a ticket open in its own PR; the next ticket's PR marks it completed
+
+The row said `completed` because the cut is what completes it. The hook is
+right and the rule is the one the 1.30.0 loop already used: PMAT-555 was marked
+completed by PMAT-557's booking PR, not by its own. PMAT-574 stays `inprogress`
+here and the booking PR closes it.

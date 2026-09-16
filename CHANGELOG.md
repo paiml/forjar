@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-09-16
+
 **`forjar drift` declines — exit 2, the count named — when it inspected none
 of the resources it was asked about, and never grades a resource from a
 manifest it was not given (PMAT-564, #564; paiml/infra#605 first
