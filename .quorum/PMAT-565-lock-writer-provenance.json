@@ -3,8 +3,8 @@
  "issue": "PMAT-565 (forjar#565; paiml/infra#605 third signature) \u2014 four fleet locks under one 1.30.0 binary said generator forjar 1.1.1, 1.13.1, 1.27.0 and 1.10.0 while generated_at rolled; the field was stamped once and never touched. Every StateLock write now stamps the writing binary and keeps the creator; `forjar lock --restamp` converges a state dir in one run.",
  "branch": "PMAT-565-lock-writer-provenance",
  "base": "cb94fc21",
- "base_commit": "8285616f4ac9cc240aa60f8cfe64899a7febc9cf",
- "diff_sha256": "281ccc481b99a788d79f973617612a3945be45fd",
+ "base_commit": "583a58eaabddfe24799cea9d143fdbd95b98e8f2",
+ "diff_sha256": "9de10778ebe69878ede3dbe4f3ae0079a89d099e",
  "recorded_at": "rebased onto the rebased PMAT-564 (e91639ee) after #571 merged; the diff against main still includes PMAT-564 until #569 merges",
  "quorum": {
   "lanes": [
