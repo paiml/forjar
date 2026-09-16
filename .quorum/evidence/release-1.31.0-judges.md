@@ -1,9 +1,12 @@
 # PMAT-574 — adjudicated claims
 
-Five rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2 NO-VERDICT;
-round 2: 2 PASS 1 NO-VERDICT; round 3: 1 FAIL 1 PASS 1 NO-VERDICT; round 4:
-2 FAIL 1 PASS; round 5: 1 FAIL 1 PASS 1 NO-VERDICT).
-Six confirmations and nine refutations. Three of the four refutations
+Eight rounds of three sandboxed agy quorum lanes (1: 1 FAIL 2 NO-VERDICT; 2:
+2 PASS 1 NO-VERDICT; 3: 1 FAIL 1 PASS 1 NO-VERDICT; 4: 2 FAIL 1 PASS; 5: 1 FAIL
+1 PASS 1 NO-VERDICT; 6: 2 PASS 1 NO-VERDICT; 7: 2 PASS 1 NO-VERDICT; 8: 1 FAIL
+2 PASS). Rounds 6 and 7 raised NO finding at all and collapsed only because a
+lane hit `UNAVAILABLE (code 503): No capacity`; round 8's finding is this
+file's own arithmetic, fixed here.
+Six confirmations and ten refutations. Three of the nine refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
 refuting authority. A reader who sees `judges: 3` should read it as the three
@@ -149,6 +152,14 @@ tiers.
      format refuses. All three now describe every round, and say why the count
      moves: each real finding produces a fix, the fix moves the head, and the
      next round reviews a head no earlier round saw.
+
+10. [receipt-counts-are-current] That this receipt's own counts matched its
+    digest.
+    - evidence: round 8's lane 1, four citations: `recorded_at` said three
+      author claims where four had been refuted by lanes, `judges_note` said
+      three rounds and four refutations where the digest said five and nine, and
+      two "three rounds" phrases survived in the evidence prose. Corrected here,
+      and the round count now tracks the table in `release-1.31.0-lanes.md`.
 
 ## Lane findings that did NOT survive
 

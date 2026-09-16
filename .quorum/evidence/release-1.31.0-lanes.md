@@ -1,6 +1,6 @@
 # PMAT-574 — the lanes, and what each returned
 
-Five rounds were run, each on the head that existed when it started: round 1 on
+Eight rounds were run, each on the head that existed when it started: round 1 on
 203d8a65 (before the quorum receipt existed), rounds 2 and 3 on e65a1fad, round
 4 on 1da75f21, round 5 on b0ccb46a. No round agreed. Every round that collapsed
 did so because a lane returned NOTHING; no round was re-run to bury a finding,
@@ -21,6 +21,9 @@ file the round is reviewing.
 | 3 | `gemini-3.1-pro-high` FAIL (6 findings) | `gemini-3.8-flash-medium` NO-VERDICT | `gemini-3.6-flash-high` PASS | not agreed |
 | 4 | `gemini-3.1-pro-high` FAIL (2 findings) | `gemini-3.6-flash-high` PASS | `gemini-3.6-flash-medium` FAIL (line-number claims) | not agreed |
 | 5 | `gemini-3.1-pro-high` FAIL (3 findings) | `gemini-3.6-flash-high` NO-VERDICT | `gemini-3.6-flash-medium` PASS | not agreed |
+| 6 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` PASS | `gemini-3.6-flash-low` NO-VERDICT (503, no capacity) | not agreed |
+| 7 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` NO-VERDICT (503, no capacity) | `gemini-3.6-flash-high` PASS | not agreed |
+| 8 | `gemini-3.1-pro-high` FAIL (4 findings, all this evidence's own stale counts) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` PASS | not agreed |
 
 `gemini-3.8-flash-*` returned NO-VERDICT in all three rounds it ran in — a SUCCESS
 envelope carrying no verdict object each time. That is a property of the lane,
@@ -33,7 +36,7 @@ CHANGELOG should cite the PR rather than the issue (refuted by the file's own
 convention, `(PMAT-549, #549)` and four more like it). Its third was the
 line-number claim two lanes now share and neither measured.
 
-Round 3's lane 1 was the most valuable review of the three rounds: six findings,
+Round 3's lane 1 was the most valuable single review of the eight rounds: six findings,
 two of which refuted claims the author had written into the cut log and the
 dogfood receipt (the after-composition that did not sum, and a false cause for
 the 42-vs-43 gap). Both are fixed and recorded in
