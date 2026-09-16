@@ -332,3 +332,116 @@ fn lock_repair_writes_through_the_writer_sidecar_included() {
         "a lock written without its sidecar is refused by the next apply"
     );
 }
+
+/// Write a lock file directly, carrying the fake first-writer string, so a verb
+/// that rewrites it can be caught leaving that string in place.
+fn plant_stale_lock(state: &Path, machine: &str, resource: &str) {
+    let mut lock = new_lock(machine, machine);
+    lock.generator = FAKE.into();
+    lock.resources.insert(
+        resource.into(),
+        forjar::core::types::ResourceLock {
+            resource_type: forjar::core::types::ResourceType::Package,
+            status: forjar::core::types::ResourceStatus::Converged,
+            hash: "deadbeef".into(),
+            observed: None,
+            applied_at: None,
+            duration_seconds: None,
+            details: std::collections::HashMap::new(),
+        },
+    );
+    fs::create_dir_all(state.join(machine)).unwrap();
+    fs::write(
+        state.join(machine).join("state.lock.yaml"),
+        serde_yaml_ng::to_string(&lock).unwrap(),
+    )
+    .unwrap();
+}
+
+/// REFUTED BY THE REVIEW QUORUM, THEN FIXED. The branch claimed "every path
+/// that writes a StateLock goes through save_lock" while three verbs still
+/// serialised and wrote one by hand: `destroy` (rewriting a lock it had pruned),
+/// `lock defrag` (mirroring save_lock rather than calling it) and `lock merge`
+/// (which also wrote no `.b3` sidecar at all). A lane read the diff and named
+/// all three; this is the test that would have caught them.
+#[test]
+fn lock_defrag_writes_through_the_writer() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    plant_stale_lock(&state, "boxa", "zzz-last");
+
+    let out = Command::new(FORJAR)
+        .args(["lock-defrag", "--state-dir", state.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let back = load_lock(&state, "boxa").unwrap().expect("lock parses");
+    assert_eq!(
+        back.generator,
+        writer(),
+        "a defragged lock names the binary that defragged it"
+    );
+    assert_eq!(
+        back.created_by.as_deref(),
+        Some(FAKE),
+        "and keeps the first writer it replaced"
+    );
+    assert!(
+        state.join("boxa").join("state.lock.yaml.b3").exists(),
+        "defrag refreshes the integrity sidecar (FJ-154)"
+    );
+}
+
+/// `lock merge` wrote its output with a bare `fs::write`: the merged lock kept
+/// whatever `generator` the INPUT carried, and no sidecar was written, so the
+/// next apply over the merged state dir failed its integrity check.
+#[test]
+fn lock_merge_writes_through_the_writer_sidecar_included() {
+    let dir = tempfile::tempdir().unwrap();
+    let from = dir.path().join("from");
+    let to = dir.path().join("to");
+    let out_dir = dir.path().join("merged");
+    plant_stale_lock(&from, "boxa", "pkg-a");
+    plant_stale_lock(&to, "boxb", "pkg-b");
+
+    let out = Command::new(FORJAR)
+        .args([
+            "lock-merge",
+            from.to_str().unwrap(),
+            to.to_str().unwrap(),
+            "--output",
+            out_dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    for machine in ["boxa", "boxb"] {
+        let back = load_lock(&out_dir, machine)
+            .unwrap()
+            .unwrap_or_else(|| panic!("{machine} merged lock parses"));
+        assert_eq!(
+            back.generator,
+            writer(),
+            "a merged lock names the binary that merged it, not the one that wrote its input"
+        );
+        assert_eq!(
+            back.created_by.as_deref(),
+            Some(FAKE),
+            "and keeps the input's writer as the creator"
+        );
+        assert!(
+            out_dir.join(machine).join("state.lock.yaml.b3").exists(),
+            "a merged lock without its sidecar is refused by the next apply"
+        );
+    }
+}

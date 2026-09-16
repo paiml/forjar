@@ -147,17 +147,6 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
-/// Atomically rewrite a lock file (temp + rename) and refresh its BLAKE3 `.b3`
-/// integrity sidecar so the next `forjar apply` integrity check passes.
-fn write_lock_and_sidecar(lock_path: &Path, content: &str) -> Result<(), String> {
-    let tmp_path = lock_path.with_extension("yaml.tmp");
-    std::fs::write(&tmp_path, content).map_err(|e| format!("Failed to write lock: {e}"))?;
-    std::fs::rename(&tmp_path, lock_path)
-        .map_err(|e| format!("Failed to rename lock into place: {e}"))?;
-    crate::core::state::integrity::write_b3_sidecar(lock_path)
-        .map_err(|e| format!("Failed to refresh integrity sidecar: {e}"))
-}
-
 /// FJ-575: Defragment lock files (reorder resources alphabetically).
 pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -182,14 +171,13 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
             }
             lock.resources = sorted;
 
-            let new_content = serde_yaml_ng::to_string(&lock)
-                .map_err(|e| format!("Failed to serialize lock: {e}"))?;
             // FJ-154 (#20): a raw `std::fs::write` here left the BLAKE3 `.b3`
             // sidecar holding the pre-defrag hash, so the next `forjar apply`
             // hard-failed its integrity check and effectively bricked the stack
-            // until a manual reseal. Write atomically and refresh the sidecar
-            // (mirrors state::save_lock / reseal) so defrag → apply round-trips.
-            write_lock_and_sidecar(&lock_path, &new_content)?;
+            // until a manual reseal. That was fixed by MIRRORING save_lock;
+            // PMAT-565 calls it instead, because a mirror drifts — this one
+            // did, and never stamped the writer into `generator`.
+            crate::core::state::save_lock(state_dir, &lock)?;
             defragged += 1;
         }
     }

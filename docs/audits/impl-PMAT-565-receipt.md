@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-565 — the lock names the binary that wrote it
 
-verdict: PASS — every write of a per-machine lock stamps `generator` with the writing binary (what `forjar --version` prints) and keeps the value it replaces as `created_by`, once; `lock-repair` and `lock-migrate`, which wrote with a bare `fs::write` and left the `.b3` sidecar stale, go through the same writer; `forjar lock --restamp` converges every `<machine>/state.lock.yaml` under a state dir in one run. Six cases through the writer and the binary; four mutations run, each killing what it names.
+verdict: PASS — every write of a per-machine lock stamps `generator` with the writing binary (what `forjar --version` prints) and keeps the value it replaces as `created_by`, once; `forjar lock --restamp` converges every `<machine>/state.lock.yaml` under a state dir in one run. FIVE verbs wrote a lock with a bare `fs::write` and now go through the same writer — `lock-repair` and `lock-migrate`, found by the first review quorum, then `destroy`'s partial-failure cleanup, `lock-defrag` and `lock-merge`, found by the quorum that read the branch's own claim that every write already went through `save_lock` and refuted it with three citations. `lock-merge` wrote no `.b3` sidecar at all, so a merged state dir failed the next apply's integrity check. Nine cases through the writer and the binary (two of them RED on the unfixed source with `forjar 0.0.0-fake-first-writer` surviving); four mutations run, each killing what it names.
 
 ## Identity
 

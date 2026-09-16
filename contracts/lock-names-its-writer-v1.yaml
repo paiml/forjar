@@ -80,7 +80,7 @@ equations:
     codomain: "the generator field of the file on disk"
     invariants:
       - "The struct's own `generator` is never what the file gets: a fake first-writer string is overwritten by the real writer"
-      - "Every path that writes a StateLock goes through save_lock — apply's finalize, --refresh, apply --drift, lock, lock-repair (both the minimal lock and the normalised form), lock-migrate, restamp. lock-repair and lock-migrate used a bare fs::write until the review quorum read them; that also left the .b3 sidecar stale"
+      - "Every path that writes a StateLock goes through save_lock — apply's finalize, --refresh, apply --drift, lock, lock-repair (both the minimal lock and the normalised form), lock-migrate, restamp, destroy's partial-failure cleanup, lock-defrag and lock-merge. SIX of those used a bare fs::write and were found by review quorums reading the diff rather than by the suite: lock-repair and lock-migrate in the first round, then destroy, lock-defrag and lock-merge in the round that read this very claim and refuted it. Each also left the .b3 sidecar stale or, for lock-merge, absent entirely. The claim is only worth what the cases behind it cover, and the cases now cover all three of the second set"
       - "lock-restore copies a snapshot's bytes and lock-tag prepends a comment to the file's bytes: neither serialises a StateLock, neither stamps, and the next stamping write moves whatever generator they left into created_by"
       - "`generated_at` and `generator` are now a pair one binary could have written"
 
