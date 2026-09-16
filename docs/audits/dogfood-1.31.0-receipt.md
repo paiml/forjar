@@ -28,11 +28,17 @@ that rather than reporting a mutation pass it did not earn. The three behaviours
 this release ships were each mutation-tested on their own branch (#563, #569,
 #568) and those receipts are what carries that evidence.
 
-**Gate B measured the committed tree at CB-2115 42 while the working tree said
-43.** The difference is the receipts this commit had not yet added, and it is the
-reason the baseline forbids lowering a ceiling from a working-tree number. Two
-ceilings could be lowered from a committed measurement; this cut lowers neither,
-because the tree that carries these numbers is the one the NEXT commit makes.
+**Gate B measured CB-2115 at 42; one earlier working-tree reading said 43.** The
+first draft of this receipt explained that gap as "the receipts this commit had
+not yet added", and a review lane refuted it: a markdown file cannot move
+ORPHAN-ROADMAP, ORPHAN-GITHUB or DRIFT. What is measured is that
+`comply-count.sh` returned 43 at 05:00Z, that gate B returned 42 on the committed
+tree, and that a re-measurement at 06:40Z returned 42 with a composition that
+sums (24 + 8 + 10). `pmat comply` reads GitHub live and stamps every run with its
+own snapshot timestamp, so those are two measurements of a moving source rather
+than one number and an error. Two ceilings could be lowered from the committed
+measurement; this cut lowers neither, because the tree that carries these numbers
+is the one the NEXT commit makes.
 
 **Three reds were cleared before this run, not during it.** Gate H's rows did not
 match the keys it greps (backticks inside the key span), gate B's ratchet was

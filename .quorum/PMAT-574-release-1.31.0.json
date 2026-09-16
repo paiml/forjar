@@ -4,27 +4,29 @@
  "branch": "PMAT-574-release-1.31.0",
  "base": "9884334a",
  "base_commit": "9884334ae269518518af8b564b434950618e6b70",
- "diff_sha256": "206942314214add4142e97d6e289066d90fe2660",
- "recorded_at": "after one round of three sandboxed agy lanes over head 203d8a65 \u2014 one FAIL with a cited finding, two NO-VERDICT (one lane wrote no verdict object, one hit a 503 with no capacity for its model) \u2014 and after the release gates and the commit-msg hook had already refuted three claims the author made. The lane finding was split: the true half is fixed, the false half is refuted by naming the gate that requires the file.",
+ "diff_sha256": "033a86f42926fc9467a8db24e55d74f9db591dbc",
+ "recorded_at": "after three rounds of three sandboxed agy lanes (1 FAIL + 2 NO-VERDICT; 2 PASS + 1 NO-VERDICT; 1 FAIL + 1 PASS + 1 NO-VERDICT). No round agreed. Two author claims were refuted by round 3's lane 1 and corrected in the tree; four of its findings were refuted by re-reading the cited files. gemini-3.8-flash-* returned a SUCCESS envelope with no verdict object in all three rounds, which is what kept collapsing the width.",
  "quorum": {
-  "rounds": 1,
+  "rounds": 3,
   "lanes": [
-   "lane 1, head 203d8a65 \u2014 gemini-3.1-pro-high (declared = measured), review-only in its own clone with push removed, writes=false: FAIL, 1 cited finding at docs/audits/impl-PMAT-574-receipt.md:1 \u2014 the receipt's diff list omitted the receipt itself (CONFIRMED, fixed) and called the file unrequested (REFUTED by gate A)",
-   "lane 2, head 203d8a65 \u2014 gemini-3.8-flash-high (declared = measured), review-only, writes=false: NO-VERDICT \u2014 envelope SUCCESS but no verdict object in the lane file; counted as no review, never as a PASS",
-   "lane 3, head 203d8a65 \u2014 gpt-oss-120b-medium (declared = measured), review-only, writes=false: NO-VERDICT \u2014 envelope ERROR, UNAVAILABLE (code 503): No capacity available for model gpt-oss-120b-medium"
+   "round 1, head 203d8a65 \u2014 lane 1 gemini-3.1-pro-high FAIL (1 cited finding: the receipt's diff list omitted itself \u2014 CONFIRMED and fixed; the receipt is an unrequested file \u2014 REFUTED by gate A); lane 2 gemini-3.8-flash-high NO-VERDICT (SUCCESS envelope, no verdict object); lane 3 gpt-oss-120b-medium NO-VERDICT (UNAVAILABLE 503, no capacity for the model)",
+   "round 2, head e65a1fad \u2014 lane 1 gemini-3.1-pro-high PASS; lane 2 gemini-3.8-flash-high NO-VERDICT; lane 3 gemini-3.6-flash-high PASS",
+   "round 3, head e65a1fad \u2014 lane 1 gemini-3.1-pro-high FAIL (6 findings: 2 refuted claims the author had written, 4 off-by-one citation claims refuted by re-reading the cited files); lane 2 gemini-3.8-flash-medium NO-VERDICT; lane 3 gemini-3.6-flash-high PASS"
   ],
-  "lane_errors": 2,
+  "lane_errors": 4,
   "judges": 3,
-  "judges_note": "THE BINDING JUDGES ON THIS CUT ARE NOT THE LANES. Three of the four refutations came from instruments that ruled before any lane saw the branch: gate H refused the crux rows (backticks inside the key span it greps), the commit-msg hook refused a cut commit whose ticket said completed, and reading README.md refuted the receipt's claim that its version lines were already correct. The fourth came from lane 1. judges=3 counts the three lanes that were ASKED, of which one returned a verdict; it is not three independent tiers and must not be read as such. .quorum/evidence/release-1.31.0-judges.md names each refuting authority.",
-  "kill_rule": "no lane finding was dismissed. Lane 1's finding was split \u2014 the half that is true (the diff list omitted itself) was fixed in 105cf896, the half that is false (the receipt is unrequested) was refuted by scripts/dogfood/harness.sh, which fails gate A without that exact file. Two NO-VERDICT lanes are counted as no review; the merge rail runs its own round on the final head before anything merges, and a red gate stops the cut with no verdict overriding it.",
+  "judges_note": "THE BINDING JUDGES ON THIS CUT ARE NOT THE LANES. Three of the four refutations came from instruments that ruled before any lane saw the branch: gate H refused the crux rows (backticks inside the key span it greps), the commit-msg hook refused a cut commit whose ticket said completed, and reading README.md refuted the receipt's claim that its version lines were already correct. The fourth came from lane 1. judges=3 counts the three lanes asked per round, across three rounds, of which a verdict came back from two at most; it is not three independent tiers and must not be read as such. .quorum/evidence/release-1.31.0-judges.md names each refuting authority.",
+  "kill_rule": "no lane finding was dismissed. Round 1's finding was split \u2014 the true half fixed in 105cf896, the false half refuted by naming the gate (harness.sh) that requires the file. Round 3's lane 1 raised six: two refuted claims the author had written into the cut log and the dogfood receipt and both were corrected; the other four are off-by-one citation claims, refuted one at a time by re-reading the cited file, and the pattern is named in the evidence (a lane counts a unified diff's added lines, a file counts its own). Every NO-VERDICT lane is counted as no review, never as a PASS.",
   "refuters_per_claim": 3,
   "claims_confirmed": 6,
-  "claims_refuted": 4,
+  "claims_refuted": 6,
   "refuted_claims": [
    "R1: 'the README's version lines are already correct' \u2014 the first draft of the impl receipt said README.md was untouched; the file said forjar = \"1.30\" on lines 96 and 98. Both now say 1.31. Gate D passed either way, because Cargo reads 1.30 as >=1.30.0, <2.0.0, which is why nothing else would have caught it.",
    "R2: 'the cut's own ticket can be marked completed in the cut's own PR' \u2014 refused by the commit-msg hook: 'Pmat-Ticket PMAT-574 is completed \u2014 work belongs to an open item, and CB-2113 refuses this commit in CI'. PMAT-574 stays inprogress; the booking PR closes it.",
    "R3: 'the crux rows are written, so gate H is satisfied' \u2014 GATE H FAIL 3 behaviour bullet(s) under [1.31.0] have no row. The rows existed but carried backticks inside the span the gate greps as a FIXED string.",
-   "R4: 'the receipt's diff list is complete' \u2014 lane 1, cited: it named the dogfood receipt and the cut log but not the receipt doing the listing, nor the quorum artifacts."
+   "R4: 'the receipt's diff list is complete' \u2014 lane 1, cited: it named the dogfood receipt and the cut log but not the receipt doing the listing, nor the quorum artifacts.",
+   "R5: 'the 42-vs-43 difference in CB-2115 is the receipts this commit had not yet added' \u2014 written into both the cut log and the dogfood receipt, refuted by round 3's lane 1: a markdown file cannot move ORPHAN-ROADMAP, ORPHAN-GITHUB or DRIFT. Re-measured at 06:40Z: 42, composition 24 + 8 + 10, which sums. pmat comply reads GitHub live and stamps each run with its own snapshot, so 43 at 05:00Z and 42 since are two measurements of a moving source.",
+   "R6: 'the cut log's after-composition is right as written' \u2014 it said CB-2115 43 (ORPHAN-ROADMAP 24, ORPHAN-GITHUB 8, DRIFT 10) and 24 + 8 + 10 = 42. Refuted by round 3's lane 1 doing the arithmetic; corrected to the measured 42."
   ]
  },
  "falsification": {
@@ -46,11 +48,11 @@
  "agy_teamwork": {
   "ran": true,
   "mode": "one round of three sandboxed agy quorum lanes, review-only",
-  "rounds": 1,
+  "rounds": 3,
   "lanes_per_round": 3,
   "sandbox": true,
   "writes": false,
-  "verdict": "1 FAIL (one cited finding, split into a confirmed half and a refuted half), 2 NO-VERDICT. The round did not agree, and the receipt records the disagreement rather than a rerun that hid it. Three distinct model ids were used deliberately: the PMAT-565 round ran one id twice and the validator marked it partial \u2014 'lanes sharing an id are resamples, not independent reviewers (PMAT-125)'."
+  "verdict": "three rounds, none agreed: 1 FAIL + 2 NO-VERDICT, then 2 PASS + 1 NO-VERDICT, then 1 FAIL (6 findings) + 1 PASS + 1 NO-VERDICT. The receipt records the disagreement rather than the round that looked best. Two of round 3's findings were real and are fixed; four were off-by-one citations and are refuted in the evidence."
  },
  "pmat": {
   "ticket": "PMAT-574",
@@ -76,7 +78,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/release-1.31.0-judges.md",
-  "total_bytes": 16672,
+  "total_bytes": 20592,
   "files": [
    {
     "path": ".quorum/evidence/release-1.31.0-claims.md",
@@ -92,18 +94,18 @@
     "roles": [
      "lanes"
     ],
-    "bytes": 2036,
-    "sha256": "d0376d5a7e6aebe9ef65491cdd76d2bb8ec5013cc1a77da9b56843af74cb4fb2",
-    "blob": "fd89bf2dd64111d67acbcdfaeb03d8c102697ff5"
+    "bytes": 3429,
+    "sha256": "3470adcf6dc9590c6985b5b172445047b234af26ae3ecc0a2a2086cad240c16f",
+    "blob": "1ea90213fb6387735f5c90ce4f65c34dfadd282e"
    },
    {
     "path": ".quorum/evidence/release-1.31.0-judges.md",
     "roles": [
      "judges"
     ],
-    "bytes": 6064,
-    "sha256": "b2078a8f6a03d9f4ff81ddbfc8f34021b41dd942d375ef57b5333c9ceeb5ea83",
-    "blob": "746425024ab4a7f6b9fff7f5e1eed36934fc2fa3"
+    "bytes": 8591,
+    "sha256": "af19d3d95a7712c7b8cb3e7d8fbd462fc0237872793ec395f233175e92d2d059",
+    "blob": "b1fb178f6e7abd8e0322975d59d05954f09c5e71"
    },
    {
     "path": ".quorum/evidence/release-1.31.0-agy.md",

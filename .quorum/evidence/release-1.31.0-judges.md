@@ -1,7 +1,8 @@
 # PMAT-574 — adjudicated claims
 
-One round of three sandboxed agy quorum lanes: 1 FAIL, 2 NO-VERDICT, not
-agreed. Six confirmations and four refutations. Three of the four refutations
+Three rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2
+NO-VERDICT; round 2: 2 PASS 1 NO-VERDICT; round 3: 1 FAIL 1 PASS 1 NO-VERDICT).
+Six confirmations and six refutations. Three of the four refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
 refuting authority. A reader who sees `judges: 3` should read it as the three
@@ -96,6 +97,47 @@ tiers.
      — that the receipt is an unrequested file — is refuted in turn by
      `scripts/dogfood/harness.sh:23`, which states the rule gate A enforces:
      every merged PR's ticket needs its `impl-<ticket>-receipt.md` at HEAD.
+
+5. [gap-explained-by-receipts] That the 42-vs-43 difference in CB-2115 was
+   caused by "the receipts this commit had not yet added", as the first drafts
+   of both the cut log and the dogfood receipt asserted.
+   - evidence: lane 1 of round 3 refuted it — a markdown file cannot move
+     ORPHAN-ROADMAP, ORPHAN-GITHUB or DRIFT, none of which reads
+     `docs/audits/**`. Re-measured at 06:40Z: CB-2115 42, composition
+     ORPHAN-ROADMAP 24 + ORPHAN-GITHUB 8 + DRIFT 10, which sums. `pmat comply`
+     reads GitHub live and stamps each run with its own snapshot timestamp, so
+     the 43 at 05:00Z and the 42 since are two measurements of a moving source.
+     Both documents now say that instead.
+
+6. [after-line-sums] That the cut log's after-composition was right as written.
+   - evidence: lane 1 of round 3, arithmetic: the line gave CB-2115 as 43 over
+     a breakdown of ORPHAN-ROADMAP 24, ORPHAN-GITHUB 8, DRIFT 10, and
+     24 + 8 + 10 = 42. A
+     total that contradicts its own breakdown is exactly the black box this
+     receipt format exists to refuse. Corrected to the measured 42.
+
+## Lane findings that did NOT survive
+
+Round 3's lane 1 raised six findings. Two are the refutations above. The other
+four are refuted, each by re-reading the file the lane cited:
+
+- "the first bullet is at CHANGELOG.md:13, not :12" — `CHANGELOG.md:10` is the
+  `## [1.31.0] - 2026-09-16` heading, `:11` is blank and `:12` is the bullet.
+- "crux-1.31.0.md:31 is the table separator; the rows are 32-34" — `:29` is the
+  header row, `:30` the separator, `:31`, `:32` and `:33` the three rows.
+- "README.md:96 is a comment; the version lines are 97 and 99" — `:95` is the
+  comment `# the binary, everything on`, `:96` is `forjar = "1.31"`, `:97` the
+  second comment and `:98` the library-only line. The diff's own hunk headers
+  say `@@ -96 +96 @@` and `@@ -98 +98 @@`.
+- "CB-2114 should be 32, not 34, because four rows were repaired" — three of
+  those rows were MINTED with `release: 1.32.0` and so never contributed a
+  NO-RELEASE finding to remove. Two rows were repaired (PMAT-560 and PMAT-574),
+  and 36 - 2 = 34, which is what the gate measured.
+
+All four off-by-one citations point the same direction, which is worth naming:
+a lane reading a unified diff counts added lines, and a file counts its own. The
+lane was right twice about arithmetic it could do from the text, and wrong four
+times about line numbers it inferred rather than read.
 
 ## The kill rule
 
