@@ -4313,13 +4313,14 @@ roadmap:
   item_type: task
   title: the per-machine lock's generator is the first writer's version and never updates — stamp the real writer on every write, keep the creator, add lock --restamp (infra#605 third signature)
   release: 1.32.0
-  status: planned
-  priority: medium
+  status: inprogress
+  priority: high
   assigned_to: null
-  created: 2026-09-16T04:40:41Z
-  updated: 2026-09-16T04:40:41Z
+  created: 2026-09-15T14:44:32Z
+  updated: 2026-09-15T14:44:32Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Four fleet locks under one 1.30.0 binary say forjar 1.1.1 / 1.13.1 / 1.27.0 / 1.10.0 while generated_at rolls. Fix: save_lock stamps generator with the writing binary on every write and preserves the prior value as created_by; forjar lock --restamp rewrites every lock under a state dir in one run. Refs paiml/infra#605, forjar#565, forjar#561.'
   phases: []
   subtasks: []
   estimated_effort: null
