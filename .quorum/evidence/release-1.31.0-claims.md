@@ -28,10 +28,12 @@ The claims put to the three lanes were:
    in the crux document, in the impl receipt and in the ticket's own
    `release: 1.32.0` — rather than left for a reader to notice.
 
-The round reviewed head 203d8a65 against `main` (9884334a). Three lanes,
-review-only, sandboxed, `writes=false`; models declared and measured
-(`gemini-3.1-pro-high`, `gemini-3.8-flash-high`, `gpt-oss-120b-medium`), three
-distinct ids, none in the author's family.
+These claims were put to five rounds of three lanes each, review-only,
+sandboxed, `writes=false`, on the successive heads 203d8a65, e65a1fad (twice),
+1da75f21 and b0ccb46a — each round on the head that existed when it started,
+because each round that raised a real finding produced a fix. Models are
+declared and measured per round in `release-1.31.0-lanes.md`; every round used
+three distinct ids, none in the author's family.
 
 ## What the round could NOT adjudicate, and who did
 

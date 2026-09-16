@@ -1,19 +1,19 @@
 # PMAT-574 — the agy round
 
-One round of three sandboxed `agy` quorum lanes, review-only, over head
-203d8a65 against `main` at 9884334a.
+Five rounds of three sandboxed `agy` quorum lanes, review-only, against `main`
+at 9884334a. Per-round lanes, models and verdicts are the table in
+`release-1.31.0-lanes.md`; this file records the properties that hold across all
+five.
 
-| lane | model | sandbox | writes | verdict |
-|---|---|---|---|---|
-| 1 | `gemini-3.1-pro-high` | yes | false | RECORDED BELOW |
-| 2 | `gemini-3.8-flash-high` | yes | false | RECORDED BELOW |
-| 3 | `gpt-oss-120b-medium` | yes | false | RECORDED BELOW |
-
-Three DISTINCT model ids, none in the author's family (the author is
-`opus`/claude). The distinctness matters and was chosen deliberately: the
-PMAT-565 round ran `gemini-3.1-pro-high` twice and the receipt validator marked
-it `partial` — "lanes sharing an id are resamples, not independent reviewers
-(PMAT-125)".
+Models used: `gemini-3.1-pro-high`, `gemini-3.8-flash-high`,
+`gemini-3.8-flash-medium`, `gemini-3.6-flash-high`, `gemini-3.6-flash-medium`,
+`gpt-oss-120b-medium`. Every round ran three DISTINCT model ids, none in the
+author's family (the author is `opus`/claude). The distinctness was chosen
+deliberately: the PMAT-565 round ran `gemini-3.1-pro-high` twice and the
+validator marked it `partial` — "lanes sharing an id are resamples, not
+independent reviewers (PMAT-125)". `gemini-3.8-flash-*` returned a SUCCESS
+envelope with no verdict object in every round it ran in, and was dropped after
+round 3 for that reason and no other.
 
 Each lane reviewed in its own full clone with push removed. No lane may write to
 this tree; the `writes=false` column is a property of the harness, not a promise

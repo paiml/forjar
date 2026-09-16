@@ -1,9 +1,9 @@
 # PMAT-574 — adjudicated claims
 
-Four rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2 NO-VERDICT;
+Five rounds of three sandboxed agy quorum lanes (round 1: 1 FAIL 2 NO-VERDICT;
 round 2: 2 PASS 1 NO-VERDICT; round 3: 1 FAIL 1 PASS 1 NO-VERDICT; round 4:
-2 FAIL 1 PASS).
-Six confirmations and eight refutations. Three of the four refutations
+2 FAIL 1 PASS; round 5: 1 FAIL 1 PASS 1 NO-VERDICT).
+Six confirmations and nine refutations. Three of the four refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
 refuting authority. A reader who sees `judges: 3` should read it as the three
@@ -137,6 +137,18 @@ tiers.
      `(PMAT-564, #564; paiml/infra#605 first signature)`. The paragraph also
      merged with #569 and rewriting it here would edit shipped text to match a
      convention the repository does not use.
+
+9. [evidence-prose-is-current] That the evidence files described the rounds
+   that had actually been run.
+   - evidence: round 5's lane 1 refuted it three times over —
+     `release-1.31.0-lanes.md` still opened with "Three rounds were run" and
+     named 203d8a65 as the final head, `release-1.31.0-agy.md` still described
+     "One round", and `release-1.31.0-claims.md` still said "The round reviewed
+     head 203d8a65" — while the table below the first and this receipt both said
+     four. A receipt whose prose contradicts its own table is the black box this
+     format refuses. All three now describe every round, and say why the count
+     moves: each real finding produces a fix, the fix moves the head, and the
+     next round reviews a head no earlier round saw.
 
 ## Lane findings that did NOT survive
 

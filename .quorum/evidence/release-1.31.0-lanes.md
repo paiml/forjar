@@ -1,9 +1,18 @@
 # PMAT-574 — the lanes, and what each returned
 
-Three rounds were run. Round 1 reviewed head 203d8a65 (before the quorum
-receipt existed); rounds 2 and 3 reviewed the final head e65a1fad. No round
-agreed, and each round's collapse was a lane returning nothing, never a lane
-returning a finding that was then ignored.
+Five rounds were run, each on the head that existed when it started: round 1 on
+203d8a65 (before the quorum receipt existed), rounds 2 and 3 on e65a1fad, round
+4 on 1da75f21, round 5 on b0ccb46a. No round agreed. Every round that collapsed
+did so because a lane returned NOTHING; no round was re-run to bury a finding,
+and every finding raised is adjudicated in
+`.quorum/evidence/release-1.31.0-judges.md`.
+
+A note on why the round count keeps rising, since it is the honest reading of
+this table: each round that raises a real finding produces a fix, the fix moves
+the head, and the next round reviews a head no earlier round saw. This receipt
+describes the rounds run up to the head it binds; the merge rail runs its own
+round on the final head, and by construction that round cannot be described in a
+file the round is reviewing.
 
 | round | lane 1 | lane 2 | lane 3 | outcome |
 |---|---|---|---|---|
@@ -11,8 +20,9 @@ returning a finding that was then ignored.
 | 2 | `gemini-3.1-pro-high` PASS | `gemini-3.8-flash-high` NO-VERDICT | `gemini-3.6-flash-high` PASS | not agreed |
 | 3 | `gemini-3.1-pro-high` FAIL (6 findings) | `gemini-3.8-flash-medium` NO-VERDICT | `gemini-3.6-flash-high` PASS | not agreed |
 | 4 | `gemini-3.1-pro-high` FAIL (2 findings) | `gemini-3.6-flash-high` PASS | `gemini-3.6-flash-medium` FAIL (line-number claims) | not agreed |
+| 5 | `gemini-3.1-pro-high` FAIL (3 findings) | `gemini-3.6-flash-high` NO-VERDICT | `gemini-3.6-flash-medium` PASS | not agreed |
 
-`gemini-3.8-flash-*` returned NO-VERDICT in all three rounds — a SUCCESS
+`gemini-3.8-flash-*` returned NO-VERDICT in all three rounds it ran in — a SUCCESS
 envelope carrying no verdict object each time. That is a property of the lane,
 not of the branch, and it is why the round width kept collapsing to two.
 
@@ -30,6 +40,12 @@ the 42-vs-43 gap). Both are fixed and recorded in
 `.quorum/evidence/release-1.31.0-judges.md`; the other four are refuted there by
 re-reading the files the lane cited.
 
+Round 5's lane 1 caught the thing this file was getting wrong: its own opening
+prose still said "three rounds" and named 203d8a65 as the final head while the
+table beneath it and the receipt said four. Same for `release-1.31.0-agy.md` and
+`release-1.31.0-claims.md`, which still described a single round. All three are
+corrected, and the paragraph above says why the number moves.
+
 ## Round 1 in detail
 
 Round 1, head 203d8a65 against `main` at 9884334a. Three sandboxed `agy` lanes,
@@ -44,8 +60,8 @@ family.
 
 Two lanes returned nothing usable, and this file records that rather than
 rounding it to "the round was fine". A NO-VERDICT is not a PASS: the receipt
-validator's own words for the salvage path are `[UNREVIEWED CLAIM MATERIAL —
-never a PASS]`.
+validator's own words for the salvage path mark it as unreviewed claim
+material, never a PASS.
 
 ## Lane 1's finding, and what happened to each half
 
