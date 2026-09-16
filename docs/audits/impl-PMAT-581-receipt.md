@@ -13,9 +13,11 @@ The downstream cost, measured by the paiml/infra fleet session on infra#629: **3
 - a remote resource already able to plan `Update` from a controller-side change without contacting the host
 - `unprobed.rs`'s module doc no longer describing SSH targets as planning `NoOp` over changed sources
 
-## Scope check
+## Two different "kinds" — easy to confuse, so named separately
 
-This PR touches only `docs/roadmaps/roadmap.yaml` and three receipts under `docs/audits/` — all on the `kind: triage` rail. No source, test, workflow or contract file is touched. Every row is registration-only by instruction ("mint the tickets, no implementation this session").
+**This diff** is `kind: triage` in the quorum gate's sense. It touches only `docs/roadmaps/roadmap.yaml` and three receipts under `docs/audits/`, which is exactly the gate's triage path rail (`docs/audits/**`, `docs/roadmaps/roadmap.yaml`, `docs/roadmaps/releases.yaml`, `.quorum/**`). No source, test, workflow or contract file is touched. Every row is registration-only by instruction ("mint the tickets, no implementation this session").
+
+**Each row** carries `labels: - kind:code`, and that is correct, not a contradiction. The label classifies the *work the row registers*, and PMAT-579, PMAT-581 and PMAT-582 will each be implemented as code. forjar's roadmap uses the label this way throughout — measured on this tree: 115 rows carry `kind:code` and 7 carry `kind:triage`; every `planned` row that registers future code work carries `kind:code`, and `kind:triage` is reserved for work that is itself classify-and-link (release-ledger bookings, status syncs). Relabelling these rows `kind:triage` would make the label false about the work.
 
 ## Why the title reads like an order
 
