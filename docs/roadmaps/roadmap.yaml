@@ -4138,11 +4138,11 @@ roadmap:
   item_type: task
   title: 'ledger: book v1.30.0 — the release was tagged and never declared (gate T red on main), and the cookbook commit it was qualified against'
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T17:38:13Z
-  updated: 2026-09-15T17:38:13Z
+  updated: 2026-09-16T04:37:42Z
   spec: null
   acceptance_criteria:
   - 'Gate T on main: v1.30.0 is reachable from HEAD and has no row in docs/roadmaps/releases.yaml. Book it with scripts/release-goal.sh cut v1.30.0 --next v1.31.0, naming the paiml/forjar-cookbook commit that locks forjar 1.30.0 (paiml/forjar-cookbook#21). Refs forjar#557.'
@@ -4152,6 +4152,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:triage
+  - release:v1.31.0
   notes: null
 - id: PMAT-558
   github_issue: 558
@@ -4175,7 +4176,7 @@ roadmap:
 - id: PMAT-559
   github_issue: 559
   item_type: task
-  title: '`forjar validate` says OK to a manifest `apply` refuses: template resolution is not part of validation, so `{{.Names}}` (a docker --format) passes val'
+  title: '`forjar validate` says OK to a manifest `apply` refuses: template resolution is not part of validation, so `{{.Names}}` (a docker --format) passes validate and dies at apply'
   release: 1.32.0
   status: planned
   priority: medium
@@ -4253,11 +4254,11 @@ roadmap:
   item_type: task
   title: drift with 0 of N declared resources in the lock grades another manifest's files and exits 0 — must decline (exit 2) and name N (infra#605 first signature)
   release: 1.31.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T14:26:51Z
-  updated: 2026-09-15T14:26:51Z
+  updated: 2026-09-16T04:37:42Z
   spec: null
   acceptance_criteria:
   - 'Verbatim on yoga (forjar 1.30.0, 2026-09-15): drift -f forjar-ephemeral.yaml inspected 0 of its 10 declared resources, graded gitconfig/zshrc from forjar.yaml, exited 0. Fix: decline (exit 2, stderr names N) when 0 of N declared are in the lock; a locked resource the config does not declare is skipped, never graded. Refs paiml/infra#605, forjar#564.'
@@ -4266,19 +4267,95 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.31.0
   notes: null
 - id: PMAT-560
   github_issue: 560
   item_type: task
   title: verify-systemd-units checks unit presence, not what executes — declare exec_sha256 per unit resource and fail on live ExecStart path or script hash ≠ declared
-  status: planned
+  release: 1.31.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T11:39:03Z
-  updated: 2026-09-15T11:39:03Z
+  updated: 2026-09-16T04:37:42Z
   spec: null
   acceptance_criteria:
   - 'Repro (live, yoga, 2026-09-15): github-runner-ephemeral.service declared in machines/yoga/forjar-ephemeral.yaml with ExecStart=run-ephemeral-docker.sh; on the box ExecStart=/opt/github-runner-ephemeral/run-ephemeral-docker-v3.sh; verify-systemd-units reports converged. Fix: declare exec_sha256 per unit resource; fail on live ExecStart path != declared or sha256(script) != exec_sha256. Contract contracts/forjar-unit-exec-parity-v1.yaml. GH #560.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.31.0
+  notes: null
+- id: PMAT-574
+  github_issue: 574
+  item_type: task
+  title: 'release: forjar 1.31.0 — the drift verdict is the exit code, a scope it could not inspect is declined, and a unit is converged only while it runs the declared program'
+  release: 1.31.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-16T04:36:03Z
+  updated: 2026-09-16T04:41:02Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.31.0
+  notes: null
+- id: PMAT-565
+  github_issue: 565
+  item_type: task
+  title: the per-machine lock's generator is the first writer's version and never updates — stamp the real writer on every write, keep the creator, add lock --restamp (infra#605 third signature)
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T04:40:41Z
+  updated: 2026-09-16T04:40:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-572
+  github_issue: 572
+  item_type: task
+  title: quorum.yml's receipt job builds against the shared ~/.cargo — the fleet test cannot see cargo run through a script
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T04:40:41Z
+  updated: 2026-09-16T04:40:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-573
+  github_issue: 573
+  item_type: task
+  title: quorum receipt reports STALE for a correct receipt on some runners; the same head passes on rerun — the gate prints nothing to diagnose it
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T04:40:42Z
+  updated: 2026-09-16T04:40:42Z
+  spec: null
+  acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
