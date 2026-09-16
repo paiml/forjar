@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.31.0] - 2026-09-16
-
 **The per-machine lock names the binary that wrote it, on every write
 (PMAT-565, #565; paiml/infra#605 third signature).** Measured across four
 fleet locks under one 1.30.0 binary: `generator: forjar 1.1.1` and `forjar
@@ -33,6 +31,8 @@ rather than on the next incidental apply. It does not descend into
 skips encrypted `.yaml.age` locks. Contract `contracts/lock-names-its-writer-v1.yaml`; six
 cases through the writer and the binary — five RED before the stamp existed,
 the sixth (`lock-repair`) added when the review found the bypass.
+
+## [1.31.0] - 2026-09-16
 
 **`forjar drift` declines — exit 2, the count named — when it inspected none
 of the resources it was asked about, and never grades a resource from a
