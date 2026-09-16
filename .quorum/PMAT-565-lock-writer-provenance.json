@@ -1,16 +1,16 @@
 {
  "kind": "code",
- "issue": "PMAT-565 (forjar#565; paiml/infra#605 third signature) — four fleet locks under one 1.30.0 binary said generator forjar 1.1.1, 1.13.1, 1.27.0 and 1.10.0 while generated_at rolled; the field was stamped once and never touched. Every StateLock write now stamps the writing binary and keeps the creator; `forjar lock --restamp` converges a state dir in one run.",
+ "issue": "PMAT-565 (forjar#565; paiml/infra#605 third signature) \u2014 four fleet locks under one 1.30.0 binary said generator forjar 1.1.1, 1.13.1, 1.27.0 and 1.10.0 while generated_at rolled; the field was stamped once and never touched. Every StateLock write now stamps the writing binary and keeps the creator; `forjar lock --restamp` converges a state dir in one run.",
  "branch": "PMAT-565-lock-writer-provenance",
  "base": "cb94fc21",
- "base_commit": "d324c57eca4ef6a0c1b57599d2b12e49ef6c4d47",
- "diff_sha256": "eae19f1727378c4d7425bf90a3b01152aab6380d",
+ "base_commit": "8285616f4ac9cc240aa60f8cfe64899a7febc9cf",
+ "diff_sha256": "281ccc481b99a788d79f973617612a3945be45fd",
  "recorded_at": "rebased onto the rebased PMAT-564 (e91639ee) after #571 merged; the diff against main still includes PMAT-564 until #569 merges",
  "quorum": {
   "lanes": [
-   "lane 1 — gemini-3.1-pro-high (lane-1.json, FAIL)",
-   "lane 2 — gemini-3.7-flash-high (lane-2.json, PASS)",
-   "lane 3 — gemini-3.1-pro-high (lane-3.json, FAIL)"
+   "lane 1 \u2014 gemini-3.1-pro-high (lane-1.json, FAIL)",
+   "lane 2 \u2014 gemini-3.7-flash-high (lane-2.json, PASS)",
+   "lane 3 \u2014 gemini-3.1-pro-high (lane-3.json, FAIL)"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
@@ -33,7 +33,7 @@
   "test_file": "tests/falsification_lock_names_its_writer.rs",
   "cargo_test_target": "falsification_lock_names_its_writer",
   "reverted": "four mutations over the COMMITTED tree, each restored from HEAD: M1 (serialise the raw lock in save_lock) kills 6 of 6; M2 (roll created_by on every write) kills the set-once case; M3 (write on --dry-run) kills the restamp case; M4 (bare fs::write in lock-repair) kills the repair case. An earlier draft of the evidence said M1 killed 5 of 6 before it had been run; the number is now the measurement.",
-  "observed_failure": "5 of 5 RED before the stamp existed — the file carried the struct's fake first-writer string as its generator, exactly as the fleet's locks carry 1.1.1",
+  "observed_failure": "5 of 5 RED before the stamp existed \u2014 the file carried the struct's fake first-writer string as its generator, exactly as the fleet's locks carry 1.1.1",
   "still_green_when_reverted": "the workspace: 341 targets, 19,796 passed after the repair/migrate change, including every lock_* and state test"
  },
  "crux": {
@@ -43,7 +43,7 @@
    "systemd (unit state rewritten by the running manager; a fleet-wide correction is one command)",
    "git (reflog records who moved a ref and when)"
   ],
-  "verdict": "accept(Terraform stamps the writing version on every state write; forjar had the field and stamped it once. Adopted the every-write stamp and the kept creator. Not adopted in this release: Terraform's refusal of state written by a newer version — that is forjar#561's host-resident lock.)"
+  "verdict": "accept(Terraform stamps the writing version on every state write; forjar had the field and stamped it once. Adopted the every-write stamp and the kept creator. Not adopted in this release: Terraform's refusal of state written by a newer version \u2014 that is forjar#561's host-resident lock.)"
  },
  "agy_teamwork": {
   "ran": true,
