@@ -87,3 +87,22 @@ ONLY writer did not, and the one lane that said so was the one that was wrong.
      round. Nothing from the first reached disk; the re-dispatch is the one
      the numbers above describe. Named so the receipt's single round is not
      read as a single attempt.
+
+5. [fixed-once-means-fixed] That the every-write claim held after the FIRST
+   round's repair of lock-repair and lock-migrate — the contract clause, the
+   receipt's verdict and the suite all said so, and all three were wrong about
+   three more verbs that were rewriting a StateLock by hand.
+   - evidence: the merge-rail round cited `src/cli/destroy.rs:93`
+     (`cleanup_succeeded_entries` serialising and writing a pruned lock, then
+     re-sealing by hand), `src/cli/lock_lifecycle.rs:185` (lock-defrag MIRRORING
+     save_lock through a local helper that never grew the writer stamp) and
+     `src/cli/lock_merge.rs:61` with two siblings (a bare write that also
+     produced NO `.b3` sidecar, so a merged state dir failed the next apply's
+     integrity check). All three call `save_lock` now and the mirror is deleted.
+   - corrected: `tests/falsification_lock_names_its_writer.rs:368` and `:404`
+     drive lock-defrag and lock-merge through the binary and were RED on the
+     unfixed source in a scratch clone, with `forjar 0.0.0-fake-first-writer`
+     surviving the rewrite; `cleanup_succeeded_entries_writes_through_the_writer`
+     covers the third in-crate, since the function is `pub(crate)`. The contract
+     clause and the receipt verdict now name all five verbs and say which round
+     found which, because a claim is worth exactly what its cases cover.

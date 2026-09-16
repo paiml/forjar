@@ -4,25 +4,27 @@
  "branch": "PMAT-565-lock-writer-provenance",
  "base": "cb94fc21",
  "base_commit": "583a58eaabddfe24799cea9d143fdbd95b98e8f2",
- "diff_sha256": "9de10778ebe69878ede3dbe4f3ae0079a89d099e",
+ "diff_sha256": "fe4fd4119e86b66c117f6c260f7e8de9d94c05f4",
  "recorded_at": "rebased onto the rebased PMAT-564 (e91639ee) after #571 merged; the diff against main still includes PMAT-564 until #569 merges",
  "quorum": {
   "lanes": [
    "lane 1 \u2014 gemini-3.1-pro-high (lane-1.json, FAIL)",
    "lane 2 \u2014 gemini-3.7-flash-high (lane-2.json, PASS)",
-   "lane 3 \u2014 gemini-3.1-pro-high (lane-3.json, FAIL)"
+   "lane 3 \u2014 gemini-3.1-pro-high (lane-3.json, FAIL)",
+   "merge-rail round, head bf4c9fcd \u2014 lane 1 gemini-3.1-pro-high FAIL with the three-citation finding above (CONFIRMED, fixed in 0a4192cc); lane 2 gemini-3.1-pro-low PASS; lane 3 gemini-3.6-flash-high PASS"
   ],
   "judges": 3,
   "refuters_per_claim": 3,
-  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at a0070731, diffed against the base branch PMAT-564-drift-declines-on-empty-scope, --not-before pinned, out_dir keyed by ticket AND session id; agreed=false (2 FAIL / 1 PASS), partial_reasons recording two lanes sharing a model id",
+  "rounds": "one round of three sandboxed agy quorum lanes against self-contained clones of the PR worktree at a0070731, diffed against the base branch PMAT-564-drift-declines-on-empty-scope, --not-before pinned, out_dir keyed by ticket AND session id; agreed=false (2 FAIL / 1 PASS), partial_reasons recording two lanes sharing a model id \u2014 then a SECOND round on the merge rail, at head bf4c9fcd, which refuted the branch's own 'every write goes through save_lock' clause with three citations and is recorded below",
   "kill_rule": "both FAIL lanes' writer-bypass finding was confirmed by reading lock_repair.rs and lock_audit.rs; all three bypassing writes now go through save_lock with a falsifier through the binary; the PASS lane's contrary claim was checked and was wrong; four mutations were run against the committed tree",
   "claims_confirmed": 5,
-  "claims_refuted": 4,
+  "claims_refuted": 5,
   "refuted_claims": [
    "That every path writes through save_lock. lock-repair (the minimal lock and the normalised form) and lock-migrate wrote with a bare fs::write, unstamped and with a stale .b3 sidecar; all three go through the writer now, and lock-restore and lock-tag are named as byte copies.",
    "That lock --restamp rewrites every lock under a state dir. It walks <machine>/state.lock.yaml one level; nested state dirs, forjar.lock.yaml and .yaml.age are stated as outside it.",
    "That no direct serde_yaml_ng + fs::write of a StateLock exists (the one distinct-model lane). It did, at three sites.",
-   "That the review could not be interrupted without cost. The first dispatch was interrupted by the operator before any lane launched; the round recorded is the re-dispatch."
+   "That the review could not be interrupted without cost. The first dispatch was interrupted by the operator before any lane launched; the round recorded is the re-dispatch.",
+   "R5: 'every path that writes a StateLock goes through save_lock' \u2014 the branch's own contract clause, refuted by the merge-rail round with three citations: src/cli/destroy.rs:93 (cleanup_succeeded_entries rewrote a pruned lock by hand), src/cli/lock_lifecycle.rs:185 (lock-defrag MIRRORED save_lock instead of calling it, and the mirror never grew the writer stamp) and src/cli/lock_merge.rs:61/70/138 (a bare fs::write with NO .b3 sidecar, so a merged state dir failed the next apply's integrity check). All three call save_lock now; three cases cover them, and the two that drive the binary were RED on the unfixed source in a scratch clone with 'forjar 0.0.0-fake-first-writer' surviving."
   ],
   "lane_errors": [
    "two of three lanes shared a model id (gemini-3.8-flash-high was returning 503); recorded by lane-reduce, not refused"
@@ -77,7 +79,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/lock-writer-judges.md",
-  "total_bytes": 12760,
+  "total_bytes": 14139,
   "files": [
    {
     "path": ".quorum/evidence/lock-writer-claims.md",
@@ -103,9 +105,9 @@
      "judges",
      "crux"
     ],
-    "bytes": 5024,
-    "sha256": "a3eae60a961f9b82f38032c9982214229763cfa85cd40f85ecb8f92b25d7f3eb",
-    "blob": "7da534138201af23c889c15e2e9bd65a6a93b83e"
+    "bytes": 6403,
+    "sha256": "d8fae41bf9ef46eabf4e52fd599f6848a34bd7d07c86fb794de828e0225caac6",
+    "blob": "77679108ac8c02f1a02c45d9d1fb9bf0f3c030a4"
    },
    {
     "path": ".quorum/evidence/lock-writer-agy.md",
