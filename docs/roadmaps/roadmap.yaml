@@ -4399,3 +4399,20 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-587
+  github_issue: 587
+  item_type: task
+  title: status reports elapsed_s and the current resource for an in-progress apply
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T14:42:04Z
+  updated: 2026-09-16T14:42:04Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
