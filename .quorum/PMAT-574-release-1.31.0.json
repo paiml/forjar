@@ -1,0 +1,137 @@
+{
+ "kind": "code",
+ "issue": "PMAT-574 (closes forjar#574) \u2014 release 1.31.0. Five PRs since v1.30.0, three of which change behaviour: drift's verdict reaches the exit code (PMAT-562, #563), a run that inspected none of the resources it was asked about declines with exit 2 (PMAT-564, #569), and a service is converged only while the loaded unit executes the declared program (PMAT-560, #568). The first two are the two signatures of paiml/infra#605. No Rust is changed by this cut: the diff is the version, the record of what shipped, and the ledger bookkeeping the release gates demanded.",
+ "branch": "PMAT-574-release-1.31.0",
+ "base": "9884334a",
+ "base_commit": "9884334ae269518518af8b564b434950618e6b70",
+ "diff_sha256": "206942314214add4142e97d6e289066d90fe2660",
+ "recorded_at": "after one round of three sandboxed agy lanes over head 203d8a65 \u2014 one FAIL with a cited finding, two NO-VERDICT (one lane wrote no verdict object, one hit a 503 with no capacity for its model) \u2014 and after the release gates and the commit-msg hook had already refuted three claims the author made. The lane finding was split: the true half is fixed, the false half is refuted by naming the gate that requires the file.",
+ "quorum": {
+  "rounds": 1,
+  "lanes": [
+   "lane 1, head 203d8a65 \u2014 gemini-3.1-pro-high (declared = measured), review-only in its own clone with push removed, writes=false: FAIL, 1 cited finding at docs/audits/impl-PMAT-574-receipt.md:1 \u2014 the receipt's diff list omitted the receipt itself (CONFIRMED, fixed) and called the file unrequested (REFUTED by gate A)",
+   "lane 2, head 203d8a65 \u2014 gemini-3.8-flash-high (declared = measured), review-only, writes=false: NO-VERDICT \u2014 envelope SUCCESS but no verdict object in the lane file; counted as no review, never as a PASS",
+   "lane 3, head 203d8a65 \u2014 gpt-oss-120b-medium (declared = measured), review-only, writes=false: NO-VERDICT \u2014 envelope ERROR, UNAVAILABLE (code 503): No capacity available for model gpt-oss-120b-medium"
+  ],
+  "lane_errors": 2,
+  "judges": 3,
+  "judges_note": "THE BINDING JUDGES ON THIS CUT ARE NOT THE LANES. Three of the four refutations came from instruments that ruled before any lane saw the branch: gate H refused the crux rows (backticks inside the key span it greps), the commit-msg hook refused a cut commit whose ticket said completed, and reading README.md refuted the receipt's claim that its version lines were already correct. The fourth came from lane 1. judges=3 counts the three lanes that were ASKED, of which one returned a verdict; it is not three independent tiers and must not be read as such. .quorum/evidence/release-1.31.0-judges.md names each refuting authority.",
+  "kill_rule": "no lane finding was dismissed. Lane 1's finding was split \u2014 the half that is true (the diff list omitted itself) was fixed in 105cf896, the half that is false (the receipt is unrequested) was refuted by scripts/dogfood/harness.sh, which fails gate A without that exact file. Two NO-VERDICT lanes are counted as no review; the merge rail runs its own round on the final head before anything merges, and a red gate stops the cut with no verdict overriding it.",
+  "refuters_per_claim": 3,
+  "claims_confirmed": 6,
+  "claims_refuted": 4,
+  "refuted_claims": [
+   "R1: 'the README's version lines are already correct' \u2014 the first draft of the impl receipt said README.md was untouched; the file said forjar = \"1.30\" on lines 96 and 98. Both now say 1.31. Gate D passed either way, because Cargo reads 1.30 as >=1.30.0, <2.0.0, which is why nothing else would have caught it.",
+   "R2: 'the cut's own ticket can be marked completed in the cut's own PR' \u2014 refused by the commit-msg hook: 'Pmat-Ticket PMAT-574 is completed \u2014 work belongs to an open item, and CB-2113 refuses this commit in CI'. PMAT-574 stays inprogress; the booking PR closes it.",
+   "R3: 'the crux rows are written, so gate H is satisfied' \u2014 GATE H FAIL 3 behaviour bullet(s) under [1.31.0] have no row. The rows existed but carried backticks inside the span the gate greps as a FIXED string.",
+   "R4: 'the receipt's diff list is complete' \u2014 lane 1, cited: it named the dogfood receipt and the cut log but not the receipt doing the listing, nor the quorum artifacts."
+  ]
+ },
+ "falsification": {
+  "test": "falsification_release_changelog_counts_the_window is the falsifier this cut RESTS on rather than one it adds: it is what makes the CHANGELOG window rule refutable, and this cut is an instance of that rule. No new test is owed, because the diff changes no Rust \u2014 gate F reports no .rs differs from origin/main. The three behaviours being released were each falsified on their own branch: #563 (drift's exit code), #569 (six cases through the binary, 5 RED on the unfixed source), #568 (a fake systemctl printing what systemd 249 prints, RED 8 of 10 on 1.30.0).",
+  "test_file": "docs/audits/logs/PMAT-574-cut.log",
+  "cargo_test_target": "falsification_release_changelog_counts_the_window",
+  "observed_failure": "GATE H FAIL 3 behaviour bullet(s) under [1.31.0] have no row in docs/audits/crux-1.31.0.md \u2014 then the CB-2110..CB-2115 ratchet RED: CB-2112 37 finding(s) ceiling 35, CB-2114 36 ceiling 34, CB-2115 49 ceiling 43 \u2014 then the commit-msg hook: 'Pmat-Ticket PMAT-574 is completed ... commit refused'. Recorded verbatim in docs/audits/logs/PMAT-574-cut.log.",
+  "reverted": "not applicable: the reds above were REAL reds on this branch, in sequence, each cleared by the change the cut log names beside it. A gate that was never red on a branch is not evidence that it can fail; these three were.",
+  "still_green_when_reverted": false
+ },
+ "crux": {
+  "verdict": "docs/audits/crux-1.31.0.md, three rows, one per behaviour bullet, each naming >= 3 of the 28 surveyed systems. Written by the release orchestrator from documentation memory rather than surveyed by an agy lane as 1.29.0's was, every third-party claim marked [X], and the audit's Method section says so in its first paragraph. It also states what is NOT reconciled: PMAT-565 was still open at the cut, so its behaviour owes no row.",
+  "systems": [
+   "Bazel, Ansible, Terraform, Kubernetes: a selection that matches nothing is an error in Bazel and in modern Ansible's --limit, while kubectl prints 'No resources found' and exits 0 [X] \u2014 forjar had the kubectl shape, and worse, because its empty selection still graded two resources from another manifest",
+   "systemd, Ansible, Puppet, Chef, Podman: systemd distinguishes the unit file on disk from the unit it has loaded [X]; the configuration managers all converge on state/enabled and manage the unit FILE separately [X]; the container world identifies what runs by DIGEST [X], which is what exec_sha256 is",
+   "Terraform, Puppet, Kubernetes, Ansible: -detailed-exitcode (2), --detailed-exitcodes (2) and kubectl diff (1) all put a difference in the exit code [X], while ansible --check exits 0 and makes you parse the recap [X] \u2014 forjar's verdict was real but flag-gated, which is an un-gated bug for every caller that did not know the flag"
+  ]
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "one round of three sandboxed agy quorum lanes, review-only",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "sandbox": true,
+  "writes": false,
+  "verdict": "1 FAIL (one cited finding, split into a confirmed half and a refuted half), 2 NO-VERDICT. The round did not agree, and the receipt records the disagreement rather than a rerun that hid it. Three distinct model ids were used deliberately: the PMAT-565 round ran one id twice and the validator marked it partial \u2014 'lanes sharing an id are resamples, not independent reviewers (PMAT-125)'."
+ },
+ "pmat": {
+  "ticket": "PMAT-574",
+  "tools": [
+   "scripts/release-goal.sh show (v1.31.0 due 2026-09-15T20:52:01Z, 5 merged / 2 tagged, left=-7h)",
+   "scripts/release-goal.sh sync (two already labelled, three labelled here)",
+   "make release-check (GATE R PASS pre-tag: 6 PR(s) since v1.30.0 all carry receipt=ok)",
+   "make dogfood-release (nine gates, exit 0, committed tree 9e3a4744)",
+   "pmat comply check (before: CB-2112 37, CB-2114 36, CB-2115 49; after: 34 / 34 / 43 worktree, 34 / 34 / 42 committed)",
+   "pmat work sync --check-only (named #565 #572 #573 with no row, and PMAT-559's truncated title)",
+   "pmat work add --github-issue N (minted PMAT-565, PMAT-572, PMAT-573 under their own issue numbers)",
+   "analyze_vacuous_tests",
+   "pmat analyze vacuous-tests (432 of 19790 #[test] fns cannot fail, 2.2%, across 2192 parsed files; 3 more skip silently)"
+  ],
+  "quality_gate": "GATE B PASS comply clean; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs error(s); the CB-21xx ratchet holding at 34 / 34 / 42 against ceilings 35 / 34 / 43, repaired rather than raised",
+  "vacuous_scan": "pmat analyze vacuous-tests: 432 of 19790 #[test] fns cannot fail (2.2%) across 2192 parsed files; 3 more skip silently when a fixture is missing. The proportion is unchanged from the 1.30.0 cut (432 of 19736), and this cut adds no test, so it could not have moved for a reason this branch caused.",
+  "vacuous_tests_in_touched_paths": 0,
+  "bashrs": "not applicable: no .sh file changed by this cut",
+  "tool_defects_found": [
+   "the quorum receipt gate reported STALE for a correct receipt on three heads during this window (#563, #569 twice) and a rerun on another runner passed each time, with nothing changed \u2014 filed as forjar#573, which also asks the gate to print the shas it compared so the next occurrence names its own cause",
+   "two of three agy lanes returned NO-VERDICT in one round: one wrote no verdict object with a SUCCESS envelope, one hit UNAVAILABLE (code 503) with no capacity for gpt-oss-120b-medium. A round whose width collapses to one reviewer is not a quorum, and the merge rail has to run again rather than read the round as agreement"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/release-1.31.0-judges.md",
+  "total_bytes": 16672,
+  "files": [
+   {
+    "path": ".quorum/evidence/release-1.31.0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 2386,
+    "sha256": "5366115e3c83e5fb1187fb98810246e0bac73b98bf390c8c7aada48733922c83",
+    "blob": "0b50ca4150f8c38f308f7deb3640374bf9f2d8dd"
+   },
+   {
+    "path": ".quorum/evidence/release-1.31.0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 2036,
+    "sha256": "d0376d5a7e6aebe9ef65491cdd76d2bb8ec5013cc1a77da9b56843af74cb4fb2",
+    "blob": "fd89bf2dd64111d67acbcdfaeb03d8c102697ff5"
+   },
+   {
+    "path": ".quorum/evidence/release-1.31.0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 6064,
+    "sha256": "b2078a8f6a03d9f4ff81ddbfc8f34021b41dd942d375ef57b5333c9ceeb5ea83",
+    "blob": "746425024ab4a7f6b9fff7f5e1eed36934fc2fa3"
+   },
+   {
+    "path": ".quorum/evidence/release-1.31.0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1348,
+    "sha256": "7d0b861eca654e2c6dd4009d0bbeb90e7975c6f704ed37b883a47a918676b99a",
+    "blob": "07572989d4cab2cd1d3395642e5a0d947cf5a41f"
+   },
+   {
+    "path": ".quorum/evidence/release-1.31.0-crux.md",
+    "roles": [
+     "crux"
+    ],
+    "bytes": 2393,
+    "sha256": "326c2cac9665dc6fa74be5793340ba39eca3c4ff6c27bd514059944d9c02bb83",
+    "blob": "4a5108f01c49e6da66893ba3430e5cd735319d56"
+   },
+   {
+    "path": ".quorum/evidence/release-1.31.0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 2445,
+    "sha256": "b3bac36c2719db422f705ce92da4b5356b32bedfb7af79edabaf062ea8fc8d73",
+    "blob": "539843656d27a18a1e052f2f65b281ab4493a4a8"
+   }
+  ]
+ }
+}
