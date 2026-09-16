@@ -1,0 +1,131 @@
+{
+  "kind": "triage",
+  "issue": "PMAT-579, PMAT-581, PMAT-582 (paiml/forjar#579, #581, #582) — three defects found while auditing a fleet pin on paiml/infra with forjar 1.31.0 on 2026-09-16. This branch registers each as a planned roadmap row with a cited measurement and an impl receipt, drops the duplicate PMAT-580, and ships no implementation.",
+  "branch": "PMAT-579-pin-preflight",
+  "base": "0edfe2d5",
+  "base_commit": "0edfe2d5226d0b8e72a53debafa4706f1db9cb4e",
+  "diff_sha256": "b498dacb922d99a1cfdebd42138de196aac7b6cd",
+  "recorded_at": "after round 3 of three sandboxed agy lanes AGREED 3/3 on head 5a6d607a (merge base 583a58ea), following round 1 with 1 FAIL / 2 PASS on d267f429 whose finding was true and is fixed, and a void round 2 terminated before any lane answered. The branch was then rebased onto 0edfe2d5 (forjar#570) without conflict; the evidence commit corrected one receipt number (115 kind:code was the merge base; the branch makes it 118) and named the rebase; scripts/quorum-gate.sh was run locally against refs/heads/PMAT-579-pin-preflight before this file was committed, and the merge rail runs its own round on the final head.",
+  "quorum": {
+    "rounds": 3,
+    "lanes": [
+      "lane 1, head 5a6d607a — gemini-3.1-pro-high (measured), review-only in its own clone with push removed, writes=false: PASS, 0 findings; summary confirms the rows, the measurements, the no-implementation statement and the classification of future work",
+      "lane 2, head 5a6d607a — gemini-3.8-flash-high (measured): PASS, 0 findings; summary confirms the triage rail, no source or test change, and the quotation from src/core/planner/unprobed.rs",
+      "lane 3, head 5a6d607a — gemini-3.7-flash-high (measured): PASS, 0 findings; summary confirms the rail, no gate weakened, citations verified, future scope in notes"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three round-3 lanes. They are binding on the diff's shape and its in-repo citations. They cannot reach paiml/infra, where the PMAT-579 apply events and the PMAT-582 drift runs were measured, so those two numbers are the orchestrator's and are marked as such in the digest rather than attributed to a lane.",
+    "kill_rule": "no lane finding was dismissed: round 1's finding was true and is fixed in the receipts' wording, not by relabelling the rows. A red gate stops this registration and no verdict overrides it.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "R1: 'the receipts could not be misread as claiming two kinds for one diff' — refuted by round 1's lane 1 at d267f429, which read the kind: triage rail beside the kind:code labels as an unaddressed contradiction. Fixed at 5a6d607a by naming what each kind classifies; the rows keep kind:code because that is true of the work.",
+      "R2: 'three PASS verdicts confirm the measurements behind PMAT-579 and PMAT-582' — refuted by what a lane can reach: both were measured on paiml/infra hosts, outside any forjar clone. The lanes confirmed the rail, the quotation and the criteria; the numbers are the orchestrator's.",
+      "R3: 'the crux survey settles prior art for all three rows' — refuted by the survey's own scope: it answers PMAT-579's question across four systems and states that PMAT-581 and PMAT-582 were not surveyed."
+    ]
+  },
+  "falsification": {
+    "not_applicable": "a registration: the branch changes docs/roadmaps/roadmap.yaml, three receipts under docs/audits/, its evidence under .quorum/evidence/ and this receipt, and no code, so there is no hunk to revert. Each row's notes: carries the falsifier its future implementation must pass (pin X, run with binary Y, assert refusal; change one source byte, assert Update with no host access; drift against an empty lock, assert a distinguishable exit), and the measurements behind the rows are quoted with their run ids and counts so they can be re-taken."
+  },
+  "crux": {
+    "verdict": "accept refuse-by-default for PMAT-579: OpenTofu 1.8.5 RUN locally refuses on both init and plan with exit 1 and no flag; Terraform and Pulumi READ at source do the same as an error, and OpenTofu is named as Terraform's fork so the two count as one lineage. Reject Ansible's posture, which defaults a mismatch to a warning and passes a check it cannot evaluate. forjar today neither refuses nor warns, which is what the row registers. PMAT-581 and PMAT-582 were not surveyed and the survey says so; each owes its own at implementation.",
+    "systems": [
+      "OpenTofu 1.8.5, run: required_version >= 99.0.0 makes tofu init and tofu plan exit 1 with 'Unsupported OpenTofu Core version' before any work [X]",
+      "Terraform, source: internal/configs/module.go CheckCoreVersionRequirements appends hcl.DiagError 'Unsupported Terraform Core version'; same lineage as OpenTofu, stated plainly [X]",
+      "Pulumi, source: pkg/cmd/pulumi/operations/up.go:615 ValidatePulumiVersionRange returns the error and the operation stops; independent of the Terraform lineage [X]",
+      "Ansible, source: lib/ansible/plugins/loader.py:1691-1697 keyed on COLLECTIONS_ON_ANSIBLE_VERSION_MISMATCH, base.yml:327 default warning, and loader.py:1708-1710 returns True when the check cannot run — the rejected posture [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "sandboxed agy review lanes, review-only, three per round via quorum-review.sh; the per-round table is .quorum/evidence/pin-preflight-lanes.md",
+    "rounds": 3,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 3: 3 PASS, 0 FAIL, three distinct model ids, none in the author's family (author claude-opus-5). Round 1: 1 FAIL / 2 PASS, the FAIL true and fixed. Round 2 void: terminated before any lane returned."
+  },
+  "pmat": {
+    "ticket": "PMAT-579 (lead; PMAT-581 and PMAT-582 registered in the same branch)",
+    "tools": [
+      "git diff --name-only 583a58ea...HEAD (four paths, all on the triage rail)",
+      "forjar history --json on paiml/infra (the PMAT-579 measurement)",
+      "forjar drift with three --state-dir values on paiml/infra (the PMAT-582 measurement)",
+      "grep -c over docs/roadmaps/roadmap.yaml (kind:code 115 -> 118, kind:triage 7, PMAT-580 0)",
+      "pmat --version 3.40.2",
+      "pmat analyze vacuous-tests",
+      "analyze_vacuous_tests",
+      "quorum-review.sh (round 3 AGREED 3/3)",
+      "PRINT_HASH=1 bash scripts/quorum-gate.sh"
+    ],
+    "quality_gate": "the triage rail verified from the diff, plus a citable, refutable record of three measurements; the code gates have nothing to measure on a branch that changes no .rs and are not claimed. CI's gate context runs them regardless.",
+    "vacuous_tests_in_touched_paths": 0,
+    "vacuous_scan": "pmat analyze vacuous-tests --path docs refused because the touched paths hold no tracked .rs, so no test was examined there and the 0 above means 'no test to examine', not 'examined and clean'. The repository-wide scan on this tree reports 432 of 19790 #[test] fns cannot fail (2.2%) across 2192 parsed files plus 3 silent skips, a standing count this branch cannot have moved.",
+    "bashrs": "not applicable: no .sh file changed",
+    "tool_defects_found": [
+      "pmat work add --github-issue N refuses without a positional title although the issue carries one; the rows were hand-authored in the roadmap's shape. Reported only."
+    ]
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/pin-preflight-judges.md",
+    "total_bytes": 18128,
+    "files": [
+      {
+        "path": ".quorum/evidence/pin-preflight-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1841,
+        "sha256": "b04d27be1e82d652d971b1b856b02be572e235f55712cfc0bba368b5ddb20943",
+        "blob": "e08d84c6906bfb3cf18f5f84d9c5d5fc5445e1ad"
+      },
+      {
+        "path": ".quorum/evidence/pin-preflight-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2366,
+        "sha256": "ba38cb3450e107d4928205ae48785771ba271fb3a4331d7ec3c7f76db160e374",
+        "blob": "0c475356fc45ac5bb2f538e5c13d10eb0ff5ea45"
+      },
+      {
+        "path": ".quorum/evidence/pin-preflight-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 6019,
+        "sha256": "c3645fcbf1709fad0eea1024f38139113b6679529b3a6ce3cc989ac1bb344d8a",
+        "blob": "799abda160698963f5c9de326929b11b5f11face"
+      },
+      {
+        "path": ".quorum/evidence/pin-preflight-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1533,
+        "sha256": "40bbf940df283ef87d2c156b59f3f332b583f08641f4edca4cf787a270e160d9",
+        "blob": "9217ed11c3a09af6d2ff1e82bc47312f802f1638"
+      },
+      {
+        "path": ".quorum/evidence/pin-preflight-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 2694,
+        "sha256": "cbdb3d6ccdb57f8a05de3fdd196b459736a1562f36d268bdfcc978fdc97f0f18",
+        "blob": "08b141028dc1afa9087a233fb337011bf8558e81"
+      },
+      {
+        "path": ".quorum/evidence/pin-preflight-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 3675,
+        "sha256": "f56a32cb8042972afa9e801480907b6bee61f8331ed4b31da0603487991fdfa6",
+        "blob": "03d12f0405cce51190dcb803b29346502fadbf8d"
+      }
+    ]
+  }
+}
