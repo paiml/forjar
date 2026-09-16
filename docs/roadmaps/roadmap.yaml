@@ -4382,3 +4382,20 @@ roadmap:
   - kind:triage
   - release:v1.32.0
   notes: null
+- id: PMAT-579
+  github_issue: 579
+  item_type: task
+  title: apply/plan preflight refuses when the binary version != stack-tool-forjar.version unless -r stack-tool-forjar
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T14:19:33Z
+  updated: 2026-09-16T14:19:33Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
