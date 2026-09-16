@@ -4,10 +4,10 @@
  "branch": "PMAT-574-release-1.31.0",
  "base": "9884334a",
  "base_commit": "9884334ae269518518af8b564b434950618e6b70",
- "diff_sha256": "158a6edc2866eecde098259f3fde47d5059ea2cc",
+ "diff_sha256": "48a2445d74056ba22cabc9f77dbcf7c8d347fbfe",
  "recorded_at": "after the rounds recorded in .quorum/evidence/release-1.31.0-lanes.md, none of which agreed. Every lane finding is adjudicated in the judges digest: six confirmed claims, eleven refuted, three of the refutations from the release gates and the commit-msg hook before any lane ran.",
  "quorum": {
-  "rounds": 9,
+  "rounds": 11,
   "lanes": [
    "round 1, head 203d8a65 \u2014 lane 1 gemini-3.1-pro-high FAIL (1 cited finding: the receipt's diff list omitted itself \u2014 CONFIRMED and fixed; the receipt is an unrequested file \u2014 REFUTED by gate A); lane 2 gemini-3.8-flash-high NO-VERDICT (SUCCESS envelope, no verdict object); lane 3 gpt-oss-120b-medium NO-VERDICT (UNAVAILABLE 503, no capacity for the model)",
    "round 2, head e65a1fad \u2014 lane 1 gemini-3.1-pro-high PASS; lane 2 gemini-3.8-flash-high NO-VERDICT; lane 3 gemini-3.6-flash-high PASS",
@@ -17,7 +17,9 @@
    "round 6, head f19c4e86 \u2014 lane 1 gemini-3.1-pro-high PASS; lane 2 gemini-3.6-flash-medium PASS; lane 3 gemini-3.6-flash-low NO-VERDICT (UNAVAILABLE 503, no capacity). No finding raised by any lane.",
    "round 7, head f19c4e86 \u2014 lane 1 gemini-3.1-pro-high PASS; lane 2 gemini-3.6-flash-medium NO-VERDICT (UNAVAILABLE 503, no capacity); lane 3 gemini-3.6-flash-high PASS. No finding raised by any lane.",
    "round 8, head f19c4e86 \u2014 lane 1 gemini-3.1-pro-high FAIL (4 findings, every one a stale count inside this receipt and its evidence: recorded_at said three author claims, judges_note said three rounds and four refutations, two 'three rounds' phrases survived editing \u2014 all CONFIRMED and corrected); lane 2 gemini-3.1-pro-low PASS; lane 3 gemini-3.6-flash-high PASS",
-   "round 9, head be408017 \u2014 lane 1 gemini-3.1-pro-high FAIL (4) and lane 3 gemini-3.6-flash-high FAIL (4) independently found the same defect: the round count and refutation count were restated in four files and had gone stale in three; lane 2 gemini-3.1-pro-low PASS. CONFIRMED, and answered structurally \u2014 the lanes table is now the only place rounds are counted."
+   "round 9, head be408017 \u2014 lane 1 gemini-3.1-pro-high FAIL (4) and lane 3 gemini-3.6-flash-high FAIL (4) independently found the same defect: the round count and refutation count were restated in four files and had gone stale in three; lane 2 gemini-3.1-pro-low PASS. CONFIRMED, and answered structurally \u2014 the lanes table is now the only place rounds are counted.",
+   "round 10, head 9d72806b \u2014 lane 1 gemini-3.1-pro-high PASS; lane 2 gemini-3.1-pro-low PASS; lane 3 gemini-3.6-flash-high FAIL (3 findings, all false: it claimed this receipt's evidence sha256s and byte counts were stale. Every entry matches the file byte for byte at HEAD, and the lane's own proposed total, 27579, does not equal the sum it listed)",
+   "round 11, head 9d72806b \u2014 all three lanes FAIL, and three of their six findings were true and are fixed: the lanes-table file's opening prose still said eight rounds, agy_teamwork.mode still said 'one round', and the impl receipt still said 'the round that produced it'. The other three repeat the README/CHANGELOG line-number claim already refuted by measurement."
   ],
   "lane_errors": 7,
   "judges": 3,
@@ -25,7 +27,7 @@
   "kill_rule": "no lane finding was dismissed. Round 1's finding was split \u2014 the true half fixed in 105cf896, the false half refuted by naming the gate (harness.sh) that requires the file. Round 3's lane 1 raised six: two refuted claims the author had written into the cut log and the dogfood receipt and both were corrected; the other four are off-by-one citation claims, refuted one at a time by re-reading the cited file, and the pattern is named in the evidence (a lane counts a unified diff's added lines, a file counts its own). Every NO-VERDICT lane is counted as no review, never as a PASS. Round 5's lane 1 found the evidence files' own prose out of date with their tables and was right; the prose now describes every round and says why the count moves. Round 8's lane 1 found four stale counts inside this receipt and its evidence and every one was corrected rather than argued with.",
   "refuters_per_claim": 3,
   "claims_confirmed": 6,
-  "claims_refuted": 11,
+  "claims_refuted": 12,
   "refuted_claims": [
    "R1: 'the README's version lines are already correct' \u2014 the first draft of the impl receipt said README.md was untouched; the file said forjar = \"1.30\" on lines 96 and 98. Both now say 1.31. Gate D passed either way, because Cargo reads 1.30 as >=1.30.0, <2.0.0, which is why nothing else would have caught it.",
    "R2: 'the cut's own ticket can be marked completed in the cut's own PR' \u2014 refused by the commit-msg hook: 'Pmat-Ticket PMAT-574 is completed \u2014 work belongs to an open item, and CB-2113 refuses this commit in CI'. PMAT-574 stays inprogress; the booking PR closes it.",
@@ -37,7 +39,8 @@
    "R8: 'the CHANGELOG entry for PMAT-564 should cite #569, the PR, not #564' \u2014 the file's convention is the ISSUE, unbroken across the 1.30.0 section: (PMAT-549, #549), (PMAT-534, #534), (PMAT-540, #540), (PMAT-542, #542), (PMAT-535, #535).",
    "R9: 'the evidence files describe the rounds that were actually run' \u2014 refuted by round 5's lane 1: lanes.md opened with 'Three rounds were run' and named an old head, agy.md still said 'One round', claims.md still said 'The round reviewed head 203d8a65', while the table and this receipt said four. All three corrected, and they now say why the round count moves.",
    "R10: 'this receipt's own counts are current' \u2014 refuted by round 8's lane 1 with four citations: recorded_at said three author claims where four had been refuted by lanes, judges_note said three rounds and four refutations where the digest said five and nine, and two 'three rounds' phrases survived in the evidence prose. A receipt that miscounts its own rounds is the black box it exists to refuse; corrected here.",
-   "R11: 'restating the round count and the refutation count in every evidence file is workable' \u2014 refuted by rounds 8 and 9, the second time from two lanes at once. A count repeated in four files goes stale in three. The per-round table in release-1.31.0-lanes.md is now the only place rounds are counted and heads named; this receipt keeps the numbers the gate reads, and the prose refers rather than repeats."
+   "R11: 'restating the round count and the refutation count in every evidence file is workable' \u2014 refuted by rounds 8 and 9, the second time from two lanes at once. A count repeated in four files goes stale in three. The per-round table in release-1.31.0-lanes.md is now the only place rounds are counted and heads named; this receipt keeps the numbers the gate reads, and the prose refers rather than repeats.",
+   "R12: 'the structural fix landed everywhere it was needed' \u2014 refuted by round 11 from all three lanes: the lanes-table file's opening paragraph had not in fact been replaced (an edit that silently matched nothing), agy_teamwork.mode still read 'one round of three sandboxed agy quorum lanes' beside rounds: 9, and impl-PMAT-574-receipt.md still said 'the round that produced it'. Fixed, and verified this time by grepping the tree for every count beside the word round rather than by assuming the edit applied."
   ]
  },
  "falsification": {
@@ -58,8 +61,8 @@
  },
  "agy_teamwork": {
   "ran": true,
-  "mode": "one round of three sandboxed agy quorum lanes, review-only",
-  "rounds": 9,
+  "mode": "sandboxed agy quorum lanes, review-only, three per round; the per-round table is .quorum/evidence/release-1.31.0-lanes.md",
+  "rounds": 11,
   "lanes_per_round": 3,
   "sandbox": true,
   "writes": false,
@@ -89,7 +92,7 @@
  },
  "evidence": {
   "claims_digest": ".quorum/evidence/release-1.31.0-judges.md",
-  "total_bytes": 27558,
+  "total_bytes": 28765,
   "files": [
    {
     "path": ".quorum/evidence/release-1.31.0-claims.md",
@@ -105,18 +108,18 @@
     "roles": [
      "lanes"
     ],
-    "bytes": 5746,
-    "sha256": "c5b30416906aa33fe82789f224651b32c30097dc290a8f7f0e856acececa4b54",
-    "blob": "dbd87813b8984157bfc5540216e4448ee36b51cd"
+    "bytes": 6221,
+    "sha256": "93bdc89755b082d423c7ebc3b675a792a668280a2f16fd3bf900d46e3f59dceb",
+    "blob": "6d247c13fe8d196f150ba491a24dde289f29fee8"
    },
    {
     "path": ".quorum/evidence/release-1.31.0-judges.md",
     "roles": [
      "judges"
     ],
-    "bytes": 12631,
-    "sha256": "901f01298aa205c5a7f091056027ee9ce74a634c7aff7f59b25fadef5495d4e8",
-    "blob": "0c661545db17b2bfeb07d6db9be029e43ae12e21"
+    "bytes": 13363,
+    "sha256": "599c8bf0835e6be9d8372c29abb328045cbcf0af6f9ad1d8f156c95f4af1f0b4",
+    "blob": "19241ffb7a52f8db111ce690afca1a58d65579dd"
    },
    {
     "path": ".quorum/evidence/release-1.31.0-agy.md",

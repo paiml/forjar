@@ -1,18 +1,21 @@
 # PMAT-574 — the lanes, and what each returned
 
-Eight rounds were run, each on the head that existed when it started: round 1 on
-203d8a65 (before the quorum receipt existed), rounds 2 and 3 on e65a1fad, round
-4 on 1da75f21, round 5 on b0ccb46a. No round agreed. Every round that collapsed
-did so because a lane returned NOTHING; no round was re-run to bury a finding,
-and every finding raised is adjudicated in
-`.quorum/evidence/release-1.31.0-judges.md`.
+This table is the ONE place this receipt counts rounds and names heads. A
+number beside the word "round" anywhere else in this evidence is a QUOTATION of
+a string a lane found stale, kept so the finding can be checked, not a claim
+about how many rounds ran.
 
-A note on why the round count keeps rising, since it is the honest reading of
-this table: each round that raises a real finding produces a fix, the fix moves
-the head, and the next round reviews a head no earlier round saw. This receipt
-describes the rounds run up to the head it binds; the merge rail runs its own
-round on the final head, and by construction that round cannot be described in a
-file the round is reviewing.
+This table is the ONE place this receipt counts rounds and names heads. Each
+round ran on the head that existed when it started, because a round that raises
+a real finding produces a fix and the fix moves the head; the next round then
+reviews a head no earlier round saw. No round was ever re-run to bury a finding:
+every round that failed to agree either raised a finding adjudicated in
+`.quorum/evidence/release-1.31.0-judges.md`, or collapsed because a lane
+returned NOTHING.
+
+The merge rail runs its own round on the FINAL head. By construction that round
+cannot be described in a file it is reviewing, which is the honest limit of this
+table.
 
 | round | lane 1 | lane 2 | lane 3 | outcome |
 |---|---|---|---|---|
@@ -24,9 +27,11 @@ file the round is reviewing.
 | 6 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` PASS | `gemini-3.6-flash-low` NO-VERDICT (503, no capacity) | not agreed |
 | 7 | `gemini-3.1-pro-high` PASS | `gemini-3.6-flash-medium` NO-VERDICT (503, no capacity) | `gemini-3.6-flash-high` PASS | not agreed |
 | 8 | `gemini-3.1-pro-high` FAIL (4 findings, all this evidence's own stale counts) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` PASS | not agreed |
-| 9 | `gemini-3.1-pro-high` FAIL (4) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` FAIL (4) | not agreed — two lanes found the same stale counts, and this rewrite is the structural answer |
+| 9 | `gemini-3.1-pro-high` FAIL (4) | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` FAIL (4) | not agreed — two lanes found the same stale counts |
+| 10 | `gemini-3.1-pro-high` PASS | `gemini-3.1-pro-low` PASS | `gemini-3.6-flash-high` FAIL (3, all false: it claimed the receipt's evidence hashes were stale; every one matches byte for byte at HEAD, and its own byte-sum arithmetic was wrong) | not agreed |
+| 11 | `gemini-3.1-pro-high` FAIL (2) | `gemini-3.1-pro-low` FAIL (3) | `gemini-3.6-flash-medium` FAIL (1) | not agreed — three more stale-count findings, all true, all fixed |
 
-`gemini-3.8-flash-*` returned NO-VERDICT in all three rounds it ran in — a SUCCESS
+`gemini-3.8-flash-*` returned NO-VERDICT in every round it ran in (1, 2 and 3) — a SUCCESS
 envelope carrying no verdict object each time. That is a property of the lane,
 not of the branch, and it is why the round width kept collapsing to two.
 
@@ -37,7 +42,7 @@ CHANGELOG should cite the PR rather than the issue (refuted by the file's own
 convention, `(PMAT-549, #549)` and four more like it). Its third was the
 line-number claim two lanes now share and neither measured.
 
-Round 3's lane 1 was the most valuable single review of the eight rounds: six findings,
+Round 3's lane 1 was the most valuable single review of any round here: six findings,
 two of which refuted claims the author had written into the cut log and the
 dogfood receipt (the after-composition that did not sum, and a false cause for
 the 42-vs-43 gap). Both are fixed and recorded in

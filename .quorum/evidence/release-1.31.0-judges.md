@@ -3,7 +3,7 @@
 The rounds, their lanes and their verdicts are the table in
 `release-1.31.0-lanes.md`, which is the only place they are counted. What
 matters here is the adjudication, and it is stated once: the items below are
-every claim this branch put at risk, six CONFIRMED and eleven REFUTED.
+every claim this branch put at risk, six CONFIRMED and twelve REFUTED.
  Three of the refutations
 came from instruments that ruled on this branch BEFORE any lane saw it — gate H,
 the commit-msg hook, and `README.md` itself — and they are named below as the
@@ -170,6 +170,17 @@ tiers.
       the ONLY place rounds are counted and heads are named, the adjudication
       count is stated once here, and the other two files refer rather than
       repeat.
+
+12. [structural-fix-landed] That the structural fix — one place for the round
+    count — had landed everywhere it was needed.
+    - evidence: round 11 refuted it from all three lanes at once. The
+      lanes-table file's opening paragraph had never been replaced (the edit
+      matched nothing and reported success), `agy_teamwork.mode` still read "one
+      round of three sandboxed agy quorum lanes" beside `"rounds": 9`, and
+      `docs/audits/impl-PMAT-574-receipt.md` still said "the round that produced
+      it". All three are fixed, and this time the tree was SWEPT for every count
+      beside the word "round" rather than assumed — which is how the surviving
+      quotations were separated from the live claims.
 
 ## Lane findings that did NOT survive
 

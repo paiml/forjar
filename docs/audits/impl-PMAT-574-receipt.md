@@ -47,7 +47,7 @@ manifest and its done-when is a drift verdict 1.30.0 cannot give.
   `docs/audits/impl-<ticket>-receipt.md` at HEAD ending in
   `IMPL-<ticket>-RECEIPT-END`
 - `.quorum/PMAT-574-release-1.31.0.json` and `.quorum/evidence/release-1.31.0-*.md`
-  — the quorum receipt gate E requires, and the round that produced it
+  — the quorum receipt gate E requires, and the rounds that produced it
 - `docs/roadmaps/roadmap.yaml` — the bookkeeping below
 - `README.md` — both version lines, 1.30 → 1.31. Gate D passed either way
   (Cargo reads `forjar = "1.30"` as `>=1.30.0, <2.0.0`, which admits 1.31.0),
