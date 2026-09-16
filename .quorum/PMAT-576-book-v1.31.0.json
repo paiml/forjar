@@ -1,0 +1,118 @@
+{
+ "kind": "triage",
+ "issue": "PMAT-576 (closes forjar#576) \u2014 book v1.31.0. The release was tagged (8285616f), published to crates.io and qualified against paiml/forjar-cookbook 710b0877, and docs/roadmaps/releases.yaml did not know it happened. This branch writes the measured row, declares v1.32.0 due cut+cadence, marks PMAT-574 completed, and adds no code.",
+ "branch": "PMAT-576-book-v1.31.0",
+ "base": "8285616f",
+ "base_commit": "8285616f4ac9cc240aa60f8cfe64899a7febc9cf",
+ "diff_sha256": "57e44861368d23ca0a6971cf1b990d3e397fa770",
+ "recorded_at": "after one round of three sandboxed agy lanes over head be830b24 \u2014 2 PASS, 1 FAIL with a cited finding that was true and is fixed (the ledger row did not carry the kind:triage label its receipts claim) \u2014 and after gate T had been measured on both sides of the branch.",
+ "quorum": {
+  "rounds": 1,
+  "lanes": [
+   "lane 1, head be830b24 \u2014 gemini-3.1-pro-high (declared = measured), review-only in its own clone with push removed, writes=false: PASS with 4 cited notes, each one a claim of this receipt confirmed against the line that carries it",
+   "lane 2, head be830b24 \u2014 gemini-3.1-pro-low: FAIL, 1 cited finding at docs/roadmaps/roadmap.yaml:4362 \u2014 the row carried no kind:triage label while both receipts declare that kind. CONFIRMED and fixed.",
+   "lane 3, head be830b24 \u2014 gemini-3.6-flash-high: PASS, 0 findings"
+  ],
+  "lane_errors": 0,
+  "judges": 3,
+  "judges_note": "THE LANES ARE NOT THE BINDING JUDGES ON A LEDGER BOOKING. They have no gh auth \u2014 measured as 401s during the 1.30.0 booking \u2014 so they cannot ask which PRs merged in the window, cannot resolve the cookbook commit, and cannot run gate T against the live API, which is most of this branch's evidence. judges=3 counts the three lanes asked; the binding adjudication is gate T, the commit-msg hook and the orchestrator's own measurements, each named in the digest.",
+  "kill_rule": "no lane finding was dismissed: the round's one finding was true and is fixed in the tree. A red gate stops this booking and no verdict overrides it.",
+  "refuters_per_claim": 3,
+  "claims_confirmed": 7,
+  "claims_refuted": 2,
+  "refuted_claims": [
+   "R1: 'PMAT-576's ledger row declares the triage kind its receipts claim' \u2014 refuted by lane 2 at docs/roadmaps/roadmap.yaml:4362. The row carried only release:v1.32.0; PMAT-557's row carries kind:triage beside it, and this receipt declares kind: triage, which is the field that selects the documentation-citation rule. The label is on the row now.",
+   "R2: 'three sandboxed lanes are a sufficient panel for a ledger booking' \u2014 refuted by what the lanes can reach: no gh auth, so the PR window, the cookbook commit and gate T against the live API are all outside them. The receipt records the lanes as the weaker half rather than implying three confirmations of facts no lane could see."
+  ]
+ },
+ "falsification": {
+  "not_applicable": "a ledger booking: the branch changes docs/roadmaps/releases.yaml, docs/roadmaps/roadmap.yaml, one docs/audits receipt and its own .quorum receipt, and no code, so there is no hunk to revert. Its evidence is gate T measured either side \u2014 FAIL on origin/main (v1.31.0 reachable, no row) to the v1.31.0 row passing on this branch with 6 PRs and 6 tickets \u2014 plus the cookbook commit's own Cargo.lock, which pins 1.31.0 where the copied default pinned 1.30.0."
+ },
+ "crux": {
+  "verdict": "docs/audits/crux-1.31.0.md was written and reconciled by the CUT (PMAT-574, #575), which is where the behaviour bullets live; gate H passed there, 3 of 3 bullets, each naming >= 3 of the 28 surveyed systems. This booking adds no behaviour and owes no new crux row, and the row it writes NAMES that document rather than restating it.",
+  "systems": [
+   "Nix, Bazel, Terraform: flake.lock, MODULE.bazel.lock and .terraform.lock.hcl all distinguish a requirement from a lock, which is exactly why this row names a cookbook commit whose LOCK pins 1.31.0 rather than one whose manifest merely admits it [X]",
+   "SLSA, in-toto, Sigstore: a release record is a statement about what was built and from what, and the field has moved to machine-checkable ones; this ledger row is prose that gate T checks mechanically, weaker in kind and stated as such [X]",
+   "Kubernetes, Chef, Terraform: all three key their release tooling off the PR object rather than the branch, which is what release-goal.sh does when it reads the window from GitHub instead of from the commit messages [X]"
+  ]
+ },
+ "agy_teamwork": {
+  "ran": true,
+  "mode": "sandboxed agy quorum lanes, review-only, three per round; the per-round table is .quorum/evidence/book-1.31.0-lanes.md",
+  "rounds": 1,
+  "lanes_per_round": 3,
+  "sandbox": true,
+  "writes": false,
+  "verdict": "2 PASS, 1 FAIL. The FAIL was true \u2014 the ledger row did not carry the kind:triage label its receipts claim \u2014 and is fixed. Three distinct model ids, none in the author's family."
+ },
+ "pmat": {
+  "ticket": "PMAT-576",
+  "tools": [
+   "scripts/dogfood/tagged.sh (gate T, both sides of the branch)",
+   "scripts/release-goal.sh window v1.31.0 (the row, measured from git and GitHub)",
+   "scripts/release-goal.sh cut v1.31.0 --next v1.32.0 (wrote the row, declared the next, moved three labels)",
+   "cargo publish --locked (Published forjar v1.31.0 at registry crates-io)",
+   "cargo update -p forjar --precise 1.31.0 + cargo check --workspace (in the cookbook)",
+   "analyze_vacuous_tests",
+   "PRINT_HASH=1 bash scripts/quorum-gate.sh"
+  ],
+  "quality_gate": "gate T: FAIL on origin/main (v1.31.0 reachable from HEAD with no row) -> the v1.31.0 row passing on this branch, 6 PR(s) and 6 ticket(s) labelled release:v1.31.0",
+  "vacuous_tests_in_touched_paths": 0,
+  "vacuous_scan": "not re-run: this branch adds no test and changes no .rs, so the repository's standing 432 of 19790 (2.2%) cannot have moved for a reason this branch caused. The cut measured it the same morning.",
+  "bashrs": "not applicable: no .sh file changed",
+  "tool_defects_found": [
+   "scripts/release-goal.sh cut COPIES the previous row's cookbook: commit, which for this release would have named a commit whose Cargo.lock pins 1.30.0 \u2014 the same trap the 1.30.0 booking hit, and still unfixed in the tool"
+  ]
+ },
+ "evidence": {
+  "claims_digest": ".quorum/evidence/book-1.31.0-judges.md",
+  "total_bytes": 11008,
+  "files": [
+   {
+    "path": ".quorum/evidence/book-1.31.0-claims.md",
+    "roles": [
+     "claims"
+    ],
+    "bytes": 1728,
+    "sha256": "17b192c90e2ecb53e47df56bdb30fc255f5215865b0136490cbe16125d1f6a7c",
+    "blob": "35f7ec384069d70794121a21dd657ff8260f96c2"
+   },
+   {
+    "path": ".quorum/evidence/book-1.31.0-lanes.md",
+    "roles": [
+     "lanes"
+    ],
+    "bytes": 1460,
+    "sha256": "47a07f5842a2e38de03258fa87283c4dee619368d7edc0cf98379f603514ef0a",
+    "blob": "acd44c1e032542df14ce8a4e8ff5f980f163826b"
+   },
+   {
+    "path": ".quorum/evidence/book-1.31.0-judges.md",
+    "roles": [
+     "judges"
+    ],
+    "bytes": 4991,
+    "sha256": "98ad619fc60ef09f09495d94c468d7d489faa7f51126fd0ddbfb4b569ce6ee37",
+    "blob": "6df1b721930a20770d6fe6867ee147b2b2d52954"
+   },
+   {
+    "path": ".quorum/evidence/book-1.31.0-agy.md",
+    "roles": [
+     "agy"
+    ],
+    "bytes": 1110,
+    "sha256": "1ebd326efac335a9ab9b4f681637f2ad41579f72625936454dea3e353689c167",
+    "blob": "13f3926e0f2c2143f2c9f3b4e522aaa1701edd63"
+   },
+   {
+    "path": ".quorum/evidence/book-1.31.0-pmat.md",
+    "roles": [
+     "pmat"
+    ],
+    "bytes": 1719,
+    "sha256": "368bef051c2d629321e8e020b9b94b0f743136e9f2548e0545a06402b6bf01a0",
+    "blob": "6d827493bf484beb26f51152c4e0ac417bbaf056"
+   }
+  ]
+ }
+}
