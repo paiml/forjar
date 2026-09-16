@@ -124,6 +124,7 @@ fn cmd_diff_json_with_changes() {
         hostname: "web".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();
@@ -181,6 +182,7 @@ fn cmd_diff_with_resource_filter() {
         hostname: "web".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();
@@ -222,6 +224,7 @@ fn cmd_diff_removed_resource_text() {
         hostname: "web".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();
@@ -313,6 +316,7 @@ fn cmd_env_diff_with_drift() {
         hostname: "web".to_string(),
         generated_at: "2026-01-01T00:00:00Z".to_string(),
         generator: "forjar 1.0.0".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources: {
             let mut r = indexmap::IndexMap::new();

@@ -57,18 +57,18 @@ pub(crate) fn cmd_lock_merge(
                 // Right takes precedence on conflicts
                 let out_dir = output.join(m_name);
                 std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                let lock_path = out_dir.join("state.lock.yaml");
-                let yaml = serde_yaml_ng::to_string(&right_lock).map_err(|e| e.to_string())?;
-                std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
+                // PMAT-565: the merged lock is a WRITE, so it names its
+                // writer and gets a sidecar. The bare fs::write here left both
+                // undone — a merged lock carried the stale generator of
+                // whichever binary first wrote the input, and no `.b3` at all.
+                state::save_lock(output, &right_lock)?;
                 conflict_count += 1;
                 merged_count += 1;
             }
             (Some(lock), None) | (None, Some(lock)) => {
                 let out_dir = output.join(m_name);
                 std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                let lock_path = out_dir.join("state.lock.yaml");
-                let yaml = serde_yaml_ng::to_string(&lock).map_err(|e| e.to_string())?;
-                std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
+                state::save_lock(output, &lock)?;
                 merged_count += 1;
             }
             (None, None) => {}
@@ -134,9 +134,7 @@ pub(crate) fn cmd_lock_rebase(
 
                     let out_dir = output.join(&m_name);
                     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                    let lock_path = out_dir.join("state.lock.yaml");
-                    let yaml = serde_yaml_ng::to_string(&lock).map_err(|e| e.to_string())?;
-                    std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
+                    state::save_lock(output, &lock)?;
                 }
             }
         }

@@ -44,3 +44,4 @@
 {"repo": "forjar", "ticket": "PMAT-557", "phase": "all", "mode": "self + delegate:agy quorum x3", "est": 6, "actual": 14, "unit": "turn", "basis": "first-run[U]; gate T refused four times in sequence"}
 {"repo": "forjar", "ticket": "PMAT-564", "phase": "all", "mode": "direct + delegate:agy quorum x3", "est": 16, "actual": 12, "unit": "turn", "basis": "first-run[U]; k counted from mint to receipt"}
 {"repo": "forjar", "ticket": "PMAT-560", "phase": "all", "mode": "direct + delegate:agy quorum x3, x3", "est": 40, "actual": 60, "unit": "turn", "basis": "first-run[U]; approximate — the session was interrupted mid-ticket and k was not measured from the transcript"}
+{"repo": "forjar", "ticket": "PMAT-565", "phase": "all", "mode": "direct + delegate:agy quorum x3", "est": 16, "actual": 14, "unit": "turn", "basis": "first-run[U]; k counted from mint to receipt"}

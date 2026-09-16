@@ -19,6 +19,7 @@ mod tests {
             verify: false,
             dry_run: false,
             json: false,
+            restamp: false,
         };
         let _ = format!("{a:?}");
     }

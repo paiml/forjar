@@ -321,6 +321,7 @@ resources: {}
             hostname: "local".to_string(),
             generated_at: "2026-02-26T00:00:00Z".to_string(),
             generator: "forjar-test".to_string(),
+            created_by: None,
             blake3_version: "1.5.0".to_string(),
             resources,
         };

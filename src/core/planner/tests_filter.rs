@@ -73,6 +73,7 @@ fn test_fj004_arch_filter_with_existing_lock() {
             hostname: "arm".to_string(),
             generated_at: "2026-01-01T00:00:00Z".to_string(),
             generator: "forjar".to_string(),
+            created_by: None,
             blake3_version: "1.8".to_string(),
             resources: arm_resources,
         },

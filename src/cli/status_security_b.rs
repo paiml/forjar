@@ -32,6 +32,7 @@ mod tests {
             hostname: machine.into(),
             generated_at: "2026-01-15T10:00:00Z".into(),
             generator: "test".into(),
+            created_by: None,
             blake3_version: "1.0".into(),
             resources: m,
         }
@@ -59,6 +60,7 @@ mod tests {
             hostname: machine.into(),
             generated_at: "2026-01-15T10:00:00Z".into(),
             generator: "test".into(),
+            created_by: None,
             blake3_version: "1.0".into(),
             resources: m,
         }

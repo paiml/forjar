@@ -130,6 +130,7 @@ fn empty_lock(machine: &str) -> StateLock {
         hostname: machine.to_string(),
         generated_at: crate::tripwire::eventlog::now_iso8601(),
         generator: format!("forjar-refresh {}", env!("CARGO_PKG_VERSION")),
+        created_by: None,
         blake3_version: "1.5".to_string(),
         resources: indexmap::IndexMap::new(),
     }

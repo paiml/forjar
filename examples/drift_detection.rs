@@ -54,6 +54,7 @@ fn main() {
         hostname: "localhost".to_string(),
         generated_at: "2026-02-25T12:00:00Z".to_string(),
         generator: "forjar-example".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

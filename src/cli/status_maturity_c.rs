@@ -34,6 +34,7 @@ mod tests {
             hostname: machine.into(),
             generated_at: ts.into(),
             generator: "test".into(),
+            created_by: None,
             blake3_version: "1.0".into(),
             resources: m,
         }

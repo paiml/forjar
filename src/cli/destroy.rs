@@ -90,11 +90,13 @@ pub(crate) fn cleanup_succeeded_entries(
         if lock.resources.is_empty() {
             let _ = std::fs::remove_file(&lock_path);
             let _ = std::fs::remove_file(state_dir.join(machine_name).join("state.lock.yaml.b3"));
-        } else if let Ok(yaml) = serde_yaml_ng::to_string(&lock) {
-            let _ = std::fs::write(&lock_path, yaml);
-            // forjar#449: a rewritten lock needs a fresh seal, or the next
-            // apply's integrity check refuses it as tampered.
-            let _ = crate::core::state::integrity::write_b3_sidecar(&lock_path);
+        } else {
+            // PMAT-565: through save_lock, never a bare serialise+write. It
+            // stamps the writing binary into `generator`, keeps the creator in
+            // `created_by`, writes atomically, and refreshes the BLAKE3 sidecar
+            // forjar#449 needed here — one call instead of three chances to
+            // forget one.
+            let _ = crate::core::state::save_lock(state_dir, &lock);
         }
     }
 }

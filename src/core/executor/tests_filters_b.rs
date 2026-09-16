@@ -26,6 +26,7 @@ fn make_test_lock(machine: &str, resource_ids: &[&str]) -> StateLock {
         hostname: machine.to_string(),
         generated_at: String::new(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1".to_string(),
         resources,
     }

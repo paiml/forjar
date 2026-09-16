@@ -159,6 +159,7 @@ fn test_fj016_detect_drift_multiple_resources_mixed() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
@@ -199,6 +200,7 @@ fn test_fj016_detect_drift_failed_resource_skipped() {
         hostname: "test".to_string(),
         generated_at: "now".to_string(),
         generator: "test".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };

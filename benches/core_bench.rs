@@ -362,6 +362,7 @@ fn populate_converged_locks(
             hostname: hostname.to_string(),
             generated_at: "2026-02-26T00:00:00Z".to_string(),
             generator: "forjar-bench".to_string(),
+            created_by: None,
             blake3_version: "1.8".to_string(),
             resources,
         };
@@ -432,6 +433,7 @@ fn bench_spec9_drift(c: &mut Criterion) {
         hostname: "bench-host.example.com".to_string(),
         generated_at: "2026-02-26T00:00:00Z".to_string(),
         generator: "forjar-bench".to_string(),
+        created_by: None,
         blake3_version: "1.8".to_string(),
         resources,
     };
