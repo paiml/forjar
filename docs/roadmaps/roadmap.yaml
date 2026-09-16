@@ -4400,24 +4400,6 @@ roadmap:
   labels:
   - kind:code
   notes: null
-- id: PMAT-580
-  github_issue: 580
-  item_type: bug
-  title: 'the per-machine lock generator field is never refreshed, so every apply receipt names the wrong binary'
-  status: planned
-  priority: medium
-  assigned_to: null
-  created: 2026-09-16T11:02:45Z
-  updated: 2026-09-16T11:02:45Z
-  spec: null
-  acceptance_criteria:
-  - 'See paiml/forjar#580. finalize_machine in src/core/executor/machine_b.rs refreshes generated_at and saves, but never assigns lock.generator, so the field keeps whatever version first created the file. Measured across paiml/infra state: intel says forjar 0.1.0 for an apply the event log stamps 1.30.0; gx10 says 1.13.1, yoga 1.1.1, lambda-labs 1.4.0, mini 1.6.1, none of them right. src/cli/lock_audit.rs only asserts the string starts with forjar, so the audit for this field cannot fail on the thing that is wrong with it. Done when finalize_machine stamps the running version and lock_audit reports a mismatch as information. Falsifier: take a lock reading forjar 0.1.0, apply with the current binary, assert the header now names it; that test is red against todays tree.'
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
 - id: PMAT-581
   github_issue: 581
   item_type: feature
