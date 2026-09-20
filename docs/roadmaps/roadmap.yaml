@@ -4326,6 +4326,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Two independent halves, and neither substitutes for the other. (1) The cargo and uv drift observables discard the installed version (src/resources/package/mod.rs:231, cargo.rs:405) — apt and brew carry it — so live-vs-lock is version-blind for those providers; repairing it does NOT close live-vs-config, because a box that never had the apply still matches its own lock. (2) Probing a declared version: against the host closes live-vs-config, which is the hole. Do not fold the version into the hashed observable: it re-hashes every cargo package on every host and produces a false-positive wave. Corroboration: paiml/infra#264 (copia drifted three versions unnoticed) and five hand-maintained declared-vs-live tables, each added after its own incident, all of them this one defect.'
+- id: PMAT-595
+  github_issue: 595
+  item_type: task
+  title: 'the coverage lane is a coin flip: rsync is installed on some clean-room runners and not others, and nas_archive correctly refuses to certify without it'
+  release: 1.33.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-20T12:30:00Z
+  updated: 2026-09-20T12:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Measured on PR #593, a branch changing no Rust: coverage FAILED with "rsync is absent" (13552 passed, 1 failed) and the identical commit re-run SUCCEEDED on another runner. Done when rsync is present on every clean-room runner and a coverage run is reproducible across them. The test is NOT to be weakened: it asserts the tool is present so the six tests gated by rsync_or_skip cannot pass vacuously, which is closed #289.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Sibling defect, same lane, same cause class: forjar#567 (cargo-clippy absent for the 1.89 toolchain, lint.yml red on main for 5+ consecutive runs). Both are fleet uniformity, which is forjar''s own job to declare on the runner hosts.'
 - id: PMAT-594
   github_issue: 594
   item_type: task
