@@ -2605,15 +2605,14 @@ roadmap:
   - kind:code
   notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).'
 - id: PMAT-153
-  kind: code
   github_issue: null
   item_type: task
   title: 'CI: clean-room runner cannot clone public sibling repos anonymously — ci/lint red on every PR (GH #422)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-09-02T16:20:39Z
+  updated: 2026-09-20T12:04:09Z
   spec: null
   acceptance_criteria:
   - 'See GitHub issue #422 and docs/specifications/forjar-architecture-crux-audit.md'
@@ -2622,7 +2621,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).'
+  notes: Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).
 - id: PMAT-154
   kind: code
   github_issue: null
@@ -2682,7 +2681,7 @@ roadmap:
   kind: code
   github_issue: 470
   item_type: task
-  title: 'S2: apply --refresh-only ignores -r / -g / --subset — route the refresh through apply_selection::resolve_selection (GH #470, 1.27)'
+  title: 'apply --refresh-only ignores -r / -g / --subset: a scoped refresh refreshes the whole lock'
   status: planned
   priority: medium
   assigned_to: null
@@ -2700,7 +2699,7 @@ roadmap:
   kind: code
   github_issue: 471
   item_type: task
-  title: 'S2: apply --only-machine X -m Y runs nothing and exits 0 — refuse disjoint machine selectors by name or resolve -m through the shared selection (GH #471, 1.27)'
+  title: 'apply --only-machine X -m Y runs nothing and exits 0: the two machine selectors disagree silently'
   status: planned
   priority: medium
   assigned_to: null
@@ -2718,7 +2717,7 @@ roadmap:
   kind: code
   github_issue: 452
   item_type: task
-  title: 'CI: run the vendored contracts suite with the aprender corpus in one lane (the tests parked by PMAT-169 behind the aprender-corpus feature) so the ratchet can shrink (GH #452 follow-up, 1.27)'
+  title: 'forjar-contracts (vendored in-tree, #436): its unit tests fail in the workspace and no CI lane runs them'
   status: planned
   priority: medium
   assigned_to: null
@@ -2736,7 +2735,7 @@ roadmap:
   kind: code
   github_issue: 456
   item_type: task
-  title: 'S2: build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — read it at run time so a reused build-script binary never reads another checkout''s contracts/ (GH #456, 1.27)'
+  title: 'build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — a reused build-script binary reads another checkout''s contracts/ and panics'
   status: planned
   priority: medium
   assigned_to: null
@@ -2754,7 +2753,7 @@ roadmap:
   kind: code
   github_issue: 445
   item_type: task
-  title: 'S2: cron — a hand-edited entry under a forjar marker is left in place and a fresh block is appended (GH #445, 1.27)'
+  title: 'cron: a hand-edited entry under a forjar marker is left in place and a fresh block is appended (found by the #362 quorum)'
   status: planned
   priority: medium
   assigned_to: null
@@ -2772,7 +2771,7 @@ roadmap:
   kind: code
   github_issue: 435
   item_type: task
-  title: 'S2: apply --canary-machine skips apply_pre_checks: --pre-script, --webhook-before and --abort-on-drift are silently ignored on the canary path (GH #435, 1.27)'
+  title: 'apply --canary-machine skips apply_pre_checks: --pre-script, --webhook-before and --abort-on-drift are silently ignored on the canary path (found by the #374 quorum)'
   status: planned
   priority: medium
   assigned_to: null
@@ -2790,7 +2789,7 @@ roadmap:
   kind: code
   github_issue: 434
   item_type: task
-  title: 'Policy rules declare an explicit, unique id; generated ids are order-dependent and collide (GH #434, 1.27)'
+  title: 'Policy rules should declare an explicit, unique id — generated ids are order-dependent and collide (found by the #369 quorum)'
   status: planned
   priority: low
   assigned_to: null
@@ -2808,7 +2807,7 @@ roadmap:
   kind: code
   github_issue: 433
   item_type: task
-  title: 'S3: ResourceType is printed in its Debug spelling at ~50 CLI sites (GH #433, 1.27)'
+  title: 'ResourceType is still printed in its Debug spelling at ~50 CLI sites (found by the #366 quorum)'
   status: planned
   priority: low
   assigned_to: null
@@ -2826,7 +2825,7 @@ roadmap:
   kind: code
   github_issue: 432
   item_type: task
-  title: 'S2: apply --plan-file runs no live-drift probe and the summary does not say so (GH #432, 1.27)'
+  title: 'apply --plan-file runs no live-drift probe, and the summary does not say so'
   status: planned
   priority: medium
   assigned_to: null
@@ -2862,7 +2861,7 @@ roadmap:
   kind: code
   github_issue: 462
   item_type: task
-  title: 'Homebrew formula publishing needs a HOMEBREW_TAP_TOKEN secret the operator has not provisioned — an operator decision, no secret is added by the release program (GH #462, 1.27)'
+  title: 'Homebrew formula publishing is deprioritized: the homebrew job needs a HOMEBREW_TAP_TOKEN secret (not defined)'
   status: planned
   priority: low
   assigned_to: null
@@ -4289,6 +4288,26 @@ roadmap:
   - kind:code
   - release:v1.31.0
   notes: null
+- id: PMAT-594
+  github_issue: 594
+  item_type: task
+  title: 'gate B is RED on main: the CB-21xx ratchet is over its 2026-09-11 ceilings (CB-2115 55/43, CB-2114 37/34) and blocks every publish'
+  release: 1.32.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-20T12:05:00Z
+  updated: 2026-09-20T12:05:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Every CB-21xx ratchet check is at or under its 2026-09-11 ceiling on a COMMITTED tree, repaired rather than raised: no ceiling in scripts/ratchets/cb21xx-baseline.json is edited. Measured before: origin/main CB-2115 55/43, CB-2114 37/34. Done when scripts/dogfood/comply.sh prints GATE B PASS.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - release:v1.32.0
+  notes: null
 - id: PMAT-592
   github_issue: 592
   item_type: task
@@ -4425,12 +4444,12 @@ roadmap:
 - id: PMAT-581
   github_issue: 581
   item_type: feature
-  title: 'remote resources have no content key, so an SSH target plans NoOp over changed sources'
-  status: planned
+  title: remote resources have no content key — an SSH target plans NoOp over changed sources, and infra has 35 hand-rolled activation checks standing in for it
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-16T11:02:45Z
-  updated: 2026-09-16T11:02:45Z
+  updated: 2026-09-20T12:05:18Z
   spec: null
   acceptance_criteria:
   - 'This row REGISTERS paiml/forjar#581 and ships no implementation. Measured 2026-09-16: src/core/planner/unprobed.rs states in its own module doc that the probe is only taken for machines this host answers for, so every SSH target has planned NoOp over changed sources for as long as the probe has existed, and the action is left alone on purpose. paiml/infra carries 35 hand-rolled activation checks across 6 configs standing in for the missing primitive. Done when this row exists, carries github_issue 581, and cites that measurement. The content key itself is future scope and is recorded in notes.'
@@ -4440,15 +4459,16 @@ roadmap:
   labels:
   - kind:code
   notes: 'Future scope, NOT shipped by this row: a controller-side content key that plans Update on a changed source without contacting the host, keeping f(f(x)) equal to f(x). Falsifier: declare the key, apply, change one byte of the source, plan and assert Update with no host access between the two plans; revert and assert NoOp.'
+  release: 1.32.0
 - id: PMAT-582
   github_issue: 582
   item_type: bug
-  title: 'drift with a missing state dir inspects a fraction of the scope and still returns a drift verdict'
-  status: planned
+  title: 'drift with a missing state dir inspected 40 of 153 and still returned ''Drift detected: 2'' — one host and one commit produced 2, 3 and 9 across three sessions'
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-16T11:02:45Z
-  updated: 2026-09-16T11:02:45Z
+  updated: 2026-09-20T12:05:18Z
   spec: null
   acceptance_criteria:
   - 'This row REGISTERS paiml/forjar#582 and ships no implementation. Measured 2026-09-16 on one host at one commit: with the canonical state dir, drift reported 9 DRIFTED and exit 1; with the default state dir, which does not exist in any git worktree because state is gitignored, it reported inspected 40 of 153 and Drift detected 2 and also exit 1. A third session reading the same host and commit got 3, from a second live lock tree. forjar#569 declines only at 0 of N, so a partial inspection returns an ordinary verdict. Done when this row exists, carries github_issue 582, and cites that measurement. The verdict change itself is future scope and is recorded in notes.'
@@ -4458,3 +4478,4 @@ roadmap:
   labels:
   - kind:code
   notes: 'Future scope, NOT shipped by this row: give a partial inspection a verdict distinguishable from a complete one, without disturbing the deliberate line PMAT-564 drew at zero. Naming the resolved state dir is tracked separately as forjar#585. Falsifier: run drift against a lock holding none of the manifest resources and assert the exit code differs from the same drift found against a complete lock; today both are 1.'
+  release: 1.32.0
