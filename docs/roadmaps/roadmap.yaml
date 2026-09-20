@@ -4436,3 +4436,23 @@ roadmap:
   labels:
   - kind:code
   notes: 'Future scope, NOT shipped by this row: give a partial inspection a verdict distinguishable from a complete one, without disturbing the deliberate line PMAT-564 drew at zero. Naming the resolved state dir is tracked separately as forjar#585. Falsifier: run drift against a lock holding none of the manifest resources and assert the exit code differs from the same drift found against a complete lock; today both are 1.'
+- id: PMAT-588
+  github_issue: 588
+  item_type: task
+  title: 'quorum.yml: the one self-hosted workflow still on the shared CARGO_HOME — give it the private one its four siblings have, and add the lint'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-20T07:16:53Z
+  updated: 2026-09-20T07:16:53Z
+  spec: null
+  acceptance_criteria:
+  - '.github/workflows/quorum.yml: the `receipt` job gains a job-private `env: CARGO_HOME` pointing at `${{ github.workspace }}/../cargo-home-${{ github.job }}` — the same value behavior.yml, convergence.yml, mutation.yml and binary-release.yml already carry — with a comment naming the mechanism (rust-cache''s save step runs cleanRegistry unconditionally and deletes registry/src for every other job on the box; cache-bin "false" skips cleanBin alone). The rust-cache step STAYS and nothing else in the file changes'
+  - 'scripts/lint-rust-cache-guard.sh (new): refuses Swatinem/rust-cache AND actions-rust-lang/setup-rust-toolchain on a self-hosted job unless that job declares a non-shared CARGO_HOME; prints workflows scanned and self-hosted among them; NO-GO on either being zero; --selftest covers four cases — rejected-with-cache-bin-false, clean-passes, no-self-hosted-is-NO-GO, private-CARGO_HOME-exonerated'
+  - 'wired: `make rust-cache-guard` runs --selftest then the scan, `lint:` depends on it, and lint.yml gains a "No shared $CARGO_HOME cache" step running the same target — selftest FIRST, because the scan passes trivially once every workflow complies and a lint nobody has seen fail is evidence of nothing'
+  - 'measured: before the fix the lint ERRORs on quorum.yml:55 and reports FAIL (5 use(s) in 18 self-hosted workflow(s) of 20 scanned); after it reports OK with the same denominator; selftest 4/4; bashrs lint on the new script 0 errors; and paiml/infra main''s machines/clean-room/shared-home-guard/check.sh run over the changed quorum.yml prints SITE with NO violation'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
