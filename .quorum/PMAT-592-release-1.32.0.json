@@ -1,10 +1,10 @@
 {
   "kind": "code",
-  "issue": "PMAT-592 (closes forjar#592) \u2014 release 1.32.0, and forjar#594 the gate B blocker it had to clear first. Three PRs since v1.31.0, ONE of which changes behaviour: the per-machine lock names the binary that wrote it on every write, keeps its creator, and lock --restamp converges a state dir (PMAT-565, #570) \u2014 the third signature of paiml/infra#605. The other two are ledger bookkeeping. No Rust is changed by this cut: the diff is the version, the record of what shipped, the crux comparison, and the roadmap repair that put the CB-21xx ratchet back under ceilings it had been over ON MAIN, where it was blocking every publish.",
+  "issue": "PMAT-592 (closes forjar#592) \u2014 release 1.32.0, and forjar#594 the gate B blocker it had to clear first. Three PRs since v1.31.0, ONE of which changes behaviour: the per-machine lock names the binary that wrote it on every write, keeps its creator, and lock --restamp converges a state dir (PMAT-565, #570) \u2014 the third signature of paiml/infra#605. The other two are ledger bookkeeping. No Rust is changed by this cut: the diff is the version, the record of what shipped, the crux comparison, and the roadmap repair that put the CB-21xx ratchet back under ceilings it had been over ON MAIN, where it was blocking every publish. It also fixes forjar#573: the receipt binding was not portable between clones, which is why the CI quorum check refused a receipt the local gate had just passed.",
   "branch": "PMAT-592-release-1.32.0",
   "base": "537252d3",
   "base_commit": "537252d3cc1c3d900bb8953e99f525545f45849b",
-  "diff_sha256": "3617ae6b5c59180e46f9088e9ce497e881ad4a5c",
+  "diff_sha256": "8bc39ea19003d49852f841a0b47fce2f903d17e4",
   "recorded_at": "after the single round recorded in .quorum/evidence/release-1.32.0-lanes.md, in which all three lanes returned FAIL and every one of them was right. Four confirmed claims, nine refuted. THE SPLIT IS THE RESULT: every STRUCTURAL claim about the diff survived three independent lanes, and every kill was PROSE \u2014 four sentences in this cut's own documentation that a reader could check and find false, plus one tree defect no gate reads.",
   "quorum": {
     "rounds": 1,
@@ -18,8 +18,8 @@
     "judges_note": "judges=3 counts the three lanes asked in the round; it is not three independent tiers and must not be read as such. TWO OF THE NINE REFUTATIONS DID NOT COME FROM A LANE AT ALL: gate A refused the three #583 receipts for missing both a verdict line and an END marker, and the infra session that reported the runner-tool gap re-measured it and refuted the issue this cut had filed about it. Instruments and other humans ruled before and beside the lanes.",
     "kill_rule": "no lane finding was dismissed in this round. The four claim-wording refutations (C1, C4, C5, C6) are recorded as REFUTED rather than argued down, because in each case the lane read the claim correctly even where the underlying substance was sound; the claims were rewritten rather than defended. The 55/53 finding was raised independently by all three lanes, which is the strongest signal in the round and is why the repair names the instrument beside every number rather than just fixing the arithmetic.",
     "refuters_per_claim": 3,
-    "claims_confirmed": 4,
-    "claims_refuted": 9,
+    "claims_confirmed": 3,
+    "claims_refuted": 10,
     "refuted_claims": [
       "R1: C1 as written \u2014 'no other version string in the diff claims a different number' elided three roadmap rows carrying release: 1.33.0. Those are ledger fields naming a future release, not this crate's version, but the claim did not say so and a lane was right to read it literally. Rewritten to distinguish Cargo.toml:3 from the ledger field.",
       "R2: C4 as written \u2014 'only the why array grew' was FALSE IN THE TREE. Rewriting the ratchet baseline with ensure_ascii=False had converted twenty pre-existing unicode escapes to literal em-dashes on lines this branch has no business touching. Restored with ensure_ascii=True; the removed-line count for that file is now 1.",
@@ -29,15 +29,16 @@
       "R6: 'a cadence release cut two days after 1.31.0' in docs/audits/crux-1.32.0.md \u2014 refuted by two dates in this same diff: 1.31.0 is dated 2026-09-16 and this is 2026-09-20. Four days against a two-day cadence, so the cut is fifty hours OVERDUE. The sentence presented a missed cadence as a kept one, in the one document meant to be adversarial.",
       "R7: 'CB-2115 from 53 to 41', one sentence after 'origin/main measured 55' \u2014 raised INDEPENDENTLY BY ALL THREE LANES. Two numbers for what reads as one measurement, and 55-12=43, not 41. Both are real and come from different instruments over different populations; the entry now names the instrument with every number.",
       "R8: 'Neither was held back for lack of importance \u2014 they were held back because a correctness fix that has not reached a root cause is not a release candidate' \u2014 false for forjar#591, whose roadmap notes in THIS DIFF name its cause to the file and line. One reason was given for two tickets held back for different reasons, flattering the diagnosed one and excusing the undiagnosed one. Now split.",
-      "R9: 'rsync is installed on some clean-room runners and not others' \u2014 the issue this cut filed had the wrong denominator. The job runs in a CONTAINER and the tool is absent from every runner image on the fleet, present only on one host. Closed against the upstream infra ticket that owns the runner-image inventory; the roadmap row is cancelled rather than deleted so the wrong reasoning stays on the record."
+      "R9: 'rsync is installed on some clean-room runners and not others' \u2014 the issue this cut filed had the wrong denominator. The job runs in a CONTAINER and the tool is absent from every runner image on the fleet, present only on one host. Closed against the upstream infra ticket that owns the runner-image inventory; the roadmap row is cancelled rather than deleted so the wrong reasoning stays on the record.",
+      "R10: C8 'this branch changes no .rs file' \u2014 TRUE WHEN THE QUORUM RAN, FALSE NOW, and the refuter was the CI gate rather than a lane. The quorum receipt this round produced was refused in CI as STALE on a head the LOCAL gate passed. Root cause: scripts/quorum-gate.sh hashed `git diff` without --full-index, so git abbreviated every index line to a length chosen from the OBJECT COUNT of whichever clone ran it \u2014 this workstation (42982 objects) abbreviated to 8 and produced 3617ae6b, the clean-room runner abbreviated to 9 and produced 3d09e341, and forcing core.abbrev=9 locally reproduced the runner's hash exactly. That is forjar#573, filed as a flake ('passes on rerun'); it is per-clone deterministic and a rerun only appears to fix it when the job lands on a runner whose object count agrees with the author's. Fixed here, with a falsification test this branch wrote."
     ]
   },
   "falsification": {
-    "test": "falsification_dogfood_scripts_declare_mutations is the falsifier this cut RESTS on rather than one it adds: it asserts every dogfood gate names the one-line change that turns it RED, that the script is strict, and that no || true swallows a measurement. This cut is an instance of that rule, and no new test is owed because the diff changes no Rust \u2014 gate F reports no .rs differs from origin/main. What this branch DOES add is docs/audits/logs/PMAT-592-cut.log, which records the four real reds the cut hit and the change that cleared each; the one behaviour being released was falsified on its own branch (#570, six cases through the writer and the binary, five RED before the stamp existed).",
-    "test_file": "docs/audits/logs/PMAT-592-cut.log",
-    "cargo_test_target": "falsification_dogfood_scripts_declare_mutations",
-    "observed_failure": "GATE B FAIL the CB-2110..CB-2115 ratchet (Arm 7): REGRESSION: CB-2114: 37 finding(s), ceiling 34 (recorded 2026-09-11); CB-2115: 52 finding(s), ceiling 43 \u2014 then GATE A FAIL PR #583: the last line of docs/audits/impl-PMAT-579-receipt.md is not IMPL-PMAT-579-RECEIPT-END \u2014 then GATE T FAIL PMAT-565 merged since v1.31.0 and its roadmap row does not carry release:v1.32.0. Three real reds on this branch, in sequence, each cleared by the change named beside it.",
-    "reverted": "not applicable: the reds above were REAL reds on this branch rather than reds manufactured by reverting a fix. Gate B's was inherited from main, which is the point of it \u2014 measured on origin/main in a detached worktree at CB-2115 55/43 and CB-2114 37/34 before this branch touched anything.",
+    "test": "abbrev_independence_is_what_makes_the_binding_portable \u2014 written by THIS branch, and it is a real falsifier rather than one the cut rests on. It hashes one commit range under two core.abbrev settings and requires a single answer, and its sibling without_full_index_the_two_settings_disagree is the ANTI-VACUITY arm: it requires that WITHOUT --full-index those same two settings DISAGREE, so a test that could never have observed the bug fails loudly instead of passing quietly.",
+    "test_file": "tests/falsification_quorum_hash_is_abbrev_independent.rs",
+    "cargo_test_target": "falsification_quorum_hash_is_abbrev_independent",
+    "observed_failure": "Removing --full-index from the diff_text= assignment in scripts/quorum-gate.sh: 'test abbrev_independence_is_what_makes_the_binding_portable ... FAILED', 'test result: FAILED. 1 passed; 1 failed' \u2014 while the anti-vacuity sibling stayed green, which is what proves the range can actually exhibit the difference. Restoring the flag returns both to ok, and the file was restored byte-identical from a copy rather than through git.",
+    "reverted": true,
     "still_green_when_reverted": false
   },
   "crux": {
@@ -96,9 +97,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 5761,
-        "sha256": "e94dbf9a94775b6bb4610a50840a45caa2ca53230a9542901b3845395fdc1b3e",
-        "blob": "8658172499c1443abb927ad4e05239ef01d2d919"
+        "bytes": 5847,
+        "sha256": "f002cde7f70b3d7e8508e3a41d6df6a0cebf5fda343d7b5bf84523d333f04adb",
+        "blob": "d58192448ad3afbda3d525f1f3df8fdcf31448e1"
       },
       {
         "path": ".quorum/evidence/release-1.32.0-agy.md",
@@ -110,7 +111,7 @@
         "blob": "ac63af45a07aa738c6da7cbb3d733a70d90062f7"
       }
     ],
-    "total_bytes": 13405,
+    "total_bytes": 13491,
     "claims_digest": ".quorum/evidence/release-1.32.0-judges.md"
   }
 }

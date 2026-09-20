@@ -10,9 +10,6 @@ Round count and heads: see `release-1.32.0-lanes.md`. Numbers here quote it.
    - evidence: GATE H PASS 1 of 1 behaviour bullet(s) under [1.32.0] reconciled, naming 5 of the 28 surveyed systems; re-run after every edit to the crux file in this branch.
 3. [diff] C7 — The twelve roadmap title syncs are lossless, because every row whose `title:` changed now carries its previous title verbatim inside its `notes:` field, so the definition-of-done wording that the sync overwrote is still readable at head.
    - evidence: the claude lane spot-checked PMAT-191, PMAT-196 (whose notes were null before), PMAT-198, PMAT-581 and PMAT-582 and found the pre-diff title reproduced exactly in each.
-4. [diff] C8 — This branch changes no Rust at all, so v1.32.0 ships exactly the code that merged in the window and nothing this cut authored, which is what makes the release reviewable as bookkeeping rather than as behaviour.
-   - evidence: GATE F PASS line coverage 96.44% >= 95%; no .rs differs from origin/main, so there is nothing to mutate — and the diff touches nine files, none with an .rs extension.
-
 ## REFUTED — claims that did not survive
 
 1. [diff] C1 — The claim said no other version string in the diff asserts a different number, which elides that three roadmap rows carry `release: 1.33.0`; those are ledger fields naming a future release rather than this crate's version, but the claim as written did not say so and a lane was right to read it literally.
@@ -33,3 +30,5 @@ Round count and heads: see `release-1.32.0-lanes.md`. Numbers here quote it.
    - corrected: the two are now split, with #590 held for having a reproduction and no root cause and #591 held for being two halves neither of which is safe to ship alone.
 9. [prose] R9 — The issue this cut filed about a missing tool on CI runners had the wrong denominator: it concluded the clean-room hosts disagreed with each other when the job in fact runs in a container and the tool is absent from every runner image on the fleet.
    - corrected: closed against the upstream infra ticket that owns the runner-image inventory, with the roadmap row cancelled rather than deleted so the wrong reasoning stays on the record.
+10. [tree] C8 — The claim that this branch changes no Rust was true when the quorum ran and is FALSE NOW: the CI quorum gate refused the receipt as STALE on a head the local gate passed, and diagnosing that added `tests/falsification_quorum_hash_is_abbrev_independent.rs:98` plus a one-word fix to the gate itself.
+   - corrected: C8 is withdrawn; the release now ships one test file and one shell fix authored by this cut, and the receipt's falsification names that test rather than the cut log.
