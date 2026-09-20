@@ -37,12 +37,22 @@
 # RESTORE is a no-op and the SAVE is the entire effect. The remedy is to delete
 # the step.
 #
-# WHY THIS REPO HAS THE LINT AT ALL
+# WHY THIS REPO IN PARTICULAR
 #
-# Five workflows carried the action and the org-wide census found the hazard
-# here rather than anyone reading these files. A rule enforced by review skips
-# whatever nobody re-read; this one fails the build.
+# rmedia hit the bin half FOUR TIMES. #283 fixed one of two call sites in one
+# file and #289 then moved the other onto the fleet, deleting cargo mid-run.
+# This lint was written then, and it encoded the mitigation rather than the
+# hazard — so for a month it certified five steps that were deleting the shared
+# registry, and one of them killed an infra build on 2026-09-19.
 #
+# WHY THE DENOMINATOR IS PRINTED AND ZERO USES IS NOT AUTOMATICALLY OK
+#
+# The previous version's pass line was "(N rust-cache use(s) across M workflows,
+# all guarded)". With the action deleted everywhere, N is 0 and the old check
+# passes having verified nothing — the vacuity this fleet is bitten by roughly
+# once a month. So this version reports what it SCANNED (workflows, and
+# self-hosted jobs among them) and refuses to pass on a zero denominator of
+# either. `--selftest` proves it can still reject.
 set -uo pipefail
 
 # The actions that cache $CARGO_HOME. `setup-rust-toolchain` wraps rust-cache
@@ -53,12 +63,22 @@ CACHE_ACTIONS='Swatinem/rust-cache|actions-rust-lang/setup-rust-toolchain'
 
 usage() { printf 'usage: lint-rust-cache-guard.sh [--selftest]\n'; }
 
+# HERE-STRINGS, NOT `printf ... | grep -q`, AND THIS IS LOAD-BEARING.
+#
+# Under `set -o pipefail`, `grep -q` exits at the first match and SIGPIPEs the
+# writer, so the PIPELINE's status can be 141 even though the test matched —
+# which makes a membership test answer the opposite of the truth, silently.
+# rmedia bans the shape repo-wide (falsify-pipefail-contains.sh) and its CI
+# caught this very file on the first run of the sibling copy of this lint. A lint that reports a wrong answer
+# about a fleet-destroying step is worse than no lint, so the shape is gone
+# rather than worked around.
+
 # Does this workflow have at least one job that can land on the fleet?
 # A `runs-on:` naming self-hosted, clean-room, or anything that is not an
 # obvious hosted image. Conservative on purpose: a job this cannot classify
 # counts as self-hosted, because the cost of a false negative is the fleet.
 has_self_hosted_job() { # $1 = stripped workflow text
-    printf '%s\n' "$1" | grep -qE 'runs-on:.*(self-hosted|clean-room)'
+    grep -qE 'runs-on:.*(self-hosted|clean-room)' <<<"$1"
 }
 
 # Does the job own its CARGO_HOME? The only exoneration. Read anywhere in the
@@ -66,9 +86,10 @@ has_self_hosted_job() { # $1 = stripped workflow text
 # is making the deliberate choice this rule asks for, and a lint that demanded
 # it at one specific level would reject the correct pattern written another way.
 has_private_cargo_home() { # $1 = stripped workflow text
-    printf '%s\n' "$1" \
-        | grep -E 'CARGO_HOME:' \
-        | grep -qvE 'CARGO_HOME:[[:space:]]*("|'"'"')?(~|\$\{?HOME\}?|/home/[^/]+|/Users/[^/]+)/\.cargo'
+    local declared
+    declared="$(grep -E 'CARGO_HOME:' <<<"$1")" || return 1
+    [ -n "$declared" ] || return 1
+    grep -qvE 'CARGO_HOME:[[:space:]]*("|'"'"')?(~|\$\{?HOME\}?|/home/[^/]+|/Users/[^/]+)/\.cargo' <<<"$declared"
 }
 
 scan() { # $1 = directory holding .github/workflows
@@ -93,7 +114,7 @@ scan() { # $1 = directory holding .github/workflows
             printf '       cache-bin: "false" does NOT prevent this; it skips cleanBin only.\n'
             printf '       Remedy: delete the step. On a persistent runner ~/.cargo already\n'
             printf '       persists, so the restore is a no-op and the save is the damage.\n'
-        done < <(printf '%s\n' "$stripped" | grep -nE "uses:[[:space:]]*($CACHE_ACTIONS)" | cut -d: -f1)
+        done < <(grep -nE "uses:[[:space:]]*($CACHE_ACTIONS)" <<<"$stripped" | cut -d: -f1)
     done
 
     # Two floors, because two different breakages produce a silent pass: no
