@@ -1,5 +1,7 @@
 # impl receipt — PMAT-579
 
+verdict: DONE — a roadmap row REGISTERS paiml/forjar#579 — apply and plan never compare the running binary to the version the manifest pins — carrying the measurement (lambda-labs applied a 1.31.0 pin under the 1.30.0 binary, intel under 1.31.0, same operator, seven minutes apart, neither said so) and recording the preflight itself in `notes:` as future scope with its own falsifier. Ships no implementation, by the row's own acceptance criterion. Merged into main by PR #583 (537252d3).
+
 **Registers** paiml/forjar#579. Ships no implementation.
 
 ## The measurement the row carries
@@ -27,3 +29,5 @@ Neither run said anything about the mismatch, because nothing in `apply` or `pla
 ## Why the title reads like an order
 
 `pmat work` titles are immutable. A row's title is therefore written as the definition-of-done of the work it registers, because that is the sentence the eventual implementation will be judged against. It is **not** this diff's contract. The criterion states this diff's contract; the implementation is recorded in the row's `notes:` as future scope with its own falsifier. On paiml/infra#633 a lane failed exactly this confusion, correctly, and the fix was a receipt like this one rather than a reworded title.
+
+IMPL-PMAT-579-RECEIPT-END

@@ -1,5 +1,7 @@
 # impl receipt — PMAT-582
 
+verdict: DONE — a roadmap row REGISTERS paiml/forjar#582 — drift with a missing state dir inspected 40 of 153 and still returned a verdict — carrying the measurement (one host and one commit produced 2, 3 and 9 across three sessions) and recording the partial-inspection verdict in `notes:` as future scope with its own falsifier. Ships no implementation, by the row's own acceptance criterion. Merged into main by PR #583 (537252d3).
+
 **Registers** paiml/forjar#582. Ships no implementation.
 
 ## The measurement the row carries
@@ -28,3 +30,5 @@ forjar#569 (PMAT-564) made `inspected 0 of N` decline with exit 2 and deliberate
 ## Why the title reads like an order
 
 `pmat work` titles are immutable. A row's title is therefore written as the definition-of-done of the work it registers, because that is the sentence the eventual implementation will be judged against. It is **not** this diff's contract. The criterion states this diff's contract; the implementation is recorded in the row's `notes:` as future scope with its own falsifier. On paiml/infra#633 a lane failed exactly this confusion, correctly, and the fix was a receipt like this one rather than a reworded title.
+
+IMPL-PMAT-582-RECEIPT-END
