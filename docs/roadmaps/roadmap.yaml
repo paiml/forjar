@@ -4289,6 +4289,25 @@ roadmap:
   - kind:code
   - release:v1.31.0
   notes: null
+- id: PMAT-592
+  github_issue: 592
+  item_type: task
+  title: 'release: forjar 1.32.0 — the per-machine lock names the binary that wrote it, keeps its creator, and lock --restamp converges a state dir'
+  release: 1.32.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-20T11:45:00Z
+  updated: 2026-09-20T11:45:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.32.0
+  notes: null
 - id: PMAT-574
   github_issue: 574
   item_type: task
@@ -4312,12 +4331,11 @@ roadmap:
   github_issue: 565
   item_type: task
   title: the per-machine lock's generator is the first writer's version and never updates — stamp the real writer on every write, keep the creator, add lock --restamp (infra#605 third signature)
-  release: 1.32.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-15T14:44:32Z
-  updated: 2026-09-15T14:44:32Z
+  updated: 2026-09-20T11:37:21Z
   spec: null
   acceptance_criteria:
   - 'Four fleet locks under one 1.30.0 binary say forjar 1.1.1 / 1.13.1 / 1.27.0 / 1.10.0 while generated_at rolls. Fix: save_lock stamps generator with the writing binary on every write and preserves the prior value as created_by; forjar lock --restamp rewrites every lock under a state dir in one run. Refs paiml/infra#605, forjar#565, forjar#561.'
@@ -4326,7 +4344,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-572
   github_issue: 572
   item_type: task
@@ -4367,12 +4387,11 @@ roadmap:
   github_issue: 576
   item_type: task
   title: 'ledger: book v1.31.0 — the row from the tag, the cookbook commit that locks it, and the next cut declared'
-  release: 1.32.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-16T09:13:44Z
-  updated: 2026-09-16T09:14:10Z
+  updated: 2026-09-20T11:39:25Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -4382,15 +4401,16 @@ roadmap:
   - kind:triage
   - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-579
   github_issue: 579
   item_type: task
-  title: 'apply and plan must refuse when the running binary is not the version the manifest pins'
-  status: planned
+  title: apply and plan must refuse when the running binary is not the version the manifest pins
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-16T11:02:45Z
-  updated: 2026-09-16T11:02:45Z
+  updated: 2026-09-20T11:41:35Z
   spec: null
   acceptance_criteria:
   - 'This row REGISTERS paiml/forjar#579 and ships no implementation. Measured on paiml/infra 2026-09-16: the lambda-labs apply of a 1.31.0 pin was performed by the 1.30.0 binary and the intel apply by the 1.31.0 binary, same operator, seven minutes apart, and neither said so, because apply and plan never compare the running binary to the version the manifest pins. Done when this row exists, carries github_issue 579, and cites that measurement. The preflight itself is future scope and is recorded in notes.'
@@ -4399,6 +4419,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.32.0
   notes: 'Future scope, NOT shipped by this row: apply and plan refuse on a mismatch unless the run is scoped with -r stack-tool-forjar, which must stay allowed because it is how the upgrade itself happens. Falsifier: pin X, run with binary Y, assert refusal; add -r stack-tool-forjar and assert it proceeds.'
 - id: PMAT-581
   github_issue: 581
