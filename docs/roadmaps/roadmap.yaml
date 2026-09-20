@@ -4288,6 +4288,44 @@ roadmap:
   - kind:code
   - release:v1.31.0
   notes: null
+- id: PMAT-590
+  github_issue: 590
+  item_type: task
+  title: '`apply --refresh` never consults `completion_check` for a resource containing a template — every guard on the fleet is affected'
+  release: 1.33.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-20T12:20:00Z
+  updated: 2026-09-20T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Reproduced against the released 1.31.0 binary: two manifests differing only by one {{params.home}}, identical completion_check satisfied before both runs, produce "1 unchanged" (no marker on disk) and "1 converged" (marker created). Done when the templated variant reports unchanged and creates no marker, and when check_passes_on no longer collapses could-not-measure into check-failed. Resolution itself is NOT the cause and is ruled out; plan --why is byte-identical for both variants, so the planner is not the divergence.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Remaining suspects, both inside check_passes_on (src/core/executor/refresh_seed.rs:42): codegen::check_script(&resolved) returning Err, and the transport .ok() / !out.success() arm. It also resolves with SecretsConfig::default() rather than the executor''s, which resolve_or_fallback''s doc comment calls load-bearing and which may be the SAME defect rather than a second one. Instrument the three false returns separately and run the two-manifest fixture against each BEFORE changing anything: fixing the swallow and the secrets config in one commit means neither is falsified.'
+- id: PMAT-591
+  github_issue: 591
+  item_type: task
+  title: 'nothing compares LIVE against the DECLARATION: drift is live-vs-lock, plan is config-vs-lock, and a declared version: is an input to neither'
+  release: 1.33.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-20T12:20:00Z
+  updated: 2026-09-20T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'A package resource CONVERGED in the lock, live matching the lock, with the config since bumped to a different version:, is reported by drift; apply, and drift goes quiet. Both halves fail today. The fixture is HERMETIC — a temp config, no host — because the fleet state it was found in is written by other sessions concurrently and is a race, not a fixture.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Two independent halves, and neither substitutes for the other. (1) The cargo and uv drift observables discard the installed version (src/resources/package/mod.rs:231, cargo.rs:405) — apt and brew carry it — so live-vs-lock is version-blind for those providers; repairing it does NOT close live-vs-config, because a box that never had the apply still matches its own lock. (2) Probing a declared version: against the host closes live-vs-config, which is the hole. Do not fold the version into the hashed observable: it re-hashes every cargo package on every host and produces a false-positive wave. Corroboration: paiml/infra#264 (copia drifted three versions unnoticed) and five hand-maintained declared-vs-live tables, each added after its own incident, all of them this one defect.'
 - id: PMAT-594
   github_issue: 594
   item_type: task
