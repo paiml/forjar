@@ -18,12 +18,20 @@ receipt its ticket names.
 and what that comparison found. It cannot show that the comparison is correct in
 detail — `scripts/dogfood/crux-reconcile.sh` says the same about itself.
 
-**What 1.32.0 is about.** One behaviour, and it is the fourth signature of
+**What 1.32.0 is about.** One behaviour, and it is the THIRD signature of
 paiml/infra#605 to be answered: a state file that names a writer it did not have.
-The window is small on purpose. This is a cadence release cut two days after
-1.31.0 under the `cadence_days: 2` rule in `docs/roadmaps/releases.yaml`, and the
-discipline the cadence exists to enforce is that one fleet-affecting fix ships as
-soon as it is ready rather than waiting for company.
+The CHANGELOG paragraph for this release says "third signature" in PMAT-565's own
+words, and 1.31.0's says "second"; an earlier draft of this file said "fourth"
+and a review lane caught it against those two sentences.
+The window is small on purpose, and the cut is LATE rather than on time. 1.31.0
+was cut 2026-09-16 and this is 2026-09-20: four days, against the
+`cadence_days: 2` rule in `docs/roadmaps/releases.yaml`, so it went out 50 hours
+overdue. An earlier draft of this paragraph called it "a cadence release cut two
+days after 1.31.0", which the CHANGELOG's own two dates in this same diff refute;
+a review lane quoted it back. The discipline the cadence exists to enforce is
+still the point — one fleet-affecting fix ships as soon as it is ready rather
+than waiting for company — but this release is evidence of the rule being missed,
+not of it being kept.
 
 ## The comparison
 
