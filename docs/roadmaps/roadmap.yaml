@@ -4406,6 +4406,7 @@ roadmap:
   github_issue: 579
   item_type: task
   title: apply and plan must refuse when the running binary is not the version the manifest pins
+  release: 1.32.0
   status: completed
   priority: high
   assigned_to: null
