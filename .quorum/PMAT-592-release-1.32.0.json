@@ -1,0 +1,117 @@
+{
+  "kind": "code",
+  "issue": "PMAT-592 (closes forjar#592) \u2014 release 1.32.0, and forjar#594 the gate B blocker it had to clear first. Three PRs since v1.31.0, ONE of which changes behaviour: the per-machine lock names the binary that wrote it on every write, keeps its creator, and lock --restamp converges a state dir (PMAT-565, #570) \u2014 the third signature of paiml/infra#605. The other two are ledger bookkeeping. No Rust is changed by this cut: the diff is the version, the record of what shipped, the crux comparison, and the roadmap repair that put the CB-21xx ratchet back under ceilings it had been over ON MAIN, where it was blocking every publish. It also fixes forjar#573: the receipt binding was not portable between clones, which is why the CI quorum check refused a receipt the local gate had just passed.",
+  "branch": "PMAT-592-release-1.32.0",
+  "base": "537252d3",
+  "base_commit": "537252d3cc1c3d900bb8953e99f525545f45849b",
+  "diff_sha256": "8bc39ea19003d49852f841a0b47fce2f903d17e4",
+  "recorded_at": "after the single round recorded in .quorum/evidence/release-1.32.0-lanes.md, in which all three lanes returned FAIL and every one of them was right. Four confirmed claims, nine refuted. THE SPLIT IS THE RESULT: every STRUCTURAL claim about the diff survived three independent lanes, and every kill was PROSE \u2014 four sentences in this cut's own documentation that a reader could check and find false, plus one tree defect no gate reads.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head ac06c1be \u2014 lane 1, agy gemini-3.1-pro-high, effort high, conv-eb4c6032: FAIL. Found the twenty unicode escapes a JSON rewrite had converted to literal em-dashes (no gate in this repository reads that file's formatting), the fourth-versus-third signature contradiction against the CHANGELOG's own sentence, the 55/53 arithmetic, and four claim-wording refutations.",
+      "round 1, head ac06c1be \u2014 lane 2, agy gemini-3.1-pro-low, conv-335ed5ef: FAIL. Found the 55/53 arithmetic independently of the other two lanes, and the single reason given for holding back both forjar#590 and forjar#591, refuted from roadmap rows inside the diff it was reviewing. Dispatched without --effort after --effort high was refused as conflicting with the -low model.",
+      "round 1, head ac06c1be \u2014 lane 3, claude sonnet: FAIL. The only lane in the author's own family and the cheap one. Found the cadence sentence, refuted against two dates in the same diff (1.31.0 dated 2026-09-16, this cut 2026-09-20, four days against a two-day cadence), and the 55/53 arithmetic independently. Confirmed all eight structural claims before killing the prose."
+    ],
+    "lane_errors": 1,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked in the round; it is not three independent tiers and must not be read as such. TWO OF THE NINE REFUTATIONS DID NOT COME FROM A LANE AT ALL: gate A refused the three #583 receipts for missing both a verdict line and an END marker, and the infra session that reported the runner-tool gap re-measured it and refuted the issue this cut had filed about it. Instruments and other humans ruled before and beside the lanes.",
+    "kill_rule": "no lane finding was dismissed in this round. The four claim-wording refutations (C1, C4, C5, C6) are recorded as REFUTED rather than argued down, because in each case the lane read the claim correctly even where the underlying substance was sound; the claims were rewritten rather than defended. The 55/53 finding was raised independently by all three lanes, which is the strongest signal in the round and is why the repair names the instrument beside every number rather than just fixing the arithmetic.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 10,
+    "refuted_claims": [
+      "R1: C1 as written \u2014 'no other version string in the diff claims a different number' elided three roadmap rows carrying release: 1.33.0. Those are ledger fields naming a future release, not this crate's version, but the claim did not say so and a lane was right to read it literally. Rewritten to distinguish Cargo.toml:3 from the ledger field.",
+      "R2: C4 as written \u2014 'only the why array grew' was FALSE IN THE TREE. Rewriting the ratchet baseline with ensure_ascii=False had converted twenty pre-existing unicode escapes to literal em-dashes on lines this branch has no business touching. Restored with ensure_ascii=True; the removed-line count for that file is now 1.",
+      "R3: C5 as written \u2014 it enumerated four minted roadmap rows and the diff mints five, omitting PMAT-592, which is its own row. A sentence that purports to enumerate a whole repair and does not is a miscount, not a shorthand.",
+      "R4: C6 as written \u2014 'exactly two lines' is not what the diff shows; each receipt also gains the blank lines separating the verdict and the end marker from surrounding prose. The word exactly was doing work it could not support.",
+      "R5: 'the fourth signature of paiml/infra#605' in docs/audits/crux-1.32.0.md \u2014 the CHANGELOG paragraph for the very same behaviour calls it the THIRD, and 1.31.0's calls its own the second. The document written to reconcile the release contradicted the release notes it reconciles. Corrected to third, with the correction recorded in the file.",
+      "R6: 'a cadence release cut two days after 1.31.0' in docs/audits/crux-1.32.0.md \u2014 refuted by two dates in this same diff: 1.31.0 is dated 2026-09-16 and this is 2026-09-20. Four days against a two-day cadence, so the cut is fifty hours OVERDUE. The sentence presented a missed cadence as a kept one, in the one document meant to be adversarial.",
+      "R7: 'CB-2115 from 53 to 41', one sentence after 'origin/main measured 55' \u2014 raised INDEPENDENTLY BY ALL THREE LANES. Two numbers for what reads as one measurement, and 55-12=43, not 41. Both are real and come from different instruments over different populations; the entry now names the instrument with every number.",
+      "R8: 'Neither was held back for lack of importance \u2014 they were held back because a correctness fix that has not reached a root cause is not a release candidate' \u2014 false for forjar#591, whose roadmap notes in THIS DIFF name its cause to the file and line. One reason was given for two tickets held back for different reasons, flattering the diagnosed one and excusing the undiagnosed one. Now split.",
+      "R9: 'rsync is installed on some clean-room runners and not others' \u2014 the issue this cut filed had the wrong denominator. The job runs in a CONTAINER and the tool is absent from every runner image on the fleet, present only on one host. Closed against the upstream infra ticket that owns the runner-image inventory; the roadmap row is cancelled rather than deleted so the wrong reasoning stays on the record.",
+      "R10: C8 'this branch changes no .rs file' \u2014 TRUE WHEN THE QUORUM RAN, FALSE NOW, and the refuter was the CI gate rather than a lane. The quorum receipt this round produced was refused in CI as STALE on a head the LOCAL gate passed. Root cause: scripts/quorum-gate.sh hashed `git diff` without --full-index, so git abbreviated every index line to a length chosen from the OBJECT COUNT of whichever clone ran it \u2014 this workstation (42982 objects) abbreviated to 8 and produced 3617ae6b, the clean-room runner abbreviated to 9 and produced 3d09e341, and forcing core.abbrev=9 locally reproduced the runner's hash exactly. That is forjar#573, filed as a flake ('passes on rerun'); it is per-clone deterministic and a rerun only appears to fix it when the job lands on a runner whose object count agrees with the author's. Fixed here, with a falsification test this branch wrote."
+    ]
+  },
+  "falsification": {
+    "test": "abbrev_independence_is_what_makes_the_binding_portable \u2014 written by THIS branch, and it is a real falsifier rather than one the cut rests on. It hashes one commit range under two core.abbrev settings and requires a single answer, and its sibling without_full_index_the_two_settings_disagree is the ANTI-VACUITY arm: it requires that WITHOUT --full-index those same two settings DISAGREE, so a test that could never have observed the bug fails loudly instead of passing quietly.",
+    "test_file": "tests/falsification_quorum_hash_is_abbrev_independent.rs",
+    "cargo_test_target": "falsification_quorum_hash_is_abbrev_independent",
+    "observed_failure": "Removing --full-index from the diff_text= assignment in scripts/quorum-gate.sh: 'test abbrev_independence_is_what_makes_the_binding_portable ... FAILED', 'test result: FAILED. 1 passed; 1 failed' \u2014 while the anti-vacuity sibling stayed green, which is what proves the range can actually exhibit the difference. Restoring the flag returns both to ok, and the file was restored byte-identical from a copy rather than through git.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "docs/audits/crux-1.32.0.md, one row for the one behaviour bullet, naming 5 of the 28 surveyed systems. Written by the release orchestrator from documentation memory rather than surveyed by a lane, every third-party claim marked [X], and the Method section says so in its first paragraph. TWO OF ITS SENTENCES WERE REFUTED BY LANES IN THIS ROUND (R5, R6) and the file now records both corrections rather than quietly absorbing them.",
+    "systems": [
+      "Terraform: state carries terraform_version, is rewritten to the CURRENT binary's version on every state write, and a state written by a newer version is REFUSED rather than silently parsed [X] \u2014 record, refresh, enforce; forjar takes the first two and deliberately not the third, which is tracked separately as forjar#579",
+      "Kubernetes: server-side apply records metadata.managedFields, naming which manager owned which field on which operation [X], a per-field writer HISTORY rather than one name \u2014 which is the instinct behind keeping the creator in created_by instead of erasing it",
+      "SLSA, Nix, Puppet: a provenance attestation's builder.id exists to say which tool at which version produced the artifact and a consumer that cannot resolve it should reject [X]; Nix sidesteps the question entirely because the builder is part of the derivation's input closure [X]; Puppet is the weakest and most like where forjar was, carrying puppet_version in reports while the agent state is not a versioned artifact a later run reconciles against [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes, review-only, dispatched detached with --sandbox, no --add-dir and no --dangerously-skip-permissions; the brief pastes the claims, the recorded gate result and the whole diff inline so no lane has repository access. The per-round table is .quorum/evidence/release-1.32.0-lanes.md",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "both agy lanes FAIL and both were right. gemini-3.1-pro-high found the unicode-escape rewrite, which no gate in this repository reads and nothing else on the branch would have caught; gemini-3.1-pro-low found the single reason given for holding back two different tickets. Both found the 55/53 arithmetic, as did the Claude lane. Two families were used rather than three agy lanes per the operator's ruling, so width is bought on a separate quota."
+  },
+  "pmat": {
+    "ticket": "PMAT-592",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests: 392+ no-failure-mode and three silent-skip findings across the repository, NONE of them in a path this diff touches, because this diff touches no .rs file",
+      "scripts/ratchets/comply-count.sh CB-2110|CB-2111|CB-2112|CB-2114|CB-2115 (origin/main in a detached worktree: CB-2115 55, CB-2114 37; at head: 49/49, 49/49, 33/35, 33/34, 38/43)",
+      "scripts/release-goal.sh show and sync (v1.32.0 due 2026-09-18T08:50:38Z, 50h overdue, 3 merged)",
+      "pmat work sync --check-only (53 findings before the repair, 38 after; DRIFT 12 to 0)",
+      "pmat work add --github-issue N and pmat work edit (rows minted under their own issue numbers; statuses moved through inprogress because work-dbc-v1.yaml refuses planned to completed directly)",
+      "make dogfood-release (nine gates, exit 0, zero error lines)"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/release-1.32.0-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2254,
+        "sha256": "713a6dbcf9a2b731d9c4c85663acadf86a1a0b583f06f56b154e6b47ff375f39",
+        "blob": "4f7dfb7444df4799205f0ef50f340382874b22a0"
+      },
+      {
+        "path": ".quorum/evidence/release-1.32.0-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2964,
+        "sha256": "770e05e011e678f94495924ef4576d4964900da1453d69a0d126b8360832e595",
+        "blob": "a68eed6c9933d4d080cf805d53bf7eba8fefd382"
+      },
+      {
+        "path": ".quorum/evidence/release-1.32.0-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 5847,
+        "sha256": "f002cde7f70b3d7e8508e3a41d6df6a0cebf5fda343d7b5bf84523d333f04adb",
+        "blob": "d58192448ad3afbda3d525f1f3df8fdcf31448e1"
+      },
+      {
+        "path": ".quorum/evidence/release-1.32.0-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2426,
+        "sha256": "8fd789feaa42cae3321c675c34d4459b2473d5e0cf2becc69f8cc54bc1adcc23",
+        "blob": "ac63af45a07aa738c6da7cbb3d733a70d90062f7"
+      }
+    ],
+    "total_bytes": 13491,
+    "claims_digest": ".quorum/evidence/release-1.32.0-judges.md"
+  }
+}
