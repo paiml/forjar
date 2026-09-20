@@ -48,7 +48,55 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install Rust toolchain
-        run: rustup show
+        shell: bash
+        run: |
+          set -euo pipefail
+          # forjar#567: A RUSTUP *DIRECTORY OVERRIDE* OUTRANKS rust-toolchain.toml.
+          #
+          # This file pins 1.93.0 with `components = ["rustfmt", "clippy"]`, and
+          # on a runner that honours it clippy is present because the pin brings
+          # it. Measured on main @ 07f6d122, two different runners, same commit:
+          #
+          #   /home/noah/eph-build2/...      1.93.0 "overridden by rust-toolchain.toml"   PASS
+          #   /home/noah/data/actions-runner-7/...  1.89.0 "directory override for ..."   FAIL
+          #
+          # Both toolchains were installed on the failing runner; only 1.93.0
+          # carries clippy, so the job died with "'cargo-clippy' is not installed
+          # for the toolchain '1.89.0-x86_64-unknown-linux-gnu'".
+          #
+          # The override is PERSISTENT STATE on the runner's workspace directory,
+          # set by something outside this repository and surviving every job. That
+          # is the thing a clean room is supposed not to have, and it made lint red
+          # on main for six consecutive runs while the identical tree was green on
+          # a PR -- which reads as "main is broken and the PR fixed it" and is not
+          # true of either.
+          #
+          # `rustup override unset` removes the override for THIS directory and
+          # exits 0 when there is none to remove (measured), so it needs no
+          # `|| true` -- which this repository forbids on anything that measures.
+          rustup override unset
+          rustup show
+
+          # AND THEN MEASURE THE PROPERTY -- DO NOT PARSE FOR IT.
+          #
+          # An earlier draft of this step compared the active toolchain's version
+          # against the `channel` in rust-toolchain.toml. THREE REVIEW LANES
+          # REFUTED IT INDEPENDENTLY, and they were right: that comparison is
+          # correct only for the one channel spelling in use today.
+          #
+          #   channel = "stable"        want=stable      got=1.93.0   false FAIL
+          #   nightly-2026-01-01-...    got=nightly                   false FAIL
+          #   1.93.0-beta.1             got=1.93.0                    false PASS
+          #
+          # `cut -d- -f1` cannot tell a version's hyphens from a target triple's.
+          # What this job actually needs is not a matching string -- it is a
+          # RUNNABLE CLIPPY, which is one command to ask for directly. Asking
+          # the question we mean removes the whole class of parsing bug.
+          if ! cargo clippy --version; then
+            active="$(rustup show active-toolchain)" || active="UNKNOWN -- rustup could not name one"
+            echo "::error::ENVIRONMENT, not lint: cargo clippy is not runnable on this runner. Active toolchain: ${active}. rust-toolchain.toml pins a channel with clippy in its components, so a runner honouring the pin has clippy; this one is not honouring it, and the cause is outside anything this workflow can reach (a rustup override on a PARENT directory, which `rustup override unset` above does not remove, or RUSTUP_TOOLCHAIN in the runner service environment). Nothing about the code under review has been measured -- this is not a lint result."
+            exit 1
+          fi
 
       - name: Cache cargo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
