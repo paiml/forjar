@@ -1,0 +1,111 @@
+{
+  "kind": "code",
+  "issue": "PMAT-567 (closes forjar#567) \u2014 lint was measuring a toolchain this repository never pinned. A rustup DIRECTORY OVERRIDE on some clean-room runners' workspace directories outranks rust-toolchain.toml, so the job resolved 1.89.0 (no clippy) instead of the pinned 1.93.0 (clippy in components). lint was red on main for six consecutive runs while the identical tree was green on PR #593, which reads as 'main is broken and the PR fixed it' and is true of neither.",
+  "branch": "PMAT-567-lint-toolchain-override",
+  "base": "07f6d122",
+  "base_commit": "07f6d122b9b241c1c46904826b8c90660337e46a",
+  "diff_sha256": "dea9ce2449b713a57520fef17ccb03ea1c73416d",
+  "recorded_at": "after one round in which the two agy lanes returned FAIL and the Claude lane PASS. THE LANES REWROTE HALF THE FIX: the version comparison the first draft used was refuted independently by all three, with three different counterexamples, and was replaced by a direct measurement rather than hardened. A seventh refutation came from running the test's own declared mutation, which showed the test was VACUOUS.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 949ca86c \u2014 lane 1, agy gemini-3.1-pro-high, effort high: FAIL. `cut -d- -f1` false-passes a beta toolchain (1.93.0-beta.1 reduces to 1.93.0); and under `set -euo pipefail` a rustup that cannot resolve a toolchain aborts the script before the named refusal can print.",
+      "round 1, head 949ca86c \u2014 lane 2, agy gemini-3.1-pro-low: FAIL. `rustup override unset` removes the override for the CURRENT directory only, so one set on a parent survives it; and a date-pinned nightly reduces to `nightly` under the same parsing, giving a false FAIL.",
+      "round 1, head 949ca86c \u2014 lane 3, claude sonnet: PASS on all six claims, while finding two real fragilities: a `channel = \"stable\"` pin never matches a resolved version, and `toolchain_step()` sliced three steps wide while its name claimed one. The disagreement between this lane's PASS and the two agy FAILs was itself the signal."
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked in the round; it is not three independent tiers. ONE REFUTATION CAME FROM NO LANE: re-running the mutation the falsification test itself declared showed the test was vacuous, because the asserted substring appears in the step's comments and error message as well as in the command. An instrument that is run rather than trusted is a judge too.",
+    "kill_rule": "nothing was dismissed. The version comparison was not patched to handle the three counterexamples; it was REPLACED with `cargo clippy --version`, because three independent counterexamples against one line of parsing is evidence about the approach rather than about the cases found. Ask for the property, do not parse for it.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 7,
+    "refuted_claims": [
+      "R1: the version comparison \u2014 `cut -d- -f1` cannot tell a version's hyphens from a target triple's, so the guard was correct only for the one channel spelling in use the day it was written. Replaced with a direct measurement.",
+      "R2: a `channel = \"stable\"` pin never matches a resolved version, so the comparison would have false-FAILED on the most ordinary pin a Rust project can have, on every runner, immediately.",
+      "R3: a date-pinned nightly reduces to `nightly` and a beta to its base version, giving a false FAIL and a false PASS from the same line. Three lanes, three counterexamples, one cause.",
+      "R4: 'a stale directory override can no longer retarget the job' \u2014 too strong. `rustup override unset` reaches the CURRENT directory only; one set on a parent survives it. The error message now names that case rather than implying it cannot arise.",
+      "R5: 'refuses BY NAME' is conditional on rustup working at all \u2014 under `set -euo pipefail` a rustup that resolves nothing aborts before the message prints. Recorded rather than papered over.",
+      "R6: THE FALSIFICATION TEST WAS VACUOUS UNDER ITS OWN DECLARED MUTATION. `step.contains(\"rustup override unset\")` is satisfied by the step's comments and its error message, so replacing the real command with `rustup override list` left the test GREEN \u2014 measured, not reasoned. Now anchored to a line that IS the command.",
+      "R7: `toolchain_step()` sliced from the toolchain step through the unrelated Cache cargo step up to Clippy, three steps wide, so a substring in an unrelated step would have satisfied assertions about this one. Narrowed to the next `- name:`."
+    ]
+  },
+  "falsification": {
+    "test": "lint_unsets_a_directory_override_before_running_clippy and a_toolchain_that_disagrees_with_the_pin_is_refused_by_name, both written by this branch, plus the_pin_still_carries_clippy as the anti-vacuity arm.",
+    "test_file": "tests/falsification_lint_refuses_a_toolchain_override.rs",
+    "cargo_test_target": "falsification_lint_refuses_a_toolchain_override",
+    "observed_failure": "`rustup override unset` -> `rustup override list` in the workflow: 'test lint_unsets_a_directory_override_before_running_clippy ... FAILED', 'test result: FAILED. 2 passed; 1 failed'. And `if ! cargo clippy --version; then` -> `if false; then`: 'test a_toolchain_that_disagrees_with_the_pin_is_refused_by_name ... FAILED', '2 passed; 1 failed'. Each mutation reddens exactly one test, which is what makes the mutation comment an address rather than a gesture.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "No crux row is owed: this branch changes no shipped behaviour, adds no CHANGELOG bullet, and gate H requires a row per behaviour bullet. The comparison below is recorded because the design question it settles is real, not because a gate demanded it.",
+    "systems": [
+      "Nix: a build's toolchain is part of the derivation's input closure, so 'which compiler ran' is not a question a job can get a surprising answer to [X] \u2014 the failure mode repaired here cannot exist there by construction",
+      "Bazel: toolchain resolution is explicit and hermetic per target rather than inherited from ambient state in the workspace directory [X], which is precisely the ambient state a rustup directory override is",
+      "Docker, OSTree: the container and image world answers this by making the environment itself the versioned artifact [X], which is the direction paiml/infra#813 takes for the fleet's runner images \u2014 the half of this defect that cannot be fixed from inside this repository"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes, review-only, JSON-schema-constrained, brief pasted inline with no repository access",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "both agy lanes FAIL and both were right. The Claude lane returned PASS on all six claims; the defect that mattered most \u2014 a version comparison correct only for one channel spelling \u2014 was caught only by the lanes outside the author's own family. A quorum drawn entirely from that family would have shipped it."
+  },
+  "pmat": {
+    "ticket": "PMAT-567",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests: no finding in a path this diff touches; the vacuity that mattered here was in the NEW test and was found by running its own declared mutation, which no static analysis claims to do",
+      "cargo test --test falsification_lint_refuses_a_toolchain_override (green, then RED under each declared mutation, then green again after restoring from a copy rather than through git)",
+      "cargo fmt --all and the pre-commit clippy gate, both green"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-567-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 985,
+        "sha256": "3276f88ba9f993899a73c40a7b34238435ef3a29f219fe4bd7c7026ec9421406",
+        "blob": "a223e81df4adfabdc39b5113c070d58940bc345e"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-567-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1647,
+        "sha256": "e238ee5e6170385db672ca01c079f8704cfff5546e0272dbc6496739f01b383a",
+        "blob": "f02913c397bff280cc1df459788eb038ef3923da"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-567-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 4774,
+        "sha256": "6749d42109c528c82b67b6d252e735a3779cfbee4a13f3b86f4420f0dd509d23",
+        "blob": "08ebb3f039e26b4e11d6a515cae4f823f41885b8"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-567-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1305,
+        "sha256": "abc4ba55e031af6bc9ea58a17192665432145d514fdc094d5e2957f362a3a397",
+        "blob": "e66010d5abd8b5956426e3cb9c246d8ee4b5c3c6"
+      }
+    ],
+    "total_bytes": 8711,
+    "claims_digest": ".quorum/evidence/PMAT-567-judges.md"
+  }
+}
