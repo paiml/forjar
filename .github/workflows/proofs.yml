@@ -187,7 +187,27 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    runs-on: [self-hosted, clean-room, X64]
+    # `intel` is INTERIM and load-bearing, not a preference (paiml/infra#781).
+    #
+    # Lean reaches this job through `~/.elan` in the runner USER's home:
+    # machines/intel/forjar.yaml declares `elan-toolchain-manager` (leanprover/elan
+    # v4.2.3, tag-pinned) and the intel host runners inherit it because they run
+    # as noah with HOME=/home/noah. The ephemeral docker runners (yoga-build*,
+    # gx10-build, gx10-pool*) are built from Dockerfile.gpu-runner, which
+    # installs rustup and jq and NOTHING for Lean -- so the step below refuses
+    # with "lean is not in the CI image" whenever the scheduler sends this job
+    # there. Measured 2026-09-20: failure on yoga-build2, success on
+    # intel-clean-room-10 and -11 on comparable commits. `lean` is upstream of
+    # `gate`, a required check, so an unpinned job trains "re-run until it lands
+    # on intel" -- a bypass with extra steps.
+    #
+    # The pin is reversible and comes out when the capability exists everywhere
+    # the `clean-room` label does. The real fix is infra#781: a job that needs a
+    # non-default capability declares it, and a sensor asks every host carrying
+    # the matching label whether it HAS it -- reading the box, because the
+    # Dockerfile is a claim about what was built and the runner's PATH is the
+    # fact.
+    runs-on: [self-hosted, clean-room, X64, intel]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
