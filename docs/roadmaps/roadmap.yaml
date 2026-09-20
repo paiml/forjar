@@ -4331,7 +4331,7 @@ roadmap:
   item_type: task
   title: 'the coverage lane is a coin flip: rsync is installed on some clean-room runners and not others, and nas_archive correctly refuses to certify without it'
   release: 1.33.0
-  status: planned
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-09-20T12:30:00Z
@@ -4344,7 +4344,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: 'Sibling defect, same lane, same cause class: forjar#567 (cargo-clippy absent for the 1.89 toolchain, lint.yml red on main for 5+ consecutive runs). Both are fleet uniformity, which is forjar''s own job to declare on the runner hosts.'
+  notes: 'CANCELLED 2026-09-20: not a forjar defect. Re-measured on the right denominator by the infra session — the job runs in a CONTAINER and rsync is absent from every runner image (gx10-pool1, yoga-build3, pforge-clean-room), present only on the intel HOST. The fix is the runner-image declaration, tracked as paiml/infra#813 over the whole inventory (rsync, jq, rustc, git, curl, unzip, fontconfig) with tool-pin-check reading inside containers. The test stays exactly as strict as it is. Sibling defect, same lane, same cause class: forjar#567 (cargo-clippy absent for the 1.89 toolchain, lint.yml red on main for 5+ consecutive runs). Both are fleet uniformity, which is forjar''s own job to declare on the runner hosts.'
 - id: PMAT-594
   github_issue: 594
   item_type: task

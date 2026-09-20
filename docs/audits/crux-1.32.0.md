@@ -66,7 +66,20 @@ Two fleet-wide defects were reproduced during this cut and are NOT in 1.32.0:
   an input to neither verdict, which is how a fleet pin sat two minors stale with
   both tools behaving exactly as documented.
 
-Both are targeted at 1.33.0. Neither was held back for lack of importance — they
-were held back because a correctness fix that has not reached a root cause is not
-a release candidate, and because shipping 1.32.0 two days late with one proven
-fix is the cadence working rather than failing.
+Both are targeted at 1.33.0, and they are held back for DIFFERENT reasons — an
+earlier draft gave them one reason and a review lane refuted it, correctly:
+
+- **#590 has a reproduction and no root cause.** Three `false` returns in
+  `check_passes_on` are collapsed into one, and which of them the fixture is
+  taking has not been measured. A fix for a fleet-wide guard path that cannot
+  explain itself is not a release candidate.
+- **#591's cause IS named**, to the line: the `cargo` and `uv` drift observables
+  discard the installed version (`src/resources/package/mod.rs:231`,
+  `cargo.rs:405`), and nothing anywhere compares live against the declaration.
+  It is held back because it is two independent halves — repairing the
+  observables closes live-versus-lock, probing the declaration closes
+  live-versus-config — and shipping either alone produces an instrument that
+  would have missed the incident that produced it.
+
+Neither was held back for lack of importance. Shipping 1.32.0 two days past its
+due date with one proven fix is the cadence being enforced late, not waived.
