@@ -4582,11 +4582,11 @@ roadmap:
   github_issue: 588
   item_type: task
   title: 'quorum.yml: the one self-hosted workflow still on the shared CARGO_HOME — give it the private one its four siblings have, and add the lint'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-20T07:16:53Z
-  updated: 2026-09-20T07:16:53Z
+  updated: 2026-09-21T10:33:16Z
   spec: null
   acceptance_criteria:
   - '.github/workflows/quorum.yml: the `receipt` job gains a job-private `env: CARGO_HOME` pointing at `${{ github.workspace }}/../cargo-home-${{ github.job }}` — the value behavior.yml, convergence.yml, mutation.yml and binary-release.yml already use; the rust-cache step at quorum.yml:76 STAYS'
@@ -4597,8 +4597,10 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.33.0
   notes: null
+  release: 1.33.0
 - id: PMAT-604
   github_issue: 604
   item_type: task
