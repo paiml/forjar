@@ -3716,7 +3716,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-09-16T09:13:55Z
+  updated: 2026-09-21T09:48:50Z
   spec: null
   acceptance_criteria:
   - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
@@ -3729,7 +3729,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.32.0
+  - release:v1.33.0
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
 - id: PMAT-528
   kind: code
@@ -3741,7 +3741,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-16T09:13:55Z
+  updated: 2026-09-21T09:48:50Z
   spec: null
   acceptance_criteria:
   - 'gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window'
@@ -3754,7 +3754,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.32.0
+  - release:v1.33.0
   notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
 - id: PMAT-529
   kind: code
@@ -3766,7 +3766,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-09-16T09:13:55Z
+  updated: 2026-09-21T09:48:50Z
   spec: null
   acceptance_criteria:
   - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
@@ -3778,7 +3778,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.32.0
+  - release:v1.33.0
   notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
 - id: PMAT-531
   kind: triage
@@ -4214,11 +4214,11 @@ roadmap:
   github_issue: 566
   item_type: task
   title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:38Z
-  updated: 2026-09-21T07:44:50Z
+  updated: 2026-09-21T09:43:51Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
@@ -4396,7 +4396,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-20T12:05:00Z
-  updated: 2026-09-20T12:05:00Z
+  updated: 2026-09-21T09:48:50Z
   spec: null
   acceptance_criteria:
   - 'Every CB-21xx ratchet check is at or under its 2026-09-11 ceiling on a COMMITTED tree, repaired rather than raised: no ceiling in scripts/ratchets/cb21xx-baseline.json is edited. Measured before: origin/main CB-2115 55/43, CB-2114 37/34. Done when scripts/dogfood/comply.sh prints GATE B PASS.'
@@ -4405,7 +4405,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:triage
-  - release:v1.32.0
+  - release:v1.33.0
   notes: null
 - id: PMAT-592
   github_issue: 592
@@ -4582,11 +4582,11 @@ roadmap:
   github_issue: 588
   item_type: task
   title: 'quorum.yml: the one self-hosted workflow still on the shared CARGO_HOME — give it the private one its four siblings have, and add the lint'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-20T07:16:53Z
-  updated: 2026-09-20T07:16:53Z
+  updated: 2026-09-21T10:33:16Z
   spec: null
   acceptance_criteria:
   - '.github/workflows/quorum.yml: the `receipt` job gains a job-private `env: CARGO_HOME` pointing at `${{ github.workspace }}/../cargo-home-${{ github.job }}` — the value behavior.yml, convergence.yml, mutation.yml and binary-release.yml already use; the rust-cache step at quorum.yml:76 STAYS'
@@ -4597,5 +4597,28 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.33.0
   notes: null
+  release: 1.33.0
+- id: PMAT-604
+  github_issue: 604
+  item_type: task
+  title: 'book v1.32.0 — the ledger row from the tag, the cookbook commit that locks it, v1.33.0 declared; coverage and benchmarks on tagged releases only'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-21T09:37:28Z
+  updated: 2026-09-21T09:43:51Z
+  spec: null
+  acceptance_criteria:
+  - 'releases.yaml carries the v1.32.0 row as scripts/release-goal.sh cut measured it, naming the paiml/forjar-cookbook commit whose Cargo.toml admits 1.32.0 and whose Cargo.lock pins it, and next is v1.33.0; gate T passes on the branch.'
+  - 'coverage.yml and bench.yml run on a v* tag push and workflow_dispatch only, and ci.yml opts sovereign-ci into coverage_on: tag with the v* tag trigger that makes the input fire; tests/falsification_coverage_runs_on_tagged_releases_only.rs asserts all three from the parsed YAML and goes RED under each declared mutation.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
+  release: 1.33.0
