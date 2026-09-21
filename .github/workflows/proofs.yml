@@ -79,7 +79,23 @@ jobs:
 
   kani:
     name: kani
-    runs-on: [self-hosted, clean-room, X64]
+    # forjar#598 -- PINNED TO BARE METAL, AN INTERIM WITH A NAMED COUPLING.
+    #
+    # `[self-hosted, clean-room, X64]` matches the intel runners (bare metal,
+    # tools present) AND the yoga-build* runners (EPHEMERAL containers --
+    # yoga-build, -build2, -build3 all observed running these jobs on
+    # 2026-09-20; lean + kani + rsync ABSENT by inventory). So this job was deterministic per runner and
+    # a coin flip per run: on commit 537252d3 four runs went fail/pass/fail/pass
+    # purely by which runner picked it up. A re-run landing on intel is a green
+    # nobody can reconstruct.
+    #
+    # `intel` here is a HOSTNAME standing in for a CAPABILITY, which this repo
+    # otherwise avoids (PMAT-547). Remove it when either lands: a capability
+    # label (`provers` / `bare-metal`) declared on the intel runners in infra's
+    # fleet declaration, asked for here instead; or yoga's images converging on
+    # the declared stack (paiml/infra#813). X64 already excludes gx10 (ARM64,
+    # also without the tools).
+    runs-on: [self-hosted, clean-room, X64, intel]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -117,7 +133,7 @@ jobs:
       - name: Assert kani is available
         run: |
           if ! command -v cargo-kani >/dev/null 2>&1; then
-            echo "cargo-kani is not in the CI image — add it there, do not install at runtime" >&2
+            echo "cargo-kani is not on runner ${RUNNER_NAME:-unknown} — an absence on ONE runner is not proof it is missing from the image; add it to that runner's image, do not install at runtime (forjar#598)" >&2
             exit 1
           fi
           cargo kani --version
@@ -187,7 +203,23 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    runs-on: [self-hosted, clean-room, X64]
+    # forjar#598 -- PINNED TO BARE METAL, AN INTERIM WITH A NAMED COUPLING.
+    #
+    # `[self-hosted, clean-room, X64]` matches the intel runners (bare metal,
+    # tools present) AND the yoga-build* runners (EPHEMERAL containers --
+    # yoga-build, -build2, -build3 all observed running these jobs on
+    # 2026-09-20; lean + kani + rsync ABSENT by inventory). So this job was deterministic per runner and
+    # a coin flip per run: on commit 537252d3 four runs went fail/pass/fail/pass
+    # purely by which runner picked it up. A re-run landing on intel is a green
+    # nobody can reconstruct.
+    #
+    # `intel` here is a HOSTNAME standing in for a CAPABILITY, which this repo
+    # otherwise avoids (PMAT-547). Remove it when either lands: a capability
+    # label (`provers` / `bare-metal`) declared on the intel runners in infra's
+    # fleet declaration, asked for here instead; or yoga's images converging on
+    # the declared stack (paiml/infra#813). X64 already excludes gx10 (ARM64,
+    # also without the tools).
+    runs-on: [self-hosted, clean-room, X64, intel]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -201,7 +233,7 @@ jobs:
       - name: Assert lean is available
         run: |
           if ! command -v lean >/dev/null 2>&1; then
-            echo "lean is not in the CI image — add it there, do not install at runtime" >&2
+            echo "lean is not on runner ${RUNNER_NAME:-unknown} — an absence on ONE runner is not proof it is missing from the image; add it to that runner's image, do not install at runtime (forjar#598)" >&2
             exit 1
           fi
           lean --version
