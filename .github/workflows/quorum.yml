@@ -29,6 +29,27 @@ jobs:
   receipt:
     name: quorum receipt
     runs-on: [self-hosted, clean-room, X64]
+    # A CARGO_HOME private to this job, matching behavior.yml, convergence.yml,
+    # mutation.yml and binary-release.yml. This was the one self-hosted workflow
+    # in the repo still on the SHARED /home/noah/.cargo, and the rust-cache step
+    # below is what makes that matter: its save step runs `cleanRegistry`
+    # unconditionally and deletes ${CARGO_HOME}/registry/src -- the extracted
+    # crate sources every OTHER job on the box is compiling from at that moment.
+    # `cache-bin: "false"`, the paiml/infra#208 mitigation, does not prevent it;
+    # it skips `cleanBin` alone. Measured on intel 2026-09-19 (paiml/infra#775):
+    # eight save steps in 100 minutes, every crate directory's birth time pinned
+    # to the second one of them finished, and an infra `cargo kani` build killed
+    # mid-crate with `could not parse/generate dep info ... No such file or
+    # directory`.
+    #
+    # A private CARGO_HOME is the ONLY exoneration, because it is the only thing
+    # that moves the SOURCES: `--target-dir`, `cargo install --root` and a fresh
+    # $HOME leave cargo reading from the shared registry whatever else the job
+    # owns. The path is outside the workspace, so it survives the checkout clean
+    # and is a cache rather than a cold download -- the same reasoning the
+    # sibling workflows already record.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@v4
         with:

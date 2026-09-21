@@ -1,0 +1,109 @@
+{
+  "kind": "code",
+  "issue": "PMAT-588 (forjar#588, paiml/infra#775) — quorum.yml, the one self-hosted workflow still caching cargo on the SHARED CARGO_HOME, gets the job-private CARGO_HOME its four siblings have, and a per-job lint plus a lint-driven falsification test keep every self-hosted cache job that way. On intel every runner shares one home; rust-cache post steps empty the shared ~/.cargo/bin and registry/src. Measured 2026-09-21 06:19:02Z: this repo quorum.yml post step on intel-clean-room-15 left ~/.cargo/bin with 0 regular files and 15 rustup symlinks, killing a concurrent rmedia job mid-run.",
+  "branch": "PMAT-588-quorum-private-cargo-home",
+  "base": "7bfb5720",
+  "base_commit": "7bfb572042ca1baf0c2843864f0cf09cc2c75460",
+  "diff_sha256": "823c6c65d555a311f3f4cba9a17964fa39eff4b5",
+  "recorded_at": "after four rounds recorded in .quorum/evidence/PMAT-588-lanes.md. Round 1 replaced a file-level lint and a second Rust parser of the same rule with one per-job lint the test drives; round 2 moved the negative control into the test; rounds 3 and 4 ran on the same head, round 3 failing only on a lane error refuted by running the self-test.",
+  "quorum": {
+    "rounds": 4,
+    "lanes": [
+      "round 1, head 30c05ff4 — agy gemini-3.1-pro-high FAIL (file-level exoneration, hosted false positive, comment read as a declaration), agy gemini-3.1-pro-low PASS, agy gemini-3.6-flash-low FAIL (lane error: an unchanged step outside the diff)",
+      "round 2, head 4ec2a9d3 — agy gemini-3.1-pro-high PASS, agy gemini-3.1-pro-low FAIL (the negative control lived in a message, not the test), agy gemini-3.6-flash-low PASS",
+      "round 3, head 3eaa29f3 — agy gemini-3.1-pro-high PASS, agy gemini-3.1-pro-low PASS, agy gemini-3.6-flash-low FAIL (lane error: counted four numbered comments as the self-test cases; --selftest prints 12)",
+      "round 4, head 3eaa29f3 — agy gemini-3.1-pro-high PASS, agy gemini-3.1-pro-low PASS, agy gemini-3.6-flash-low PASS"
+    ],
+    "lane_errors": 2,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked per round, across four rounds; not three independent tiers. Both lane errors came from the lowest tier reasoning about text it was not shown, and both were refuted by running the command, not by argument.",
+    "kill_rule": "nothing was dismissed. Every lane finding was either fixed (R1-R4) or refuted by running the thing it described (two lane errors, recorded in the lanes file).",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "R1: the lint exonerated every job in a file once any job set a private CARGO_HOME. Now per job.",
+      "R2: a hosted job cache step was flagged because a self-hosted job shared its file. runs-on is read per job.",
+      "R3: the Rust copy of the rule read a comment containing CARGO_HOME: as a declaration. The second parser is gone; the lint strips comments and has a comment-only fixture.",
+      "R4: the falsification test only asserted the patched tree; the restored-quorum.yml failure was a manual demonstration. The negative control is now in the test."
+    ]
+  },
+  "falsification": {
+    "test": "the_lint_can_still_reject, a_self_hosted_job_caching_cargo_must_own_its_cargo_home, quorum_without_its_private_cargo_home_is_refused_by_name — all written by this branch; the third is a negative control on a temporary copy of the real workflows",
+    "test_file": "tests/falsification_rust_cache_needs_a_private_cargo_home.rs",
+    "cargo_test_target": "falsification_rust_cache_needs_a_private_cargo_home",
+    "observed_failure": "quorum.yml restored to origin/main: a_self_hosted_job_caching_cargo_must_own_its_cargo_home FAILED (1 passed; 1 failed) with the lint ERROR at quorum.yml:55 (job receipt). Lint mutated to always print OK: quorum_without_its_private_cargo_home_is_refused_by_name and the_lint_can_still_reject FAILED (1 passed; 2 failed). Both restored byte-identical: 3 passed.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "No crux row is owed: CI configuration and a lint, no shipped behaviour and no CHANGELOG bullet. Recorded because the design question — who may mutate a cache other jobs read — is real.",
+    "systems": [
+      "Nix: builds run sandboxed with a private HOME and read inputs from an immutable content-addressed store; no consumer can delete another build inputs mid-run [X]",
+      "Bazel: each action runs in its own sandboxed execroot and the output base is per workspace, so one action cannot remove files a concurrent action is reading [X]",
+      "GitHub-hosted runners: one ephemeral VM per job, the design rust-cache assumes; the defect here is running that design on a persistent runner whose home is shared by sixteen concurrent services [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed agy lanes per round, four rounds, JSON-schema-constrained, diff and ticket pasted inline; per-round table in .quorum/evidence/PMAT-588-lanes.md",
+    "rounds": 4,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "pro-high found the design defect (two parsers of one rule disagreeing), pro-low found the gap between a criterion and its test, flash-low produced both false alarms; no tier was reliable alone."
+  },
+  "pmat": {
+    "ticket": "PMAT-588",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests repo-wide: 19814 tests in 2199 files, 432 vacuous repo-wide, 0 in the touched test file",
+      "cargo test --test falsification_rust_cache_needs_a_private_cargo_home, green, then RED under each declared mutation, then green after byte-identical restores",
+      "bashrs lint scripts/lint-rust-cache-guard.sh: 0 errors"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-588-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 2075,
+        "sha256": "ddb4d8dcec523cb8a926c8f2c76e7dee7a63034bbcac495326fca389b1965236",
+        "blob": "760f64ab7f22c7ae87944c05590f0932b2ab6208"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-588-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1890,
+        "sha256": "508a1358bca7c6d9bf7fec71a0ed1c765cbda63890879a0abd2e4eeaa2d19482",
+        "blob": "4dad816fe4e611c1c6b4b4b03286ce16356b5dbc"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-588-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 4343,
+        "sha256": "2947f3124d101bd0250b2ce401734bece719d8370fea37a641327e0cc2226525",
+        "blob": "88c4e12e1a2d192300c1282ab270921af8bb9f6c"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-588-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1172,
+        "sha256": "121d20cd63ad2a5cd51b404823f9afec3e4cc5382ca7a3de38c1c6e803b99161",
+        "blob": "7addbd05a8705d18b8f5bdd9500acfa3c1129188"
+      }
+    ],
+    "total_bytes": 9480,
+    "claims_digest": ".quorum/evidence/PMAT-588-judges.md"
+  }
+}
