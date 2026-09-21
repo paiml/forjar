@@ -32,7 +32,7 @@ pub fn check_script(resource: &Resource) -> String {
             "exists:present",
         ),
         "symlink" => verdict::single(&format!("test -L {p}"), "exists:symlink", "missing:symlink"),
-        "file" => verdict::single(&format!("test -f {p}"), "exists:file", "missing:file"),
+        "file" => verdict::check_script_from(&file_assertions(resource, &p)),
         // `other` is the config-derived state string; escape the label. An
         // unrecognised state is not a pass — forjar cannot show the resource
         // is converged, so it must say so.
@@ -40,6 +40,117 @@ pub fn check_script(resource: &Resource) -> String {
             "unsupported file state: {other}"
         ))]),
     }
+}
+
+/// What `state: file` DECLARES, as assertions (forjar#600).
+///
+/// This was `test -f`: whether SOMETHING is at the path. `--refresh` ("re-run
+/// check scripts, only re-apply what fails") then certified a file holding the
+/// wrong bytes, through both of its doors — refresh seeding with no lock entry,
+/// and a lock entry, where one run printed `drift: … content changed` and then
+/// `0 converged`, leaving a fleet pin at the version the declaration had moved
+/// off. The check now asks about every attribute the apply script writes:
+/// content (sha256 of the declared bytes), mode, owner, group — each with its
+/// own divergent marker, so a failure names what is stale.
+///
+/// Where the host has neither `sha256sum` nor macOS's `shasum`, the content
+/// assertion fails: rewriting identical bytes is harmless, certifying stale
+/// ones is the defect. A symbolic `mode:` (`u+x`) is not an absolute state and
+/// is not asserted; a numeric owner/group is compared with uid/gid.
+///
+/// Each value is read into a variable and THEN tested. `[ "$(a || b)" = x ]`
+/// is the same program, but bashrs' SC2107 reads the `||` inside the command
+/// substitution as `[ a || b ]` and forjar's I8 gate refuses the script.
+fn file_assertions(resource: &Resource, p: &str) -> Vec<String> {
+    let mut out = vec![verdict::assert_that(
+        &format!("test -f {p}"),
+        "exists:file",
+        "missing:file",
+    )];
+    match declared_bytes(resource) {
+        Some(Ok(bytes)) => {
+            let want = sha256_hex(&bytes);
+            out.push(verdict::assert_that(
+                &format!(
+                    "forjar_sha=$( {{ sha256sum {p} 2>/dev/null || shasum -a 256 {p} 2>/dev/null; }} | cut -d' ' -f1)\n  [ \"$forjar_sha\" = '{want}' ]"
+                ),
+                "content:declared",
+                "stale:content",
+            ));
+        }
+        Some(Err(e)) => out.push(verdict::always_diverged(&format!("unreadable source: {e}"))),
+        None => {}
+    }
+    if let Some(mode) = resource.mode.as_deref().and_then(octal_mode) {
+        out.push(verdict::assert_that(
+            &format!(
+                "forjar_mode=$(stat -c %a {p} 2>/dev/null || stat -f %Lp {p} 2>/dev/null)\n  [ \"$forjar_mode\" = {} ]",
+                sh_squote(&mode)
+            ),
+            "mode:declared",
+            "stale:mode",
+        ));
+    }
+    for (who, name, id, marker) in [
+        (
+            resource.owner.as_deref(),
+            ("%U", "%Su"),
+            ("%u", "%u"),
+            "owner",
+        ),
+        (
+            resource.group.as_deref(),
+            ("%G", "%Sg"),
+            ("%g", "%g"),
+            "group",
+        ),
+    ] {
+        if let Some(who) = who {
+            let (gnu, bsd) = if who.bytes().all(|b| b.is_ascii_digit()) {
+                id
+            } else {
+                name
+            };
+            out.push(verdict::assert_that(
+                &format!(
+                    "forjar_{marker}=$(stat -c {gnu} {p} 2>/dev/null || stat -f {bsd} {p} 2>/dev/null)\n  [ \"$forjar_{marker}\" = {} ]",
+                    sh_squote(who)
+                ),
+                &format!("{marker}:declared"),
+                &format!("stale:{marker}"),
+            ));
+        }
+    }
+    out
+}
+
+/// The bytes the apply script would write, or `None` when the resource
+/// declares no content (existence is then the whole declaration).
+fn declared_bytes(resource: &Resource) -> Option<Result<Vec<u8>, String>> {
+    if let Some(ref source) = resource.source {
+        Some(read_source_file(source))
+    } else {
+        resource.content.as_ref().map(|c| Ok(c.as_bytes().to_vec()))
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(bytes))
+}
+
+/// `0644` and `644` are both `644` to `stat %a`; a symbolic mode has no
+/// absolute value to compare, so it is not asserted.
+fn octal_mode(mode: &str) -> Option<String> {
+    if mode.is_empty() || !mode.bytes().all(|b| (b'0'..=b'7').contains(&b)) {
+        return None;
+    }
+    let m = mode.trim_start_matches('0');
+    Some(if m.is_empty() {
+        "0".to_string()
+    } else {
+        m.to_string()
+    })
 }
 
 /// Append chown/chmod lines for the given resource ownership and mode.

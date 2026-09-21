@@ -4309,6 +4309,24 @@ roadmap:
   labels:
   - kind:code
   notes: 'Remaining suspects, both inside check_passes_on (src/core/executor/refresh_seed.rs:42): codegen::check_script(&resolved) returning Err, and the transport .ok() / !out.success() arm. It also resolves with SecretsConfig::default() rather than the executor''s, which resolve_or_fallback''s doc comment calls load-bearing and which may be the SAME defect rather than a second one. Instrument the three false returns separately and run the two-manifest fixture against each BEFORE changing anything: fixing the swallow and the secrets config in one commit means neither is falsified.'
+- id: PMAT-600
+  github_issue: 600
+  item_type: task
+  title: 'file check_script tests existence only: --refresh reports content drift and writes nothing'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-21T10:47:18Z
+  updated: 2026-09-21T10:47:18Z
+  spec: null
+  acceptance_criteria:
+  - 'tests/falsification_refresh_writes_a_stale_file.rs: apply --refresh rewrites a stale file with no lock entry and one the lock calls converged (content: and source: shapes), restores a drifted mode, and leaves a matching file untouched (mtime unchanged); the first three fail on origin/main and the fourth passes there, so it is a negative control'
+  - 'src/resources/file.rs check_script for state: file asserts existence, the sha256 of the declared bytes (sha256sum, else shasum -a 256), an octal mode, and owner/group where declared, each read into a variable and then tested (bashrs SC2107 rejects the inline form, bashrs#366); cargo test --lib passes 13553'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
 - id: PMAT-591
   github_issue: 591
   item_type: task
