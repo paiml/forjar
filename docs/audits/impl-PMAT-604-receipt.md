@@ -32,13 +32,21 @@ next:
     GATE T v1.32.0 cut 2026-09-21T09:27:03Z: 7 PR(s), 8 ticket(s) labelled release:v1.32.0 ok
     GATE T FAIL 3 commit(s) reached HEAD since v1.32.0 and GitHub reports no merged PR containing any of them: work bypassed review, or the window is UNMEASURED — either way this gate cannot pass over it
 
-The first two lines are the booking: the new row reconciles with git and GitHub, and the cookbook arm reads both files at the named commit. The third line is by design and is not waived here. It refuses to pass while this branch's own commits are in no merged PR (`scripts/dogfood/lib/window.sh`, PMAT-229), and every booking branch hits it until the branch merges. It is quoted because a receipt that dropped the red line would be reporting the easy half.
+The first two lines are the booking: the new row reconciles with git and GitHub, and the cookbook arm reads both files at the named commit. The third line is by design and was not waived. It refuses to pass while every commit since the tag is in no merged PR (`scripts/dogfood/lib/window.sh`, PMAT-229), and a booking branch cut straight off the tag hits it until something since the tag merges. It is quoted because a receipt that dropped the red line would be reporting the easy half.
+
+#589 then merged to main during the booking and conflicted with this branch (both appended a row at the end of `roadmap.yaml`). Main was merged in and both rows kept. With a merged PR now in the window, the same gate on the merged HEAD reads:
+
+    GATE T v1.32.0 cookbook a8e758ec068a18cb0fbd0046c681227476eb77ce requires forjar 1.32 and locks 1.32.0 ok
+    GATE T v1.32.0 cut 2026-09-21T09:27:03Z: 7 PR(s), 8 ticket(s) labelled release:v1.32.0 ok
+    GATE T PASS 10 tagged release(s) since v1.25.0 reconcile with git and GitHub and 67 ticket(s) carry their tag and say they shipped; 1 ticket(s) from 1 PR(s) merged since v1.32.0 carry release:v1.33.0; due 2026-09-23T09:27:03Z, 46h left
+
+That PASS needed one ledger edit this branch did not start with. #589's ticket, PMAT-588, was still `planned` with no release. Its own PR could not complete it, and the next PR does. `release-goal.sh sync` labelled it `release:v1.33.0`, issue #588 went on the 1.33.0 milestone, and then the row got `release: 1.33.0` and `status: completed`.
 
 ### Gate B on this branch's HEAD
 
     GATE B PASS comply clean; ruleset 13878864 requires [gate]; 14 gate script(s) and 4 other tracked script(s) at 0 bashrs errors; ratchet CB-200 held; ratchet CB-2110=49/49 CB-2111=49/49 CB-2112=33/35 CB-2114=33/34 CB-2115=40/43 held; required check(s) [gate] reach a dogfood gate; legacy bashrs errors 1 <= 1
 
-CB-2115 was 41 when the release gate ran and is 40 here, which fits issue #604 getting its row. No ceiling is lowered. `pmat comply` reads live GitHub, so a ceiling moves only on a measurement of the merged tree.
+CB-2115 was 41 when the release gate ran and is 40 here, which fits issue #604 getting its row. The same line was measured again on the merged HEAD, after PMAT-588 was completed, with identical counts. No ceiling is lowered. `pmat comply` reads live GitHub, so a ceiling moves only on a measurement of the merged tree.
 
 ### Gates A and E over the release's full window
 
@@ -61,6 +69,7 @@ Before the cut, paiml/forjar-cookbook#23 bumped `forjar = { version = "1.32", de
 - `PMAT-566` → `status: completed`. It merged in #603 and stayed `inprogress` there, because the commit-msg hook refuses a `Pmat-Ticket:` that names a completed row.
 - The cut moved `release:v1.32.0` to `release:v1.33.0` on PMAT-526, PMAT-528, PMAT-529 and PMAT-594, since no PR in v1.32.0's window names them. It moved the LABELS only. Their `release:` fields (1.30.0, 1.30.0, 1.30.0, 1.32.0) still agree with their GitHub milestones, so CB-2115 has no DRIFT to report. They now disagree with the labels, which is how 526/528/529 already stood after the 1.31.0 booking. The documented order is milestone first, field second, and moving four milestones on GitHub is outside this booking, so this is recorded here rather than done.
 - `PMAT-604` carries `release: 1.33.0` and the 1.33.0 milestone, because a booking PR merges into the NEXT window.
+- `PMAT-588` → `status: completed`, labelled and released 1.33.0, after merging main brought #589 into this branch (above).
 
 ### The release itself — measured 2026-09-21
 
