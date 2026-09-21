@@ -4,7 +4,12 @@ verdict: GO — all nine gates (A B C D E F G H T) measured green in one `make d
 
 ## Why the gate ran on a branch head and not on the tag
 
-Gate T requires every ticket in the window to say `completed`, and the commit-msg hook refuses a `Pmat-Ticket:` that names a completed row — so the last PR of a window cannot complete its own ticket, and the tag cannot be taken until something has. The practice that satisfies both: run `dogfood-release` on the last PR's branch head, merge it, tag the merge commit, and let this booking PR complete the last ticket (PMAT-566). What makes the measurement transfer to the tag is tree identity, which is measured above rather than assumed: the merge added no content.
+Gate T requires every ticket in the window to say `completed`, and the commit-msg hook refuses a `Pmat-Ticket:` that names a completed row — so the last PR of a window cannot complete its own ticket, and the tag cannot be taken until something has. The practice that satisfies both: run `dogfood-release` on the last PR's branch head, merge it, tag the merge commit, and let this booking PR complete the last ticket (PMAT-566). Tree identity carries over only what the tree determines: the files, and the binary built from them. That is all gates C, G and H read, and most of what B, D and F read, and the merge added no content. It carries over nothing read from outside the tree. Gate B's ratchet counts findings `pmat comply` reads from live GitHub (re-measured on the booking branch, `impl-PMAT-604-receipt.md`), gate D validates a clone of the cookbook's master as it stood then, gate F diffs against origin/main, and gates A, E and T read git history and GitHub's PR state. On 2a39ed91 the A/E/T window did not yet contain #603 (next section). A three-lane review quorum refuted an earlier version of this paragraph, which claimed tree identity for all nine gates. So A and E were re-measured at b12a8392 itself, over the release's full window, in a scratch clone with the local `v1.32.0` tag deleted so that v1.31.0 is the newest tag reachable:
+
+    GATE A PASS 7 of 7 merged PR(s) since v1.31.0 carry a harness receipt
+    GATE E PASS 7 of 7 merged PR(s) since v1.31.0 carry a quorum receipt
+
+Both exited 0, and both list #603 (`docs/audits/logs/dogfood-1.32.0-AE-full-window.log`). Gate T's reconciliation of the seven-PR row is the booking branch's own measurement (`impl-PMAT-604-receipt.md`).
 
 ## The gates, as the scripts printed them
 
@@ -22,7 +27,7 @@ Gate T requires every ticket in the window to say `completed`, and the commit-ms
 
 ## Findings for the orchestrator
 
-**Gates A and E count six PRs, and the release holds seven.** Measured on the branch head before #603 merged, the window was #570, #577, #583, #593, #596, #599 — #603 was not yet a merged PR and so was not in it. #603's own receipts (`impl-PMAT-566-receipt.md`, `impl-PMAT-601-receipt.md`, and the `.quorum/` receipt for its branch) are at HEAD, and gate T on this booking branch re-measures the seven-PR window against GitHub. The six-PR count is what the instrument saw at the moment it ran; it is not rounded up here.
+**Gates A and E count six PRs, and the release holds seven.** Measured on the branch head before #603 merged, the window was #570, #577, #583, #593, #596, #599 — #603 was not yet a merged PR and so was not in it. #603's own receipts (`impl-PMAT-566-receipt.md`, `impl-PMAT-601-receipt.md`, and the `.quorum/` receipt for its branch) are at HEAD, gates A and E at b12a8392 pass 7 of 7 with #603 in the window, and gate T on this booking branch reconciles the seven-PR row against GitHub. The six-PR count is what the instrument saw at the moment it ran. It is not rounded up here; the seven-PR measurement is the separate run quoted above.
 
 **Gate F's mutation arm had nothing to mutate, and says so.** The branch diff changed one `.rs` file, a test under `tests/`, and no file under `src/`, so `cargo mutants` had no library or binary target in the diff. The one behaviour this release ships (PMAT-565, the lock names its writer) was mutation-tested on its own branch, #570, and that receipt carries the evidence.
 

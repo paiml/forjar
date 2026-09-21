@@ -40,6 +40,15 @@ The first two lines are the booking: the new row reconciles with git and GitHub,
 
 CB-2115 was 41 when the release gate ran and is 40 here, which fits issue #604 getting its row. No ceiling is lowered. `pmat comply` reads live GitHub, so a ceiling moves only on a measurement of the merged tree.
 
+### Gates A and E over the release's full window
+
+The release gate ran on 2a39ed91 before #603 merged, so its A and E lines count six PRs. They were re-run at b12a8392, the tagged commit, in a scratch clone with the local `v1.32.0` tag deleted, so the window is v1.31.0 → b12a8392:
+
+    GATE A PASS 7 of 7 merged PR(s) since v1.31.0 carry a harness receipt
+    GATE E PASS 7 of 7 merged PR(s) since v1.31.0 carry a quorum receipt
+
+Both exited 0, and #603 is in both lists (`docs/audits/logs/dogfood-1.32.0-AE-full-window.log`). #589 merged to main during the booking, and both gates correctly excluded it as outside b12a8392.
+
 ### The cookbook commit
 
 Before the cut, paiml/forjar-cookbook#23 bumped `forjar = { version = "1.32", default-features = false }` and locked 1.32.0. Its checks (check, test, coverage, docs, validate-recipes, score) were green when it merged. The cut takes `cookbook:` from `git ls-remote` on the cookbook's master, so the order mattered: merging first is what made the cut record a8e758ec. Both files were read back from that commit through the API, not from the local checkout:
@@ -72,21 +81,31 @@ Operator decision 2026-09-21: "YES, coverage on tags release only" (paiml/aprend
 
 **Why ci.yml needs two edits.** paiml/.github#74 says so in the input's own description: a `push:` filtered to branches never fires for a tag, so with the input alone coverage would run on manual dispatch only and never on a release. The input was read from the ref ci.yml pins (`sovereign-ci.yml@main`, line 54). It exists, defaults to `always`, and its gate prints `coverage: NOT MEASURED` for a skip on a PR and treats a skip on a v* tag push as RED.
 
+**The tag trigger runs ALL of ci.yml on a release, not only coverage.** All three review lanes raised this, and the commit messages had described the trigger only in terms of coverage. `push:` ORs its `branches` and `tags` filters, so a v* tag now fires the whole workflow, and because the classifier returns `code=true` on a tag, every classify-gated job runs. That includes examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards and sovereign-ci's own jobs. The tagged commit has already had a full CI run as a push to main, so a release now costs one more full run on the same commit. That is the price paiml/.github#74 sets: `coverage_on` is read by a reusable workflow that runs all its jobs, and the opt-in contract requires the tag trigger on the caller. Per release (cadence 2 days), one full run is added. Coverage and Benchmarks leave every PR and every push to main, several a day and ~50 intel-minutes each. The fleet load falls, but not to zero, and this receipt says so rather than implying a free change.
+
 **The heavy jobs still run on the tag.** coverage.yml and bench.yml gate their work on the `changed-class` action. On a tag push `github.event.before` is all zeros, `git rev-parse --verify` fails, the file list is empty, and the classifier's rule for an unmeasured change is `code=true`. So on a release every job runs.
 
 **Nothing ships unmeasured.** Gate F (`scripts/dogfood/coverage.sh`) enforces the 95% line floor and runs `cargo mutants` before every tag, and this PR does not touch it. The 1.32.0 release ran it at 96.44%.
 
 ### The falsifier
 
-`tests/falsification_coverage_runs_on_tagged_releases_only.rs` reads parsed YAML, not text, so a comment cannot satisfy it (the forjar#567 lesson). Two tests drive its predicates with fabricated trigger blocks: seven that must be refused, including the exact shape the old files had, plus three opt-in halves, so a predicate that accepts everything goes red. Each declared mutation was applied to a backup-protected copy of the workflow, the test run, and the file restored byte-identical (checked with `cmp`):
+`tests/falsification_coverage_runs_on_tagged_releases_only.rs` reads parsed YAML (`on`, `jobs.<id>.if`, `jobs.ci.uses`, `jobs.ci.with`), not text, so a comment cannot satisfy it (the forjar#567 lesson). It has six tests. Three read the real workflows. Three drive the predicates with fabricated blocks that must be refused: seven trigger shapes (including the one the old files had), six opt-in shapes, four job gates.
 
-| mutation | result |
-|---|---|
-| add `pull_request:` back to coverage.yml | 3 passed, 1 failed |
-| add `branches: [main]` under bench.yml's `push:` | 3 passed, 1 failed |
-| delete `coverage_on: tag` from ci.yml | 3 passed, 1 failed |
-| delete `tags: ['v*']` from ci.yml's `push:` | 3 passed, 1 failed |
-| none (restored tree) | 4 passed |
+The first draft had four tests, and the review quorum found three shapes they let through. Each kept coverage off a release while the YAML still looked opted in: `tags: ['v*', '!v*']` (the predicate checked only that `v*` was present), a `jobs.ci.uses` pointing at a workflow that ignores `coverage_on`, and a job-level `if:` that skips on a tag. All three are refused now. The tag list must be exactly `['v*']`, `uses` must be sovereign-ci, and every job's `if:` must be absent or exactly `needs.classify.outputs.code == 'true'`, the condition the classifier makes true on a tag.
+
+Each mutation was applied to the real workflow, the test run, and the file restored from a backup. Afterwards `cmp` found no difference and `git diff --quiet HEAD -- .github/workflows` passed:
+
+| mutation | test that failed | result |
+|---|---|---|
+| add `pull_request:` back to coverage.yml | `coverage_and_benchmarks_trigger_on_tags_and_dispatch_only` | 5 passed, 1 failed |
+| add `branches: [main]` under bench.yml's `push:` | `coverage_and_benchmarks_trigger_on_tags_and_dispatch_only` | 5 passed, 1 failed |
+| delete `coverage_on: tag` from ci.yml | `sovereign_ci_coverage_is_opted_into_tags_only` | 5 passed, 1 failed |
+| delete `tags: ['v*']` from ci.yml's `push:` | `sovereign_ci_coverage_is_opted_into_tags_only` | 5 passed, 1 failed |
+| `if: github.ref_type != 'tag'` on bench.yml's `benchmark` job | `every_job_that_measures_can_run_on_a_tag` | 5 passed, 1 failed |
+| `tags: ['v*', '!v*']` in ci.yml | `sovereign_ci_coverage_is_opted_into_tags_only` | 5 passed, 1 failed |
+| ci job `uses: ./.github/workflows/other.yml` | `sovereign_ci_coverage_is_opted_into_tags_only` | 5 passed, 1 failed |
+| `if: github.ref_type != 'tag'` on ci.yml's `ci` job | `sovereign_ci_coverage_is_opted_into_tags_only` | 5 passed, 1 failed |
+| none (restored tree) | — | 6 passed |
 
 Every other test that reads these workflows was re-run against the new triggers and passes unchanged, nine in all: `falsification_tool_jobs_run_where_the_tools_are`, `falsification_hosted_jobs_do_not_cache_target`, `falsification_every_ci_job_runs_on_the_fleet`, `falsification_pr_lane_runs_what_the_change_can_break`, `falsification_pr_lane_selects_the_gate_the_change_can_move`, `falsification_ci_runs_doctests`, `falsification_quorum_gate_reads_the_pushed_ref`, `falsification_no_workflow_leaves_a_toolchain_override`, `falsification_lint_refuses_a_toolchain_override`. The set is every file under `tests/` naming `coverage.yml`, `bench.yml` or `ci.yml`, plus the two toolchain-override tests from #596 and #603. `scripts/dogfood/comply.sh` also reads ci.yml, and gate B passes above.
 
