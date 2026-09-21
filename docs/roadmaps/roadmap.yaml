@@ -4214,12 +4214,11 @@ roadmap:
   github_issue: 566
   item_type: task
   title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
-  release: 1.32.0
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:38Z
-  updated: 2026-09-15T17:55:38Z
+  updated: 2026-09-21T07:44:50Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
@@ -4228,7 +4227,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-567
   github_issue: 567
   item_type: task
