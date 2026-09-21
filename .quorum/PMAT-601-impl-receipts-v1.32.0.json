@@ -1,0 +1,103 @@
+{
+  "kind": "triage",
+  "issue": "PMAT-601 (closes forjar#601) \u2014 impl receipts for the three PRs in the v1.32.0 window that merged without one (#593 PMAT-592, #596 PMAT-567, #599 PMAT-598), found by gate A on the tag candidate 7bfb5720, plus this branch's own. Each records that its work was implemented directly with a quorum, not through the paiml-implement harness, and invents no harness artefact.",
+  "branch": "PMAT-601-impl-receipts-v1.32.0",
+  "base": "7bfb5720",
+  "base_commit": "7bfb572042ca1baf0c2843864f0cf09cc2c75460",
+  "diff_sha256": "94022742e5438d30402447507a190c8ae5e0f238",
+  "recorded_at": "after one round in which agy-high and the Claude lane returned FAIL and agy-low PASS. Four confirmed claims, four refuted. Every refutation was arithmetic or checkability in the prose, and one was in an already-merged receipt rather than in this branch's own files.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head fcda9163 \u2014 agy gemini-3.1-pro-high FAIL conv-dc3fae6e: 'four findings' against two plus three; 'gate A reports 6 of 6' uncheckable from the text; and a false C5 refutation conflating a row label with the path rail.",
+      "round 1, head fcda9163 \u2014 agy gemini-3.1-pro-low PASS conv-f87f3c3d, while also noting that 'gate A reports 6 of 6' appeared nowhere in the text it was given.",
+      "round 1, head fcda9163 \u2014 claude sonnet FAIL: verified every merge sha, runner name and quorum count against gh and the .quorum files; found the PMAT-601 receipt citing its own not-yet-written quorum file, and a stale 'Four confirmed, nine refuted' inside the merged #593 quorum receipt."
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked; not three independent tiers. The Claude lane had tool access the agy lanes did not (gh, git, the quorum JSON), and that is exactly why it found the two defects outside what the brief pasted.",
+    "kill_rule": "one lane finding was judged not real and is recorded as such: C5's refutation treated a roadmap row's kind:code label as if it defined the triage rail, which is a set of paths. Every other finding was fixed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "R1 (C3): the PMAT-601 receipt cited .quorum/PMAT-601-impl-receipts-v1.32.0.json as an existing file while the quorum that produces it was still reading the sentence. Now stated as the artefact this quorum produces, committed in the same PR.",
+      "R2: 'four findings: two missing labels, three rows' \u2014 five findings across three tickets. The cut's merged commit message has the same miscount; the receipt is now exact.",
+      "R3: 'gate A reports 6 of 6' was true and uncheckable from anything the agy lanes were shown. The measured gate output is now quoted in the receipt.",
+      "R4: the merged #593 quorum receipt's prose said 'Four confirmed claims, nine refuted' while its structured counts said 3 and 10 \u2014 written before C8 moved to refuted. Corrected, with the reason; the file is excluded from the diff hash."
+    ]
+  },
+  "falsification": {
+    "not_applicable": "A triage branch: four impl receipts, a roadmap row and quorum records, no code. There is no hunk to revert. The branch's evidence is gate A's own read-back \u2014 GATE A PASS 6 of 6 merged PR(s) since v1.31.0 carry a harness receipt \u2014 and gate T's, both run on this branch before push and quoted in impl-PMAT-601-receipt.md."
+  },
+  "crux": {
+    "verdict": "No crux row owed: documentation only, no behaviour and no CHANGELOG bullet.",
+    "systems": [
+      "SLSA: provenance records what built an artifact and how; a provenance record claiming a builder that did not run is worse than none [X] \u2014 which is why these receipts decline to invent harness fields",
+      "in-toto: each step of a supply chain carries a signed link metadata of what it actually did [X]; a missing link is visible as missing, which gate A enforces for the receipt",
+      "Sigstore: a transparency log makes an omitted or altered record detectable after the fact [X]; the END marker plays that role for a truncated receipt"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes, review-only, JSON-schema-constrained, brief with a ground-truth block; table in .quorum/evidence/PMAT-601-lanes.md",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "agy-high FAIL, agy-low PASS. agy found the arithmetic and the uncheckable claim; the Claude lane, with tool access, found the two defects outside the pasted brief. One agy refutation was not real and is recorded as such."
+  },
+  "pmat": {
+    "ticket": "PMAT-601",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests: no Rust touched, no tests in the touched paths",
+      "scripts/dogfood/harness.sh (gate A): 6 of 6",
+      "scripts/dogfood/tagged.sh (gate T): PASS, 6 tickets from 6 PRs carry release:v1.32.0"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-601-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 744,
+        "sha256": "33a60d887d3198673409f2d625b712a16f0420854bd98f48e902a08f79efa546",
+        "blob": "75f51f1dbf8425f364723ffc44d1dc029ce7ab18"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-601-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1644,
+        "sha256": "b0e7ea7366e20e3094a1c8b6ec996f6ba2665e78e57c509b593cc651d27d911e",
+        "blob": "923eefe4ef62597ab860e7bde3513d4424750623"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-601-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 3116,
+        "sha256": "8ddb735ae758ca5c78a0a081f3b43277b48e08eefdd94b25ce12835d4d840f44",
+        "blob": "a9cd88f6665d494ef888fb772d0d96a79db9b217"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-601-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 794,
+        "sha256": "3a742110fae6bc5179c8e507af0e84dc328bb11c475e4319c5d092ebaa19a1e7",
+        "blob": "e4e8f83430f6f647963d643603fd2772016a2979"
+      }
+    ],
+    "total_bytes": 6298,
+    "claims_digest": ".quorum/evidence/PMAT-601-judges.md"
+  }
+}
