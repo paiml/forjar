@@ -1,11 +1,11 @@
 {
   "kind": "code",
-  "issue": "PMAT-566 (closes forjar#566) \u2014 msrv.yml's `rustup override set 1.89.0` left a persistent directory override in reused runner workspaces, outranking rust-toolchain.toml, so every later forjar job on that runner silently ran 1.89.0 instead of the pinned 1.93.0. Two symptoms, both first diagnosed as something else: lint (#567, no clippy on 1.89.0) and mutation (#566, cargo-mutants 27.1.0 needs 1.91). The MSRV is now selected per job with RUSTUP_TOOLCHAIN.",
+  "issue": "PMAT-566 (closes forjar#566) \u2014 msrv.yml's `rustup override set 1.89.0` left a persistent directory override in reused runner workspaces, outranking rust-toolchain.toml, so every later forjar job on that runner silently ran 1.89.0 instead of the pinned 1.93.0. Two symptoms, both first diagnosed as something else: lint (#567, no clippy on 1.89.0) and mutation (#566, cargo-mutants 27.1.0 needs 1.91). The MSRV is now selected per job with RUSTUP_TOOLCHAIN. BATCHED: this branch also carries PMAT-601 (the v1.32.0 impl receipts, formerly PR #602, closed unmerged), folded in so a saturated fleet runs one CI instead of two. That content was reviewed by its own quorum \u2014 .quorum/PMAT-601-impl-receipts-v1.32.0.json and .quorum/evidence/PMAT-601-*.md, committed here \u2014 and is unchanged apart from a note in impl-PMAT-601-receipt.md recording the batch.",
   "branch": "PMAT-566-msrv-must-not-leave-an-override",
   "base": "7bfb5720",
   "base_commit": "7bfb572042ca1baf0c2843864f0cf09cc2c75460",
-  "diff_sha256": "4f4f986d0c3d233d1ea798dd8330d16bece1ae75",
-  "recorded_at": "after one round: the Claude lane PASS, both agy lanes FAIL (agy-high on a re-run after a no-verdict). Four confirmed, two refuted \u2014 both refutations about wording and what a quote showed, none about the mechanism. The load-bearing precedence claim was measured by the Claude lane in a scratch directory, not recited.",
+  "diff_sha256": "9cd2ba64a6117da4469418dcab7e338ed1bb20c5",
+  "recorded_at": "after one round: the Claude lane PASS, both agy lanes FAIL (agy-high on a re-run after a no-verdict). Four confirmed, two refuted \u2014 both refutations about wording and what a quote showed, none about the mechanism. The load-bearing precedence claim was measured by the Claude lane in a scratch directory, not recited. The lanes above reviewed the MSRV fix; the batched PMAT-601 receipts were reviewed by PMAT-601's quorum. diff_sha256 binds the combined diff.",
   "quorum": {
     "rounds": 1,
     "lanes": [
