@@ -119,6 +119,12 @@ jobs:
       - name: Rustfmt
         run: cargo fmt --all -- --check
 
+      # paiml/infra#775: no self-hosted job may cache the SHARED $CARGO_HOME.
+      # Its save step deletes registry/src for every other job on the box.
+      # selftest first — the scan passes trivially once every workflow complies.
+      - name: No shared $CARGO_HOME cache
+        run: make rust-cache-guard
+
   # CB-040 max-lines, enforced where it can actually block a merge.
   #
   # This rule lived ONLY in .git/hooks/pre-commit, which is local, opt-in and

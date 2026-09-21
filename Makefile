@@ -23,8 +23,17 @@ format:
 	cargo fmt --all
 
 # Lint with clippy
-lint:
+lint: rust-cache-guard
 	cargo clippy --all-targets -- -D warnings
+
+# paiml/infra#775: no self-hosted job may cache the SHARED $CARGO_HOME. Four of
+# this repo's five self-hosted workflows already set a job-private CARGO_HOME;
+# this keeps the fifth from regressing and the four from being undone. The
+# --selftest runs FIRST, because the scan passes trivially once every workflow
+# is compliant and a lint nobody has seen fail is evidence of nothing.
+rust-cache-guard:
+	@bash scripts/lint-rust-cache-guard.sh --selftest
+	@bash scripts/lint-rust-cache-guard.sh
 
 # Run tests
 test:
