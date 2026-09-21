@@ -108,3 +108,65 @@ fn a_self_hosted_job_caching_cargo_must_own_its_cargo_home() {
         "no cache use found at all — quorum.yml's is expected, so the matcher is blind:\n{text}"
     );
 }
+
+/// The negative control, on the REAL workflow rather than a fixture: copy
+/// every workflow, delete `quorum.yml`'s private CARGO_HOME, and the lint must
+/// refuse exactly that job by name. Without this the green test above could
+/// be green for a reason other than the fix (a matcher that stopped seeing
+/// quorum.yml, say) — a control has to fail for the reason it names.
+#[test]
+fn quorum_without_its_private_cargo_home_is_refused_by_name() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let src = root.join(".github/workflows");
+    let tmp = std::env::temp_dir().join(format!(
+        "forjar-588-negative-control-{}",
+        std::process::id()
+    ));
+    let wf = tmp.join(".github/workflows");
+    std::fs::create_dir_all(&wf).expect("temp workflows dir");
+    let mut removed = 0;
+    for entry in std::fs::read_dir(&src).expect("read workflows") {
+        let path = entry.expect("dir entry").path();
+        let name = path.file_name().expect("file name").to_owned();
+        let mut text = std::fs::read_to_string(&path).expect("read workflow");
+        if name == "quorum.yml" {
+            let kept: Vec<&str> = text
+                .lines()
+                .filter(|l| {
+                    let drop = l.trim_start().starts_with("CARGO_HOME:");
+                    if drop {
+                        removed += 1;
+                    }
+                    !drop
+                })
+                .collect();
+            text = kept.join("\n") + "\n";
+        }
+        std::fs::write(wf.join(&name), text).expect("write workflow copy");
+    }
+    let script = root.join("scripts/lint-rust-cache-guard.sh");
+    let out = Command::new("bash")
+        .arg(&script)
+        .current_dir(&tmp)
+        .output()
+        .expect("bash must run");
+    let _ = std::fs::remove_dir_all(&tmp);
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        removed, 1,
+        "expected exactly one CARGO_HOME declaration in quorum.yml to remove"
+    );
+    assert_ne!(
+        out.status.code(),
+        Some(0),
+        "with quorum.yml's private CARGO_HOME removed the lint still passed:\n{text}"
+    );
+    assert!(
+        text.contains("quorum.yml") && text.contains("(job `receipt`)"),
+        "the lint failed, but not naming quorum.yml job `receipt`:\n{text}"
+    );
+}
