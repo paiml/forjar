@@ -4214,11 +4214,11 @@ roadmap:
   github_issue: 566
   item_type: task
   title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:38Z
-  updated: 2026-09-21T07:44:50Z
+  updated: 2026-09-21T09:43:51Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
@@ -4578,3 +4578,24 @@ roadmap:
   - kind:code
   notes: 'Future scope, NOT shipped by this row: give a partial inspection a verdict distinguishable from a complete one, without disturbing the deliberate line PMAT-564 drew at zero. Naming the resolved state dir is tracked separately as forjar#585. Falsifier: run drift against a lock holding none of the manifest resources and assert the exit code differs from the same drift found against a complete lock; today both are 1. Registered under the title "drift with a missing state dir inspects a fraction of the scope and still returns a drift verdict". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
   release: 1.32.0
+- id: PMAT-604
+  github_issue: 604
+  item_type: task
+  title: 'book v1.32.0 — the ledger row from the tag, the cookbook commit that locks it, v1.33.0 declared; coverage and benchmarks on tagged releases only'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-21T09:37:28Z
+  updated: 2026-09-21T09:43:51Z
+  spec: null
+  acceptance_criteria:
+  - 'releases.yaml carries the v1.32.0 row as scripts/release-goal.sh cut measured it, naming the paiml/forjar-cookbook commit whose Cargo.toml admits 1.32.0 and whose Cargo.lock pins it, and next is v1.33.0; gate T passes on the branch.'
+  - 'coverage.yml and bench.yml run on a v* tag push and workflow_dispatch only, and ci.yml opts sovereign-ci into coverage_on: tag with the v* tag trigger that makes the input fire; tests/falsification_coverage_runs_on_tagged_releases_only.rs asserts all three from the parsed YAML and goes RED under each declared mutation.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
+  release: 1.33.0
