@@ -4319,7 +4319,9 @@ roadmap:
   created: 2026-09-21T10:47:18Z
   updated: 2026-09-21T10:47:18Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'tests/falsification_refresh_writes_a_stale_file.rs: apply --refresh rewrites a stale file with no lock entry and one the lock calls converged (content: and source: shapes), restores a drifted mode, and leaves a matching file untouched (mtime unchanged); the first three fail on origin/main and the fourth passes there, so it is a negative control'
+  - 'src/resources/file.rs check_script for state: file asserts existence, the sha256 of the declared bytes (sha256sum, else shasum -a 256), an octal mode, and owner/group where declared, each read into a variable and then tested (bashrs SC2107 rejects the inline form, bashrs#366); cargo test --lib passes 13553'
   phases: []
   subtasks: []
   estimated_effort: null
