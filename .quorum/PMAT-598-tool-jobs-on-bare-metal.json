@@ -1,0 +1,113 @@
+{
+  "kind": "code",
+  "issue": "PMAT-598 (closes forjar#598) \u2014 CI jobs that need a tool the yoga-build* containers lack now run only on bare metal: proofs/kani and proofs/lean (provers) and every job running UNFILTERED lib tests \u2014 coverage, stress, mutation \u2014 because nas_archive's safety test fails rather than skips without rsync (#289). Blocks the v1.32.0 tag (#592): on main 770a4857, kani@yoga-build and coverage@yoga-build are red, and on commit 537252d3 four proofs runs went fail/pass/fail/pass purely by runner.",
+  "branch": "PMAT-598-tool-jobs-on-bare-metal",
+  "base": "770a4857",
+  "base_commit": "770a48574eab0d1191a971d091d911abed5911e3",
+  "diff_sha256": "7b254e33426cff80fa3fa0605889f8f5c580e406",
+  "recorded_at": "after three rounds recorded in .quorum/evidence/PMAT-598-lanes.md. Every round found something real: round 1 widened the fix from three jobs to five; rounds 2 and 3 each found a false negative in the detector, round 3's in round 2's own fix; and round 3 produced a lane hand-trace that was wrong, caught only because every trace is backed by an asserted case. The final two detector refinements were made in response to round 3 and no lane has reviewed them; they are covered by asserted cases on both edges and by RED proofs.",
+  "quorum": {
+    "rounds": 3,
+    "lanes": [
+      "round 1, head 10ff8755 \u2014 agy gemini-3.1-pro-high FAIL conv-bc46dd79, agy gemini-3.1-pro-low FAIL conv-afbce85a, claude sonnet FAIL. All three: one declared mutation against a claimed four. Claude: stress.yml and mutation.yml unpinned on the same label set; yoga-build ephemeral and unregistered.",
+      "round 2, head cf9990b6 \u2014 agy-high FAIL conv-7d37392b (a filter after `--` misclassified; a C6 refutation from a brief that lacked the commit messages), agy-low FAIL conv-c4b2e500 (`--locked --lib` false negative; mutation 4 reddens two tests), claude sonnet PASS (listing the detector's false negatives while passing the claims).",
+      "round 3, head 62f42d1d \u2014 agy-high PASS conv-3607d864 (a stale function count), agy-low PASS conv-36b1a491 (valid verdict plus 2194 trailing bytes, decoded with raw_decode), claude sonnet FAIL (libtest value flags after `--` read as filters, a false negative in round 2's fix) \u2014 and the same lane reported a `&&` chain as correct, which an asserted case refuted immediately."
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked per round, across three rounds; it is not three independent tiers. ONE REFUTATION (R8) CAME FROM MEASURING A LANE'S OWN HAND-TRACE: round 3's Claude lane reported a `&&` chain as classified correctly, and adding it as an asserted case failed at once. The lane that found the value-flag defect also asserted a false negative was fine. Neither family was reliable alone in round 3; the defence was turning every trace into an asserted case.",
+    "kill_rule": "nothing was dismissed. Each round's findings were fixed rather than argued with, and the rounds stopped after three not because agreement was reached but because each round now finds the next edge of a heuristic shell parser. The residual limits \u2014 arguments hidden in a shell variable, or split across a backslash continuation \u2014 are stated in the commit message rather than chased; no workflow in the tree uses either for a test invocation.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 9,
+    "refuted_claims": [
+      "R1: 'four declared mutations' \u2014 the file declared one. All three round-1 lanes, independently. Every mutation is now declared in the file header.",
+      "R2: pinning kani, lean and coverage was complete \u2014 stress.yml (`cargo test --lib -- --test-threads=1`) and mutation.yml (`cargo mutants`, whose baseline runs the suite) reach the same rsync-requiring test on the same label set. Neither had ever landed on yoga; the lottery was live, undrawn.",
+      "R3: 'yoga-build/-build2/-build3' as the present fleet \u2014 ephemeral; only yoga-build3 was registered at round 1. Now stated as ephemeral and observed on 2026-09-20.",
+      "R4: the substring detector \u2014 missed bare `cargo test`, `--workspace`, `--all-targets`, `cargo nextest run`, `--locked --lib`. False negatives, the dangerous direction. Two lanes independently. Tokenized.",
+      "R5: stopping at `--` \u2014 a name filter after the separator was classed unfiltered. The test binary's arguments are now read too.",
+      "R6: 'every declared mutation reddens exactly its own arm' \u2014 mutation 4 reddens both anti-vacuity floors by design. The file already said so; the claim did not.",
+      "R7: round 2's post-separator fix read a libtest flag's VALUE (`--skip slow`) as a name filter, classing a run as narrowed although `--skip` excludes and the run still reaches the safety test. A false negative introduced by the fix for the previous one.",
+      "R8: a lane's report that `cargo test --lib && cargo test --doc` classified correctly \u2014 measured, the tokenizer read `&&` as a positional filter and called the unfiltered first command narrowed. Lines are now split on shell separators.",
+      "R9: 'split across four functions' \u2014 true when written, stale after later edits added three. The sentence no longer gives a count."
+    ]
+  },
+  "falsification": {
+    "test": "every_tool_asserting_proof_job_runs_on_bare_metal, every_unfiltered_lib_test_job_runs_where_rsync_is, tool_assertions_name_the_runner_not_the_image, and the_detector_does_not_pin_what_cannot_reach_the_test \u2014 all written by this branch. The discovery test reads every workflow's parsed YAML rather than a hand list; the detector test pins both edges of what counts as an unfiltered lib run.",
+    "test_file": "tests/falsification_tool_jobs_run_where_the_tools_are.rs",
+    "cargo_test_target": "falsification_tool_jobs_run_where_the_tools_are",
+    "observed_failure": "Each declared mutation against byte-identical restored copies: drop `intel` from lean -> every_tool_asserting_proof_job_runs_on_bare_metal FAILED (3 passed; 1 failed); from stress, from mutation, from coverage -> every_unfiltered_lib_test_job_runs_where_rsync_is FAILED (3 passed; 1 failed each); restore 'not in the CI image' in kani -> tool_assertions_name_the_runner_not_the_image FAILED; rename both Assert steps -> both anti-vacuity floors FAILED (2 passed; 2 failed).",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "No crux row is owed: CI configuration only, no shipped behaviour and no CHANGELOG bullet. Recorded because the design question is real.",
+    "systems": [
+      "Bazel: remote execution selects workers by declared execution properties \u2014 a capability, not a hostname [X]; the interim here uses a hostname and names that as its coupling, with a capability label as the done_when",
+      "Kubernetes: a pod schedules onto nodes by label selectors and taints against declared capabilities [X], which is the shape infra's capability label would give these jobs",
+      "Nix: a build's toolchain is in its input closure, so which prover ran is not ambient runner state [X] \u2014 the failure class this interim routes around cannot arise there"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes per round, three rounds, JSON-schema-constrained, brief pasted inline; per-round table in .quorum/evidence/PMAT-598-lanes.md",
+    "rounds": 3,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "agy found the declared-mutation miscount, an independent `--locked --lib` false negative, a post-separator misclassification and a stale count. Both agy lanes passed round 3 while the Claude lane failed it with a real defect; neither family was reliable alone, and the disagreement was the signal."
+  },
+  "pmat": {
+    "ticket": "PMAT-598",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests: no finding in the touched paths; the vacuity guards that matter here are the test's own anti-vacuity floors, each RED-proved",
+      "pmat analyze complexity on the new test: max cognitive 18 after the detector was split (the first tokenized version measured 29 and the pre-commit gate refused it)",
+      "cargo test --test falsification_tool_jobs_run_where_the_tools_are, green, then RED under each declared mutation, then green after byte-identical restores"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-598-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1405,
+        "sha256": "2ee1e252e952adf0ad18b115b264942b33f6cfcbb7ecfd35dec099f43b27955d",
+        "blob": "5adaa71180f397f90514994d136c4f77d7283b20"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-598-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2246,
+        "sha256": "a43809c51006b622127ab717cf26ce0e33b175411e8fb9ea040cb6a2958e2528",
+        "blob": "7e70fcee9aeea9ffa67f9dba9a001c2c2c84e4ce"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-598-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 5684,
+        "sha256": "4eada917512f80b19902730c4371749529529274d8aa80ab44ffd3ed70698245",
+        "blob": "916faf689a6f4e731dc924141d8eb479e3512967"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-598-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1392,
+        "sha256": "966cc76a57aaccf91e8af9e6b25025f1824728e41b558343a872b53feeccace2",
+        "blob": "c61e218fb43a4f63869d783a96dedbbc1894110d"
+      }
+    ],
+    "total_bytes": 10727,
+    "claims_digest": ".quorum/evidence/PMAT-598-judges.md"
+  }
+}

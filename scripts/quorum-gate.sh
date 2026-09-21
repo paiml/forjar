@@ -249,7 +249,26 @@ fi
 #
 # The rule: the hash covers what a REVIEWER reviews. Generated artefacts are not
 # claims, so they are not part of the diff a quorum adjudicated.
-diff_text="$(git diff "$merge_base" "$pushed" -- . ':(exclude,glob).quorum/*.json' ':(exclude).pmat')"
+# --full-index IS LOAD-BEARING (forjar#573).
+#
+# Without it, git ABBREVIATES the blob hashes in every `index <a>..<b> <mode>`
+# line, and it auto-sizes that abbreviation to the object count of the
+# repository it is running in -- so the same commit range renders as DIFFERENT
+# TEXT on two checkouts of the same branch, and the hash below differs with it.
+#
+# Measured on PR #593, head db49991e, base 537252d3, with identical content on
+# both sides: this workstation's clone (42982 objects) abbreviated to 8 and
+# produced 3617ae6b; the clean-room runner's clone abbreviated to 9 and produced
+# 3d09e341. Forcing core.abbrev to 9 locally reproduced the runner's hash
+# exactly, and --full-index yields one hash under every setting from 7 to 40.
+#
+# That is the whole of forjar#573, which was filed as "reports STALE for a
+# correct receipt on some runners; the same head passes on rerun". It is not
+# flaky: it is per-clone deterministic, and a rerun only appears to fix it when
+# the job lands on a runner whose object count happens to agree with the
+# author's. A binding that depends on how many objects a clone has is not a
+# binding.
+diff_text="$(git diff --full-index "$merge_base" "$pushed" -- . ':(exclude,glob).quorum/*.json' ':(exclude).pmat')"
 diff_hash="$(printf '%s' "$diff_text" | git hash-object --stdin)"
 [ -n "$diff_hash" ] || die "could not compute a diff hash"
 

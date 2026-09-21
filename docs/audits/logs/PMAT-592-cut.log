@@ -1,0 +1,61 @@
+# v1.32.0 cut — the reds, verbatim, in the order they were hit
+
+Every line below was produced on this branch by the gate named beside it. None
+is manufactured by reverting a fix; they are the reds the cut actually had to
+clear, and each is followed by the change that cleared it.
+
+## 1. GATE T, before anything was committed
+
+    GATE T FAIL PMAT-565 merged since v1.31.0 and its roadmap row does not carry release:v1.32.0: a PR is tagged when it merges, not when the cut is made (scripts/release-goal.sh sync labels every ticket of the open window)
+
+then, after labelling:
+
+    GATE T FAIL PMAT-565 is named by a PR merged since v1.31.0 and its roadmap row still reads status: inprogress: the work has landed and the roadmap says it has not started
+
+then the same for PMAT-576, then for PMAT-579, which additionally refused a
+direct transition:
+
+    Error: Invalid transition: Planned -> Completed. See work-dbc-v1.yaml §work_lifecycle for valid transitions.
+
+CLEARED BY: `scripts/release-goal.sh sync` for the labels; `pmat work edit` for
+the statuses, each moved through `inprogress` because that is the state the work
+actually passed through.
+
+## 2. GATE B, inherited from main rather than introduced here
+
+    GATE B FAIL the CB-2110..CB-2115 ratchet (Arm 7): REGRESSION: CB-2114: 37 finding(s), ceiling 34 (recorded 2026-09-11); CB-2115: 52 finding(s), ceiling 43 (recorded 2026-09-11)
+
+MEASURED ON origin/main IN A DETACHED WORKTREE BEFORE TOUCHING ANYTHING:
+CB-2115 55, CB-2114 37. The cut branch was three findings BETTER than main. This
+matters: without that measurement the obvious reading is "my branch broke gate
+B", and the repair goes to the wrong place.
+
+CLEARED BY: 12 DRIFT title syncs, PMAT-153 completed (its issue closed
+2026-09-02), PMAT-581/582 bound and completed, and rows minted for every issue
+this cut filed. NO CEILING WAS EDITED.
+
+## 3. GATE A, and it named one file while three were broken
+
+    GATE A FAIL PR #583: the last line of docs/audits/impl-PMAT-579-receipt.md is "..." , not IMPL-PMAT-579-RECEIPT-END — the marker is what makes a truncated receipt detectable rather than silent, and without it the half that mattered may simply be missing
+
+All three receipts #583 landed were missing BOTH halves of the contract: zero
+`verdict:` lines and no end marker. The gate names one at a time, so fixing only
+the one it printed would have cost two more red runs.
+
+CLEARED BY: a verdict line under each H1 and the marker as each last line.
+
+## 4. The commit-msg hook, on the cut's own ticket
+
+    PMAT commit-msg: Pmat-Ticket PMAT-592 is completed — work belongs to an open item, and CB-2113 refuses this commit in CI.
+
+CLEARED BY: PMAT-592's row stays `inprogress`; the booking PR closes it.
+
+## 5. What the quorum found that no gate did
+
+Nine gates passed — A B C D E F G H T, `make dogfood-release` exit 0, zero error
+lines — and the release still contained four sentences a reader could check and
+find false, plus twenty lines of gratuitous reformatting in a file no gate reads.
+They are adjudicated in `.quorum/evidence/release-1.32.0-judges.md`.
+
+That is the point of this log. A green gate run is evidence about the gates, not
+about whether the release describes itself truthfully.
