@@ -73,7 +73,23 @@ jobs:
   # way to keep a floor is to measure it every time rather than to reason about
   # when it could not have moved. Twelve minutes of the ~131 a PR used to cost.
   coverage:
-    runs-on: [self-hosted, clean-room, X64]
+    # forjar#598 -- PINNED TO BARE METAL, AN INTERIM WITH A NAMED COUPLING.
+    #
+    # `[self-hosted, clean-room, X64]` matches the intel runners (bare metal,
+    # tools present) AND the yoga-build* runners (EPHEMERAL containers --
+    # yoga-build, -build2, -build3 all observed running these jobs on
+    # 2026-09-20; lean + kani + rsync ABSENT by inventory). So this job was deterministic per runner and
+    # a coin flip per run: on commit 537252d3 four runs went fail/pass/fail/pass
+    # purely by which runner picked it up. A re-run landing on intel is a green
+    # nobody can reconstruct.
+    #
+    # `intel` here is a HOSTNAME standing in for a CAPABILITY, which this repo
+    # otherwise avoids (PMAT-547). Remove it when either lands: a capability
+    # label (`provers` / `bare-metal`) declared on the intel runners in infra's
+    # fleet declaration, asked for here instead; or yoga's images converging on
+    # the declared stack (paiml/infra#813). X64 already excludes gx10 (ARM64,
+    # also without the tools).
+    runs-on: [self-hosted, clean-room, X64, intel]
     timeout-minutes: 45
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}

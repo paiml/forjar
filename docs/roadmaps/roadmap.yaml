@@ -4233,12 +4233,11 @@ roadmap:
   github_issue: 567
   item_type: task
   title: 'lint.yml on the fleet: a clean-room runner has no cargo-clippy for the 1.89 toolchain — first fleet run of lint after PMAT-547'
-  release: 1.32.0
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:38Z
-  updated: 2026-09-15T17:55:38Z
+  updated: 2026-09-21T05:26:43Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#567.
@@ -4247,7 +4246,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-564
   github_issue: 564
   item_type: task
@@ -4345,6 +4346,26 @@ roadmap:
   labels:
   - kind:code
   notes: 'CANCELLED 2026-09-20: not a forjar defect. Re-measured on the right denominator by the infra session — the job runs in a CONTAINER and rsync is absent from every runner image (gx10-pool1, yoga-build3, pforge-clean-room), present only on the intel HOST. The fix is the runner-image declaration, tracked as paiml/infra#813 over the whole inventory (rsync, jq, rustc, git, curl, unzip, fontconfig) with tool-pin-check reading inside containers. The test stays exactly as strict as it is. Sibling defect, same lane, same cause class: forjar#567 (cargo-clippy absent for the 1.89 toolchain, lint.yml red on main for 5+ consecutive runs). Both are fleet uniformity, which is forjar''s own job to declare on the runner hosts.'
+- id: PMAT-598
+  github_issue: 598
+  item_type: task
+  title: 'tool-asserting CI jobs land on containers that lack the tools — route proofs/kani, proofs/lean and coverage to bare metal until infra#813 converges'
+  release: 1.32.0
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-21T06:00:00Z
+  updated: 2026-09-21T06:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Every CI job that needs a tool absent from the yoga-build* containers runs only on bare metal: proofs/kani and proofs/lean (provers), and every job running UNFILTERED lib tests (coverage, stress, mutation), because nas_archive''s safety test fails rather than skips without rsync. Measured: yoga-build* are ephemeral containers lacking lean, kani and rsync; the intel runners are bare metal with all three. Done when a falsification test that DISCOVERS such jobs from the parsed workflow YAML (not a hand-written list) fails on removing the routing label from any of them, and each pinned job is green on a named intel runner.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.32.0
+  notes: 'Interim with a named coupling: `intel` is a hostname standing in for a capability. Remove it when a capability label (provers / bare-metal) is declared on the intel runners in infra and runs-on asks for that, or when yoga images converge on the declared stack (paiml/infra#813).'
 - id: PMAT-594
   github_issue: 594
   item_type: task
@@ -4369,12 +4390,11 @@ roadmap:
   github_issue: 592
   item_type: task
   title: 'release: forjar 1.32.0 — the per-machine lock names the binary that wrote it, keeps its creator, and lock --restamp converges a state dir'
-  release: 1.32.0
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-20T11:45:00Z
-  updated: 2026-09-20T11:45:00Z
+  updated: 2026-09-21T05:28:56Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -4384,6 +4404,7 @@ roadmap:
   - kind:code
   - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-574
   github_issue: 574
   item_type: task
