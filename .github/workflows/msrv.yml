@@ -23,14 +23,34 @@ jobs:
     # GitHub-hosted runner, where it had a private ~/.cargo by construction.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+      # forjar#566 -- THE MSRV IS SELECTED PER JOB, NEVER WRITTEN INTO THE
+      # WORKSPACE. This step used to run `rustup override set 1.89.0`, which
+      # records a DIRECTORY OVERRIDE for the runner's workspace path and never
+      # removes it. The `data/actions-runner-N` workspaces are reused across
+      # jobs, and a directory override outranks rust-toolchain.toml -- so after
+      # this job ran on a runner, every later forjar job there silently ran
+      # 1.89.0 instead of the pinned 1.93.0. Most passed anyway (the code
+      # compiles on its MSRV), which is what kept it invisible; the two that
+      # could not were lint (1.89.0 carries no clippy, forjar#567) and mutation
+      # (cargo-mutants 27.1.0 needs 1.91, forjar#566). Measured on main 7bfb5720:
+      #   info: default toolchain set to stable -- rustc 1.98.1
+      #   info: note that the toolchain '1.89.0' is currently in use
+      #         (directory override for '/home/noah/data/actions-runner-2/...')
+      # RUSTUP_TOOLCHAIN outranks a directory override AND ends with the job.
+      # Keep it equal to `rust-version` in Cargo.toml; a test asserts they agree.
+      RUSTUP_TOOLCHAIN: 1.89.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install MSRV toolchain
         # rust: 1.89.0 (bumped from 1.88 — aprender-contracts 0.30 requires 1.89)
         run: |
+          # Clear any override a previous run of this job left in this
+          # workspace, so the runner stops poisoning jobs that come after it.
+          # Exits 0 when there is none (measured).
+          rustup override unset
           rustup toolchain install 1.89.0 --profile minimal
-          rustup override set 1.89.0
+          rustc --version
 
       - name: Cache cargo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0

@@ -53,7 +53,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-mutants
-        run: cargo install cargo-mutants
+        run: |
+          # forjar#566: a stale `rustup override set 1.89.0`, left in this
+          # runner's workspace by the MSRV job before that job stopped writing
+          # one, outranks rust-toolchain.toml; cargo-mutants 27.1.0 needs 1.91
+          # and failed to build under it. Clear it so the pin applies.
+          rustup override unset
+          rustc --version
+          cargo install cargo-mutants
 
       - name: Run mutation tests
         continue-on-error: true

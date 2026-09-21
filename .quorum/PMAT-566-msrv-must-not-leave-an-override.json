@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-566 (closes forjar#566) \u2014 msrv.yml's `rustup override set 1.89.0` left a persistent directory override in reused runner workspaces, outranking rust-toolchain.toml, so every later forjar job on that runner silently ran 1.89.0 instead of the pinned 1.93.0. Two symptoms, both first diagnosed as something else: lint (#567, no clippy on 1.89.0) and mutation (#566, cargo-mutants 27.1.0 needs 1.91). The MSRV is now selected per job with RUSTUP_TOOLCHAIN.",
+  "branch": "PMAT-566-msrv-must-not-leave-an-override",
+  "base": "7bfb5720",
+  "base_commit": "7bfb572042ca1baf0c2843864f0cf09cc2c75460",
+  "diff_sha256": "4f4f986d0c3d233d1ea798dd8330d16bece1ae75",
+  "recorded_at": "after one round: the Claude lane PASS, both agy lanes FAIL (agy-high on a re-run after a no-verdict). Four confirmed, two refuted \u2014 both refutations about wording and what a quote showed, none about the mechanism. The load-bearing precedence claim was measured by the Claude lane in a scratch directory, not recited.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 71376ed1 \u2014 agy gemini-3.1-pro-high: first run NO-VERDICT (a sandbox-denied tool call ended its turn with an empty response); re-run once with the brief forbidding tool calls: FAIL conv-48905a36 \u2014 C4 wording, and the commit's quote showing the override but not the failure.",
+      "round 1, head 71376ed1 \u2014 agy gemini-3.1-pro-low FAIL conv-1696552f \u2014 C4: mutation.yml's pre-existing continue-on-error.",
+      "round 1, head 71376ed1 \u2014 claude sonnet PASS \u2014 measured rustup precedence empirically (directory override over toolchain file; RUSTUP_TOOLCHAIN over directory override; unset safe with an uninstalled RUSTUP_TOOLCHAIN) and raised the C4 wording point."
+    ],
+    "lane_errors": 1,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked; not three independent tiers. The lane_error is agy-high's first run, a no-verdict counted as no review. Its re-run was not given --dangerously-skip-permissions.",
+    "kill_rule": "nothing was dismissed; both refutations were accepted. C4 was wording in the claims file only. C5's point was fixed by quoting the compile failure beside the override lines in the commit message.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1 (C4): 'nothing is skipped, waived or continue-on-error'd' \u2014 mutation.yml's 'Run mutation tests' step still has a pre-existing continue-on-error. All three lanes. The branch neither added nor touched it; the claim should have been scoped to the lines it adds.",
+      "R2 (C5): 'the measurement quoted in the commit message shows it' \u2014 the quote had only rustup's two info lines showing the override active, none of the cargo-mutants compile failure. The commit message now quotes cause and symptom from the same job's log."
+    ]
+  },
+  "falsification": {
+    "test": "no_workflow_writes_a_directory_override, msrv_selects_its_toolchain_per_job_and_matches_rust_version, mutation_clears_a_stale_override_before_installing \u2014 written by this branch, reading parsed workflow YAML; the rust-version arm also reads Cargo.toml so the MSRV job cannot drift from the declared MSRV.",
+    "test_file": "tests/falsification_no_workflow_leaves_a_toolchain_override.rs",
+    "cargo_test_target": "falsification_no_workflow_leaves_a_toolchain_override",
+    "observed_failure": "Against byte-identical restored copies: restoring `rustup override set 1.89.0` in msrv.yml -> no_workflow_writes_a_directory_override FAILED (2 passed; 1 failed); RUSTUP_TOOLCHAIN 1.89.0 -> 1.88.0 -> msrv_selects_its_toolchain_per_job_and_matches_rust_version FAILED (2 passed; 1 failed); deleting `rustup override unset` from mutation.yml's install step -> mutation_clears_a_stale_override_before_installing FAILED (2 passed; 1 failed).",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "No crux row owed: CI configuration only, no shipped behaviour.",
+    "systems": [
+      "Nix: the toolchain is part of a derivation's input closure, so a build cannot inherit one from ambient state in a directory [X] \u2014 the defect cannot occur by construction",
+      "Bazel: toolchains are resolved per target from declared constraints, not from state left in the workspace by a previous action [X]",
+      "Docker: a job in a fresh container starts from the image, so nothing one job leaves behind reaches the next [X] \u2014 which is why the ephemeral eph-build runners never showed this"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes, review-only, JSON-schema-constrained; table in .quorum/evidence/PMAT-566-lanes.md",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "both agy lanes FAIL on wording and on what a quote showed; both confirmed the mechanism. agy-high's first run was a no-verdict from a sandbox-denied tool call and was re-run once without widening its permissions."
+  },
+  "pmat": {
+    "ticket": "PMAT-566",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests: no finding in the touched paths",
+      "cargo test --test falsification_no_workflow_leaves_a_toolchain_override: green, RED under each declared mutation, green after byte-identical restores"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-566-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 936,
+        "sha256": "09be917c00bac28b84e83eb37980db0b848c47f54f50bacbaa6bd4589a99b486",
+        "blob": "e6063a78a757dee8dda2dc456c9464e34d06b232"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-566-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1702,
+        "sha256": "6ae3f3ac0bb179d41af5534467c73f41e79ddea0506b254104da27649c35a208",
+        "blob": "de3459879d4918c50346e5dc9e1a91e20b793099"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-566-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 2907,
+        "sha256": "a2332ac32bbd08a0472d59c3a0cbb4c565ada269e640b9b01bd40b534cc21de6",
+        "blob": "7ac155299854dd4492f1ca2e70b8d33e0319838d"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-566-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 840,
+        "sha256": "3a31163e27b09d6435525a565be6196f138eb0bf775594fa49badcfece4570a7",
+        "blob": "b2cc7210a5cedcb76c9124f77b2ca5b3cc4d9671"
+      }
+    ],
+    "total_bytes": 6385,
+    "claims_digest": ".quorum/evidence/PMAT-566-judges.md"
+  }
+}
