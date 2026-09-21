@@ -4214,12 +4214,11 @@ roadmap:
   github_issue: 566
   item_type: task
   title: 'mutation.yml: cargo install cargo-mutants pulls deps that need rustc 1.91 on the fleet''s 1.89 toolchain — red on main since 2026-09-14'
-  release: 1.32.0
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:38Z
-  updated: 2026-09-15T17:55:38Z
+  updated: 2026-09-21T07:44:50Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#566.
@@ -4228,7 +4227,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.32.0
   notes: null
+  release: 1.32.0
 - id: PMAT-567
   github_issue: 567
   item_type: task
@@ -4346,16 +4347,35 @@ roadmap:
   labels:
   - kind:code
   notes: 'CANCELLED 2026-09-20: not a forjar defect. Re-measured on the right denominator by the infra session — the job runs in a CONTAINER and rsync is absent from every runner image (gx10-pool1, yoga-build3, pforge-clean-room), present only on the intel HOST. The fix is the runner-image declaration, tracked as paiml/infra#813 over the whole inventory (rsync, jq, rustc, git, curl, unzip, fontconfig) with tool-pin-check reading inside containers. The test stays exactly as strict as it is. Sibling defect, same lane, same cause class: forjar#567 (cargo-clippy absent for the 1.89 toolchain, lint.yml red on main for 5+ consecutive runs). Both are fleet uniformity, which is forjar''s own job to declare on the runner hosts.'
+- id: PMAT-601
+  github_issue: 601
+  item_type: task
+  title: 'impl receipts for the v1.32.0 window: #593, #596, #599 merged without docs/audits/impl-<ticket>-receipt.md'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-09-21T08:00:00Z
+  updated: 2026-09-21T08:16:44Z
+  spec: null
+  acceptance_criteria:
+  - 'Gate A passes on the tag candidate: every PR merged since v1.31.0 carries docs/audits/impl-<ticket>-receipt.md ending with its END marker and exactly one verdict line. Receipts record that the work was implemented directly with a quorum, not through the paiml-implement harness, and cite only artefacts that exist.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:triage
+  - release:v1.32.0
+  notes: null
+  release: 1.32.0
 - id: PMAT-598
   github_issue: 598
   item_type: task
-  title: 'tool-asserting CI jobs land on containers that lack the tools — route proofs/kani, proofs/lean and coverage to bare metal until infra#813 converges'
-  release: 1.32.0
-  status: inprogress
+  title: tool-asserting CI jobs land on containers that lack the tools — route proofs/kani, proofs/lean and coverage to bare metal until infra#813 converges
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-21T06:00:00Z
-  updated: 2026-09-21T06:00:00Z
+  updated: 2026-09-21T07:30:08Z
   spec: null
   acceptance_criteria:
   - 'Every CI job that needs a tool absent from the yoga-build* containers runs only on bare metal: proofs/kani and proofs/lean (provers), and every job running UNFILTERED lib tests (coverage, stress, mutation), because nas_archive''s safety test fails rather than skips without rsync. Measured: yoga-build* are ephemeral containers lacking lean, kani and rsync; the intel runners are bare metal with all three. Done when a falsification test that DISCOVERS such jobs from the parsed workflow YAML (not a hand-written list) fails on removing the routing label from any of them, and each pinned job is green on a named intel runner.'
@@ -4366,6 +4386,7 @@ roadmap:
   - kind:code
   - release:v1.32.0
   notes: 'Interim with a named coupling: `intel` is a hostname standing in for a capability. Remove it when a capability label (provers / bare-metal) is declared on the intel runners in infra and runs-on asks for that, or when yoga images converge on the declared stack (paiml/infra#813).'
+  release: 1.32.0
 - id: PMAT-594
   github_issue: 594
   item_type: task

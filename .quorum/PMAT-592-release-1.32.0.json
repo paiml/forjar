@@ -5,7 +5,7 @@
   "base": "537252d3",
   "base_commit": "537252d3cc1c3d900bb8953e99f525545f45849b",
   "diff_sha256": "8bc39ea19003d49852f841a0b47fce2f903d17e4",
-  "recorded_at": "after the single round recorded in .quorum/evidence/release-1.32.0-lanes.md, in which all three lanes returned FAIL and every one of them was right. Four confirmed claims, nine refuted. THE SPLIT IS THE RESULT: every STRUCTURAL claim about the diff survived three independent lanes, and every kill was PROSE \u2014 four sentences in this cut's own documentation that a reader could check and find false, plus one tree defect no gate reads.",
+  "recorded_at": "after the single round recorded in .quorum/evidence/release-1.32.0-lanes.md, in which all three lanes returned FAIL and every one of them was right. Three confirmed claims, ten refuted (corrected by PMAT-601: this sentence was written before C8 moved to refuted as R10, and a review lane found it disagreeing with this file's own structured counts). THE SPLIT IS THE RESULT: every STRUCTURAL claim about the diff survived three independent lanes, and every kill was PROSE \u2014 four sentences in this cut's own documentation that a reader could check and find false, plus one tree defect no gate reads.",
   "quorum": {
     "rounds": 1,
     "lanes": [
