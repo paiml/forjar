@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-604 (closes forjar#604) \u2014 book v1.32.0: the ledger row measured from the tag, the paiml/forjar-cookbook commit that admits and pins 1.32.0, v1.33.0 declared, PMAT-566 completed; batched with the operator's decision to run Coverage and Benchmarks on tagged releases only (coverage.yml and bench.yml on v* tags and dispatch; ci.yml opts sovereign-ci into coverage_on: tag with the tag trigger that makes it fire). One PR, one CI run, on the instruction to stop serial PRs on a saturated fleet.",
+  "branch": "PMAT-604-book-v1.32.0",
+  "base": "b12a8392",
+  "base_commit": "b12a8392acbfdebab2cf48d4184f4bfc0cea6fc6",
+  "diff_sha256": "0e2fee112a1699f889b1c8cf8d7394bd151a46c4",
+  "recorded_at": "after one round over a094fc7d: the Claude lane PASS, both agy lanes FAIL. Four claims confirmed, two refuted: C2, a sentence claiming tree identity for gates that read GitHub, and C5, three test loopholes. Both were fixed in 6b70299e and re-measured (gates A and E at the tagged commit 7 of 7; eight mutations). One finding, a label move on the wrong row, was rejected by mapping hunks to rows.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head a094fc7d \u2014 agy gemini-3.1-pro-high FAIL conv-37deb686 \u2014 C2 tree identity; C5 negated tag pattern and unchecked uses; C4 whole-workflow scope; C6 label move on PMAT-591 (rejected: both hunks are inside PMAT-594).",
+      "round 1, head a094fc7d \u2014 agy gemini-3.1-pro-low FAIL conv-37d61113 \u2014 C2 tree identity; C5 unchecked uses and job-level if; confirmed C3 and C4 with the whole-workflow note. Did not assess C1 or C6.",
+      "round 1, head a094fc7d \u2014 claude sonnet PASS \u2014 re-measured the PR window, cut instant, due date and cookbook files live; read sovereign-ci's coverage job and gate; one false sentence (tree identity) and the whole-workflow note."
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes asked; not three independent tiers. agy-low returned no assessment for C1 or C6, so those two claims had two judges each.",
+    "kill_rule": "one finding dismissed, by measurement, not by argument: agy-high's claim that the fourth label move landed on PMAT-591. Each roadmap hunk was mapped to the `- id:` line that owns it; hunks at 4399 and 4408 are inside PMAT-594. Every other finding was accepted.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1 (C2): 'What makes the measurement transfer to the tag is tree identity' \u2014 gates A, E and T read git history and GitHub PR state, and on 2a39ed91 their window did not contain #603. All three lanes. Gates A and E re-run at b12a8392 over the full window pass 7 of 7; the paragraph now also names what B, D and F read from outside the tree.",
+      "R2 (C5): the opt-in predicate accepted tags ['v*', '!v*'], any jobs.ci.uses, and a job-level if that skips on a tag. Both agy lanes. All three are refused now, a job-gate predicate covers coverage.yml and bench.yml, and eight mutations each redden exactly their declared test."
+    ]
+  },
+  "falsification": {
+    "test": "coverage_and_benchmarks_trigger_on_tags_and_dispatch_only, every_job_that_measures_can_run_on_a_tag, sovereign_ci_coverage_is_opted_into_tags_only, plus three predicate-control tests driven with fabricated shapes that must be refused \u2014 written by this branch, reading parsed workflow YAML.",
+    "test_file": "tests/falsification_coverage_runs_on_tagged_releases_only.rs",
+    "cargo_test_target": "falsification_coverage_runs_on_tagged_releases_only",
+    "observed_failure": "Each against the real workflow, restored from a backup afterwards (cmp clean; git diff --quiet HEAD -- .github/workflows): pull_request back in coverage.yml -> coverage_and_benchmarks_trigger_on_tags_and_dispatch_only FAILED (5 passed; 1 failed); branches under bench.yml push -> same test FAILED; coverage_on deleted -> sovereign_ci_coverage_is_opted_into_tags_only FAILED; ci.yml tag trigger deleted -> same; benchmark job if: github.ref_type != 'tag' -> every_job_that_measures_can_run_on_a_tag FAILED; ci.yml tags ['v*', '!v*'] -> sovereign_ci_coverage_is_opted_into_tags_only FAILED; ci job uses another workflow -> same; ci job if: github.ref_type != 'tag' -> same. Restored tree: 6 passed.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "No crux row owed: CI configuration and the release ledger only, no shipped behaviour.",
+    "systems": [
+      "rust-lang/rust: rustc-perf benchmarks run on merged commits, and on a PR only when a reviewer asks for a perf run [X] \u2014 expensive measurement is post-merge, not per push",
+      "Kubernetes Prow: jobs are declared as presubmits, postsubmits or periodics, and the expensive scalability and performance suites are periodics, not presubmits [X]",
+      "LLVM: performance tracking through LNT runs post-commit on buildbots, never as a gate on each review [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes, review-only, JSON-schema-constrained, run from an empty scratch directory; table in .quorum/evidence/PMAT-604-lanes.md",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "both agy lanes FAIL: they found the three test loopholes and, with the Claude lane, the tree-identity sentence; agy-high's row-ownership finding was refuted by the file itself."
+  },
+  "pmat": {
+    "ticket": "PMAT-604",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests --path tests: 84 of 4877 #[test] fns flagged repo-wide, none in the touched test file",
+      "cargo test --test falsification_coverage_runs_on_tagged_releases_only: 6 passed, RED under each of eight mutations, green after restores"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-604-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1006,
+        "sha256": "1eea94b2a4d494141d31fa338df4ef550f3c10e45ab74b4aaac4705f65836ab7",
+        "blob": "996cf77f86617493beaf74d3e5b0d5f582ab42ae"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-604-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1631,
+        "sha256": "3dd732f918f90eede989f2aab80e09067c5e4a7fca0bf8aaa5acdd1410f960f4",
+        "blob": "0c8e24d9a8e3f980d89d94755b69579ece73647b"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-604-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 3060,
+        "sha256": "4a2417f2312641e522d3dc13a1c691d3dcce600cc5f1c4edd3c8cb7a161f1d52",
+        "blob": "8d1e3c9e4d6ca45e627a140fbb3eeadc24257b9b"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-604-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 1030,
+        "sha256": "9b618480f9e249042a53abbe61272a1d15159a2840a6f49367dde032b56c055e",
+        "blob": "20d06682808a29764e2f828c3a228b1558e4a8f1"
+      }
+    ],
+    "total_bytes": 6727,
+    "claims_digest": ".quorum/evidence/PMAT-604-judges.md"
+  }
+}
