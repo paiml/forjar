@@ -2,10 +2,10 @@
   "kind": "code",
   "issue": "PMAT-604 (closes forjar#604) \u2014 book v1.32.0: the ledger row measured from the tag, the paiml/forjar-cookbook commit that admits and pins 1.32.0, v1.33.0 declared, PMAT-566 completed; batched with the operator's decision to run Coverage and Benchmarks on tagged releases only (coverage.yml and bench.yml on v* tags and dispatch; ci.yml opts sovereign-ci into coverage_on: tag with the tag trigger that makes it fire). One PR, one CI run, on the instruction to stop serial PRs on a saturated fleet.",
   "branch": "PMAT-604-book-v1.32.0",
-  "base": "b12a8392",
-  "base_commit": "b12a8392acbfdebab2cf48d4184f4bfc0cea6fc6",
-  "diff_sha256": "0e2fee112a1699f889b1c8cf8d7394bd151a46c4",
-  "recorded_at": "after one round over a094fc7d: the Claude lane PASS, both agy lanes FAIL. Four claims confirmed, two refuted: C2, a sentence claiming tree identity for gates that read GitHub, and C5, three test loopholes. Both were fixed in 6b70299e and re-measured (gates A and E at the tagged commit 7 of 7; eight mutations). One finding, a label move on the wrong row, was rejected by mapping hunks to rows.",
+  "base": "b6ae603c",
+  "base_commit": "b6ae603c0dbda9628815ea8362489fe7b7aed00a",
+  "diff_sha256": "4dbd427c64b2233e49355ee5e7d65a657c7e9990",
+  "recorded_at": "after one round over a094fc7d: the Claude lane PASS, both agy lanes FAIL. Four claims confirmed, two refuted: C2, a sentence claiming tree identity for gates that read GitHub, and C5, three test loopholes. Both were fixed in 6b70299e and re-measured (gates A and E at the tagged commit 7 of 7; eight mutations). One finding, a label move on the wrong row, was rejected by mapping hunks to rows. RE-BOUND after the round: #589 merged to main and conflicted with this branch, so main was merged in (7b87a365) and the receipt re-bound to the new merge-base. Three commits the lanes did not see follow the quorum: that merge (roadmap conflict, both rows kept), PMAT-588 completed and labelled release:v1.33.0 (62348d15), and the impl receipt's re-measured gate T and B lines (9794837d). All three are ledger and receipt text; none touches a workflow or the test. Gate T PASSes outright on the merged HEAD, and gate B's counts are unchanged.",
   "quorum": {
     "rounds": 1,
     "lanes": [
