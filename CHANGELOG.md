@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**A `state: file` check asks for the declared content and mode, not just
+existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
+--refresh` re-applies only what its check fails, so a file holding the wrong
+bytes was certified converged. With no lock entry it was seeded as converged;
+with a lock entry, one run printed `drift: … pv.pin content changed` and then
+`0 converged`, which left a fleet pin at `0.65.2` under a declaration of
+`0.68.2`. The check now asserts existence, the sha256 of the declared bytes
+(`sha256sum`, else macOS `shasum -a 256`; no hash tool fails closed), an octal
+`mode`, and `owner`/`group` where declared, each with its own marker
+(`stale:content`, `stale:mode`, …). A file that already matches is not
+rewritten. `tests/falsification_refresh_writes_a_stale_file.rs` covers both
+doors, mode drift and that negative control.
+
 ## [1.32.0] - 2026-09-20
 
 **The per-machine lock names the binary that wrote it, on every write
