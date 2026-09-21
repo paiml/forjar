@@ -1,0 +1,106 @@
+{
+  "kind": "code",
+  "issue": "PMAT-600 (forjar#600) — a `state: file` check_script was `test -f`, so `apply --refresh` (re-apply only what fails) certified a file holding the wrong bytes through both doors: refresh seeding with no lock entry, and a lock entry, where one run on intel printed `drift: … pv.pin content changed` and then `0 converged`, leaving a fleet pin at 0.65.2 under a declaration of 0.68.2 (2026-09-21 10:41Z). The check now asserts existence, the sha256 of the declared bytes, an octal mode and owner/group where declared.",
+  "branch": "PMAT-600-file-check-content",
+  "base": "551859a7",
+  "base_commit": "551859a795d6b75febb08cdcd63067ec407e3373",
+  "diff_sha256": "4592894f07eb2f3d5a4d3bc426a2a475b4439673",
+  "recorded_at": "after three rounds recorded in .quorum/evidence/PMAT-600-lanes.md; rounds 1 and 2 were quota failures (HTTP 429, no lane read the diff), round 3 ran after the reset on the same head and all three lanes passed.",
+  "quorum": {
+    "rounds": 3,
+    "lanes": [
+      "round 1, head c2e4ee24 — agy gemini-3.1-pro-high, gemini-3.1-pro-low, gemini-3.6-flash-low: NO-VERDICT (429 Individual quota reached)",
+      "round 2, head c2e4ee24 — the same three: NO-VERDICT (429)",
+      "round 3, head c2e4ee24 — agy gemini-3.1-pro-high PASS, agy gemini-3.1-pro-low PASS, agy gemini-3.6-flash-low PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of the one round that ran; rounds 1 and 2 are not counted as judgements.",
+    "kill_rule": "nothing was dismissed; no lane raised a finding. Both refutations came from the author's own tests before the quorum: forjar's I8 gate refusing the inline form, and the issue's mechanism naming one door of two.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: the first content assertion put `||` inside `[ \"$(…)\" = x ]`; bashrs SC2107 read it as `[ a || b ]` at Error and the I8 gate refused every file check (20+ lib tests). Now assign-then-test; bashrs#366 fixed in bashrs#367.",
+      "R2: the issue named refresh seeding (unlocked resources) as the mechanism; a locked resource went through the same check. The fix is in check_script, which both doors consult."
+    ]
+  },
+  "falsification": {
+    "test": "refresh_writes_a_stale_file_that_has_no_lock_entry, refresh_writes_a_stale_file_the_lock_calls_converged, refresh_restores_a_drifted_mode — RED on main; refresh_leaves_a_matching_file_alone — the negative control, green on both",
+    "test_file": "tests/falsification_refresh_writes_a_stale_file.rs",
+    "cargo_test_target": "falsification_refresh_writes_a_stale_file",
+    "observed_failure": "on the RED commit 59db2bc6 (origin/main's src/resources/file.rs): 1 passed; 3 failed — `Content: --refresh left the stale file in place`, `Content: --refresh reported and did not write`, `--refresh left mode 0600`. With the fix: 4 passed.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "Shipped behaviour change: a file check now fails on stale content or mode, so `apply --refresh` writes it. CHANGELOG [Unreleased] carries it. Every major configuration tool decides a managed file's convergence by content and attributes, never by existence alone.",
+    "systems": [
+      "Ansible copy/template: compares the checksum of the destination with the source before writing, and reports changed only when they differ; mode/owner are compared separately [X]",
+      "Puppet file resource: content is compared by checksum (md5 by default, sha256 selectable), and mode/owner/group are separate properties each reported on change [X]",
+      "Chef file/template: a sha256 checksum of the current file against the rendered content decides whether the resource updates; mode/owner/group are checked as attributes [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three sandboxed agy lanes per round, JSON-schema-constrained, diff and ticket pasted inline; per-round table in .quorum/evidence/PMAT-600-lanes.md",
+    "rounds": 3,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 3: 3/3 PASS with every criterion cited to a line; rounds 1-2 were quota failures, not reviews."
+  },
+  "pmat": {
+    "ticket": "PMAT-600",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests repo-wide: 19821 tests in 2201 files, 432 vacuous repo-wide, 0 in the touched test file or src/resources/file.rs",
+      "cargo test --test falsification_refresh_writes_a_stale_file: RED (3 of 4) on 59db2bc6, GREEN (4 of 4) at the fix",
+      "cargo test --lib: 13553 passed; 35 integration test files about refresh, drift, seeding and files: all green"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-600-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "978cb5521e79c11649f2fbc3f41b07597561952f",
+        "sha256": "9b0c223c5529587e18db5d3eebceeb8fb59b75f5b8f9b65320fe4fe4bebe1baf",
+        "bytes": 1232
+      },
+      {
+        "path": ".quorum/evidence/PMAT-600-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "c71e762ab2c980998e8eb32bb064b41c08aa746d",
+        "sha256": "db7e583149a7de56fab6cbfdaf91b9ea6e7dc07d4179b219a89e127f5558685c",
+        "bytes": 1416
+      },
+      {
+        "path": ".quorum/evidence/PMAT-600-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "129c567ac1005078be2fb26376d8f25118e78f76",
+        "sha256": "373f13565c1b87c362b94bc7a1e26ccd484978859064e2c012c157dacb3b05b3",
+        "bytes": 3218
+      },
+      {
+        "path": ".quorum/evidence/PMAT-600-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "97d23ce4550b1310bbe2b4b29820af5e5577561f",
+        "sha256": "2609bb0e2305dff1ebfff5cae5b6cd8b7ab378ac3bf6c460a371cce0a2ac929b",
+        "bytes": 806
+      }
+    ],
+    "total_bytes": 6672,
+    "claims_digest": ".quorum/evidence/PMAT-600-judges.md"
+  }
+}
