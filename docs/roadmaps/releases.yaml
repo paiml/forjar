@@ -90,6 +90,13 @@ releases:
     dogfood: docs/audits/dogfood-1.31.0-receipt.md
     crux: docs/audits/crux-1.31.0.md
     cookbook: 710b08774517428fe5d9b01e6004443903ce5858
+  - tag: v1.32.0
+    cut: 2026-09-21T09:27:03Z
+    prs: [570, 577, 583, 593, 596, 599, 603]
+    tickets: [PMAT-565, PMAT-566, PMAT-567, PMAT-576, PMAT-579, PMAT-592, PMAT-598, PMAT-601]
+    dogfood: docs/audits/dogfood-1.32.0-receipt.md
+    crux: docs/audits/crux-1.32.0.md
+    cookbook: a8e758ec068a18cb0fbd0046c681227476eb77ce
 next:
-  tag: v1.32.0
-  due: 2026-09-18T08:50:38Z
+  tag: v1.33.0
+  due: 2026-09-23T09:27:03Z

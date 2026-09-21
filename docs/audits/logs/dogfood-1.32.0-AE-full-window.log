@@ -1,0 +1,25 @@
+# gates A and E at b12a8392 (the commit v1.32.0 points at), measured 2026-09-21 in a scratch clone
+# with the local v1.32.0 tag deleted so the newest reachable tag is v1.31.0 and the window is the release's own
+$ bash scripts/dogfood/harness.sh   # exit 0
+  #589 b6ae603c0dbda9628815ea8362489fe7b7aed00a is outside HEAD (merged after it) — not counted
+  #575 8285616f4ac9cc240aa60f8cfe64899a7febc9cf is inside v1.31.0 (the previous release) — not counted
+GATE A #603 PMAT-566 docs/audits/impl-PMAT-566-receipt.md ok
+GATE A #599 PMAT-598 docs/audits/impl-PMAT-598-receipt.md ok
+GATE A #596 PMAT-567 docs/audits/impl-PMAT-567-receipt.md ok
+GATE A #593 PMAT-592 docs/audits/impl-PMAT-592-receipt.md ok
+GATE A #583 PMAT-579 docs/audits/impl-PMAT-579-receipt.md ok
+GATE A #577 PMAT-576 docs/audits/impl-PMAT-576-receipt.md ok
+GATE A #570 PMAT-565 docs/audits/impl-PMAT-565-receipt.md ok
+GATE A PASS 7 of 7 merged PR(s) since v1.31.0 carry a harness receipt
+
+$ bash scripts/dogfood/quorum.sh    # exit 0
+  #589 b6ae603c0dbda9628815ea8362489fe7b7aed00a is outside HEAD (merged after it) — not counted
+  #575 8285616f4ac9cc240aa60f8cfe64899a7febc9cf is inside v1.31.0 (the previous release) — not counted
+GATE E #603 .quorum/PMAT-566-msrv-must-not-leave-an-override.json ok
+GATE E #599 .quorum/PMAT-598-tool-jobs-on-bare-metal.json ok
+GATE E #596 .quorum/PMAT-567-lint-toolchain-override.json ok
+GATE E #593 .quorum/PMAT-592-release-1.32.0.json ok
+GATE E #583 .quorum/PMAT-579-pin-preflight.json ok
+GATE E #577 .quorum/PMAT-576-book-v1.31.0.json ok
+GATE E #570 .quorum/PMAT-565-lock-writer-provenance.json ok
+GATE E PASS 7 of 7 merged PR(s) since v1.31.0 carry a quorum receipt

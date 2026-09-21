@@ -1,13 +1,18 @@
 # Benchmark regression tracking
-# Runs on pushes to main and PRs to detect performance regressions
+# Runs on v* tag pushes and manual dispatch only (forjar#604); nightly-bench.yml tracks the trend
 
 name: Benchmarks
 
 on:
+  # forjar#604 -- BENCHMARKS, LIKE COVERAGE, ON TAGGED RELEASES ONLY (operator decision 2026-09-21, "YES,
+  # coverage on tags release only", paiml/aprender#3676). This ran on every push
+  # to main and every PR, holding a bare-metal intel runner for ~50 minutes each
+  # time on a fleet shared with every other paiml repo. It now runs where a
+  # release is being made: a v* tag push, or a deliberate manual dispatch.
+  # nightly-bench.yml still tracks the performance trend on its own schedule.
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 concurrency:
   group: bench-${{ github.event.pull_request.number || github.sha }}

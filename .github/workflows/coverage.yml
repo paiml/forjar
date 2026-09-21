@@ -1,5 +1,5 @@
 # Code coverage tracking
-# Runs on pushes to main and PRs
+# Runs on v* tag pushes and manual dispatch only (forjar#604)
 #
 # #386 — this lane died on main with NO LOGS AT ALL. Steps 1-4 `success`, then
 # `Cache cargo`, `Generate coverage` and both post-steps `null`. The only
@@ -53,10 +53,16 @@
 name: Coverage
 
 on:
+  # forjar#604 -- ON TAGGED RELEASES ONLY (operator decision 2026-09-21, "YES,
+  # coverage on tags release only", paiml/aprender#3676). This ran on every push
+  # to main and every PR, holding a bare-metal intel runner for ~50 minutes each
+  # time on a fleet shared with every other paiml repo. It now runs where a
+  # release is being made: a v* tag push, or a deliberate manual dispatch.
+  # Nothing ships unmeasured -- gate F (scripts/dogfood/coverage.sh) runs the 95%
+  # line floor and cargo mutants locally before every release.
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 concurrency:
   group: coverage-${{ github.event.pull_request.number || github.sha }}
