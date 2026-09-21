@@ -18,176 +18,93 @@
 //! fresh `$HOME` all leave cargo reading sources from the shared
 //! `$CARGO_HOME`, so none of them moves the thing the save step deletes.
 //!
-//! WHY THIS EXISTS AS A RUST TEST when `scripts/lint-rust-cache-guard.sh`
-//! already asserts the same rule: the shell lint runs in `make policy`, and
-//! this runs in `cargo test`. Two consumers, and the second is the one the
-//! quorum gate can revert and observe. They are deliberately redundant — the
-//! rule is worth more than the duplication, and each catches a push the other
-//! can be configured out of.
-//!
-//! Read from the workflow YAML at `env!("CARGO_MANIFEST_DIR")`, the same bytes
-//! GitHub Actions parses. The small helpers are duplicated from
-//! `falsification_release_workflow_fixed_paths.rs` rather than lifted into
-//! `tests/common/`, for the reason that file states.
+//! ONE IMPLEMENTATION, TWO CONSUMERS. This test used to re-implement the rule
+//! in Rust, "deliberately redundant" with `scripts/lint-rust-cache-guard.sh`.
+//! Review round 1 on forjar#589 showed what redundancy buys: the two disagreed
+//! — the shell lint decided per FILE (one job's private CARGO_HOME exonerated
+//! a second self-hosted job; a hosted job was flagged for sharing a file), the
+//! Rust copy let a COMMENT mentioning `CARGO_HOME:` exonerate a job. Two
+//! parsers of one rule are two lists with nothing tying them together
+//! (bashrs#266's root cause). So the rule lives once, in the lint, which now
+//! decides per job and carries a fixture per shape; this test RUNS it — its
+//! self-test first, then the tree — so `cargo test` still fails if the lint is
+//! unwired from `make lint`, deleted, or made vacuous. The quorum gate reverts
+//! and observes THIS target.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::process::Command;
 
-fn workflows_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows")
+fn lint(args: &[&str]) -> (i32, String) {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let script = root.join("scripts/lint-rust-cache-guard.sh");
+    assert!(
+        script.is_file(),
+        "{} is missing: the rule this test enforces lives there",
+        script.display()
+    );
+    let out = Command::new("bash")
+        .arg(&script)
+        .args(args)
+        .current_dir(root)
+        .output()
+        .expect("bash must run");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    (out.status.code().unwrap_or(-1), text)
 }
 
-fn all_workflow_files() -> Vec<PathBuf> {
-    let mut out: Vec<PathBuf> = fs::read_dir(workflows_dir())
-        .expect("read .github/workflows")
-        .map(|e| e.expect("dir entry").path())
-        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yml"))
-        .collect();
-    out.sort();
-    out
+/// The number before `label` in the lint's summary line, e.g. `46 self-hosted job(s)`.
+fn count_before(text: &str, label: &str) -> usize {
+    let at = text
+        .find(label)
+        .unwrap_or_else(|| panic!("summary has no `{label}`:\n{text}"));
+    text[..at]
+        .split_whitespace()
+        .last()
+        .and_then(|w| w.trim_start_matches('(').parse().ok())
+        .unwrap_or_else(|| panic!("no count before `{label}`:\n{text}"))
 }
 
-/// Every top-level job block in one workflow: `(job name, its text)`.
-///
-/// A job block runs from its own 2-space-indented key to the next one, so an
-/// `env:` or `steps:` belonging to a LATER job can never be read as this
-/// job's. Getting that boundary wrong is how a scan reports a rule satisfied
-/// by a neighbour.
-fn jobs_of(text: &str) -> Vec<(String, String)> {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut starts: Vec<(usize, String)> = Vec::new();
-    let mut in_jobs = false;
-    for (i, line) in lines.iter().enumerate() {
-        if *line == "jobs:" {
-            in_jobs = true;
-            continue;
-        }
-        if !in_jobs {
-            continue;
-        }
-        // A top-level key at column 0 ends the `jobs:` mapping entirely.
-        if !line.trim().is_empty() && !line.starts_with(' ') {
-            break;
-        }
-        let is_job_key = line.starts_with("  ")
-            && !line.starts_with("   ")
-            && line.trim_end().ends_with(':')
-            && !line.trim_start().starts_with('#');
-        if is_job_key {
-            starts.push((i, line.trim().trim_end_matches(':').to_string()));
-        }
-    }
-    let mut out = Vec::new();
-    for (n, (i, name)) in starts.iter().enumerate() {
-        let end = starts.get(n + 1).map_or(lines.len(), |(j, _)| *j);
-        out.push((name.clone(), lines[*i..end].join("\n")));
-    }
-    out
-}
-
-fn is_self_hosted(job: &str) -> bool {
-    job.lines()
-        .filter(|l| l.contains("runs-on:"))
-        .any(|l| l.contains("self-hosted") || l.contains("clean-room"))
-}
-
-fn uses_rust_cache(job: &str) -> bool {
-    // `actions-rust-lang/setup-rust-toolchain` WRAPS rust-cache and its
-    // `cache:` input defaults to true, so naming only Swatinem would miss it.
-    job.contains("Swatinem/rust-cache") || job.contains("actions-rust-lang/setup-rust-toolchain")
-}
-
-/// Does this job declare a CARGO_HOME that is NOT the shared one?
-///
-/// The shared spellings are the ones that resolve to the runner user's own
-/// `~/.cargo`. Anything else — a workspace-relative path, a job-named
-/// directory — is private to the job and is the exoneration.
-fn has_private_cargo_home(job: &str) -> bool {
-    job.lines().filter(|l| l.contains("CARGO_HOME:")).any(|l| {
-        let value = l.split("CARGO_HOME:").nth(1).unwrap_or("").trim();
-        let value = value.trim_matches(|c| c == '"' || c == '\'');
-        let shared = [
-            "~/.cargo",
-            "$HOME/.cargo",
-            "${HOME}/.cargo",
-            "/home/",
-            "/Users/",
-        ]
-        .iter()
-        .any(|p| value.starts_with(p));
-        !value.is_empty() && !shared
-    })
+#[test]
+fn the_lint_can_still_reject() {
+    // A lint nobody has seen fail is evidence of nothing: its fixtures include
+    // every shape review found it wrong on, each with the verdict it must give.
+    let (rc, text) = lint(&["--selftest"]);
+    assert_eq!(rc, 0, "the lint's self-test failed:\n{text}");
+    let cases = count_before(&text, "cases)");
+    assert!(
+        cases >= 12,
+        "self-test ran {cases} case(s); the shapes need at least 12:\n{text}"
+    );
 }
 
 #[test]
 fn a_self_hosted_job_caching_cargo_must_own_its_cargo_home() {
-    let files = all_workflow_files();
-
-    // ANTI-VACUITY, first, because every assertion below is over a set this
-    // scan built. `0 violations over 0 files` is indistinguishable from a
-    // repository with no workflows, and it is the shape this fleet keeps
-    // finding in its own guards.
-    assert!(
-        !files.is_empty(),
-        "no .github/workflows/*.yml found — this test scanned nothing and would \
-         pass for a repository that had deleted its CI"
+    let (rc, text) = lint(&[]);
+    assert_eq!(
+        rc, 0,
+        "a self-hosted job caches the SHARED CARGO_HOME. Its save step deletes \
+         ${{CARGO_HOME}}/registry/src — and cleanBin empties ~/.cargo/bin — for every \
+         other job on the box (paiml/infra#775). `cache-bin: \"false\"` does not prevent \
+         it. The lint says:\n{text}"
     );
-
-    let mut self_hosted = 0usize;
-    let mut cachers = 0usize;
-    let mut exonerated = 0usize;
-    let mut violations: Vec<String> = Vec::new();
-
-    for path in &files {
-        let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
-        for (job, block) in jobs_of(&text) {
-            if !is_self_hosted(&block) {
-                continue;
-            }
-            self_hosted += 1;
-            if !uses_rust_cache(&block) {
-                continue;
-            }
-            cachers += 1;
-            if has_private_cargo_home(&block) {
-                exonerated += 1;
-            } else {
-                violations.push(format!(
-                    "{name}: job `{job}` is self-hosted and caches cargo, with no job-private \
-                     CARGO_HOME. Its save step will delete the SHARED registry/src that other \
-                     jobs on the box are compiling from. `cache-bin: \"false\"` does not \
-                     prevent this — it skips cleanBin alone (paiml/infra#775)."
-                ));
-            }
-        }
-    }
-
+    // ANTI-VACUITY: an OK over nothing is the shape this fleet keeps finding.
+    let jobs = count_before(&text, "self-hosted job(s)");
+    let workflows = count_before(&text, "workflow(s)");
+    let uses = count_before(&text, "$CARGO_HOME cache use(s)");
     assert!(
-        self_hosted > 0,
-        "scanned {} workflow file(s) and found no self-hosted job — the rule was \
-         never exercised, so a pass here measures nothing",
-        files.len()
+        workflows >= 10,
+        "lint scanned {workflows} workflow(s):\n{text}"
     );
-
-    // The rule must be LIVE, not merely unviolated. If nothing in the repo
-    // caches cargo on a self-hosted runner, this test is green for the same
-    // reason an empty fixture is: it never reached its subject. forjar has such
-    // a job (`quorum receipt`), so this holds today and turns red the moment
-    // someone removes the last one WITHOUT removing this test — which is the
-    // conversation that should happen.
     assert!(
-        cachers > 0,
-        "scanned {} workflow file(s), {self_hosted} self-hosted job(s), and none \
-         caches cargo — the exoneration rule was not exercised by anything",
-        files.len()
+        jobs >= 10,
+        "lint classified {jobs} self-hosted job(s):\n{text}"
     );
-
     assert!(
-        violations.is_empty(),
-        "{} self-hosted job(s) cache cargo into a SHARED CARGO_HOME \
-         ({cachers} cacher(s), {exonerated} exonerated):\n  {}",
-        violations.len(),
-        violations.join("\n  ")
+        uses >= 1,
+        "no cache use found at all — quorum.yml's is expected, so the matcher is blind:\n{text}"
     );
 }

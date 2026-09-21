@@ -73,69 +73,116 @@ usage() { printf 'usage: lint-rust-cache-guard.sh [--selftest]\n'; }
 # about a fleet-destroying step is worse than no lint, so the shape is gone
 # rather than worked around.
 
-# Does this workflow have at least one job that can land on the fleet?
-# A `runs-on:` naming self-hosted, clean-room, or anything that is not an
-# obvious hosted image. Conservative on purpose: a job this cannot classify
+# PER JOB, NOT PER FILE (review round 1 on forjar#589). The first version asked
+# "does this FILE have a self-hosted job?" and "is a private CARGO_HOME declared
+# ANYWHERE in the file?" — so one job's private CARGO_HOME exonerated a second
+# self-hosted job that had none, and a hosted job's cache was flagged because a
+# self-hosted job shared its file. Both are wrong verdicts about a real job.
+#
+# classify_jobs reads one comment-stripped workflow and prints, per job:
+#   JOB <name> <selfhosted 0|1>
+#   USE <line> <exonerated 0|1>      one per cache-action step in that job
+# A job is self-hosted unless its runs-on names ONLY a hosted image
+# (ubuntu-/macos-/windows-): an expression or a label list this cannot classify
 # counts as self-hosted, because the cost of a false negative is the fleet.
-has_self_hosted_job() { # $1 = stripped workflow text
-    grep -qE 'runs-on:.*(self-hosted|clean-room)' <<<"$1"
-}
-
-# Does the job own its CARGO_HOME? The only exoneration. Read anywhere in the
-# file: a workflow that sets a private CARGO_HOME at workflow, job or step level
-# is making the deliberate choice this rule asks for, and a lint that demanded
-# it at one specific level would reject the correct pattern written another way.
-has_private_cargo_home() { # $1 = stripped workflow text
-    local declared
-    declared="$(grep -E 'CARGO_HOME:' <<<"$1")" || return 1
-    [ -n "$declared" ] || return 1
-    grep -qvE 'CARGO_HOME:[[:space:]]*("|'"'"')?(~|\$\{?HOME\}?|/home/[^/]+|/Users/[^/]+)/\.cargo' <<<"$declared"
+# Exonerated means a non-shared CARGO_HOME at workflow `env:`, at the job's own
+# `env:`, or in the cache step's own `env:` — the three places the value can
+# actually reach the action. A CARGO_HOME on a DIFFERENT step does not reach it
+# and does not count.
+classify_jobs() { # stdin: stripped workflow text
+    awk -v ACTIONS="$CACHE_ACTIONS" '
+    function ind(s) { match(s, /^ */); return RLENGTH }
+    function key(s) { t = s; sub(/^ *(- )?/, "", t); return t }
+    function shared(v) {
+        gsub(/^[ \t"\047]+|[ \t"\047]+$/, "", v)
+        return (v == "" || v ~ /^(~|\$\{?HOME\}?|\/home\/[^\/]+|\/Users\/[^\/]+)\/\.cargo/)
+    }
+    function hosted(v) { return (v ~ /(ubuntu|macos|windows)-/ && v !~ /self-hosted|clean-room/) }
+    function end_step() { if (s_uses) printf "USE %d %d\n", s_uses, (wf_priv || j_priv || s_priv); s_uses = 0; s_priv = 0; in_senv = 0 }
+    function end_job() { end_step(); if (job != "") printf "JOB %s %d\n", job, (ro_seen ? !ro_hosted : 1); job = ""; j_priv = 0; ro_seen = 0; ro_hosted = 1; in_jenv = 0; in_steps = 0; in_ro = 0 }
+    {
+        line = $0
+        if (line ~ /^[ \t]*$/) next
+        i = ind(line); k = key(line)
+        if (i == 0) {
+            end_job(); in_jobs = (k ~ /^jobs:/); in_wfenv = (k ~ /^env:/); next
+        }
+        if (in_wfenv) { if (k ~ /^CARGO_HOME:/) { v = k; sub(/^CARGO_HOME:/, "", v); if (!shared(v)) wf_priv = 1 }; next }
+        if (!in_jobs) next
+        if (i == 2 && k ~ /^[A-Za-z0-9_-]+:[ \t]*$/) { end_job(); job = k; sub(/:.*/, "", job); jind = i; next }
+        if (job == "") next
+        if (i == jind + 2) {
+            end_step(); in_jenv = 0; in_steps = 0; in_ro = 0
+            if (k ~ /^env:/) { in_jenv = 1; next }
+            if (k ~ /^steps:/) { in_steps = 1; next }
+            if (k ~ /^runs-on:/) {
+                v = k; sub(/^runs-on:[ \t]*/, "", v); ro_seen = 1
+                if (v == "") { in_ro = 1; ro_hosted = 1; ro_items = "" } else ro_hosted = hosted(v)
+            }
+            next
+        }
+        if (in_ro) { ro_items = ro_items " " k; ro_hosted = hosted(ro_items); next }
+        if (in_jenv) { if (k ~ /^CARGO_HOME:/) { v = k; sub(/^CARGO_HOME:/, "", v); if (!shared(v)) j_priv = 1 }; next }
+        if (in_steps) {
+            if (line ~ /^ *- /) { end_step(); sind = i }
+            if (k ~ ("^uses:[ \t]*(" ACTIONS ")")) s_uses = NR
+            if (k ~ /^env:/ && i > sind) { in_senv = 1; next }
+            if (in_senv && k ~ /^CARGO_HOME:/) { v = k; sub(/^CARGO_HOME:/, "", v); if (!shared(v)) s_priv = 1 }
+        }
+    }
+    END { end_job() }'
 }
 
 scan() { # $1 = directory holding .github/workflows
-    local root="$1" wf stripped n
+    local root="$1" wf out kind a b
     local scanned=0 selfhosted=0 uses=0 failed=0
     for wf in "$root"/.github/workflows/*.yml "$root"/.github/workflows/*.yaml; do
         [ -f "$wf" ] || continue
         scanned=$((scanned + 1))
-        stripped=$(sed -e 's/#.*$//' "$wf")
-        has_self_hosted_job "$stripped" || continue
-        selfhosted=$((selfhosted + 1))
-        while IFS= read -r n; do
-            [ -n "$n" ] || continue
-            uses=$((uses + 1))
-            if has_private_cargo_home "$stripped"; then
-                continue
-            fi
-            failed=1
-            printf 'ERROR: %s:%s uses a $CARGO_HOME cache action on a self-hosted job.\n' "$wf" "$n"
-            printf '       Its save step deletes ${CARGO_HOME}/registry/src — the crate sources\n'
-            printf '       every other job on the box is compiling from (paiml/infra#775).\n'
-            printf '       cache-bin: "false" does NOT prevent this; it skips cleanBin only.\n'
-            printf '       Remedy: delete the step. On a persistent runner ~/.cargo already\n'
-            printf '       persists, so the restore is a no-op and the save is the damage.\n'
-        done < <(grep -nE "uses:[[:space:]]*($CACHE_ACTIONS)" <<<"$stripped" | cut -d: -f1)
+        out=$(sed -e 's/[[:space:]]#.*$//' -e 's/^#.*$//' "$wf" | classify_jobs)
+        # USE lines precede their job's JOB line; hold them until the verdict on the job.
+        local pending=""
+        while read -r kind a b; do
+            case "$kind" in
+                USE) pending="$pending $a:$b" ;;
+                JOB)
+                    if [ "$b" = 1 ]; then
+                        selfhosted=$((selfhosted + 1))
+                        for u in $pending; do
+                            uses=$((uses + 1))
+                            [ "${u#*:}" = 1 ] && continue
+                            failed=1
+                            printf 'ERROR: %s:%s (job `%s`) uses a $CARGO_HOME cache action on a self-hosted job.\n' "$wf" "${u%%:*}" "$a"
+                            printf '       Its save step deletes ${CARGO_HOME}/registry/src — the crate sources\n'
+                            printf '       every other job on the box is compiling from (paiml/infra#775).\n'
+                            printf '       cache-bin: "false" does NOT prevent this; it skips cleanBin only.\n'
+                            printf '       Remedy: delete the step, or give the job a private CARGO_HOME.\n'
+                        done
+                    fi
+                    pending="" ;;
+            esac
+        done <<<"$out"
     done
 
     # Two floors, because two different breakages produce a silent pass: no
-    # workflows at all (wrong cwd, bad glob) and no self-hosted jobs among them
+    # workflows at all (wrong cwd, bad glob) and no self-hosted JOBS among them
     # (a runs-on matcher that stopped matching). Either one is a NO-GO.
     if [ "$scanned" -eq 0 ]; then
         printf 'ERROR: scanned 0 workflows — refusing to pass vacuously\n' >&2
         return 1
     fi
     if [ "$selfhosted" -eq 0 ]; then
-        printf 'ERROR: 0 of %d workflows have a self-hosted job — this repo runs on the fleet,\n' "$scanned" >&2
+        printf 'ERROR: 0 self-hosted jobs in %d workflows — this repo runs on the fleet,\n' "$scanned" >&2
         printf '       so a zero here means the runs-on matcher is broken, not that the fleet\n' >&2
         printf '       is unused. Refusing to pass vacuously.\n' >&2
         return 1
     fi
     if [ "$failed" -ne 0 ]; then
-        printf 'lint-rust-cache-guard: FAIL (%d use(s) in %d self-hosted workflow(s) of %d scanned)\n' \
+        printf 'lint-rust-cache-guard: FAIL (%d use(s) in %d self-hosted job(s) across %d workflow(s))\n' \
             "$uses" "$selfhosted" "$scanned" >&2
         return 1
     fi
-    printf 'lint-rust-cache-guard: OK (%d $CARGO_HOME cache use(s) in %d self-hosted workflow(s) of %d scanned)\n' \
+    printf 'lint-rust-cache-guard: OK (%d $CARGO_HOME cache use(s) in %d self-hosted job(s) across %d workflow(s))\n' \
         "$uses" "$selfhosted" "$scanned"
     return 0
 }
@@ -216,11 +263,105 @@ YML
         printf '  FAIL a job-private CARGO_HOME was rejected\n'; rc=1
     fi
 
+    # 5-12: one fixture per SHAPE, after review round 1 found the file-level
+    # version wrong in three of them (5, 6, 7). Each is a whole workflow.
+    case_scan() { # $1 name, $2 want pass|fail, stdin = workflow
+        mkdir -p "$tmp/c/$1/.github/workflows"; cat > "$tmp/c/$1/.github/workflows/ci.yml"
+        local got=fail; scan "$tmp/c/$1" >/dev/null 2>&1 && got=pass
+        if [ "$got" = "$2" ]; then printf '  ok   %s -> %s\n' "$1" "$2"; else printf '  FAIL %s -> %s, wanted %s\n' "$1" "$got" "$2"; rc=1; fi
+    }
+    case_scan 'two-self-hosted-jobs-only-one-private' fail <<'YML'
+on: [push]
+jobs:
+  a:
+    runs-on: [self-hosted, clean-room]
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-a
+    steps:
+      - uses: Swatinem/rust-cache@v2
+  b:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - uses: Swatinem/rust-cache@v2
+YML
+    case_scan 'hosted-cache-beside-a-clean-self-hosted-job' pass <<'YML'
+on: [push]
+jobs:
+  hosted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Swatinem/rust-cache@v2
+  fleet:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - run: cargo test
+YML
+    case_scan 'cargo-home-only-in-a-comment' fail <<'YML'
+on: [push]
+jobs:
+  t:
+    runs-on: [self-hosted, clean-room]
+    # CARGO_HOME: /srv/private  <- a comment, not a declaration
+    steps:
+      - uses: Swatinem/rust-cache@v2
+YML
+    case_scan 'workflow-level-private-env' pass <<'YML'
+on: [push]
+env:
+  CARGO_HOME: ${{ github.workspace }}/../cargo-home
+jobs:
+  t:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - uses: Swatinem/rust-cache@v2
+YML
+    case_scan 'private-cargo-home-on-a-different-step' fail <<'YML'
+on: [push]
+jobs:
+  t:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - run: cargo build
+        env:
+          CARGO_HOME: /srv/other
+      - uses: Swatinem/rust-cache@v2
+YML
+    case_scan 'private-cargo-home-on-the-cache-step' pass <<'YML'
+on: [push]
+jobs:
+  t:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - uses: Swatinem/rust-cache@v2
+        env:
+          CARGO_HOME: /srv/job-private
+YML
+    case_scan 'runs-on-as-a-block-list' fail <<'YML'
+on: [push]
+jobs:
+  t:
+    runs-on:
+      - self-hosted
+      - clean-room
+    steps:
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+YML
+    case_scan 'shared-cargo-home-spelled-out' fail <<'YML'
+on: [push]
+jobs:
+  t:
+    runs-on: [self-hosted, clean-room]
+    env:
+      CARGO_HOME: /home/noah/.cargo
+    steps:
+      - uses: Swatinem/rust-cache@v2
+YML
+
     if [ "$rc" -ne 0 ]; then
         printf 'lint-rust-cache-guard --selftest: NO-GO — the instrument is broken\n' >&2
         return 1
     fi
-    printf 'lint-rust-cache-guard --selftest: OK (4 cases)\n'
+    printf 'lint-rust-cache-guard --selftest: OK (12 cases)\n'
     return 0
 }
 
