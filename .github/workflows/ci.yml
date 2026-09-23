@@ -51,7 +51,7 @@ jobs:
   ci:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
+    uses: paiml/.github/.github/workflows/sovereign-ci.yml@arbiter-r2a-artifact-rows
     with:
       repo: ${{ github.event.repository.name }}
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
