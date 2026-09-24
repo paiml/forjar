@@ -4640,3 +4640,22 @@ roadmap:
   - release:v1.33.0
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
   release: 1.33.0
+- id: PMAT-627
+  github_issue: 627
+  item_type: task
+  title: 'disk_budget SEC011 guard refused every /tmp child, so /tmp rules validated, ran and reclaimed nothing; the guard now checks declared roots'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T19:12:46Z
+  updated: 2026-09-24T19:12:46Z
+  spec: null
+  acceptance_criteria:
+  - 'fb_sweepable accepts a depth-2 /tmp child under a declared /tmp prefix and refuses /tmp itself, $HOME, and any candidate outside its rule''s declared root prefixes; the tests execute the real emitted shell helper and go RED when the fix is reverted.'
+  - 'forjar validate refuses a reclaim root whose literal prefix is / and a glob root that can only match depth-2 paths outside /tmp.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2).'
