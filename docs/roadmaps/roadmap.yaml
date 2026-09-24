@@ -4327,6 +4327,25 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-622
+  github_issue: 622
+  item_type: task
+  title: '--exclude is not repeatable and brace globs silently match nothing; a zero-match exclude is not an error'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T12:00:00Z
+  updated: 2026-09-24T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'tests/falsification_apply_filter_pipeline.rs: --exclude alpha --exclude charlie applies only bravo; --exclude {alpha,charlie} applies only bravo; --exclude a*a spares bravo and charlie; --exclude charlie --exclude chralie exits non-zero naming the typo and applies nothing. All four fail on origin/main aa04385e'
+  - 'src/cli/helpers_state.rs simple_glob_match: * anywhere with backtracking, {a,b} alternation (nested, several groups); an unbalanced brace is a literal. Reverting the matcher or the Vec turns the binary rows red again'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
 - id: PMAT-591
   github_issue: 591
   item_type: task
