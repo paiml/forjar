@@ -387,11 +387,10 @@ pub fn apply_scoped(
     // FJ-2300/FJ-3010: Force mode selection
     // --force: nuclear — empty locks, all resources re-applied
     // --force-tag: selective — empty locks only for resources matching tag
-    // --refresh: run each in-scope resource's check script against its HOST and
-    //   evict the lock entry for any that fails, so the planner re-plans exactly
-    //   those. The previous comment claimed "check scripts re-evaluate live
-    //   state during execution" — they do not: a resource the planner calls
-    //   NoOp is never executed, so its check never runs. See refresh_locks.
+    // --refresh: run each in-scope resource's check against its HOST and evict the
+    //   lock entry for any that fails, so the planner re-plans exactly those.
+    // --dry-run: the CLI previews through `scoped_dry_run_plan`, which asks the checks.
+    // default (forjar#615): an unlocked resource asks its check first; a pass is recorded.
     let plan_locks = if cfg.force {
         HashMap::new()
     } else if let Some(tag) = cfg.force_tag {
@@ -402,12 +401,8 @@ pub fn apply_scoped(
         refresh::persist_unlatched(&refreshed, &mut locks);
         refreshed
     } else if cfg.dry_run {
-        // The CLI discards a dry run's executor result and previews through
-        // `scoped_dry_run_plan`, which asks the checks itself; asking here too
-        // ran every lockless check twice.
         locks.clone()
     } else {
-        // forjar#615: an unlocked resource asks its check first; a pass is recorded.
         lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
