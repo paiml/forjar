@@ -19,6 +19,11 @@ UNMEASURED, never clean. `--offline` skips the upstream check and says so. `plan
 adds a "Version pins" section and a `version_pins` JSON field, and changes no
 plan action. The apply gate, the pull agent and MCP's unattended drift never act
 on these findings, and `drift --auto-remediate` refuses when any exist.
+And `apply` itself never downgrades: a `github_release` whose pin names a version
+refuses, on the box and before the download, when the live binary is newer,
+whichever path reached it (a lockless create, the drift gate, `--force`, the
+pull agent). The message says to update the pin, or remove the binary to roll
+back on purpose.
 
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
