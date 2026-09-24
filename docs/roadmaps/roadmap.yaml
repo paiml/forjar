@@ -4309,6 +4309,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Remaining suspects, both inside check_passes_on (src/core/executor/refresh_seed.rs:42): codegen::check_script(&resolved) returning Err, and the transport .ok() / !out.success() arm. It also resolves with SecretsConfig::default() rather than the executor''s, which resolve_or_fallback''s doc comment calls load-bearing and which may be the SAME defect rather than a second one. Instrument the three false returns separately and run the two-manifest fixture against each BEFORE changing anything: fixing the swallow and the secrets config in one commit means neither is falsified.'
+- id: PMAT-613
+  github_issue: 613
+  item_type: task
+  title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T00:00:00Z
+  updated: 2026-09-24T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'src/tripwire/drift/tests_version_pin.rs fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees: a github_release pinned v0.33.2 whose binary prints "ollama version is 0.34.2", under a lock baselined after the install, yields one DRIFT finding (expected "version 0.33.2", actual "version 0.34.2", detail names the DOWNGRADE) and the census names the offline upstream skip; it fails with "got []" when the two version_pin::detect call sites are reverse-applied'
+  - 'unparseable --version is UNMEASURED; a pin behind the latest upstream release is DRIFT; --offline and tag nightly are NOT CHECKED and named; detect_drift_full (apply gate, pull agent) and MCP unattended drift never carry a version finding; drift --auto-remediate refuses when one exists'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
 - id: PMAT-600
   github_issue: 600
   item_type: task

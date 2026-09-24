@@ -193,6 +193,7 @@ mod plan_compute;
 mod plan_file;
 mod plan_json;
 mod plan_selector;
+mod plan_version_pins;
 pub(crate) mod plugin;
 mod plugin_run;
 mod policy_coverage;

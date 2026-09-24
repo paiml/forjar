@@ -88,6 +88,7 @@ mod tests {
     #[test]
     fn test_cov_drift_args_construct() {
         let a = DriftArgs {
+            offline: false,
             file: PathBuf::from("f.yaml"),
             machine: None,
             state_dir: PathBuf::from("s"),

@@ -62,12 +62,23 @@ pub struct DriftOptions {
     /// genuinely new executions are the ones for tasks that were being SKIPPED
     /// — the population whose invisibility is the bug.
     pub run_task_checks: bool,
+    /// forjar#613: compare every versioned binary's live `--version` with its
+    /// declared pin (default true). Off only where a finding would be ACTED on:
+    /// `detect_drift_full` feeds the apply gate and the pull agent, and
+    /// re-applying a pin behind the live binary is the downgrade itself.
+    pub check_version_pins: bool,
+    /// forjar#613: also compare each pin with the repo's latest GitHub release
+    /// (default true; `--offline` turns it off). The census names every pin
+    /// that was not compared, so offline never reads as up to date.
+    pub check_upstream: bool,
 }
 
 impl Default for DriftOptions {
     fn default() -> Self {
         Self {
             run_task_checks: true,
+            check_version_pins: true,
+            check_upstream: true,
         }
     }
 }

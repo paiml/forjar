@@ -102,6 +102,10 @@ pub(super) fn report_machine_findings(
     }
     acc.censuses.push(census_json(name, &census));
     acc.total_drift += drifted.len();
+    acc.version_drift += drifted
+        .iter()
+        .filter(|f| drift::version_pin::is_version_finding(f))
+        .count();
     acc.total_unmeasured += unmeasured.len();
 
     if drifted.is_empty() && unmeasured.is_empty() {
@@ -251,6 +255,10 @@ pub(super) struct DriftScan {
     pub(super) total_unmeasured: usize,
     pub(super) unmeasured: Vec<serde_json::Value>,
     pub(super) censuses: Vec<serde_json::Value>,
+    /// forjar#613: how many of `total_drift` are version-pin findings. They
+    /// are reported like any drift and never remediated: re-applying a pin
+    /// that is behind the live binary is the downgrade itself.
+    pub(super) version_drift: usize,
 }
 
 impl DriftScan {
@@ -258,6 +266,7 @@ impl DriftScan {
     fn absorb(&mut self, mut part: DriftScan) {
         self.total_drift += part.total_drift;
         self.total_unmeasured += part.total_unmeasured;
+        self.version_drift += part.version_drift;
         self.findings.append(&mut part.findings);
         self.unmeasured.append(&mut part.unmeasured);
         self.censuses.append(&mut part.censuses);
@@ -298,6 +307,44 @@ pub(crate) fn cmd_drift(
     all_stacks: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
+    cmd_drift_offline(
+        config_path,
+        state_dir,
+        machine_filter,
+        _tripwire_compat,
+        alert_cmd,
+        auto_remediate,
+        dry_run,
+        json,
+        verbose,
+        env_file,
+        all_stacks,
+        no_task_checks,
+        false,
+    )
+}
+
+/// `cmd_drift`, plus forjar#613's `--offline`: skip comparing version pins with
+/// the latest upstream release. The census names every pin it did not compare.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_drift_offline(
+    config_path: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    // PMAT-562 (forjar#562, paiml/infra#605): accepted and ignored. The verdict
+    // reaches the exit code on EVERY run now; `--tripwire` stays parseable so
+    // no cron line on the fleet breaks, and it changes nothing.
+    _tripwire_compat: bool,
+    alert_cmd: Option<&str>,
+    auto_remediate: bool,
+    dry_run: bool,
+    json: bool,
+    verbose: bool,
+    env_file: Option<&Path>,
+    all_stacks: bool,
+    no_task_checks: bool,
+    offline: bool,
+) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
 
     // forjar#488: WHAT THIS RUN IS ABOUT.
@@ -337,6 +384,8 @@ pub(crate) fn cmd_drift(
         verbose,
         detect: drift::DriftOptions {
             run_task_checks: !no_task_checks,
+            check_upstream: !offline,
+            ..drift::DriftOptions::default()
         },
     };
     let scan = scan_machines_for_drift(
@@ -355,12 +404,23 @@ pub(crate) fn cmd_drift(
     let DriftScan {
         total_drift,
         total_unmeasured,
+        version_drift,
         ..
     } = scan;
 
     if total_drift > 0 {
         if let Some(cmd) = alert_cmd {
             run_drift_alert(cmd, total_drift)?;
+        }
+        // forjar#613: remediation re-applies every resource, and for a live
+        // binary AHEAD of its pin that is a silent downgrade. The fix for a
+        // version finding is an edit to the pin, never an apply.
+        if auto_remediate && version_drift > 0 {
+            return Err(format!(
+                "refusing --auto-remediate: {version_drift} version-pin finding(s); \
+                 re-applying would move a live binary to its pin (possibly a downgrade). \
+                 Update the pin in the config instead"
+            ));
         }
         if auto_remediate {
             run_drift_remediation(
@@ -474,6 +534,7 @@ pub(crate) fn cmd_drift_dry_run(
     let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         let opts = drift::DriftOptions {
             run_task_checks: !no_task_checks,
+            ..drift::DriftOptions::default()
         };
         return dry_run_lockless(state_dir, machine_filter, config, json, opts);
     };

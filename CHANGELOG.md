@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`drift` and `plan` compare a `github_release`'s live `--version` with its pin
+and with the latest upstream release (PMAT-613, #613).** Both commands trusted
+the lock and asked only whether the binary existed. paiml/infra pinned ollama to
+`v0.33.2` on a box running `0.34.2`: `plan` said Create, `drift` said nothing,
+and an apply would have downgraded it. The new detector works from the
+declaration, so it also covers a pin missing from the lock. It reports DRIFT
+when the live version is not the pin (and says the apply would DOWNGRADE), and
+when the pin is behind the repo's latest release. Output with no version is
+UNMEASURED, never clean. `--offline` skips the upstream check and says so. `plan`
+adds a "Version pins" section and a `version_pins` JSON field, and changes no
+plan action. The apply gate, the pull agent and MCP's unattended drift never act
+on these findings, and `drift --auto-remediate` refuses when any exist.
+
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
 --refresh` re-applies only what its check fails, so a file holding the wrong
