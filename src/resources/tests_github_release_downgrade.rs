@@ -116,6 +116,13 @@ fn fj613_apply_reads_the_live_version_the_way_drift_does() {
         !reached,
         "a warning line hid the live version from the guard"
     );
+    // A sentence-final period: drift's parse_semver reads 0.34.2 here, so the
+    // guard must too, or the two disagree and the downgrade goes through.
+    let (_, _, reached) = run("v0.33.2", Some("client version is 0.34.2."));
+    assert!(
+        !reached,
+        "a trailing period hid the live version from the guard"
+    );
     // An IP is not a version, and neither is a four-part run; a broken binary
     // whose output has no version is repaired, not refused.
     for noise in ["listening on 10.42.0.11", "build 99.1.2.3", "segfault"] {

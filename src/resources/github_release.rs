@@ -189,7 +189,7 @@ fn downgrade_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
         "# forjar#613: never install a pin older than the live binary.\n\
          if [ -x {bin_path} ]; then\n\
          \x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | \
-         grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.][^0-9]|$)' | \
+         grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
          head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' || true )\n\
          \x20 if [ -n \"$FJ_LIVE\" ]; then\n\
          \x20\x20\x20 FJ_MAJ=\"${{FJ_LIVE%%.*}}\"\n\
