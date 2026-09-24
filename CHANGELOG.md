@@ -25,6 +25,23 @@ whichever path reached it (a lockless create, the drift gate, `--force`, the
 pull agent). The message says to update the pin, or remove the binary to roll
 back on purpose.
 
+**`plan -r` and `apply -r` compute the same set, and a lockless create asks
+its `completion_check` first (PMAT-615, #615).** Measured on paiml/infra's
+lambda-labs with no lambda-labs lock: `plan -r ollama-model-qwen35-4b` said
+`1 to add`; `apply -r` of the same id prompted `2 create`, because apply closes
+its selection over `depends_on` and plan kept the exact id. The pulled-in
+`ollama-binary` task runs `rm -rf /usr/local/lib/ollama` and restarts the
+daemon, while its own check exited 0 on the box. `plan -r`/`-g` now close the
+selection over `depends_on` as apply does, and the default apply path, its
+confirmation prompt and `--dry-run` treat a resource with no lock entry whose
+declared `completion_check` passes as unchanged. The apply records it
+`converged` (with no `applied_at`: nothing ran), as the converge it replaces
+did, so `drift` still inspects the guard; the previews write nothing. A check
+that fails or cannot run still plans `create`.
+Plain `forjar plan` stays lock-relative and does not contact hosts.
+`tests/falsification_lockless_check_before_create.rs` runs a real apply on
+localhost; `src/cli/tests_plan_apply_same_set.rs` asserts the two sets are equal.
+
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
 --refresh` re-applies only what its check fails, so a file holding the wrong
