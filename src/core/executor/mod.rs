@@ -401,6 +401,11 @@ pub fn apply_scoped(
         // PMAT-214 (forjar#487): the planner's view is discarded; see below.
         refresh::persist_unlatched(&refreshed, &mut locks);
         refreshed
+    } else if cfg.dry_run {
+        // The CLI discards a dry run's executor result and previews through
+        // `scoped_dry_run_plan`, which asks the checks itself; asking here too
+        // ran every lockless check twice.
+        locks.clone()
     } else {
         // forjar#615: an unlocked resource asks its check first; a pass is recorded.
         lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)

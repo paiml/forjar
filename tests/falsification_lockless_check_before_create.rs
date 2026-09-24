@@ -114,3 +114,121 @@ fn a_lockless_apply_records_the_guard_it_did_not_run() {
         "nothing was applied, so nothing may be dated:\n{lock}"
     );
 }
+
+fn setup_yaml(yaml: impl Fn(&Path) -> String) -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = dir.path().join("forjar.yaml");
+    fs::write(&cfg, yaml(dir.path())).unwrap();
+    (dir, cfg)
+}
+
+#[test]
+fn a_templated_lockless_apply_does_not_run_a_command_whose_check_passes() {
+    // Quorum lane 1 on #617: the seeded entry hashed the RAW resource and the
+    // planner hashes the RESOLVED one, so any `{{params.*}}` planned
+    // `update (state changed)` and ran the command anyway.
+    let (dir, cfg) = setup_yaml(|d| {
+        format!(
+            r#"version: "1.0"
+name: lockless-templated
+params:
+  who: world
+machines:
+  localhost:
+    hostname: localhost
+    addr: localhost
+resources:
+  guarded:
+    type: task
+    machine: localhost
+    command: "echo hello-{{{{params.who}}}} >> {r}"
+    completion_check: "true"
+"#,
+            r = d.join("ran").display()
+        )
+    });
+    let state = dir.path().join("state");
+    let (out, ok) = forjar(&["apply", "--yes"], &cfg, &state);
+    assert!(ok, "apply failed:\n{out}");
+    assert!(
+        !dir.path().join("ran").exists(),
+        "a templated command ran although its completion_check passed:\n{out}"
+    );
+    assert!(out.contains("1 unchanged"), "expected unchanged:\n{out}");
+}
+
+#[test]
+fn a_resource_the_planner_filters_out_is_neither_asked_nor_recorded() {
+    // Quorum lane 1 on #617: an arch mismatch or a false `when:` is skipped by
+    // the planner, yet the seed ran its check and recorded it converged.
+    let (dir, cfg) = setup_yaml(|d| {
+        let asked = d.join("asked").display().to_string();
+        format!(
+            r#"version: "1.0"
+name: lockless-filtered
+params:
+  flag: "no"
+machines:
+  localhost:
+    hostname: localhost
+    addr: localhost
+resources:
+  arm-only:
+    type: task
+    machine: localhost
+    arch: [riscv64]
+    command: "true"
+    completion_check: "echo arm >> {asked}"
+  gated-off:
+    type: task
+    machine: localhost
+    when: '{{{{params.flag}}}} == "yes"'
+    command: "true"
+    completion_check: "echo gated >> {asked}"
+"#
+        )
+    });
+    let state = dir.path().join("state");
+    let (out, ok) = forjar(&["apply", "--yes"], &cfg, &state);
+    assert!(ok, "apply failed:\n{out}");
+    let asked = fs::read_to_string(dir.path().join("asked")).unwrap_or_default();
+    assert!(
+        asked.is_empty(),
+        "filtered-out checks ran: {asked:?}\n{out}"
+    );
+    let lock =
+        fs::read_to_string(state.join("localhost").join("state.lock.yaml")).unwrap_or_default();
+    assert!(
+        !lock.contains("arm-only") && !lock.contains("gated-off"),
+        "the lock records resources the plan excluded:\n{lock}"
+    );
+}
+
+#[test]
+fn a_dry_run_asks_each_lockless_check_once() {
+    // Quorum lane 1 on #617: the executor seeded and then the preview seeded
+    // again, so every check ran twice.
+    let (dir, cfg) = setup_yaml(|d| {
+        format!(
+            r#"version: "1.0"
+name: lockless-dry
+machines:
+  localhost:
+    hostname: localhost
+    addr: localhost
+resources:
+  guarded:
+    type: task
+    machine: localhost
+    command: "true"
+    completion_check: "echo asked >> {a}"
+"#,
+            a = d.join("asked").display()
+        )
+    });
+    let state = dir.path().join("state");
+    let (out, ok) = forjar(&["apply", "--dry-run"], &cfg, &state);
+    assert!(ok, "dry-run failed:\n{out}");
+    let asked = fs::read_to_string(dir.path().join("asked")).unwrap_or_default();
+    assert_eq!(asked.lines().count(), 1, "check ran {asked:?}:\n{out}");
+}

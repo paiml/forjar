@@ -97,7 +97,18 @@ fn host_says_converged(
 /// record — writing one would date an event that never occurred. `observed` is
 /// a digest of the state query's stdout, and the check script is not that
 /// query; conflating the two is forjar#305.
-pub(super) fn converged_entry(resource: &Resource) -> ResourceLock {
+///
+/// The hash is of the RESOLVED resource, because that is what the planner
+/// hashes. A raw `{{params.x}}` hash never matches, so the planner plans
+/// `update (state changed)` and runs the command the check just said was done.
+pub(super) fn converged_entry(config: &ForjarConfig, id: &str, raw: &Resource) -> ResourceLock {
+    let resource = &crate::core::resolver::resolve_or_fallback(
+        id,
+        raw,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
     ResourceLock {
         resource_type: resource.resource_type.clone(),
         status: ResourceStatus::Converged,
@@ -124,7 +135,10 @@ fn record_converged(
         .into_iter()
         .filter_map(|id| cfg.config.resources.get(&id).map(|r| (id, r)))
         .filter(|(id, r)| host_says_converged(cfg, machine_name, id, r))
-        .map(|(id, r)| (id, converged_entry(r)))
+        .map(|(id, r)| {
+            let entry = converged_entry(cfg.config, &id, r);
+            (id, entry)
+        })
         .collect();
     for (id, entry) in entries {
         lock.resources.insert(id, entry);

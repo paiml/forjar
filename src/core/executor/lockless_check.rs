@@ -82,7 +82,11 @@ fn add_passing(
             continue;
         }
         for machine in resource.machine.iter() {
-            if machine_filter.is_some_and(|f| machine != f) {
+            if machine_filter.is_some_and(|f| machine != f)
+                // The planner skips an arch mismatch or a false `when:`; asking
+                // (and recording) a resource it will not plan is a false record.
+                || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
+            {
                 continue;
             }
             let has_entry = locks
@@ -99,7 +103,10 @@ fn add_passing(
                 .entry(machine.to_string())
                 .or_insert_with(|| state::new_lock(machine, hostname))
                 .resources
-                .insert(id.clone(), super::refresh_seed::converged_entry(resource));
+                .insert(
+                    id.clone(),
+                    super::refresh_seed::converged_entry(config, id, resource),
+                );
         }
     }
 }
