@@ -76,3 +76,5 @@ mod tests_user;
 mod tests_user_authkeys_escape;
 #[cfg(test)]
 mod tests_user_b;
+#[cfg(test)]
+mod tests_user_check_attrs;

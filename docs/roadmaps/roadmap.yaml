@@ -4640,3 +4640,19 @@ roadmap:
   - release:v1.33.0
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
   release: 1.33.0
+- id: PMAT-618
+  github_issue: 618
+  item_type: task
+  title: user check asks declared attrs, not presence
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-24T10:02:51Z
+  updated: 2026-09-24T10:02:51Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

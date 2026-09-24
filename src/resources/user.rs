@@ -6,14 +6,59 @@ use crate::core::shell_escape::{sh_squote, sh_write_file};
 use crate::core::types::Resource;
 use crate::resources::verdict;
 
-/// Generate shell script to check if a user exists and its properties.
+/// A check asks for every DECLARED attribute, not just presence.
+///
+/// It used to be `id <name>` alone: a declared uid, shell, home, primary group or
+/// supplementary group set was applied once and never asked about again, so a
+/// user hand-added to another group still read converged. For an isolation user
+/// that is the entire defect. `state: absent` was judged backwards too.
+/// Undeclared fields are not asserted. `groups` is the exact supplementary set,
+/// because `usermod --groups` (the apply) replaces the set rather than adding.
 pub fn check_script(resource: &Resource) -> String {
     let username = resource.name.as_deref().unwrap_or("unknown");
-    verdict::single(
-        &format!("id {} >/dev/null 2>&1", sh_squote(username)),
+    let u = sh_squote(username);
+    if resource.state.as_deref() == Some("absent") {
+        return verdict::check_script_from(&[verdict::assert_that(
+            &format!("! id {u} >/dev/null 2>&1"),
+            &format!("absent:{username}"),
+            &format!("exists:{username}"),
+        )]);
+    }
+    let mut a = vec![verdict::assert_that(
+        &format!("id {u} >/dev/null 2>&1"),
         &format!("exists:{username}"),
         &format!("missing:{username}"),
-    )
+    )];
+    let mut field = |name: &str, live: String, want: &str| {
+        a.push(verdict::assert_that(
+            &format!("[ \"$({live})\" = {} ]", sh_squote(want)),
+            &format!("{name}={want}"),
+            &format!("{name}!={want}"),
+        ));
+    };
+    if let Some(uid) = resource.uid {
+        field("uid", format!("id -u {u} 2>/dev/null"), &uid.to_string());
+    }
+    if let Some(ref shell) = resource.shell {
+        field("shell", format!("getent passwd {u} | cut -d: -f7"), shell);
+    }
+    if let Some(ref home) = resource.home {
+        field("home", format!("getent passwd {u} | cut -d: -f6"), home);
+    }
+    if let Some(ref group) = resource.group {
+        field("group", format!("id -gn {u} 2>/dev/null"), group);
+    }
+    if !resource.groups.is_empty() {
+        let mut want: Vec<&str> = resource.groups.iter().map(String::as_str).collect();
+        want.sort_unstable();
+        want.dedup();
+        // supplementary = `id -Gn` minus the primary group, sorted, comma-joined
+        let live = format!(
+            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,"
+        );
+        field("groups", live, &want.join(","));
+    }
+    verdict::check_script_from(&a)
 }
 
 /// Generate shell script to create/modify/remove a user.
