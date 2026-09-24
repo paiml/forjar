@@ -32,7 +32,11 @@ pub(crate) fn plan_filtered(
     let execution_order = resolver::build_execution_order(config)?;
     let mut plan = planner::plan(config, &execution_order, locks, selectors.tag.as_deref());
     plan_selector::apply_machine_filter(&mut plan, selectors.machine.as_deref());
-    plan_selector::apply_resource_filter(&mut plan, config, selectors.resource.as_deref())?;
-    plan_selector::apply_group_filter(&mut plan, config, selectors.group.as_deref())?;
+    plan_selector::apply_selection_filter(
+        &mut plan,
+        config,
+        selectors.resource.as_deref(),
+        selectors.group.as_deref(),
+    )?;
     Ok(plan)
 }

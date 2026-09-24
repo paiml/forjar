@@ -15,6 +15,7 @@
 //! summary and JSON agree by construction rather than by three call sites each
 //! remembering to.
 
+use super::apply_selection::selected_ids;
 use crate::core::types::{ExecutionPlan, ForjarConfig, PlanAction};
 
 /// Recompute the action counters from whatever survived a filter.
@@ -37,65 +38,32 @@ fn recount(plan: &mut ExecutionPlan) {
     }
 }
 
-/// GH-214: `plan -r <RESOURCE>` — "Target specific resource".
+/// GH-214 / #615: `plan -r <RESOURCE>` and `plan -g <GROUP>`.
 ///
-/// Shipped as `Warning: --resource filter is not yet implemented for plan.
-/// Flag ignored.` followed by the WHOLE plan, while `apply -r` on the same
-/// config filtered correctly. Filtering the plan (rather than the config) keeps
-/// the dependency order intact and makes body, summary and `--json` agree by
-/// construction.
+/// GH-214 made them filter at all (they shipped as "not yet implemented. Flag
+/// ignored."). But each kept its own predicate — exact id, exact group — and
+/// FJ-331 (#468) then gave `apply` the `depends_on` closure, so on
+/// `leaf-file → base-dir` `plan -r leaf-file` said "1 to add" and
+/// `apply -r leaf-file` converged two (#615). The set now comes from
+/// [`selected_ids`], which IS apply's resolver, so the plan an operator reviews
+/// is the set the apply converges — by construction, not by two predicates
+/// agreeing.
 ///
-/// A selector that matches nothing is an error, following the same house rule
-/// as the apply scope selectors: `plan -r a-fil` must not print an empty,
+/// Filtering the plan (rather than the config) keeps the dependency order
+/// intact and makes body, summary and `--json` agree. A selector that matches
+/// nothing is an error (FJ-2723): `plan -r a-fil` must not print an empty,
 /// successful plan for `a-file`.
-pub(crate) fn apply_resource_filter(
+pub(crate) fn apply_selection_filter(
     plan: &mut ExecutionPlan,
     config: &ForjarConfig,
-    resource_filter: Option<&str>,
+    resource: Option<&str>,
+    group: Option<&str>,
 ) -> Result<(), String> {
-    let Some(id) = resource_filter else {
+    let Some(keep) = selected_ids(config, resource, group)? else {
         return Ok(());
     };
-    if !config.resources.contains_key(id) {
-        let mut known: Vec<&str> = config.resources.keys().map(String::as_str).collect();
-        known.sort_unstable();
-        return Err(format!(
-            "--resource '{id}' matches no resource in this config. Known: {}",
-            known.join(", ")
-        ));
-    }
-    plan.changes.retain(|c| c.resource_id == id);
-    plan.execution_order.retain(|r| r == id);
-    recount(plan);
-    Ok(())
-}
-
-/// GH-214: `plan -g <GROUP>` (FJ-281) — "Filter to resources in this group".
-///
-/// Matches the executor's own group predicate (`resource.resource_group`), so
-/// `plan -g x` and `apply -g x` select the same set.
-pub(crate) fn apply_group_filter(
-    plan: &mut ExecutionPlan,
-    config: &ForjarConfig,
-    group_filter: Option<&str>,
-) -> Result<(), String> {
-    let Some(group) = group_filter else {
-        return Ok(());
-    };
-    let in_group = |id: &String| {
-        config
-            .resources
-            .get(id)
-            .and_then(|r| r.resource_group.as_deref())
-            == Some(group)
-    };
-    if !config.resources.keys().any(in_group) {
-        return Err(format!(
-            "--group '{group}' matches no resource in this config"
-        ));
-    }
-    plan.changes.retain(|c| in_group(&c.resource_id));
-    plan.execution_order.retain(in_group);
+    plan.changes.retain(|c| keep.contains(&c.resource_id));
+    plan.execution_order.retain(|r| keep.contains(r));
     recount(plan);
     Ok(())
 }

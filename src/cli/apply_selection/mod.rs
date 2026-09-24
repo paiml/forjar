@@ -72,6 +72,31 @@ pub(crate) fn reject_empty_selection(
     Ok(())
 }
 
+/// #615: the ids `apply -r/-g` converges, for callers that narrow a PLAN
+/// rather than prune a config (`plan`, `apply --dry-run`, `apply --plan-file`).
+///
+/// It is `resolve_selection` run on a copy, not a second predicate: `plan` kept
+/// GH-214's exact-id retain after FJ-331 gave `apply` the `depends_on` closure,
+/// so `plan -r leaf` listed one resource while `apply -r leaf` converged two.
+/// `None` means no resource-set selector was given — keep everything.
+pub(crate) fn selected_ids(
+    config: &types::ForjarConfig,
+    resource: Option<&str>,
+    group: Option<&str>,
+) -> Result<Option<HashSet<String>>, String> {
+    if resource.is_none() && group.is_none() {
+        return Ok(None);
+    }
+    let mut scoped = config.clone();
+    let sel = Selectors {
+        resource,
+        group,
+        ..Default::default()
+    };
+    resolve_selection(&mut scoped, &sel, false)?;
+    Ok(Some(scoped.resources.keys().cloned().collect()))
+}
+
 /// FJ-2725 (PMAT-199): remove phony resources that were not explicitly requested.
 ///
 /// A phony resource names an ACTION (`clean`, `test`, `all`), not a file. It has

@@ -189,10 +189,11 @@ fn kahn_sort(
 /// resource is in the set, everything it needs is too. That is exactly why
 /// `make` is safe where an arbitrary pattern filter is not.
 ///
-/// `-r` has the opposite problem — it is exact-match with no closure, so
-/// `apply -r link` silently skips the compile step `link` depends on and
-/// builds against whatever happened to be on disk. That is `make -o`, not
-/// `make`.
+/// `-r` used to have the opposite problem — exact-match with no closure, so
+/// `apply -r link` silently skipped the compile step `link` depends on. FJ-331
+/// (#468) routed `apply -r`/`-g` through this closure (`resolve_selection`),
+/// and #615 routed `plan -r`/`-g` through the same resolver, so the plan an
+/// operator reviews is the set the apply converges.
 ///
 /// An unknown goal is an error. Silently applying nothing is the failure mode
 /// this release exists to remove.

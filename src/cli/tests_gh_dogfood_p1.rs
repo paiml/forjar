@@ -78,7 +78,7 @@ fn plan_resource_filter_keeps_only_its_own_resource() {
     // 1.12.3: "Warning: --resource filter is not yet implemented for plan.
     // Flag ignored." followed by all three resources, while `apply -r` filtered.
     let mut plan = three_change_plan();
-    super::plan_selector::apply_resource_filter(&mut plan, &three_resource_config(), Some("a-file"))
+    super::plan_selector::apply_selection_filter(&mut plan, &three_resource_config(), Some("a-file"), None)
         .expect("a-file exists");
     assert_eq!(plan.changes.len(), 1, "-r must drop the other two");
     assert_eq!(plan.changes[0].resource_id, "a-file");
@@ -90,7 +90,7 @@ fn plan_resource_filter_keeps_only_its_own_resource() {
 fn plan_resource_filter_with_no_match_is_an_error() {
     let mut plan = three_change_plan();
     let err =
-        super::plan_selector::apply_resource_filter(&mut plan, &three_resource_config(), Some("nope"))
+        super::plan_selector::apply_selection_filter(&mut plan, &three_resource_config(), Some("nope"), None)
             .expect_err("a typo must not print an empty successful plan");
     assert!(err.contains("a-file"), "the error names what IS available: {err}");
 }
@@ -99,7 +99,7 @@ fn plan_resource_filter_with_no_match_is_an_error() {
 fn plan_without_a_resource_filter_keeps_everything() {
     // Non-regression: "filters" must not mean "always empties".
     let mut plan = three_change_plan();
-    super::plan_selector::apply_resource_filter(&mut plan, &three_resource_config(), None)
+    super::plan_selector::apply_selection_filter(&mut plan, &three_resource_config(), None, None)
         .expect("no filter");
     assert_eq!(plan.changes.len(), 3);
     assert_eq!(plan.to_create, 3);
@@ -108,7 +108,7 @@ fn plan_without_a_resource_filter_keeps_everything() {
 #[test]
 fn plan_group_filter_keeps_only_that_group() {
     let mut plan = three_change_plan();
-    super::plan_selector::apply_group_filter(&mut plan, &three_resource_config(), Some("alpha"))
+    super::plan_selector::apply_selection_filter(&mut plan, &three_resource_config(), None, Some("alpha"))
         .expect("group alpha exists");
     assert_eq!(plan.changes.len(), 1, "only a-file is in group alpha");
     assert_eq!(plan.changes[0].resource_id, "a-file");
@@ -119,7 +119,7 @@ fn plan_group_filter_keeps_only_that_group() {
 fn plan_group_filter_with_no_match_is_an_error() {
     let mut plan = three_change_plan();
     assert!(
-        super::plan_selector::apply_group_filter(&mut plan, &three_resource_config(), Some("ghost"))
+        super::plan_selector::apply_selection_filter(&mut plan, &three_resource_config(), None, Some("ghost"))
             .is_err(),
         "1.12.3 printed the WHOLE plan for a group that does not exist"
     );

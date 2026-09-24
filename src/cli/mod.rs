@@ -345,6 +345,10 @@ include!("mod_test_decl_c.rs");
 #[cfg(test)]
 mod tests_apply_selection_closure;
 
+/// #615: `plan -r/-g` select exactly the set `apply -r/-g` converges.
+#[cfg(test)]
+mod tests_615_plan_apply_selection;
+
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.
 #[cfg(test)]

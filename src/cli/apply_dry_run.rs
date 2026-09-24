@@ -57,8 +57,7 @@ pub(super) fn scope_plan(
     scope: &GateScope<'_>,
 ) -> Result<(), String> {
     plan_selector::apply_machine_filter(plan, scope.machine);
-    plan_selector::apply_resource_filter(plan, config, scope.resource)?;
-    plan_selector::apply_group_filter(plan, config, scope.group)
+    plan_selector::apply_selection_filter(plan, config, scope.resource, scope.group)
 }
 
 /// GH-210: show what WOULD run.
