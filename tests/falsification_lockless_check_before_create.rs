@@ -232,3 +232,42 @@ resources:
     let asked = fs::read_to_string(dir.path().join("asked")).unwrap_or_default();
     assert_eq!(asked.lines().count(), 1, "check ran {asked:?}:\n{out}");
 }
+
+#[test]
+fn a_forced_dry_run_previews_the_command_the_forced_apply_runs() {
+    // --force and --force-tag build their own locks and never ask the check,
+    // so the apply re-runs the command. A preview that asked it anyway would
+    // promise the operator a no-op.
+    for flags in [&["--force"][..], &["--force-tag", "anything"][..]] {
+        let (dir, cfg, ran) = setup("true");
+        let state = dir.path().join("state");
+        let mut dry = vec!["apply", "--dry-run"];
+        dry.extend_from_slice(flags);
+        let (out, ok) = forjar(&dry, &cfg, &state);
+        assert!(ok, "{flags:?} dry-run failed:\n{out}");
+        assert!(
+            out.contains("1 to add"),
+            "{flags:?}: the preview hides the create the apply performs:\n{out}"
+        );
+        let mut real = vec!["apply", "--yes"];
+        real.extend_from_slice(flags);
+        let (out, ok) = forjar(&real, &cfg, &state);
+        assert!(ok, "{flags:?} apply failed:\n{out}");
+        assert!(ran.exists(), "{flags:?}: the apply did not run the command, so the preview was right to hide it:\n{out}");
+    }
+    // Control: --refresh DOES seed a passing check, so its preview keeps saying so.
+    let (dir, cfg, ran) = setup("true");
+    let state = dir.path().join("state");
+    let (out, ok) = forjar(&["apply", "--dry-run", "--refresh"], &cfg, &state);
+    assert!(ok, "--refresh dry-run failed:\n{out}");
+    assert!(
+        !out.contains("1 to add"),
+        "--refresh preview plans a create:\n{out}"
+    );
+    let (out, ok) = forjar(&["apply", "--yes", "--refresh"], &cfg, &state);
+    assert!(ok, "--refresh apply failed:\n{out}");
+    assert!(
+        !ran.exists(),
+        "--refresh ran a command whose check passes:\n{out}"
+    );
+}

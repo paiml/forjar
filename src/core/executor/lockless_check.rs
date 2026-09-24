@@ -114,6 +114,15 @@ fn add_passing(
 /// PREVIEW: the locks the planner will read, without touching `locks`. For the
 /// confirmation prompt and `--dry-run`, which must show what the apply will do
 /// and must not change what it will write.
+/// Will the executor's planner view hold a passing lockless check as converged?
+/// The default path records it here and `--refresh` seeds it through
+/// `refresh_seed::seed_converged`; `--force` and `--force-tag` build their own
+/// locks and do neither. A preview that seeded under those two would report as
+/// unchanged a resource the apply is about to re-run.
+pub(crate) fn seeds(force: bool, force_tag: bool) -> bool {
+    !force && !force_tag
+}
+
 pub(crate) fn seeded(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
