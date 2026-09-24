@@ -4678,3 +4678,19 @@ roadmap:
   labels:
   - kind:code
   notes: 'Measured on paiml/infra lambda-labs, forjar 1.32.0, no lambda-labs lock: plan -r ollama-model-qwen35-4b said 1 to add, apply -r prompted 2 create, and the pulled-in ollama-binary command rm -rf /usr/local/lib/ollama while its check exited 0.'
+- id: PMAT-618
+  github_issue: 618
+  item_type: task
+  title: user check asks declared attrs, not presence
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-24T10:02:51Z
+  updated: 2026-09-24T10:02:51Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
