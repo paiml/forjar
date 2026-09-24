@@ -43,3 +43,16 @@ pub mod transport;
 pub mod tripwire;
 #[cfg(feature = "cli")]
 pub mod verb;
+
+// DO NOT MERGE — R2a proof run 7: a planted failure. The job must go RED with the
+// arbiter `--tool-config-file` flag present, and the junit must record it.
+#[cfg(test)]
+mod r2a_planted_failure {
+    #[test]
+    fn r2a_planted_failure_must_be_red() {
+        assert_eq!(
+            1, 2,
+            "R2a planted failure (paiml/.github arbiter-r2a-artifact-rows)"
+        );
+    }
+}

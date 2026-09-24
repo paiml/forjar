@@ -12,3 +12,7 @@ status-level = "fail"
 path = "target/nextest/ci/junit.xml"
 store-success-output = false
 store-failure-output = true
+
+# DO NOT MERGE — R2a proof run 7: the REPO config must win over the arbiter tool config.
+[profile.default.junit]
+path = "repo-owned-junit.xml"
