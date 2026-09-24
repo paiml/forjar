@@ -399,6 +399,7 @@ pub use file::remote_path_digest;
 mod ignore;
 mod image;
 mod lockless;
+mod semver;
 mod task_check;
 mod unmeasured;
 pub mod version_pin;
