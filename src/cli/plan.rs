@@ -3,6 +3,7 @@
 use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
+pub(crate) use super::plan_version_pins::PlanVersionPins;
 use super::print_helpers::*;
 use super::workspace::*;
 use crate::core::plan_selectors::PlanSelectors;
@@ -30,6 +31,54 @@ pub(crate) fn cmd_plan(
     // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
+) -> Result<(), String> {
+    cmd_plan_with_pins(
+        file,
+        state_dir,
+        machine_filter,
+        resource_filter,
+        tag_filter,
+        json,
+        verbose,
+        output_dir,
+        env_file,
+        workspace,
+        no_diff,
+        target,
+        cost,
+        what_if,
+        plan_out,
+        why,
+        group_filter,
+        PlanVersionPins::Skip,
+    )
+}
+
+/// `cmd_plan`, plus forjar#613: ask each versioned binary the plan covers
+/// for its live `--version` and print the pins that disagree. The `forjar
+/// plan` CLI always comes through here with `Check`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_plan_with_pins(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    json: bool,
+    verbose: bool,
+    output_dir: Option<&Path>,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+    no_diff: bool,
+    target: Option<&str>,
+    cost: bool,
+    what_if: &[String],
+    plan_out: Option<&Path>,
+    why: bool,
+    // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
+    // whole plan. It is a real filter now, so it has to reach the planner.
+    group_filter: Option<&str>,
+    version_pins: PlanVersionPins,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
 
@@ -146,9 +195,15 @@ pub(crate) fn cmd_plan(
 
     // forjar#342: ONE binding, so both arms range over the same count and the
     // TTY rendering and `--json` cannot disagree about the blind spot.
+    let pin_rows = super::plan_version_pins::measure(&config, &plan, version_pins);
     let unconsulted = super::print_helpers::unconsulted_observations(&locks);
     if json {
-        super::plan_json::print_plan_json(&plan, &config, unconsulted)?;
+        super::plan_json::print_plan_json(
+            &plan,
+            &config,
+            unconsulted,
+            pin_rows.as_deref().map(super::plan_version_pins::to_json),
+        )?;
     } else {
         print_plan(
             &plan,
@@ -156,6 +211,9 @@ pub(crate) fn cmd_plan(
             if no_diff { None } else { Some(&config) },
             unconsulted,
         );
+        if let Some(rows) = &pin_rows {
+            super::plan_version_pins::print_text(rows);
+        }
     }
 
     if cost && !plan.changes.is_empty() {
