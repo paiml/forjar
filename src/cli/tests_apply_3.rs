@@ -76,7 +76,7 @@ resources:
                 subset: None,
                 confirm_destructive: false,
                 backup: false,
-                exclude: None,
+                exclude: vec![],
                 sequential: false,
                 diff_only: false,
                 notify_slack: None,
