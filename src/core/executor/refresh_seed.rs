@@ -23,11 +23,8 @@
 //! violation. Without this, every such guard ran its failure path on a healthy
 //! host.
 
-use super::super::codegen;
-use super::super::resolver;
 use super::super::types::*;
 use super::ApplyConfig;
-use crate::transport;
 
 /// Did this resource's check DEFINITELY pass on `machine_name`?
 ///
@@ -43,19 +40,7 @@ pub(super) fn check_passes_on(cfg: &ApplyConfig, resource: &Resource, machine_na
     if cfg.machine_filter.is_some_and(|f| machine_name != f) {
         return false;
     }
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)
-    else {
-        return false;
-    };
-    let Ok(script) = codegen::check_script(&resolved) else {
-        return false;
-    };
-    cfg.config
-        .machines
-        .get(machine_name)
-        .and_then(|m| transport::exec_script(m, &script).ok())
-        .is_some_and(|out| out.success())
+    super::lockless_check::host_check_passes(cfg.config, resource, machine_name)
 }
 
 /// FJ-3010, second half: record resources the HOST already satisfies.
@@ -112,7 +97,7 @@ fn host_says_converged(
 /// record — writing one would date an event that never occurred. `observed` is
 /// a digest of the state query's stdout, and the check script is not that
 /// query; conflating the two is forjar#305.
-fn converged_entry(resource: &Resource) -> ResourceLock {
+pub(super) fn converged_entry(resource: &Resource) -> ResourceLock {
     ResourceLock {
         resource_type: resource.resource_type.clone(),
         status: ResourceStatus::Converged,

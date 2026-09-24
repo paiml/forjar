@@ -3,7 +3,7 @@
 //! Each case runs a REAL check against `localhost`, so it measures what the
 //! planner will be handed, not a claim about it.
 
-use super::seeded;
+use super::{record, seeded};
 use crate::core::planner;
 use crate::core::resolver;
 use crate::core::types::*;
@@ -109,5 +109,33 @@ fn an_unreachable_machine_is_not_a_pass() {
     let mut config = cfg(Some("true"));
     config.machines.clear();
     let locks = seeded(&config, None, None, &HashMap::new());
+    assert!(!locks.contains_key("local"));
+}
+
+#[test]
+fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
+    // A skipped command must not also skip the record: without the entry the
+    // lock never learns the guard exists and drift declines it for ever.
+    let config = cfg(Some("true"));
+    let mut locks = HashMap::new();
+    let preview = seeded(&config, None, None, &locks);
+    assert!(locks.is_empty(), "the preview must not write");
+    let view = record(&config, None, None, &mut locks);
+    let ids =
+        |l: &HashMap<String, StateLock>| l["local"].resources.keys().cloned().collect::<Vec<_>>();
+    assert_eq!(ids(&view), ids(&preview), "record and seeded must agree");
+    let lock = &locks["local"];
+    assert_eq!(lock.resources["guarded"].status, ResourceStatus::Converged);
+    // The header a real apply writes (state::new_lock), not a synthetic one.
+    assert_eq!(lock.schema, "1.0");
+    assert_eq!(lock.hostname, "localhost");
+    assert!(lock.generator.starts_with("forjar "), "{}", lock.generator);
+}
+
+#[test]
+fn record_leaves_a_failing_check_unrecorded() {
+    let config = cfg(Some("false"));
+    let mut locks = HashMap::new();
+    record(&config, None, None, &mut locks);
     assert!(!locks.contains_key("local"));
 }

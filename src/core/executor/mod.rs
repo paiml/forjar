@@ -402,8 +402,8 @@ pub fn apply_scoped(
         refresh::persist_unlatched(&refreshed, &mut locks);
         refreshed
     } else {
-        // forjar#615: an unlocked resource asks its completion_check first.
-        lockless_check::seeded(cfg.config, cfg.machine_filter, cfg.tag_filter, &locks)
+        // forjar#615: an unlocked resource asks its check first; a pass is recorded.
+        lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
     // whose sources changed on disk plans as Update rather than NoOp.

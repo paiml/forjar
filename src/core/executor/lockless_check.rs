@@ -21,11 +21,12 @@
 //! before; a check that cannot run, or runs and does not exit 0, leaves the
 //! resource planned `create`, exactly as before.
 //!
-//! The seeded entries are the planner's VIEW, never written: nothing was applied,
-//! so there is nothing to record (the same rule `--refresh`'s seeding follows).
+//! The apply path RECORDS what it seeded (`record`), as the converge it replaces
+//! would have; the previews (prompt, `--dry-run`) only read (`seeded`).
 
 use super::super::codegen;
 use super::super::resolver;
+use super::super::state;
 use super::super::types::*;
 use crate::transport;
 use std::collections::HashMap;
@@ -62,47 +63,20 @@ fn declares_a_check(resource: &Resource, tag_filter: Option<&str>) -> bool {
         && tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
 }
 
-/// A lock entry for a resource the host already satisfies. No apply happened,
-/// so there is no `applied_at` or `duration_seconds` to record.
-fn converged_entry(resource: &Resource) -> ResourceLock {
-    ResourceLock {
-        resource_type: resource.resource_type.clone(),
-        status: ResourceStatus::Converged,
-        applied_at: None,
-        duration_seconds: None,
-        hash: crate::core::planner::hashing::hash_desired_state(resource),
-        observed: None,
-        details: Default::default(),
-    }
-}
-
-fn empty_lock(machine: &str) -> StateLock {
-    StateLock {
-        schema: "1".to_string(),
-        machine: machine.to_string(),
-        hostname: machine.to_string(),
-        generated_at: crate::tripwire::eventlog::now_iso8601(),
-        generator: format!("forjar-lockless-check {}", env!("CARGO_PKG_VERSION")),
-        created_by: None,
-        blake3_version: "1.5".to_string(),
-        resources: indexmap::IndexMap::new(),
-    }
-}
-
-/// The locks the PLANNER should read: `locks`, plus a converged entry for every
-/// `(machine, resource)` that has no entry, declares a `completion_check`, and
-/// whose check passes on that machine right now.
+/// Add a converged entry to `locks` for every `(machine, resource)` that has no
+/// entry, declares a `completion_check`, and whose check passes on that machine
+/// right now. The entry is `refresh_seed::converged_entry`: no `applied_at`, no
+/// `observed`, because nothing was applied and the check is not the state query.
 ///
 /// `config` is the apply's SELECTION (`resolve_selection` has already pruned
 /// it), so only selected resources cost a host round-trip; `machine_filter` and
 /// `tag_filter` narrow it the same way the planner will.
-pub(crate) fn seeded(
+fn add_passing(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
-    locks: &HashMap<String, StateLock>,
-) -> HashMap<String, StateLock> {
-    let mut out = locks.clone();
+    locks: &mut HashMap<String, StateLock>,
+) {
     for (id, resource) in &config.resources {
         if !declares_a_check(resource, tag_filter) {
             continue;
@@ -111,19 +85,58 @@ pub(crate) fn seeded(
             if machine_filter.is_some_and(|f| machine != f) {
                 continue;
             }
-            let has_entry = out
+            let has_entry = locks
                 .get(machine)
                 .is_some_and(|l| l.resources.contains_key(id));
             if has_entry || !host_check_passes(config, resource, machine) {
                 continue;
             }
-            out.entry(machine.to_string())
-                .or_insert_with(|| empty_lock(machine))
+            let hostname = config
+                .machines
+                .get(machine)
+                .map_or(machine, |m| m.hostname.as_str());
+            locks
+                .entry(machine.to_string())
+                .or_insert_with(|| state::new_lock(machine, hostname))
                 .resources
-                .insert(id.clone(), converged_entry(resource));
+                .insert(id.clone(), super::refresh_seed::converged_entry(resource));
         }
     }
+}
+
+/// PREVIEW: the locks the planner will read, without touching `locks`. For the
+/// confirmation prompt and `--dry-run`, which must show what the apply will do
+/// and must not change what it will write.
+pub(crate) fn seeded(
+    config: &ForjarConfig,
+    machine_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    locks: &HashMap<String, StateLock>,
+) -> HashMap<String, StateLock> {
+    let mut out = locks.clone();
+    add_passing(config, machine_filter, tag_filter, &mut out);
     out
+}
+
+/// APPLY: record the passing entries in the locks this apply WRITES, and return
+/// the planner view (identical to them).
+///
+/// Recorded, not merely planned around, because the converge this replaces
+/// recorded one: before forjar#615 an apply over a satisfied guard ran its
+/// command, re-ran the check (GH-254) and wrote `status: converged`. Skipping
+/// the command must not also skip the record, or the lock never learns the
+/// resource exists and `drift` declines it for ever ("inspected 0 of 1
+/// declared; no lock holds them" —
+/// `falsification_drift_is_not_blind_to_task_guards`). The evidence is the one
+/// the old record rested on: the check ran on the host and exited 0.
+pub(crate) fn record(
+    config: &ForjarConfig,
+    machine_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    locks: &mut HashMap<String, StateLock>,
+) -> HashMap<String, StateLock> {
+    add_passing(config, machine_filter, tag_filter, locks);
+    locks.clone()
 }
 
 #[cfg(test)]

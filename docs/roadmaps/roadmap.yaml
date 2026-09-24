@@ -4652,7 +4652,7 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'plan -r/-g select the positive set closed over depends_on exactly as apply resolve_selection does; src/cli/tests_plan_apply_same_set.rs asserts plan and apply return the same id set for every selector shape over a depends_on chain and goes RED with the closure reverted.'
-  - 'The default apply path, its confirmation prompt and --dry-run seed a lockless resource whose completion_check passes on the host as converged (planner view only, never persisted); tests/falsification_lockless_check_before_create.rs runs a real apply against localhost on an empty state dir and goes RED with the seeding reverted.'
+  - 'The default apply path, its confirmation prompt and --dry-run seed a lockless resource whose completion_check passes on the host as converged, and the apply RECORDS it converged with no applied_at (the previews write nothing), so drift still inspects it; tests/falsification_lockless_check_before_create.rs runs a real apply against localhost on an empty state dir and goes RED with the seeding reverted, and with the recording reverted (as does falsification_drift_is_not_blind_to_task_guards).'
   phases: []
   subtasks: []
   estimated_effort: null

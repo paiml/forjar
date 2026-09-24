@@ -93,3 +93,24 @@ fn dry_run_previews_what_apply_will_do_on_an_empty_lock() {
         "dry-run plans a create the apply will skip:\n{out}"
     );
 }
+
+#[test]
+fn a_lockless_apply_records_the_guard_it_did_not_run() {
+    // Skipping the command must not skip the record: the converge it replaces
+    // wrote `status: converged`, and drift inspects only what a lock holds.
+    let (dir, cfg, ran) = setup("true");
+    let state = dir.path().join("state");
+    let (out, ok) = forjar(&["apply", "--yes"], &cfg, &state);
+    assert!(ok, "apply failed:\n{out}");
+    assert!(!ran.exists(), "the command ran:\n{out}");
+    let lock = fs::read_to_string(state.join("localhost").join("state.lock.yaml"))
+        .unwrap_or_else(|e| panic!("no lock written ({e}):\n{out}"));
+    assert!(
+        lock.contains("guarded:") && lock.contains("status: converged"),
+        "the lock does not record the satisfied guard:\n{lock}"
+    );
+    assert!(
+        !lock.contains("applied_at: 20"),
+        "nothing was applied, so nothing may be dated:\n{lock}"
+    );
+}
