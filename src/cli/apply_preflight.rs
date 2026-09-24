@@ -315,6 +315,13 @@ pub(super) fn apply_pre_validate(
     if !yes && !dry_run {
         let execution_order = resolver::build_execution_order(config)?;
         let preview_locks = load_machine_locks(config, state_dir, machine_filter)?;
+        // forjar#615: preview what the executor will plan, not the bare lock.
+        let preview_locks = crate::core::executor::lockless_check::seeded(
+            config,
+            machine_filter,
+            tag_filter,
+            &preview_locks,
+        );
         let preview_plan = planner::plan(config, &execution_order, &preview_locks, tag_filter);
         let (to_create, to_update, to_destroy) =
             super::apply_gates::scoped_action_counts(&preview_plan.changes, resource_filter);

@@ -345,6 +345,10 @@ include!("mod_test_decl_c.rs");
 #[cfg(test)]
 mod tests_apply_selection_closure;
 
+/// forjar#615: plan and apply compute the same set for -r / -g.
+#[cfg(test)]
+mod tests_plan_apply_same_set;
+
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.
 #[cfg(test)]

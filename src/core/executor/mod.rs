@@ -5,6 +5,7 @@
 
 mod failure_text;
 mod helpers;
+pub(crate) mod lockless_check;
 mod machine;
 mod machine_wave;
 mod machine_wave_record;
@@ -87,11 +88,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Instant;
 
-// Re-export the public API
 pub use helpers::collect_machines;
 pub use plan_scope::PlanScope;
 
-// Re-export internal items for sibling submodule access via `use super::*;`
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
 pub(crate) use helpers::copia_apply_file;
 pub(crate) use helpers::{build_resource_details, compute_resource_waves};
@@ -403,7 +402,8 @@ pub fn apply_scoped(
         refresh::persist_unlatched(&refreshed, &mut locks);
         refreshed
     } else {
-        locks.clone()
+        // forjar#615: an unlocked resource asks its completion_check first.
+        lockless_check::seeded(cfg.config, cfg.machine_filter, cfg.tag_filter, &locks)
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
     // whose sources changed on disk plans as Update rather than NoOp.
