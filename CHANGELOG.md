@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`--exclude` is repeatable, understands `*` anywhere and `{a,b}`, and refuses a
+pattern that matches nothing (PMAT-622, #622).** A second `--exclude` was refused by
+clap, and `a*a` or `{a,b}-dir` were exact-match literals that matched nothing, so
+the apply ran everything at exit 0. A typo did the same. `--exclude` now accumulates
+(`ApplyScope` carries the list, so `apply`, `--check` and `--dry-run` read one list).
+`simple_glob_match` backtracks on inner stars and expands nested, repeated brace
+groups, which also widens `--subset`, `--resource-filter` and `extract`. Every exclude
+pattern must match a resource in the config, or the run exits non-zero with
+`--exclude 'p' matches no resource`.
+
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
 --refresh` re-applies only what its check fails, so a file holding the wrong
