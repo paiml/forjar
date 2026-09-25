@@ -4674,3 +4674,19 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-633
+  github_issue: 633
+  item_type: task
+  title: 'forjar#633: I8 gate on bashrs 7.x; false SC2105 on break inside for'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-25T10:12:56Z
+  updated: 2026-09-25T10:12:56Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
