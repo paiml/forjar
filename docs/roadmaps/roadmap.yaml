@@ -4640,3 +4640,20 @@ roadmap:
   - release:v1.33.0
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
   release: 1.33.0
+- id: PMAT-629
+  github_issue: 629
+  item_type: task
+  title: 'nightly gate: build when nightly tag != HEAD, not on 24h activity'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-25T03:07:48Z
+  updated: 2026-09-25T03:07:48Z
+  spec: null
+  acceptance_criteria:
+  - Refs infra PMAT-1055
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
