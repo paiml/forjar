@@ -469,3 +469,53 @@ fn fj634_an_undeclared_exec_bit_survives_the_replace() {
         "#!/bin/sh\necho new\n"
     );
 }
+
+/// forjar#634 review: a directory at a `state: file` path is refused. `> dir`
+/// failed with EISDIR; `mv -f staged dir` would move the file INTO it and exit 0.
+#[test]
+fn fj634_a_directory_at_the_path_is_refused_not_filled() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("conf");
+    std::fs::create_dir(&target).unwrap();
+    let mut r = make_file_resource(target.to_str().unwrap(), Some("x\n"));
+    r.owner = None;
+    r.group = None;
+    let applied = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(apply_script(&r))
+        .status()
+        .unwrap();
+    assert!(
+        !applied.success(),
+        "apply reported success over a directory"
+    );
+    assert!(target.is_dir());
+    assert_eq!(
+        std::fs::read_dir(&target).unwrap().count(),
+        0,
+        "file moved into the directory"
+    );
+}
+
+/// forjar#634 review: an unreadable source fails before anything is staged.
+#[test]
+fn fj634_an_unreadable_source_leaves_no_staged_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("conf");
+    std::fs::write(&target, "old\n").unwrap();
+    let mut r = make_file_resource(target.to_str().unwrap(), None);
+    r.source = Some(dir.path().join("no-such-source").display().to_string());
+    r.owner = None;
+    r.group = None;
+    let applied = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(apply_script(&r))
+        .status()
+        .unwrap();
+    assert!(!applied.success());
+    assert!(
+        !dir.path().join("conf.forjar-new").exists(),
+        "staged file left behind"
+    );
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "old\n");
+}

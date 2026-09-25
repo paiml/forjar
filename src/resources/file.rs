@@ -228,10 +228,28 @@ fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resou
 /// BEFORE the rename — otherwise the target exists for a moment at the umask
 /// mode and an exec in that window fails. A stale or planted staging path is
 /// removed first, so `>` never follows a symlink someone left there.
+///
+/// A DIRECTORY at the path is refused before anything is staged. `> dir` used
+/// to fail with EISDIR; `mv -f staged dir` instead moves the file INTO the
+/// directory and exits 0, so the apply would report converged over a path that
+/// is still a directory. An unreadable source is refused before staging too,
+/// so the failed apply leaves no `.forjar-new` behind.
 fn push_atomic_replace_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
+    if let Some(ref source) = resource.source {
+        if read_source_file(source).is_err() {
+            push_file_content_lines(lines, path, resource);
+            return;
+        }
+    }
     let staged = format!("{path}.forjar-new");
     let p = sh_squote(path);
     let s = sh_squote(&staged);
+    lines.push(format!(
+        "if [ -d {p} ]; then echo {}; exit 1; fi",
+        sh_squote(&format!(
+            "ERROR: {path} is a directory; state: file will not replace it"
+        ))
+    ));
     lines.push(format!("rm -f {s}"));
     lines.push(format!("if [ -f {p} ]; then cp -p {p} {s}; fi"));
     push_file_content_lines(lines, &staged, resource);
