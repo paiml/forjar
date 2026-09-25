@@ -203,6 +203,13 @@ jobs:
       # the commit it built (`target_commitish`), which the tag-vs-HEAD gate needs.
       - name: The nightly must rebuild whenever its tag is not HEAD
         run: cargo test --locked --test falsification_nightly_gate_is_tag_vs_head
+      # #614: under `shell: bash` the nightly's Windows leg resolved Git's msys
+      # perl, which lacks Params::Check, so openssl-src died and the release was
+      # skipped for 11 days. Executes the parsed build step with stub cargo/cross
+      # and a planted Strawberry perl: Windows builds with it and fails before
+      # cargo without it, and the other legs leave OPENSSL_SRC_PERL unset.
+      - name: The nightly's Windows leg must build OpenSSL with Strawberry perl
+        run: cargo test --locked --test falsification_nightly_windows_openssl_perl
       # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
       # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
       # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake
