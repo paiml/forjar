@@ -196,6 +196,13 @@ jobs:
       # Drives the real scripts/quorum-gate.sh against synthetic repos.
       - name: The quorum gate must judge the pushed commit
         run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
+      # #629: nightly.yml rebuilt only when a commit landed in the last 24h, so a
+      # commit followed by a quiet day, or a failed nightly, was never built and
+      # the nightly sat 12 days behind main. Executes the gate script from the
+      # parsed workflow against synthetic histories, and asserts the release tags
+      # the commit it built (`target_commitish`), which the tag-vs-HEAD gate needs.
+      - name: The nightly must rebuild whenever its tag is not HEAD
+        run: cargo test --locked --test falsification_nightly_gate_is_tag_vs_head
       # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
       # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
       # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake
