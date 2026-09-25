@@ -4657,3 +4657,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-631
+  github_issue: 631
+  item_type: task
+  title: 'nightly gate comment + falsifier doc: correct how the 24h gate failed; commits are from 2001'
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-09-25T04:39:23Z
+  updated: 2026-09-25T04:39:23Z
+  spec: null
+  acceptance_criteria:
+  - Refs infra PMAT-1055
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
