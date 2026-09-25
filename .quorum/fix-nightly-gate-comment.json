@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-631 (closes forjar#631) — forjar#630 said the 24h nightly gate never rebuilt a commit that landed after the day's run and was followed by a quiet day. False: that commit is under 24h old at the next 04:00 run and is built. What the window lost is a failed nightly (never retried on a quiet day) and commits outside every window after a dropped, queued or late run. The falsifier doc also called its 2001-dated commits 30 days old. Comments only.",
+  "branch": "fix/nightly-gate-comment",
+  "base": "568d25ba",
+  "base_commit": "568d25ba788cdadcb0672eea72058a143bbd6bee",
+  "diff_sha256": "c77e291619f1f548d2675a8e96a79a7f67ccc801",
+  "recorded_at": "after one round at 3e47bc2c. The evidence commit 34d6561b adds only .quorum/evidence and the PMAT-631 roadmap entry the commit-msg hook requires; no lane judged those, and neither changes the workflow or the test.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 3e47bc2c — claude-sonnet-5 PASS conv-f44011a2, no findings",
+      "round 1, head 3e47bc2c — agy gemini-3.1-pro-high PASS conv-5e7403c6, sandboxed, no findings",
+      "round 1, head 3e47bc2c — claude-haiku-4-5 PASS conv-7289d05c, no findings"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "kill_rule": "nothing was dismissed: every lane passed with no findings; R1 and R2 are the defects this change corrects.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: forjar#630 said a commit landing after the day's run and followed by a quiet day was never built — it is under 24h old at the next run; the comment and the test doc now say so and name the real failure modes.",
+      "R2: the test doc said its commits are 30 days old — they are dated 2001-09-09 (@1000000000); corrected in the doc and the helper comment."
+    ]
+  },
+  "falsification": {
+    "test": "a_nightly_behind_head_on_a_quiet_day_is_rebuilt, a_repo_with_no_nightly_tag_builds, a_nightly_at_head_is_not_rebuilt, the_nightly_tag_is_pinned_to_the_built_commit — this branch edits their doc and one comment; the bodies are unchanged and still EXECUTE the workflow gate lifted from the parsed YAML.",
+    "test_file": "tests/falsification_nightly_gate_is_tag_vs_head.rs",
+    "cargo_test_target": "falsification_nightly_gate_is_tag_vs_head",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "On this branch: 4 passed. With the 24h gate restored in nightly.yml: 2 failed (a_nightly_behind_head_on_a_quiet_day_is_rebuilt, a_repo_with_no_nightly_tag_builds), 2 passed. Restored byte-identical: 4 passed."
+  },
+  "crux": {
+    "systems": [
+      "Nix Hydra: a job is built when its derivation output is not already in the store — keyed on inputs, never on how recently something changed",
+      "Bazel: an action reruns when its action-key digest misses the cache, so a failed build is retried on the next invocation by construction — the property the 24h gate lacked, now stated correctly",
+      "Launchpad daily recipe builds: a daily build is dispatched only when the recipe branch revision differs from the last built one, the same published-vs-source comparison as tag-vs-HEAD"
+    ],
+    "verdict": "No crux row is owed: comments and test documentation only. The corrected text now names the failure every surveyed system avoids — a failed build that nothing retries — instead of one the 24h gate did not have."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, agy-lane.sh --mode plan), JSON-schema output, brief inline, no build",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS, no findings: only comments change, the corrected statements are accurate, the dates are right, and no instance of the false claim remains."
+  },
+  "pmat": {
+    "ticket": "PMAT-631",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . : 2203 files parsed, 19831 tests examined, 0 vacuous in the touched paths (435 elsewhere, which shows tests/ was scanned)",
+      "cargo test --test falsification_nightly_gate_is_tag_vs_head, green, RED with the 24h gate restored, green after a byte-identical restore"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-631-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "0afc8cf7c3fe1282f6270e5f506e6dd08a956c2a",
+        "sha256": "f675dfe8ea91397cfce1026097539d8fda3d0e83205a0049d23f8edff829d624",
+        "bytes": 1204
+      },
+      {
+        "path": ".quorum/evidence/PMAT-631-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "214f3f48e1016441029d01e7634d1b0fda952fa9",
+        "sha256": "111c672fbcc5edcafdde574943081561c655cc7f7fe86ebd183e04917576a9ea",
+        "bytes": 731
+      },
+      {
+        "path": ".quorum/evidence/PMAT-631-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3dcbe0a5d6d6fa9e1b96feb0219ae731cccb5afc",
+        "sha256": "a13702efc31a02860cf61efe8900b4717f079483de962acca142fcef3297e9d6",
+        "bytes": 3232
+      },
+      {
+        "path": ".quorum/evidence/PMAT-631-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "f59a805debc5dab1760423ced0198e57dd464dcf",
+        "sha256": "bfbd56a3ed932295bebdc025695386d79a06f2c39bb4ebb55643fbc15c37053a",
+        "bytes": 892
+      }
+    ],
+    "total_bytes": 6059,
+    "claims_digest": ".quorum/evidence/PMAT-631-judges.md"
+  }
+}

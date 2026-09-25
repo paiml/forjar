@@ -4,18 +4,20 @@
 //! # The defect
 //!
 //! `nightly.yml`'s `check-activity` job gated build and release on
-//! `git log --since="24 hours ago"`. A commit that lands after the day's 04:00
-//! run and is followed by a quiet day is never built, and a nightly whose
-//! build failed is never retried: every later scheduled run is green with
-//! build and release skipped. Measured by infra PMAT-1055: forjar's nightly
-//! sat 12 days behind main, copia's 33.
+//! `git log --since="24 hours ago"` -- a wall-clock window, not "was HEAD
+//! built?". A nightly whose build failed is never retried on a quiet day:
+//! every later scheduled run is green with build and release skipped. And a
+//! scheduled run that is dropped, queued or fires late leaves commits outside
+//! every window. (A commit landing after the day's 04:00 run is NOT missed:
+//! it is under 24h old at the next run.) Measured by infra PMAT-1055:
+//! forjar's nightly sat 12 days behind main, copia's 33.
 //!
 //! # Why this EXECUTES the gate instead of reading it
 //!
 //! The gate is a shell script, and what matters is the verdict it writes to
 //! `$GITHUB_OUTPUT` on a given history. The test lifts the parsed
 //! `steps[id=check].run` out of the workflow, builds a synthetic repository
-//! whose commits are all 30 days old (a quiet day, forever), and runs the
+//! whose commits are all dated 2001-09-09 (a quiet day, forever), and runs the
 //! script there under the shell GitHub uses for `run:` steps. A comment in the
 //! workflow cannot satisfy it; only the script's behaviour can.
 //!
@@ -88,7 +90,7 @@ fn git(dir: &Path, args: &[&str]) -> String {
         ])
         .args(["-c", "tag.gpgsign=false", "-c", "core.hooksPath=/dev/null"])
         .args(args)
-        // Every commit is 30 days old: nothing is "in the last 24 hours".
+        // Every commit is dated 2001-09-09: nothing is "in the last 24 hours".
         .env("GIT_AUTHOR_DATE", "@1000000000 +0000")
         .env("GIT_COMMITTER_DATE", "@1000000000 +0000")
         .output()
