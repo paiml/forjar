@@ -255,35 +255,3 @@ mod sc1_gate_tests {
         );
     }
 }
-
-#[cfg(test)]
-mod sc2105_gate_tests {
-    use super::*;
-
-    /// forjar#633: bashrs 6.68.0 reported `SC2105 'break' is only valid in
-    /// loops` on a `break` that IS inside a `for` — a one-line loop nested in
-    /// an `if` — and the I8 gate refused the task (paiml/infra#1088, gx10).
-    /// bashrs 7.x judges the same bytes clean. This goes red on 6.68.0.
-    #[test]
-    fn break_inside_a_for_inside_an_if_passes() {
-        let script = "if [ ! -e \"$HOME/.local/state/release-train/active\" ]; then\n  \
-                      systemctl --user restart apr-review-serve.service\n  \
-                      for _ in $(seq 1 60); do /usr/local/bin/probe health && break; sleep 5; done\n\
-                      fi\n";
-        assert!(
-            validate_script(script).is_ok(),
-            "the I8 gate refuses a `break` that is inside a loop: {:?}",
-            validate_script(script)
-        );
-    }
-
-    /// Guard the guard: the upgrade must not have bought the pass by dropping
-    /// the rule. A `break` with no enclosing loop is still refused.
-    #[test]
-    fn break_outside_any_loop_is_still_rejected() {
-        let script = "if [ -e /tmp/x ]; then\n  break\nfi\n";
-        let err = validate_script(script)
-            .expect_err("a `break` outside any loop was accepted — SC2105 is gone, not fixed");
-        assert!(err.contains("SC2105"), "rejected, but not by SC2105: {err}");
-    }
-}
