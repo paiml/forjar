@@ -219,7 +219,7 @@ fn test_fj007_apply_file_owner_no_group() {
     let mut r = make_file_resource("/etc/test.conf", Some("data"));
     r.group = None;
     let script = apply_script(&r);
-    assert!(script.contains("chown 'root' '/etc/test.conf'"));
+    assert!(script.contains("chown 'root' '/etc/test.conf.forjar-new'"));
     assert!(!script.contains("chown 'root:"));
 }
 
@@ -267,7 +267,7 @@ fn test_fj007_apply_file_at_root_no_mkdir() {
     let mut r = make_file_resource("/init", Some("boot script"));
     r.owner = None;
     let script = apply_script(&r);
-    assert!(script.contains("| base64 -d > '/init'"));
+    assert!(script.contains("| base64 -d > '/init.forjar-new'"));
     assert!(!script.contains("mkdir -p '/'"));
 }
 
@@ -367,7 +367,7 @@ fn group_without_owner_is_actually_applied() {
     r.owner = None;
     let script = apply_script(&r);
     assert!(
-        script.contains("chgrp 'staff' '/etc/thing.conf'"),
+        script.contains("chgrp 'staff' '/etc/thing.conf.forjar-new'"),
         "group declared without owner emitted NO ownership command:\n{script}"
     );
 
@@ -375,7 +375,7 @@ fn group_without_owner_is_actually_applied() {
     r.owner = Some("noah".to_string());
     let both = apply_script(&r);
     assert!(
-        both.contains("chown 'noah:staff' '/etc/thing.conf'"),
+        both.contains("chown 'noah:staff' '/etc/thing.conf.forjar-new'"),
         "owner+group regressed:\n{both}"
     );
     assert!(
@@ -386,7 +386,7 @@ fn group_without_owner_is_actually_applied() {
     r.group = None;
     let owner_only = apply_script(&r);
     assert!(
-        owner_only.contains("chown 'noah' '/etc/thing.conf'"),
+        owner_only.contains("chown 'noah' '/etc/thing.conf.forjar-new'"),
         "owner-only regressed:\n{owner_only}"
     );
 
@@ -395,5 +395,77 @@ fn group_without_owner_is_actually_applied() {
     assert!(
         !neither.contains("chown") && !neither.contains("chgrp"),
         "neither declared, but an ownership command was emitted:\n{neither}"
+    );
+}
+
+/// forjar#634: a script parked on a child must finish on the bytes it started
+/// with. An in-place rewrite (`> path`) hands the parked shell the NEW bytes at
+/// its OLD offset; the two scripts below are the same length, so under the old
+/// emitter the parked shell resumes at `echo NEW`. Executes the artifact.
+#[test]
+fn fj634_a_parked_script_finishes_on_its_old_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("wrapper.sh");
+    let out = dir.path().join("out");
+    std::fs::write(&target, "sleep 1\necho OLD >\"$1\"\n").unwrap();
+    let mut parked = std::process::Command::new("bash")
+        .arg(&target)
+        .arg(&out)
+        .spawn()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let mut r = make_file_resource(
+        target.to_str().unwrap(),
+        Some("sleep 1\necho NEW >\"$1\"\n"),
+    );
+    r.owner = None;
+    r.group = None;
+    let applied = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(apply_script(&r))
+        .status()
+        .unwrap();
+    assert!(applied.success(), "apply script failed");
+    assert!(parked.wait().unwrap().success());
+    assert_eq!(
+        std::fs::read_to_string(&out).unwrap(),
+        "OLD\n",
+        "the parked script ran the NEW bytes"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "sleep 1\necho NEW >\"$1\"\n"
+    );
+    assert!(
+        !dir.path().join("wrapper.sh.forjar-new").exists(),
+        "staged file left behind"
+    );
+}
+
+/// forjar#634: the rename must not drop an attribute the resource does not
+/// declare. An in-place write kept the old inode's mode; an executable with no
+/// `mode:` must still be executable after the replace.
+#[test]
+fn fj634_an_undeclared_exec_bit_survives_the_replace() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("tool");
+    std::fs::write(&target, "#!/bin/sh\necho old\n").unwrap();
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut r = make_file_resource(target.to_str().unwrap(), Some("#!/bin/sh\necho new\n"));
+    r.mode = None;
+    r.owner = None;
+    r.group = None;
+    let applied = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(apply_script(&r))
+        .status()
+        .unwrap();
+    assert!(applied.success());
+    let mode = std::fs::metadata(&target).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o755, "undeclared exec bit lost: {mode:o}");
+    assert_eq!(
+        std::fs::read_to_string(&target).unwrap(),
+        "#!/bin/sh\necho new\n"
     );
 }

@@ -318,7 +318,7 @@ fn test_fj153_file_owner_no_group() {
     r.owner = Some("deploy".to_string());
     r.group = None;
     let script = apply_script(&r);
-    assert!(script.contains("chown 'deploy' '/etc/conf'"));
+    assert!(script.contains("chown 'deploy' '/etc/conf.forjar-new'"));
     assert!(!script.contains("chown 'deploy:"));
 }
 
@@ -418,7 +418,7 @@ fn test_fj036_file_apply_chown_group() {
     r.group = Some("www-data".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("chown 'deploy:www-data' '/etc/app/config.yaml'"),
+        script.contains("chown 'deploy:www-data' '/etc/app/config.yaml.forjar-new'"),
         "chown must include owner:group format when both are provided"
     );
 }

@@ -4674,3 +4674,22 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-634
+  github_issue: 634
+  item_type: task
+  title: 'file resource replaces its target by rename, never in place: a parked bash script finishes on its old bytes'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-25T12:29:16Z
+  updated: 2026-09-25T12:29:16Z
+  spec: null
+  acceptance_criteria:
+  - a script parked on a child during apply prints its OLD tail (test RED on the in-place emitter)
+  - an undeclared exec bit survives the replace (test RED without cp -p)
+  - Refs infra#1087 row 4
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
