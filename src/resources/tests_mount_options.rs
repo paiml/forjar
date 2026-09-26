@@ -119,6 +119,20 @@ fn fj642_modes_compare_as_numbers_and_absent_keys_are_the_default() {
 }
 
 #[test]
+fn fj642_an_omitted_key_is_its_default_not_a_wildcard() {
+    // tmpfs omitting uid= means uid 0; a declared uid=1000 is drift, not a match.
+    let h = fake_host("rw,nosuid,size=1024k", false);
+    assert_ne!(
+        run(&check_script(&cifs("size=1024k,uid=1000")), &h),
+        0,
+        "omitted uid is 0, not whatever was declared"
+    );
+    assert_eq!(run(&check_script(&cifs("size=1024k,mode=1777")), &h), 0);
+    // cifs always echoes dir_mode; a missing one never matches a declared value.
+    assert_ne!(run(&check_script(&cifs("dir_mode=02775")), &h), 0);
+}
+
+#[test]
 fn fj642_a_group_name_is_compared_by_its_number() {
     // root is gid 0 on every host this suite runs on.
     let h = fake_host("rw,gid=0", false);

@@ -38,10 +38,22 @@ fn declared_value(key: &str, value: &str) -> String {
     }
 }
 
+/// The value a kernel means by leaving `key` out of OPTIONS. tmpfs and vfat omit
+/// `uid=0`/`gid=0`, and tmpfs omits `mode=1777`, because those are the defaults.
+/// `file_mode`/`dir_mode` have no default here: cifs always echoes both, so a
+/// missing one is compared as empty and never matches a declared value.
+fn omitted_default(key: &str) -> &'static str {
+    match key {
+        "uid" | "gid" => "0",
+        "mode" => "1777",
+        _ => "",
+    }
+}
+
 /// A POSIX condition that is true when every declared ownership option equals the
 /// live mount's value, or `None` when none is declared. A key the kernel does not
-/// echo is NOT compared: tmpfs and vfat omit `uid=0`/`gid=0` and tmpfs omits
-/// `mode=1777` because they are the defaults, so absence is the default, not drift.
+/// echo is compared AS ITS DEFAULT, never skipped. Skipping it would call a declared
+/// `uid=1000` converged over a mount the kernel reports as uid 0.
 fn options_condition(target: &str, options: Option<&str>) -> Option<String> {
     let t = sh_squote(target);
     let parts: Vec<String> = options?
@@ -53,7 +65,8 @@ fn options_condition(target: &str, options: Option<&str>) -> Option<String> {
                 "$(findmnt -n -o OPTIONS {t} 2>/dev/null | tail -1 | tr ',' '\\n' | sed -n 's/^{k}=//p' | sed 's/^0*\\(.\\)/\\1/')"
             );
             format!(
-                "{{ _fj_v=\"{live}\"; [ -z \"$_fj_v\" ] || [ \"$_fj_v\" = {} ]; }}",
+                "{{ _fj_v=\"{live}\"; [ \"${{_fj_v:-{}}}\" = {} ]; }}",
+                omitted_default(k),
                 declared_value(k, v)
             )
         })
