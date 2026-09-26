@@ -52,7 +52,7 @@ mod tests {
             subset: None,
             confirm_destructive: false,
             backup: false,
-            exclude: None,
+            exclude: vec![],
             sequential: true,
             diff_only: false,
             notify_slack: None,
