@@ -36,6 +36,7 @@ pub(super) fn scope_of(args: &ApplyArgs) -> super::apply_scope::ApplyScope<'_> {
         only_machine: args.only_machine.as_deref(),
         exclude_machine: args.exclude_machine.as_deref(),
         resource_filter: args.resource_filter.as_deref(),
+        exclude: &args.exclude,
     }
 }
 
@@ -52,7 +53,6 @@ pub(super) fn selectors_of<'a>(
         resource: args.resource.as_deref(),
         group: args.group.as_deref(),
         subset: args.subset.as_deref(),
-        exclude: args.exclude.as_deref(),
         tag: args.tag.as_deref(),
         ..Default::default()
     }

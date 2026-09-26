@@ -4309,6 +4309,25 @@ roadmap:
   labels:
   - kind:code
   notes: 'Remaining suspects, both inside check_passes_on (src/core/executor/refresh_seed.rs:42): codegen::check_script(&resolved) returning Err, and the transport .ok() / !out.success() arm. It also resolves with SecretsConfig::default() rather than the executor''s, which resolve_or_fallback''s doc comment calls load-bearing and which may be the SAME defect rather than a second one. Instrument the three false returns separately and run the two-manifest fixture against each BEFORE changing anything: fixing the swallow and the secrets config in one commit means neither is falsified.'
+- id: PMAT-613
+  github_issue: 613
+  item_type: task
+  title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T00:00:00Z
+  updated: 2026-09-24T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'src/tripwire/drift/tests_version_pin.rs fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees: a github_release pinned v0.33.2 whose binary prints "ollama version is 0.34.2", under a lock baselined after the install, yields one DRIFT finding (expected "version 0.33.2", actual "version 0.34.2", detail names the DOWNGRADE) and the census names the offline upstream skip; it fails with "got []" when the two version_pin::detect call sites are reverse-applied'
+  - 'unparseable --version is UNMEASURED; a pin behind the latest upstream release is DRIFT; --offline and tag nightly are NOT CHECKED and named; detect_drift_full (apply gate, pull agent) and MCP unattended drift never carry a version finding; drift --auto-remediate refuses when one exists'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
 - id: PMAT-600
   github_issue: 600
   item_type: task
@@ -4326,6 +4345,25 @@ roadmap:
   subtasks: []
   estimated_effort: null
   labels: []
+  notes: null
+- id: PMAT-622
+  github_issue: 622
+  item_type: task
+  title: '--exclude is not repeatable and brace globs silently match nothing; a zero-match exclude is not an error'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T12:00:00Z
+  updated: 2026-09-24T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'tests/falsification_apply_filter_pipeline.rs: --exclude alpha --exclude charlie applies only bravo; --exclude {alpha,charlie} applies only bravo; --exclude a*a spares bravo and charlie; --exclude charlie --exclude chralie exits non-zero naming the typo and applies nothing. All four fail on origin/main aa04385e'
+  - 'src/cli/helpers_state.rs simple_glob_match: * anywhere with backtracking, {a,b} alternation (nested, several groups); an unbalanced brace is a literal. Reverting the matcher or the Vec turns the binary rows red again'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
   notes: null
 - id: PMAT-591
   github_issue: 591
@@ -4640,6 +4678,36 @@ roadmap:
   - release:v1.33.0
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
   release: 1.33.0
+- id: PMAT-615
+  github_issue: 615
+  item_type: task
+  title: 'forjar#615: plan -r and apply -r compute the same set; a lockless create asks its completion_check first'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T08:56:17Z
+  updated: 2026-09-24T08:56:17Z
+  spec: null
+  acceptance_criteria:
+  - 'plan -r/-g select the positive set closed over depends_on exactly as apply resolve_selection does; src/cli/tests_plan_apply_same_set.rs asserts plan and apply return the same id set for every selector shape over a depends_on chain and goes RED with the closure reverted.'
+  - 'The default apply path, its confirmation prompt and --dry-run seed a lockless resource whose completion_check passes on the host as converged, and the apply RECORDS it converged with no applied_at (the previews write nothing), so drift still inspects it; tests/falsification_lockless_check_before_create.rs runs a real apply against localhost on an empty state dir and goes RED with the seeding reverted, and with the recording reverted (as does falsification_drift_is_not_blind_to_task_guards).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Measured on paiml/infra lambda-labs, forjar 1.32.0, no lambda-labs lock: plan -r ollama-model-qwen35-4b said 1 to add, apply -r prompted 2 create, and the pulled-in ollama-binary command rm -rf /usr/local/lib/ollama while its check exited 0.'
+- id: PMAT-618
+  github_issue: 618
+  item_type: task
+  title: user check asks declared attrs, not presence
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-24T10:02:51Z
+  updated: 2026-09-24T10:02:51Z
+  spec: null
+  acceptance_criteria: []
 - id: PMAT-629
   github_issue: 629
   item_type: task
@@ -4657,6 +4725,25 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-627
+  github_issue: 627
+  item_type: task
+  title: 'disk_budget SEC011 guard refused every /tmp child, so /tmp rules validated, ran and reclaimed nothing; the guard now checks declared roots'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T19:12:46Z
+  updated: 2026-09-24T19:12:46Z
+  spec: null
+  acceptance_criteria:
+  - 'fb_sweepable accepts a depth-2 /tmp child under a declared /tmp prefix and refuses /tmp itself, $HOME, and any candidate outside its rule''s declared root prefixes; the tests execute the real emitted shell helper and go RED when the fix is reverted.'
+  - 'forjar validate refuses a reclaim root whose literal prefix is / and a glob root that can only match depth-2 paths outside /tmp.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2).'
 - id: PMAT-631
   github_issue: 631
   item_type: task
