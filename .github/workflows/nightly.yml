@@ -118,6 +118,14 @@ jobs:
       - name: Build release binary
         shell: bash
         run: |
+          # forjar#614: under `shell: bash` the Windows leg resolves Git's msys perl,
+          # which lacks core modules (Params::Check), so openssl-src's ./Configure
+          # died and the red leg skipped the release for 11 days. Build OpenSSL with
+          # the Strawberry perl the image ships, and fail loudly if it is not there.
+          if [ "${{ runner.os }}" = Windows ]; then
+            export OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl.exe
+            "$OPENSSL_SRC_PERL" -MParams::Check -e1 || { echo "::error::no usable Strawberry perl at $OPENSSL_SRC_PERL"; exit 1; }
+          fi
           case "${{ matrix.target }}" in
             aarch64-unknown-linux-*)
               cross build --release --features vendored-openssl --target "${{ matrix.target }}"
