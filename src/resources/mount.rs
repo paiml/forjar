@@ -18,6 +18,62 @@ fn sed_escape(s: &str) -> String {
     out
 }
 
+/// The ownership and permission options a kernel echoes back in the live mount's
+/// OPTIONS (cifs, tmpfs, vfat, ntfs3). These are the ones whose drift changes who
+/// may write, and #642 is exactly that: a declared `gid=` that never reached the
+/// mount while apply reported converged.
+const OWNERSHIP_KEYS: [&str; 5] = ["uid", "gid", "file_mode", "dir_mode", "mode"];
+
+/// Shell that prints `value` in a form comparable with the kernel's: a name for
+/// `uid=`/`gid=` becomes its number (cifs echoes `uid=1000` for `uid=noah`), and a
+/// mode loses its leading zeros (tmpfs echoes `mode=755` for `mode=0755`).
+fn declared_value(key: &str, value: &str) -> String {
+    let numeric = !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
+    let v = sh_squote(value);
+    match key {
+        "uid" | "gid" if numeric => v,
+        "uid" => format!("\"$(id -u {v} 2>/dev/null)\""),
+        "gid" => format!("\"$(getent group {v} 2>/dev/null | cut -d: -f3)\""),
+        _ => format!("\"$(printf '%s' {v} | sed 's/^0*\\(.\\)/\\1/')\""),
+    }
+}
+
+/// The value a kernel means by leaving `key` out of OPTIONS. tmpfs and vfat omit
+/// `uid=0`/`gid=0`, and tmpfs omits `mode=1777`, because those are the defaults.
+/// `file_mode`/`dir_mode` have no default here: cifs always echoes both, so a
+/// missing one is compared as empty and never matches a declared value.
+fn omitted_default(key: &str) -> &'static str {
+    match key {
+        "uid" | "gid" => "0",
+        "mode" => "1777",
+        _ => "",
+    }
+}
+
+/// A POSIX condition that is true when every declared ownership option equals the
+/// live mount's value, or `None` when none is declared. A key the kernel does not
+/// echo is compared AS ITS DEFAULT, never skipped. Skipping it would call a declared
+/// `uid=1000` converged over a mount the kernel reports as uid 0.
+fn options_condition(target: &str, options: Option<&str>) -> Option<String> {
+    let t = sh_squote(target);
+    let parts: Vec<String> = options?
+        .split(',')
+        .filter_map(|o| o.split_once('='))
+        .filter(|(k, _)| OWNERSHIP_KEYS.contains(k))
+        .map(|(k, v)| {
+            let live = format!(
+                "$(findmnt -n -o OPTIONS {t} 2>/dev/null | tail -1 | tr ',' '\\n' | sed -n 's/^{k}=//p' | sed 's/^0*\\(.\\)/\\1/')"
+            );
+            format!(
+                "{{ _fj_v=\"{live}\"; [ \"${{_fj_v:-{}}}\" = {} ]; }}",
+                omitted_default(k),
+                declared_value(k, v)
+            )
+        })
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" && "))
+}
+
 /// Generate shell to check mount state.
 pub fn check_script(resource: &Resource) -> String {
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
@@ -32,11 +88,15 @@ pub fn check_script(resource: &Resource) -> String {
     //
     // Compare the MOUNTED source against the DECLARED one. `state: mounted`
     // with no `source:` keeps the old semantics — there is nothing to compare.
-    let condition = if resource.source.is_some() {
+    let mut condition = if resource.source.is_some() {
         format!("[ \"$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1)\" = {s} ]")
     } else {
         format!("mountpoint -q {t} 2>/dev/null")
     };
+    // #642: the right share with the wrong owner is not the declared mount either.
+    if let Some(opts) = options_condition(target, resource.options.as_deref()) {
+        condition = format!("{condition} && {opts}");
+    }
     // The status labels embed the config-derived `target`, so route them
     // through sh_squote too — a raw label could close the single quote and
     // run command substitution (matches docker.rs/package.rs).
@@ -94,6 +154,19 @@ pub fn apply_script(resource: &Resource) -> String {
                  mount -t {ft} -o {o} {s} {t}\n\
                  fi"
             ));
+
+            // #642: the right share mounted with the wrong owner or modes. Remount,
+            // but with a plain `umount` and NO lazy fallback: `umount -l` would
+            // detach a mount that live jobs are writing into. Busy is a loud
+            // failure that names the path, never a silent convergence.
+            if let Some(opts) = options_condition(target, resource.options.as_deref()) {
+                lines.push(format!(
+                    "if [ \"$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\" = {s} ] && ! {{ {opts}; }}; then\n  \
+                     umount {t} || {{ echo \"forjar: mount \"{t}\" options drift, but it is busy; not detaching a path in use (#642)\" >&2; exit 1; }}\n  \
+                     mount -t {ft} -o {o} {s} {t}\n\
+                     fi"
+                ));
+            }
 
             // Rewrite the fstab line whenever it differs from the declared one.
             // Matching on the MOUNTPOINT FIELD (second whitespace-separated

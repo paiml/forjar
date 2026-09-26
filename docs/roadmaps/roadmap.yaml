@@ -4715,3 +4715,25 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-642
+  github_issue: 642
+  item_type: task
+  title: 'mount resource: ownership options (uid/gid/file_mode/dir_mode/mode) are part of the checked state'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-26T19:50:00Z
+  updated: 2026-09-26T19:50:00Z
+  spec: null
+  acceptance_criteria:
+  - 'check_script is RED when the declared source is mounted but a declared uid/gid/file_mode/dir_mode/mode differs from the live findmnt OPTIONS (modes compared as numbers, group/user names resolved to ids, keys the kernel omits treated as default).'
+  - 'apply_script remounts on that drift with a plain umount and NO lazy fallback; a busy mount fails with a message naming the path and is never mounted over.'
+  - 'src/resources/tests_mount_options.rs runs the generated scripts against a fake findmnt/umount/mount and goes RED when options_condition is neutralised.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
