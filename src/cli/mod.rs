@@ -88,6 +88,7 @@ mod doctor;
 mod doctor_machine;
 mod drift;
 mod drift_decline;
+mod drift_dry_run;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;
@@ -193,6 +194,7 @@ mod plan_compute;
 mod plan_file;
 mod plan_json;
 mod plan_selector;
+mod plan_version_pins;
 pub(crate) mod plugin;
 mod plugin_run;
 mod policy_coverage;
@@ -344,6 +346,10 @@ include!("mod_test_decl_c.rs");
 /// PMAT-160: one selection path for `apply`, resolved by graph closure.
 #[cfg(test)]
 mod tests_apply_selection_closure;
+
+/// forjar#615: plan and apply compute the same set for -r / -g.
+#[cfg(test)]
+mod tests_plan_apply_same_set;
 
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.

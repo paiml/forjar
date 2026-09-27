@@ -157,7 +157,16 @@ pub fn detect_drift_full(
     machine: &Machine,
     resources: &indexmap::IndexMap<String, Resource>,
 ) -> Vec<DriftFinding> {
-    detect_drift_full_reported(lock, machine, resources, DriftOptions::default()).findings
+    // forjar#613: every caller of this wrapper ACTS on its findings (the apply
+    // gate marks them `drifted` and re-applies; the pull agent remediates).
+    // A version-pin finding must not reach them: re-applying a pin that is
+    // behind the live binary IS the downgrade. `forjar drift` reports them.
+    let opts = DriftOptions {
+        check_version_pins: false,
+        check_upstream: false,
+        ..DriftOptions::default()
+    };
+    detect_drift_full_reported(lock, machine, resources, opts).findings
 }
 
 /// Full drift detection, with the census and the per-invocation bounds.
@@ -194,6 +203,15 @@ pub fn detect_drift_full_reported(
         lock,
         machine,
         resources,
+        &mut census,
+    ));
+    // forjar#613: from the DECLARATION, not the lock, so a pinned binary
+    // that was never applied from here is still compared with the box.
+    findings.extend(version_pin::detect(
+        &lock.machine,
+        machine,
+        resources,
+        opts,
         &mut census,
     ));
     census_declared_but_unlocked(lock, resources, &mut census);
@@ -381,8 +399,10 @@ pub use file::remote_path_digest;
 mod ignore;
 mod image;
 mod lockless;
+mod semver;
 mod task_check;
 mod unmeasured;
+pub mod version_pin;
 
 pub use census::{DriftCensus, SkipReason};
 pub use file::{check_file_drift, check_file_drift_via_transport};
@@ -419,3 +439,5 @@ mod tests_task_checks;
 mod tests_transport;
 #[cfg(test)]
 mod tests_unmeasured;
+#[cfg(test)]
+mod tests_version_pin;

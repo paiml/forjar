@@ -334,7 +334,7 @@ resources:
             subset: None,
             confirm_destructive: false,
             backup: false,
-            exclude: None,
+            exclude: vec![],
             sequential: false,
             diff_only: true,
             notify_slack: None,

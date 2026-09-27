@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`drift` and `plan` compare a `github_release`'s live `--version` with its pin
+and with the latest upstream release (PMAT-613, #613).** Both commands trusted
+the lock and asked only whether the binary existed. paiml/infra pinned ollama to
+`v0.33.2` on a box running `0.34.2`: `plan` said Create, `drift` said nothing,
+and an apply would have downgraded it. The new detector works from the
+declaration, so it also covers a pin missing from the lock. It reports DRIFT
+when the live version is not the pin (and says the apply would DOWNGRADE), and
+when the pin is behind the repo's latest release. Output with no version is
+UNMEASURED, never clean. `--offline` skips the upstream check and says so. `plan`
+adds a "Version pins" section and a `version_pins` JSON field, and changes no
+plan action. The apply gate, the pull agent and MCP's unattended drift never act
+on these findings, and `drift --auto-remediate` refuses when any exist.
+And `apply` itself never downgrades: a `github_release` whose pin names a version
+refuses, on the box and before the download, when the live binary is newer,
+whichever path reached it (a lockless create, the drift gate, `--force`, the
+pull agent). The message says to update the pin, or remove the binary to roll
+back on purpose.
+
+**`plan -r` and `apply -r` compute the same set, and a lockless create asks
+its `completion_check` first (PMAT-615, #615).** Measured on paiml/infra's
+lambda-labs with no lambda-labs lock: `plan -r ollama-model-qwen35-4b` said
+`1 to add`; `apply -r` of the same id prompted `2 create`, because apply closes
+its selection over `depends_on` and plan kept the exact id. The pulled-in
+`ollama-binary` task runs `rm -rf /usr/local/lib/ollama` and restarts the
+daemon, while its own check exited 0 on the box. `plan -r`/`-g` now close the
+selection over `depends_on` as apply does, and the default apply path, its
+confirmation prompt and `--dry-run` treat a resource with no lock entry whose
+declared `completion_check` passes as unchanged. The apply records it
+`converged` (with no `applied_at`: nothing ran), as the converge it replaces
+did, so `drift` still inspects the guard; the previews write nothing. A check
+that fails or cannot run still plans `create`.
+Plain `forjar plan` stays lock-relative and does not contact hosts.
+`tests/falsification_lockless_check_before_create.rs` runs a real apply on
+localhost; `src/cli/tests_plan_apply_same_set.rs` asserts the two sets are equal.
+
+**`--exclude` is repeatable, understands `*` anywhere and `{a,b}`, and refuses a
+pattern that matches nothing (PMAT-622, #622).** A second `--exclude` was refused by
+clap, and `a*a` or `{a,b}-dir` were exact-match literals that matched nothing, so
+the apply ran everything at exit 0. A typo did the same. `--exclude` now accumulates
+(`ApplyScope` carries the list, so `apply`, `--check` and `--dry-run` read one list).
+`simple_glob_match` backtracks on inner stars and expands nested, repeated brace
+groups, which also widens `--subset`, `--resource-filter` and `extract`. Every exclude
+pattern must match a resource in the config, or the run exits non-zero with
+`--exclude 'p' matches no resource`.
+
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
 --refresh` re-applies only what its check fails, so a file holding the wrong

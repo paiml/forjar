@@ -194,6 +194,71 @@ fn every_declared_rule_reaches_the_reaper() {
     assert!(s.contains("fb_find_abandoned_worktree"));
 }
 
+/// forjar#627: the guard is handed each rule's literal root prefixes, so a
+/// candidate outside them is refused instead of deleted.
+#[test]
+fn reaper_hands_the_guard_each_rules_declared_prefixes() {
+    let r = Resource {
+        budget_reclaim: vec![ReclaimRule {
+            name: "tmp-targets".into(),
+            roots: vec!["/tmp/*-target".into(), "/tmp/target-*".into()],
+            kind: ReclaimKind::Glob,
+            min_idle_minutes: 240,
+        }],
+        ..res()
+    };
+    let s = apply_script(&r);
+    assert!(
+        s.contains(r#"fb_sweepable "$cand" '/tmp' || continue"#),
+        "prefixes are deduplicated and passed to the guard"
+    );
+    assert!(
+        !s.contains(r#"fb_sweepable "$cand" || continue"#),
+        "a guard call with no roots refuses everything"
+    );
+}
+
+fn with_root(root: &str) -> Resource {
+    Resource {
+        budget_reclaim: vec![ReclaimRule {
+            name: "r".into(),
+            roots: vec![root.into()],
+            kind: ReclaimKind::Glob,
+            min_idle_minutes: 60,
+        }],
+        ..res()
+    }
+}
+
+#[test]
+fn a_root_that_could_reach_anything_is_rejected() {
+    for root in ["/*", "/", "*-target"] {
+        let e = budget_of(&with_root(root)).unwrap_err();
+        assert!(e.contains("literal prefix '/'"), "{root}: {e}");
+    }
+}
+
+#[test]
+fn a_glob_that_can_only_match_refused_paths_is_rejected() {
+    // `/home/*` yields `/home/<x>`, depth 2 outside /tmp: never deleted, so the
+    // rule would validate, run, and reclaim nothing — the #627 shape.
+    let e = budget_of(&with_root("/home/*-target")).unwrap_err();
+    assert!(e.contains("reclaim nothing"), "{e}");
+}
+
+#[test]
+fn tmp_globs_and_deep_roots_are_accepted() {
+    for root in [
+        "/tmp/*-target",
+        "/tmp/.tmp*",
+        "/tmp/claude-1000",
+        "/home/x/src",
+        "/data",
+    ] {
+        assert!(budget_of(&with_root(root)).is_ok(), "{root}");
+    }
+}
+
 /// FJ-036: every script this handler emits must survive forjar's own I8
 /// purification gate.
 ///

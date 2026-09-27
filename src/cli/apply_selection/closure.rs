@@ -39,8 +39,10 @@ pub(crate) struct Selectors<'a> {
     pub resource_filter: Option<&'a str>,
     /// `make` goals (positive).
     pub goals: &'a [String],
-    /// `--exclude` glob (negative).
+    /// `--exclude` glob (negative), from a positional caller.
     pub exclude: Option<&'a str>,
+    /// `--exclude` globs (negative), repeatable, from `ApplyScope` (#622).
+    pub excludes: &'a [String],
     /// `--skip` id (negative).
     pub skip: Option<&'a str>,
     /// `--only-machine` (machine narrowing).
@@ -61,7 +63,15 @@ impl<'a> Selectors<'a> {
         self.only_machine = scope.only_machine;
         self.exclude_machine = scope.exclude_machine;
         self.resource_filter = scope.resource_filter;
+        self.excludes = scope.exclude;
         self
+    }
+
+    /// Every `--exclude` pattern, from either source, in the order typed.
+    pub(crate) fn exclude_patterns(&self) -> impl Iterator<Item = &'a str> + 'a {
+        self.exclude
+            .into_iter()
+            .chain(self.excludes.iter().map(String::as_str))
     }
 }
 
@@ -194,6 +204,14 @@ fn check_glob_selectors(config: &types::ForjarConfig, sel: &Selectors<'_>) -> Re
         if !glob_matches_any(config, p) {
             return Err(format!(
                 "--resource-filter: no resources match subset pattern '{p}'"
+            ));
+        }
+    }
+    for p in sel.exclude_patterns() {
+        if !glob_matches_any(config, p) {
+            return Err(format!(
+                "--exclude '{p}' matches no resource in this config. Known: {}",
+                known(config.resources.keys().cloned())
             ));
         }
     }
@@ -352,7 +370,7 @@ fn report_negative(
     out: &Selection,
     dropped: &Dropped,
 ) {
-    if let Some(p) = sel.exclude {
+    for p in sel.exclude_patterns() {
         let cause = format!("--exclude '{p}'");
         let n = dropped.iter().filter(|(_, c)| *c == cause).count();
         eprintln!(

@@ -190,6 +190,7 @@ mod tests {
     #[test]
     fn test_cov_plan_args_construct() {
         let a = PlanArgs {
+            offline: false,
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,

@@ -5,6 +5,7 @@
 
 mod failure_text;
 mod helpers;
+pub(crate) mod lockless_check;
 mod machine;
 mod machine_wave;
 mod machine_wave_record;
@@ -87,11 +88,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Instant;
 
-// Re-export the public API
 pub use helpers::collect_machines;
 pub use plan_scope::PlanScope;
 
-// Re-export internal items for sibling submodule access via `use super::*;`
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
 pub(crate) use helpers::copia_apply_file;
 pub(crate) use helpers::{build_resource_details, compute_resource_waves};
@@ -388,11 +387,10 @@ pub fn apply_scoped(
     // FJ-2300/FJ-3010: Force mode selection
     // --force: nuclear — empty locks, all resources re-applied
     // --force-tag: selective — empty locks only for resources matching tag
-    // --refresh: run each in-scope resource's check script against its HOST and
-    //   evict the lock entry for any that fails, so the planner re-plans exactly
-    //   those. The previous comment claimed "check scripts re-evaluate live
-    //   state during execution" — they do not: a resource the planner calls
-    //   NoOp is never executed, so its check never runs. See refresh_locks.
+    // --refresh: run each in-scope resource's check against its HOST and evict the
+    //   lock entry for any that fails, so the planner re-plans exactly those.
+    // --dry-run: the CLI previews through `scoped_dry_run_plan`, which asks the checks.
+    // default (forjar#615): an unlocked resource asks its check first; a pass is recorded.
     let plan_locks = if cfg.force {
         HashMap::new()
     } else if let Some(tag) = cfg.force_tag {
@@ -402,8 +400,10 @@ pub fn apply_scoped(
         // PMAT-214 (forjar#487): the planner's view is discarded; see below.
         refresh::persist_unlatched(&refreshed, &mut locks);
         refreshed
-    } else {
+    } else if cfg.dry_run {
         locks.clone()
+    } else {
+        lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
     // whose sources changed on disk plans as Update rather than NoOp.

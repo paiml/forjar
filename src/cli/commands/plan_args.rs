@@ -68,6 +68,14 @@ pub struct PlanArgs {
     /// FJ-1379: Show per-resource explanation of why each change is needed
     #[arg(long)]
     pub why: bool,
+
+    /// Do not compare version pins with the latest upstream release
+    ///
+    /// forjar#613: plan asks each `github_release` binary for its live
+    /// `--version` and compares it with the pin and with the repo's latest
+    /// release. This skips the network half; skipped pins are listed as NOT CHECKED.
+    #[arg(long)]
+    pub offline: bool,
 }
 
 /// CLI arguments for the `plan --compact` command.
