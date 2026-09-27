@@ -4753,3 +4753,25 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-648
+  github_issue: 648
+  item_type: task
+  title: 'mount resource: an x-systemd.automount remount must not stack a stale mount, and a stack is drift'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-27T10:30:00Z
+  updated: 2026-09-27T10:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'check_script is RED when more than one filesystem (autofs excluded) is mounted at the target, even when the top one matches the declared source and options.'
+  - 'For an x-systemd.automount entry, apply writes fstab, runs systemctl daemon-reload BEFORE detaching, detaches every stacked filesystem with a plain umount (busy fails loudly), and mounts by touching the path, never with its own mount -t.'
+  - 'tests/falsification_648_automount_stack.rs models the kernel stack and systemd unit, runs the generated scripts, and goes RED with mount.rs reverted to main.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
