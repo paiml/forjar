@@ -66,7 +66,7 @@ jobs:
           [ "$missing" = "0" ] && echo "All v* tags have releases"
           exit "$missing"
 
-  # ── Build release binaries (5 targets, native runners) ───
+  # ── Build release binaries (7 targets, native runners) ───
   build:
     needs: check-activity
     if: needs.check-activity.outputs.has_commits == 'true'
@@ -75,6 +75,13 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
+            runner: [self-hosted, clean-room, X64]
+          # forjar#624: the gnu legs build on the fleet host (glibc 2.39) and do not
+          # run on lambda (glibc 2.35). release.yml already ships static musl for
+          # both arches, and fleet-bins installs those; the nightly ships them too.
+          - target: x86_64-unknown-linux-musl
+            runner: [self-hosted, clean-room, X64]
+          - target: aarch64-unknown-linux-musl
             runner: [self-hosted, clean-room, X64]
           - target: aarch64-unknown-linux-gnu
             # PMAT-547: was ubuntu-24.04-arm. release.yml already builds this
@@ -105,6 +112,15 @@ jobs:
 
       - name: Ensure target is installed
         run: rustup target add ${{ matrix.target }}
+
+      # forjar#624: as release.yml does for its musl legs.
+      - name: Install musl-tools (x86_64 musl leg only)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq musl-tools >/dev/null
+          fi
 
       # PMAT-547: the aarch64-linux leg used to run on a native ARM hosted
       # runner, where a plain `cargo build --target` worked. On the fleet it is
