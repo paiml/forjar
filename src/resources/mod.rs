@@ -63,6 +63,8 @@ mod tests_mount;
 #[cfg(test)]
 mod tests_mount_b;
 #[cfg(test)]
+mod tests_mount_options;
+#[cfg(test)]
 mod tests_package;
 #[cfg(test)]
 mod tests_package_b;
