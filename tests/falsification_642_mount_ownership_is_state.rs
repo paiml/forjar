@@ -40,19 +40,23 @@ fn cifs(options: &str) -> Resource {
 fn fake_host(live: &str, busy: bool) -> tempfile::TempDir {
     let d = tempfile::tempdir().expect("tempdir");
     let calls = d.path().join("calls");
+    // `m` exists while one filesystem is mounted: umount removes it, mount makes it.
+    let m = d.path().join("m");
+    std::fs::write(&m, "").expect("mounted marker");
+    let m = m.display();
     let rc = if busy { 32 } else { 0 };
     for (name, body) in [
         (
             "findmnt",
-            format!("#!/bin/sh\ncase \"$*\" in *SOURCE*) echo '{SRC}' ;; *OPTIONS*) echo '{live}' ;; esac\n"),
+            format!("#!/bin/sh\ncase \"$*\" in *SOURCE*) echo '{SRC}' ;; *OPTIONS*) echo '{live}' ;; *FSTYPE*) [ -e '{m}' ] && echo cifs ;; esac\nexit 0\n"),
         ),
         (
             "umount",
-            format!("#!/bin/sh\necho \"umount $*\" >> '{}'\nexit {rc}\n", calls.display()),
+            format!("#!/bin/sh\necho \"umount $*\" >> '{}'\n[ {rc} -eq 0 ] || exit {rc}\nrm -f '{m}'\n", calls.display()),
         ),
         (
             "mount",
-            format!("#!/bin/sh\necho \"mount $*\" >> '{}'\n", calls.display()),
+            format!("#!/bin/sh\necho \"mount $*\" >> '{}'\n: > '{m}'\n", calls.display()),
         ),
         ("mountpoint", "#!/bin/sh\nexit 0\n".to_string()),
         ("mkdir", "#!/bin/sh\nexit 0\n".to_string()),

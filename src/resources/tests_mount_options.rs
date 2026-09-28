@@ -25,15 +25,22 @@ fn cifs(options: &str) -> Resource {
 fn fake_host(live: &str, busy: bool) -> tempfile::TempDir {
     let d = tempfile::tempdir().expect("tempdir");
     let calls = d.path().join("calls");
+    // `m` exists while one filesystem is mounted: umount removes it, mount makes it.
+    let m = d.path().join("m");
+    std::fs::write(&m, "").expect("mounted marker");
+    let m = m.display();
     let findmnt = format!(
-        "#!/bin/sh\ncase \"$*\" in *SOURCE*) echo '{SRC}' ;; *OPTIONS*) echo '{live}' ;; esac\n"
+        "#!/bin/sh\ncase \"$*\" in *SOURCE*) echo '{SRC}' ;; *OPTIONS*) echo '{live}' ;; *FSTYPE*) [ -e '{m}' ] && echo cifs ;; esac\nexit 0\n"
     );
     let rc = if busy { 32 } else { 0 };
     let umount = format!(
-        "#!/bin/sh\necho \"umount $*\" >> '{}'\nexit {rc}\n",
+        "#!/bin/sh\necho \"umount $*\" >> '{}'\n[ {rc} -eq 0 ] || exit {rc}\nrm -f '{m}'\n",
         calls.display()
     );
-    let mount = format!("#!/bin/sh\necho \"mount $*\" >> '{}'\n", calls.display());
+    let mount = format!(
+        "#!/bin/sh\necho \"mount $*\" >> '{}'\n: > '{m}'\n",
+        calls.display()
+    );
     for (name, body) in [
         ("findmnt", findmnt),
         ("umount", umount),
@@ -85,7 +92,10 @@ const LIVE_1000: &str =
     "rw,relatime,vers=3.1.1,uid=1000,forceuid,gid=1000,forcegid,file_mode=0664,dir_mode=0775,soft";
 const LIVE_997: &str =
     "rw,relatime,vers=3.1.1,uid=1000,forceuid,gid=997,forcegid,file_mode=0664,dir_mode=0775,soft";
-const DECL_997: &str = "rw,vers=3.1.1,credentials=/etc/c,uid=1000,gid=997,file_mode=0664,dir_mode=0775,noauto,x-systemd.automount";
+// A plain mount: under `x-systemd.automount` systemd mounts, not forjar (#648,
+// covered in tests/falsification_648_automount_stack.rs).
+const DECL_997: &str =
+    "rw,vers=3.1.1,credentials=/etc/c,uid=1000,gid=997,file_mode=0664,dir_mode=0775,noatime";
 
 #[test]
 fn fj642_check_is_red_when_the_right_share_has_the_wrong_gid() {

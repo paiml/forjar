@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0-rc.1] - 2026-09-28
+
+**A mount's ownership options are checked state (PMAT-642, #642).** The mount
+check compared only the `findmnt` SOURCE, so the right share mounted with the
+wrong `uid`/`gid`/`file_mode`/`dir_mode`/`mode` reported converged and apply
+never remounted it. The check now compares every declared ownership key with
+the live OPTIONS (a key the kernel omits as its default), and apply remounts on
+drift with a plain `umount` that refuses a busy path instead of detaching it
+lazily.
+
+**An `x-systemd.automount` remount no longer stacks a stale mount, and a stack
+is drift (PMAT-648, #648).** The #642 remount ran its own `mount -t`; touching
+the trigger fired systemd's automount from a unit that still held the old
+options, and forjar's mount landed on top while the check read the top mount
+only. The check now counts every non-autofs filesystem at the target. For an
+automount entry, apply writes fstab, runs `systemctl daemon-reload` before
+detaching, detaches the whole stack, and lets systemd mount on a path touch. A
+busy stack fails loudly on every path. Plain mounts are unchanged.
+`tests/falsification_648_automount_stack.rs` models the kernel stack and the
+unit.
+
+**`query_latency_under_50ms` asserts the best of 5 samples (#647).** One cold
+sample under load turned it red and blocked the rc clean-room.
+
 **A `state: file` check asks for the declared content and mode, not just
 existence (PMAT-600, #600).** `check_script` was `test -f`, and `apply
 --refresh` re-applies only what its check fails, so a file holding the wrong
