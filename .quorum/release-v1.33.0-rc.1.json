@@ -4,18 +4,18 @@
   "branch": "release/v1.33.0-rc.1",
   "base": "f281f5ad",
   "base_commit": "f281f5ada882cee8a0d815b816459adbe0f80d15",
-  "diff_sha256": "a79ca2009fdff98e6934b9ac31476db1f6d3cb52",
-  "recorded_at": "after three agy rounds recorded in .quorum/evidence/PMAT-651-lanes.md. Round 1 refuted the lazy detach and the workflow change; round 2 refuted scope against PMAT-648; round 3 judged d1c5b54a against the release ticket PMAT-651 and passed 3/3.",
+  "diff_sha256": "d34a13e0d8bc5b862eed1ff966dff01080a55dfd",
+  "recorded_at": "after four agy rounds recorded in .quorum/evidence/PMAT-651-lanes.md. Round 1 refuted the lazy detach and the workflow change; round 2 refuted scope against PMAT-648; round 3 passed d1c5b54a against the release ticket PMAT-651 3/3; round 4 re-judged 0bd53f26 (the CHANGELOG heading CI required) 3/3.",
   "quorum": {
-    "rounds": 3,
+    "rounds": 4,
     "lanes": [
-      "round 3, head d1c5b54a — lane 1 claude-sonnet-5 (gemini-3.1-pro-high withheld by policy: no tier-1 path) PASS, one advisory finding (busy message wording)",
-      "round 3, head d1c5b54a — lane 2 claude-sonnet-5 PASS, the same advisory finding (degraded: same-family, duplicate model id recorded)",
-      "round 3, head d1c5b54a — lane 3 claude-haiku-4-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)"
+      "round 4, head 0bd53f26 — lane 1 claude-sonnet-5 (gemini-3.1-pro-high withheld by policy: no tier-1 path) PASS, the accepted wording note only",
+      "round 4, head 0bd53f26 — lane 2 claude-sonnet-5 PASS, noted diff_sha256 is 40 hex (the gate's own PRINT_HASH form) (degraded: same-family, duplicate model id recorded)",
+      "round 4, head 0bd53f26 — lane 3 claude-haiku-4-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)"
     ],
     "lane_errors": 0,
     "judges": 3,
-    "judges_note": "judges=3 counts the three lanes of round 3, the round that judged the corrected head against PMAT-651; rounds 1 and 2 are in the lanes table and their refutations are R1-R3.",
+    "judges_note": "judges=3 counts the three lanes of round 4, the round that judged the final code head 0bd53f26 against PMAT-651; rounds 1-3 are in the lanes table and their refutations are R1-R3.",
     "kill_rule": "nothing was dismissed: R1 was fixed in d07790c8 with a falsifying test, R2 reverted in 2ab9f59d, R3 answered by the release ticket in d1c5b54a, and each was re-judged.",
     "refuters_per_claim": 3,
     "claims_confirmed": 6,
@@ -45,11 +45,11 @@
   "agy_teamwork": {
     "ran": true,
     "mode": "three lanes per round through quorum-review.sh --executor agy --shape default (gemini-3.1-pro-high, claude-sonnet-5, claude-haiku-4-5; gemini withheld by policy from round 2 when no tier-1 path remained, judged by claude-sonnet-5), JSON-schema output, brief inline, no build",
-    "rounds": 3,
+    "rounds": 4,
     "lanes_per_round": 3,
     "sandbox": true,
     "writes": false,
-    "verdict": "Round 1 1/3 (R1, R2); round 2 1/3 (R3); round 3 3/3 PASS at d1c5b54a with one advisory wording finding."
+    "verdict": "Round 1 1/3 (R1, R2); round 2 1/3 (R3); round 3 3/3 at d1c5b54a; round 4 3/3 PASS at 0bd53f26 with one advisory wording finding."
   },
   "pmat": {
     "ticket": "PMAT-651",
@@ -79,30 +79,30 @@
         "roles": [
           "lanes"
         ],
-        "bytes": 1516,
-        "sha256": "1919c716e2d50fac6ace7ac8022d90e176ebdd648aa7c4fbd28ff33ef83ae2f7",
-        "blob": "9b325558b233c52652b1db553c67e524b7f843ec"
+        "bytes": 1736,
+        "sha256": "ee229c807375b85c0b6240935f65c2e0fe55e455b44a8664e3fe74b8cf5110de",
+        "blob": "8e098be65b30bdd97cd00b0499d24a7efeeab361"
       },
       {
         "path": ".quorum/evidence/PMAT-651-judges.md",
         "roles": [
           "judges"
         ],
-        "bytes": 3024,
-        "sha256": "324979eb775d79d33ce97e89f98daab1983bd80d68747591b7158637efbdbb7d",
-        "blob": "e47890ef7b767fd205479c22ae3e01d5cdbf5f3d"
+        "bytes": 3061,
+        "sha256": "0069a43a46c6350373857d51a1d55e6ac34afc29421a4ffee2251d2bf88d2b9b",
+        "blob": "88ca42ddb0e937c1595127bd141db6cdb6cc9ec9"
       },
       {
         "path": ".quorum/evidence/PMAT-651-agy.md",
         "roles": [
           "agy"
         ],
-        "bytes": 916,
-        "sha256": "33a025f78ff213f222379339a9fb5b02da914f96796667bff5ca87f5bd243c26",
-        "blob": "95bcf965ed79e7ff862b6373539c47e4a757351b"
+        "bytes": 1203,
+        "sha256": "ea2702967ec06e5f9a13c4dac76420927121247e67631f07d1ff09af375f8b7b",
+        "blob": "a2c0d06578f9532465bd7095f3b6f4b4a4f023d4"
       }
     ],
-    "total_bytes": 6920,
+    "total_bytes": 7464,
     "claims_digest": ".quorum/evidence/PMAT-651-judges.md"
   }
 }
