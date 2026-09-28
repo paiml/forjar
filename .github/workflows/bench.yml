@@ -11,7 +11,9 @@ on:
   # release is being made: a v* tag push, or a deliberate manual dispatch.
   # nightly-bench.yml still tracks the performance trend on its own schedule.
   push:
-    tags: ['v*']
+    # An rc tag (v1.33.0-rc.1) is a fleet-deploy candidate, not a release: it
+    # skips this run. The final v1.33.0 tag still measures it.
+    tags: ['v*', '!v*-rc*']
   workflow_dispatch:
 
 concurrency:
