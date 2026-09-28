@@ -17,3 +17,8 @@ verdict.
 Round 3 at d1c5b54a against PMAT-651: 3/3 PASS. Both sonnet lanes noted, as a
 non-blocking finding, that the busy-detach message says "options drift" on the
 wrong-source path too; it is recorded as accepted in the receipt.
+
+Round 4 at 0bd53f26 (the CHANGELOG heading CI asked for): 3/3 PASS. One sonnet
+lane repeated the accepted wording note; the other noted that `diff_sha256`
+holds 40 hex characters, which is the git object hash quorum-gate.sh itself
+prints with PRINT_HASH=1, not a sha256sum of the diff.

@@ -14,8 +14,8 @@ Round count and heads: see `PMAT-651-lanes.md`.
    - evidence: `src/resources/mount.rs:88` detects automount by the exact option; asserted at `tests/falsification_648_automount_stack.rs:226`.
 5. [bench] C5 — query_latency_under_50ms takes the minimum of 5 samples and still fails a query slower than 50ms at its best.
    - evidence: the loop is `src/core/store/tests_db_bench.rs:50` and the bound `src/core/store/tests_db_bench.rs:57`.
-6. [scope] C6 — The diff against f281f5ad touches the bench test, the mount resource and its tests, two roadmap rows and the version bump; no workflow file.
-   - evidence: `git diff --stat f281f5ad..d1c5b54a` lists 8 files and `-- .github` is empty after the revert in 2ab9f59d.
+6. [scope] C6 — The diff against f281f5ad touches the bench test, the mount resource and its tests, two roadmap rows, the version bump and its CHANGELOG entry; no workflow file.
+   - evidence: `git diff --stat f281f5ad..0bd53f26` outside .quorum lists 9 files and `-- .github` is empty after the revert in 2ab9f59d.
 
 ## REFUTED
 
