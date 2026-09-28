@@ -4,7 +4,7 @@
   "branch": "release/v1.33.0",
   "base": "2fd44833",
   "base_commit": "2fd448331f9e41db203f4787ce168952fb1460bf",
-  "diff_sha256": "efb53f5c265c2c9e6895335a12de7c29e6a535e4",
+  "diff_sha256": "133f7a6eca5517273cf61394003542cfde7d362e",
   "recorded_at": "after two agy rounds recorded in .quorum/evidence/PMAT-652-lanes.md. Round 1 refuted the comment line beside the #611 line; round 2 passed a5374809 3/3.",
   "quorum": {
     "rounds": 2,
@@ -87,9 +87,9 @@
         "roles": [
           "judges"
         ],
-        "bytes": 1573,
-        "sha256": "4d844168456bd19c4b74fea6d84c92105e1d600905f4de0dce8bdfe5b0f2e36e",
-        "blob": "7cec71bc94ab030c3f2f4cbebec6f3c778b7da38"
+        "bytes": 2036,
+        "sha256": "ce39b37583c0e265cac85103fc9dae151d38998ad9326d22ed7bb60bc0caf4bd",
+        "blob": "75f7912e479093a90551e8d75dca803f6f82abe2"
       },
       {
         "path": ".quorum/evidence/PMAT-652-agy.md",
@@ -101,7 +101,7 @@
         "blob": "b5da37631740972c28d33cb26a3c5a20827c42b3"
       }
     ],
-    "total_bytes": 4373,
+    "total_bytes": 4836,
     "claims_digest": ".quorum/evidence/PMAT-652-judges.md"
   }
 }
