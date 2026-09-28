@@ -4797,3 +4797,25 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-652
+  github_issue: 652
+  item_type: task
+  title: 'release: forjar 1.33.0 (promote rc.1 + #611 cross on PATH)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-28T12:20:00Z
+  updated: 2026-09-28T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'The release PR diff against main is exactly: the one #611 line in .github/workflows/release.yml (echo "$CARGO_HOME/bin" >> "$GITHUB_PATH" in the aarch64 branch of Install target prerequisites (Linux)), tests/falsification_611_cross_on_path.rs, the CHANGELOG 1.33.0 section, the PMAT-652 roadmap row, and Cargo.toml/Cargo.lock at 1.33.0. No source change: 1.33.0 is 1.33.0-rc.1 promoted.'
+  - '#611: falsification_611_cross_on_path runs the step script from release.yml on a runner without cross and asserts the next step resolves cross; it fails with the GITHUB_PATH line removed.'
+  - 'The v1.33.0 tag is cut on a main sha whose CI is green, and its release run publishes every asset (both aarch64 Linux legs included).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
