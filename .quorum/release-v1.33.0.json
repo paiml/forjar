@@ -4,12 +4,12 @@
   "branch": "release/v1.33.0",
   "base": "2fd44833",
   "base_commit": "2fd448331f9e41db203f4787ce168952fb1460bf",
-  "diff_sha256": "dd1912580b8f5fc12a08a12d44dbb85f4f8b5e7a",
+  "diff_sha256": "efb53f5c265c2c9e6895335a12de7c29e6a535e4",
   "recorded_at": "after two agy rounds recorded in .quorum/evidence/PMAT-652-lanes.md. Round 1 refuted the comment line beside the #611 line; round 2 passed a5374809 3/3.",
   "quorum": {
     "rounds": 2,
     "lanes": [
-      "round 2, head a5374809 — lane 1 gemini-3.1-pro-high (agy conversation d92a564f) PASS, no findings",
+      "round 2, head a5374809 — lane 1 gemini-3.1-pro-high (agy) PASS, no findings",
       "round 2, head a5374809 — lane 2 claude-sonnet-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)",
       "round 2, head a5374809 — lane 3 claude-haiku-4-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)"
     ],
@@ -96,12 +96,12 @@
         "roles": [
           "agy"
         ],
-        "bytes": 631,
-        "sha256": "eba7a35af8e2e59bb8a5cad3f5f9fc4990f2d7103ce5099ef42ed6e1ad62f28e",
-        "blob": "1a89d6e734ef9a1cfc6c0fe5078b31c459615da0"
+        "bytes": 508,
+        "sha256": "49d357b3981dc8aafa742177e6e8568e1eeeba5485250272f059849bbb9ec6b6",
+        "blob": "b5da37631740972c28d33cb26a3c5a20827c42b3"
       }
     ],
-    "total_bytes": 4496,
+    "total_bytes": 4373,
     "claims_digest": ".quorum/evidence/PMAT-652-judges.md"
   }
 }
