@@ -272,6 +272,8 @@ jobs:
               if ! command -v cross &>/dev/null; then
                 cargo install cross --locked
               fi
+              # #611: the install lands in the private CARGO_HOME, off PATH.
+              echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
               ;;
           esac
 

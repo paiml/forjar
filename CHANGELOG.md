@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-09-28
+
+Promotes 1.33.0-rc.1 (below) unchanged, plus one release-pipeline fix.
+
+**An aarch64 Linux release leg can run the `cross` it installs (#611).**
+`build-binaries` uses a private `CARGO_HOME`, so on a runner without `cross`
+the step installed it into `$CARGO_HOME/bin`, off PATH, and the build died with
+`cross: command not found`. `checksums` and `publish-release` then skipped and
+the release stayed a draft with no assets (v1.32.0; v1.33.0-rc.1 twice). The
+step now adds `$CARGO_HOME/bin` to `$GITHUB_PATH`.
+
 ## [1.33.0-rc.1] - 2026-09-28
 
 **A mount's ownership options are checked state (PMAT-642, #642).** The mount
