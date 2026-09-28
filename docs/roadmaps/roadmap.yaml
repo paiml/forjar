@@ -4775,3 +4775,25 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-651
+  github_issue: 651
+  item_type: task
+  title: 'release: forjar 1.33.0-rc.1 (#647 + #648 on main)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-28T08:30:00Z
+  updated: 2026-09-28T08:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'The release PR diff against main is exactly #647, #648 and the version bump: src/core/store/tests_db_bench.rs, the mount resource (src/resources/mount.rs and its tests), the PMAT-648 and PMAT-651 roadmap rows, and Cargo.toml/Cargo.lock at 1.33.0-rc.1. No workflow file changes.'
+  - '#647: query_latency_under_50ms asserts the best of 5 samples against the 50ms bound, so one cold sample under load cannot turn it red, and a genuinely slow query still does.'
+  - '#648: every acceptance criterion of PMAT-648 holds, and a wrong-source remount under x-systemd.automount never falls back to umount -l.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
