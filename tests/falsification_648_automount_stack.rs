@@ -211,6 +211,18 @@ fn a_busy_stack_fails_loudly_and_mounts_nothing() {
 }
 
 #[test]
+fn a_busy_wrong_source_under_automount_fails_loudly_and_never_lazy_detaches() {
+    let stale = "cifs //nas/old rw,uid=1000,gid=1000";
+    let h = Host::new(&[&autofs(), stale], OLD, OLD);
+    std::fs::write(h.path("busy"), "").expect("busy");
+    let rc = h.run("bash", &apply_script(&cifs(NEW)));
+    let calls = h.read("calls");
+    assert_ne!(rc, 0, "{calls}");
+    assert!(!calls.contains("umount -l"), "never a lazy detach: {calls}");
+    assert_eq!(h.fs_mounts(), vec![stale.to_string()], "{calls}");
+}
+
+#[test]
 fn a_plain_mount_still_uses_mount_and_never_systemctl() {
     let plain = "rw,uid=1000,gid=997,file_mode=0664,dir_mode=02775";
     let h = Host::new(&[&mounted(OLD)], OLD, OLD);

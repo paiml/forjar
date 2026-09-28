@@ -226,13 +226,15 @@ pub fn apply_script(resource: &Resource) -> String {
 
             // Remount when the mounted source differs from the declared one.
             // `findmnt` answers what is ACTUALLY mounted; `mountpoint -q` only
-            // answers whether something is.
+            // answers whether something is. The lazy fallback is for a plain
+            // mount only: under an automount, `umount -l` on a busy stack would
+            // detach live writers and let systemd re-mount underneath (#648).
             lines.push(format!(
                 "_fj_cur=$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\n\
                  if [ \"$_fj_cur\" != {s} ]; then\n  \
                  {}\n\
                  fi",
-                remount(&t, &ft, &o, &s, automount, true)
+                remount(&t, &ft, &o, &s, automount, !automount)
             ));
 
             // #642: the right share mounted with the wrong owner or modes, and
