@@ -4819,3 +4819,26 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-663
+  github_issue: 663
+  item_type: task
+  title: 'service: state enabled/disabled converge to what their check asserts (#663)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T14:30:00Z
+  updated: 2026-10-04T14:30:00Z
+  spec: docs/book/src/03-resources.md
+  acceptance_criteria:
+  - 'For each state (running, stopped, enabled, disabled) and each start (active/inactive x enabled/disabled), the generated apply_script run against a fake systemctl leaves the unit in the declared state, the generated check_script then exits 0, and a second apply makes no start/stop/enable/disable call (src/resources/tests_service_converge.rs).'
+  - 'state: enabled enables and state: disabled disables, with no start or stop, as docs/book/src/03-resources.md documents; their check asserts enablement only. running and stopped are unchanged.'
+  - 'state: enabled with enabled: false, and state: disabled with enabled: true, are validation errors; agreeing or absent enabled: validates.'
+  - 'With the service.rs fix reverted, test_663_enabled_converges and test_663_disabled_converges go red; with the validator reverted, test_663_contradictory_enabled_is_a_validation_error goes red.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
+  release: 1.34.0

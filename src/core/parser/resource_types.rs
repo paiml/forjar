@@ -123,6 +123,30 @@ fn validate_service(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
             });
         }
     }
+    validate_service_enablement(id, resource, errors);
+}
+
+/// #663: `state: enabled|disabled` IS the boot enablement, so an explicit
+/// `enabled:` saying the opposite leaves one declaration with two answers.
+/// Refused here rather than resolved silently in favour of either field.
+fn validate_service_enablement(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    let implied = match resource.state.as_deref() {
+        Some("enabled") => true,
+        Some("disabled") => false,
+        _ => return,
+    };
+    if let Some(explicit) = resource.enabled {
+        if explicit != implied {
+            let state = resource.state.as_deref().unwrap_or_default();
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (service): enabled: {explicit} contradicts state: {state} \
+                     — drop `enabled:`, or use state: running|stopped to set activity with \
+                     enabled: {explicit}"
+                ),
+            });
+        }
+    }
 }
 
 fn validate_mount(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
