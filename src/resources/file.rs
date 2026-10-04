@@ -211,6 +211,52 @@ fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resou
     }
 }
 
+/// Replace the file's content by RENAME, never by rewriting it in place.
+///
+/// `> path` truncates and rewrites the SAME inode. bash reads a script lazily,
+/// so a shell parked on a child (a wrapper waiting on the command it wraps)
+/// resumes, when the child exits, at its OLD byte offset in the NEW bytes and
+/// executes whatever lines happen to sit there. Measured on lambda-labs: ten
+/// live `~/.local/bin/cargo` wrappers parked on `setpriv … "$real"` at line 135
+/// of a script forjar was about to replace (forjar#634). A rename swaps the
+/// directory entry; every reader keeps the inode it opened.
+///
+/// The new file is staged beside the target (same filesystem, so `mv` is a
+/// rename), seeded with `cp -p` of the old one so an attribute the resource
+/// does not declare (an undeclared `mode:` on an executable) survives exactly
+/// as an in-place write preserved it, and it gets its declared owner and mode
+/// BEFORE the rename — otherwise the target exists for a moment at the umask
+/// mode and an exec in that window fails. A stale or planted staging path is
+/// removed first, so `>` never follows a symlink someone left there.
+///
+/// A DIRECTORY at the path is refused before anything is staged. `> dir` used
+/// to fail with EISDIR; `mv -f staged dir` instead moves the file INTO the
+/// directory and exits 0, so the apply would report converged over a path that
+/// is still a directory. An unreadable source is refused before staging too,
+/// so the failed apply leaves no `.forjar-new` behind.
+fn push_atomic_replace_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
+    if let Some(ref source) = resource.source {
+        if read_source_file(source).is_err() {
+            push_file_content_lines(lines, path, resource);
+            return;
+        }
+    }
+    let staged = format!("{path}.forjar-new");
+    let p = sh_squote(path);
+    let s = sh_squote(&staged);
+    lines.push(format!(
+        "if [ -d {p} ]; then echo {}; exit 1; fi",
+        sh_squote(&format!(
+            "ERROR: {path} is a directory; state: file will not replace it"
+        ))
+    ));
+    lines.push(format!("rm -f {s}"));
+    lines.push(format!("if [ -f {p} ]; then cp -p {p} {s}; fi"));
+    push_file_content_lines(lines, &staged, resource);
+    push_ownership_lines(lines, &staged, resource);
+    lines.push(format!("mv -f {s} {p}"));
+}
+
 /// Generate shell to converge file to desired state.
 pub fn apply_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
@@ -267,8 +313,11 @@ pub fn apply_script(resource: &Resource) -> String {
             // `set -euo pipefail` the `&&` form exits 1 for every non-symlink,
             // i.e. the normal case, aborting the whole apply.
             lines.push(format!("if [ -L {p} ]; then rm -f {p}; fi"));
-            push_file_content_lines(&mut lines, path, resource);
-            push_ownership_lines(&mut lines, path, resource);
+            if resource.source.is_some() || resource.content.is_some() {
+                push_atomic_replace_lines(&mut lines, path, resource);
+            } else {
+                push_ownership_lines(&mut lines, path, resource);
+            }
         }
         other => {
             // `other` is the config-derived state string; escape the label.
@@ -386,7 +435,7 @@ mod tests {
         r.content = Some("hello".to_string());
         let script = apply_script(&r);
         // The destination path is one quoted shell word...
-        assert!(script.contains("| base64 -d > '/etc/conf'"));
+        assert!(script.contains("| base64 -d > '/etc/conf.forjar-new'"));
         // ...and the declared content is what the script deploys there.
         // C8 (GH #296): assert on the decoded payload, not on the script text — the
         // old `script.contains("hello")` was equally true of a script whose

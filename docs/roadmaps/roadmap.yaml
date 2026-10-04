@@ -4674,6 +4674,85 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-634
+  github_issue: 634
+  item_type: task
+  title: 'file resource replaces its target by rename, never in place: a parked bash script finishes on its old bytes'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-25T12:29:16Z
+  updated: 2026-09-25T12:29:16Z
+  spec: null
+  acceptance_criteria:
+  - a script parked on a child during apply prints its OLD tail (test RED on the in-place emitter)
+  - an undeclared exec bit survives the replace (test RED without cp -p)
+  - Refs infra#1087 row 4
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-614
+  kind: code
+  github_issue: 614
+  item_type: task
+  title: 'nightly Windows leg: build OpenSSL with Strawberry perl'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-25T22:28:12Z
+  updated: 2026-09-26T02:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'nightly.yml''s "Build release binary" step exports OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl.exe on the Windows leg only, and fails before cargo when that perl cannot load Params::Check (the module Git''s msys perl lacks).'
+  - 'tests/falsification_nightly_windows_openssl_perl.rs executes the parsed step with stub cargo/cross and goes RED under each declared mutation (block deleted, probe exit dropped, block unconditional); ci.yml runs it.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
+- id: PMAT-642
+  github_issue: 642
+  item_type: task
+  title: 'mount resource: ownership options (uid/gid/file_mode/dir_mode/mode) are part of the checked state'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-26T19:50:00Z
+  updated: 2026-09-26T19:50:00Z
+  spec: null
+  acceptance_criteria:
+  - 'check_script is RED when the declared source is mounted but a declared uid/gid/file_mode/dir_mode/mode differs from the live findmnt OPTIONS (modes compared as numbers, group/user names resolved to ids, keys the kernel omits treated as default).'
+  - 'apply_script remounts on that drift with a plain umount and NO lazy fallback; a busy mount fails with a message naming the path and is never mounted over.'
+  - 'src/resources/tests_mount_options.rs runs the generated scripts against a fake findmnt/umount/mount and goes RED when options_condition is neutralised.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
+- id: PMAT-624
+  github_issue: 624
+  item_type: task
+  title: nightly publishes static musl linux assets (forjar#624)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-27T08:53:40Z
+  updated: 2026-09-27T08:53:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
 - id: PMAT-633
   github_issue: 633
   item_type: task
@@ -4690,3 +4769,69 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-648
+  github_issue: 648
+  item_type: task
+  title: 'mount resource: an x-systemd.automount remount must not stack a stale mount, and a stack is drift'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-27T10:30:00Z
+  updated: 2026-09-27T10:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'check_script is RED when more than one filesystem (autofs excluded) is mounted at the target, even when the top one matches the declared source and options.'
+  - 'For an x-systemd.automount entry, apply writes fstab, runs systemctl daemon-reload BEFORE detaching, detaches every stacked filesystem with a plain umount (busy fails loudly), and mounts by touching the path, never with its own mount -t.'
+  - 'tests/falsification_648_automount_stack.rs models the kernel stack and systemd unit, runs the generated scripts, and goes RED with mount.rs reverted to main.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
+- id: PMAT-651
+  github_issue: 651
+  item_type: task
+  title: 'release: forjar 1.33.0-rc.1 (#647 + #648 on main)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-28T08:30:00Z
+  updated: 2026-09-28T08:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'The release PR diff against main is exactly #647, #648 and the version bump: src/core/store/tests_db_bench.rs, the mount resource (src/resources/mount.rs and its tests), the PMAT-648 and PMAT-651 roadmap rows, and Cargo.toml/Cargo.lock at 1.33.0-rc.1. No workflow file changes.'
+  - '#647: query_latency_under_50ms asserts the best of 5 samples against the 50ms bound, so one cold sample under load cannot turn it red, and a genuinely slow query still does.'
+  - '#648: every acceptance criterion of PMAT-648 holds, and a wrong-source remount under x-systemd.automount never falls back to umount -l.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
+- id: PMAT-652
+  github_issue: 652
+  item_type: task
+  title: 'release: forjar 1.33.0 (promote rc.1 + #611 cross on PATH)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-28T12:20:00Z
+  updated: 2026-09-28T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'The release PR diff against main is exactly: the one #611 line in .github/workflows/release.yml (echo "$CARGO_HOME/bin" >> "$GITHUB_PATH" in the aarch64 branch of Install target prerequisites (Linux)), tests/falsification_611_cross_on_path.rs, the CHANGELOG 1.33.0 section, the PMAT-652 roadmap row, and Cargo.toml/Cargo.lock at 1.33.0. No source change: 1.33.0 is 1.33.0-rc.1 promoted.'
+  - '#611: falsification_611_cross_on_path runs the step script from release.yml on a runner without cross and asserts the next step resolves cross; it fails with the GITHUB_PATH line removed.'
+  - 'The v1.33.0 tag is cut on a main sha whose CI is green, and its release run publishes every asset (both aarch64 Linux legs included).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.33.0
+  notes: null
+  release: 1.33.0
