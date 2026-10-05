@@ -37,6 +37,8 @@ jobs:
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     strategy:
+      # #673: a timed-out leg must not cancel the others; each leg is its own evidence.
+      fail-fast: false
       matrix:
         iteration: [1, 2, 3]
     steps:
@@ -56,8 +58,11 @@ jobs:
 
       - name: Stress test iteration ${{ matrix.iteration }}
         run: |
-          for run in $(seq 1 10); do
-            echo "=== Run $run/10 ==="
+          # #673: 10 passes at 6-9 min each (13566 tests, one thread) could never
+          # fit 30 minutes -- every run since 2026-09 timed out after pass 3 with
+          # all three passes green. 3 passes + the build fit 45 minutes.
+          for run in $(seq 1 3); do
+            echo "=== Run $run/3 ==="
             cargo test --lib -- --test-threads=1
           done
-        timeout-minutes: 30
+        timeout-minutes: 45
