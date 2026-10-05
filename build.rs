@@ -16,8 +16,21 @@ struct EquationYaml {
     invariants: Vec<String>,
 }
 
+/// `contracts/`, resolved when the build script RUNS (GH #456).
+///
+/// `env!("CARGO_MANIFEST_DIR")` is expanded when the build script is
+/// COMPILED, so a build-script binary cargo reuses for the same package from
+/// another directory (one `CARGO_TARGET_DIR` shared by two checkouts or two
+/// extracted `.crate`s) reads the first directory's contracts. Cargo sets the
+/// variable in the build script's environment on every run; read it there.
+fn contracts_dir() -> std::path::PathBuf {
+    let root = std::env::var_os("CARGO_MANIFEST_DIR")
+        .expect("cargo sets CARGO_MANIFEST_DIR for every build-script run");
+    std::path::PathBuf::from(root).join("contracts")
+}
+
 fn emit_contract_assertions() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let dir = contracts_dir();
     if !dir.exists() {
         return;
     }
@@ -117,7 +130,7 @@ fn unresolved_binding(dir: &std::path::Path, b: &BindingYaml) -> Option<String> 
 /// `#[test]` in tests/falsification_contract_citations_resolve.rs, deliberately:
 /// a build result is cacheable and a test result is not.
 fn verify_binding_equations(binding_path: &std::path::Path) {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let dir = contracts_dir();
     let text = std::fs::read_to_string(binding_path).expect("read binding.yaml");
     let registry: BindingRegistryYaml = serde_yaml_ng::from_str(&text).expect("parse binding.yaml");
     assert!(
