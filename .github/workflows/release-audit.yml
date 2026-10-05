@@ -48,19 +48,16 @@ jobs:
           FORJAR_AUDIT_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
+          # The work list is read ONCE, drafts excluded (#672). It exits 2 when
+          # it cannot measure — a failed or malformed release-list read is never
+          # a skip, and a draft is never read as a release with no assets.
+          if ! list=$(bash scripts/release-object-audit.sh worklist); then
+            echo "::error::cannot measure: the release work list could not be read (#672)"
+            exit 2
+          fi
+          printf '%s\n' "$list" | grep '^skip: ' || true
           fail=0
-          for t in $(git tag -l 'v*' | sort -V); do
-            # A release with no assets at all is not a contaminated description
-            # of itself, it is a release that shipped no binaries — v1.0.0, which
-            # predates the binary pipeline. Whether a tag has a release at all is
-            # nightly.yml's parity check, not this one's, so say so and move on
-            # rather than pinning this lane permanently red on history.
-            n=$(gh api "repos/$FORJAR_AUDIT_REPO/releases/tags/$t" \
-                  --jq '.assets | length' 2>/dev/null || echo 0)
-            if [ "$n" = "0" ]; then
-              echo "skip: $t has no assets"
-              continue
-            fi
+          for t in $(printf '%s\n' "$list" | sed -n 's/^audit //p'); do
             echo "--- $t"
             bash scripts/release-object-audit.sh check "$t" || fail=1
           done

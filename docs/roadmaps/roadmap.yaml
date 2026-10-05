@@ -4835,3 +4835,24 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-672
+  github_issue: 672
+  item_type: task
+  title: 'Release Audit: a draft release reads as a release, and an API error reads as a skip'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-05T17:30:00Z
+  updated: 2026-10-05T17:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'release-object-audit.sh worklist reads the release list once (gh api --paginate releases), excludes drafts, and prints one line per v* tag: audit <tag>, or skip: <tag> with the reason (no published release, or no assets).'
+  - 'A failed, empty, non-array or drafts-only release-list read exits 2 with "cannot measure" and prints no skip line.'
+  - 'release-audit.yml takes its tags from the worklist, fails closed when it exits non-zero, and no longer calls releases/tags/<tag> or turns an error into a count with || echo 0.'
+  - 'tests/falsification_release_audit_worklist.rs drives the recorded shape offline (v1.33.0-rc.1 draft, v1.32.0 with assets, v1.0.0 without) and goes red with the pre-fix per-tag read.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
