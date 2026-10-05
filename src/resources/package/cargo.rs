@@ -323,12 +323,20 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
            _fj_register \"$_CACHE_DIR/.crates.toml\"\n\
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
-           _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
+           # forjar#658: errexit is suspended wherever this body's status is\n\
+           # tested (`apply || report`), so a failed mktemp would leave\n\
+           # _STAGING empty, \"$_STAGING/bin\" would read as /bin, and the\n\
+           # system /bin would be cached and installed as this crate.\n\
+           _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX) || _STAGING=\n\
+           if [ -z \"$_STAGING\" ] || [ ! -d \"$_STAGING\" ]; then\n\
+             echo \"ERROR: cannot create a staging dir for cargo install {crate_name}\" >&2\n\
+             exit 1\n\
+           fi\n\
            cargo install --force --locked --root \"$_STAGING\"{features_arg} {install_arg}\n\
            if [ ! -d \"$_STAGING/bin\" ] || ! ls \"$_STAGING/bin/\"* >/dev/null 2>&1; then\n\
              echo \"ERROR: cargo install {crate_name} produced no binaries\" >&2\n\
              echo \"HINT: does the crate need --features? Use packages: [\\\"{crate_name}[feature_name]\\\"]\" >&2\n\
-             rm -rf \"$_STAGING\"\n\
+             rm -rf \"${{_STAGING:?}}\"\n\
              exit 1\n\
            fi\n\
            if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ]; then\n\
@@ -338,7 +346,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
            fi\n\
            _fj_install_bins \"$_STAGING/bin\" \"$_CARGO_BIN\"\n\
            _fj_register \"$_STAGING/.crates.toml\"\n\
-           rm -rf \"$_STAGING\"\n\
+           rm -rf \"${{_STAGING:?}}\"\n\
            echo \"forjar: cached {crate_name} [$_CACHE_KEY]\"\n\
          fi"
     )

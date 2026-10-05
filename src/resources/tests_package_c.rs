@@ -39,7 +39,7 @@ fn test_fj51_cargo_cache_miss_populates_cache() {
         "cache miss must copy to cache: {script}"
     );
     assert!(
-        script.contains("rm -rf \"$_STAGING\""),
+        script.contains("rm -rf \"${_STAGING:?}\""),
         "must clean up staging dir: {script}"
     );
     assert!(
