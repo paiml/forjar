@@ -18,6 +18,10 @@ pub(super) fn resolve_secret(key: &str, secrets_cfg: &SecretsConfig) -> Result<S
     )
 }
 
+/// The secrets provider `plan --output-dir` resolves with (forjar#674): every
+/// `{{secrets.<key>}}` becomes the literal `FORJAR_REDACTED_SECRET_<key>`.
+pub const EXPORT_REDACTED_SECRET_PROVIDER: &str = "plan-export-redacted";
+
 /// Resolve secret with explicit provider config.
 pub fn resolve_secret_with_provider(
     key: &str,
@@ -37,6 +41,10 @@ pub fn resolve_secret_with_provider(
             "secret '{key}' not resolved: this surface does not run subprocess \
              secret providers"
         )),
+        // forjar#674: `plan --output-dir` writes scripts for a human to read.
+        // A secret is shown by NAME, never resolved, so an exported script
+        // neither carries the value nor needs the provider to be generated.
+        EXPORT_REDACTED_SECRET_PROVIDER => Ok(format!("FORJAR_REDACTED_SECRET_{key}")),
         _ => resolve_secret_env(key),
     }
 }

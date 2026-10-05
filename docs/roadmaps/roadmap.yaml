@@ -4835,3 +4835,21 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-674
+  github_issue: 674
+  item_type: task
+  title: 'plan --output-dir: honour the plan''s selectors and never resolve secrets into exported scripts'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T19:11:07Z
+  updated: 2026-10-05T19:11:07.804147271+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 670

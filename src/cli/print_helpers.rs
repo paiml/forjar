@@ -301,16 +301,35 @@ pub(crate) fn print_unified_diff(old: &str, new: &str) {
 }
 
 /// Export generated scripts (check, apply, state_query) to a directory for auditing.
-/// Templates (params, secrets, machine refs) are resolved before export.
-pub(crate) fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result<(), String> {
+///
+/// Params and machine refs are resolved before export; secrets are NOT
+/// (forjar#674): each `{{secrets.<key>}}` is written as
+/// `FORJAR_REDACTED_SECRET_<key>`, so no exported script holds a secret and
+/// none needs the provider to be generated. `selected` is the filtered plan's
+/// resource ids (`-r/-m/-g/-t`); `None` exports every resource.
+pub(crate) fn export_scripts(
+    config: &types::ForjarConfig,
+    dir: &Path,
+    selected: Option<&std::collections::BTreeSet<String>>,
+) -> Result<(), String> {
     std::fs::create_dir_all(dir)
         .map_err(|e| format!("cannot create output dir {}: {}", dir.display(), e))?;
 
+    let redacted = types::SecretsConfig {
+        provider: Some(resolver::EXPORT_REDACTED_SECRET_PROVIDER.to_string()),
+        ..config.secrets.clone()
+    };
     let mut count = 0;
     for (id, resource) in &config.resources {
-        // Resolve templates (params, secrets, machine refs) before codegen
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        if selected.is_some_and(|ids| !ids.contains(id)) {
+            continue;
+        }
+        let resolved = resolver::resolve_resource_templates_with_secrets(
+            resource,
+            &config.params,
+            &config.machines,
+            &redacted,
+        )?;
 
         // Sanitize resource ID for filesystem (replace / with --)
         let safe_id = id.replace('/', "--");
