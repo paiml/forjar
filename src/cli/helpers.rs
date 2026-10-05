@@ -13,6 +13,14 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
     parser::parse_and_validate(file)
 }
 
+/// Parse, validate, expand recipes AND resolve `data:` sources (forjar#660).
+///
+/// Use this, not [`parse_and_validate`], in any command that resolves
+/// templates: `{{data.x}}` only resolves after `resolve_data_sources` has run.
+pub(crate) fn parse_validate_resolve(file: &Path) -> Result<types::ForjarConfig, String> {
+    crate::core::resolver::load_resolved_config(file)
+}
+
 /// Refuse to report on a state directory that is not there.
 ///
 /// [`discover_machines`] swallows the read error and answers "no machines", so

@@ -189,3 +189,20 @@ pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// forjar#660: the one load path for any command that resolves templates.
+///
+/// `{{data.x}}` is not a template the resolver can answer from the file: it
+/// reads `__data__x` out of `params`, which only `resolve_data_sources`
+/// writes. That precondition used to be re-typed by hand in each subcommand
+/// (`plan`, `apply`, `lock`, …) and the ones that forgot it — `show`,
+/// `explain`, `check`, `test`, `codegen`, `build`, `drift`, `plan-compact`,
+/// `prove`, `run` —
+/// failed with `unknown data source`, or, where errors were swallowed, reported
+/// on a config with the reference left unresolved. Parsing and resolving are
+/// now one call, so a reader cannot get the first without the second.
+pub fn load_resolved_config(path: &std::path::Path) -> Result<ForjarConfig, String> {
+    let mut config = crate::core::parser::parse_and_validate(path)?;
+    resolve_data_sources(&mut config)?;
+    Ok(config)
+}

@@ -115,7 +115,7 @@ pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(
     let mut rows: Vec<ContractRow> = Vec::new();
 
     // Gracefully handle missing/empty config — still report codebase contracts.
-    if let Ok(config) = parse_and_validate(file) {
+    if let Ok(config) = parse_validate_resolve(file) {
         if let Ok(execution_order) = resolver::build_execution_order(&config) {
             for rid in &execution_order {
                 if let Some(resource) = config.resources.get(rid) {

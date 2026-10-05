@@ -51,7 +51,7 @@ impl RunnerOpts {
 pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), String> {
     use crate::core::store::mutation_runner::{self, MutationRunConfig, MutationTarget};
 
-    let config = parse_and_validate(file)?;
+    let config = parse_validate_resolve(file)?;
     let t0 = std::time::Instant::now();
     let run_config = MutationRunConfig {
         backend: opts.sandbox,
@@ -122,7 +122,7 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
         self, ConvergenceSummary, ConvergenceTarget, ConvergenceTestConfig,
     };
 
-    let config = parse_and_validate(file)?;
+    let config = parse_validate_resolve(file)?;
     let t0 = std::time::Instant::now();
     let test_config = ConvergenceTestConfig {
         parallelism: opts.parallel,
@@ -227,7 +227,7 @@ fn discover_spec_resources(spec_dir: &Path) -> std::collections::HashSet<String>
 pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
     use crate::core::types::{CoverageReport, ResourceCoverage};
 
-    let config = parse_and_validate(file)?;
+    let config = parse_validate_resolve(file)?;
     let spec_dir = file.parent().unwrap_or(Path::new("."));
     let spec_resources = discover_spec_resources(spec_dir);
     let records = crate::core::store::coverage_persist::load_records(&coverage_state_dir(file));

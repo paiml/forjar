@@ -6,7 +6,7 @@
 //! 3. Apply is idempotent (converged state + apply = no change)
 //! 4. No circular dependencies in the resource DAG
 
-use crate::core::{codegen, parser, resolver, state, types};
+use crate::core::{codegen, resolver, state, types};
 use std::path::Path;
 
 /// Prove convergence for a forjar config.
@@ -16,7 +16,7 @@ pub(crate) fn cmd_prove(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let mut config = parser::parse_and_validate(file)?;
+    let mut config = resolver::load_resolved_config(file)?;
 
     // FJ-2733: prove the config that will RUN, not the one that was typed.
     //

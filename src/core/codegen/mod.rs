@@ -29,7 +29,7 @@ mod tests_sudo;
 /// Returns `Err` when the config cannot be parsed, the resource does not exist,
 /// or the phase is unknown.
 pub fn emit_for_cli(file: &std::path::Path, resource: &str, phase: &str) -> Result<(), String> {
-    let cfg = crate::core::parser::parse_and_validate(file)?;
+    let cfg = crate::core::resolver::load_resolved_config(file)?;
     let resolved = crate::core::resolver::resolve_all(
         &cfg.resources,
         &cfg.params,

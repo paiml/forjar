@@ -13,7 +13,7 @@ pub(crate) mod staleness;
 pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
-pub use data::resolve_data_sources;
+pub use data::{load_resolved_config, resolve_data_sources};
 pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{
     has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,
