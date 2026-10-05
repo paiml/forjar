@@ -48,22 +48,47 @@ jobs:
           FORJAR_AUDIT_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
-          fail=0
+          # #672: the release list is read ONCE, drafts excluded, and a failed
+          # read fails the lane. It used to be one `releases/tags/<tag>` call
+          # per tag with `|| echo 0`: on a 404 gh prints the error body to
+          # stdout, so n became `{"message":"Not Found",...}0`, never "0", and
+          # a tag whose release is a DRAFT (v1.33.0-rc.1) went red every day.
+          # Any other error became n=0 and printed as a skip, so a tag the lane
+          # could not measure was reported as one it had measured.
+          if ! published=$(gh api --paginate "repos/$FORJAR_AUDIT_REPO/releases" \
+                --jq '.[] | select(.draft | not) | "\(.tag_name) \(.assets | length)"'); then
+            echo "::error::cannot measure: the release list of $FORJAR_AUDIT_REPO could not be read (#672)"
+            exit 1
+          fi
+          fail=0 checked=0 tags=0
           for t in $(git tag -l 'v*' | sort -V); do
+            tags=$((tags + 1))
+            n=$(printf '%s\n' "$published" | awk -v t="$t" '$1 == t { print $2 }')
+            # Whether a tag has a published release at all is nightly.yml's
+            # parity check, not this one's: a tag with none, or with only a
+            # draft, is skipped by name.
+            if [ -z "$n" ]; then
+              echo "skip: $t has no published release"
+              continue
+            fi
             # A release with no assets at all is not a contaminated description
             # of itself, it is a release that shipped no binaries — v1.0.0, which
-            # predates the binary pipeline. Whether a tag has a release at all is
-            # nightly.yml's parity check, not this one's, so say so and move on
-            # rather than pinning this lane permanently red on history.
-            n=$(gh api "repos/$FORJAR_AUDIT_REPO/releases/tags/$t" \
-                  --jq '.assets | length' 2>/dev/null || echo 0)
+            # predates the binary pipeline. Say so and move on rather than
+            # pinning this lane permanently red on history.
             if [ "$n" = "0" ]; then
               echo "skip: $t has no assets"
               continue
             fi
             echo "--- $t"
+            checked=$((checked + 1))
             bash scripts/release-object-audit.sh check "$t" || fail=1
           done
+          echo "audited $checked release object(s) over $tags tag(s)"
+          # A pass over zero release objects measured nothing.
+          if [ "$checked" = "0" ]; then
+            echo "::error::cannot measure: 0 release objects audited over $tags tag(s) (#672)"
+            exit 1
+          fi
           if [ "$fail" != "0" ]; then
             echo "::error::at least one published release object is not a description of itself (#325)"
           fi
