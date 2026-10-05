@@ -36,7 +36,11 @@ jobs:
     # The host-side fix is paiml/infra's.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    # #673: a red leg must mean a test failed IN THAT LEG. With the default
+    # fail-fast, one leg's timeout cancelled the other two before a runner was
+    # assigned, so no run ever yielded evidence from more than one leg.
     strategy:
+      fail-fast: false
       matrix:
         iteration: [1, 2, 3]
     steps:
@@ -54,10 +58,19 @@ jobs:
             target
           key: stress-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
+      # #673: the loop is SIZED TO THE TIMEOUT. It was 10 passes in 30 minutes;
+      # one single-threaded pass measured 373-516 s on intel-clean-room-13
+      # (run 37300806114), so a leg finished 3 and timed out every week —
+      # a lane that cannot go green whatever the suite does. 3 legs x 3 passes
+      # is still 9 full single-threaded passes a week.
+      # tests/falsification_673_stress_fits_its_timeout.rs holds
+      # STRESS_PASSES x 9 min + 10 min build <= timeout-minutes.
       - name: Stress test iteration ${{ matrix.iteration }}
+        env:
+          STRESS_PASSES: 3
         run: |
-          for run in $(seq 1 10); do
-            echo "=== Run $run/10 ==="
+          for run in $(seq 1 "$STRESS_PASSES"); do
+            echo "=== Run $run/$STRESS_PASSES ==="
             cargo test --lib -- --test-threads=1
           done
-        timeout-minutes: 30
+        timeout-minutes: 45

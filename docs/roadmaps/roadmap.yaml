@@ -4835,3 +4835,22 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests: size the single-threaded loop to its timeout and stop one leg cancelling the others'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T21:20:00Z
+  updated: 2026-10-05T21:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'stress.yml runs STRESS_PASSES=3 single-threaded lib passes per leg inside timeout-minutes 45, and its matrix sets fail-fast: false.'
+  - 'tests/falsification_673_stress_fits_its_timeout.rs reads the pass count and timeout from stress.yml and fails when passes x 9 min + 10 min > timeout-minutes, or when fail-fast is not false. With stress.yml at 49d117cc both of its tests fail.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
