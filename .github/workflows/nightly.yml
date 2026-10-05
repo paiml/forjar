@@ -127,9 +127,16 @@ jobs:
       # an x86_64 host, so it needs the same `cross` path release.yml already
       # uses for that target -- a container that carries the aarch64 linker and
       # the C toolchain vendored-openssl needs.
+      #
+      # forjar#611, second copy: `cargo install` writes into the private
+      # CARGO_HOME above, which is not on PATH. Green only on a runner that
+      # already had cross (intel); on yoga-build the next step died with
+      # `cross: command not found` (exit 127) from 2026-10-05.
       - name: Install cross (aarch64 legs only)
         if: startsWith(matrix.target, 'aarch64-unknown-linux')
-        run: command -v cross >/dev/null 2>&1 || cargo install cross --locked
+        run: |
+          command -v cross >/dev/null 2>&1 || cargo install cross --locked
+          echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 
       - name: Build release binary
         shell: bash
