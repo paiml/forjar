@@ -4835,3 +4835,23 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests: 10 single-threaded passes per leg never fit its 30-minute timeout'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T17:30:00Z
+  updated: 2026-10-05T17:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'stress.yml runs 3 single-threaded passes per leg inside a 45-minute step timeout, and its progress line says Run N/3.'
+  - 'stress.yml sets fail-fast: false, so a leg that fails or times out does not cancel its siblings.'
+  - 'tests/falsification_stress_fits_its_timeout.rs asserts passes x 9 min (the slowest measured pass) + 15 min build fits the step timeout, fail-fast is false, and legs x passes is at least 9; it goes red on the pre-fix stress.yml.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
