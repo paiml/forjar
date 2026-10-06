@@ -56,3 +56,12 @@ Round 4, head a86201fa (C5 and C6): NOT AGREED, sonnet and gemini FAIL.
 - agy gemini-3.1-pro-high, sandboxed: FAIL on the same stale receipt, and
   "the toolchain install is outside the ticket": refuted as R3.
 - claude-haiku-4-5: PASS.
+
+Round 5, head 930fe3e1 (the evidence for C5 and C6; the stale receipt
+removed): AGREED, 3/3 PASS.
+
+- claude-sonnet-5: PASS, no findings.
+- agy gemini-3.1-pro-high, sandboxed: PASS. Confirmed RUSTUP_HOME under
+  the work root at release.yml:234, the Linux toolchain install before the
+  first cargo or rustup at release.yml:269, and the falsifier's two checks.
+- claude-haiku-4-5: PASS.
