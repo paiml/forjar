@@ -4,8 +4,8 @@
   "branch": "fix/683-cross-rustup-home",
   "base": "61d5a703",
   "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
-  "diff_sha256": "7b2b182bb368cad07c571ec86052095c2ef9102c",
-  "recorded_at": "after round 1 at d2210701. Evidence commits 2edaad57 and the REFUTED section that follows add only .quorum/evidence; neither changes the workflows nor the test.",
+  "diff_sha256": "b58b896fee5e8c6c583bee099a8432653d6cbfa9",
+  "recorded_at": "after round 1 at d2210701. Evidence commits 2edaad57 and d090737b add only .quorum/evidence (claims, lanes, judges with two refuted leads, agy); neither changes the workflows nor the test.",
   "quorum": {
     "rounds": 1,
     "lanes": [
