@@ -11,10 +11,10 @@
 //! The runner image sets `RUSTUP_HOME=/home/runner/.rustup` (an image-layer
 //! path). With no job-level `RUSTUP_HOME`, cross mounted it, got an empty
 //! `/rust`, and died with `sh: 1: cargo: not found` (exit 127): nightly run
-//! 37511323051, aarch64-gnu on yoga-build3. Every aarch64 leg in four nightlies
+//! 37511323051, aarch64-gnu on a containerized runner. Every aarch64 leg in four nightlies
 //! that landed on a containerized runner failed and every one on a native
 //! runner passed, so the leg's colour was a function of scheduling.
-//! `CARGO_HOME` never had the problem: infra#430 already put it under
+//! `CARGO_HOME` never had the problem: an earlier change already put it under
 //! `${{ github.workspace }}/..`.
 //!
 //! WHAT THIS TEST MUST NOT BECOME. A grep for `RUSTUP_HOME` stays green if the
@@ -34,7 +34,7 @@
 use std::path::{Component, Path, PathBuf};
 
 /// The runner container's work root, identity-mounted on the host.
-const WORK_ROOT: &str = "/home/noah/eph-build3";
+const WORK_ROOT: &str = "/srv/runner-work";
 /// `$HOME` inside the runner container: NOT under the work root.
 const RUNNER_HOME: &str = "/home/runner";
 
