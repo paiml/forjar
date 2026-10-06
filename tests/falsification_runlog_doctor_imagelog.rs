@@ -110,15 +110,13 @@ fn run_meta_record_resources() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(0.5),
-            failed: false,
         },
     );
     m.record_resource(
         "svc",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(1),
             duration_secs: Some(0.3),
-            failed: true,
         },
     );
     m.record_resource(
@@ -200,11 +198,10 @@ fn resource_run_status_serde() {
     let conv = ResourceRunStatus::Converged {
         exit_code: Some(0),
         duration_secs: Some(1.2),
-        failed: false,
     };
     let json = serde_json::to_string(&conv).unwrap();
     let parsed: ResourceRunStatus = serde_json::from_str(&json).unwrap();
-    matches!(parsed, ResourceRunStatus::Converged { failed: false, .. });
+    matches!(parsed, ResourceRunStatus::Converged { .. });
 }
 
 // ── FJ-2301: LogRetention ──

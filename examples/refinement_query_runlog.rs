@@ -103,16 +103,14 @@ fn main() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.5),
-            failed: false,
         },
     );
     meta.record_resource("bash-aliases", ResourceRunStatus::Noop);
     meta.record_resource(
         "svc-broken",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(1),
             duration_secs: Some(0.3),
-            failed: true,
         },
     );
     println!(

@@ -187,18 +187,7 @@ fn record_one(
         }
         Ok(out) => {
             let error = super::failure_text::exec_failure(&site, out);
-            let outcome = fail(cfg, rec, ctx, trace_session, machine_name, counters, &error);
-            update_run_meta(
-                ctx,
-                cfg.run_id.as_deref(),
-                &change.resource_id,
-                ResourceRunStatus::Converged {
-                    exit_code: Some(out.exit_code),
-                    duration_secs: Some(duration),
-                    failed: true,
-                },
-            );
-            outcome
+            fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
         }
         Err(e) => {
             let error = super::failure_text::transport_failure(e);
@@ -237,7 +226,6 @@ fn converge(
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(rec.duration),
-            failed: false,
         },
     );
     counters.converged += 1;
@@ -279,6 +267,19 @@ fn fail(
         &rec.resource.resource_type,
         rec.duration,
         error,
+    );
+    // Refs #688: every failure writes its run row HERE, the one place every
+    // failure path passes. Only the non-zero-exit arm used to write one, and as
+    // `action: converged`; a resource the host refused after a zero exit, or
+    // one the transport never ran, left the run's `resources:` without it.
+    update_run_meta(
+        ctx,
+        cfg.run_id.as_deref(),
+        &change.resource_id,
+        ResourceRunStatus::Failed {
+            exit_code: rec.output.as_ref().ok().map(|out| out.exit_code),
+            duration_secs: Some(rec.duration),
+        },
     );
     counters.failed += 1;
     counters.failed_resources.insert(change.resource_id.clone());

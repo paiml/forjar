@@ -17,7 +17,6 @@ fn main() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(0.3),
-            failed: false,
         },
     );
     println!(

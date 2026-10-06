@@ -253,7 +253,7 @@ pub(crate) fn cmd_logs(
 fn run_status_label(status: Option<&crate::core::types::ResourceRunStatus>) -> &'static str {
     match status {
         Some(crate::core::types::ResourceRunStatus::Noop) => "noop",
-        Some(crate::core::types::ResourceRunStatus::Converged { failed: true, .. }) => "FAILED",
+        Some(crate::core::types::ResourceRunStatus::Failed { .. }) => "FAILED",
         Some(crate::core::types::ResourceRunStatus::Converged { .. }) => "converged",
         Some(crate::core::types::ResourceRunStatus::Skipped { .. }) => "skipped",
         None => "unknown",

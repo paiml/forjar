@@ -243,7 +243,6 @@ fn run_meta_record_converged() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.5),
-            failed: false,
         },
     );
     assert_eq!(meta.summary.total, 1);
@@ -257,10 +256,9 @@ fn run_meta_record_failed() {
     let mut meta = RunMeta::new("r-2".into(), "m".into(), "apply".into());
     meta.record_resource(
         "svc-broken",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(1),
             duration_secs: Some(0.5),
-            failed: true,
         },
     );
     assert_eq!(meta.summary.failed, 1);
@@ -295,16 +293,14 @@ fn run_meta_multi_resource_accounting() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: None,
-            failed: false,
         },
     );
     meta.record_resource("b", ResourceRunStatus::Noop);
     meta.record_resource(
         "c",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(1),
             duration_secs: None,
-            failed: true,
         },
     );
     meta.record_resource(
@@ -424,7 +420,6 @@ fn run_meta_serde_roundtrip() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(0.5),
-            failed: false,
         },
     );
     let json = serde_json::to_string(&meta).unwrap();

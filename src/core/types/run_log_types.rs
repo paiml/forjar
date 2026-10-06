@@ -71,8 +71,8 @@ impl RunMeta {
     pub fn record_resource(&mut self, resource_id: &str, status: ResourceRunStatus) {
         match &status {
             ResourceRunStatus::Noop => self.summary.noop += 1,
-            ResourceRunStatus::Converged { failed: true, .. } => self.summary.failed += 1,
             ResourceRunStatus::Converged { .. } => self.summary.converged += 1,
+            ResourceRunStatus::Failed { .. } => self.summary.failed += 1,
             ResourceRunStatus::Skipped { .. } => self.summary.skipped += 1,
         }
         self.summary.total += 1;
@@ -81,12 +81,17 @@ impl RunMeta {
 }
 
 /// Per-resource status within a run.
+///
+/// Refs #688: a failure is its own variant. It used to be
+/// `Converged { failed: true }`, and the `action` tag writes the variant name,
+/// so `meta.yaml` recorded a failed resource as `action: converged`. Anything
+/// keying on `action` counted the failure as a success.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "action", rename_all = "lowercase")]
+#[serde(tag = "action", rename_all = "lowercase", from = "RecordedRunStatus")]
 pub enum ResourceRunStatus {
     /// Resource was already converged.
     Noop,
-    /// Resource was created or updated.
+    /// Resource was created or updated, and the host confirmed it.
     Converged {
         /// Process exit code.
         #[serde(default)]
@@ -94,9 +99,16 @@ pub enum ResourceRunStatus {
         /// Duration in seconds.
         #[serde(default)]
         duration_secs: Option<f64>,
-        /// Whether the action failed.
+    },
+    /// The apply failed: the command exited non-zero, the host did not report
+    /// the declared state afterwards, or the transport never ran it.
+    Failed {
+        /// Process exit code; `None` when the transport failed.
         #[serde(default)]
-        failed: bool,
+        exit_code: Option<i32>,
+        /// Duration in seconds.
+        #[serde(default)]
+        duration_secs: Option<f64>,
     },
     /// Resource was skipped (dependency failed).
     Skipped {
@@ -104,6 +116,61 @@ pub enum ResourceRunStatus {
         #[serde(default)]
         reason: Option<String>,
     },
+}
+
+/// Every shape a `meta.yaml` row has been written in. Run dirs written before
+/// #688 carry `action: converged` with `failed: true`; they read as `Failed`.
+#[derive(Deserialize)]
+#[serde(tag = "action", rename_all = "lowercase")]
+enum RecordedRunStatus {
+    Noop,
+    Converged {
+        #[serde(default)]
+        exit_code: Option<i32>,
+        #[serde(default)]
+        duration_secs: Option<f64>,
+        #[serde(default)]
+        failed: bool,
+    },
+    Failed {
+        #[serde(default)]
+        exit_code: Option<i32>,
+        #[serde(default)]
+        duration_secs: Option<f64>,
+    },
+    Skipped {
+        #[serde(default)]
+        reason: Option<String>,
+    },
+}
+
+impl From<RecordedRunStatus> for ResourceRunStatus {
+    fn from(r: RecordedRunStatus) -> Self {
+        match r {
+            RecordedRunStatus::Noop => Self::Noop,
+            RecordedRunStatus::Converged {
+                exit_code,
+                duration_secs,
+                failed: true,
+            }
+            | RecordedRunStatus::Failed {
+                exit_code,
+                duration_secs,
+            } => Self::Failed {
+                exit_code,
+                duration_secs,
+            },
+            RecordedRunStatus::Converged {
+                exit_code,
+                duration_secs,
+                failed: false,
+            } => Self::Converged {
+                exit_code,
+                duration_secs,
+            },
+            RecordedRunStatus::Skipped { reason } => Self::Skipped { reason },
+        }
+    }
 }
 
 /// Summary counts for a run.
