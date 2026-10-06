@@ -166,6 +166,10 @@ jobs:
       # editing and undoing their own stack must NEVER be refused.
       - name: undo must refuse a foreign state dir, and only a foreign one
         run: cargo test --locked --test falsification_undo_state_dir_interlock
+      # #590: a guard whose fields hold a `{{params.*}}` template ran its
+      # command under --refresh on a host its completion_check called converged.
+      - name: --refresh consults a templated completion_check
+        run: cargo test --locked --test falsification_590_refresh_templated_check
       # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
       # crate's 242 integration test binaries is a 70.70 GiB tree — already the
       # size of a hosted runner's disk. The cache asked tar+zstd for a second

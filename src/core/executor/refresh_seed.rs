@@ -39,16 +39,11 @@ use crate::transport;
 /// Seeding a lock entry is the opposite kind of claim. It records that the host
 /// IS in its declared state, and "I could not look" is not evidence for that.
 /// So this returns true only on a check that ran and exited 0.
-pub(super) fn check_passes_on(cfg: &ApplyConfig, resource: &Resource, machine_name: &str) -> bool {
+pub(super) fn check_passes_on(cfg: &ApplyConfig, resolved: &Resource, machine_name: &str) -> bool {
     if cfg.machine_filter.is_some_and(|f| machine_name != f) {
         return false;
     }
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)
-    else {
-        return false;
-    };
-    let Ok(script) = codegen::check_script(&resolved) else {
+    let Ok(script) = codegen::check_script(resolved) else {
         return false;
     };
     cfg.config
@@ -100,10 +95,34 @@ fn host_says_converged(
     machine_name: &str,
     id: &str,
     resource: &Resource,
+    resolved: &Resource,
 ) -> bool {
     super::refresh::refresh_in_scope(cfg, id, resource)
         && resource.machine.iter().any(|m| m == machine_name)
-        && check_passes_on(cfg, resource, machine_name)
+        && check_passes_on(cfg, resolved, machine_name)
+}
+
+/// The resource as the PLANNER sees it: templates resolved with the config's
+/// own `SecretsConfig` (FJ-154), never the default one.
+///
+/// forjar#590. The entry recorded below is read back by the planner, which
+/// compares its hash to `hash_desired_state` over the RESOLVED declaration. This
+/// module used to hash the RAW one. With no template those are the same bytes;
+/// with one `{{params.x}}` they are not, so every entry `--refresh` seeded or
+/// unlatched for a templated resource was read as `~ update (state changed)`
+/// and the command ran — on a host the check had just called converged. Every
+/// guard on the fleet names a path through `{{params.*}}`.
+///
+/// An unresolvable resource is not recorded: "I could not render the check" is
+/// not evidence that it passes.
+fn resolve_like_the_planner(cfg: &ApplyConfig, resource: &Resource) -> Option<Resource> {
+    resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    )
+    .ok()
 }
 
 /// A lock entry for a resource the host already satisfies.
@@ -138,8 +157,9 @@ fn record_converged(
     let entries: Vec<(String, ResourceLock)> = candidates
         .into_iter()
         .filter_map(|id| cfg.config.resources.get(&id).map(|r| (id, r)))
-        .filter(|(id, r)| host_says_converged(cfg, machine_name, id, r))
-        .map(|(id, r)| (id, converged_entry(r)))
+        .filter_map(|(id, r)| resolve_like_the_planner(cfg, r).map(|res| (id, r, res)))
+        .filter(|(id, r, res)| host_says_converged(cfg, machine_name, id, r, res))
+        .map(|(id, _, res)| (id, converged_entry(&res)))
         .collect();
     for (id, entry) in entries {
         lock.resources.insert(id, entry);
