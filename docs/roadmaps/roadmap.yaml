@@ -4835,3 +4835,22 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-680
+  github_issue: 680
+  item_type: task
+  title: 'apply -r A must not need B''s secret: pin it with a sandbox test'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-06T15:55:23Z
+  updated: 2026-10-06T15:55:25.957415577+00:00
+  spec: null
+  acceptance_criteria:
+  - 'Test-only: sandbox apply -r A while B''s secret is unset must pass and render only A; red under a whole-file resolve. Refs #674.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 670
