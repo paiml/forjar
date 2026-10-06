@@ -15,4 +15,5 @@ Lanes and findings: see `PMAT-683-tgc-lanes.md`. Line numbers are at the head.
 
 ## REFUTED
 
-1. [scope] R1: the branch does not deliver #683 because it moves no RUSTUP_HOME — raised by claude-haiku-4-5 in round 1. The move merged in #690 (ec477d93); this branch is the follow-up the roadmap's fourth acceptance criterion names. Round 2, with that criterion committed, was 3/3 PASS.
+1. [scope] R1 — The branch does not deliver #683, because it moves no RUSTUP_HOME. Raised by claude-haiku-4-5 in round 1.
+   - corrected: the move merged in #690 (ec477d93). This branch is the follow-up named in the roadmap's fourth acceptance criterion for PMAT-683 (`docs/roadmaps/roadmap.yaml`, added by a96b7107). Round 2 ran with that criterion committed and was 3/3 PASS.
