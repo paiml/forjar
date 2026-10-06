@@ -13,11 +13,6 @@ Lanes and their findings: see `PMAT-683-lanes.md`. Workflow line numbers are at 
 4. [falsified] C4 — Reverting the three workflows turns the test red, naming all three jobs.
    - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = the runner image's `$HOME/.rustup`; restored, 3 passed.
 
-## ACCEPTED, NOT CHANGED
-
-1. [sonnet] The WORK_ROOT constant is one runner's layout. Both mounted paths are written relative to `${{ github.workspace }}`, so the verdict does not depend on which absolute root the constant names; it only has to be a root that `$HOME` is not under, which is the containerized runner's shape.
-2. [sonnet] The run id in the doc comment is not checkable from the diff. It is also in the commit message and issue #683, and is kept, as #611's test keeps its run history.
-
 ## REFUTED
 
 1. [lead] R1 — The brief's framing: the aarch64-gnu target is what is broken.
