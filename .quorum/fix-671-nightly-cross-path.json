@@ -4,8 +4,8 @@
   "branch": "fix/671-nightly-cross-path",
   "base": "ce0a7cc2",
   "base_commit": "ce0a7cc2599ecd7d0bf9920214bc7b46eb604ef2",
-  "diff_sha256": "ce362bc0ae0a7957be70e6d0f43b73d60f1925d3",
-  "recorded_at": "after round 4 at af12be69 (61948daf merged with main ce0a7cc2; patch-id of the code diff unchanged by the merge). The evidence commits 840c5589 and 1c8a8dfc add only .quorum/evidence; they change neither the workflow nor the test.",
+  "diff_sha256": "219c97b8f4a695812588219afbb62266d511cff8",
+  "recorded_at": "after round 4 at af12be69 (61948daf merged with main ce0a7cc2; patch-id of the code diff unchanged by the merge). The evidence commits 840c5589, 1c8a8dfc and ff2fddc0 add only .quorum/evidence; they change neither the workflow nor the test.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -81,9 +81,9 @@
         "roles": [
           "judges"
         ],
-        "blob": "23d328b3b7798121c838ba2b8eac358d7aaf912e",
-        "sha256": "d38b61de4014e640cce4af8539b40fe9feeb6437dd6e3110428541e865092176",
-        "bytes": 2415
+        "blob": "557fe3697a32540b4ca08c4bd7e31a3893bce015",
+        "sha256": "6694d2fa864baa7966ac57272003be023f16bf2943df31e510524f5fc6557f6c",
+        "bytes": 2414
       },
       {
         "path": ".quorum/evidence/PMAT-671-lanes.md",
@@ -95,7 +95,7 @@
         "bytes": 683
       }
     ],
-    "total_bytes": 4606,
+    "total_bytes": 4605,
     "claims_digest": ".quorum/evidence/PMAT-671-judges.md"
   }
 }
