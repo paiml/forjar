@@ -1,0 +1,101 @@
+{
+  "kind": "code",
+  "issue": "forjar#590 — apply --refresh ran the command of a guard whose completion_check holds whenever a field held a template; the entry --refresh recorded is now hashed over the resolved resource, the declaration the planner hashes.",
+  "branch": "fix/590-refresh-templated-check",
+  "base": "ce0a7cc2",
+  "base_commit": "ce0a7cc2599ecd7d0bf9920214bc7b46eb604ef2",
+  "diff_sha256": "34849693e3851db21094928338d4199669030b7d",
+  "recorded_at": "after round 1 at e18cd9ec. The evidence commit 1f38b292 adds only .quorum/evidence and the PMAT-590 row stamp; it changes neither the source nor the test.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "head e18cd9ec — claude-sonnet-5 PASS, seeding and unlatching now hash and check the resolved resource, resolved with the config secrets",
+      "head e18cd9ec — agy gemini-3.1-pro-high PASS, sandboxed plan mode, no claim refuted",
+      "head e18cd9ec — claude-haiku-4-5 PASS, no regression for untemplated resources"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the issue lead, check_passes_on failing to resolve a templated resource — resolution succeeds and the check passes; reverting only the secrets argument stays green. The divergence is the recorded hash versus the planner hash."
+    ]
+  },
+  "falsification": {
+    "test": "a_templated_guard_with_no_lock_entry_is_checked_not_run (with the failed-lock, -r scoped and untemplated control tests)",
+    "test_file": "tests/falsification_590_refresh_templated_check.rs",
+    "cargo_test_target": "falsification_590_refresh_templated_check",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2build. On this branch: 4 passed. src/core/executor/refresh_seed.rs reverted to main: the three templated tests FAILED at tests/falsification_590_refresh_templated_check.rs:114 (the marker exists: --refresh ran the command), the control passed, 1 passed; 3 failed. Hash-only revert: 1 passed; 3 failed. Secrets-only revert: 4 passed. Restored: 4 passed, tree clean."
+  },
+  "crux": {
+    "systems": [
+      "Terraform: refresh writes the observed state into the same state the plan diffs against, so a refreshed resource is no-change by construction",
+      "Ansible: check mode and the run evaluate the same templated task after Jinja rendering; a changed result is computed on the rendered arguments",
+      "Puppet: the catalog is compiled (variables interpolated) before any resource is compared with the system; comparison never sees an unrendered value"
+    ],
+    "verdict": "No crux row is owed: all three compare against the rendered declaration, never the raw one; this branch makes --refresh record the entry over the same rendered resource the forjar planner compares against."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, --mode plan), brief inline, no build, no writes, 14m budget",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS, no findings: C1-C4 confirmed."
+  },
+  "pmat": {
+    "ticket": "forjar#590",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2212 files parsed, 19872 tests examined, 432 cannot fail and 3 skip silently, 0 of them in the touched paths",
+      "cargo test --locked --test falsification_590_refresh_templated_check: 4 passed; 3 failed with refresh_seed.rs reverted"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-590-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "3473329291cec45f40b48b77c13c5465fa29f790",
+        "sha256": "66afbfd6ea569649be3e0fe742f8770f3bb62584e3b97f82eb1fce9113d3710b",
+        "bytes": 426
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "1c9c76ab2b319c413ce0ac2e29a46ac3a18ed593",
+        "sha256": "329d88c97d9e62905622bc3f3c6011784844f3390edbb4e15bc6ab56fa074663",
+        "bytes": 1058
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "81828010e5c7477014fa072c6e2766f795c75370",
+        "sha256": "77bb31bec396ddd58167f33ba032a98ace8bd799c7d2b695c89c55e0edb4aba1",
+        "bytes": 2748
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "14ab1ad690044780b4246ef78ca1b880a0fd196f",
+        "sha256": "a86c53bc6de04da4624ac9653a0f70972af95c20383b08349e8f60bbbeeeae3f",
+        "bytes": 687
+      }
+    ],
+    "total_bytes": 4919,
+    "claims_digest": ".quorum/evidence/PMAT-590-judges.md"
+  }
+}
