@@ -4299,7 +4299,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-20T12:20:00Z
-  updated: 2026-10-06T18:40:00Z
+  updated: 2026-10-06T18:10:00Z
   spec: null
   acceptance_criteria:
   - 'Reproduced against the released 1.31.0 binary: two manifests differing only by one {{params.home}}, identical completion_check satisfied before both runs, produce "1 unchanged" (no marker on disk) and "1 converged" (marker created). Done when the templated variant reports unchanged and creates no marker. Resolution itself is NOT the cause and is ruled out.'
