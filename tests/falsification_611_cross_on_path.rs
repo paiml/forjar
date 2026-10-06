@@ -16,26 +16,50 @@
 //! the runner does between steps (prepend each `$GITHUB_PATH` line to PATH)
 //! and asks the next step's shell whether `cross` resolves.
 
+//!
+//! EVERY STEP, NOT ONE NAMED STEP (#671). The first version of this test read
+//! the one step above by name, so the same defect in nightly.yml's "Install
+//! cross (aarch64 legs only)" — same private CARGO_HOME, no `$GITHUB_PATH`
+//! line — stayed red in the nightly and green here. The steps are now
+//! DISCOVERED: every step of every workflow whose `run:` says
+//! `cargo install cross`, and the discovery itself must find both known ones.
+
 use std::path::Path;
 use std::process::Command;
 
-const STEP: &str = "Install target prerequisites (Linux)";
-
-fn install_step_script(target: &str) -> String {
-    let p = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/release.yml");
-    let text = std::fs::read_to_string(&p).expect("read release.yml");
-    let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).expect("parse release.yml");
-    let steps = doc["jobs"]["build-binaries"]["steps"]
-        .as_sequence()
-        .expect("build-binaries.steps");
-    let run = steps
-        .iter()
-        .find(|s| s["name"].as_str() == Some(STEP))
-        .and_then(|s| s["run"].as_str())
-        .unwrap_or_else(|| panic!("build-binaries has no step {STEP:?} with a run:"));
-    run.replace("${{ matrix.target }}", target)
+/// `(workflow:job:step, run script)` for every step that installs cross.
+fn cross_install_steps() -> Vec<(String, String)> {
+    let wf = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows");
+    let mut files: Vec<_> = std::fs::read_dir(&wf)
+        .expect("read .github/workflows")
+        .map(|e| e.expect("dir entry").path())
+        .filter(|p| p.extension().is_some_and(|x| x == "yml" || x == "yaml"))
+        .collect();
+    files.sort();
+    let mut found = Vec::new();
+    for p in files {
+        let text = std::fs::read_to_string(&p).expect("read workflow");
+        let doc: serde_yaml_ng::Value =
+            serde_yaml_ng::from_str(&text).unwrap_or_else(|e| panic!("parse {}: {e}", p.display()));
+        let file = p.file_name().unwrap().to_string_lossy().into_owned();
+        let Some(jobs) = doc["jobs"].as_mapping() else {
+            continue;
+        };
+        for (job, body) in jobs {
+            let job = job.as_str().unwrap_or("?");
+            for step in body["steps"].as_sequence().into_iter().flatten() {
+                let Some(run) = step["run"].as_str() else {
+                    continue;
+                };
+                if run.contains("cargo install cross") {
+                    let name = step["name"].as_str().unwrap_or("<unnamed>");
+                    found.push((format!("{file}:{job}:{name}"), run.to_string()));
+                }
+            }
+        }
+    }
+    found
 }
-
 fn write_exe(path: &Path, body: &str) {
     std::fs::write(path, format!("#!/bin/sh\n{body}\n")).expect("write fake");
     Command::new("chmod")
@@ -45,10 +69,10 @@ fn write_exe(path: &Path, body: &str) {
         .expect("chmod");
 }
 
-/// Runs the install step for `target` on a runner without `cross`, then
+/// Runs one install step for `target` on a runner without `cross`, then
 /// returns whether the NEXT step's shell resolves `cross`, and the
 /// `$GITHUB_PATH` file for the failure message.
-fn cross_resolves_in_next_step(target: &str) -> (bool, String) {
+fn cross_resolves_in_next_step(step_run: &str, target: &str) -> (bool, String) {
     let dir = tempfile::tempdir().expect("tempdir");
     let fake = dir.path().join("fakebin");
     std::fs::create_dir(&fake).expect("fakebin");
@@ -82,7 +106,11 @@ fn cross_resolves_in_next_step(target: &str) -> (bool, String) {
         "precondition: this runner must not already have cross"
     );
     assert!(
-        run(&install_step_script(target), &base_path).success(),
+        run(
+            &step_run.replace("${{ matrix.target }}", target),
+            &base_path
+        )
+        .success(),
         "the install step itself failed"
     );
     // The runner prepends every $GITHUB_PATH line, last written first.
@@ -95,19 +123,47 @@ fn cross_resolves_in_next_step(target: &str) -> (bool, String) {
 }
 
 #[test]
-fn an_aarch64_gnu_leg_that_installs_cross_can_run_it_in_the_next_step() {
-    let (ok, added) = cross_resolves_in_next_step("aarch64-unknown-linux-gnu");
+fn discovery_finds_the_release_and_nightly_cross_installs() {
+    let labels: Vec<String> = cross_install_steps().into_iter().map(|(l, _)| l).collect();
+    for want in [
+        "release.yml:build-binaries:Install target prerequisites (Linux)",
+        "nightly.yml:build:Install cross (aarch64 legs only)",
+    ] {
+        assert!(
+            labels.iter().any(|l| l == want),
+            "discovery lost {want:?}; found {labels:?}"
+        );
+    }
+}
+
+fn every_cross_install_puts_cross_on_path(target: &str) {
+    let steps = cross_install_steps();
     assert!(
-        ok,
-        "cross installed but off PATH; GITHUB_PATH was: {added:?}"
+        !steps.is_empty(),
+        "no step installs cross: nothing measured"
+    );
+    let off_path: Vec<String> = steps
+        .iter()
+        .filter_map(|(label, run)| {
+            let (ok, added) = cross_resolves_in_next_step(run, target);
+            (!ok).then(|| format!("{label}: GITHUB_PATH was {added:?}"))
+        })
+        .collect();
+    assert!(
+        off_path.is_empty(),
+        "{target}: cross installed but off PATH in the next step of {} of {} step(s):\n{}",
+        off_path.len(),
+        steps.len(),
+        off_path.join("\n")
     );
 }
 
 #[test]
+fn an_aarch64_gnu_leg_that_installs_cross_can_run_it_in_the_next_step() {
+    every_cross_install_puts_cross_on_path("aarch64-unknown-linux-gnu");
+}
+
+#[test]
 fn an_aarch64_musl_leg_that_installs_cross_can_run_it_in_the_next_step() {
-    let (ok, added) = cross_resolves_in_next_step("aarch64-unknown-linux-musl");
-    assert!(
-        ok,
-        "cross installed but off PATH; GITHUB_PATH was: {added:?}"
-    );
+    every_cross_install_puts_cross_on_path("aarch64-unknown-linux-musl");
 }
