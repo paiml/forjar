@@ -4,8 +4,8 @@
   "branch": "fix/683-toolchain-gaps-complexity",
   "base": "ec477d93",
   "base_commit": "ec477d9356fbbc16660562c68ada148170212d97",
-  "diff_sha256": "4735c84704d9d030086a89b046c0ee533d1b9358",
-  "recorded_at": "after round 2 and the agy lane, both at a96b7107. The commits after it add only .quorum evidence and this receipt; they change no test or workflow.",
+  "diff_sha256": "bffcc87ebddfa30f727c39f678c6a1296b633100",
+  "recorded_at": "after round 2 and the agy lane, both at a96b7107. The commits after it add only .quorum evidence (with the refuted claim's correction) and this receipt; they change no test or workflow.",
   "quorum": {
     "rounds": 2,
     "lanes": [
@@ -86,9 +86,9 @@
         "roles": [
           "judges"
         ],
-        "blob": "70fae487936d378ace2168981a699c56268e9b45",
-        "sha256": "7a45f527dce1c15ffa0e64fec1f36ca81edca77442675c0e5b30542db07ecd44",
-        "bytes": 2559
+        "blob": "bcf86709d723c3589dfe12075567a0a037b59057",
+        "sha256": "7d01e923429f3b454a5d95f7b87fc130c5c6f86a911b46c68cc8e420c348678e",
+        "bytes": 2648
       },
       {
         "path": ".quorum/evidence/PMAT-683-tgc-lanes.md",
@@ -100,7 +100,7 @@
         "bytes": 1237
       }
     ],
-    "total_bytes": 5733,
+    "total_bytes": 5822,
     "claims_digest": ".quorum/evidence/PMAT-683-tgc-judges.md"
   }
 }
