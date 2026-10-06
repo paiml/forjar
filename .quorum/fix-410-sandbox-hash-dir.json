@@ -2,10 +2,10 @@
   "kind": "code",
   "issue": "forjar#410 — sandbox plan steps 8 and 9 named forjar-hash-dir, a binary that never existed, and moved $out to a literal HASH path; sandbox_seal::seal_output now does both in-process, and the plan says NOT EXECUTED until a caller exists.",
   "branch": "fix/410-sandbox-hash-dir",
-  "base": "ce0a7cc2",
-  "base_commit": "ce0a7cc2599ecd7d0bf9920214bc7b46eb604ef2",
+  "base": "61d5a703",
+  "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
   "diff_sha256": "5805a62e6d6e707c2926395f6fe662b51883aa44",
-  "recorded_at": "after rounds 3 and 4 at 01f5e86b. The evidence commit 95b435a4 adds only .quorum/evidence; it changes neither the code nor the tests.",
+  "recorded_at": "after rounds 3 and 4 at 01f5e86b, which forked from ce0a7cc2. The evidence commit 95b435a4 adds only .quorum/evidence, and merge 099f0530 brings in main at 61d5a703 (#676 touches none of these files); the judged diff hashes to the same 5805a62e over either base.",
   "quorum": {
     "rounds": 2,
     "lanes": [
