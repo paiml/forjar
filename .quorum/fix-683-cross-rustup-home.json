@@ -5,7 +5,7 @@
   "base": "61d5a703",
   "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
   "diff_sha256": "7b2b182bb368cad07c571ec86052095c2ef9102c",
-  "recorded_at": "after round 1 at d2210701. The evidence commit 2edaad57 adds only .quorum/evidence; it changes neither the workflows nor the test.",
+  "recorded_at": "after round 1 at d2210701. Evidence commits 2edaad57 and the REFUTED section that follows add only .quorum/evidence; neither changes the workflows nor the test.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -16,8 +16,11 @@
     "judges": 3,
     "refuters_per_claim": 3,
     "claims_confirmed": 4,
-    "claims_refuted": 0,
-    "refuted_claims": []
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: the aarch64-gnu target is broken — the failure follows the runner: gnu red on yoga, green on intel; musl green on intel in the same run.",
+      "R2: #611 again, cross off PATH — cross resolved and pulled its image; the 127 is cargo missing inside cross's container."
+    ]
   },
   "falsification": {
     "test": "every_path_cross_mounts_is_under_the_work_root (with discovery_finds_every_known_cross_job and the_pre_683_env_is_caught)",
@@ -79,9 +82,9 @@
         "roles": [
           "judges"
         ],
-        "blob": "0082282e1e158a45a5f6069bc208ea41ce5e5a1e",
-        "sha256": "97f861448f4a6da06cdade89a08efe81a30447f8f5d86fac705a54f0f8d55d8b",
-        "bytes": 2255
+        "blob": "45ee50fffb8905121ef35be218404be10caa97fa",
+        "sha256": "1a9586752238e3abe20e0083e1f7456c6f8daaa488fde02679917af0a9e4ef45",
+        "bytes": 2943
       },
       {
         "path": ".quorum/evidence/PMAT-683-lanes.md",
@@ -93,7 +96,7 @@
         "bytes": 561
       }
     ],
-    "total_bytes": 4250,
+    "total_bytes": 4938,
     "claims_digest": ".quorum/evidence/PMAT-683-judges.md"
   }
 }

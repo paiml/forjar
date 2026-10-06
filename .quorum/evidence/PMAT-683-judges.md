@@ -17,3 +17,10 @@ Lanes and their findings: see `PMAT-683-lanes.md`. Workflow line numbers are at 
 
 1. [sonnet] The WORK_ROOT constant is one runner's layout. Both mounted paths are written relative to `${{ github.workspace }}`, so the verdict does not depend on which absolute root the constant names; it only has to be a root that `$HOME` is not under, which is the containerized runner's shape.
 2. [sonnet] The run id in the doc comment is not checkable from the diff. It is also in the commit message and issue #683, and is kept, as #611's test keeps its run history.
+
+## REFUTED
+
+1. [lead] R1 — The brief's framing: the aarch64-gnu target is what is broken.
+   - corrected: the failure follows the runner, not the target. In run 37511323051, aarch64-gnu failed on yoga-build3 while aarch64-musl passed on intel-clean-room-13. aarch64-gnu passed on intel-clean-room-11 (36315352379) and intel-clean-room-13 (36995023273, 37454046448), and failed on yoga-build (37301751196).
+2. [lead] R2 — #611/#671 again: cross is off PATH.
+   - corrected: job 112435767529 resolved `cross`, which pulled `ghcr.io/cross-rs/aarch64-unknown-linux-gnu:0.2.5`; the exit 127 is `sh: 1: cargo: not found` from inside cross's container, after the PATH fix had done its job.
