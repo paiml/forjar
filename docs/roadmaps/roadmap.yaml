@@ -4835,6 +4835,25 @@ roadmap:
   - release:v1.33.0
   notes: null
   release: 1.33.0
+- id: PMAT-671
+  github_issue: 671
+  item_type: task
+  title: 'nightly aarch64 legs: put the private CARGO_HOME bin on PATH after cargo install cross (#611 again)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-05T20:40:00Z
+  updated: 2026-10-05T20:40:00Z
+  spec: null
+  acceptance_criteria:
+  - 'nightly.yml "Install cross (aarch64 legs only)" writes "$CARGO_HOME/bin" to "$GITHUB_PATH", so on a runner without cross the next step resolves it.'
+  - 'tests/falsification_611_cross_on_path.rs discovers every step of every workflow whose run says cargo install cross (it must find the release.yml and nightly.yml ones), runs each for both aarch64 Linux targets, and fails naming the step whose next step cannot resolve cross. With nightly.yml reverted to 49d117cc it fails 2 tests, both naming nightly.yml:build.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
 - id: PMAT-680
   github_issue: 680
   item_type: task
