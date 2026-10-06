@@ -127,9 +127,15 @@ jobs:
       # an x86_64 host, so it needs the same `cross` path release.yml already
       # uses for that target -- a container that carries the aarch64 linker and
       # the C toolchain vendored-openssl needs.
+      # #671: `cargo install` writes into the private CARGO_HOME above, which is
+      # on no PATH, so the build step died with `cross: command not found`
+      # (127). Same fix as release.yml's #611 line; the #611 falsifier now
+      # discovers this step too.
       - name: Install cross (aarch64 legs only)
         if: startsWith(matrix.target, 'aarch64-unknown-linux')
-        run: command -v cross >/dev/null 2>&1 || cargo install cross --locked
+        run: |
+          command -v cross >/dev/null 2>&1 || cargo install cross --locked
+          echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 
       - name: Build release binary
         shell: bash
