@@ -1,0 +1,108 @@
+{
+  "kind": "code",
+  "issue": "forjar#688 — a run's meta.yaml recorded a failed resource as `action: converged`, and three failure paths wrote no row; failures are now `action: failed` and dependency skips `action: skipped`, on every path.",
+  "branch": "fix/688-failed-run-meta",
+  "base": "61d5a703",
+  "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
+  "diff_sha256": "740ef2b33b9e2fc8fd25cc98f7bf70aae1956680",
+  "recorded_at": "after round 2 at f17a11c5. The one commit after it (b14b39e5) adds only .quorum/evidence; it changes no src, test or workflow.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "head c19c6151 — claude-sonnet-5 FAIL: the JIDOKA dependency skip writes no row; answered by f17a11c5",
+      "head c19c6151 — agy gemini-3.1-pro-high PASS, sandboxed",
+      "head c19c6151 — claude-haiku-4-5 PASS, no findings",
+      "head f17a11c5 — claude-sonnet-5 PASS, no findings",
+      "head f17a11c5 — agy gemini-3.1-pro-high PASS, sandboxed, no claim refuted",
+      "head f17a11c5 — claude-haiku-4-5 PASS, no findings"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: only the writer is wrong — the old enum had no failure variant and the tag writes the variant name, so no writer could put action: failed on disk.",
+      "R2: dropping `failed` from Converged makes old run dirs unreadable — they read through RecordedRunStatus, and the old failure row reads as Failed."
+    ]
+  },
+  "falsification": {
+    "test": "a_failed_task_is_recorded_as_failed, a_task_the_host_refuses_after_exit_0_is_recorded_as_failed, a_pre_688_failure_row_reads_as_failed, a_resource_skipped_for_a_failed_dependency_is_recorded_as_skipped (with a_succeeding_task_is_recorded_as_converged)",
+    "test_file": "tests/falsification_688_failed_run_meta.rs",
+    "cargo_test_target": "falsification_688_failed_run_meta",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "run_log_types.rs, machine_wave_record.rs and logs.rs at 61d5a703: 1 passed; 3 failed of the first four (a converged row with exit_code 1; a Null row for the refused task; the old row read as converged). machine_b.rs at c19c6151: 4 passed; 1 failed (the skip had a Null row). At f17a11c5: 5 passed."
+  },
+  "crux": {
+    "systems": [
+      "Ansible: the play recap counts ok, changed, failed and skipped separately per host; a failed task is never reported as changed",
+      "Puppet: a resource's report status carries failed, changed and skipped as distinct states, and a failed resource's event status is failure",
+      "Terraform: a failed apply reports an error for that resource and does not record it as created"
+    ],
+    "verdict": "No crux row is owed: all three keep failed and skipped distinct from changed in the per-resource record; this branch does the same in meta.yaml."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high) per round, brief inline, no build, no writes, 14m budget",
+    "rounds": 2,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS in both rounds: C1-C5 confirmed."
+  },
+  "pmat": {
+    "ticket": "forjar#688",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2212 files parsed, 19874 tests examined, 432 cannot fail and 3 skip silently; 2 in a touched file, both pre-existing (see accepted)",
+      "cargo test --locked --test falsification_688_failed_run_meta: 5 passed; 3 failed with the recorder at main, 1 failed with machine_b.rs at c19c6151"
+    ],
+    "vacuous_tests_in_touched_paths": 2,
+    "accepted": [
+      "src/core/executor/tests_run_capture.rs:104 capture_output_nonexistent_dir_noop — pre-existing on main, lines this diff does not touch; it asserts a no-op on a missing dir does not panic",
+      "src/core/executor/tests_run_capture.rs:212 update_meta_missing_dir_noop — pre-existing on main, lines this diff does not touch; same no-panic shape"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-688-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "4e87f80a4c03873669bdb77bbd89a10dba588714",
+        "sha256": "a02063c55880306ab8fcbc87f48a51b901abfc041605be219abe74c9cbeb2f38",
+        "bytes": 267
+      },
+      {
+        "path": ".quorum/evidence/PMAT-688-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "2489aca6f7aab2a0451c1346025d442f4bf0d6cd",
+        "sha256": "e6402aac9626149d4bc650b51001519a983cb33b61b91a5ee2c3c59967737cf3",
+        "bytes": 1129
+      },
+      {
+        "path": ".quorum/evidence/PMAT-688-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "714115989be7f11ef8a67b28f58720f7bd872927",
+        "sha256": "09f1de82a34a2ed81db764cf6bb5852883f395c6839f6f9c172bc69cdae12b1f",
+        "bytes": 2943
+      },
+      {
+        "path": ".quorum/evidence/PMAT-688-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "089e6084aeef105540f0ffaa052e3ca19dee26ff",
+        "sha256": "50ed6ed4c604fe37f30e0b9cbbcb850641974c52db6a7dd3bff6be1c93471d2a",
+        "bytes": 1325
+      }
+    ],
+    "total_bytes": 5664,
+    "claims_digest": ".quorum/evidence/PMAT-688-judges.md"
+  }
+}
