@@ -126,6 +126,12 @@ jobs:
     # The host-side fix is paiml/infra's.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+      # #683: cross mounts the toolchain sysroot through the DOCKER HOST's
+      # daemon. A containerized runner shares only its work root with the host,
+      # and the image's RUSTUP_HOME (/home/runner/.rustup) is not in it, so
+      # cross's container got an empty /rust and died `cargo: not found`.
+      # Beside CARGO_HOME, it is under the work root on every runner.
+      RUSTUP_HOME: ${{ github.workspace }}/../rustup-home-${{ github.job }}
     strategy:
       fail-fast: false
       matrix:

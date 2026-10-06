@@ -226,6 +226,12 @@ jobs:
     # macOS legs get a private registry too, which costs them nothing.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+      # #683: cross mounts the toolchain sysroot through the DOCKER HOST's
+      # daemon. A containerized runner shares only its work root with the host,
+      # and the image's RUSTUP_HOME (/home/runner/.rustup) is not in it, so
+      # cross's container got an empty /rust and died `cargo: not found`.
+      # Beside CARGO_HOME, it is under the work root on every runner.
+      RUSTUP_HOME: ${{ github.workspace }}/../rustup-home-${{ github.job }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
