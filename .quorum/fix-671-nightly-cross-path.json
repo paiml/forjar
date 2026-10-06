@@ -1,0 +1,101 @@
+{
+  "kind": "code",
+  "issue": "forjar#671 — nightly.yml aarch64 legs installed cross into the private CARGO_HOME and died with `cross: command not found` (127); the step now puts $CARGO_HOME/bin on $GITHUB_PATH and the #611 falsifier discovers every cross install.",
+  "branch": "fix/671-nightly-cross-path",
+  "base": "ce0a7cc2",
+  "base_commit": "ce0a7cc2599ecd7d0bf9920214bc7b46eb604ef2",
+  "diff_sha256": "c42468a7170e6295cc599c8207daf8864076024b",
+  "recorded_at": "after round 4 at af12be69 (61948daf merged with main ce0a7cc2; patch-id of the code diff unchanged by the merge). The evidence commit 840c5589 adds only .quorum/evidence; it changes neither the workflow nor the test.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "head af12be69 — claude-sonnet-5 PASS, only nightly.yml:137 and release.yml:273 install cross, so discovery finds exactly both",
+      "head af12be69 — agy gemini-3.1-pro-high PASS, sandboxed plan mode, no claim refuted",
+      "head af12be69 — claude-haiku-4-5 PASS, no scope violations"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the first #611 falsifier guarded every cross install — it read one release.yml step by name, so nightly.yml stayed red in the nightly and green in the test; discovery now closes that."
+    ]
+  },
+  "falsification": {
+    "test": "an_aarch64_gnu_leg_that_installs_cross_can_run_it_in_the_next_step (with the musl leg and discovery_finds_the_release_and_nightly_cross_installs)",
+    "test_file": "tests/falsification_611_cross_on_path.rs",
+    "cargo_test_target": "falsification_611_cross_on_path",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2build at af12be69. On this branch: 3 passed. .github/workflows/nightly.yml reverted to main: discovery passed, the gnu and musl legs FAILED at tests/falsification_611_cross_on_path.rs:152 (cross installed but off PATH in the next step), 1 passed; 2 failed. Restored: 3 passed, tree clean."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions: a step changes the next step's PATH only through $GITHUB_PATH; an export or a write into an off-PATH directory is lost at the step boundary",
+      "dtolnay/rust-toolchain and actions/setup-*: every installer action that writes binaries outside the runner PATH appends that directory to $GITHUB_PATH in the same step",
+      "rustup-init: installs into CARGO_HOME/bin and then edits the shell profile, because an install the next shell cannot resolve is not an install"
+    ],
+    "verdict": "No crux row is owed: putting the install directory on the next step's PATH in the installing step is the practice all three follow; this branch adopts it for the nightly leg and tests it by replaying the runner's PATH."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, --mode plan), brief inline, no build, no writes, 14m budget",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS, no findings: C1-C4 confirmed."
+  },
+  "pmat": {
+    "ticket": "forjar#671",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2211 files parsed, 19869 tests examined, 432 cannot fail and 3 skip silently, 0 of them in the touched paths",
+      "cargo test --locked --test falsification_611_cross_on_path: 3 passed; 2 failed with nightly.yml reverted"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-671-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "374f03c6e0d08201c6d6188034624adfe1fd43ae",
+        "sha256": "0fb30c48aa1eff00bdee17b182fe40f5f997843c5ab303bca5c2093e407d104f",
+        "bytes": 485
+      },
+      {
+        "path": ".quorum/evidence/PMAT-671-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "47f3a38eaa9868bb155c18fb68b5c80977dc446d",
+        "sha256": "ee509cc97b9861d30d6d07f1474c2b67c8178c802dd0ea0e0a2e46bdb5c56642",
+        "bytes": 1023
+      },
+      {
+        "path": ".quorum/evidence/PMAT-671-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "5ddee2e3eff2bc898be23b81e95d970a1a16f6f9",
+        "sha256": "5d901f25c234e78e7d53c2e949052bb8258b739877ef8b800428f955c5e8b62e",
+        "bytes": 2552
+      },
+      {
+        "path": ".quorum/evidence/PMAT-671-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "2bba15b548bfbac7e246ef9803d1b88bc6c713f6",
+        "sha256": "1406cfaf7643e0a34bfa1da1b636296ca5c91bd47c16d8989e5607b076ddbb87",
+        "bytes": 683
+      }
+    ],
+    "total_bytes": 4743,
+    "claims_digest": ".quorum/evidence/PMAT-671-judges.md"
+  }
+}
