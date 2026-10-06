@@ -1,0 +1,19 @@
+# Judges — forjar#683: cross mounts the sysroot from the docker host
+
+Lanes and their findings: see `PMAT-683-lanes.md`. Workflow line numbers are at base 61d5a703.
+
+## CONFIRMED
+
+1. [cause] C1 — The aarch64 legs build with cross through the host daemon, with a private CARGO_HOME under the workspace and no RUSTUP_HOME, so the sysroot came from the runner image's default.
+   - evidence: `.github/workflows/nightly.yml:103` sets only CARGO_HOME and `.github/workflows/nightly.yml:153` runs `cross build`. Job 112435767529 (yoga-build3) pulled the cross image and printed `sh: 1: cargo: not found`, exit 127. Every aarch64 leg of runs 36315352379, 36995023273, 37301751196, 37454046448 and 37511323051 on a yoga-build* runner failed, and every one on an intel-clean-room-* runner passed.
+2. [fix] C2 — The same RUSTUP_HOME line sits beside CARGO_HOME in all three cross jobs.
+   - evidence: base CARGO_HOME lines at `.github/workflows/nightly.yml:103`, `.github/workflows/release.yml:228` and `.github/workflows/binary-release.yml:128`; the new line follows each.
+3. [test] C3 — The test discovers jobs, not named steps, and resolves the env per layer (workflow, job, step); a missing RUSTUP_HOME resolves to `$HOME/.rustup`, as rustup does.
+   - evidence: discovery in `cross_jobs`, resolution in `mounted_paths`, the discovery floor in `discovery_finds_every_known_cross_job`, and the fixture `the_pre_683_env_is_caught`.
+4. [falsified] C4 — Reverting the three workflows turns the test red, naming all three jobs.
+   - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = /home/runner/.rustup; restored, 3 passed.
+
+## ACCEPTED, NOT CHANGED
+
+1. [sonnet] The WORK_ROOT constant is one runner's layout. Both mounted paths are written relative to `${{ github.workspace }}`, so the verdict does not depend on which absolute root the constant names; it only has to be a root that `$HOME` is not under, which is the containerized runner's shape.
+2. [sonnet] The run id in the doc comment is not checkable from the diff. It is also in the commit message and issue #683, and is kept, as #611's test keeps its run history.
