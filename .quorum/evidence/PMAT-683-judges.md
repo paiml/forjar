@@ -5,13 +5,13 @@ Lanes and their findings: see `PMAT-683-lanes.md`. Workflow line numbers are at 
 ## CONFIRMED
 
 1. [cause] C1 — The aarch64 legs build with cross through the host daemon, with a private CARGO_HOME under the workspace and no RUSTUP_HOME, so the sysroot came from the runner image's default.
-   - evidence: `.github/workflows/nightly.yml:103` sets only CARGO_HOME and `.github/workflows/nightly.yml:153` runs `cross build`. Job 112435767529 (yoga-build3) pulled the cross image and printed `sh: 1: cargo: not found`, exit 127. Every aarch64 leg of runs 36315352379, 36995023273, 37301751196, 37454046448 and 37511323051 on a yoga-build* runner failed, and every one on an intel-clean-room-* runner passed.
+   - evidence: `.github/workflows/nightly.yml:103` sets only CARGO_HOME and `.github/workflows/nightly.yml:153` runs `cross build`. Job 112435767529 (yoga-build3) pulled the cross image and printed `sh: 1: cargo: not found`, exit 127. Every aarch64 leg of runs 36315352379, 36995023273, 37301751196, 37454046448 and 37511323051 on a yoga-build* runner failed, and every one on an intel-clean-room-* runner passed. The mechanism is recorded at `tests/falsification_683_cross_mounts_under_work_root.rs:11`.
 2. [fix] C2 — The same RUSTUP_HOME line sits beside CARGO_HOME in all three cross jobs.
-   - evidence: base CARGO_HOME lines at `.github/workflows/nightly.yml:103`, `.github/workflows/release.yml:228` and `.github/workflows/binary-release.yml:128`; the new line follows each.
+   - evidence: base CARGO_HOME lines at `.github/workflows/nightly.yml:103`, `.github/workflows/release.yml:228` and `.github/workflows/binary-release.yml:128`; the new line follows each. `tests/falsification_683_cross_mounts_under_work_root.rs:166` asserts it for every discovered job.
 3. [test] C3 — The test discovers jobs, not named steps, and resolves the env per layer (workflow, job, step); a missing RUSTUP_HOME resolves to `$HOME/.rustup`, as rustup does.
-   - evidence: discovery in `cross_jobs`, resolution in `mounted_paths`, the discovery floor in `discovery_finds_every_known_cross_job`, and the fixture `the_pre_683_env_is_caught`.
+   - evidence: discovery at `tests/falsification_683_cross_mounts_under_work_root.rs:58`, resolution at `tests/falsification_683_cross_mounts_under_work_root.rs:125`, the discovery floor at `tests/falsification_683_cross_mounts_under_work_root.rs:151`, and the fixture at `tests/falsification_683_cross_mounts_under_work_root.rs:178`.
 4. [falsified] C4 — Reverting the three workflows turns the test red, naming all three jobs.
-   - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = the runner image's `$HOME/.rustup`; restored, 3 passed.
+   - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = the runner image's `$HOME/.rustup`; restored, 3 passed. The failing assertion is `tests/falsification_683_cross_mounts_under_work_root.rs:166`.
 
 ## REFUTED
 
