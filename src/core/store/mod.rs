@@ -56,6 +56,7 @@ pub mod repro_score;
 pub mod sandbox;
 pub mod sandbox_exec;
 pub mod sandbox_run;
+pub mod sandbox_seal;
 pub mod secret_scan;
 pub mod store_diff;
 pub mod substitution;
