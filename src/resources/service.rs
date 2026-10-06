@@ -31,6 +31,30 @@ if ! command -v systemctl >/dev/null 2>&1; then\n  \
   exit 0\n\
 fi";
 
+/// #663: the activity `state:` manages. `running` and `stopped` set it;
+/// `enabled` and `disabled` manage boot enablement only and leave activity as
+/// found (docs/book/src/03-resources.md, "Service States"). `None` means the
+/// check asks no activity question, because the apply changes none.
+fn wants_active(state: &str) -> Option<bool> {
+    match state {
+        "running" => Some(true),
+        "stopped" => Some(false),
+        _ => None,
+    }
+}
+
+/// #663: whether the unit must be enabled on boot. `state: enabled|disabled`
+/// IS the enablement; otherwise it is `enabled:` (default true). An explicit
+/// `enabled:` that contradicts the state is refused by validation, so the
+/// state winning here never overrides a declaration that got through.
+pub(crate) fn wants_enabled(resource: &Resource) -> bool {
+    match resource.state.as_deref() {
+        Some("enabled") => true,
+        Some("disabled") => false,
+        _ => resource.enabled.unwrap_or(true),
+    }
+}
+
 /// Generate shell to check service state.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
@@ -40,20 +64,20 @@ pub fn check_script(resource: &Resource) -> String {
     // when it is NOT running; asserting the opposite would turn a correct host
     // into a permanent check failure.
     let state = resource.state.as_deref().unwrap_or("running");
-    let enabled = resource.enabled.unwrap_or(true);
+    let enabled = wants_enabled(resource);
 
-    let active = if state == "stopped" {
-        verdict::assert_that(
+    let active = match wants_active(state) {
+        Some(false) => Some(verdict::assert_that(
             &format!("! systemctl is-active --quiet {n} 2>/dev/null"),
             &format!("inactive:{name}"),
             &format!("active:{name}"),
-        )
-    } else {
-        verdict::assert_that(
+        )),
+        Some(true) => Some(verdict::assert_that(
             &format!("systemctl is-active --quiet {n} 2>/dev/null"),
             &format!("active:{name}"),
             &format!("inactive:{name}"),
-        )
+        )),
+        None => None,
     };
 
     let enablement = if enabled {
@@ -76,7 +100,7 @@ pub fn check_script(resource: &Resource) -> String {
     // service resource in container CI. `check` maps 2 to skip.
     // PMAT-560: what the loaded unit EXECUTES, once declared. Presence was
     // the only question for five months; see `service_exec`.
-    let mut assertions = vec![active, enablement];
+    let mut assertions: Vec<String> = active.into_iter().chain([enablement]).collect();
     assertions.extend(service_exec::assertions(resource, name));
     format!(
         "{SYSTEMD_CHECK_GUARD}\n{}",
@@ -88,22 +112,22 @@ pub fn check_script(resource: &Resource) -> String {
 pub fn apply_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let state = resource.state.as_deref().unwrap_or("running");
-    let enabled = resource.enabled.unwrap_or(true);
+    let enabled = wants_enabled(resource);
 
     let mut lines = vec!["set -euo pipefail".to_string(), SYSTEMD_GUARD.to_string()];
 
-    match state {
-        "running" => {
+    match wants_active(state) {
+        Some(true) => {
             lines.push(format!(
                 "if ! systemctl is-active --quiet '{name}'; then\n  systemctl start '{name}'\nfi"
             ));
         }
-        "stopped" => {
+        Some(false) => {
             lines.push(format!(
                 "if systemctl is-active --quiet '{name}'; then\n  systemctl stop '{name}'\nfi"
             ));
         }
-        _ => {}
+        None => {}
     }
 
     if enabled {
