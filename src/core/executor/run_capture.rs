@@ -222,24 +222,26 @@ impl Transcript {
     }
 }
 
-/// Replace the I8 script dump in `text`, if it carries one, with a notice.
+/// Replace every I8 script dump in `text` with a notice.
 ///
 /// The dump's own markers come from the transport that writes them. If the
 /// clip in `failure_text::transport_failure` cut the closing marker off, the
 /// dump runs to the end of `text`, and all of it goes.
 fn withhold_script_dump(text: &str) -> String {
     use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
-    let Some(open) = text.find(I8_DUMP_OPEN) else {
-        return text.to_string();
-    };
-    let rest = &text[open..];
-    let tail = rest
-        .find(I8_DUMP_CLOSE)
-        .map_or("", |close| &rest[close + I8_DUMP_CLOSE.len()..]);
-    format!(
-        "{}--- script withheld: the resource is sensitive (#679) ---{tail}",
-        &text[..open]
-    )
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    // Every dump, not the first: a text that carries two must lose both.
+    while let Some(open) = rest.find(I8_DUMP_OPEN) {
+        out.push_str(&rest[..open]);
+        out.push_str("--- script withheld: the resource is sensitive (#679) ---");
+        let dump = &rest[open..];
+        rest = dump
+            .find(I8_DUMP_CLOSE)
+            .map_or("", |close| &dump[close + I8_DUMP_CLOSE.len()..]);
+    }
+    out.push_str(rest);
+    out
 }
 
 /// WHAT was executed: the resource identity and the script that ran.

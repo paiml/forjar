@@ -33,6 +33,7 @@ fn site<'a>(resolved: &'a Resource, log: Option<&'a Path>) -> Site<'a> {
         run_id: Some("r-3534c7969c62"),
         log,
         resolved,
+        withhold: false,
     }
 }
 
@@ -156,6 +157,7 @@ fn a_relative_state_dir_is_flagged_because_that_is_how_the_evidence_died() {
         run_id: Some("r-1"),
         log: Some(&log),
         resolved: &r,
+        withhold: false,
     };
     let msg = exec_failure(&s, &out(1, "x", "y"));
     assert!(msg.contains("NOTE --state-dir is relative"), "{msg}");
@@ -217,4 +219,30 @@ fn a_transport_error_keeps_its_prefix_and_clips_from_the_head() {
     assert!(msg.contains("elided"), "{msg}");
     assert!(msg.contains("no run log exist"), "{msg}");
     assert!(msg.len() < 5_000, "unbounded: {}", msg.len());
+}
+
+/// Refs #679: a sensitive resource's streams, verdict and resolved
+/// completion_check are withheld; only their sizes remain.
+#[test]
+fn a_sensitive_site_withholds_streams_verdict_and_check() {
+    let r = task(Some("test -f /x-UNNAMED-CHECK"));
+    let s = Site {
+        withhold: true,
+        ..site(&r, None)
+    };
+    let exec = exec_failure(&s, &out(3, "out-UNNAMED", "err-UNNAMED"));
+    assert!(
+        !exec.contains("UNNAMED") && exec.contains("withheld"),
+        "{exec}"
+    );
+    let nc = exec_failure(&s, &out(1, "", &not_converged_stderr()));
+    assert!(
+        !nc.contains("UNNAMED-CHECK") && nc.contains("withheld"),
+        "{nc}"
+    );
+    let verify = verify_failure(&s, &out(0, "o-UNNAMED", "e"), "verdict-UNNAMED");
+    assert!(
+        !verify.contains("UNNAMED") && verify.contains("withheld"),
+        "{verify}"
+    );
 }

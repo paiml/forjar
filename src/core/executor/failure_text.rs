@@ -114,6 +114,10 @@ pub(super) struct Site<'a> {
     /// The TEMPLATE-RESOLVED resource, so a printed `completion_check` is the
     /// text that actually ran and not one with `{{params.*}}` still in it.
     pub resolved: &'a Resource,
+    /// Refs #679: the resource is `sensitive: true` or carries `ENC[...]`
+    /// ciphertext, so its streams and its resolved `completion_check` may hold
+    /// values redaction cannot name. They are withheld, as its transcript is.
+    pub withhold: bool,
 }
 
 /// The report for a command that RAN and exited non-zero.
@@ -123,7 +127,7 @@ pub(super) struct Site<'a> {
 /// `machine_wave.rs`.
 pub(super) fn exec_failure(site: &Site, out: &transport::ExecOutput) -> String {
     let mut msg = exec_headline(site, out);
-    msg.push_str(&streams(out));
+    msg.push_str(&site_streams(site, out));
     msg.push_str(&pointer(site));
     msg
 }
@@ -147,7 +151,9 @@ fn exec_headline(site: &Site, out: &transport::ExecOutput) -> String {
          command is not what\nwent wrong; read STDOUT below.\n",
         out.exit_code
     );
-    if let Some(check) = site.resolved.completion_check.as_deref() {
+    if site.withhold {
+        head.push_str("  completion_check: withheld, the resource is sensitive (#679)\n");
+    } else if let Some(check) = site.resolved.completion_check.as_deref() {
         head.push_str("  completion_check, re-run after the command:\n");
         for line in check.trim_end().lines() {
             head.push_str("    > ");
@@ -192,14 +198,19 @@ pub(super) fn verify_failure(site: &Site, out: &transport::ExecOutput, verdict: 
          afterwards\nwhether the declared state is present and the answer was \
          no:\n",
     );
-    for line in verdict.lines() {
-        msg.push_str("  ! ");
-        msg.push_str(line);
-        msg.push('\n');
+    // A verdict carries the check script's own streams (`host_verdict`).
+    if site.withhold {
+        msg.push_str("  ! (withheld, the resource is sensitive (#679))\n");
+    } else {
+        for line in verdict.lines() {
+            msg.push_str("  ! ");
+            msg.push_str(line);
+            msg.push('\n');
+        }
     }
     msg.push_str(nested_shell_caveat(site.resolved));
     msg.push_str("  what the apply that \"succeeded\" printed:\n");
-    msg.push_str(&streams(out));
+    msg.push_str(&site_streams(site, out));
     msg.push_str(&pointer(site));
     msg
 }
@@ -261,6 +272,19 @@ pub(super) fn host_verdict(out: &transport::ExecOutput) -> String {
          (check exit {}){}",
         out.exit_code,
         streams(out)
+    )
+}
+
+/// [`streams`], or for a sensitive resource only their sizes (#679).
+fn site_streams(site: &Site, out: &transport::ExecOutput) -> String {
+    if !site.withhold {
+        return streams(out);
+    }
+    format!(
+        "\n--- stderr ({} bytes), stdout ({} bytes): withheld, the resource is \
+         sensitive (#679) ---",
+        out.stderr.trim().len(),
+        out.stdout.trim().len()
     )
 }
 

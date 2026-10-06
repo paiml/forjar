@@ -155,6 +155,7 @@ fn record_one(
         run_id: cfg.run_id.as_deref(),
         log: log.as_deref(),
         resolved: &rec.prep.resolved,
+        withhold: executed.transcript.suppress,
     };
 
     match &rec.output {

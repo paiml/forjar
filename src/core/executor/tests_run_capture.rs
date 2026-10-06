@@ -405,3 +405,21 @@ fn plain_failure_text_keeps_the_dump_and_strikes_the_value() {
         format!("{I8_DUMP_OPEN}\n   1 | echo ***\n{I8_DUMP_CLOSE}")
     );
 }
+
+/// Two dumps in one text lose both.
+#[test]
+fn every_dump_is_withheld_not_only_the_first() {
+    use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
+    let policy = run_capture::Transcript {
+        secrets: Vec::new(),
+        suppress: true,
+    };
+    let text =
+        format!("{I8_DUMP_OPEN}\none\n{I8_DUMP_CLOSE}\nmid\n{I8_DUMP_OPEN}\ntwo\n{I8_DUMP_CLOSE}");
+    let out = policy.failure_text(&text);
+    assert!(!out.contains("one") && !out.contains("two"), "{out}");
+    assert!(
+        out.contains("mid") && out.matches("script withheld").count() == 2,
+        "{out}"
+    );
+}

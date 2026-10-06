@@ -33,6 +33,12 @@ const I8_REFUSED: &str = "if true; do\n\
 const EXEC_FAILS: &str = "printf '%s\\n' 'tok={{secrets.f679-token}}' >&2\n\
                           exit 3\n";
 
+/// A value forjar cannot name — it stands in for a decrypted `ENC[...]` — joined
+/// at run time, so its whole text appears in the config nowhere.
+const UNNAMED: &str = "f679-UNNAMED-Zr2m7Lp4Qx9Tb1Vs";
+const SENSITIVE_EXEC_FAILS: &str = "printf '%s-%s\\n' f679 UNNAMED-Zr2m7Lp4Qx9Tb1Vs >&2\n\
+                                    exit 3\n";
+
 struct Sandbox {
     dir: tempfile::TempDir,
 }
@@ -210,4 +216,27 @@ fn a_task_that_runs_and_fails_stores_no_secret_from_its_stderr() {
         Vec::<PathBuf>::new(),
         "the stderr excerpt in the failure text carried the secret"
     );
+}
+
+#[test]
+fn a_sensitive_task_that_runs_and_fails_withholds_its_streams() {
+    // Redaction strikes only values forjar can name. For a sensitive resource
+    // the streams are withheld, as its transcript is.
+    let sb = Sandbox::new();
+    let output = sb.apply(&sb.write_config(SENSITIVE_EXEC_FAILS, true, false));
+    let last = sb.last_apply();
+    assert!(
+        last.contains("exit code 3"),
+        "the task did not run and fail, so this test measured nothing:\n{last}"
+    );
+    assert!(
+        !output.contains(UNNAMED),
+        "the stream was printed:\n{output}"
+    );
+    let leaking: Vec<PathBuf> = walk(&sb.state())
+        .into_iter()
+        .filter(|p| fs::read(p).is_ok_and(|b| String::from_utf8_lossy(&b).contains(UNNAMED)))
+        .collect();
+    assert_eq!(leaking, Vec::<PathBuf>::new(), "the stream was stored");
+    assert!(last.contains("withheld"), "{last}");
 }
