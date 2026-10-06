@@ -211,11 +211,11 @@ impl Transcript {
     /// The failure text goes to stderr, `state.lock.yaml`, `events.jsonl` and
     /// `last-apply.yaml`, and an I8 rejection carries the whole resolved script
     /// (#281). Every named secret is struck. For a sensitive resource the
-    /// script dump is withheld too, because redaction can only strike values
-    /// forjar can name — an `ENC[age,…]` value it cannot.
+    /// script dump and each lint message are withheld too, because redaction
+    /// can only strike values forjar can name — an `ENC[age,…]` value it cannot.
     pub fn failure_text(&self, text: &str) -> String {
         if self.suppress {
-            self.redact(&withhold_script_dump(text))
+            self.redact(&withhold_diagnostic_messages(&withhold_script_dump(text)))
         } else {
             self.redact(text)
         }
@@ -236,12 +236,36 @@ fn withhold_script_dump(text: &str) -> String {
         out.push_str(&rest[..open]);
         out.push_str("--- script withheld: the resource is sensitive (#679) ---");
         let dump = &rest[open..];
-        rest = dump
-            .find(I8_DUMP_CLOSE)
-            .map_or("", |close| &dump[close + I8_DUMP_CLOSE.len()..]);
+        // The close marker counts only at the start of a line: every body line
+        // starts with its `{:>4} | ` number, so a script line that contains
+        // the marker cannot end the dump early.
+        let close = format!("\n{I8_DUMP_CLOSE}");
+        rest = dump.find(&close).map_or("", |at| &dump[at + close.len()..]);
     }
     out.push_str(rest);
     out
+}
+
+/// Keep each lint diagnostic's `[severity] CODE` and withhold its message.
+///
+/// A message can quote the text it flags (SEC005 quotes the token), which for
+/// a sensitive resource may be a value redaction cannot name. Lines are those
+/// `purifier::validate_script` writes: `[severity] CODE: message`.
+fn withhold_diagnostic_messages(text: &str) -> String {
+    let kept: Vec<String> = text
+        .split('\n')
+        .map(|line| {
+            let code_end = line
+                .strip_prefix('[')
+                .and_then(|_| line.find("] "))
+                .and_then(|close| line[close..].find(": ").map(|at| close + at));
+            match code_end {
+                Some(at) => format!("{}: (message withheld, sensitive)", &line[..at]),
+                None => line.to_string(),
+            }
+        })
+        .collect();
+    kept.join("\n")
 }
 
 /// WHAT was executed: the resource identity and the script that ran.

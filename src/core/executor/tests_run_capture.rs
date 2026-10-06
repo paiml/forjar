@@ -423,3 +423,43 @@ fn every_dump_is_withheld_not_only_the_first() {
         "{out}"
     );
 }
+
+/// A script line that contains the close marker does not end the dump early.
+#[test]
+fn a_close_marker_inside_the_script_does_not_end_the_dump() {
+    use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
+    let policy = run_capture::Transcript {
+        secrets: Vec::new(),
+        suppress: true,
+    };
+    let text = format!(
+        "{I8_DUMP_OPEN}\n   1 | echo '{I8_DUMP_CLOSE}'\n   2 | echo after-UNNAMED\n{I8_DUMP_CLOSE}\ntrailer"
+    );
+    let out = policy.failure_text(&text);
+    assert!(!out.contains("after-UNNAMED"), "{out}");
+    assert!(out.ends_with("\ntrailer"), "{out}");
+}
+
+/// A sensitive diagnostic keeps its code and loses its message, which can
+/// quote the flagged text; a plain one keeps both.
+#[test]
+fn a_sensitive_diagnostic_keeps_its_code_and_withholds_its_message() {
+    let text = "bashrs lint errors:\n[error] SEC005: hardcoded secret 'q-UNNAMED'\nend";
+    let sensitive = run_capture::Transcript {
+        secrets: Vec::new(),
+        suppress: true,
+    }
+    .failure_text(text);
+    assert!(!sensitive.contains("q-UNNAMED"), "{sensitive}");
+    assert!(
+        sensitive.contains("[error] SEC005: (message withheld"),
+        "{sensitive}"
+    );
+    assert!(sensitive.ends_with("\nend"), "{sensitive}");
+    let plain = run_capture::Transcript {
+        secrets: Vec::new(),
+        suppress: false,
+    }
+    .failure_text(text);
+    assert_eq!(plain, text);
+}
