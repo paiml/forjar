@@ -4854,3 +4854,23 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-679
+  github_issue: 679
+  item_type: task
+  title: 'A failed resource prints and stores its resolved secrets: the failure text never meets the #406 redaction policy'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-06T20:30:00Z
+  updated: 2026-10-06T20:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'tests/falsification_679_failure_text_secrets.rs: a sensitive: true task refused by I8 puts its fixture secret in neither stdout/stderr nor any state file (last-apply.yaml, state.lock.yaml, events.jsonl), at parallel_resources false and true, and last-apply.yaml says the script was withheld.'
+  - 'A plain task refused by I8 keeps the #281 numbered dump with the value struck (***); a task that runs and fails stores no secret from its stderr excerpt.'
+  - 'With the fix reverted, the sensitive and plain I8 rows go red.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null

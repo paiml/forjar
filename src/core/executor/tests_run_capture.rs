@@ -349,3 +349,59 @@ fn a_ciphertext_bearing_resource_suppresses_its_own_transcript() {
     };
     assert!(!run_capture::Transcript::for_resource(&plain, &SecretsConfig::default()).suppress);
 }
+
+/// Refs #679: the failure text of a sensitive resource withholds the I8 dump,
+/// keeps what follows it, and still strikes named values outside it.
+#[test]
+fn sensitive_failure_text_withholds_the_script_dump() {
+    use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
+    let policy = run_capture::Transcript {
+        secrets: vec!["tok-679".into()],
+        suppress: true,
+    };
+    let text = format!(
+        "I8 violation: SC2 near tok-679\n\n{I8_DUMP_OPEN}\n   1 | echo tok-679\n{I8_DUMP_CLOSE}\ntrailer\n"
+    );
+    let out = policy.failure_text(&text);
+    assert!(!out.contains("tok-679"), "{out}");
+    assert!(
+        !out.contains("   1 | "),
+        "the dump was not withheld:\n{out}"
+    );
+    assert!(out.contains("script withheld"), "{out}");
+    assert!(
+        out.contains("near ***") && out.ends_with("trailer\n"),
+        "{out}"
+    );
+}
+
+/// A dump the clip cut short (no closing marker) is withheld to the end.
+#[test]
+fn a_clipped_dump_is_withheld_to_the_end() {
+    use crate::transport::I8_DUMP_OPEN;
+    let policy = run_capture::Transcript {
+        secrets: Vec::new(),
+        suppress: true,
+    };
+    let out = policy.failure_text(&format!("head\n{I8_DUMP_OPEN}\n   1 | echo cut-off"));
+    assert!(!out.contains("cut-off"), "{out}");
+    assert!(
+        out.starts_with("head\n") && out.contains("script withheld"),
+        "{out}"
+    );
+}
+
+/// Not sensitive: the dump stays (#281) and only the value is struck.
+#[test]
+fn plain_failure_text_keeps_the_dump_and_strikes_the_value() {
+    use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
+    let policy = run_capture::Transcript {
+        secrets: vec!["tok-679".into()],
+        suppress: false,
+    };
+    let text = format!("{I8_DUMP_OPEN}\n   1 | echo tok-679\n{I8_DUMP_CLOSE}");
+    assert_eq!(
+        policy.failure_text(&text),
+        format!("{I8_DUMP_OPEN}\n   1 | echo ***\n{I8_DUMP_CLOSE}")
+    );
+}

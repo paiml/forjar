@@ -273,12 +273,17 @@ fn fail(
     error: &str,
 ) -> ResourceOutcome {
     let change = rec.change;
+    // Refs #679: this text goes to stderr and three state files. It meets the
+    // transcript's redaction policy here, read off the same UNRESOLVED
+    // declaration, so no failure path can skip it.
+    let error = run_capture::Transcript::for_resource(rec.resource, &cfg.config.secrets)
+        .failure_text(error);
     record_failure(
         ctx,
         &change.resource_id,
         &rec.resource.resource_type,
         rec.duration,
-        error,
+        &error,
     );
     counters.failed += 1;
     counters.failed_resources.insert(change.resource_id.clone());

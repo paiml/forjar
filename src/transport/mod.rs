@@ -181,15 +181,21 @@ fn validate_before_exec(script: &str) -> Result<(), String> {
 /// line it rejected, and this is the only rendering of the file that has those
 /// lines.
 fn numbered_for_diagnosis(sanitised: &str) -> String {
-    let mut out = String::from(
-        "--- the script bashrs judged (after forjar's own data-payload stripping) ---\n",
-    );
+    let mut out = format!("{I8_DUMP_OPEN}\n");
     for (i, line) in sanitised.lines().enumerate() {
         out.push_str(&format!("{:>4} | {}\n", i + 1, line));
     }
-    out.push_str("--- end ---");
+    out.push_str(I8_DUMP_CLOSE);
     out
 }
+
+/// The markers around the I8 script dump. `run_capture::Transcript::failure_text`
+/// withholds what lies between them for a sensitive resource (#679), so the
+/// writer and the reader share one string.
+pub(crate) const I8_DUMP_OPEN: &str =
+    "--- the script bashrs judged (after forjar's own data-payload stripping) ---";
+/// See [`I8_DUMP_OPEN`].
+pub(crate) const I8_DUMP_CLOSE: &str = "--- end ---";
 
 /// Strip opaque data payloads that bashrs should not lint.
 ///

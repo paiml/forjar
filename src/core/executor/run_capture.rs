@@ -205,6 +205,41 @@ impl Transcript {
     fn redact(&self, text: &str) -> String {
         crate::core::resolver::redact_transcript(text, &self.secrets)
     }
+
+    /// Refs #679: the FAILURE text under the same policy as the transcript.
+    ///
+    /// The failure text goes to stderr, `state.lock.yaml`, `events.jsonl` and
+    /// `last-apply.yaml`, and an I8 rejection carries the whole resolved script
+    /// (#281). Every named secret is struck. For a sensitive resource the
+    /// script dump is withheld too, because redaction can only strike values
+    /// forjar can name — an `ENC[age,…]` value it cannot.
+    pub fn failure_text(&self, text: &str) -> String {
+        if self.suppress {
+            self.redact(&withhold_script_dump(text))
+        } else {
+            self.redact(text)
+        }
+    }
+}
+
+/// Replace the I8 script dump in `text`, if it carries one, with a notice.
+///
+/// The dump's own markers come from the transport that writes them. If the
+/// clip in `failure_text::transport_failure` cut the closing marker off, the
+/// dump runs to the end of `text`, and all of it goes.
+fn withhold_script_dump(text: &str) -> String {
+    use crate::transport::{I8_DUMP_CLOSE, I8_DUMP_OPEN};
+    let Some(open) = text.find(I8_DUMP_OPEN) else {
+        return text.to_string();
+    };
+    let rest = &text[open..];
+    let tail = rest
+        .find(I8_DUMP_CLOSE)
+        .map_or("", |close| &rest[close + I8_DUMP_CLOSE.len()..]);
+    format!(
+        "{}--- script withheld: the resource is sensitive (#679) ---{tail}",
+        &text[..open]
+    )
 }
 
 /// WHAT was executed: the resource identity and the script that ran.
