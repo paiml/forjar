@@ -94,8 +94,8 @@ fn the_plan_names_the_steps_it_cannot_run() {
         .collect();
     assert_eq!(
         unavailable.len(),
-        2,
-        "seccomp-bpf and forjar-hash-dir are the two mechanisms that do not exist; got {:?}",
+        1,
+        "seccomp-bpf is the one mechanism that does not exist (steps 8–9 have a mechanism since #410 and say NOT EXECUTED instead); got {:?}",
         plan.steps
             .iter()
             .map(|s| &s.description)
@@ -112,10 +112,26 @@ fn the_plan_names_the_steps_it_cannot_run() {
     for s in &plan.steps {
         if let Some(c) = &s.command {
             assert!(
-                !c.contains("seccomp-bpf") && !c.contains("forjar-hash-dir"),
+                !c.contains("seccomp-bpf")
+                    && !c.contains("forjar-hash-dir")
+                    && !c.contains("/HASH/"),
                 "step {} invokes a binary that does not exist: {c}",
                 s.step
             );
         }
+    }
+    // Steps 8–9 have a mechanism (sandbox_seal::seal_output) but no caller while
+    // execute_sandbox_plan refuses; the plan must not read as if they ran.
+    for n in [8u8, 9] {
+        let s = plan
+            .steps
+            .iter()
+            .find(|s| s.step == n)
+            .expect("step present");
+        assert!(
+            s.command.is_none() && s.description.contains("NOT EXECUTED"),
+            "step {n} reads as executed while nothing calls seal_output: {:?}",
+            s.description
+        );
     }
 }
