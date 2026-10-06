@@ -4,7 +4,7 @@
   "branch": "fix/683-cross-rustup-home",
   "base": "61d5a703",
   "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
-  "diff_sha256": "b58b896fee5e8c6c583bee099a8432653d6cbfa9",
+  "diff_sha256": "f2a898a47d70e7725a06ecd6883e919f070e61c0",
   "recorded_at": "after round 1 at d2210701. Evidence commits after it add only .quorum/evidence (claims, lanes, judges with two refuted leads, agy; home paths scrubbed); none changes the workflows or the test.",
   "quorum": {
     "rounds": 1,
