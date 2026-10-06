@@ -132,3 +132,37 @@ fn a_pre_688_failure_row_reads_as_failed() {
         "{again:?}"
     );
 }
+
+/// A resource apply never runs because its dependency failed. Apply counts it
+/// in `resources_failed`; before #688 the run's `resources:` had no row for it.
+/// `continue_independent` keeps the run going past the failure, so the
+/// dependent is reached and skipped rather than the machine stopping.
+#[test]
+fn a_resource_skipped_for_a_failed_dependency_is_recorded_as_skipped() {
+    let d = tempfile::tempdir().unwrap();
+    let cfg = "version: \"1.0\"\n\
+               name: meta-fixture\n\
+               machines:\n  box:\n    hostname: box\n    addr: 127.0.0.1\n\
+               policy:\n  failure: continue_independent\n\
+               resources:\n  guard:\n    type: task\n    machine: box\n    \
+               command: \"exit 1\"\n    completion_check: \"exit 1\"\n  \
+               after:\n    type: task\n    machine: box\n    depends_on: [guard]\n    \
+               command: \"exit 0\"\n    completion_check: \"exit 0\"\n";
+    std::fs::write(d.path().join("forjar.yaml"), cfg).unwrap();
+    let meta = apply_and_read_meta(d.path());
+    assert_eq!(
+        meta["resources"]["guard"]["action"].as_str(),
+        Some("failed")
+    );
+    let row = &meta["resources"]["after"];
+    assert_eq!(
+        row["action"].as_str(),
+        Some("skipped"),
+        "#688: a resource skipped for a failed dependency was recorded as {row:?}"
+    );
+    assert!(
+        row["reason"].as_str().is_some_and(|r| r.contains("guard")),
+        "the skip names the dependency that failed: {row:?}"
+    );
+    assert_eq!(meta["summary"]["skipped"].as_u64(), Some(1));
+}

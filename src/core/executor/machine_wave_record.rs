@@ -268,10 +268,12 @@ fn fail(
         rec.duration,
         error,
     );
-    // Refs #688: every failure writes its run row HERE, the one place every
-    // failure path passes. Only the non-zero-exit arm used to write one, and as
-    // `action: converged`; a resource the host refused after a zero exit, or
-    // one the transport never ran, left the run's `resources:` without it.
+    // Refs #688: every resource that RAN and failed writes its run row HERE,
+    // the one place all three such paths pass. Only the non-zero-exit arm used
+    // to write one, and as `action: converged`; a resource the host refused
+    // after a zero exit, or one the transport never ran, left the run's
+    // `resources:` without it. A resource never run because a dependency
+    // failed is recorded as `skipped` where it is skipped (machine_b.rs).
     update_run_meta(
         ctx,
         cfg.run_id.as_deref(),

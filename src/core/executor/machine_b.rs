@@ -168,6 +168,17 @@ pub(super) fn execute_wave_parallel(
                 );
                 counters.failed += 1;
                 counters.failed_resources.insert(id.clone());
+                // Refs #688: the run's record names the skip too. Without
+                // this row, `resources:` simply lacked a resource apply had
+                // counted as failed.
+                update_run_meta(
+                    ctx,
+                    cfg.run_id.as_deref(),
+                    id,
+                    crate::core::types::ResourceRunStatus::Skipped {
+                        reason: Some(format!("depends on failed '{failed_dep}'")),
+                    },
+                );
                 continue;
             }
         }

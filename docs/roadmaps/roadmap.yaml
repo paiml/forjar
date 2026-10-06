@@ -4866,8 +4866,8 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'ResourceRunStatus has a Failed { exit_code, duration_secs } variant (written as action: failed) and Converged no longer carries failed; a pre-#688 row (action: converged, failed: true) still deserializes, as Failed.'
-  - 'machine_wave_record.rs fail() writes the run row, so a non-zero exit, a zero exit the completion_check refuses, and a transport failure each record action: failed, and summary.failed counts it.'
-  - 'tests/falsification_688_failed_run_meta.rs runs the binary on a one-task fixture and reads the meta.yaml apply wrote as untyped YAML: exit 1 → failed, exit 0 + check 1 → failed, exit 0 + check 0 → converged, and an old row reads as failed. With the three src files at origin/main it fails 3 of 4; ci.yml runs it.'
+  - 'machine_wave_record.rs fail() writes the run row, so a non-zero exit, a zero exit the completion_check refuses, and a transport failure each record action: failed, and summary.failed counts it. A resource skipped because a dependency failed (machine_b.rs) records action: skipped with a reason naming that dependency.'
+  - 'tests/falsification_688_failed_run_meta.rs runs the binary on a one-task fixture and reads the meta.yaml apply wrote as untyped YAML: exit 1 → failed, exit 0 + check 1 → failed, exit 0 + check 0 → converged, a dependent of a failed resource under continue_independent → skipped, and an old row reads as failed. With the recorder and type at origin/main it fails 3 of the first 4; with machine_b.rs at origin/main the skip case fails (no row); ci.yml runs it.'
   phases: []
   subtasks: []
   estimated_effort: null
