@@ -4854,3 +4854,23 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-683
+  github_issue: 683
+  item_type: task
+  title: 'cross legs: RUSTUP_HOME under the work root, so cross can mount the sysroot from a containerized runner'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-06T19:01:00Z
+  updated: 2026-10-06T19:01:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Every job that runs cross build (nightly.yml:build, release.yml:build-binaries, binary-release.yml:build) sets RUSTUP_HOME to ${{ github.workspace }}/../rustup-home-${{ github.job }} beside its CARGO_HOME.'
+  - 'tests/falsification_683_cross_mounts_under_work_root.rs discovers every job whose steps run cross build (it must find all three), resolves the RUSTUP_HOME and CARGO_HOME that step sees (unset RUSTUP_HOME = $HOME/.rustup), and fails naming each one outside the work root. With the three workflows at origin/main it fails, naming all three jobs; ci.yml runs it.'
+  - 'A per-job RUSTUP_HOME starts empty, so every job that sets it installs a toolchain before its first cargo, rustup or cross: release.yml:build-binaries does so on its Linux legs as well as macOS. The falsifier checks it per matrix leg and fails on release.yml at 1d3e2d45, naming all four Linux legs.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
