@@ -5,7 +5,7 @@
   "base": "61d5a703",
   "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
   "diff_sha256": "b58b896fee5e8c6c583bee099a8432653d6cbfa9",
-  "recorded_at": "after round 1 at d2210701. Evidence commits 2edaad57 and d090737b add only .quorum/evidence (claims, lanes, judges with two refuted leads, agy); neither changes the workflows nor the test.",
+  "recorded_at": "after round 1 at d2210701. Evidence commits after it add only .quorum/evidence (claims, lanes, judges with two refuted leads, agy; home paths scrubbed); none changes the workflows or the test.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -28,7 +28,7 @@
     "cargo_test_target": "falsification_683_cross_mounts_under_work_root",
     "reverted": true,
     "still_green_when_reverted": false,
-    "observed_failure": "Measured on t2build. On this branch: 3 passed. nightly.yml, release.yml and binary-release.yml reverted to 61d5a703: 2 passed; 1 failed, naming binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = /home/runner/.rustup. Restored: 3 passed."
+    "observed_failure": "Measured on t2build. On this branch: 3 passed. nightly.yml, release.yml and binary-release.yml reverted to 61d5a703: 2 passed; 1 failed, naming binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = the runner image's $HOME/.rustup. Restored: 3 passed."
   },
   "crux": {
     "systems": [
@@ -73,18 +73,18 @@
         "roles": [
           "claims"
         ],
-        "blob": "7e2f81d6ead91f3e58f995f9fda0305974b25ca2",
-        "sha256": "b57c7b5b30bf61ecb4ffa328cbaef91646ea20f2c6d476081d5e2f432294e839",
-        "bytes": 1131
+        "blob": "39ecf03cfcb8453b4b2dfecf371d2976b5930f3d",
+        "sha256": "1cc439d264acabac4999e33238abb86823885843ca42e30dc547dbd35444fcdc",
+        "bytes": 1145
       },
       {
         "path": ".quorum/evidence/PMAT-683-judges.md",
         "roles": [
           "judges"
         ],
-        "blob": "45ee50fffb8905121ef35be218404be10caa97fa",
-        "sha256": "1a9586752238e3abe20e0083e1f7456c6f8daaa488fde02679917af0a9e4ef45",
-        "bytes": 2943
+        "blob": "f6d68d044d5fe92031b1db6ccd85161bc63fa3d7",
+        "sha256": "1f81de5564a886bbd1d85920d889374526949f73a2881b84865c2ea018464ff0",
+        "bytes": 2957
       },
       {
         "path": ".quorum/evidence/PMAT-683-lanes.md",
@@ -96,7 +96,7 @@
         "bytes": 561
       }
     ],
-    "total_bytes": 4938,
+    "total_bytes": 4966,
     "claims_digest": ".quorum/evidence/PMAT-683-judges.md"
   }
 }

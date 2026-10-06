@@ -11,7 +11,7 @@ Lanes and their findings: see `PMAT-683-lanes.md`. Workflow line numbers are at 
 3. [test] C3 — The test discovers jobs, not named steps, and resolves the env per layer (workflow, job, step); a missing RUSTUP_HOME resolves to `$HOME/.rustup`, as rustup does.
    - evidence: discovery in `cross_jobs`, resolution in `mounted_paths`, the discovery floor in `discovery_finds_every_known_cross_job`, and the fixture `the_pre_683_env_is_caught`.
 4. [falsified] C4 — Reverting the three workflows turns the test red, naming all three jobs.
-   - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = /home/runner/.rustup; restored, 3 passed.
+   - evidence: measured on t2build: workflows at 61d5a703 gave "2 passed; 1 failed", listing binary-release.yml:build, nightly.yml:build and release.yml:build-binaries with RUSTUP_HOME = the runner image's `$HOME/.rustup`; restored, 3 passed.
 
 ## ACCEPTED, NOT CHANGED
 
