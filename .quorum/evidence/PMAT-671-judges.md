@@ -9,7 +9,7 @@ Lanes and their findings: see `PMAT-671-lanes.md`. Line numbers are at head.
 2. [discovery] C2 — The falsifier discovers every step of every workflow whose `run:` contains `cargo install cross` instead of reading one step by name, and the discovery itself must find both the release.yml and the nightly.yml step.
    - evidence: the scan at `tests/falsification_611_cross_on_path.rs:54` and the two required labels in `discovery_finds_the_release_and_nightly_cross_installs`; the sonnet lane grepped the workflows and found exactly those two sites.
 3. [replay] C3 — For each discovered step and each aarch64 target the test runs the step's own script with a fake `cargo` that installs into `$CARGO_HOME/bin`, then replays `$GITHUB_PATH` last-written-first and asks the next step's shell for `cross`.
-   - evidence: the fake cargo at `tests/falsification_611_cross_on_path.rs:85`, the no-cross precondition at `tests/falsification_611_cross_on_path.rs:106` and the replay at `tests/falsification_611_cross_on_path.rs:119`, run for both the gnu and the musl target by their two tests.
+   - evidence: the fake cargo at `tests/falsification_611_cross_on_path.rs:85`, the no-cross precondition at `tests/falsification_611_cross_on_path.rs:106`, and the `$GITHUB_PATH` replay in `cross_resolves_in_next_step`, run for both the gnu and the musl target by their two tests.
 4. [falsified] C4 — With nightly.yml reverted to main the gnu and musl tests fail by name and discovery stays green; restored, all three pass.
    - evidence: measured on t2build at af12be69: branch 3 passed; reverted, "1 passed; 2 failed", both panicking with "cross installed but off PATH in the next step"; restored, 3 passed and the tree clean.
 
