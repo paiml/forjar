@@ -2551,21 +2551,22 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'E12: plan/check/--dry-run are lock-relative and cannot consult a host (GH #415)'
-  status: planned
+  title: 'E12: plan --refresh consults the host before diffing; check and apply --dry-run --refresh already did (GH #415)'
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-09-02T16:20:39Z
+  updated: 2026-10-06T17:45:00Z
   spec: null
   acceptance_criteria:
   - 'See GitHub issue #415 and docs/specifications/forjar-architecture-crux-audit.md'
+  - 'Issue success criterion, verbatim: Drift a file on the host, then `plan --refresh` must show it as a change without an intervening `apply` or `drift` run.'
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
-  notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).'
+  notes: 'Retitled 2026-10-06 from "plan/check/--dry-run are lock-relative and cannot consult a host" to the scope the issue Fix names. Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6). 2026-10-06: delivered as plan --refresh (the issue Fix and Success criterion). check already runs check scripts on the target (src/cli/check.rs) and apply --dry-run --refresh already refreshes before the dry-run return (src/core/executor/mod.rs), so only plan needed the change. Plain apply --dry-run without --refresh stays lock-relative by design, as plain plan does; --refresh is the opt-in for both.'
 - id: PMAT-151
   kind: code
   github_issue: null

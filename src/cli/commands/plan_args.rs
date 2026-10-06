@@ -68,6 +68,12 @@ pub struct PlanArgs {
     /// FJ-1379: Show per-resource explanation of why each change is needed
     #[arg(long)]
     pub why: bool,
+
+    /// forjar#415: Consult the host before diffing — run the drift detectors
+    /// against every machine in scope and plan what they measured as drifted.
+    /// Writes no state.
+    #[arg(long)]
+    pub refresh: bool,
 }
 
 /// CLI arguments for the `plan --compact` command.
