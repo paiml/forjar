@@ -272,32 +272,42 @@ fn matrix_targets(job: &serde_yaml_ng::Value) -> Vec<String> {
     t
 }
 
+/// The first step of one leg that needs a toolchain before the leg has run
+/// an install, or `None` when every such step comes after one.
+fn first_gap<'a>(job: &'a serde_yaml_ng::Value, target: &str) -> Option<&'a serde_yaml_ng::Value> {
+    let mut installed = false;
+    for step in job["steps"].as_sequence().into_iter().flatten() {
+        let runs = step_runs(step["if"].as_str(), target);
+        if is_toolchain_install(step) {
+            installed |= runs == Some(true);
+        } else if !installed && runs != Some(false) && needs_toolchain(step) {
+            return Some(step);
+        }
+    }
+    None
+}
+
+/// Does this job see a RUSTUP_HOME set at workflow or job level?
+fn sets_rustup_home(doc: &serde_yaml_ng::Value, job: &serde_yaml_ng::Value) -> bool {
+    !doc["env"]["RUSTUP_HOME"].is_null() || !job["env"]["RUSTUP_HOME"].is_null()
+}
+
 /// Every leg, of every job whose workflow- or job-level env sets RUSTUP_HOME,
 /// that needs a toolchain before it has installed one.
 fn toolchain_gaps(file: &str, doc: &serde_yaml_ng::Value) -> Vec<String> {
-    let wf_sets = !doc["env"]["RUSTUP_HOME"].is_null();
     let mut gaps = Vec::new();
     for (name, job) in doc["jobs"].as_mapping().into_iter().flatten() {
-        if !wf_sets && job["env"]["RUSTUP_HOME"].is_null() {
+        if !sets_rustup_home(doc, job) {
             continue;
         }
         let name = name.as_str().unwrap_or("?");
         for target in matrix_targets(job) {
-            let mut installed = false;
-            for step in job["steps"].as_sequence().into_iter().flatten() {
-                let runs = step_runs(step["if"].as_str(), &target);
-                if is_toolchain_install(step) {
-                    installed |= runs == Some(true);
-                    continue;
-                }
-                if !installed && runs != Some(false) && needs_toolchain(step) {
-                    gaps.push(format!(
-                        "{file}:{name} [{target}] step {:?} needs a toolchain \
-                         and none is installed in the job's RUSTUP_HOME",
-                        step["name"].as_str().unwrap_or("?")
-                    ));
-                    break;
-                }
+            if let Some(step) = first_gap(job, &target) {
+                gaps.push(format!(
+                    "{file}:{name} [{target}] step {:?} needs a toolchain \
+                     and none is installed in the job's RUSTUP_HOME",
+                    step["name"].as_str().unwrap_or("?")
+                ));
             }
         }
     }
