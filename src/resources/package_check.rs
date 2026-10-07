@@ -27,7 +27,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            verdict::check_script_from(&with_completion_check(checks, resource))
         }
         "cargo" => {
             // GH-257: ask CARGO what it installed, not the PATH.
@@ -176,7 +176,7 @@ pub fn check_script(resource: &Resource) -> String {
             format!(
                 "{}\n{}",
                 crate::resources::package::cargo::path_prelude(),
-                verdict::check_script_from(&checks)
+                verdict::check_script_from(&with_completion_check(checks, resource))
             )
         }
         "uv" => {
@@ -193,7 +193,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            verdict::check_script_from(&with_completion_check(checks, resource))
         }
         "brew" => {
             let checks: Vec<String> = packages
@@ -207,10 +207,27 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            verdict::check_script_from(&with_completion_check(checks, resource))
         }
         other => verdict::check_script_from(&[verdict::always_diverged(&format!(
             "unsupported provider: {other}"
         ))]),
     }
+}
+
+/// forjar#694: the declared `completion_check` is one more assertion.
+///
+/// The provider's lines answer "is it installed"; an author writes
+/// `completion_check` when that is not enough, so it must decide the verdict
+/// too. It was read by nothing for a package, and the box was graded on
+/// presence alone.
+fn with_completion_check(mut checks: Vec<String>, resource: &Resource) -> Vec<String> {
+    if let Some(check) = resource.completion_check.as_deref() {
+        checks.push(verdict::assert_that(
+            check.trim_end(),
+            "completion_check=pass",
+            "completion_check=fail",
+        ));
+    }
+    checks
 }

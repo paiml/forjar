@@ -4875,3 +4875,25 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-694
+  github_issue: 694
+  item_type: task
+  title: 'a package resource runs its completion_check in check.sh, as the postcondition of apply.sh and in the state query'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-07T16:42:00Z
+  updated: 2026-10-07T16:42:00Z
+  spec: null
+  acceptance_criteria:
+  - 'a package with completion_check: false and every package installed fails check.sh; with true it passes (executed, stub dpkg on PATH)'
+  - 'apply.sh exits non-zero with package=not-converged when the completion_check still fails after the provider install (executed)'
+  - 'the state query prints completion_check=pass or completion_check=fail, so drift sees a check that stopped holding'
+  - 'apt, cargo, uv and brew all emit the declared check in check, apply and state_query; a package without one emits no completion_check text'
+  - 'a completion_check adds no I8 finding to any generated script (verdict equal to the same script without one)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null

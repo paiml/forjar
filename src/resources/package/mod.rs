@@ -9,7 +9,18 @@ pub mod cargo;
 use cargo::apply_cargo_present;
 
 /// Generate shell script to install packages.
+///
+/// forjar#694: a declared `completion_check` is the apply's postcondition.
 pub fn apply_script(resource: &Resource) -> String {
+    let body = provider_apply_script(resource);
+    match resource.completion_check.as_deref() {
+        Some(check) => format!("{body}\n{}", completion_postcondition(check)),
+        None => body,
+    }
+}
+
+/// The provider's own install script, before any `completion_check`.
+fn provider_apply_script(resource: &Resource) -> String {
     let provider = resource.provider.as_deref().unwrap_or("apt");
     let state = resource.state.as_deref().unwrap_or("present");
 
@@ -230,6 +241,48 @@ fn apply_brew_absent(resource: &Resource) -> String {
 
 /// Generate shell to query installed versions (for state hashing).
 pub fn state_query_script(resource: &Resource) -> String {
+    let body = provider_state_query(resource);
+    match resource.completion_check.as_deref() {
+        Some(check) => format!("{body}\n{}", completion_query(check)),
+        None => body,
+    }
+}
+
+/// THE DECLARED CHECK IS RUN, NOT RECORDED (forjar#694).
+///
+/// `completion_check` on a package was accepted, validated and then read by
+/// nothing: `check.sh` asked the provider (`dpkg -l`, `cargo install --list`)
+/// and the declared check appeared in no generated script. An author writes it
+/// exactly when presence is not enough -- a JRE that is installed but is not
+/// the java that runs -- so the box was graded on presence while the config
+/// read as if the tool were executed.
+///
+/// This is the apply's postcondition, as GH-254 made it for a task: an install
+/// that exits 0 and leaves the check false has not converged. The check gets a
+/// line of its own, for the reason `verdict::assert_block` gives (a folded
+/// `>-` scalar arrives on one line, and bashrs' line-based rules misread an
+/// `if` sharing it).
+pub(crate) fn completion_postcondition(check: &str) -> String {
+    format!(
+        "if ! {{\n{}\n}}\nthen\n  \
+         echo 'package=not-converged: completion_check still fails after apply' >&2\n  \
+         exit 1\nfi",
+        check.trim_end()
+    )
+}
+
+/// The check's verdict as a line of the state query, so drift -- which hashes
+/// this output -- sees a completion_check that stopped holding.
+fn completion_query(check: &str) -> String {
+    format!(
+        "if {{\n{}\n}} >/dev/null 2>&1\nthen\n  echo 'completion_check=pass'\nelse\n  \
+         echo 'completion_check=fail'\nfi",
+        check.trim_end()
+    )
+}
+
+/// The provider's own state query, before any `completion_check`.
+fn provider_state_query(resource: &Resource) -> String {
     let provider = resource.provider.as_deref().unwrap_or("apt");
     let packages = &resource.packages;
 
