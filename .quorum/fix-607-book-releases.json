@@ -4,10 +4,10 @@
   "branch": "fix/607-book-releases",
   "base": "c6c8591c",
   "base_commit": "c6c8591c801fb836a231f47d998394e789db8559",
-  "diff_sha256": "bc4ba7e1e82cc0eeaeb914c2016ede0d3730b143",
-  "recorded_at": "2026-10-07T20:13:35Z",
+  "diff_sha256": "ee8d1c901ae3e3ffacb6e11b8c1ef5dd78147f41",
+  "recorded_at": "2026-10-07T21:02:24Z",
   "quorum": {
-    "rounds": 3,
+    "rounds": 4,
     "lanes": [
       "head 150e0fac — claude-sonnet-5 FAIL: the row names a dogfood receipt not in the tree; confirmed (C6), answered by ffff31c9",
       "head 150e0fac — agy gemini-3.1-pro-high FAIL: the missing receipt, and the #611 PATH claim not in the diff; refuted as R1",
@@ -17,7 +17,10 @@
       "head ffff31c9 — claude-haiku-4-5 PASS, no findings",
       "head a41fd4e2 (forward-merge of main c6c8591c) — claude-sonnet-5 PASS",
       "head a41fd4e2 — agy gemini-3.1-pro-high PASS",
-      "head a41fd4e2 — claude-haiku-4-5 PASS"
+      "head a41fd4e2 — claude-haiku-4-5 PASS",
+      "head 51dd5c64 (PR B folded in, see .quorum/evidence/fold-manifest.md) — claude-sonnet-5 PASS",
+      "head 51dd5c64 — agy gemini-3.1-pro-high PASS",
+      "head 51dd5c64 — claude-haiku-4-5 PASS"
     ],
     "judges": 3,
     "refuters_per_claim": 3,
