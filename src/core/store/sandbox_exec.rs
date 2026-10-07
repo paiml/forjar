@@ -8,8 +8,8 @@
 //! 5. Seccomp BPF (Full level: deny connect/mount/ptrace)
 //! 6. Execute bashrs-purified build script
 //! 7. Extract outputs from $out
-//! 8. hash_directory() → store hash
-//! 9. Atomic move to store
+//! 8. hash_directory($out) → store hash (sandbox_seal::seal_output; not yet called)
+//! 9. Atomic move to <store>/<hash>/content (sandbox_seal::seal_output; not yet called)
 //! 10. Destroy namespace
 //!
 //! All I/O operations produce plans (command lists) rather than executing
@@ -203,26 +203,26 @@ pub fn plan_sandbox_build(
         command: Some(format!("test -d {}", out_dir.display())),
     });
 
-    // Step 8: hash_directory
+    // Steps 8–9 (#410): no shell. `sandbox_seal::seal_output` hashes $out and
+    // renames it to <store>/<hash>/content; the hash is not known until then.
+    // Nothing calls it yet: execute_sandbox_plan still refuses, so both steps
+    // say NOT EXECUTED.
     steps.push(SandboxStep {
         step: 8,
-        // Refs #410: `forjar-hash-dir` does not exist either; same rule as step 5.
         description: format!(
-            "Compute BLAKE3 hash of output directory {} — NOT EXECUTABLE: forjar-hash-dir does not exist (#410)",
+            "Compute BLAKE3 hash of output directory {} — implemented by sandbox_seal::seal_output; NOT EXECUTED: no execution path calls it while execute_sandbox_plan refuses (#410)",
             out_dir.display()
         ),
         command: None,
     });
 
-    // Step 9: Atomic move to store
     steps.push(SandboxStep {
         step: 9,
-        description: "Atomic move to content-addressed store".to_string(),
-        command: Some(format!(
-            "mv {} {}/HASH/content",
-            out_dir.display(),
-            store_dir.display(),
-        )),
+        description: format!(
+            "Atomic move to {}/<hash>/content — implemented by sandbox_seal::seal_output; NOT EXECUTED: no execution path calls it while execute_sandbox_plan refuses (#410)",
+            store_dir.display()
+        ),
+        command: None,
     });
 
     // Step 10: Destroy namespace

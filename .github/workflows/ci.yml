@@ -210,6 +210,13 @@ jobs:
       # cargo without it, and the other legs leave OPENSSL_SRC_PERL unset.
       - name: The nightly's Windows leg must build OpenSSL with Strawberry perl
         run: cargo test --locked --test falsification_nightly_windows_openssl_perl
+      # #683: cross mounts the toolchain sysroot through the docker HOST. On a
+      # containerized runner only the work root is shared with the host, so a
+      # RUSTUP_HOME outside it became an empty /rust: `cargo: not found`, on
+      # whichever aarch64 leg was scheduled there. Discovers every job that runs
+      # `cross build` and resolves the env its step sees.
+      - name: Every path cross mounts must be under the runner's work root
+        run: cargo test --locked --test falsification_683_cross_mounts_under_work_root
       # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
       # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
       # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake

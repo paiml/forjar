@@ -170,13 +170,17 @@ pub fn plan_derivation(
 
     steps.push(DerivationStep {
         step: 7,
-        description: "Compute BLAKE3 hash of $out directory — NOT EXECUTABLE: forjar-hash-dir does not exist (#410)".to_string(),
+        description:
+            "Compute BLAKE3 hash of $out directory — implemented by sandbox_seal::seal_output; NOT EXECUTED: no execution path calls it while execute_sandbox_plan refuses (#410)"
+                .to_string(),
         skipped: false,
     });
 
     steps.push(DerivationStep {
         step: 8,
-        description: "Atomic move output to store".to_string(),
+        description:
+            "Atomic move output to <store>/<hash>/content — implemented by sandbox_seal::seal_output; NOT EXECUTED: no execution path calls it while execute_sandbox_plan refuses (#410)"
+                .to_string(),
         skipped: false,
     });
 

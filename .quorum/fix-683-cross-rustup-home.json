@@ -1,0 +1,115 @@
+{
+  "kind": "code",
+  "issue": "forjar#683 — cross legs died `cargo: not found` on a containerized runner: the sysroot cross mounts through the host daemon came from an image-layer RUSTUP_HOME. RUSTUP_HOME is now under the work root, beside CARGO_HOME, in every job that runs cross build, and every job that sets it installs a toolchain into it first.",
+  "branch": "fix/683-cross-rustup-home",
+  "base": "46ee342d",
+  "base_commit": "46ee342d2521e58f95eb728dc3a233ec8b331b61",
+  "diff_sha256": "f7c33e6140d009e0a8c5ccb83ecd3377ea411700",
+  "recorded_at": "after round 5 at 930fe3e1. The one commit after it (e158151f) adds only round 5 lines to .quorum/evidence; it changes no workflow or test.",
+  "quorum": {
+    "rounds": 5,
+    "lanes": [
+      "head d2210701 — claude-sonnet-5 PASS, two non-blocking findings (answered in PMAT-683-lanes.md)",
+      "head d2210701 — agy gemini-3.1-pro-high PASS, sandboxed",
+      "head d2210701 — claude-haiku-4-5 PASS, no findings",
+      "head 91b12a6a (main merged in, branch diff unchanged) — claude-sonnet-5 PASS, four non-blocking notes",
+      "head 91b12a6a — agy gemini-3.1-pro-high PASS, sandboxed",
+      "head 91b12a6a — claude-haiku-4-5 PASS, no findings",
+      "head 1d3e2d45 — claude-sonnet-5 FAIL: an empty per-job RUSTUP_HOME left release.yml Linux legs with no toolchain; answered by a86201fa",
+      "head 1d3e2d45 — agy gemini-3.1-pro-high PASS, sandboxed",
+      "head 1d3e2d45 — claude-haiku-4-5 PASS",
+      "head a86201fa — claude-sonnet-5 FAIL: the receipt was stale (3 tests, C1-C4); answered by 930fe3e1",
+      "head a86201fa — agy gemini-3.1-pro-high FAIL: the same stale receipt, and scope (refuted as R3)",
+      "head a86201fa — claude-haiku-4-5 PASS",
+      "head 930fe3e1 — claude-sonnet-5 PASS, no findings",
+      "head 930fe3e1 — agy gemini-3.1-pro-high PASS, sandboxed",
+      "head 930fe3e1 — claude-haiku-4-5 PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "R1: the aarch64-gnu target is what is broken — the failure follows the runner, not the target.",
+      "R2: cross is off PATH again (#611/#671) — cross resolved and pulled its image; cargo was missing inside its container.",
+      "R3: the toolchain install is outside the ticket — an empty per-job RUSTUP_HOME has no toolchain without it."
+    ]
+  },
+  "falsification": {
+    "test": "every_path_cross_mounts_is_under_the_work_root and every_job_that_sets_rustup_home_installs_a_toolchain_first (with discovery_finds_every_known_cross_job, the_pre_683_env_is_caught and a_leg_with_no_toolchain_install_is_caught)",
+    "test_file": "tests/falsification_683_cross_mounts_under_work_root.rs",
+    "cargo_test_target": "falsification_683_cross_mounts_under_work_root",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured locally. Path check, at 1d3e2d45: the three workflows reverted to 61d5a703 gave 2 passed; 1 failed, naming binary-release.yml:build, nightly.yml:build and release.yml:build-binaries; restored, 3 passed. Toolchain check, at a86201fa: release.yml at 1d3e2d45 gave 4 passed; 1 failed, naming all four Linux legs of release.yml:build-binaries; restored, 5 passed."
+  },
+  "crux": {
+    "systems": [
+      "cross-rs: documents that inside a container it must reach the host daemon and that mounted paths must exist on the host (CROSS_CONTAINER_IN_CONTAINER exists for exactly this)",
+      "GitHub Actions container jobs: the runner maps only its work and temp dirs into job containers, so tool paths are placed under them",
+      "Docker-in-Docker CI (GitLab docker executor): a bind-mount source is resolved by the daemon on its own host, never by the client container"
+    ],
+    "verdict": "No crux row is owed: all three put every path a sibling container mounts on the daemon host; this branch does the same by keeping RUSTUP_HOME and CARGO_HOME under the identity-mounted work root."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high) per round, brief inline, no build, no writes, 14m budget",
+    "rounds": 5,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS in rounds 1, 2, 3 and 5; FAIL in round 4 on the stale receipt, since removed and rebuilt. C1-C6 confirmed at 930fe3e1."
+  },
+  "pmat": {
+    "ticket": "forjar#683",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2214 files parsed, 19879 tests examined, 432 cannot fail and 3 skip silently, 0 of them in the touched paths",
+      "cargo test --locked --test falsification_683_cross_mounts_under_work_root: 5 passed; 1 failed with the three workflows reverted, 1 failed with release.yml at 1d3e2d45"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-683-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "e7f018e2731181a6b7a73bf913524e4abeacaaf2",
+        "sha256": "f8085ebf7973010889d9b746df49c912c30ea6633479687274e007454a3271cf",
+        "bytes": 504
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "fa4c2b8211ba2964eafa4f9b2aaaeff66ca53d62",
+        "sha256": "6453553ee7544b705023dbe4067703cb3da2c203319c020a6a39f513f94b9cbc",
+        "bytes": 1835
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "dd109e7130763b0267ed09a0bbebfd1371339c28",
+        "sha256": "847ae85d02325bb80cef1f7148d524519e7c761d8ec3c44f779b3b88441d330b",
+        "bytes": 4604
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "bf3b3500b1658bf13c4ee7dd3ad6866438d08c5d",
+        "sha256": "17665758a3c0da53602fdb4c46698281345df9d8245101e604eed76e9afd5dec",
+        "bytes": 3294
+      }
+    ],
+    "total_bytes": 10237,
+    "claims_digest": ".quorum/evidence/PMAT-683-judges.md"
+  }
+}
