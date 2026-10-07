@@ -1,0 +1,124 @@
+# Complexity LAB -- forjar#692.
+#
+# The generated pre-commit hook refuses a commit whose touched function grew
+# past the pmat.toml [quality] limits. The hook is opt-in per clone, so a commit
+# made where it is not installed reaches main unchecked: #690 landed
+# toolchain_gaps at Cognitive 39 > 25, and the next PR to merge main had its
+# merge commit refused for a function it never wrote (#693 repaired it).
+#
+# This is a LAB check, not a GATE. It runs on a schedule only: never on a pull
+# request, the merge queue or a release, and nothing needs it, so it cannot
+# block a merge or a release. Making it a GATE is a ruling of its own, after
+# green nights on main.
+#
+# Every night it asks the hook's question of everything main took in since the
+# last green night: scripts/ci/complexity-diff-scope.sh, the same
+# `pmat analyze complexity --diff-scope`, limits from pmat.toml.
+#
+# A red run keeps exactly ONE open issue titled `complexity LAB: ...` and edits
+# its body in place -- no comment, so a red night after a red night notifies
+# no one. Green closes it. Red or unmeasured for 7 days, the check stops
+# measuring until its owner closes the issue, which brings it back.
+#
+# No `continue-on-error`, no `|| true`: a red check is a red run.
+# tests/falsification_692_complexity_is_a_lab_check.rs pins this shape.
+
+name: Complexity LAB
+
+on:
+  schedule:
+    - cron: '30 4 * * *'
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: complexity-lab
+  cancel-in-progress: false
+
+jobs:
+  complexity-lab:
+    runs-on: [self-hosted, clean-room, X64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: The open issue, and whether the 7-day stop applies
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 500 --json number,title,createdAt \
+            --jq '[.[] | select(.title | startswith("complexity LAB: "))] | sort_by(.number) | .[0] // empty | "\(.number) \(.createdAt)"')"
+          number="${open%% *}"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          stopped=false
+          if [ -n "$open" ]; then
+            age_s=$(( $(date -u +%s) - $(date -u -d "${open#* }" +%s) ))
+            if [ "$age_s" -ge $(( 7 * 86400 )) ]; then
+              stopped=true
+              echo "complexity LAB: STOPPED -- red or unmeasured for 7 days (#$number). Closing it brings the check back."
+            fi
+          fi
+          echo "stopped=$stopped" >> "$GITHUB_OUTPUT"
+
+      - name: The base -- the commit the last green night judged
+        id: base
+        if: steps.issue.outputs.stopped == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow complexity-lab.yml --branch main --status success \
+            --limit 1 --json headSha --jq '.[0].headSha // empty')"
+          if [ -z "$base" ]; then
+            # No green night yet: judge the last day of main.
+            base="$(git rev-list -1 --before='25 hours ago' HEAD)"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Touched functions stay within the pmat.toml limits
+        if: steps.issue.outputs.stopped == 'false'
+        env:
+          BASE: ${{ steps.base.outputs.base }}
+        run: |
+          set -o pipefail
+          bash scripts/ci/complexity-diff-scope.sh "$BASE" 2>&1 | tee complexity.log
+
+      - name: Keep one issue, edited in place, while the check is red
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPEN: ${{ steps.issue.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          verdict="a step failed before the check printed its verdict -- see the run"
+          if [ -f complexity.log ]; then
+            verdict="$(awk '/^complexity: (UNMEASURED|[0-9]+ of [0-9]+ Rust file)/ { v = $0 } END { print v }' complexity.log)"
+            if [ -z "$verdict" ]; then verdict="the check printed no verdict -- see the run"; fi
+          fi
+          refused=""
+          if [ -f complexity.log ]; then
+            refused="$(awk '/^  REFUSED|^           / && n++ < 60' complexity.log)"
+          fi
+          body="$(printf '%s\n\nrun: %s\ncommit: %s\n\n```\n%s\n```\n\nLAB check (forjar#692): it cannot block a merge or a release. Limits live in pmat.toml [quality]; split the function. Green closes this issue. Red for 7 days stops the check until this issue is closed.\n' \
+            "$verdict" "$RUN_URL" "$GITHUB_SHA" "$refused")"
+          if [ -n "$OPEN" ]; then
+            gh issue edit "$OPEN" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "complexity LAB: ${verdict:0:80}" --body "$body"
+          fi
+
+      - name: Close the issue when the check is green
+        if: success() && steps.issue.outputs.stopped == 'false' && steps.issue.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPEN: ${{ steps.issue.outputs.number }}
+        run: |
+          set -euo pipefail
+          gh issue close "$OPEN" --repo "$GITHUB_REPOSITORY" --comment "green again at $GITHUB_SHA: $(awk '/^complexity: 0 of/ { print; exit }' complexity.log)"

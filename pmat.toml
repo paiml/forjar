@@ -4,8 +4,8 @@
 #   * `pmat hooks install|refresh` writes these into the pre-commit hook as
 #     PMAT_MAX_CYCLOMATIC_COMPLEXITY / PMAT_MAX_COGNITIVE_COMPLEXITY (pmat reads
 #     `[quality]` from ./pmat.toml when it generates the hook).
-#   * scripts/ci/complexity-diff-scope.sh reads them here for the CI
-#     `complexity` job that `gate` requires.
+#   * scripts/ci/complexity-diff-scope.sh reads them here for the nightly
+#     LAB workflow .github/workflows/complexity-lab.yml (not a merge gate).
 #
 # The values are pmat's own defaults, which is what the hook carried before this
 # file existed, so no limit moved. Change a limit here and both readers follow;

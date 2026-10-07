@@ -30,13 +30,6 @@ outputs:
       value cannot be told apart from a classifier that did not run, and the
       workflow gate refuses one (PMAT-542).
     value: ${{ steps.classify.outputs.gates }}
-  base:
-    description: >-
-      The commit the change was measured against (the PR's base tip, or the
-      tip a push moved from), as a full SHA. EMPTY when there was no usable
-      base -- a consumer must treat that as unmeasured, never as "no change"
-      (forjar#692).
-    value: ${{ steps.classify.outputs.base }}
 
 runs:
   using: composite
@@ -76,13 +69,9 @@ runs:
         if git rev-parse --verify "$BASE^{commit}" >/dev/null 2>&1; then
           echo "Comparing against $BASE"
           changed="$(git diff --name-only --no-renames "$BASE"...HEAD)"
-          # forjar#692: the complexity job measures against the SAME base, so
-          # the two cannot disagree about what the change is.
-          echo "base=$(git rev-parse "$BASE^{commit}")" >> "$GITHUB_OUTPUT"
         else
           echo "No usable base (BASE='${BASE:-}') — the change is UNMEASURED, which is code."
           changed=""
-          echo "base=" >> "$GITHUB_OUTPUT"
         fi
 
         # `--no-renames`: a rename is reported as its NEW path alone, so

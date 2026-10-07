@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# forjar#692 -- the complexity limits the pre-commit hook says `gate` enforces.
+# forjar#692 -- the complexity limits the pre-commit hook enforces, asked of main.
 #
 # Usage: scripts/ci/complexity-diff-scope.sh <base-commit>
 #
-# The pre-commit hook calls itself FEEDBACK and says `ci / gate` enforces the
-# thresholds. Until this script, nothing in CI did: a commit made where the hook
-# is not installed reached main unchecked, and the next PR to merge main had its
-# merge commit refused for a function it never wrote (#683 -> #693).
+# The pre-commit hook is opt-in per clone, so a commit made where it is not
+# installed reached main unchecked (#690), and the next PR to merge main had
+# its merge commit refused for a function it never wrote (#693). The nightly
+# LAB workflow .github/workflows/complexity-lab.yml runs this script; it is not
+# a merge or release gate.
 #
 # WHAT IS JUDGED. Exactly what the hook judges, with the same pmat command:
 # `pmat analyze complexity --file <f> --diff-scope`, for every Rust file the
@@ -16,8 +17,8 @@
 # billed to the PR.
 #
 # WHICH BASE. The caller passes the commit the change is measured against (the
-# changed-class action's `base`: the PR's base tip, or the tip a push moved
-# from). The diff is taken from `git merge-base <base> HEAD`, never `HEAD^` or
+# commit the last green night judged), and the diff runs from
+# `git merge-base <base> HEAD`, never `HEAD^` or
 # `HEAD`: in a merge commit those are the branch, and every function main
 # brought in looks new.
 #
