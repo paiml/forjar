@@ -98,7 +98,7 @@ resources:
     content: "hello"
 "#;
         let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        export_scripts(&config, &output_dir).unwrap();
+        export_scripts(&config, &output_dir, None).unwrap();
         assert!(output_dir.join("my-pkg.check.sh").exists());
         assert!(output_dir.join("my-pkg.apply.sh").exists());
         assert!(output_dir.join("my-file.check.sh").exists());
@@ -124,7 +124,7 @@ resources:
     content: "server {}"
 "#;
         let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        export_scripts(&config, &output_dir).unwrap();
+        export_scripts(&config, &output_dir, None).unwrap();
         // Slashes should be replaced with --
         assert!(output_dir.join("web--config.check.sh").exists());
         assert!(output_dir.join("web--config.apply.sh").exists());
@@ -196,7 +196,7 @@ resources:
 
         let config = parser::parse_and_validate(&config_path).unwrap();
         let out_dir = dir.path().join("scripts");
-        export_scripts(&config, &out_dir).unwrap();
+        export_scripts(&config, &out_dir, None).unwrap();
 
         // Check that the apply script has metadata header
         let apply = std::fs::read_to_string(out_dir.join("web-cfg.apply.sh")).unwrap();
@@ -205,6 +205,59 @@ resources:
         assert!(apply.contains("# type: file"));
         assert!(apply.contains("# group: frontend"));
         assert!(apply.contains("# tags: web, critical"));
+    }
+
+    // ── forjar#674: plan --output-dir exports the plan's selection, secrets by name ──
+
+    const FJ674_YAML: &str = r#"
+version: "1.0"
+name: t674
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+secrets:
+  provider: sops
+  file: /nonexistent/forjar-674.enc.yaml
+resources:
+  wanted:
+    type: file
+    machine: m
+    path: /etc/wanted.conf
+    content: "plain"
+  needs-secret:
+    type: task
+    machine: m
+    command: "post --token {{secrets.slack-bot-token}}"
+"#;
+
+    #[test]
+    fn test_fj674_export_honours_selection() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("scripts");
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(FJ674_YAML).unwrap();
+        let selected: std::collections::BTreeSet<String> = ["wanted".to_string()].into();
+        export_scripts(&config, &out, Some(&selected)).unwrap();
+        assert!(out.join("wanted.apply.sh").exists());
+        assert!(
+            !out.join("needs-secret.apply.sh").exists(),
+            "an unselected resource was exported"
+        );
+    }
+
+    #[test]
+    fn test_fj674_export_names_secrets_never_resolves_them() {
+        // The provider is sops on a file that does not exist, so resolving the
+        // secret fails: an export that succeeds never asked the provider.
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("scripts");
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(FJ674_YAML).unwrap();
+        export_scripts(&config, &out, None).unwrap();
+        let apply = std::fs::read_to_string(out.join("needs-secret.apply.sh")).unwrap();
+        assert!(
+            apply.contains("post --token FORJAR_REDACTED_SECRET_slack-bot-token"),
+            "secret not shown by name: {apply}"
+        );
     }
 
     // ── FJ-303: status --summary ──
