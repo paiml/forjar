@@ -1,18 +1,8 @@
-# Claims: forjar#607, the T3 rule and phase 2. Gate T's two remaining reds on v1.33.0, fixed in the tool
+# Claims: forjar#607, phase 2. The booked row is amended, never edited
 
-Phase 1 (the parent PR) booked v1.33.0 with `release-goal.sh cut`, and its
-claim C6 says gate T stays red. T3 is red on #643 and #646, which name their
-tickets only as a bare `#642` and `#624`. That is the work this ticket still
-owes: "book v1.33.0 with the tool gate T names". This branch carries the two
-remaining pieces as two commits, each with its own round.
-
-**The T3 rule (be506c19).** A PR that names no `PMAT-<n>` resolves
-the first bare `#N` in its title, then its body. It resolves only through the
-roadmap row whose `github_issue:` is N.
-
-- With no such row, it stays red.
-- The next `#N` is never tried.
-- Two rows filed from one issue resolve to neither.
+The T3 rule (claims in PMAT-607-p1-claims.md) makes gate T read #643 and
+#646 as PMAT-642 and PMAT-624. v1.33.0's row, booked by this PR's cut, does
+not declare them. This is the second of the two pieces.
 
 **Phase 2 (421e1082): the booked row.** The fixed rule measures v1.33.0's
 window as including PMAT-624 and PMAT-642. The booked row does not declare
@@ -41,5 +31,6 @@ appends instead.
   - one or more is red with the fault check off;
   - one or more is red with amend keeping the forward label.
 
-Out of scope here: running `amend` on v1.33.0. It runs from main after this
-merges, then gate T, then the next cut.
+Running `amend v1.33.0` is the step after this PR, not part of it. It runs on
+main once this merges, so the amendment record is written by the tool as
+merged and reviewed, not by an unmerged branch. Then gate T, then the next cut.
