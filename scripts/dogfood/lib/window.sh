@@ -303,6 +303,12 @@ dogfood_roadmap_rows() {
   DOGFOOD_ROW_STATUSES="$(printf '%s\n' "$text" | awk '
     /^- id: /        { id = $3; next }
     /^  status: /    { if (id != "") { print id " " $2; id = "" } next }')"
+  # PMAT-607: the GitHub issue a row was filed from, the one place a bare `#N`
+  # in a PR may resolve (`dogfood_issue_row`). The row-level key only, and
+  # only a number: `github_issue: null` names no issue.
+  DOGFOOD_ROW_ISSUES="$(printf '%s\n' "$text" | awk '
+    /^- id: /                       { id = ($3 ~ /^PMAT-[0-9]+$/) ? $3 : ""; next }
+    /^  github_issue: [0-9]+[ \t]*$/ { if (id != "") print id " " $2; next }')"
   DOGFOOD_ROW_IDS_LOADED=1
 }
 
@@ -430,7 +436,47 @@ $2"
   if [ -n "$first" ]; then
     dogfood_resolve_id "$first"
     DOGFOOD_TICKET="$DOGFOOD_ROW"
+    return 0
   fi
+  # PMAT-607: a PR that names NO PMAT id anywhere may name its ticket as the
+  # GitHub issue it was filed from — #643 is titled "fixes #642", and #646's
+  # body says "#624". The FIRST bare `#N` in the title, then the body, resolves
+  # only through the roadmap row whose `github_issue` is N. With no such row it
+  # resolves to nothing and the PR stays unticketed (red); the next `#N` is
+  # never tried, for the reason a stray id is never skipped (above).
+  dogfood_issue_in "$2"
+  [ -n "$DOGFOOD_ISSUE" ] || dogfood_issue_in "$3"
+  if [ -n "$DOGFOOD_ISSUE" ]; then
+    dogfood_issue_row "$DOGFOOD_ISSUE"
+    DOGFOOD_TICKET="$DOGFOOD_ROW"
+    DOGFOOD_TICKETS="$DOGFOOD_ROW"
+  fi
+}
+
+# The first BARE `#N` in $1 -> DOGFOOD_ISSUE (the number, or empty). Bare means
+# not glued to a word, a path or another reference: `forjar#624`, `org/repo#1`,
+# `PR-#3`, `##5` and `v1.#2` are not this repo's issue N, and a rule that read
+# them as one would credit a PR to a ticket it never named.
+dogfood_issue_in() {
+  local rc=0 hit
+  hit="$(printf '%s\n' "$1" | grep -o -E '(^|[^[:alnum:]_/.#-])#[0-9]+' | awk 'NR == 1')" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} scanning a PR for an issue reference — UNMEASURED"
+  fi
+  DOGFOOD_ISSUE="${hit##*#}"
+}
+
+# The one row whose `github_issue` is $1 -> DOGFOOD_ROW (empty when none).
+# Two rows filed from one issue name two owners, which is no owner: fail, as
+# an alias declared twice does.
+dogfood_issue_row() {
+  local rows
+  dogfood_roadmap_rows
+  rows="$(awk -v n="$1" '$2 == n { print $1 }' <<< "$DOGFOOD_ROW_ISSUES" | tr '\n' ' ' | sed 's/ *$//')"
+  case "$rows" in
+    *" "*) fail "more than one roadmap row declares github_issue: $1 (${rows}), so #$1 resolves to no single ticket — a declaration that names two owners names none" ;;
+    *) DOGFOOD_ROW="$rows" ;;
+  esac
 }
 
 # Classify one id into DOGFOOD_TICKETS or DOGFOOD_STRAY_IDS, once.
@@ -451,15 +497,17 @@ dogfood_take_id() {
 
 # The ticket census of the window in DOGFOOD_PR_JSON -> DOGFOOD_WINDOW_TICKETS
 # (space-separated, version-sorted, unique), DOGFOOD_WINDOW_STRAYS ("#<pr>:<id>,
-# <id>" per PR naming an id that resolves to no row), DOGFOOD_WINDOW_UNTICKETED
-# ("#<pr>" per PR naming no row at all). Every PR's ids go through
-# `dogfood_pr_tickets`, the one rule. An empty census is a legitimate answer:
+# <id>" per PR naming an id that resolves to no row), DOGFOOD_WINDOW_PR_TICKETS
+# ("<pr> <id> <id>", one line per PR: the evidence an amendment cites) and
+# DOGFOOD_WINDOW_UNTICKETED ("#<pr>" per PR naming no row at all). Every PR's
+# ids go through `dogfood_pr_tickets`, the one rule. An empty census is a
+# legitimate answer:
 # `awk NF` selects the non-empty lines and, unlike `grep -v '^$'`, exits 0 when
 # there are none — a grep exit 1 under pipefail inside this assignment would
 # kill the caller with no verdict line (measured on the v1.25.1 window, which
 # names no ticket at all).
 dogfood_window_tickets() {
-  local i=0 num href title body all="" strays="" none=""
+  local i=0 num href title body all="" strays="" none="" pairs=""
   while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     dogfood_pr_field "$i" ".number"; num="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".headRefName"; href="$DOGFOOD_FIELD"
@@ -467,6 +515,7 @@ dogfood_window_tickets() {
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
     all="$all $DOGFOOD_TICKETS"
+    pairs="${pairs}${num} ${DOGFOOD_TICKETS}"$'\n'
     [ -z "$DOGFOOD_STRAY_IDS" ] || strays="$strays #${num}:${DOGFOOD_STRAY_IDS// /,}"
     [ -n "$DOGFOOD_TICKETS" ] || none="$none #${num}"
     i=$((i + 1))
@@ -475,4 +524,5 @@ dogfood_window_tickets() {
   DOGFOOD_WINDOW_TICKETS="$(printf '%s\n' $all | awk 'NF' | sort -u -V | tr '\n' ' ' | sed 's/ *$//')"
   DOGFOOD_WINDOW_STRAYS="${strays# }"
   DOGFOOD_WINDOW_UNTICKETED="${none# }"
+  DOGFOOD_WINDOW_PR_TICKETS="$pairs"
 }

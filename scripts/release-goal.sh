@@ -22,7 +22,16 @@
 #                                         row, declare NEXT with due = TAG's cut +
 #                                         cadence, and move any `release:TAG` label
 #                                         on a ticket TAG did not ship to `release:NEXT`
+#   release-goal.sh amend TAG             TAG is booked and its window now names tickets
+#                                         its row does not declare (the rule that reads
+#                                         a PR changed after the cut): append an
+#                                         `amendments:` record for them, label each
+#                                         `release:TAG`, and take back the
+#                                         `release:<following>` the cut moved it to
 #
+# A BOOKED ROW IS NEVER EDITED (PMAT-607). `amend` adds and cannot remove: it
+# refuses a row that declares a ticket its window does not name, and a row whose
+# PRs are not its window's.
 # READS THE WORKING TREE and says so. The gate reads HEAD. A status that
 # ignores the label you just added is not a status (the PMAT-225 plan grill).
 #
@@ -366,6 +375,103 @@ cmd_cut() {
   done
 }
 
+# Append amendment record $2 (its YAML lines) to the ledger's `amendments:`
+# block, which sits above `releases:` so that book_row, which appends rows
+# above `next:`, never writes a row into it. With no block, the block opens
+# just above `releases:`. `amendments: []` opens as `amendments:`.
+amend_ledger() {
+  local path=docs/roadmaps/releases.yaml rc=0
+  local tmp="${path}.release-goal.tmp"
+  RG_REC="$1" awk '
+    { line[++n] = $0 }
+    END {
+      for (i = 1; i <= n; i++) {
+        if (line[i] == "amendments: []") line[i] = "amendments:"
+        if (line[i] == "amendments:") { if (r) exit 4; a = i }
+        if (!r && (line[i] == "releases:" || line[i] == "releases: []")) r = i
+      }
+      if (!r) exit 3
+      if (a) { e = a; while (e + 1 < r && substr(line[e + 1], 1, 2) == "  ") e++ }
+      for (i = 1; i <= n; i++) {
+        if (!a && i == r) { print "amendments:"; print ENVIRON["RG_REC"] }
+        print line[i]
+        if (a && i == e) print ENVIRON["RG_REC"]
+      }
+    }' "$path" >"$tmp" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    rm -f "${tmp:?}"
+    case "$rc" in
+      3) echo "release-goal: no releases: line in ${path}" >&2 ;;
+      4) echo "release-goal: ${path} has an amendments: block below releases:, where book_row would append rows into it" >&2 ;;
+      *) echo "release-goal: awk exited ${rc} writing ${path}" >&2 ;;
+    esac
+    exit 3
+  fi
+  mv "$tmp" "$path"
+}
+
+# $* (numbers or ids, space-separated) -> "a, b" in the given sort order $1.
+csv() {
+  local order="$1"
+  shift
+  printf '%s\n' "$@" | awk 'NF' | sort "$order" -u | tr '\n' ' ' | sed 's/ *$//; s/ /, /g'
+}
+
+cmd_amend() {
+  local tag="$1" declared declared_prs t missing="" extra="" pr ids evidence="" following upper
+  git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || fail "no such tag: ${tag}"
+  dogfood_load_releases
+  dogfood_release_row "$tag"
+  [ -n "$DOGFOOD_RELEASE_ROW" ] || fail "${tag} has no row in docs/roadmaps/releases.yaml: amend adds to a booked row (book one with: release-goal.sh cut ${tag} --next vX.Y.Z)"
+  dogfood_release_tickets "$tag"
+  declared="$(jq -r '.[]' <<<"$DOGFOOD_RELEASE_TICKETS" | tr '\n' ' ')"
+  declared_prs="$(jq -r '.prs | sort | map(tostring) | join(", ")' <<<"$DOGFOOD_RELEASE_ROW")"
+  lower_tag_of "$tag"
+  dogfood_prs_between "$LOWER" "$tag"
+  window_prs
+  [ "$PRS" = "$declared_prs" ] || fail "${tag} declares prs [${declared_prs}] and its window is [${PRS}]: amend adds tickets to a row whose window is right, and this one's is not"
+  window_tickets
+  for t in $TICKETS; do
+    case " $declared " in *" $t "*) ;; *) missing="${missing:+$missing }$t" ;; esac
+  done
+  for t in $declared; do
+    case " $TICKETS " in *" $t "*) ;; *) extra="${extra:+$extra }$t" ;; esac
+  done
+  [ -z "$extra" ] || fail "${tag} declares ${extra} and no PR of its window names it: an amendment only adds, and cannot take a declared ticket back"
+  [ -n "$missing" ] || fail "${tag} already declares every ticket its window names [${TICKETS}]: nothing to amend"
+  # The evidence: every PR of the window that names a ticket the row missed.
+  while read -r pr ids; do
+    for t in $ids; do
+      case " $missing " in *" $t "*) evidence="$evidence $pr"; break ;; esac
+    done
+  done <<<"$DOGFOOD_WINDOW_PR_TICKETS"
+  # shellcheck disable=SC2086 — lists, split on purpose
+  amend_ledger "  - tag: ${tag}
+    at: ${STAMP}
+    tickets: [$(csv -V $missing)]
+    prs: [$(csv -n $evidence)]"
+  echo "amended ${tag}: +[$(csv -V $missing)] named by PR(s) [$(csv -n $evidence)]"
+  # The labels: release:TAG on each, and the release:<following> the cut moved
+  # it to taken back unless the following window names it too.
+  following="$(printf '%s' "$DOGFOOD_RELEASES" | jq -r --arg t "$tag" '[.releases[].tag] as $a | ([range(0; $a | length) | select($a[.] == $t)][0]) as $i | $a[$i + 1] // ""')"
+  upper="$following"
+  if [ -z "$following" ]; then
+    dogfood_releases_field '.next.tag'; following="$DOGFOOD_FIELD"
+    upper=HEAD
+  fi
+  for t in $missing; do
+    label_row "$t" "release:${tag}"
+  done
+  dogfood_prs_between "$tag" "$upper"
+  window_tickets
+  for t in $missing; do
+    case " $TICKETS " in
+      *" $t "*) ;;
+      *) unlabel_row "$t" "release:${following}" ;;
+    esac
+  done
+}
+
 cmd="${1:-}"
 if [ $# -gt 0 ]; then shift; fi
 case "$cmd" in
@@ -375,5 +481,6 @@ case "$cmd" in
   alias) [ $# -eq 2 ] || fail "usage: release-goal.sh alias STRAY OWNER"; label_row "$2" "alias:$1" ;;
   sync) cmd_sync "${1:-}" ;;
   cut) [ $# -ge 1 ] || fail "usage: release-goal.sh cut TAG --next NEXT"; cmd_cut "$@" ;;
-  *) fail "usage: release-goal.sh show | window [TAG] | tag TICKET TAG | alias STRAY OWNER | sync [--check] | cut TAG --next NEXT" ;;
+  amend) [ $# -eq 1 ] || fail "usage: release-goal.sh amend TAG"; cmd_amend "$1" ;;
+  *) fail "usage: release-goal.sh show | window [TAG] | tag TICKET TAG | alias STRAY OWNER | sync [--check] | cut TAG --next NEXT | amend TAG" ;;
 esac
