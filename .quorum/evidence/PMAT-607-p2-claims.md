@@ -1,5 +1,7 @@
 # Claims: forjar#607, phase 2. The booked row is amended, never edited
 
+The ticket's full text, verbatim from the roadmap: .quorum/evidence/PMAT-607-ticket.md.
+
 The T3 rule (claims in PMAT-607-p1-claims.md) makes gate T read #643 and
 #646 as PMAT-642 and PMAT-624. v1.33.0's row, booked by this PR's cut, does
 not declare them. This is the second of the two pieces.

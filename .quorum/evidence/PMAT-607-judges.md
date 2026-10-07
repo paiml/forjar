@@ -1,5 +1,7 @@
 # Judges — forjar#607: book v1.33.0 with the tool, and run the cut path without python3
 
+The ticket's full text, verbatim from the roadmap: .quorum/evidence/PMAT-607-ticket.md.
+
 Lanes and findings: see `PMAT-607-lanes.md`. Line numbers are at the head.
 The tests were measured on a build host at 57432891, the commit that carries
 every script and test change; the commits after it change only the ledger,

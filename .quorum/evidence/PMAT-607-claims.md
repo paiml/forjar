@@ -1,5 +1,7 @@
 # Claims — forjar#607: book v1.33.0 with the tool, and run the cut path without python3
 
+The ticket's full text, verbatim from the roadmap: .quorum/evidence/PMAT-607-ticket.md.
+
 v1.33.0 was tagged and never booked, so the release goal on main is red. The
 tool gate T names for that, `scripts/release-goal.sh cut`, ran python3
 heredocs to load the ledger and edit rows. And `git tag --sort=-v:refname`

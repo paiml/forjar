@@ -1,5 +1,7 @@
 # Claims: forjar#607, the T3 rule. One of gate T's remaining reds on v1.33.0, fixed in the tool
 
+The ticket's full text, verbatim from the roadmap: .quorum/evidence/PMAT-607-ticket.md.
+
 This PR books v1.33.0 with `release-goal.sh cut`, and its claim C6 says gate
 T stays red. T3 is red on #643 and #646, which name their tickets only as a
 bare `#642` and `#624`; the roadmap rows PMAT-642 and PMAT-624 declare
