@@ -497,15 +497,17 @@ dogfood_take_id() {
 
 # The ticket census of the window in DOGFOOD_PR_JSON -> DOGFOOD_WINDOW_TICKETS
 # (space-separated, version-sorted, unique), DOGFOOD_WINDOW_STRAYS ("#<pr>:<id>,
-# <id>" per PR naming an id that resolves to no row), DOGFOOD_WINDOW_UNTICKETED
-# ("#<pr>" per PR naming no row at all). Every PR's ids go through
-# `dogfood_pr_tickets`, the one rule. An empty census is a legitimate answer:
+# <id>" per PR naming an id that resolves to no row), DOGFOOD_WINDOW_PR_TICKETS
+# ("<pr> <id> <id>", one line per PR: the evidence an amendment cites) and
+# DOGFOOD_WINDOW_UNTICKETED ("#<pr>" per PR naming no row at all). Every PR's
+# ids go through `dogfood_pr_tickets`, the one rule. An empty census is a
+# legitimate answer:
 # `awk NF` selects the non-empty lines and, unlike `grep -v '^$'`, exits 0 when
 # there are none — a grep exit 1 under pipefail inside this assignment would
 # kill the caller with no verdict line (measured on the v1.25.1 window, which
 # names no ticket at all).
 dogfood_window_tickets() {
-  local i=0 num href title body all="" strays="" none=""
+  local i=0 num href title body all="" strays="" none="" pairs=""
   while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     dogfood_pr_field "$i" ".number"; num="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".headRefName"; href="$DOGFOOD_FIELD"
@@ -513,6 +515,7 @@ dogfood_window_tickets() {
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
     all="$all $DOGFOOD_TICKETS"
+    pairs="${pairs}${num} ${DOGFOOD_TICKETS}"$'\n'
     [ -z "$DOGFOOD_STRAY_IDS" ] || strays="$strays #${num}:${DOGFOOD_STRAY_IDS// /,}"
     [ -n "$DOGFOOD_TICKETS" ] || none="$none #${num}"
     i=$((i + 1))
@@ -521,4 +524,5 @@ dogfood_window_tickets() {
   DOGFOOD_WINDOW_TICKETS="$(printf '%s\n' $all | awk 'NF' | sort -u -V | tr '\n' ' ' | sed 's/ *$//')"
   DOGFOOD_WINDOW_STRAYS="${strays# }"
   DOGFOOD_WINDOW_UNTICKETED="${none# }"
+  DOGFOOD_WINDOW_PR_TICKETS="$pairs"
 }

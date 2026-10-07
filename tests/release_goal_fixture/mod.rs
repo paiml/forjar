@@ -88,6 +88,10 @@ pub(crate) struct Case {
     pub(crate) declared_prs: &'static str,
     /// The rows of the roadmap: (id, labels).
     pub(crate) rows: Vec<(&'static str, Vec<&'static str>)>,
+    /// The `tickets:` list the ledger declares for the floor tag.
+    pub(crate) declared_tickets: &'static str,
+    /// An `amendments:` block written just above `releases:`, or none.
+    pub(crate) amendments: &'static str,
     /// A row appended to the ledger after the floor's, or none.
     pub(crate) extra_row: &'static str,
     /// Seconds added to the derived due instant before it is declared.
@@ -123,6 +127,8 @@ impl Default for Case {
     fn default() -> Self {
         Case {
             declared_prs: "[10]",
+            declared_tickets: "[PMAT-901]",
+            amendments: "",
             rows: vec![
                 (SHIPPED, vec!["release:v0.0.1"]),
                 (OPEN, vec!["release:v0.0.2"]),
@@ -277,8 +283,8 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
-        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: {}\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.amendments, case.declared_prs, case.declared_tickets, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {
