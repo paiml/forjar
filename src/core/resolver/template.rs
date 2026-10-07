@@ -198,6 +198,12 @@ pub fn resolve_template_with_secrets(
         start = open + value.len();
     }
 
+    // forjar#674: an export shows an `ENC[age,...]` literal as written, the way
+    // it shows `{{secrets.<key>}}` by name; it is never decrypted into a script.
+    if secrets_cfg.provider.as_deref() == Some(EXPORT_REDACTED_SECRET_PROVIDER) {
+        return Ok(result);
+    }
+
     // FJ-200: Decrypt any ENC[age,...] markers after template resolution
     #[cfg(feature = "encryption")]
     if secrets::has_encrypted_markers(&result) {

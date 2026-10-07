@@ -305,7 +305,8 @@ pub(crate) fn print_unified_diff(old: &str, new: &str) {
 /// Params and machine refs are resolved before export; secrets are NOT
 /// (forjar#674): each `{{secrets.<key>}}` is written as
 /// `FORJAR_REDACTED_SECRET_<key>`, so no exported script holds a secret and
-/// none needs the provider to be generated. `selected` is the filtered plan's
+/// none needs the provider to be generated. An `ENC[age,...]` literal is
+/// written as it stands, never decrypted. `selected` is the filtered plan's
 /// resource ids (`-r/-m/-g/-t`); `None` exports every resource.
 pub(crate) fn export_scripts(
     config: &types::ForjarConfig,

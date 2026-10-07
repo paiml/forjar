@@ -9,13 +9,18 @@
 //! What keeps the export right is `export_scripts` in `src/cli/print_helpers.rs`:
 //! it skips resources outside the plan's selection, and it resolves templates
 //! with the `plan-export-redacted` provider, which writes each secret as
-//! `FORJAR_REDACTED_SECRET_<key>`. Exporting the whole config, or resolving
-//! with the config's own provider, turns these tests red.
+//! `FORJAR_REDACTED_SECRET_<key>` and leaves an `ENC[age,...]` literal as
+//! written (`resolve_template_with_secrets` in `src/core/resolver/template.rs`).
+//! Exporting the whole config, resolving with the config's own provider, or
+//! decrypting an age literal turns these tests red.
 
 use std::path::Path;
 use std::process::Command;
 
 const SECRET_VALUE: &str = "fj674-the-value-must-never-be-exported";
+
+/// A well-formed age marker (`ENC[age,<base64>]`, 20+ chars of base64).
+const AGE_LITERAL: &str = "ENC[age,YWdlLWVuY3J5cHRpb24ub3JnL3YxCg==]";
 
 fn run(dir: &Path, args: &[&str]) -> (String, bool) {
     let out = Command::new(env!("CARGO_BIN_EXE_forjar"))
@@ -33,9 +38,10 @@ fn run(dir: &Path, args: &[&str]) -> (String, bool) {
     )
 }
 
-/// `a` (a plain file), and two tasks whose command carries a secret: `b`
-/// (unset) and `c` (its value is on disk). A task's command reaches the
-/// exported apply script as written, so the script shows what was resolved.
+/// `a` (a plain file), and three tasks whose command carries a secret: `b`
+/// (unset), `c` (its value is on disk) and `d` (an age literal). A task's
+/// command reaches the exported apply script as written, so the script shows
+/// what was resolved.
 fn fixture(dir: &Path) -> String {
     std::fs::create_dir_all(dir.join("secrets")).unwrap();
     std::fs::write(dir.join("secrets").join("known-key"), SECRET_VALUE).unwrap();
@@ -67,9 +73,14 @@ resources:
     type: task
     machine: local
     command: "post --token {{{{secrets.known-key}}}}"
+  d:
+    type: task
+    machine: local
+    command: "post --token {age}"
 "#,
             secrets = dir.join("secrets").display(),
             a = dir.join("a.txt").display(),
+            age = AGE_LITERAL,
         ),
     )
     .unwrap();
@@ -154,4 +165,35 @@ fn falsify_674_unscoped_export_names_secrets_never_resolves_them() {
             "{name} carries the secret's value"
         );
     }
+}
+
+/// An age literal is ciphertext the export shows as written. Decrypting it
+/// would put the plaintext in a script; a build without `encryption` refused
+/// the whole export instead.
+#[test]
+fn falsify_674_export_leaves_age_literal_as_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = fixture(dir.path());
+
+    let (out, ok) = run(
+        dir.path(),
+        &[
+            "plan",
+            "-f",
+            &cfg,
+            "--state-dir",
+            "st",
+            "-r",
+            "d",
+            "--output-dir",
+            "x",
+        ],
+    );
+    assert!(ok, "an export must not decrypt an age literal:\n{out}");
+    let script = std::fs::read_to_string(dir.path().join("x").join("d.apply.sh"))
+        .unwrap_or_else(|e| panic!("d was not exported: {e}\n{out}"));
+    assert!(
+        script.contains(&format!("post --token {AGE_LITERAL}")),
+        "the age literal was not written as it stands:\n{script}"
+    );
 }
