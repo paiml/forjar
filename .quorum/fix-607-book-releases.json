@@ -2,19 +2,22 @@
   "kind": "code",
   "issue": "forjar#607 — v1.33.0 was tagged and never booked. The cut path (`scripts/release-goal.sh cut`) and the ledger loader ran python3; they are now awk. A release is a vX.Y.Z tag, so v1.33.0-rc.1 no longer ranks above v1.33.0. v1.33.0 is booked by the tool, with v1.34.0 next, and its crux audit is measured and dated after the cut.",
   "branch": "fix/607-book-releases",
-  "base": "ce9e4906",
-  "base_commit": "ce9e4906acfa9c7cdc86e8519775174222df80d6",
-  "diff_sha256": "643f6273c7e1953b7217ffee9ac11f944b6523e7",
-  "recorded_at": "after round 2 at ffff31c9 (3/3 PASS, one agy lane). The commits after it add only .quorum evidence and this receipt; they change no script, test or ledger line.",
+  "base": "c6c8591c",
+  "base_commit": "c6c8591c801fb836a231f47d998394e789db8559",
+  "diff_sha256": "bc4ba7e1e82cc0eeaeb914c2016ede0d3730b143",
+  "recorded_at": "2026-10-07T20:13:35Z",
   "quorum": {
-    "rounds": 2,
+    "rounds": 3,
     "lanes": [
       "head 150e0fac — claude-sonnet-5 FAIL: the row names a dogfood receipt not in the tree; confirmed (C6), answered by ffff31c9",
       "head 150e0fac — agy gemini-3.1-pro-high FAIL: the missing receipt, and the #611 PATH claim not in the diff; refuted as R1",
       "head 150e0fac — claude-haiku-4-5 NO-VERDICT: envelope error, counted as nothing",
       "head ffff31c9 — claude-sonnet-5 PASS",
       "head ffff31c9 — agy gemini-3.1-pro-high PASS, re-derived the v1.33.0 window",
-      "head ffff31c9 — claude-haiku-4-5 PASS, no findings"
+      "head ffff31c9 — claude-haiku-4-5 PASS, no findings",
+      "head a41fd4e2 (forward-merge of main c6c8591c) — claude-sonnet-5 PASS",
+      "head a41fd4e2 — agy gemini-3.1-pro-high PASS",
+      "head a41fd4e2 — claude-haiku-4-5 PASS"
     ],
     "judges": 3,
     "refuters_per_claim": 3,
