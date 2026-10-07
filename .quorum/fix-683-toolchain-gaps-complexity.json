@@ -1,0 +1,106 @@
+{
+  "kind": "code",
+  "issue": "forjar#683 follow-up — the falsifier from #690 had toolchain_gaps at Cognitive 39, above the pre-commit hook limit of 25, so every commit merging main into a branch was refused. Its per-leg step scan is now first_gap and its env test sets_rustup_home, with no behaviour change; no function in the file is above the limits.",
+  "branch": "fix/683-toolchain-gaps-complexity",
+  "base": "ec477d93",
+  "base_commit": "ec477d9356fbbc16660562c68ada148170212d97",
+  "diff_sha256": "bffcc87ebddfa30f727c39f678c6a1296b633100",
+  "recorded_at": "after round 2 and the agy lane, both at a96b7107. The commits after it add only .quorum evidence (with the refuted claim's correction) and this receipt; they change no test or workflow.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "head 22943ac6 — claude-sonnet-5 PASS, no findings",
+      "head 22943ac6 — claude-sonnet-5 PASS (second seat; agy withheld by policy for a non-workflow diff)",
+      "head 22943ac6 — claude-haiku-4-5 FAIL: moves no RUSTUP_HOME; refuted as R1, answered by a96b7107",
+      "head a96b7107 — claude-sonnet-5 PASS",
+      "head a96b7107 — claude-sonnet-5 PASS (second seat)",
+      "head a96b7107 — claude-haiku-4-5 PASS, no findings",
+      "head a96b7107 — agy gemini-3.1-pro-high PASS, sandboxed"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the branch does not deliver #683 because it moves no RUSTUP_HOME — that change merged in #690; this is the follow-up the ticket names."
+    ]
+  },
+  "falsification": {
+    "test": "every_job_that_sets_rustup_home_installs_a_toolchain_first and a_leg_with_no_toolchain_install_is_caught (with the three path tests unchanged)",
+    "test_file": "tests/falsification_683_cross_mounts_under_work_root.rs",
+    "cargo_test_target": "falsification_683_cross_mounts_under_work_root",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured locally at 22943ac6. Green: 5 passed. first_gap made never to report (return Some(step) replaced by let _ = step): 4 passed; 1 failed, a_leg_with_no_toolchain_install_is_caught. release.yml at 1d3e2d45: 4 passed; 1 failed, naming all four Linux legs of release.yml:build-binaries. Restored: 5 passed."
+  },
+  "crux": {
+    "systems": [
+      "Clippy cognitive_complexity: a lint on the same metric, fixed by extracting helpers rather than raising the threshold",
+      "SonarQube cognitive complexity (S3776): nesting adds to the score, and the documented remedy is extracting the nested loop into a function with an early return",
+      "ESLint complexity / sonarjs cognitive-complexity: per-function thresholds enforced in CI, remedied the same way"
+    ],
+    "verdict": "No crux row is owed: all three treat a per-function complexity limit as fixed and move nested logic into named helpers with early returns, which is what this branch does."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, agy-lane.sh --mode plan), brief inline, no build, no writes, 14m budget, run on its own because quorum-review withholds agy from non-workflow diffs",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS at a96b7107: first_gap and sets_rustup_home are equivalent to the code they replace; no workflow changes."
+  },
+  "pmat": {
+    "ticket": "forjar#683",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at a96b7107: 374 files parsed, 4923 tests examined, 84 cannot fail, 0 of them in tests/falsification_683_cross_mounts_under_work_root.rs",
+      "pmat analyze complexity --file tests/falsification_683_cross_mounts_under_work_root.rs: no function above Cognitive 25 or Cyclomatic 30; toolchain_gaps 11/5, first_gap 12/6",
+      "cargo test --locked --test falsification_683_cross_mounts_under_work_root: 5 passed; 1 failed with first_gap broken, 1 failed with release.yml at 1d3e2d45"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-683-tgc-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "cf2197d45a64f86fcdb7da1e270c57fe61991e66",
+        "sha256": "5307a05114c8a2cc367c550bcf9a550860a1cab351f24c829f11caf1bab1b9d7",
+        "bytes": 649
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-tgc-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "d425045c993aac4d15933e2417b2ad086a9c65c4",
+        "sha256": "6280e62cae0426b5bab4bba0b8480a87832749df6b9dfdb3554296499c38b59d",
+        "bytes": 1288
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-tgc-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "bcf86709d723c3589dfe12075567a0a037b59057",
+        "sha256": "7d01e923429f3b454a5d95f7b87fc130c5c6f86a911b46c68cc8e420c348678e",
+        "bytes": 2648
+      },
+      {
+        "path": ".quorum/evidence/PMAT-683-tgc-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "ea773fffdb9b8608e8b0fc9073ff9f00821be824",
+        "sha256": "15ec320c88c90885cc5456f3cd94df23c90272441a908ea2ae746dbba78afeed",
+        "bytes": 1237
+      }
+    ],
+    "total_bytes": 5822,
+    "claims_digest": ".quorum/evidence/PMAT-683-tgc-judges.md"
+  }
+}
