@@ -303,6 +303,12 @@ dogfood_roadmap_rows() {
   DOGFOOD_ROW_STATUSES="$(printf '%s\n' "$text" | awk '
     /^- id: /        { id = $3; next }
     /^  status: /    { if (id != "") { print id " " $2; id = "" } next }')"
+  # PMAT-607: the GitHub issue a row was filed from, the one place a bare `#N`
+  # in a PR may resolve (`dogfood_issue_row`). The row-level key only, and
+  # only a number: `github_issue: null` names no issue.
+  DOGFOOD_ROW_ISSUES="$(printf '%s\n' "$text" | awk '
+    /^- id: /                       { id = ($3 ~ /^PMAT-[0-9]+$/) ? $3 : ""; next }
+    /^  github_issue: [0-9]+[ \t]*$/ { if (id != "") print id " " $2; next }')"
   DOGFOOD_ROW_IDS_LOADED=1
 }
 
@@ -430,7 +436,47 @@ $2"
   if [ -n "$first" ]; then
     dogfood_resolve_id "$first"
     DOGFOOD_TICKET="$DOGFOOD_ROW"
+    return 0
   fi
+  # PMAT-607: a PR that names NO PMAT id anywhere may name its ticket as the
+  # GitHub issue it was filed from — #643 is titled "fixes #642", and #646's
+  # body says "#624". The FIRST bare `#N` in the title, then the body, resolves
+  # only through the roadmap row whose `github_issue` is N. With no such row it
+  # resolves to nothing and the PR stays unticketed (red); the next `#N` is
+  # never tried, for the reason a stray id is never skipped (above).
+  dogfood_issue_in "$2"
+  [ -n "$DOGFOOD_ISSUE" ] || dogfood_issue_in "$3"
+  if [ -n "$DOGFOOD_ISSUE" ]; then
+    dogfood_issue_row "$DOGFOOD_ISSUE"
+    DOGFOOD_TICKET="$DOGFOOD_ROW"
+    DOGFOOD_TICKETS="$DOGFOOD_ROW"
+  fi
+}
+
+# The first BARE `#N` in $1 -> DOGFOOD_ISSUE (the number, or empty). Bare means
+# not glued to a word, a path or another reference: `forjar#624`, `org/repo#1`,
+# `PR-#3`, `##5` and `v1.#2` are not this repo's issue N, and a rule that read
+# them as one would credit a PR to a ticket it never named.
+dogfood_issue_in() {
+  local rc=0 hit
+  hit="$(printf '%s\n' "$1" | grep -o -E '(^|[^[:alnum:]_/.#-])#[0-9]+' | awk 'NR == 1')" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} scanning a PR for an issue reference — UNMEASURED"
+  fi
+  DOGFOOD_ISSUE="${hit##*#}"
+}
+
+# The one row whose `github_issue` is $1 -> DOGFOOD_ROW (empty when none).
+# Two rows filed from one issue name two owners, which is no owner: fail, as
+# an alias declared twice does.
+dogfood_issue_row() {
+  local rows
+  dogfood_roadmap_rows
+  rows="$(awk -v n="$1" '$2 == n { print $1 }' <<< "$DOGFOOD_ROW_ISSUES" | tr '\n' ' ' | sed 's/ *$//')"
+  case "$rows" in
+    *" "*) fail "more than one roadmap row declares github_issue: $1 (${rows}), so #$1 resolves to no single ticket — a declaration that names two owners names none" ;;
+    *) DOGFOOD_ROW="$rows" ;;
+  esac
 }
 
 # Classify one id into DOGFOOD_TICKETS or DOGFOOD_STRAY_IDS, once.
