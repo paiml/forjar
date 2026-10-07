@@ -41,6 +41,7 @@ jobs:
       gate_c: ${{ steps.class.outputs.gate_c }}
       gate_d: ${{ steps.class.outputs.gate_d }}
       gates: ${{ steps.class.outputs.gates }}
+      base: ${{ steps.class.outputs.base }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -403,17 +404,45 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Guard tests
-        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
+        run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket --test falsification_692_gate_enforces_the_hook_complexity_limits
+
+  # forjar#692: the pre-commit hook calls itself FEEDBACK and says `ci / gate`
+  # enforces the complexity limits. Nothing here did, so a commit made where the
+  # hook is not installed landed toolchain_gaps at Cognitive 39 > 25 (#690), and
+  # the next PR to merge main had its merge commit refused for a function it
+  # never wrote (#693). This job asks the hook's question once for the whole
+  # change: the same `pmat analyze complexity --diff-scope`, the limits from
+  # pmat.toml (the file the hook is generated from), measured from the merge
+  # base with the base `classify` compared against -- so main's code merged into
+  # a PR is never billed to the PR.
+  #
+  # Judged on a PR and on a branch push. A tag push or a manual dispatch has no
+  # base to diff against, so the job is skipped there and `gate` prints NOT
+  # MEASURED; the commits it would judge were judged on their way to main.
+  complexity:
+    if: needs.classify.outputs.code == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')))
+    needs: classify
+    runs-on: [self-hosted, clean-room, X64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Touched functions stay within the pmat.toml limits
+        env:
+          BASE: ${{ needs.classify.outputs.base }}
+        run: bash scripts/ci/complexity-diff-scope.sh "$BASE"
 
   gate:
     runs-on: [self-hosted, clean-room, X64]
-    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
+    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards, complexity]
     if: always()
     steps:
       - name: Check required jobs
         env:
           CODE: ${{ needs.classify.outputs.code }}
           GATES: ${{ needs.classify.outputs.gates }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
           # PMAT-237: a job may be SKIPPED only because the change cannot reach
           # it. The gate re-reads the class rather than trusting the skip: if
@@ -472,6 +501,26 @@ jobs:
           ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
           ok "doctests" "${{ needs.doctests.result }}" || exit 1
           ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+          # forjar#692: complexity skips on its own condition too -- code, AND
+          # an event with a base to diff against. Re-read both: a skip on a PR
+          # or a branch push whose change is code is a hole, not a saving.
+          case "${{ needs.complexity.result }}" in
+            success) echo "complexity: every touched function within the pmat.toml limits" ;;
+            skipped)
+              if [ "$CODE" != "true" ]; then
+                echo "complexity: skipped — the change touches nothing it reads"
+              elif [ "$EVENT" = "pull_request" ] || { [ "$EVENT" = "push" ] && [ "${REF#refs/heads/}" != "$REF" ]; }; then
+                echo "::error::complexity was skipped on a $EVENT the classifier called code"
+                exit 1
+              else
+                echo "complexity: NOT MEASURED on $EVENT ($REF) — no base to diff against; judged on the PR and the push to the branch"
+              fi
+              ;;
+            *)
+              echo "::error::complexity: ${{ needs.complexity.result }}"
+              exit 1
+              ;;
+          esac
           # PMAT-542: dogfood-surface skips on its OWN condition, which is
           # `gates != none` rather than the class. Re-read the selection here
           # for the same reason `ok` re-reads the class: a skip is a claim until

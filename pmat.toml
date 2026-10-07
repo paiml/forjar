@@ -1,0 +1,15 @@
+# forjar#692 -- the per-function complexity limits, in ONE place.
+#
+# Two readers, one source:
+#   * `pmat hooks install|refresh` writes these into the pre-commit hook as
+#     PMAT_MAX_CYCLOMATIC_COMPLEXITY / PMAT_MAX_COGNITIVE_COMPLEXITY (pmat reads
+#     `[quality]` from ./pmat.toml when it generates the hook).
+#   * scripts/ci/complexity-diff-scope.sh reads them here for the CI
+#     `complexity` job that `gate` requires.
+#
+# The values are pmat's own defaults, which is what the hook carried before this
+# file existed, so no limit moved. Change a limit here and both readers follow;
+# a second hand-written copy is how the hook and CI disagreed in the first place.
+[quality]
+max_complexity = 30
+max_cognitive_complexity = 25

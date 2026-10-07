@@ -4875,3 +4875,26 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-692
+  github_issue: 692
+  item_type: task
+  title: 'gate enforces the per-function complexity limits the pre-commit hook says it does, judged from the merge base'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-07T02:30:00Z
+  updated: 2026-10-07T02:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'pmat.toml [quality] holds max_complexity = 30 and max_cognitive_complexity = 25, the values the hook carried as pmat defaults; `pmat hooks install` generates the hook from it (a scratch repo with 31/26 there got a hook exporting 31/26).'
+  - 'scripts/ci/complexity-diff-scope.sh <base> runs the hook command (`pmat analyze complexity --file <f> --diff-scope`) for every Rust file added or modified since `git merge-base <base> HEAD`, in a throwaway worktree soft-reset to that merge base, with the limits read from pmat.toml. It exits 1 when a touched function grew past a limit, and 2 (UNMEASURED, never a pass) with no base, an unknown base, no pmat or no limits.'
+  - 'Measured with pmat 3.42.0: red on #690''s merge (toolchain_gaps Cognitive 39 > 25), green on #693''s; on a branch that merges #690 in, green with the PR base and red with HEAD^1, so main''s code merged into a PR is not billed to it.'
+  - 'ci.yml: classify exports the base its changed-class step compared against; a complexity job runs the script with it on a pull_request or a branch push; gate needs complexity and refuses its skip on a PR or branch push whose change is code, and prints NOT MEASURED on a tag push or a dispatch.'
+  - 'tests/falsification_692_gate_enforces_the_hook_complexity_limits.rs parses ci.yml and fails when gate does not need or read the job that runs the script, when that job is not handed classify''s base from a full-history checkout, or when the script takes a limit from anywhere but pmat.toml; dogfood-guards runs it.'
+  - 'Out of scope: non-Rust files (the hook judges them whole-file; --diff-scope is Rust only), and .pmat-gates.toml max_complexity = 20, which no workflow and not the hook reads.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
