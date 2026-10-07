@@ -341,3 +341,43 @@ fn test_convergence_history_empty_dir_json() {
         super::status_convergence::cmd_status_convergence_history(dir.path(), None, true);
     let _ = result;
 }
+
+// forjar#674: `plan -r R --output-dir D` failed with "secret '…' not found"
+// because ANOTHER resource referenced a secret, and wrote every resource's
+// scripts into D. The plan-first apply route depends on this working.
+#[test]
+fn test_fj674_plan_resource_output_dir_exports_only_that_resource() {
+    let yaml = r#"
+version: "1.0"
+name: t674
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+secrets:
+  provider: sops
+  file: /nonexistent/forjar-674.enc.yaml
+resources:
+  wanted:
+    type: file
+    machine: m
+    path: /etc/wanted.conf
+    content: "plain"
+  needs-secret:
+    type: file
+    machine: m
+    path: /etc/token.conf
+    content: "token={{secrets.fj674-only-in-sops}}"
+"#;
+    let f = write_temp_config(yaml);
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().join("export");
+    super::plan::cmd_plan(
+        f.path(), dir.path(), None, Some("wanted"), None, false, false, Some(&out), None, None,
+        false, None, false, &[], None, false,
+        None,
+    )
+    .unwrap();
+    assert!(out.join("wanted.apply.sh").exists());
+    assert!(!out.join("needs-secret.apply.sh").exists());
+}

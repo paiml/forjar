@@ -20,7 +20,10 @@ pub use resource::{
     resolve_resource_templates_with_secrets, unresolved_secret_resources,
 };
 pub use template::resolve_template;
-pub use template::{redact_secrets, resolve_secret_with_provider, resolve_template_with_secrets};
+pub use template::{
+    redact_secrets, resolve_secret_with_provider, resolve_template_with_secrets,
+    EXPORT_REDACTED_SECRET_PROVIDER,
+};
 
 #[cfg(test)]
 pub(super) use crate::core::types::*;
