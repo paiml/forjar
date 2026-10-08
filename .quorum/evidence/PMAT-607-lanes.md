@@ -30,3 +30,30 @@ Round 2, head ffff31c9: AGREED, 3/3 PASS.
   v1.33.0` and found the booked PRs and tickets match. It checked the crux
   audit's claims against v1.33.0 and v1.33.0-rc.1.
 - claude-haiku-4-5: PASS, no findings.
+
+Round 3, head a41fd4e2 (forward merge of main c6c8591c): AGREED, 3/3 PASS
+(claude-sonnet-5, gemini-3.1-pro-high, claude-haiku-4-5).
+
+Round 4, head 51dd5c64: AGREED, 3/3 PASS, same three models. That head also
+carried the T3 bare-#N rule and the `amend` subcommand, merged in from another
+branch.
+
+5748bbc9 takes both off again with a forward revert. The ticket's acceptance
+criteria make T3 a separate ticket and do not name the amend. After it, the
+scripts and tests are back to how they were before that merge, apart from what
+main brought in.
+
+Round 5, head 5748bbc9: NOT AGREED.
+
+- claude-sonnet-5: FAIL. The receipt's last round was bound to 51dd5c64, not
+  to this head, and this file narrated only rounds 1 and 2. The second point
+  is answered by this section. The first is the binding order below.
+- gemini-3.1-pro-high (agy): NO-VERDICT. The run ended with no output.
+- claude-haiku-4-5: PASS.
+
+How a round binds to a head: the round runs on a commit, and its verdict is
+then written into `.quorum/fix-607-book-releases.json`. That file is excluded
+from the bound diff hash (`diff_sha256`), so writing the verdict does not change
+what was reviewed. A receipt can never already hold the round that is
+reviewing it. The round on the head that carries this paragraph is the one the
+receipt records last.
