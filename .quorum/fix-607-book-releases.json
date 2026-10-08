@@ -81,9 +81,9 @@
         "roles": [
           "lanes"
         ],
-        "blob": "1fbc0cddf14878d3a68ca26c04e53cc95eb3ba86",
-        "sha256": "c2ef2aa58da7925bc0aeeb68171529c41459dde7a94715bbfb36ce8902d43b4e",
-        "bytes": 2999
+        "blob": "29fd98ba51221e24f60650d13754ad8b680c9fe0",
+        "sha256": "a36af02880a471f7d9d28453f8a9978ef325f573e440de14c70a657d7c05d7ac",
+        "bytes": 3712
       },
       {
         "path": ".quorum/evidence/PMAT-607-judges.md",
@@ -104,7 +104,7 @@
         "bytes": 787
       }
     ],
-    "total_bytes": 10035,
+    "total_bytes": 10748,
     "claims_digest": ".quorum/evidence/PMAT-607-judges.md"
   }
 }

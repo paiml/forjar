@@ -5,10 +5,10 @@ The review brief carries only this ticket's title. Every claim file in
 byte for byte from docs/roadmaps/roadmap.yaml lines 4701-4723 at this head, by
 `sed -n '4701,4723p' docs/roadmaps/roadmap.yaml`.
 
-Phase 2 (`release-goal.sh amend`) is in this ticket, not a new one. The title
-names the work: "book v1.33.0 with the tool gate T names". The last acceptance
-criterion says gate T is not green on this head and names its first red (T3 on
-#646 and #643). The T3 rule and the amend path are the two pieces that turn it.
+This PR carries only what the criteria below name. The last criterion makes
+the T3 github_issue resolution a separate ticket, and no criterion names an
+amend path, so neither is in this diff (5748bbc9 took both off). Gate T is not
+green on this head, and the last criterion says so.
 
 ```yaml
 - id: PMAT-607

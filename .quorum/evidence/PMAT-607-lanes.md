@@ -57,3 +57,16 @@ from the bound diff hash (`diff_sha256`), so writing the verdict does not change
 what was reviewed. A receipt can never already hold the round that is
 reviewing it. The round on the head that carries this paragraph is the one the
 receipt records last.
+
+Round 6, head dd45e7b7: NOT AGREED. gemini-3.1-pro-high and claude-haiku-4-5
+PASS. claude-sonnet-5 FAIL on two points:
+
+- PMAT-607-ticket.md still said the amend was in this ticket. The next head
+  rewrites that paragraph to match the criteria and the diff.
+- `diff_sha256` is 40 hex characters. The field keeps the name the quorum gate
+  reads, and the gate's value is the git blob id of the bound diff:
+  `printf '%s' "$(git diff --full-index <base_commit> <head> -- .
+  ':(exclude,glob).quorum/*.json' ':(exclude).pmat')" | git hash-object
+  --stdin`. That is a SHA-1 object id, not a SHA-256, so 40 characters is the
+  correct length. The value is recomputed for the final head when its round is
+  recorded.
