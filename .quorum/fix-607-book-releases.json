@@ -18,7 +18,7 @@
       "head a41fd4e2 (forward-merge of main c6c8591c) — claude-sonnet-5 PASS",
       "head a41fd4e2 — agy gemini-3.1-pro-high PASS",
       "head a41fd4e2 — claude-haiku-4-5 PASS",
-      "head 51dd5c64 (PR B folded in, see .quorum/evidence/fold-manifest.md) — claude-sonnet-5 PASS",
+      "head 51dd5c64 (T3 and the amend folded in; both taken off again at the next head: the AC makes T3 a separate ticket and does not name the amend) — claude-sonnet-5 PASS",
       "head 51dd5c64 — agy gemini-3.1-pro-high PASS",
       "head 51dd5c64 — claude-haiku-4-5 PASS"
     ],
@@ -72,9 +72,9 @@
         "roles": [
           "claims"
         ],
-        "blob": "e9d71e19c0d13bb6471e5f81e3d80f1beb9b4bf1",
-        "sha256": "d6dd96c84199adb4c73c35825ef910761a9726fa9a9163ae48707bc7bbf01340",
-        "bytes": 1424
+        "blob": "ee89c325200a399d7cf88afe4750ad50a74e02f3",
+        "sha256": "a45ec17bd91de7f079643e953925f77aab7bb7093319419dbd05e2932d94cc39",
+        "bytes": 1513
       },
       {
         "path": ".quorum/evidence/PMAT-607-lanes.md",
@@ -90,9 +90,9 @@
         "roles": [
           "judges"
         ],
-        "blob": "e99d4686093b36b59bfcdc40c33e8cef414dcb8c",
-        "sha256": "fa877ab0afb93b95fda4d56e53b32713dd0c0697dbf323c5c4fb2f1b6b64e09d",
-        "bytes": 4647
+        "blob": "bbab3bc94e575db8b57f3efc20e77a7471068b03",
+        "sha256": "c1f689837fdce5b0d1c494742eb919755cd78d3e9c36ced709c7a489fca8e5e6",
+        "bytes": 4736
       },
       {
         "path": ".quorum/evidence/PMAT-607-agy.md",
@@ -104,7 +104,7 @@
         "bytes": 787
       }
     ],
-    "total_bytes": 8545,
+    "total_bytes": 8723,
     "claims_digest": ".quorum/evidence/PMAT-607-judges.md"
   }
 }

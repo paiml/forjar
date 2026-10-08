@@ -424,10 +424,7 @@ for tag in $TAGS; do
   if dogfood_semver_ge "$tag" "$HARNESS_FLOOR"; then
     harness_regime "$tag"
   fi
-  # The row's tickets and its amendments' (PMAT-607): a booked row is never
-  # edited, so a ticket it missed is declared by a record appended after it.
-  dogfood_release_tickets "$tag"
-  declared_list "$DOGFOOD_RELEASE_TICKETS" '.'
+  declared_list "$row" '.tickets'
   if [ "$DECLARED" != "$DOGFOOD_WINDOW_TICKETS" ]; then
     fail "${tag}: the ledger declares tickets [${DECLARED}] and the PRs of its window name [${DOGFOOD_WINDOW_TICKETS}] — the declared and the measured ticket set disagree"
   fi

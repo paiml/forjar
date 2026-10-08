@@ -31,41 +31,10 @@ DOGFOOD_RELEASES_SHAPE='
         and (.cut | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
         and (.prs | type == "array" and all(.[]; type == "number"))
         and (.tickets | type == "array" and all(.[]; type == "string" and test("^PMAT-[0-9]+$"))))
-  and ((.amendments // []) | type == "array" and all(.[];
-        (.tag | type == "string" and test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
-        and (.at | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
-        and (.tickets | type == "array" and length >= 1 and all(.[]; type == "string" and test("^PMAT-[0-9]+$")))
-        and (.prs | type == "array" and length >= 1 and all(.[]; type == "number"))))
   and (.next | type == "object")
   and (.next.tag | type == "string" and test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
   and (.next.due | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
 '
-
-# amendments[] (PMAT-607): a booked row is never edited. When the rule that
-# reads a window's tickets changes after a cut, the tickets the row missed are
-# APPENDED as a record naming the tag, the moment, the tickets and the PRs that
-# name them (`release-goal.sh amend TAG` writes it). A row's declared tickets
-# are the row's plus its amendments'. An amendment only adds: it names a booked
-# tag, adds tickets that tag does not already declare, cites PRs that tag
-# declares, and is dated no earlier than the one above it. The first record
-# that breaks one of those, as a sentence, or "".
-DOGFOOD_AMENDMENT_FAULT='
-  . as $l
-  | [ ($l.amendments // []) | to_entries[] | (.key + 1) as $n | .value as $a
-      | ([$l.releases[] | select(.tag == $a.tag)] | first) as $row
-      | if $row == null then "amendment \($n) names \($a.tag), which has no row to amend"
-        else
-          ([$l.amendments[:$n - 1][] | select(.tag == $a.tag) | .tickets[]]) as $prior
-          | ( if ($a.tickets | length) != ($a.tickets | unique | length)
-              then "amendment \($n) names a ticket twice" else empty end ),
-            ( $a.tickets[] | select(. as $t | ($row.tickets + $prior) | index([$t]))
-              | "amendment \($n) adds \(.) to \($a.tag), which already declares it" ),
-            ( $a.prs[] | select(. as $p | $row.prs | index([$p]) | not)
-              | "amendment \($n) cites #\(.), which is not a PR \($a.tag) declares" ),
-            ( if $n > 1 and $l.amendments[$n - 2].at > $a.at
-              then "amendment \($n) is dated \($a.at), before the one above it" else empty end )
-        end ]
-  | .[0] // ""'
 
 # docs/roadmaps/releases.yaml -> DOGFOOD_RELEASES (compact JSON),
 # DOGFOOD_RELEASES_TEXT (the bytes), DOGFOOD_RELEASES_NEXT_LINE (the line
@@ -92,15 +61,7 @@ dogfood_load_releases() {
   # the ledger UNMEASURED at random rather than judging its shape.
   jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null <<<"$json" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n), amendments[] (if any) with tag, at (UTC), tickets and prs (each non-empty), and next.tag / next.due"
-  fi
-  rc=0
-  line="$(jq -r "$DOGFOOD_AMENDMENT_FAULT" <<<"$json")" || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    fail "cannot check the amendments of docs/roadmaps/releases.yaml at ${ref} (jq exit ${rc}) — UNMEASURED"
-  fi
-  if [ -n "$line" ]; then
-    fail "docs/roadmaps/releases.yaml at ${ref}: ${line} — an amendment only adds to a booked row, so this one declares nothing"
+    fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n), and next.tag / next.due"
   fi
   rc=0
   line="$(printf '%s\n' "$text" | grep -n -E '^next:' | cut -d: -f1)" || rc=$?
@@ -133,17 +94,6 @@ dogfood_release_row() {
     '""') DOGFOOD_RELEASE_ROW="" ;;
     *) DOGFOOD_RELEASE_ROW="$v" ;;
   esac
-}
-
-# The tickets tag $1 declares: its row's and its amendments', in ledger order
-# -> DOGFOOD_RELEASE_TICKETS (a JSON array of strings).
-dogfood_release_tickets() {
-  local rc=0 v
-  v="$(printf '%s' "$DOGFOOD_RELEASES" | jq -c --arg t "$1" '[(.releases[] | select(.tag == $t) | .tickets[]), ((.amendments // [])[] | select(.tag == $t) | .tickets[])]')" || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    fail "cannot read the tickets ${1} declares out of docs/roadmaps/releases.yaml (jq exit ${rc}) — UNMEASURED"
-  fi
-  DOGFOOD_RELEASE_TICKETS="$v"
 }
 
 # Is version tag $1 >= $2 by semantic order? Exit 0 or 1 — usable in `if`.
