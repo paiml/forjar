@@ -1,0 +1,119 @@
+{
+  "kind": "code",
+  "issue": "forjar#607 — v1.33.0 was tagged and never booked. The cut path (`scripts/release-goal.sh cut`) and the ledger loader ran python3; they are now awk. A release is a vX.Y.Z tag, so v1.33.0-rc.1 no longer ranks above v1.33.0. v1.33.0 is booked by the tool, with v1.34.0 next, and its crux audit is measured and dated after the cut.",
+  "branch": "fix/607-book-releases",
+  "base": "6fdad205",
+  "base_commit": "6fdad2056bd5883bb016667f15177b8ffb53ebc0",
+  "diff_sha256": "59ee6bc23d39100b10059b297c125624b19b1da5",
+  "recorded_at": "2026-10-08T03:00:56Z",
+  "quorum": {
+    "rounds": 7,
+    "lanes": [
+      "head 150e0fac — claude-sonnet-5 FAIL: the row names a dogfood receipt not in the tree; confirmed (C6), answered by ffff31c9",
+      "head 150e0fac — agy gemini-3.1-pro-high FAIL: the missing receipt, and the #611 PATH claim not in the diff; refuted as R1",
+      "head 150e0fac — claude-haiku-4-5 NO-VERDICT: envelope error, counted as nothing",
+      "head ffff31c9 — claude-sonnet-5 PASS",
+      "head ffff31c9 — agy gemini-3.1-pro-high PASS, re-derived the v1.33.0 window",
+      "head ffff31c9 — claude-haiku-4-5 PASS, no findings",
+      "head a41fd4e2 (forward-merge of main c6c8591c) — claude-sonnet-5 PASS",
+      "head a41fd4e2 — agy gemini-3.1-pro-high PASS",
+      "head a41fd4e2 — claude-haiku-4-5 PASS",
+      "head 51dd5c64 (T3 and the amend folded in; both taken off again at the next head: the AC makes T3 a separate ticket and does not name the amend) — claude-sonnet-5 PASS",
+      "head 51dd5c64 — agy gemini-3.1-pro-high PASS",
+      "head 51dd5c64 — claude-haiku-4-5 PASS",
+      "head 5748bbc9 (T3 and the amend taken off; scripts and tests as before that merge) — claude-sonnet-5 FAIL: receipt not yet bound to this head, lanes.md narrated rounds 1-2 only; answered by dd45e7b7",
+      "head 5748bbc9 — agy gemini-3.1-pro-high NO-VERDICT: run ended with no output",
+      "head 5748bbc9 — claude-haiku-4-5 PASS",
+      "head dd45e7b7 — claude-sonnet-5 FAIL: ticket evidence preamble still claimed the amend; diff_sha256 is 40 hex; answered by f9822ace (preamble rewritten; the field is the gate's git blob id of the bound diff)",
+      "head dd45e7b7 — agy gemini-3.1-pro-high PASS",
+      "head dd45e7b7 — claude-haiku-4-5 PASS",
+      "head f9822ace — claude-sonnet-5 PASS",
+      "head f9822ace — agy gemini-3.1-pro-high PASS",
+      "head f9822ace — claude-haiku-4-5 PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 7,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the crux audit claim that the #611 fix appends $CARGO_HOME/bin to $GITHUB_PATH is not backed because it is not in this diff — the change shipped in v1.33.0 (release.yml line 275 at the tag, 49b33fbd, #654), and the audit now cites it."
+    ]
+  },
+  "falsification": {
+    "test": "the_cut_books_the_tag_with_no_python_on_the_path, a_label_is_appended_once_and_an_unknown_row_is_refused, the_loader_reads_every_form_the_ledger_uses, the_loader_refuses_a_shape_it_does_not_know, a_pre_release_is_not_a_release",
+    "test_file": "tests/falsification_607_release_path_runs_no_python.rs",
+    "cargo_test_target": "falsification_607_release_path_runs_no_python",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host at 57432891. Green: 5 passed. Both ports reverted to ce9e4906: 4 of 5 failed (every case with python3 refused on PATH). Only scripts/release-goal.sh reverted: the 2 edit cases failed. scripts/dogfood/lib/tags.sh back to every v* tag: a_pre_release_is_not_a_release failed. Restored: 5 passed, and 19 related test targets pass."
+  },
+  "crux": {
+    "systems": [
+      "Helm chart versions (SemVer 2): a pre-release such as 1.2.0-rc.1 sorts BELOW 1.2.0, and helm picks the newest stable unless --devel is passed",
+      "Cargo / crates.io: a requirement like ^1.33 never selects 1.33.0-rc.1 unless the pre-release is named, so the newest release is the newest without a suffix",
+      "GitHub Releases: a release marked prerelease is not returned as latest by the releases/latest endpoint"
+    ],
+    "verdict": "All three treat a pre-release as below its release and outside the stable line, which is the rule tags.sh now takes; asserted from documentation [X], not measured. git tag --sort=-v:refname is the outlier: it ranks the suffix above the bare version. No crux row is owed for the python port, which keeps behaviour."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one agy lane per round (gemini-3.1-pro-high) seated by quorum-review.sh because the diff touches release tooling; read-only, brief inline",
+    "rounds": 2,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "FAIL at 150e0fac (missing receipt; #611 PATH claim uncited), PASS at ffff31c9: the booked window matches release-goal.sh window v1.33.0, the awk edits keep the old semantics, and the tag filter keeps vX.Y.Z only."
+  },
+  "pmat": {
+    "ticket": "forjar#607",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at ffff31c9: 375 files parsed, 4928 tests examined, 84 cannot fail, 0 of them in a file this branch touches",
+      "pmat analyze complexity --file tests/falsification_607_release_path_runs_no_python.rs: 10 functions, highest Cyclomatic 2, Cognitive 1"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-607-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "ee89c325200a399d7cf88afe4750ad50a74e02f3",
+        "sha256": "a45ec17bd91de7f079643e953925f77aab7bb7093319419dbd05e2932d94cc39",
+        "bytes": 1513
+      },
+      {
+        "path": ".quorum/evidence/PMAT-607-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "29fd98ba51221e24f60650d13754ad8b680c9fe0",
+        "sha256": "a36af02880a471f7d9d28453f8a9978ef325f573e440de14c70a657d7c05d7ac",
+        "bytes": 3712
+      },
+      {
+        "path": ".quorum/evidence/PMAT-607-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "bbab3bc94e575db8b57f3efc20e77a7471068b03",
+        "sha256": "c1f689837fdce5b0d1c494742eb919755cd78d3e9c36ced709c7a489fca8e5e6",
+        "bytes": 4736
+      },
+      {
+        "path": ".quorum/evidence/PMAT-607-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "4507eb8a785e33204567b5a4b6d257f1b6911622",
+        "sha256": "5280cea046c58cc44b9bbf1987b1f02d2c297e51639a9e8ca0133b784d7ac1de",
+        "bytes": 787
+      }
+    ],
+    "total_bytes": 10748,
+    "claims_digest": ".quorum/evidence/PMAT-607-judges.md"
+  }
+}

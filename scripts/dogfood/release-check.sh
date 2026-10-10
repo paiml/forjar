@@ -52,6 +52,9 @@ fail() {
   exit 1
 }
 
+# shellcheck source=scripts/dogfood/lib/tags.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/tags.sh"
+
 # `grep` exits 1 on "no match" and pipefail turns that into a silent death
 # mid-assignment. Where "none" is a legitimate answer, rc is captured so that
 # "none" (1) and "grep could not run" (>=2) stay distinguishable.
@@ -258,7 +261,8 @@ prev_rc=0
 # takes SIGPIPE, and under pipefail the whole gate reported the PR window
 # UNMEASURED at random — which is exactly the symptom PMAT-239 chased in gate T.
 _all_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
-prev_tag="$(awk -v skip="$TAG" '$0 != skip { print; exit }' <<<"$_all_tags")" || prev_rc=$?
+dogfood_release_tags "$_all_tags"
+prev_tag="$(awk -v skip="$TAG" '$0 != skip { print; exit }' <<<"$DOGFOOD_RELEASE_TAGS")" || prev_rc=$?
 if [ "$prev_rc" -gt 1 ]; then
   fail "grep exited ${prev_rc} selecting the previous tag — the PR window is UNMEASURED"
 fi
@@ -423,7 +427,8 @@ fi
 # `git tag … | head -1` makes git take SIGPIPE when head leaves, and under
 # pipefail that is a 141 the caller reads as "the tag list is UNMEASURED".
 _latest_tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
-latest_tag="${_latest_tags%%$'\n'*}"
+dogfood_release_tags "$_latest_tags"
+latest_tag="${DOGFOOD_RELEASE_TAGS%%$'\n'*}"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
   # THE NOTE SAYS WHAT IS TRUE, NOT WHAT IS CONVENIENT (PMAT-234, found by two

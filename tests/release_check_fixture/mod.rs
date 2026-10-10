@@ -227,6 +227,14 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
     )
     .expect("scripts/dogfood/crux-reconcile.sh must exist — Arm 6 calls it directly");
     write(&root, "scripts/dogfood/crux-reconcile.sh", &crux_script);
+    // Both scripts take their release tags through lib/tags.sh (PMAT-607).
+    let tags_lib = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/lib/tags.sh"),
+    )
+    .expect(
+        "scripts/dogfood/lib/tags.sh must exist — release-check.sh and crux-reconcile.sh source it",
+    );
+    write(&root, "scripts/dogfood/lib/tags.sh", &tags_lib);
     write(
         &root,
         "Cargo.toml",
@@ -332,6 +340,7 @@ pub(crate) fn published_fixture() -> Fixture {
     for rel in [
         "scripts/dogfood/release-check.sh",
         "scripts/dogfood/lib/receipt.sh",
+        "scripts/dogfood/lib/tags.sh",
         "scripts/dogfood/crux-reconcile.sh",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
