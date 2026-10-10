@@ -414,6 +414,8 @@ mod tests_image_drift;
 #[cfg(test)]
 mod tests_lifecycle;
 #[cfg(test)]
+mod tests_refresh_census;
+#[cfg(test)]
 mod tests_task_checks;
 #[cfg(test)]
 mod tests_transport;
