@@ -1,0 +1,64 @@
+# Epics: one row per GitHub issue labelled `epic` (paiml/forjar).
+#
+# A train epic owns one tagged release. Its children are the roadmap rows
+# with `epic: <issue>`, and its version is the GitHub milestone named after
+# the tag. A standing epic is a theme with no tag. A ticket can name only
+# one epic. A row that already sits under a standing theme epic joins the
+# train through its `release:` field instead.
+#
+# Core vs look-ahead is decided by slot, not by a field on the ticket:
+#   core       = the open train (next_tag). Its `must_carry` rows (roadmap
+#                label `must-carry`) are the only items that block the tag.
+#   look-ahead = the train after it (following_tag). The look-ahead slot
+#                keeps its kit at docs/lookahead/<tag>.yaml. It proposes
+#                tickets through the cop inbox and never mints them. It
+#                opens no PRs while a cut is in progress.
+#
+# The release gate for a train tag:
+#   - the cut happens on release/<x.y.z>; the tag goes on that branch, and
+#     the branch merges back to main;
+#   - clean-room is green on exactly the tagged commit before any upload,
+#     and the crates.io publish is automatic after that;
+#   - gate T (scripts/dogfood/tagged.sh) passes, and releases.yaml books
+#     the tag (scripts/release-goal.sh cut);
+#   - docs/audits/dogfood-<ver>-receipt.md and docs/audits/crux-<ver>.md
+#     exist, and the cookbook commit is recorded;
+#   - at the cut, open must-carry items block; every other open item moves
+#     to the following train if its epic cites it, otherwise to backlog.
+# A tag is never moved, re-used or deleted. A train that misses ships as the
+# next version.
+epics:
+  - id: T134
+    issue: 696
+    name: "forjar v1.34.0: ship the window + bashrs 7.4.2, books current"
+    train: "1.34.0"
+    slot: core
+    milestone: "1.34.0"
+    budget: 6
+    successor: L135
+    must_carry: [698, 604, 652]
+    in_window: [633, 671, 683, 680, 674]   # merged since v1.33.0; release: 1.34.0
+    closes_with_books: [642, 648, 651]     # shipped in v1.33.0
+    rides_if_merged: [684, 666, 665, 628]  # open PRs: ride if merged before the cut, never block it
+    done_when:
+      - "cargo tree -i bashrs --depth 0 | grep -qx 'bashrs v7.4.2'"
+      - "scripts/release-goal.sh show   # green, next: v1.34.0"
+      - "scripts/dogfood/tagged.sh      # GATE T PASS with v1.34.0 booked"
+      - "clean-room green on the tagged commit of release/1.34.0"
+    absorbs: [607]
+  - id: L135
+    issue: 697
+    name: "forjar v1.35.0 (look-ahead): secret/I8 cluster, gate B ratchet, Windows nightly"
+    train: "1.35.0"
+    slot: look-ahead
+    milestone: "1.35.0"
+    budget: 6
+    successor: null
+    kit: docs/lookahead/v1.35.0.yaml
+    carried: [594, 614, 131]
+    candidates: [679, 686, 687, 694, 663]
+    absorbs: []
+  - {id: S670, issue: 670, name: "Every subcommand loads a manifest the same way", train: standing, budget: 4, successor: null, absorbs: []}
+  - {id: S668, issue: 668, name: "disk-budget never deletes what it cannot prove dead", train: standing, budget: 4, successor: null, absorbs: []}
+  - {id: S655, issue: 655, name: "manage sh-only appliances (FreeBSD / pfSense): a machine shell: field", train: standing, budget: 4, successor: null, absorbs: []}
+  - {id: S620, issue: 620, name: "Adopt sovereign-update: update subcommand + daily update check", train: standing, budget: 4, successor: null, absorbs: []}

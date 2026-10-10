@@ -1737,8 +1737,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - kind:code
   notes: null
+  epic: 697
+  release: 1.35.0
 - id: PMAT-132
   github_issue: null
   item_type: task
@@ -4409,7 +4412,6 @@ roadmap:
   github_issue: 594
   item_type: task
   title: 'gate B is RED on main: the CB-21xx ratchet is over its 2026-09-11 ceilings (CB-2115 55/43, CB-2114 37/34) and blocks every publish'
-  release: 1.32.0
   status: inprogress
   priority: high
   assigned_to: null
@@ -4425,6 +4427,8 @@ roadmap:
   - kind:triage
   - release:v1.33.0
   notes: null
+  epic: 697
+  release: 1.35.0
 - id: PMAT-592
   github_issue: 592
   item_type: task
@@ -4638,7 +4642,9 @@ roadmap:
   labels:
   - kind:code
   - release:v1.33.0
+  - must-carry
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
+  epic: 696
   release: 1.33.0
 - id: PMAT-629
   github_issue: 629
@@ -4714,7 +4720,8 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
-  release: 1.33.0
+  epic: 697
+  release: 1.35.0
 - id: PMAT-642
   github_issue: 642
   item_type: task
@@ -4736,6 +4743,7 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-624
   github_issue: 624
@@ -4767,8 +4775,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-648
   github_issue: 648
   item_type: task
@@ -4790,6 +4801,7 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-651
   github_issue: 651
@@ -4812,6 +4824,7 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-652
   github_issue: 652
@@ -4833,7 +4846,9 @@ roadmap:
   labels:
   - kind:code
   - release:v1.33.0
+  - must-carry
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-671
   github_issue: 671
@@ -4854,6 +4869,8 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-683
   github_issue: 683
   item_type: task
@@ -4875,6 +4892,8 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-680
   github_issue: 680
   item_type: task
@@ -4893,6 +4912,7 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  release: 1.34.0
   epic: 670
 - id: PMAT-674
   github_issue: 674
@@ -4911,4 +4931,26 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  release: 1.34.0
   epic: 670
+- id: PMAT-698
+  github_issue: 698
+  item_type: task
+  title: 'bump bashrs to 7.4.2: I8 gate must lint infra''s fw16-wired-10g-nm-owner completion_check with 0 errors (SC2075 FP, bashrs#441)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-10T13:40:00Z
+  updated: 2026-10-10T13:40:00Z
+  spec: null
+  acceptance_criteria:
+  - '`cargo tree -i bashrs --depth 0` prints `bashrs v7.4.2` and a committed fixture copy of the fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test; the same test is red on bashrs 7.4.1. Blocked until bashrs 7.4.2 is on crates.io.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - must-carry
+  notes: null
+  epic: 696
+  release: 1.34.0

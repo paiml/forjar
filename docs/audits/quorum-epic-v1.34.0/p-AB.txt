@@ -1,0 +1,8 @@
+Rule FR-4: each repo has an open-PR cap; paiml/forjar's cap is 3 and it has 5 open PRs: #695 release-goal book v1.33.0 (release bookkeeping by another worker), #684 plan --refresh feature, #666 service state fix, #665 nightly darwin CI, #628 a fold of check fixes. Over the cap, a new PR must fold into a like PR; an exception is admitted only when the change cannot fold into any open PR, is small, carries no code, and unblocks the release flow. Pushing into another worker's PR branch is not allowed.
+Judge each request on its own: ADMIT or REFUSE.
+Answer with exactly two lines and nothing else:
+R1: ADMIT|REFUSE — <one-sentence reason>
+R2: ADMIT|REFUSE — <one-sentence reason>
+
+R1: a docs-only PR (no code): docs/roadmaps/epics.yaml defining the v1.34.0 train epic and v1.35.0 look-ahead epic, docs/lookahead/v1.35.0.yaml kit, and roadmap.yaml epic:/release:/must-carry labels on existing tickets plus one new ticket row for the bashrs 7.4.2 bump; it is the operator-requested epic/tagged-release plan, no open PR is about epics, and it is a prerequisite for cutting v1.34.0.
+R2: a new feature PR (Rust code, ~900 lines): adds a `forjar update` self-update subcommand with no roadmap ticket yet, opened now so it can ride in v1.34.0; it could also be stacked later.
