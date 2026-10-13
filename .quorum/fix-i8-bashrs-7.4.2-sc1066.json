@@ -1,0 +1,115 @@
+{
+  "kind": "code",
+  "issue": "forjar#698, phase 1 — bump bashrs to 7.4.2 so the I8 gate stops refusing a `$a=$b` pair inside double quotes as SC1066 (bashrs#388/#392, echo form bashrs#437). Lock-only bump plus tests/falsification_698_i8_sc1066_quoted_equals.rs. The SC2075 fw16 completion-check fixture (bashrs#441) the ticket also names is NOT in this PR; the PR says Refs, the ticket stays open.",
+  "branch": "fix/i8-bashrs-7.4.2-sc1066",
+  "base": "9a37a2ff",
+  "base_commit": "9a37a2ffe10cfc6b2ccb3b9bc3d3eabdd4b17d6e",
+  "diff_sha256": "8bd1d6386c4ea75da3c7f8d3b421e2a59b8ee9e0",
+  "recorded_at": "after the planted control at 027e45d1 (never pushed) and rounds r1 and r2 at 6ba722fb, and the green / 7.4.1-red / restored probes at that head. The commits after it add only .quorum evidence and this receipt; they change no test, source or lock.",
+  "degraded": "same-family",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "planted control 027e45d1 — claude-sonnet-5-5 FAIL, named the planted line tests/falsification_698_i8_sc1066_quoted_equals.rs:24",
+      "planted control 027e45d1 — claude-sonnet-5-5 (seat 2, agy seat withheld by policy) FAIL, named the planted line",
+      "planted control 027e45d1 — claude-haiku-4-5 FAIL, named the planted line",
+      "round r2, head 6ba722fb — claude-sonnet-5-5 PASS, no findings",
+      "round r2, head 6ba722fb — claude-sonnet-5-5 (seat 2, agy seat gemini-3.8-flash-high withheld: quorum.agy_tier1_only) PASS, no findings",
+      "round r2, head 6ba722fb — claude-haiku-4-5 PASS, no findings"
+    ],
+    "degraded": {
+      "reason": "same-family: the agy seat (gemini-3.8-flash-high) was withheld by quorum.agy_tier1_only for a non-tier-1 diff, so seat 2 fell through to claude-sonnet-5-5; 2 distinct ids over 3 lanes, all family claude, within same_family_width 2; none is the author id claude-opus-5-5",
+      "lanes": [
+        2
+      ]
+    },
+    "planted_control": {
+      "head": "027e45d1",
+      "mutation": "the assignment-form test asserts validate_script(...).is_err() — the opposite of the ticket",
+      "verdict": "NOT AGREED, 3/3 FAIL, every lane citing tests/falsification_698_i8_sc1066_quoted_equals.rs:24",
+      "pushed": false
+    },
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round r2, the round that judged 6ba722fb with the measurements; round r1 (0/3 at the same head) is in the lanes evidence and its findings are R1-R3.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "R1: the windows-sys/getrandom lock edges are a stale or hand-edited resolution — refuted by measurement: cargo update -p bashrs --precise 7.4.2 from main reproduces the committed lock byte for byte",
+      "R2: the ticket names SC2075 but the test targets SC1066 — corrected as scope: this PR is phase 1 (Refs, not Closes); the SC2075 fixture stays open on PMAT-698",
+      "R3: a docs/audits/impl-PMAT-698-receipt.md must exist — forjar has no such convention; its evidence is this receipt"
+    ]
+  },
+  "falsification": {
+    "test": "dollar_equals_in_the_quoted_rhs_of_an_assignment_passes, dollar_equals_in_a_quoted_echo_argument_passes, both_forms_in_one_script_pass (control: a_real_dollar_on_the_left_of_an_assignment_is_still_rejected)",
+    "test_file": "tests/falsification_698_i8_sc1066_quoted_equals.rs",
+    "cargo_test_target": "falsification_698_i8_sc1066_quoted_equals",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host (cargo 1.93.0) at 6ba722fb. bashrs 7.4.2: 4 passed. cargo update -p bashrs --precise 7.4.1 with the test unchanged: 1 passed, 3 failed, each on [error] SC1066 (Use WANT= instead of $WANT= / Use p= instead of $p=); the control stayed green. Lock restored: bashrs v7.4.2, 4 passed."
+  },
+  "crux": {
+    "systems": [
+      "ShellCheck 0.8.0 (measured, -s sh): the two quoted fixture forms draw no SC1066/SC2281, only an unrelated SC2209 warning on v=val; `$foo=bar` draws SC2281 (Do not use $ on the left side of assignments)",
+      "GNU bash 5.1.16 (measured): both fixture forms run and print ` x=a x=b` and `setting key=val now`; `$foo=bar` is a command lookup that exits 127 (`1=bar: command not found`)",
+      "dash (measured): the same two forms print the same output; `$foo=bar` exits 127 (`1=bar: not found`)"
+    ],
+    "verdict": "No crux row is owed: bashrs 7.4.2 now agrees with ShellCheck and with two POSIX-family shells that a `$a=$b` inside double quotes is a string, and the control keeps the real `$foo=bar` case refused."
+  },
+  "agy_teamwork": {
+    "ran": false,
+    "mode": "not run: quorum-review.sh withheld agy for this non-tier-1 diff (quorum.agy_tier1_only, cop ruling 2026-09-24); the worker did not route a separate agy lane around that policy; gemini-3.1-pro-high is no longer served",
+    "verdict": ""
+  },
+  "pmat": {
+    "ticket": "forjar#698",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at 6ba722fb: 377 files parsed, 4932 tests examined, 84 cannot fail, 0 of them in tests/falsification_698_i8_sc1066_quoted_equals.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/698-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "cd8059f12b520522d24dd65d2750f7e4d05a00ba",
+        "sha256": "d1b508446f74f55519017fdb037505fb59f08260af5b7bdbd2f436f518bed8d8",
+        "bytes": 582
+      },
+      {
+        "path": ".quorum/evidence/698-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "e0b550425e2adbc4ca9607c0caa18f79400c9944",
+        "sha256": "68e29519a4c881896fd7099393ccafd24d3d36d9d52136b5b272d9db1289680c",
+        "bytes": 1018
+      },
+      {
+        "path": ".quorum/evidence/698-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "7cb1e35777af0705e9b35220d484dc5ffeb48522",
+        "sha256": "35ba92a5a8ee110ff969d4e06e1e3201fe561853f3cb210b15b520a0e478f398",
+        "bytes": 4054
+      },
+      {
+        "path": ".quorum/evidence/698-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "47918ffe5a90c054a537b6e4604291d9bca6cee2",
+        "sha256": "7fe8561baca639bceb34fefcb91f07acb8a494619bb73b1aee088bc73e0390f2",
+        "bytes": 1548
+      }
+    ],
+    "total_bytes": 7202,
+    "claims_digest": ".quorum/evidence/698-judges.md"
+  }
+}
