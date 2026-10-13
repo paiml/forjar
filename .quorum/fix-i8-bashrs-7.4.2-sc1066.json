@@ -57,9 +57,14 @@
     "verdict": "No crux row is owed: bashrs 7.4.2 now agrees with ShellCheck and with two POSIX-family shells that a `$a=$b` inside double quotes is a string, and the control keeps the real `$foo=bar` case refused."
   },
   "agy_teamwork": {
-    "ran": false,
-    "mode": "not run: quorum-review.sh withheld agy for this non-tier-1 diff (quorum.agy_tier1_only, cop ruling 2026-09-24); the worker did not route a separate agy lane around that policy; gemini-3.1-pro-high is no longer served",
-    "verdict": ""
+    "ran": true,
+    "model": "gemini-3.8-flash-high",
+    "mode": "agy-lane.sh --mode plan (sandboxed, read-only), one lane at f27d131f against origin/main",
+    "verdict": "PASS",
+    "findings": [],
+    "conversation_id": "b9a0998e-4954-47e2-a3b7-3de09cae9e40",
+    "evidence": ".quorum/evidence/698-agy.md",
+    "note": "per-round exception to agy_tier1_only, ruling aprender-b4 2026-10-13"
   },
   "pmat": {
     "ticket": "forjar#698",
@@ -77,9 +82,9 @@
         "roles": [
           "agy"
         ],
-        "blob": "cd8059f12b520522d24dd65d2750f7e4d05a00ba",
-        "sha256": "d1b508446f74f55519017fdb037505fb59f08260af5b7bdbd2f436f518bed8d8",
-        "bytes": 582
+        "blob": "93caa264508993e8b2ffdf1cdead7732ac5a1cdb",
+        "sha256": "b5ab7ecf073eb7f8aa36bec2c8db1ca8fb19300a3ba29a1d1b6cb7c4f57c789e",
+        "bytes": 1279
       },
       {
         "path": ".quorum/evidence/698-claims.md",
@@ -109,7 +114,7 @@
         "bytes": 1548
       }
     ],
-    "total_bytes": 7202,
+    "total_bytes": 7899,
     "claims_digest": ".quorum/evidence/698-judges.md"
   }
 }
