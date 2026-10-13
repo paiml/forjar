@@ -182,7 +182,7 @@ pub(crate) fn cmd_apply_scoped(
     if dry_run {
         // PMAT-160: the SAME scope the drift gate and the ControlMaster opener
         // took, so what the dry run lists is what the run would act on.
-        return apply_dry_run_output(&config, state_dir, &gate_scope, json);
+        return apply_dry_run_output(&config, state_dir, &gate_scope, &observed_drift, json);
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
