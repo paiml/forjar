@@ -4,7 +4,7 @@
   "branch": "fix/i8-bashrs-7.4.2-sc1066",
   "base": "9a37a2ff",
   "base_commit": "9a37a2ffe10cfc6b2ccb3b9bc3d3eabdd4b17d6e",
-  "diff_sha256": "8bd1d6386c4ea75da3c7f8d3b421e2a59b8ee9e0",
+  "diff_sha256": "d095e9fb7ffb155ab778619ccbab7abfc9457040",
   "recorded_at": "after the planted control at 027e45d1 (never pushed) and rounds r1 and r2 at 6ba722fb, and the green / 7.4.1-red / restored probes at that head. The commits after it add only .quorum evidence and this receipt; they change no test, source or lock.",
   "degraded": "same-family",
   "quorum": {
