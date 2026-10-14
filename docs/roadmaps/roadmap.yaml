@@ -4969,7 +4969,7 @@ roadmap:
   - "apply refuses a disk that is neither removable nor USB-attached, and a disk with a mounted or held partition, before writing a byte"
   - "apply refuses an ISO whose sha256 does not match media_iso_sha256"
   - "every shell fragment in media_seed (early/late/error-commands, runcmd, bootcmd, shebang write_files and extra files) passes bashrs; one error fails validate and every generated script"
-  - "the seed is a FAT CIDATA partition labelled CIDATA (armed) or CIDATA-OFF (disarmed)"
+  - "the seed is a FAT CIDATA partition labelled CIDATA (armed) or SCRIPTS (disarmed)"
   - "check reads the disk back: ISO region sha256, partition table entry, label, every seed file by cmp and the partition sha256; a flipped ISO byte or a changed seed file is drift; a converged stick re-applies with no write"
   - "plan prints the by-id device and every region it will write: the ISO region, the seed partition (label, start sector, size) and every seed file; the by-id path is resolved on the target, by check and apply"
   - "unset media_* fields do not serialise, so test_golden_hash_pinned_value is unchanged; each set field moves the desired-state hash"
