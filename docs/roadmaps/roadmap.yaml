@@ -4954,3 +4954,22 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-710
+  github_issue: 710
+  item_type: task
+  title: rustls 0.23.46 + quinn-proto 0.11.18 for RUSTSEC-2026-0346..0349/0338/0340/0343 (red-main lockfile fix)
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-14T13:55:36Z
+  updated: 2026-10-14T13:55:36Z
+  spec: null
+  acceptance_criteria:
+  - 'sovereign-ci lint (cargo deny advisories) and security (cargo audit) feed the required gate and fail on rustls 0.23.45 and quinn-proto 0.11.17. Lockfile-only bump. Acceptance: cargo audit 0 vulnerabilities on the bumped Cargo.lock.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
