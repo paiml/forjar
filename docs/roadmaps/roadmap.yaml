@@ -4954,3 +4954,22 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-712
+  github_issue: 712
+  item_type: task
+  title: 'migrate YAML to a maintained crate (serde-saphyr candidate) to drop the RUSTSEC-2024-0449 ignore'
+  status: in_progress
+  priority: high
+  assigned_to: infra-38
+  created: 2026-10-14T14:50:00Z
+  updated: 2026-10-14T14:50:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Interim (first PR): deny.toml [advisories] ignores exactly RUSTSEC-2024-0449 (unsafe-libyaml, unmaintained, not a vulnerability) in one per-id entry whose reason names serde_yaml / serde_yaml_ng and #712, with a comment giving the owner (infra-38 [e3a166]), the close date 2026-11-14 and the close condition; no other advisory, gate or check changes; cargo deny check advisories passes on this branch with the rustls 0.23.46 lockfile and, on main''s lockfile, fails only on the rustls advisories RUSTSEC-2026-0346..0349 that the rustls 0.23.46 lockfile fix removes (no RUSTSEC-2024-0449).'
+  - 'Close (by 2026-11-14): unsafe-libyaml is absent from Cargo.lock (cargo tree -i unsafe-libyaml finds nothing) after moving YAML to a maintained crate, and the RUSTSEC-2024-0449 ignore line is deleted from deny.toml in the same PR.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
