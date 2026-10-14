@@ -38,24 +38,54 @@ use crate::transport;
 ///
 /// Seeding a lock entry is the opposite kind of claim. It records that the host
 /// IS in its declared state, and "I could not look" is not evidence for that.
-/// So this returns true only on a check that ran and exited 0.
-pub(super) fn check_passes_on(cfg: &ApplyConfig, resource: &Resource, machine_name: &str) -> bool {
+/// So only [`CheckVerdict::Passed`] — a check that ran and exited 0 — seeds.
+///
+/// forjar#590: this used to return a bare `bool`, collapsing "the check ran and
+/// failed" and "the check could not be run at all" into the same `false`. Both
+/// still decline to seed, but the second now says so on stderr, because a
+/// guard that silently re-runs its command for a reason nobody can see is the
+/// shape that hid #590 for a release.
+pub(super) fn check_on(cfg: &ApplyConfig, resource: &Resource, machine_name: &str) -> CheckVerdict {
     if cfg.machine_filter.is_some_and(|f| machine_name != f) {
-        return false;
+        return CheckVerdict::OutOfScope;
     }
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)
-    else {
-        return false;
+    // The executor's own resolver, with the executor's own secrets: anything
+    // else hashes and checks a resource the apply would never run.
+    let resolved = match resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    ) {
+        Ok(r) => r,
+        Err(e) => return CheckVerdict::Unmeasured(format!("template resolution: {e}")),
     };
-    let Ok(script) = codegen::check_script(&resolved) else {
-        return false;
+    let script = match codegen::check_script(&resolved) {
+        Ok(s) => s,
+        Err(e) => return CheckVerdict::Unmeasured(format!("no check script: {e}")),
     };
-    cfg.config
-        .machines
-        .get(machine_name)
-        .and_then(|m| transport::exec_script(m, &script).ok())
-        .is_some_and(|out| out.success())
+    let Some(machine) = cfg.config.machines.get(machine_name) else {
+        return CheckVerdict::Unmeasured(format!("unknown machine {machine_name}"));
+    };
+    match transport::exec_script(machine, &script) {
+        Ok(out) if out.success() => CheckVerdict::Passed(Box::new(resolved)),
+        Ok(_) => CheckVerdict::Failed,
+        Err(e) => CheckVerdict::Unmeasured(format!("transport: {e}")),
+    }
+}
+
+/// What one `--refresh` check established about one resource on one host.
+pub(super) enum CheckVerdict {
+    /// The check ran and exited 0. Carries the RESOLVED resource the check ran
+    /// against, so the seeded lock entry is hashed over what the planner and
+    /// executor hash — never over the raw, still-templated config (forjar#590).
+    Passed(Box<Resource>),
+    /// The check ran and exited non-zero.
+    Failed,
+    /// The check could not be run; the reason is reported, never swallowed.
+    Unmeasured(String),
+    /// `-m` excludes this machine: nothing was asked.
+    OutOfScope,
 }
 
 /// FJ-3010, second half: record resources the HOST already satisfies.
@@ -89,36 +119,59 @@ pub(super) fn seed_converged(cfg: &ApplyConfig, machine_name: &str, lock: &mut S
 }
 
 /// Does the HOST — not the lock — report this resource as being in its declared
-/// state right now?
+/// state right now? `Some(resolved)` when it does.
 ///
 /// Shared by seeding (an entry that does not exist) and unlatching (an entry
 /// that exists and says the resource is broken), because the evidence required
 /// is identical: the resource is in this apply's scope, it is declared for this
 /// machine, and its check ran here and exited 0.
+///
+/// A check that could not be run declines to seed AND says why on stderr —
+/// "could not measure" is reported, never folded silently into "failed".
 fn host_says_converged(
     cfg: &ApplyConfig,
     machine_name: &str,
     id: &str,
     resource: &Resource,
-) -> bool {
-    super::refresh::refresh_in_scope(cfg, id, resource)
-        && resource.machine.iter().any(|m| m == machine_name)
-        && check_passes_on(cfg, resource, machine_name)
+) -> Option<Resource> {
+    if !(super::refresh::refresh_in_scope(cfg, id, resource)
+        && resource.machine.iter().any(|m| m == machine_name))
+    {
+        return None;
+    }
+    match check_on(cfg, resource, machine_name) {
+        CheckVerdict::Passed(resolved) => Some(*resolved),
+        CheckVerdict::Unmeasured(why) => {
+            eprintln!(
+                "warning: --refresh could not check {id} on {machine_name} ({why}); \
+                 not recording it as converged"
+            );
+            None
+        }
+        CheckVerdict::Failed | CheckVerdict::OutOfScope => None,
+    }
 }
 
 /// A lock entry for a resource the host already satisfies.
+///
+/// `resolved` MUST be the template-resolved resource (forjar#590). The planner
+/// compares `rl.hash` against `hash_desired_state` of the RESOLVED resource and
+/// every executor write stores that same hash; an entry hashed over the raw
+/// config matches only when the resource has no template, so every templated
+/// guard was seeded "converged" and then re-planned as an Update that ran its
+/// command anyway.
 ///
 /// No apply happened, so there is no `applied_at` or `duration_seconds` to
 /// record — writing one would date an event that never occurred. `observed` is
 /// a digest of the state query's stdout, and the check script is not that
 /// query; conflating the two is forjar#305.
-fn converged_entry(resource: &Resource) -> ResourceLock {
+pub(super) fn converged_entry(resolved: &Resource) -> ResourceLock {
     ResourceLock {
-        resource_type: resource.resource_type.clone(),
+        resource_type: resolved.resource_type.clone(),
         status: ResourceStatus::Converged,
         applied_at: None,
         duration_seconds: None,
-        hash: crate::core::planner::hashing::hash_desired_state(resource),
+        hash: crate::core::planner::hashing::hash_desired_state(resolved),
         observed: None,
         details: Default::default(),
     }
@@ -138,8 +191,10 @@ fn record_converged(
     let entries: Vec<(String, ResourceLock)> = candidates
         .into_iter()
         .filter_map(|id| cfg.config.resources.get(&id).map(|r| (id, r)))
-        .filter(|(id, r)| host_says_converged(cfg, machine_name, id, r))
-        .map(|(id, r)| (id, converged_entry(r)))
+        .filter_map(|(id, r)| {
+            host_says_converged(cfg, machine_name, &id, r)
+                .map(|resolved| (id, converged_entry(&resolved)))
+        })
         .collect();
     for (id, entry) in entries {
         lock.resources.insert(id, entry);

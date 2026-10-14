@@ -65,6 +65,8 @@ mod tests_localhost2;
 #[cfg(test)]
 mod tests_parallel;
 #[cfg(test)]
+mod tests_refresh_seed_resolved;
+#[cfg(test)]
 mod tests_rolling;
 #[cfg(test)]
 mod tests_run_capture;
