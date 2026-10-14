@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`bootable_media`: an install stick as declared, linted, read-back-proven state
+(#713).** A new resource writes an ISO pinned by sha256 to a `/dev/disk/by-id/usb-*`
+whole disk and appends a FAT seed partition (CIDATA, or SCRIPTS when disarmed)
+that forjar builds itself. Every shell fragment in the seed goes through the
+bashrs gate at validate, so a bad `early-command` fails `forjar plan`. Apply
+refuses `/dev/sdX`, a disk that is neither removable nor USB, and a disk holding
+anything mounted. The check reads the disk back (ISO region sha256, partition
+entry, label, a `cmp` of every seed file, whole-partition sha256), so
+`--refresh` reports `unchanged` only for a stick that matches.
+
 ## [1.33.0] - 2026-09-28
 
 Promotes 1.33.0-rc.1 (below) unchanged, plus one release-pipeline fix.

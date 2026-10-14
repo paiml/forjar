@@ -178,7 +178,8 @@ fn task_and_hooks(field: &str) -> Option<Observability> {
     })
 }
 
-/// `type: disk_budget`, `type: backup_sync`, `type: nas_archive`.
+/// `type: disk_budget`, `type: backup_sync`, `type: nas_archive`,
+/// `type: bootable_media`.
 fn storage(field: &str) -> Option<Observability> {
     Some(match field {
         // disk_budget's query sha256s the deployed .timer unit, whose
@@ -222,6 +223,21 @@ fn storage(field: &str) -> Option<Observability> {
             "#403 — nas_archive's query has no timer check at all, unlike \
              disk_budget's, so its cadence is unobserved",
         ),
+        // Refs #713: bootable_media's check reads the stick back: the device's
+        // sysfs entry, the ISO against its pin, the region, the label and every
+        // seed byte. These fields serialise only when set (see `MediaSpec`), so
+        // the reflection above never probes them; the resource's own tests
+        // assert each one moves the hash.
+        "media_device" => Observability::Observed {
+            alt: "/dev/disk/by-id/usb-Forjar_Alt_Stick-0:0",
+        },
+        "media_iso" => Observability::Observed {
+            alt: "/tmp/forjar-alt.iso",
+        },
+        "media_iso_sha256" => Observability::Observed {
+            alt: "0000000000000000000000000000000000000000000000000000000000000000",
+        },
+        "media_seed_state" => Observability::Observed { alt: "disarmed" },
         _ => return None,
     })
 }

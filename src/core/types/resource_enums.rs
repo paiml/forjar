@@ -58,6 +58,9 @@ pub enum ResourceType {
     /// FJ-38: NAS archival — declared directories moved and originals deleted
     /// only after the copy is proven identical.
     NasArchive,
+    /// Refs #713: an install stick: pinned ISO + linted FAT seed partition,
+    /// proven by reading the disk back.
+    BootableMedia,
 }
 
 impl fmt::Display for ResourceType {
@@ -84,6 +87,7 @@ impl fmt::Display for ResourceType {
             Self::DiskBudget => write!(f, "disk_budget"),
             Self::BackupSync => write!(f, "backup_sync"),
             Self::NasArchive => write!(f, "nas_archive"),
+            Self::BootableMedia => write!(f, "bootable_media"),
         }
     }
 }
@@ -213,6 +217,7 @@ mod tests {
             (ResourceType::DiskBudget, "disk_budget"),
             (ResourceType::NasArchive, "nas_archive"),
             (ResourceType::BackupSync, "backup_sync"),
+            (ResourceType::BootableMedia, "bootable_media"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

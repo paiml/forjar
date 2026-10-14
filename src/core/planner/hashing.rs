@@ -229,7 +229,10 @@ fn canonical_source_content(resource: &Resource) -> String {
 ///
 /// Empty for every other resource type, so no existing hash changes.
 fn canonical_generated_script(resource: &Resource) -> String {
-    if resource.resource_type != ResourceType::DiskBudget {
+    if !matches!(
+        resource.resource_type,
+        ResourceType::DiskBudget | ResourceType::BootableMedia
+    ) {
         return String::new();
     }
     // Hash the WHOLE generated surface, not just `apply`. The state query is

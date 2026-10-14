@@ -24,12 +24,29 @@
 use super::known_fields::RESOURCE_FIELDS;
 use crate::core::types::Resource;
 
-#[test]
-fn every_resource_field_is_declarable_in_yaml() {
-    let base = serde_yaml_ng::to_value(Resource::default()).expect("Resource serialises");
+/// `Resource::default()` serialised, plus every field that skips serialising
+/// when unset (the `media_*` fields, Refs #713: they must not move the golden
+/// hash of every other resource). Populating them here keeps both directions
+/// below reflecting the whole struct rather than only its always-present part.
+fn serialised_fields() -> serde_yaml_ng::Mapping {
+    let mut r = Resource::default();
+    r.media.device = Some(String::new());
+    r.media.iso = Some(String::new());
+    r.media.iso_sha256 = Some(String::new());
+    r.media.iso_bytes = Some(0);
+    r.media.seed.insert(String::new(), String::new());
+    r.media.seed_state = Some(String::new());
+    r.media.seed_mib = Some(0);
+    let base = serde_yaml_ng::to_value(r).expect("Resource serialises");
     let serde_yaml_ng::Value::Mapping(map) = base else {
         panic!("Resource is a struct");
     };
+    map
+}
+
+#[test]
+fn every_resource_field_is_declarable_in_yaml() {
+    let map = serialised_fields();
 
     let missing: Vec<String> = map
         .iter()
@@ -53,10 +70,7 @@ fn every_resource_field_is_declarable_in_yaml() {
 fn resource_fields_has_no_stale_entries() {
     // The other direction: an entry for a field that no longer exists silently
     // accepts a typo'd key forever.
-    let base = serde_yaml_ng::to_value(Resource::default()).expect("Resource serialises");
-    let serde_yaml_ng::Value::Mapping(map) = base else {
-        panic!("Resource is a struct");
-    };
+    let map = serialised_fields();
     let real: Vec<&str> = map.iter().filter_map(|(k, _)| k.as_str()).collect();
 
     // Aliases accepted in YAML that do not correspond 1:1 to a struct field.

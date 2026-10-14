@@ -175,6 +175,15 @@ fn resolve_build_and_overlay_fields(
     for v in r.backup.remote_config.values_mut() {
         *v = resolve_template_with_secrets(v, params, machines, secrets)?;
     }
+    // Refs #713: the seed is rendered from params/templates (secrets included)
+    // BEFORE it is linted, built into the FAT image and hashed.
+    r.media.device = resolve_opt(&r.media.device, params, machines, secrets)?;
+    r.media.iso = resolve_opt(&r.media.iso, params, machines, secrets)?;
+    r.media.iso_sha256 = resolve_opt(&r.media.iso_sha256, params, machines, secrets)?;
+    r.media.seed_state = resolve_opt(&r.media.seed_state, params, machines, secrets)?;
+    for v in r.media.seed.values_mut() {
+        *v = resolve_template_with_secrets(v, params, machines, secrets)?;
+    }
 
     Ok(())
 }

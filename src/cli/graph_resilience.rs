@@ -22,7 +22,8 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         | R::OverlayInterface
         | R::DiskBudget
         | R::BackupSync
-        | R::NasArchive => 3,
+        | R::NasArchive
+        | R::BootableMedia => 3,
         R::Docker => 4,
         R::Package | R::Model | R::Gpu | R::Build => 5,
     }

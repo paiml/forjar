@@ -100,6 +100,9 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
         ResourceType::Build => Coverage::NotApplicable("cross-compiles to another machine"),
         ResourceType::Task => Coverage::NotApplicable("runs arbitrary user commands"),
         ResourceType::Recipe => Coverage::NotApplicable("expanded before codegen; not a leaf type"),
+        ResourceType::BootableMedia => Coverage::NotApplicable(
+            "writes a whole block device; exercised on image files by its unit tests",
+        ),
     }
 }
 
@@ -126,6 +129,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::DiskBudget,
     ResourceType::BackupSync,
     ResourceType::NasArchive,
+    ResourceType::BootableMedia,
 ];
 
 /// Run every exercised resource type against reality.

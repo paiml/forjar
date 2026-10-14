@@ -4954,3 +4954,30 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-713
+  github_issue: 713
+  item_type: task
+  title: 'bootstrap-usb resource: bootable_media — by-id-only install stick, sha256-pinned ISO, bashrs-linted CIDATA seed, read-back completion_check (Refs #713)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-14T19:24:18Z
+  updated: 2026-10-14T19:24:18Z
+  spec: null
+  acceptance_criteria:
+  - "type: bootable_media validates media_device as /dev/disk/by-id/* only and refuses /dev/sdX (validate and apply)"
+  - "apply refuses a disk that is neither removable nor USB-attached, and a disk with a mounted or held partition, before writing a byte"
+  - "apply refuses an ISO whose sha256 does not match media_iso_sha256"
+  - "every shell fragment in media_seed (early/late/error-commands, runcmd, bootcmd, shebang write_files and extra files) passes bashrs; one error fails validate and every generated script"
+  - "the seed is a FAT CIDATA partition labelled CIDATA (armed) or CIDATA-OFF (disarmed)"
+  - "check reads the disk back: ISO region sha256, partition table entry, label, every seed file by cmp and the partition sha256; a flipped ISO byte or a changed seed file is drift; a converged stick re-applies with no write"
+  - "plan prints the by-id device, its resolved node and every region it will write"
+  - "unset media_* fields do not serialise, so test_golden_hash_pinned_value is unchanged; each set field moves the desired-state hash"
+  - "cargo test -p forjar --lib: src/resources/bootable_media tests pass on image files only (no real block device)"
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 697

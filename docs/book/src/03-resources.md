@@ -1942,3 +1942,83 @@ reboot.
 
 `state: absent` tears down the units (and dispatcher hook), removes the scripts,
 and drops the overlay IP.
+
+## Bootable Media
+
+`bootable_media` writes an install stick: an ISO pinned by sha256, plus a
+NoCloud seed (`user-data`, `meta-data`, optional extras such as `install.sh`)
+on a FAT partition forjar builds itself and appends after the ISO's own
+partitions. The check reads the disk back, so a stick that drifted, or one
+written by hand, does not report converged.
+
+```yaml
+install-stick:
+  type: bootable_media
+  machine: localhost
+  sudo: true
+  media_device: /dev/disk/by-id/usb-SSK_Port_able_SSD_256_0123456789AB-0:0
+  media_iso: /srv/iso/ubuntu-26.04.1-live-server-amd64.iso
+  media_iso_sha256: "<sha256sum of the ISO>"
+  media_iso_bytes: 3221239808          # stat -c %s of the ISO
+  media_seed_state: armed              # CIDATA; `disarmed` relabels it SCRIPTS
+  media_seed:
+    meta-data: "instance-id: t2-7\n"
+    user-data: "{{ secrets.t2_user_data }}"
+    install.sh: |
+      #!/bin/sh
+      set -eu
+      echo first boot
+```
+
+A full example is `examples/bootable-media-stick.yaml`.
+
+### Bootable Media Fields
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| `media_device` | yes | A whole-disk `/dev/disk/by-id/usb-*` link. `/dev/sdX`, a `-partN` link and a non-`usb-` id are refused at validate. |
+| `media_iso` | yes | Absolute path of the ISO on the target machine. |
+| `media_iso_sha256` | yes | Pinned sha256 of the whole ISO. Apply refuses an ISO that does not match it. |
+| `media_iso_bytes` | yes | Exact ISO size in bytes (whole 512-byte sectors). It fixes where the seed partition starts, so `plan` can name it without reading the disk. |
+| `media_seed` | yes | Seed files, name to content, rendered through params, templates and secrets. Must hold `user-data` and `meta-data`. |
+| `media_seed_state` | no | `armed` (default; label `CIDATA`, the installer consumes the seed) or `disarmed` (label `SCRIPTS`). |
+| `media_seed_mib` | no | Seed partition size, 9 to 64 MiB (default 16). |
+
+### What validate, plan, apply and check do
+
+- **validate / plan:** every shell fragment in the seed goes through the
+  bashrs gate (I8) that every forjar script passes: `autoinstall`
+  `early-commands`, `late-commands` and `error-commands`; `bootcmd` and
+  `runcmd`; `write_files` entries whose content starts with `#!`; and every
+  other seed file that starts with `#!`. A lint error fails validation, so it
+  fails `forjar plan` before anything is written. A field that still holds a
+  `{{ template }}` is judged after it is rendered: its plan line reads
+  `REFUSED` and apply exits before writing.
+- **plan** prints the exact device and every region it will write, for
+  example: `install-stick: write /dev/disk/by-id/usb-…: ISO region bytes
+  32768..3221239808 from /srv/iso/….iso (sha256 …); seed partition CIDATA at
+  sector 6291456, 32768 sectors (16 MiB), appended after the ISO's own
+  partitions; seed files: meta-data, user-data, install.sh`.
+- **apply** refuses a device that is not a block device, not a whole disk,
+  neither removable nor USB-attached (by its sysfs path), holds a mounted or
+  claimed (`holders`) filesystem, or is too small. It writes the ISO only when
+  the ISO region or the seed partition entry differs. Then it appends the
+  partition with `sfdisk` (a GPT ISO has its backup GPT moved to the disk's
+  end first; a dos label gets type `c`). It rewrites the seed partition only
+  when its sha256 differs, and ends by running the check.
+- **check** is read-only. It asserts the disk is USB/removable, the ISO matches
+  its pin, the ISO region (`[32768, media_iso_bytes)`) on the disk hashes the
+  same as the ISO file, the partition entry and label are as declared, every
+  seed file `cmp`s equal at its offset, and the whole partition matches the
+  sha256 of the image forjar builds. `forjar apply --refresh` reports
+  `unchanged` only when all of it holds.
+
+The first 32768 bytes of the ISO (the ISO9660 system area) are not part of the
+region check: they hold the partition table that apply rewrites to add the
+seed partition. The partition entry is checked separately instead.
+
+`state: absent` is refused: forjar writes a stick, it never wipes one.
+
+The FAT16 image is built in Rust, deterministically (fixed timestamps, a volume
+id derived from the content), so the same declaration always produces the same
+bytes and the same sha256.

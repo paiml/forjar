@@ -1,6 +1,7 @@
 //! Type-specific required-field validation for each resource type.
 
 use super::backup_sync_validate::validate_backup_sync;
+use super::bootable_media_validate::validate_bootable_media;
 use super::disk_budget_validate::validate_disk_budget;
 use super::nas_archive_validate::validate_nas_archive;
 use super::overlay_interface_validate::validate_overlay_interface;
@@ -34,6 +35,7 @@ pub(super) fn validate_resource_type(
         ResourceType::DiskBudget => validate_disk_budget(id, resource, errors),
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
+        ResourceType::BootableMedia => validate_bootable_media(id, resource, errors),
     }
 }
 

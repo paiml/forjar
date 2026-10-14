@@ -1,0 +1,50 @@
+# bootable_media: an Ubuntu Server install stick as declared state (#713).
+#
+#   forjar validate -f examples/bootable-media-stick.yaml   # lints the seed's shell
+#   forjar plan     -f examples/bootable-media-stick.yaml   # names the device + regions
+#   forjar apply    -f examples/bootable-media-stick.yaml   # writes, then reads back
+#
+# The device is a /dev/disk/by-id/usb-* WHOLE-DISK link; /dev/sdX is refused.
+# Apply refuses a disk that is not removable/USB or holds anything mounted.
+# Replace the pin with the sha256 and byte size of your ISO
+# (`sha256sum x.iso`, `stat -c %s x.iso`). Keep password hashes and keys out
+# of the file: render them in with `{{ secrets.* }}` or `{{ params.* }}`.
+version: "1.0"
+name: install-stick
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  install-stick:
+    type: bootable_media
+    machine: localhost
+    sudo: true
+    media_device: /dev/disk/by-id/usb-SSK_Port_able_SSD_256_0123456789AB-0:0
+    media_iso: /srv/iso/ubuntu-26.04.1-live-server-amd64.iso
+    media_iso_sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    media_iso_bytes: 3221239808
+    # armed = label CIDATA (the installer consumes the seed);
+    # disarmed = label SCRIPTS (the stick boots the plain ISO).
+    media_seed_state: armed
+    media_seed_mib: 16
+    media_seed:
+      meta-data: |
+        instance-id: t2-example
+      user-data: |
+        #cloud-config
+        autoinstall:
+          version: 1
+          early-commands:
+            - echo "forjar seed: early-commands"
+          storage:
+            layout:
+              name: direct
+          ssh:
+            install-server: true
+          late-commands:
+            - cp /cdrom/install.sh /target/root/install.sh || true
+      install.sh: |
+        #!/bin/sh
+        set -eu
+        echo "first-boot install steps go here"

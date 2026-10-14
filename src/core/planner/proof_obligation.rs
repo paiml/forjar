@@ -59,6 +59,8 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         // transfer set.
         ResourceType::BackupSync => ProofObligation::Convergent,
         ResourceType::NasArchive => ProofObligation::Convergent,
+        // Writing a stick overwrites whatever the disk held before.
+        ResourceType::BootableMedia => ProofObligation::Destructive,
     }
 }
 
@@ -93,7 +95,8 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
-        | ResourceType::NasArchive => ProofObligation::Convergent,
+        | ResourceType::NasArchive
+        | ResourceType::BootableMedia => ProofObligation::Convergent,
     }
 }
 

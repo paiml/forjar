@@ -1,6 +1,7 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
 use super::backup_sync_types::BackupSpec;
+use super::bootable_media_types::MediaSpec;
 use super::disk_budget_types::ReclaimRule;
 use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
@@ -484,4 +485,8 @@ pub struct Resource {
     /// FJ-038: `nas_archive` declaration fields.
     #[serde(flatten)]
     pub archive: ArchiveSpec,
+
+    /// Refs #713: `bootable_media` declaration fields (`media_*`).
+    #[serde(flatten)]
+    pub media: MediaSpec,
 }

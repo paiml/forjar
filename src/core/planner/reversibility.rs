@@ -69,6 +69,9 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         // Destroying the resource removes the script and units, not the archived
         // data — the NAS copy outlives the declaration.
         ResourceType::NasArchive => Reversibility::Reversible,
+        // Removing the declaration never touches the disk: the stick keeps
+        // what was written, and apply refuses `state: absent`.
+        ResourceType::BootableMedia => Reversibility::Reversible,
     }
 }
 

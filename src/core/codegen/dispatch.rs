@@ -81,7 +81,8 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
-        | ResourceType::NasArchive => handlers_fleet(resource_type),
+        | ResourceType::NasArchive
+        | ResourceType::BootableMedia => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
         ResourceType::Recipe => None,
@@ -120,6 +121,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
+        | ResourceType::BootableMedia
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -152,6 +154,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
+        | ResourceType::BootableMedia
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -167,6 +170,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         ResourceType::DiskBudget => from_module!(resources::disk_budget),
         ResourceType::BackupSync => from_module!(resources::backup_sync),
         ResourceType::NasArchive => from_module!(resources::nas_archive),
+        ResourceType::BootableMedia => from_module!(resources::bootable_media),
 
         // Routed to a sibling group by `handlers`.
         ResourceType::Package

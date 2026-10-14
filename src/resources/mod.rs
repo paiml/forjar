@@ -6,6 +6,7 @@
 //! 3. A "hash" function that computes the BLAKE3 of observable state
 
 pub mod backup_sync;
+pub mod bootable_media;
 pub mod build;
 pub mod cron;
 pub mod disk_budget;

@@ -207,7 +207,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
-        | ResourceType::NasArchive => "present",
+        | ResourceType::NasArchive
+        | ResourceType::BootableMedia => "present",
     }
 }
 
@@ -428,7 +429,16 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::DiskBudget
             | ResourceType::BackupSync
             | ResourceType::NasArchive => format!("{resource_id}: create"),
+            ResourceType::BootableMedia => {
+                crate::resources::bootable_media::plan_line(resource_id, resource)
+            }
         },
+        PlanAction::Update if resource.resource_type == ResourceType::BootableMedia => {
+            format!(
+                "{} (state changed)",
+                crate::resources::bootable_media::plan_line(resource_id, resource)
+            )
+        }
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),
         PlanAction::NoOp => format!("{resource_id}: no changes"),

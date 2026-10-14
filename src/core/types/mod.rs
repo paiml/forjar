@@ -5,6 +5,7 @@
 
 mod backup_sync_types;
 mod behavior_types;
+mod bootable_media_types;
 mod build_metrics;
 mod ci_pipeline_types;
 mod config;
@@ -61,6 +62,7 @@ mod wasm_types;
 
 pub use backup_sync_types::*;
 pub use behavior_types::*;
+pub use bootable_media_types::*;
 pub use build_metrics::*;
 pub use ci_pipeline_types::*;
 pub use config::*;
