@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "forjar#711 / #714 — main's ci / lint was red for every PR: cargo deny check advisories failed on the rustls and quinn-proto advisories (cleared by the PMAT-710 lock bump) and on RUSTSEC-2024-0449, unsafe-libyaml unmaintained with no patched release, reached through bashrs and pforge-config, which forjar does not own. deny.toml and .cargo/audit.toml now carry one scoped ignore naming #714; tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs fails if it outlives the crate, covers an unreviewed consumer, or the two lists drift.",
+  "branch": "fix/rustls-rustsec-2026-0346",
+  "base": "9a37a2ff",
+  "base_commit": "9a37a2ffe10cfc6b2ccb3b9bc3d3eabdd4b17d6e",
+  "diff_sha256": "e6f16ceeb0b47132c4cb065033e262fba6d70e11",
+  "recorded_at": "after the final round at 03bb633b (agreed 3/3) and its planted control (3/3 FAIL). The commits after it add only .quorum evidence and this receipt; they change no test or source.",
+  "quorum": {
+    "rounds": 4,
+    "lanes": [
+      "head 03bb633b (final) — claude-sonnet-5-5 PASS, notes PMAT-710 rides the branch and asks for an impl receipt (R3)",
+      "head 03bb633b (final) — agy gemini-4-argon-high PASS, measures the Cargo.lock consumer sets the test pins",
+      "head 03bb633b (final) — claude-haiku-4-5 PASS, no findings",
+      "planted control (unmaintained = \"none\", never pushed) — sonnet-5-5, gemini-4-argon-high, haiku-4-5 all FAIL naming the line",
+      "decision round 2 (a: swap the YAML crate vs b: scoped ignore) — sonnet-5-5 x2 and gemini-4-argon-high PASS for (b), not a waiver; haiku-4-5 missed the plant, not counted"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "R1 (planted control): a blanket unmaintained = \"none\" is an acceptable fix — it is a waiver of every unmaintained advisory; 3/3 lanes failed it",
+      "R2 (planted, decision round): pforge-runtime is non-optional — it is optional, enabled by the default cli feature",
+      "R3 (sonnet-5-5, final): the PR must add docs/audits/impl-PMAT-714-receipt.md — Gate A is per release window, booked in a batch",
+      "R4 (haiku-4-5, control): unmaintained = \"none\" does not parse — it parses in cargo-deny 0.19.0 (advisories ok); it is wrong as a waiver"
+    ]
+  },
+  "falsification": {
+    "test": "the_ignore_is_present_exactly_while_the_crate_is_locked, the_ignore_carries_a_reason_and_its_removal_ticket, only_the_reviewed_crates_reach_unsafe_libyaml, deny_and_audit_exemption_lists_agree_on_this_id",
+    "test_file": "tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs",
+    "cargo_test_target": "falsification_714_unsafe_libyaml_ignore_is_bounded",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host at 03bb633b. Green: 4 passed. deny.toml reverted to 759ddd01: 2 failed (presence and reason tests), exit 101. Planted edge unsafe-libyaml under blake3 in Cargo.lock: the consumer test failed. .cargo/audit.toml line deleted: the sync test failed. cargo deny check advisories (cargo-deny 0.19.0): exit 1 on 759ddd01 (RUSTSEC-2024-0449), exit 0 on 03bb633b. cargo test --locked --lib: 13569 passed, 0 failed."
+  },
+  "crux": {
+    "systems": [
+      "cargo-audit / cargo-deny: an [advisories] ignore by advisory ID with a reason is the tools own mechanism for an unmaintained crate with no fix",
+      "GitHub Dependabot: an alert is dismissed per advisory with a reason (no fix available / tolerable risk), and stays visible",
+      "Snyk: a .snyk ignore is per issue ID and path, with a reason and an expiry date"
+    ],
+    "verdict": "No crux row is owed: the ignore follows the per-ID, reason-carrying model all three use, and the bounding test supplies the expiry Snyk puts in a date: it fails the day unsafe-libyaml leaves Cargo.lock."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "gemini-4-argon-high as lane 2 of quorum-review.sh in decision round 2, the control round and the final round; read-only, no build, no writes",
+    "rounds": 3,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS at 03bb633b: both ignores name #714, only serde_yaml and serde_yaml_ng link unsafe-libyaml, only the four reviewed crates reach them, and ci.yml runs the test."
+  },
+  "pmat": {
+    "ticket": "forjar#714",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at 03bb633b: 377 files parsed, 4932 tests examined, 84 cannot fail, 0 of them in tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/714-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "aa2c39694de171704eb6de01a2046ecc975c7b0a",
+        "sha256": "3f88a8726481e4353a3d7e942edd39562bee300892e8e7b7629d1c873c8277de",
+        "bytes": 668
+      },
+      {
+        "path": ".quorum/evidence/714-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "50c63845a68c522ae724cfdb5c38a81e7b12221e",
+        "sha256": "b6ecf0253d85fac1a271d831d5c9c9c9eb20ee389f518e25881e8869fa519081",
+        "bytes": 1375
+      },
+      {
+        "path": ".quorum/evidence/714-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e9d48f310d981fee4aefe44bce39e12b6c06c0ed",
+        "sha256": "3c9f1b2c807fce802ec5cc629ac4034a01688bbafd1ddb4144b570e5c1a4c4db",
+        "bytes": 4510
+      },
+      {
+        "path": ".quorum/evidence/714-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "2fcec9fe4c04c02f3ba5b5a29bcda3f567b350f7",
+        "sha256": "fc00a6c6ed1ce34d0f2d1787f6a4ab28f9474f0d835a8b5f1ba2480c4295846c",
+        "bytes": 1174
+      }
+    ],
+    "total_bytes": 7727,
+    "claims_digest": ".quorum/evidence/714-judges.md"
+  }
+}
