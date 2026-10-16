@@ -18,8 +18,8 @@
 //! decisions actually taken. A skip that forgets to say so is then a missing
 //! resource in the total, which the `in_scope` figure makes visible.
 
-use crate::core::types::ResourceType;
-use std::collections::BTreeMap;
+use crate::core::types::{Resource, ResourceType, StateLock};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Why a resource that was in scope did not get inspected.
 ///
@@ -221,6 +221,34 @@ impl DriftCensus {
             .filter(|(_, e)| e.unmeasured)
             .map(|(id, _)| id.as_str())
             .collect()
+    }
+
+    /// forjar#415: how many entries of `lock` a refreshed plan still plans
+    /// from the lock alone — every query the target did not answer, plus every
+    /// entry `declared` in scope that carries observed state and that no
+    /// detector inspected. A skip is an absence of evidence, not a pass, so it
+    /// is disclosed rather than read as consulted. Each resource counts once.
+    pub fn unconsulted_observations(
+        &self,
+        lock: &StateLock,
+        declared: &indexmap::IndexMap<String, Resource>,
+    ) -> usize {
+        let mut ids: BTreeSet<&str> = self.unmeasured_ids().into_iter().collect();
+        ids.extend(
+            lock.resources
+                .iter()
+                .filter(|(id, rl)| {
+                    rl.observed_state().is_some() && declared.contains_key(id.as_str())
+                })
+                .filter(|(id, _)| {
+                    !self
+                        .entries
+                        .get(id.as_str())
+                        .is_some_and(Entry::is_inspected)
+                })
+                .map(|(id, _)| id.as_str()),
+        );
+        ids.len()
     }
 
     /// The lines every drift run prints, drift or no drift.
