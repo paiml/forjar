@@ -37,9 +37,17 @@ pub(super) fn scoped_dry_run_plan(
     config: &types::ForjarConfig,
     state_dir: &Path,
     scope: &GateScope<'_>,
+    seed_lockless: bool,
 ) -> Result<types::ExecutionPlan, String> {
     let execution_order = resolver::build_execution_order(config)?;
     let plan_locks = load_machine_locks(config, state_dir, scope.machine)?;
+    // forjar#615: the executor asks a lockless completion_check first, on the
+    // default path only; so does its preview.
+    let plan_locks = if seed_lockless {
+        crate::core::executor::lockless_check::seeded(config, scope.machine, scope.tag, &plan_locks)
+    } else {
+        plan_locks
+    };
     let mut plan = planner::plan(config, &execution_order, &plan_locks, scope.tag);
     scope_plan(&mut plan, config, scope)?;
     Ok(plan)
@@ -57,8 +65,7 @@ pub(super) fn scope_plan(
     scope: &GateScope<'_>,
 ) -> Result<(), String> {
     plan_selector::apply_machine_filter(plan, scope.machine);
-    plan_selector::apply_resource_filter(plan, config, scope.resource)?;
-    plan_selector::apply_group_filter(plan, config, scope.group)
+    plan_selector::apply_selection_filter(plan, config, scope.resource, scope.group)
 }
 
 /// GH-210: show what WOULD run.

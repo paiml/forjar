@@ -58,10 +58,14 @@ fb_stamp() { printf '%s\t%s\n' "$(stat -c %Y "$1" 2>/dev/null || echo 0)" "$1"; 
 # SEC011 guard: refuse anything that is not a plausible reclaim target.
 # Deletion candidates all come from globs and finds; a glob that matches one
 # level too high, or a variable that came back empty, must abort rather than
-# delete. Depth >= 3 keeps the reaper away from `/`, `/home`, `/home/noah`,
-# `/tmp` and every other top-level directory even if a root is misdeclared.
+# delete. `fb_sweepable <cand> <prefix>...`: the candidate must be a STRICT
+# descendant of the literal (pre-glob) prefix of one of its rule's declared
+# roots, never `/` or a top-level directory, and never `$HOME` itself. Depth 2
+# is allowed only under `/tmp` (forjar#627: a floor of 3 refused every
+# `/tmp/*-target`, so such a rule validated, ran, and reclaimed nothing).
 fb_sweepable() {
   fb_p="$1"
+  shift
   if [ -z "$fb_p" ]; then fb_log "  REFUSE empty path"; return 1; fi
   case "$fb_p" in
     /*) ;;
@@ -72,8 +76,31 @@ fb_sweepable() {
     */) fb_log "  REFUSE trailing slash: $fb_p"; return 1 ;;
   esac
   fb_depth=$(printf '%s' "$fb_p" | tr -cd '/' | wc -c)
-  if [ "$fb_depth" -lt 3 ]; then
+  if [ "$fb_depth" -lt 2 ]; then
     fb_log "  REFUSE too shallow (depth $fb_depth): $fb_p"
+    return 1
+  fi
+  if [ "$fb_depth" -eq 2 ]; then
+    case "$fb_p" in
+      /tmp/*) ;;
+      *) fb_log "  REFUSE too shallow (depth 2, not /tmp): $fb_p"; return 1 ;;
+    esac
+  fi
+  if [ -n "$HOME" ] && [ "$fb_p" = "$HOME" ]; then
+    fb_log "  REFUSE \$HOME itself: $fb_p"
+    return 1
+  fi
+  fb_under=0
+  for fb_r in "$@"; do
+    case "$fb_r" in
+      "" | /) continue ;;
+    esac
+    case "$fb_p" in
+      "$fb_r"/*) fb_under=1; break ;;
+    esac
+  done
+  if [ "$fb_under" != "1" ]; then
+    fb_log "  REFUSE outside declared roots: $fb_p"
     return 1
   fi
   [ -e "$fb_p" ] || return 1
@@ -267,6 +294,52 @@ pub(super) const fn post_delete(kind: ReclaimKind) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Run the real `fb_sweepable` from the emitted prelude under `sh`.
+    fn sweepable(cand: &str, prefixes: &[&str]) -> bool {
+        let script = format!("fb_log() {{ :; }}\n{}\nfb_sweepable \"$@\"", prelude());
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .arg("sh")
+            .arg(cand)
+            .args(prefixes)
+            .status()
+            .expect("sh runs")
+            .success()
+    }
+
+    #[test]
+    fn sweepable_accepts_a_direct_child_of_tmp_under_a_tmp_root() {
+        // forjar#627: a rule rooted at `/tmp/*-target` matches depth-2 paths,
+        // and the old depth >= 3 floor refused every one of them, so the
+        // rule validated, ran, and reclaimed nothing.
+        let dir = std::path::Path::new("/tmp").join(format!("fj627-{}-target", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.to_str().unwrap().to_string();
+        let ok = sweepable(&p, &["/tmp"]);
+        std::fs::remove_dir_all(&dir).ok();
+        assert!(ok, "{p} under declared prefix /tmp must be sweepable");
+    }
+
+    #[test]
+    fn sweepable_refuses_a_candidate_outside_every_declared_root() {
+        // The comment in the reaper claimed this re-check existed; it did not.
+        let here = env!("CARGO_MANIFEST_DIR");
+        assert!(!sweepable(here, &["/tmp"]), "{here} is not under /tmp");
+        assert!(!sweepable(here, &[]), "no declared root means no deletion");
+    }
+
+    #[test]
+    fn sweepable_refuses_the_root_itself_and_top_level_dirs() {
+        assert!(
+            !sweepable("/tmp", &["/tmp"]),
+            "a root is not its own descendant"
+        );
+        assert!(!sweepable("/home", &["/"]), "`/` is never a usable prefix");
+        let home = std::env::var("HOME").unwrap();
+        assert!(!sweepable(&home, &["/home"]), "$HOME itself is never swept");
+    }
 
     #[test]
     fn cargo_detector_accepts_either_real_layout() {

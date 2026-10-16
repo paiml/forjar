@@ -464,7 +464,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.notify.as_deref(),
         args.subset.as_deref(),
         args.confirm_destructive,
-        args.exclude.as_deref(),
+        // #622: the repeatable `--exclude` list rides in `scope`.
+        None,
         args.sequential,
         args.telemetry_endpoint.as_deref(),
         args.refresh,
