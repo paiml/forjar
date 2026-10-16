@@ -18,6 +18,10 @@ pub(super) fn resolve_secret(key: &str, secrets_cfg: &SecretsConfig) -> Result<S
     )
 }
 
+/// The secrets provider `plan --output-dir` resolves with (forjar#674): every
+/// `{{secrets.<key>}}` becomes the literal `FORJAR_REDACTED_SECRET_<key>`.
+pub const EXPORT_REDACTED_SECRET_PROVIDER: &str = "plan-export-redacted";
+
 /// Resolve secret with explicit provider config.
 pub fn resolve_secret_with_provider(
     key: &str,
@@ -37,6 +41,10 @@ pub fn resolve_secret_with_provider(
             "secret '{key}' not resolved: this surface does not run subprocess \
              secret providers"
         )),
+        // forjar#674: `plan --output-dir` writes scripts for a human to read.
+        // A secret is shown by NAME, never resolved, so an exported script
+        // neither carries the value nor needs the provider to be generated.
+        EXPORT_REDACTED_SECRET_PROVIDER => Ok(format!("FORJAR_REDACTED_SECRET_{key}")),
         _ => resolve_secret_env(key),
     }
 }
@@ -188,6 +196,12 @@ pub fn resolve_template_with_secrets(
         let value = resolve_variable(key, params, machines, secrets_cfg)?;
         result.replace_range(open..close, &value);
         start = open + value.len();
+    }
+
+    // forjar#674: an export shows an `ENC[age,...]` literal as written, the way
+    // it shows `{{secrets.<key>}}` by name; it is never decrypted into a script.
+    if secrets_cfg.provider.as_deref() == Some(EXPORT_REDACTED_SECRET_PROVIDER) {
+        return Ok(result);
     }
 
     // FJ-200: Decrypt any ENC[age,...] markers after template resolution

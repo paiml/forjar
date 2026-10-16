@@ -1,0 +1,11 @@
+{
+  "name": "sites still on the untyped error path (forjar#417)",
+  "recorded": "2026-10-06",
+  "recorded_at_commit": "49d117cc328b66552933b4b375cc760fffb139f3",
+  "instrument": "tests/falsification_untyped_error_sites_ratchet.rs `measure()`: one-line non-test fn signatures under src/ returning Result<_, String>, and non-comment non-test lines under src/ outside src/core/state/ naming state.lock.yaml. Test code is skipped by path and at a file's first #[cfg(test)]. Both counts are floors: a signature split across lines is not seen.",
+  "rule": "MAY ONLY SHRINK. A count above its ceiling is a regression and fails the test by name. Lowering a number is the only permitted edit. untyped_error_fns reaches 0 in the same change that deletes legacy_prose_class from src/core/error.rs.",
+  "ceiling": {
+    "untyped_error_fns": 778,
+    "lock_literals_outside_state": 153
+  }
+}
