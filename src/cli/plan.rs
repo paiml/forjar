@@ -155,7 +155,11 @@ pub(crate) fn cmd_plan_with_pins(
     let plan = super::plan_compute::plan_filtered(&config, &locks, &selectors)?;
 
     if let Some(dir) = output_dir {
-        export_scripts(&config, dir)?;
+        // forjar#674: the scripts of the resources this plan selected, not of
+        // the whole config — `plan -r R` failed on an unrelated resource's secret.
+        let selected: Option<std::collections::BTreeSet<String>> = (!selectors.is_unfiltered())
+            .then(|| plan.changes.iter().map(|c| c.resource_id.clone()).collect());
+        export_scripts(&config, dir, selected.as_ref())?;
     }
 
     // FJ-1250: Write plan to file for later execution

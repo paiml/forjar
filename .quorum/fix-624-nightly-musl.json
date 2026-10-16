@@ -1,0 +1,115 @@
+{
+  "issue": "#624 — the nightly built gnu-only Linux binaries that need GLIBC_2.39; on lambda-labs (glibc 2.35) every nightly forjar was WONT-RUN and the fleet-bins andon flapped on it",
+  "base": "origin/main",
+  "recorded_at": "2026-09-27",
+  "quorum": {
+    "lanes": [
+      "gemini-3.1-pro-high#1",
+      "gemini-3.1-pro-high#2",
+      "claude-haiku-4-5"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "any un-countered substantive objection kills the claim",
+    "judges": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "Build the gnu nightly in a glibc-2.35 container instead of adding musl legs — REFUTED: the release channel already ships and fleet-bins already installs the static musl asset on lambda; a second portability rule for the nightly alone makes the channels differ in linkage and breaks again on the next older host."
+    ],
+    "divergence": "none: three lanes in three conversations, AGREED 3/3 PASS on 09f2e556"
+  },
+  "crux": {
+    "systems": [
+      "ripgrep — release CI ships a statically linked x86_64-unknown-linux-musl binary",
+      "rustup (Rust dist) — nightly is built for every target stable ships",
+      "Deno — canary and release builds come from one workflow matrix"
+    ],
+    "verdict": "at the industry default for artifact parity; the others get it from one matrix, forjar has two workflows and gets it from a test that compares them and refuses a vacuous set"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "2/2 agy lanes (gemini-3.1-pro-high) PASS; no defect raised"
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "tests_examined": 19853,
+    "accepted": [],
+    "quality_gate": "0 vacuous tests and 0 conditional skips in the one test file this branch adds; repo-wide run filtered to touched paths"
+  },
+  "falsification": {
+    "test": "nightly.yml build matrix must contain every -linux- target of release.yml build-binaries, with a musl target required first",
+    "test_file": "tests/falsification_nightly_ships_every_release_linux_target.rs",
+    "cargo_test_target": "falsification_nightly_ships_every_release_linux_target",
+    "reverted": ".github/workflows/nightly.yml -> each musl leg deleted in turn; test kept",
+    "observed_failure": "RED rc=101: nightly.yml does not build [\"x86_64-unknown-linux-musl\"] (and, second mutant, [\"aarch64-unknown-linux-musl\"]); green rc=0 with both legs"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/624-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 3098,
+        "sha256": "5c10f4056319114f7c179b617fb1a294f4a2f0749a76dd3aed953a95906d93fc",
+        "blob": "0a4d8432ec47dfb7a41885d21600dd39dfa6e132"
+      },
+      {
+        "path": ".quorum/evidence/624-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 861,
+        "sha256": "7140457a361df3e2adcfcb591e9938815a1da3e6c21ebddcb62c870ab64339ec",
+        "blob": "41f88676d67d6e13bb43ed2eea1e2ec23c843989"
+      },
+      {
+        "path": ".quorum/evidence/624-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 665,
+        "sha256": "d6da2bcfd040a364ff4108083f0e752e308b6f448370b08c07ae857e983d5127",
+        "blob": "1bb4239406ac7ced3e4588a081ff668a0d2a17d2"
+      },
+      {
+        "path": ".quorum/evidence/624-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 543,
+        "sha256": "050581820f36fa1545b1a3b4eb2d17559d71d95e1fe6f0d824451ce0a2cf85c5",
+        "blob": "6b4d0446f704629ccf24325e7f7e6cc7cb014b48"
+      },
+      {
+        "path": ".quorum/evidence/624-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 488,
+        "sha256": "1221dbec5e6bae91658b99044b9b1d773e81841d63ffd7fea6e4465b67a39f2b",
+        "blob": "200224a823828c79066fe846498a6ccec1758b32"
+      },
+      {
+        "path": ".quorum/evidence/624-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 692,
+        "sha256": "a362ae45c48056b6707e63e5754fdd055434c2e2b8c56aef7f53ccb4b027298f",
+        "blob": "fb96ca0d8031b1806340723b15562fa88a136f96"
+      }
+    ],
+    "claims_digest": ".quorum/evidence/624-claims.md",
+    "redaction": "no machine-local identity in this set",
+    "known_limits": [
+      "The fleet catalogue switch of forjar nig_asset to the musl asset is a paiml/infra follow-up after the first nightly publishes it."
+    ],
+    "total_bytes": 6347
+  },
+  "base_commit": "c04b6b28a301ce5f6d5d80952bbfd2a592ba7f43",
+  "diff_sha256": "3ae3a08d565e880f5e021638a8d99a476aacebcc"
+}

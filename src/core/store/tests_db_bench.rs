@@ -43,15 +43,20 @@ mod tests {
 
         ingest_state_dir(&conn, dir.path()).unwrap();
 
-        let start = std::time::Instant::now();
-        let results = fts5_search(&conn, "config", 50).unwrap();
-        let elapsed = start.elapsed();
-
-        assert!(!results.is_empty(), "should find results matching 'config'");
+        // Best of 5 (#647): one cold sample measures the scheduler — 84ms at
+        // nice 19 under a parallel suite. A query that stops using the index is
+        // slow on every run, so the minimum still catches it.
+        let mut best = std::time::Duration::MAX;
+        for _ in 0..5 {
+            let start = std::time::Instant::now();
+            let results = fts5_search(&conn, "config", 50).unwrap();
+            best = best.min(start.elapsed());
+            assert!(!results.is_empty(), "should find results matching 'config'");
+        }
         assert!(
-            elapsed.as_millis() < 50,
-            "FTS5 query took {}ms (target: <50ms)",
-            elapsed.as_millis()
+            best.as_millis() < 50,
+            "FTS5 query took {}ms at best of 5 (target: <50ms)",
+            best.as_millis()
         );
     }
 

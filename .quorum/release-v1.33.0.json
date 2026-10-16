@@ -1,0 +1,107 @@
+{
+  "kind": "code",
+  "issue": "PMAT-652 (forjar#652) — the 1.33.0 release PR: promotes 1.33.0-rc.1 unchanged and adds one release-pipeline line for #611 (build-binaries installs cross into its private CARGO_HOME and nothing put that bin dir on PATH, so the aarch64 linux legs died with cross: command not found and the release stayed a draft with 0 assets), plus the version bump.",
+  "branch": "release/v1.33.0",
+  "base": "2fd44833",
+  "base_commit": "2fd448331f9e41db203f4787ce168952fb1460bf",
+  "diff_sha256": "133f7a6eca5517273cf61394003542cfde7d362e",
+  "recorded_at": "after two agy rounds recorded in .quorum/evidence/PMAT-652-lanes.md. Round 1 refuted the comment line beside the #611 line; round 2 passed a5374809 3/3.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head a5374809 — lane 1 gemini-3.1-pro-high (agy) PASS, no findings",
+      "round 2, head a5374809 — lane 2 claude-sonnet-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)",
+      "round 2, head a5374809 — lane 3 claude-haiku-4-5 PASS, no findings (degraded: same-family, distinct model id from the claude-opus-5-5 author)"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round 2, the round that judged the final code head a5374809 against PMAT-652; round 1 is in the lanes table and its refutation is R1.",
+    "kill_rule": "nothing was dismissed: R1 was fixed in a5374809 by removing the comment line and re-judged.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the workflow change is exactly the one #611 line — refuted in round 1 by gemini-3.1-pro-high: a comment line was added beside it. a5374809 removes it."
+    ]
+  },
+  "falsification": {
+    "test": "tests/falsification_611_cross_on_path.rs (2 cases) — reads the Install target prerequisites (Linux) step from release.yml, RUNS it with a fake cargo that installs cross into $CARGO_HOME/bin, replays GITHUB_PATH into the next step PATH and asserts cross resolves, for the aarch64 gnu and musl legs.",
+    "test_file": "tests/falsification_611_cross_on_path.rs",
+    "cargo_test_target": "falsification_611_cross_on_path",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "with the GITHUB_PATH line removed from release.yml, both cases FAILED at \"cross installed but off PATH; GITHUB_PATH was: \\\"\\\"\". Restored: 2/2, falsification_version_matches_manifest 4/4."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions reads each line appended to the $GITHUB_PATH file after a step and prepends it to PATH for every LATER step of the job, never the current one",
+      "cargo install writes binaries to $CARGO_HOME/bin; build-binaries sets a per-job CARGO_HOME (infra#430) whose bin dir is on no default PATH",
+      "cross is only installed on a runner that lacks it, so the defect hides on any runner that already has cross on PATH and shows on a fresh one (yoga-build)"
+    ],
+    "verdict": "Release-pipeline fix only; no forjar runtime behaviour changes from rc.1. The aarch64 linux legs can now build on a runner without cross."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three lanes per round through quorum-review.sh --executor agy --shape default (gemini-3.1-pro-high, claude-sonnet-5, claude-haiku-4-5; the workflow is tier-1 so gemini ran both rounds), JSON-schema output, brief inline, no build",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "Round 1 2/3 (R1); round 2 3/3 PASS at a5374809 with no findings."
+  },
+  "pmat": {
+    "ticket": "PMAT-652",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json : 2209 files parsed, 19862 tests examined, 0 in the touched paths (filter control: the same jq filter finds 317 under src/cli/)",
+      "cargo test --test falsification_611_cross_on_path, green, then RED with the GITHUB_PATH line removed, then green after restore",
+      "cargo test --test falsification_version_matches_manifest 4/4 at 1.33.0"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": [
+      "pre-existing: rule2_release_yml_is_the_only_v_star_tag_push_producer fails on the rc.1 tree as well (bench.yml, ci.yml, coverage.yml); not touched here."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-652-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1227,
+        "sha256": "1e5f645c4f5efc602633301b498e956c4f6d34546dda169d92cd25055aec6588",
+        "blob": "3ccdaef7e8503416ce6c0aac7000d11240fd2ce0"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-652-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1065,
+        "sha256": "7ce96848180d06a6c3429744d7bfa85674ba2861eeeeb6648207608846e46986",
+        "blob": "005b21c7b014edfa539bf5857c46981a126b859e"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-652-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 2036,
+        "sha256": "ce39b37583c0e265cac85103fc9dae151d38998ad9326d22ed7bb60bc0caf4bd",
+        "blob": "75f7912e479093a90551e8d75dca803f6f82abe2"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-652-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 508,
+        "sha256": "49d357b3981dc8aafa742177e6e8568e1eeeba5485250272f059849bbb9ec6b6",
+        "blob": "b5da37631740972c28d33cb26a3c5a20827c42b3"
+      }
+    ],
+    "total_bytes": 4836,
+    "claims_digest": ".quorum/evidence/PMAT-652-judges.md"
+  }
+}

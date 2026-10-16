@@ -277,6 +277,10 @@ fn declared_class(message: &str) -> Option<ErrorClass> {
 /// not silently re-code any error that was already being classified. It applies
 /// only to sites that declare nothing; every site migrated to [`ForjarError`]
 /// removes a caller of this function, and the last one deletes it.
+///
+/// The sites still on it are counted, and the count may only shrink:
+/// `untyped_error_fns` in `scripts/ratchets/untyped-error-sites.json`, held by
+/// `tests/falsification_untyped_error_sites_ratchet.rs` (forjar#417).
 fn legacy_prose_class(message: &str) -> ErrorClass {
     if message.contains("validation error")
         || message.contains("YAML parse error")

@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-633 (closes forjar#633) — the I8 gate linted with an exact-pinned bashrs 6.68.0, two majors behind the fleet, and refused a `break` inside a one-line `for` loop nested in an `if` as SC2105 (paiml/infra#1088, gx10). bashrs moves to 7.4.",
+  "branch": "fix/633-bashrs-7",
+  "base": "9e77e5a4",
+  "base_commit": "9e77e5a4b6fc953e11da971ca1a7684303e5c111",
+  "diff_sha256": "82286f588602c52ced5dfe73b04e31579f31cdad",
+  "recorded_at": "after round 2 at 08c5d340. The evidence commit deab936f adds only .quorum/evidence; no lane judged it, and it changes neither the gate nor the test.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 08c5d340 — claude-sonnet-5 PASS conv-af3e6c79, no findings",
+      "round 2, head 08c5d340 — agy gemini-3.1-pro-high PASS conv-30f7dec5, sandboxed, no findings",
+      "round 2, head 08c5d340 — claude-haiku-4-5 PASS conv-321ac729, no defect findings"
+    ],
+    "lane_errors": 1,
+    "judges": 3,
+    "kill_rule": "round 1 sonnet FAIL on C4 (no in-scope evidence) was answered with evidence, not dismissed: round 2 carried the measurements and all three confirmed. Its roadmap-status finding was dismissed: PMAT-631 is also planned on origin/main after merge. Round 1 agy was an invocation error (no --repo-root) and produced no verdict.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: the 6.68.0 I8 gate refuses a `break` inside a loop as SC2105 — bashrs moves to 7.4, and the falsifier pins the shape while SC2105 still fires outside any loop.",
+      "R2: C4 as first briefed had no evidence a lane could check — round 2 carried the per-machine lint counts, the finding diff, the reduced-script probe and the paiml/infra#1101 diff."
+    ]
+  },
+  "falsification": {
+    "test": "break_inside_a_for_inside_an_if_passes (with guard break_outside_any_loop_is_still_rejected)",
+    "test_file": "tests/falsification_633_i8_break_in_loop.rs",
+    "cargo_test_target": "falsification_633_i8_break_in_loop",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "On this branch: 2 passed. With only Cargo.toml and Cargo.lock reverted to bashrs 6.68.0: break_inside_a_for_inside_an_if_passes FAILED (Err \"bashrs lint errors:\\n[error] SC2105: 'break' is only valid in loops\"), and the guard passed. Restored: 2 passed."
+  },
+  "crux": {
+    "systems": [
+      "ShellCheck upstream: SC2105 is emitted only when no enclosing loop exists on the parse tree, so a break in a one-line for body is clean — the verdict 7.4 now agrees with",
+      "Debian lintian and Fedora rpmlint: the linter is a pinned but regularly advanced dependency of the gate, and its rule changes are measured against the archive before the pin moves — the fleet sweep here",
+      "Nix: reproducible outputs forbid wall-clock timestamps in artifacts unless derived from SOURCE_DATE_EPOCH — the DET002 rule the bump newly enforces on lambda-labs"
+    ],
+    "verdict": "No crux row is owed: a linter version bump with a regression test and a measured fleet sweep, the practice all three follow."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, agy-lane.sh --mode plan), JSON-schema output, brief inline, no build",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS, no findings: C1-C4 confirmed, including C4 against forjar's own DET002 avoidance in backup_sync and disk_budget."
+  },
+  "pmat": {
+    "ticket": "PMAT-633",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . : 2204 files parsed, 19833 tests examined, 0 vacuous in the touched paths (432 elsewhere, which shows tests/ was scanned)",
+      "cargo test --test falsification_633_i8_break_in_loop, green on 7.4, RED with bashrs 6.68.0 restored"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-633-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "121083740d18e6fce6b58204efc19c5e9dd76544",
+        "sha256": "364546f0b7d853ff10845206ee902df13d51f732a388c181c9153120b56ef24b",
+        "bytes": 903
+      },
+      {
+        "path": ".quorum/evidence/PMAT-633-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "786d4c0f5893be82f587a4db750a2f4219a496f2",
+        "sha256": "cd50d14bc68946ae163ed0585e26065b48e4197c8f1ba340e2432242f94649c4",
+        "bytes": 957
+      },
+      {
+        "path": ".quorum/evidence/PMAT-633-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "445c23132440bea317bae91568f6dd0d578277f5",
+        "sha256": "4886d950a26858665c7515ac40ffb8900f0fb690dcb94a54198bf09008e74a30",
+        "bytes": 3218
+      },
+      {
+        "path": ".quorum/evidence/PMAT-633-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "2084dd779705a6998cedda131964da9998c5e00e",
+        "sha256": "91036e9c26602cdb2fa611c82be606ed1e480769d533bf3f7e85e7c26c2a8008",
+        "bytes": 968
+      }
+    ],
+    "total_bytes": 6046,
+    "claims_digest": ".quorum/evidence/PMAT-633-judges.md"
+  }
+}

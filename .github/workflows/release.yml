@@ -226,6 +226,12 @@ jobs:
     # macOS legs get a private registry too, which costs them nothing.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+      # #683: cross mounts the toolchain sysroot through the DOCKER HOST's
+      # daemon. A containerized runner shares only its work root with the host,
+      # and the image's RUSTUP_HOME (/home/runner/.rustup) is not in it, so
+      # cross's container got an empty /rust and died `cargo: not found`.
+      # Beside CARGO_HOME, it is under the work root on every runner.
+      RUSTUP_HOME: ${{ github.workspace }}/../rustup-home-${{ github.job }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -255,6 +261,21 @@ jobs:
             exit 1
           }
 
+      # #683: the job-level RUSTUP_HOME above is a fresh, empty directory, so
+      # the image's toolchain is not in it and every Linux leg must install
+      # one before its first rustup or cargo — as macOS always has, and as the
+      # nightly and binary-release jobs do. Then add the target to the channel
+      # `rust-toolchain.toml` pins, which is the one cargo uses in this tree.
+      - name: Install Rust toolchain (Linux)
+        if: contains(matrix.target, 'linux')
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install target on workspace-pinned toolchain (Linux)
+        if: contains(matrix.target, 'linux')
+        run: rustup target add "${{ matrix.target }}"
+
       - name: Install target prerequisites (Linux)
         if: contains(matrix.target, 'linux')
         run: |
@@ -272,6 +293,7 @@ jobs:
               if ! command -v cross &>/dev/null; then
                 cargo install cross --locked
               fi
+              echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
               ;;
           esac
 
@@ -340,7 +362,7 @@ jobs:
         run: rm -rf /tmp/release-assets && mkdir -p /tmp/release-assets
 
       - name: Download all binary artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           pattern: binaries-*
           merge-multiple: true
@@ -486,7 +508,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Download dist artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: dist-artifacts
           path: /tmp/dist-output

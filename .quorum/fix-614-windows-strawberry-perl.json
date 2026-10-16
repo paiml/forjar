@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-614 (closes forjar#614) — under shell: bash the nightly Windows leg resolved Git msys perl, which lacks Params::Check, so openssl-src ./Configure died, the all-or-nothing release was skipped and the nightly tag sat 11 days behind main. The step now exports OPENSSL_SRC_PERL as the Strawberry perl windows-latest ships, on Windows only, and fails before cargo when that perl is unusable.",
+  "branch": "fix/614-windows-strawberry-perl",
+  "base": "c1e49a34",
+  "base_commit": "c1e49a340373f27237607784cf304d65b9ad7452",
+  "diff_sha256": "52ed34bf5b31e6057caf287ac7a762ee9f72cd07",
+  "recorded_at": "after two agy rounds recorded in .quorum/evidence/PMAT-614-lanes.md. Round 1 refuted the collateral roadmap round-trip 3/3; round 2 judged the corrected head 215f2e8a and passed 3/3.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 215f2e8a — agy gemini-3.1-pro-high PASS conv-ff084b7c, no defect findings",
+      "round 2, head 215f2e8a — agy gemini-3.1-pro-low PASS conv-e86bb334, no findings",
+      "round 2, head 215f2e8a — agy gemini-3.8-flash-high PASS conv-95ee054f, no defect findings"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round 2, the round that judged the corrected head; round 1 (0/3 at f78aef43) is in the lanes table and its refutations are R1 and R2.",
+    "kill_rule": "nothing was dismissed: R1 and R2 were both fixed in 215f2e8a and re-judged.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: \"the first commit changed only what PMAT-614 asked\" — refuted 3/3 in round 1: it carried pmat YAML round-trip of the roadmap (326 lines reflowed, 68 kind: fields stripped). 215f2e8a restored main verbatim and appended the entry as text.",
+      "R2: the PMAT-614 roadmap entry had no release: binding (CB-2114 NO-RELEASE). Bound to 1.33.0, the milestone forjar#614 carries."
+    ]
+  },
+  "falsification": {
+    "test": "windows_openssl_is_built_with_strawberry_perl, windows_without_a_usable_strawberry_perl_fails_before_cargo, non_windows_legs_leave_openssl_src_perl_unset — all written by this branch. Each EXECUTES the Build release binary step lifted from the parsed nightly.yml, under bash -eo pipefail, with stub cargo/cross and a Strawberry perl planted or withheld.",
+    "test_file": "tests/falsification_nightly_windows_openssl_perl.rs",
+    "cargo_test_target": "falsification_nightly_windows_openssl_perl",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Declared mutations against nightly.yml, each restored byte-identical after: delete the Windows block -> 2 failed (strawberry used, fails before cargo); drop the probe exit (|| true) -> 1 failed (fails before cargo); make the block unconditional -> 1 failed (non-Windows legs unset). Restored: 3 passed."
+  },
+  "crux": {
+    "systems": [
+      "openssl-src (the crate that builds vendored OpenSSL) documents OPENSSL_SRC_PERL as the override for the perl that runs ./Configure — the knob this change sets, rather than reordering PATH under a bash that ships its own perl",
+      "OpenSSL NOTES-WINDOWS.md: the native (VC) build needs a full Perl such as Strawberry Perl; the MSYS/Cygwin perl is for the MSYS/Cygwin targets, not the msvc one",
+      "Chocolatey/StrawberryPerl on GitHub windows images: C:/Strawberry/perl/bin is the preinstalled full perl; Git for Windows bundles a minimal msys perl without Params::Check"
+    ],
+    "verdict": "No crux row is owed: CI configuration only, no shipped behaviour and no CHANGELOG bullet. openssl-src exposes OPENSSL_SRC_PERL and OpenSSL documents a full perl for the msvc build; this change selects the one the image already ships."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three agy lanes per round (gemini-3.1-pro-high, gemini-3.1-pro-low, gemini-3.8-flash-high) through quorum-review.sh --executor agy, JSON-schema output, brief inline, no build; cop ruling for a workflow PR: 3/3 agy at the final head",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "Round 1 0/3 on the roadmap round-trip (R1, R2); round 2 3/3 PASS at 215f2e8a, no defect findings: the step exports Strawberry perl on Windows only, fails loudly without it, and the test discriminates because it executes the workflow step."
+  },
+  "pmat": {
+    "ticket": "PMAT-614",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . : 2204 files parsed, 19838 tests examined, 432 vacuous elsewhere and 0 in the touched paths (tests/falsification_nightly_windows_openssl_perl.rs is absent from the list)",
+      "cargo test --test falsification_nightly_windows_openssl_perl, green, then RED under each declared mutation, then green after byte-identical restores"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-614-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1061,
+        "sha256": "1874cdfc91694b020f6da5c7815ada019c2464f8d3b385300331ce8f9868f55e",
+        "blob": "0f33d6219826e4f77fd3396375dc72893aa92156"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-614-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 1254,
+        "sha256": "afa2523a0ef41d6e5b0da0954ce040281fcb564b9ccc919ead056d565f5a6294",
+        "blob": "fd0e4f725944d35a611b14cfc856d1a31ff558f6"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-614-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 3763,
+        "sha256": "9b456d3482b1f11e80ea494dd6911c4f232bb322b19af28a56ecf2de88528ca1",
+        "blob": "7f61f4031b3dc84620220e650a66dbc134f8d55e"
+      },
+      {
+        "path": ".quorum/evidence/PMAT-614-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 933,
+        "sha256": "10c87312471454ad8d6c631f48654ef1ebb037cb5030fee9e9bb708fd4f3f0db",
+        "blob": "2851ab5440ee96e00fb6395a1feb9fec8c1a6960"
+      }
+    ],
+    "total_bytes": 7011,
+    "claims_digest": ".quorum/evidence/PMAT-614-judges.md"
+  }
+}
