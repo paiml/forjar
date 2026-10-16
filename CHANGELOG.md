@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
+The apply gated `systemctl stop` on `is-active`, which is false for a
+`Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
+and for `deactivating`. The stop was skipped, the disable ran, the resource was
+recorded converged, and the unit was running again ten seconds later. The check
+asked the same question, so `--refresh` reported it unchanged. Apply and check
+now read `ActiveState`: stopped means `inactive` or `failed`. Apply stops a unit
+in any other state, leaves an inactive or unloaded one alone (a second apply is
+a no-op), and fails if the unit is still not stopped after the stop.
+
 ## [1.33.0] - 2026-09-28
 
 Promotes 1.33.0-rc.1 (below) unchanged, plus one release-pipeline fix.
