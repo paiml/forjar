@@ -58,7 +58,7 @@ resources:
         let file = std::fs::File::open(&output).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
         let names: Vec<String> = (0..archive.len())
-            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .map(|i| archive.by_index(i).unwrap().name().unwrap().into_owned())
             .collect();
 
         assert!(names.contains(&"module.prop".to_string()), "must have module.prop: {names:?}");
