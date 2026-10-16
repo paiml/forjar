@@ -144,6 +144,11 @@ jobs:
       # ones. One resolver, in one dialect, in a place that runs it.
       - name: Every contract citation must resolve
         run: cargo test --locked --test falsification_contract_citations_resolve
+      # #714: deny.toml ignores RUSTSEC-2024-0449 (unsafe-libyaml, no fix).
+      # The ignore must leave with the crate, cover no unreviewed consumer,
+      # and match .cargo/audit.toml. Reads files only.
+      - name: The unsafe-libyaml advisory ignore stays bounded
+        run: cargo test --locked --test falsification_714_unsafe_libyaml_ignore_is_bounded
       # forjar#549: a drift query the target never answered is UNMEASURED, not
       # drift. Asks 203.0.113.9 (TEST-NET-3) over ssh, so it waits out the
       # connect timeout once per test.
