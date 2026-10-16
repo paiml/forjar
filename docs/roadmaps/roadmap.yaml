@@ -4954,6 +4954,44 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-710
+  github_issue: 710
+  item_type: task
+  title: rustls 0.23.46 + quinn-proto 0.11.18 for RUSTSEC-2026-0346..0349/0338/0340/0343 (red-main lockfile fix)
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-14T13:55:36Z
+  updated: 2026-10-14T13:55:36Z
+  spec: null
+  acceptance_criteria:
+  - 'sovereign-ci lint (cargo deny advisories) and security (cargo audit) feed the required gate and fail on rustls 0.23.45 and quinn-proto 0.11.17. Lockfile-only bump. Acceptance: cargo audit 0 vulnerabilities on the bumped Cargo.lock.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Cargo.lock also moves one edge: tempfile 3.27.0 depends on getrandom 0.3.4 instead of 0.4.3. cargo 1.93.0 forces it: regenerating from main with only `cargo update -p rustls --precise 0.23.46` and `cargo update -p quinn-proto --precise 0.11.18` gives a byte-identical lock, and each update alone flips the same edge, as does a no-version-change `cargo update -p tempfile --precise 3.27.0`. Both versions are in tempfile range (>=0.3, <0.5) and both stay in the lock; no package is added or removed. Only rustls, quinn-proto and this edge change.'
+  epic: 696
+- id: PMAT-714
+  github_issue: 714
+  item_type: task
+  title: 'RUSTSEC-2024-0449: unsafe-libyaml (unmaintained) reds cargo deny check advisories on main (red-main fix, rides #711)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-14T18:29:13Z
+  updated: 2026-10-14T18:29:13Z
+  spec: null
+  acceptance_criteria:
+  - 'cargo deny check advisories exits 1 on the #711 head (error[unmaintained] unsafe-libyaml, RUSTSEC-2024-0449) and 0 after this change. deny.toml and .cargo/audit.toml each carry one RUSTSEC-2024-0449 ignore naming #714 as its removal ticket. tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs (run by ci.yml examples-validate) fails when the ignore is absent while unsafe-libyaml is in Cargo.lock, when the ignore outlives the crate, when a crate outside {serde_yaml, serde_yaml_ng} links it or a crate outside {bashrs, forjar, forjar-contracts, pforge-config} reaches it, or when the two exemption lists disagree.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
 - id: PMAT-703
   github_issue: 703
   item_type: task
