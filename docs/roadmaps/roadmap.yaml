@@ -4992,3 +4992,26 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-703
+  github_issue: 703
+  item_type: task
+  title: 'security audit red on main: quinn-proto RUSTSEC-2026-0338/0340/0343 + cargo-deny unsafe-libyaml'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-13T11:19:29Z
+  updated: 2026-10-13T11:19:32.225728905+00:00
+  spec: null
+  acceptance_criteria:
+  - 'Cargo.lock pins quinn-proto 0.11.18 (was 0.11.17), the first release carrying the fixes for RUSTSEC-2026-0338, RUSTSEC-2026-0340 and RUSTSEC-2026-0343; no other Cargo.lock line changes and `cargo metadata --locked` accepts the lock'
+  - '`cargo audit --deny yanked` with the .cargo/audit.toml ignores reports 0 vulnerabilities (was 3); no ignore or exemption entry is added to deny.toml or .cargo/audit.toml'
+  - '`cargo build --locked` and `cargo test --locked --workspace --lib` pass'
+  - 'NOT cleared by this change: `cargo deny check advisories` stays red on RUSTSEC-2024-0449 (unsafe-libyaml 0.2.11 unmaintained); crates.io has no later unsafe-libyaml, and every serde_yaml, serde_yaml_ng, pforge-config and bashrs release still depends on it, so no bump reaches it'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+  release: 1.34.0
