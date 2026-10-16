@@ -20,4 +20,5 @@ ignore = [
     "RUSTSEC-2026-0097",  # rustls-webpki: transitive via rustls, same class as -0104
     "RUSTSEC-2026-0104",  # rustls-webpki 0.103.12: reachable panic in CRL parsing, transitive
     "RUSTSEC-2026-0173",  # proc-macro-error2: unmaintained, transitive via i18n-embed-fl/age, no drop-in replacement
+    "RUSTSEC-2024-0449",  # unsafe-libyaml: unmaintained, no fix; via serde_yaml_ng/serde_yaml (bashrs, pforge-config, forjar, forjar-contracts); remove with #714
 ]

@@ -1,0 +1,102 @@
+{
+  "kind": "code",
+  "issue": "forjar#417 — the prose-matching error fallback had no count of the sites still on it; the count now exists and a ratchet holds it (untyped_error_fns 778, lock_literals_outside_state 153).",
+  "branch": "fix/417-untyped-error-sites-ratchet",
+  "base": "49d117cc",
+  "base_commit": "49d117cc328b66552933b4b375cc760fffb139f3",
+  "diff_sha256": "ca31acea8988e0719850fc59540c50e671dcd2b7",
+  "recorded_at": "after the round at 83c5b130. The evidence commit 606f1c9a adds only .quorum/evidence; it changes neither the code nor the test.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "head 83c5b130 — agy gemini-3.1-pro-high PASS, sandboxed plan mode, no blocking findings",
+      "head 83c5b130 — claude-sonnet-5-5 PASS, findings: nested String> over-count, trailing comments counted",
+      "head 83c5b130 — claude-haiku-4-5 PASS, findings: mid-file cfg(test) stop lowers the count, ceiling is <= not =="
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: the prose fallback already had a count of the sites on it — it did not; the ratchet adds the count.",
+      "R2: the predicate counts exactly the untyped sites — it is a floor; the module doc says so and the planted tree pins both limits."
+    ]
+  },
+  "falsification": {
+    "test": "the_live_tree_holds_both_ceilings (with the_fallback_and_the_count_reach_zero_together and a_planted_tree_counts_exactly_its_sites)",
+    "test_file": "tests/falsification_untyped_error_sites_ratchet.rs",
+    "cargo_test_target": "falsification_untyped_error_sites_ratchet",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "On this branch: 4 passed. untyped_error_fns ceiling set to 777: the_live_tree_holds_both_ceilings FAILED with REGRESSION: untyped_error_fns = 778, ceiling 777. The #[cfg(test)] stop removed: the planted tree measured (3, 2) instead of (2, 1) and the live count 813, both FAILED. Ceiling 0 with legacy_prose_class defined: the_fallback_and_the_count_reach_zero_together FAILED. Restored: 4 passed."
+  },
+  "crux": {
+    "systems": [
+      "rustc: lint levels and the unsafe-code count are held by deny-lists and ratchets that may only tighten, so a migration lands site by site without a flag day",
+      "clippy and cargo-geiger: a counted, published inventory of the sites still on a disfavoured path, with the target of zero named up front",
+      "Python typing via mypy --strict adoption (as practised by large codebases): an allowlist of untyped modules that may only shrink, enforced in CI"
+    ],
+    "verdict": "No crux row is owed: a may-only-shrink ceiling over a counted floor, with the fallback deleted when the count reaches zero, is the practice all three follow."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one sandboxed agy lane (gemini-3.1-pro-high, --mode plan), brief inline, no build, no writes",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS, no blocking findings: C1-C5 confirmed, and the ceilings 778 and 153 checked against the counts at 49d117cc."
+  },
+  "pmat": {
+    "ticket": "forjar#417",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2211 files parsed, 19868 tests examined, 432 cannot fail and 3 skip silently, 0 of them in the touched paths",
+      "cargo test --test falsification_untyped_error_sites_ratchet: 4 passed; red under each of the three negative controls"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-417-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "842abaca8f61d2be729f75cb078a1aec8486481f",
+        "sha256": "a65ba3bc1590a6adc3f4f42d50489612040eb23ddd877034c8400cc4d8d75649",
+        "bytes": 786
+      },
+      {
+        "path": ".quorum/evidence/PMAT-417-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "fc005e9b28d3f9af673b0d5a6998388a12c69132",
+        "sha256": "1b795408d749d3a099f1c9d3643242dd631a7cb037545d640d6c7f3154d82ebd",
+        "bytes": 918
+      },
+      {
+        "path": ".quorum/evidence/PMAT-417-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "a230e583b415b139723c4f487558182812acecfb",
+        "sha256": "861fdc5a8fedf5030931d0381666e4c5b533f7791c1c7e7a88bf73f8fbab7ba4",
+        "bytes": 486
+      },
+      {
+        "path": ".quorum/evidence/PMAT-417-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "ba8fbd0e03e92077470fc1dad735da383e3a2fc7",
+        "sha256": "6dbd9c0e82b0588692483fcbfb90f98cc0fe02317d0d3e45bfe49966541df9c5",
+        "bytes": 3471
+      }
+    ],
+    "total_bytes": 5661,
+    "claims_digest": ".quorum/evidence/PMAT-417-judges.md"
+  }
+}
