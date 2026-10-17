@@ -4992,3 +4992,41 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-607
+  github_issue: 607
+  item_type: task
+  title: 'Gate T: v1.33.0 has no releases.yaml row'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T17:52:26Z
+  updated: 2026-10-17T17:52:26Z
+  spec: null
+  acceptance_criteria:
+  - write row with release-goal.sh; refs forjar#607
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  epic: 696
+- id: PMAT-703
+  github_issue: 703
+  item_type: task
+  title: zip 2 -> 9.0.4 clears RUSTSEC-2026-0367/0368/0369
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T17:52:36Z
+  updated: 2026-10-17T17:52:36Z
+  spec: null
+  acceptance_criteria:
+  - security audit red on main; refs forjar#703
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
