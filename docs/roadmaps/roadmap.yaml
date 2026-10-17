@@ -4655,14 +4655,15 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-25T03:07:48Z
-  updated: 2026-09-25T03:07:48Z
+  updated: 2026-10-17T17:56:50Z
   spec: null
   acceptance_criteria:
   - Refs infra PMAT-1055
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - alias:PMAT-1055
   notes: null
 - id: PMAT-631
   github_issue: 631
