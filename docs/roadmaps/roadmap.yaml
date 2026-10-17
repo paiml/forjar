@@ -1737,8 +1737,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - kind:code
   notes: null
+  epic: 697
+  release: 1.35.0
 - id: PMAT-132
   github_issue: null
   item_type: task
@@ -4410,7 +4413,6 @@ roadmap:
   github_issue: 594
   item_type: task
   title: 'gate B is RED on main: the CB-21xx ratchet is over its 2026-09-11 ceilings (CB-2115 55/43, CB-2114 37/34) and blocks every publish'
-  release: 1.32.0
   status: inprogress
   priority: high
   assigned_to: null
@@ -4426,6 +4428,8 @@ roadmap:
   - kind:triage
   - release:v1.34.0
   notes: null
+  epic: 697
+  release: 1.35.0
 - id: PMAT-592
   github_issue: 592
   item_type: task
@@ -4639,7 +4643,9 @@ roadmap:
   labels:
   - kind:code
   - release:v1.33.0
+  - must-carry
   notes: 'Operator decision 2026-09-21, "YES, coverage on tags release only" (paiml/aprender#3676), batched into the booking PR on the instruction to stop serial PRs on a saturated fleet.'
+  epic: 696
   release: 1.33.0
 - id: PMAT-629
   github_issue: 629
@@ -4742,7 +4748,8 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
-  release: 1.33.0
+  epic: 697
+  release: 1.35.0
 - id: PMAT-642
   github_issue: 642
   item_type: task
@@ -4764,6 +4771,7 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-624
   github_issue: 624
@@ -4795,8 +4803,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-648
   github_issue: 648
   item_type: task
@@ -4818,6 +4829,7 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-651
   github_issue: 651
@@ -4840,6 +4852,7 @@ roadmap:
   - kind:code
   - release:v1.33.0
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-652
   github_issue: 652
@@ -4861,7 +4874,9 @@ roadmap:
   labels:
   - kind:code
   - release:v1.33.0
+  - must-carry
   notes: null
+  epic: 696
   release: 1.33.0
 - id: PMAT-671
   github_issue: 671
@@ -4882,6 +4897,8 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-683
   github_issue: 683
   item_type: task
@@ -4903,6 +4920,8 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  epic: 696
+  release: 1.34.0
 - id: PMAT-680
   github_issue: 680
   item_type: task
@@ -4921,6 +4940,7 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  release: 1.34.0
   epic: 670
 - id: PMAT-674
   github_issue: 674
@@ -4939,4 +4959,64 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  release: 1.34.0
   epic: 670
+- id: PMAT-698
+  github_issue: 698
+  item_type: task
+  title: 'bump bashrs to 7.4.2: I8 gate must lint infra''s fw16-wired-10g-nm-owner completion_check with 0 errors (SC2075 FP, bashrs#441)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-10T13:40:00Z
+  updated: 2026-10-10T13:40:00Z
+  spec: null
+  acceptance_criteria:
+  - '`cargo tree -i bashrs --depth 0` prints `bashrs v7.4.2` and a committed fixture copy of the fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test; the same test is red on bashrs 7.4.1. Blocked until bashrs 7.4.2 is on crates.io.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - must-carry
+  notes: null
+  epic: 696
+  release: 1.34.0
+- id: PMAT-710
+  github_issue: 710
+  item_type: task
+  title: rustls 0.23.46 + quinn-proto 0.11.18 for RUSTSEC-2026-0346..0349/0338/0340/0343 (red-main lockfile fix)
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-14T13:55:36Z
+  updated: 2026-10-14T13:55:36Z
+  spec: null
+  acceptance_criteria:
+  - 'sovereign-ci lint (cargo deny advisories) and security (cargo audit) feed the required gate and fail on rustls 0.23.45 and quinn-proto 0.11.17. Lockfile-only bump. Acceptance: cargo audit 0 vulnerabilities on the bumped Cargo.lock.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Cargo.lock also moves one edge: tempfile 3.27.0 depends on getrandom 0.3.4 instead of 0.4.3. cargo 1.93.0 forces it: regenerating from main with only `cargo update -p rustls --precise 0.23.46` and `cargo update -p quinn-proto --precise 0.11.18` gives a byte-identical lock, and each update alone flips the same edge, as does a no-version-change `cargo update -p tempfile --precise 3.27.0`. Both versions are in tempfile range (>=0.3, <0.5) and both stay in the lock; no package is added or removed. Only rustls, quinn-proto and this edge change.'
+  epic: 696
+- id: PMAT-714
+  github_issue: 714
+  item_type: task
+  title: 'RUSTSEC-2024-0449: unsafe-libyaml (unmaintained) reds cargo deny check advisories on main (red-main fix, rides #711)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-14T18:29:13Z
+  updated: 2026-10-14T18:29:13Z
+  spec: null
+  acceptance_criteria:
+  - 'cargo deny check advisories exits 1 on the #711 head (error[unmaintained] unsafe-libyaml, RUSTSEC-2024-0449) and 0 after this change. deny.toml and .cargo/audit.toml each carry one RUSTSEC-2024-0449 ignore naming #714 as its removal ticket. tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs (run by ci.yml examples-validate) fails when the ignore is absent while unsafe-libyaml is in Cargo.lock, when the ignore outlives the crate, when a crate outside {serde_yaml, serde_yaml_ng} links it or a crate outside {bashrs, forjar, forjar-contracts, pforge-config} reaches it, or when the two exemption lists disagree.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696

@@ -1,0 +1,30 @@
+# Look-ahead kit for v1.35.0, the train after v1.34.0 (epic #697).
+# Flat and awk-readable. The look-ahead slot keeps this file current. It
+# proposes tickets through the cop inbox (PROPOSE-TICKET) and never mints them.
+train: "1.35.0"
+epic: 697
+theme: "Secrets never leak through the I8 gate; the gates on main are green"
+criteria:
+  - {id: K1, pass: "no secret value reaches stdout, state or a lint error when the I8 gate refuses a script", falsifier: "a fixture secret appears in the refusal output or in state", command: "TBD: test named in the PROPOSE-TICKET for #679 (none exists yet)", ruling: open}
+  - {id: K2, pass: "gate B CB-21xx ratchet is at or under its ceilings on main", falsifier: "pmat comply check reports a count over its ceiling", command: "scripts/dogfood/comply.sh", ruling: open}
+  - {id: K3, pass: "a package resource's completion_check is run, not just accepted", falsifier: "a check that exits 1 still reports converged", command: "TBD: test named in the PROPOSE-TICKET for #694 (none exists yet)", ruling: open}
+baselines:
+  - {criterion: K1, receipt: "not_measured"}
+  - {criterion: K2, receipt: "not_measured"}
+  - {criterion: K3, receipt: "not_measured"}
+must_carry: []
+carried:
+  - {ticket: PMAT-594, issue: 594, size: M, needs: []}
+  - {ticket: PMAT-614, issue: 614, size: S, needs: []}
+  - {ticket: PMAT-131, issue: null, size: L, needs: []}
+candidates:
+  - {issue: 679, size: M, cluster: secret-i8}
+  - {issue: 686, size: M, cluster: secret-i8}
+  - {issue: 687, size: L, cluster: secret-i8}
+  - {issue: 694, size: S, cluster: checks}
+  - {issue: 663, size: S, cluster: checks, note: "PR #666 rides v1.34.0 if it merges first"}
+staged: []
+questions:
+  - {id: Q1, text: "Which of the secret/I8 cluster (#679 #686 #687) is must-carry for v1.35.0, and is #687 (design) one ticket or an epic?", asked: null, answer: open}
+risks:
+  - {risk: "the bashrs 7.4.2 publish slips and v1.34.0 waits on it", mechanism: "PMAT-698 is must-carry and blocked on crates.io", tripwire: "7.4.2 not on crates.io 48h after this kit; the cop rules whether to move PMAT-698 to v1.35.0"}
