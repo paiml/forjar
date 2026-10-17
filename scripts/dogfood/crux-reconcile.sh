@@ -57,6 +57,9 @@ fail() {
   exit 1
 }
 
+# shellcheck source=scripts/dogfood/lib/tags.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/tags.sh"
+
 # `grep` exits 1 on "no match", and `set -o pipefail` turns that into a silent
 # script death in the middle of an assignment — a gate that prints nothing and
 # exits non-zero is indistinguishable from one that never ran. This gate asks
@@ -112,7 +115,8 @@ CRUX="docs/audits/crux-${version}.md"
 # `git tag … | head -1` makes git take SIGPIPE when head leaves, and under
 # pipefail that is a 141 the caller reads as "the tag list is UNMEASURED".
 _tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)"
-latest_tag="${_tags%%$'\n'*}"
+dogfood_release_tags "$_tags"
+latest_tag="${DOGFOOD_RELEASE_TAGS%%$'\n'*}"
 latest_tag_version="${latest_tag#v}"
 if [ -n "$latest_tag" ] && [ "$version" = "$latest_tag_version" ]; then
   echo "GATE H PENDING Cargo.toml is still at ${latest_tag}'s version (${version}); no release is being cut, so there is nothing to reconcile yet"
