@@ -342,7 +342,7 @@ jobs:
           for c in contracts/*.yaml; do
             case "$c" in */binding.yaml) continue ;;   # a registry, not a contract
             esac
-            OUT=$(pv validate "$c" 2>&1); EC=$?
+            EC=0; OUT=$(pv validate "$c" 2>&1) || EC=$?   # under bash -e a bare OUT=$(failing) exits silently: the error line below never printed
             if [ "$EC" -ne 0 ]; then
               echo "::error file=$c::$(printf '%s' "$OUT" | grep -i error | head -1)"
               fail=$((fail+1))
