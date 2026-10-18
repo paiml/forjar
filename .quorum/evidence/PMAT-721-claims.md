@@ -9,3 +9,4 @@ Briefed to every lane with the full diff against main b2918946. C1–C7 were in 
 - C5: the roadmap.yaml change only adds one PMAT-721 entry and alters no existing ticket.
 - C6: the Rust test runs in CI: ci.yml examples-validate has a named --test step, and gate needs examples-validate.
 - C7: tests/falsification_every_ci_job_runs_on_the_fleet exempts exactly the three named arch-neutral jobs, fails on a stale entry (gone, not self-hosted, or re-pinned to an architecture), and still fails any other self-hosted job that names no architecture.
+- C8: tests/falsification_722_cache_key_arch.rs ties the guard to the allowlist: every workflow file named in ARCH_NEUTRAL_JOBS must be in WORKFLOWS, in the shell guard code, and reported ok by the guard, and the reader refuses an unparsable line, a count mismatch or an empty list.

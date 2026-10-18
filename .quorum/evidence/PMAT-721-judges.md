@@ -21,6 +21,9 @@ Lanes and their findings: see PMAT-721-lanes.md. Line numbers are at head 37955c
 8. [test] C7 — The fleet-arch test exempts exactly three named jobs and fails on a stale or re-pinned entry.
    - evidence: the allowlist is `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:137`; `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:178` marks a job seen only when it carries no X64 or ARM64 label; the stale assert follows at `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:190`. Measured: 13 passed on 37955c80.
 
+9. [test] C8 — The guard set is tied to ARCH_NEUTRAL_JOBS: a job from a file outside WORKFLOWS or the shell guard turns the new test red.
+   - evidence: the allowlist is `tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:137`. Probe: bench.yml/benchmark added there with X64 dropped went RED (8 passed, 1 failed, bench.yml not in WORKFLOWS); restored, 9 and 13 passed. Round 7 PASS on all three lanes.
+
 ## REFUTED
 
 1. [lane] R1 — Round 3 Argon on C7: an exempted job re-pinned to X64 was not reported stale.
@@ -29,11 +32,16 @@ Lanes and their findings: see PMAT-721-lanes.md. Line numbers are at head 37955c
    - corrected: pre-existing in `tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs` and untouched by this PR; the three exempted jobs are exempt by name, so this PR neither adds nor hides such a case. Left for its own ticket.
 3. [lane] R3 — Round 2 Sonnet: quorum.yml does not run the new test.
    - corrected: quorum.yml runs scripts/quorum-gate.sh, which runs the falsification cargo target named in the receipt; ci.yml also runs it (C6).
+4. [lane] R4 — Round 5 Argon and Flash: the new test ignored the guard exit status, matched ok by substring, and let the reader drop an unparsable line.
+   - corrected: true, fixed in e5c0a224; the test now asserts the exit status, matches `ok <path>:` at line start, and panics on an unparsable line or a count mismatch.
+5. [lane] R5 — Round 6 Sonnet, Argon and Flash: an empty ARCH_NEUTRAL_JOBS and an inline-commented path passed vacuously.
+   - corrected: true, fixed in e642d9d8; the reader asserts a non-empty list and the guard-code check strips comments.
 
 ## Accepted, not changed
 
 - Round 4 Argon: falsification_every_ci_job_runs_on_the_fleet is not run by ci.yml. It predates this PR; no workflow ran it before.
 - Round 4 Argon: a double-quoted restore-keys holding an escaped newline would pass the line-based guard. No such key exists; the guard is a line check by design.
-- Round 4 Argon: the guard's workflow list is hardcoded to lint.yml and msrv.yml, not tied to the allowlist.
+- Round 4 Argon: the guard workflow list was hardcoded and untied; closed in this revision (C8), the shell guard and WORKFLOWS stay two literal lists that the new test checks against ARCH_NEUTRAL_JOBS.
 - Round 3 Sonnet: a flow-sequence restore-keys with brackets is a latent gap in the same class.
+- Round 7 extras: the guard header still says lint.yml and msrv.yml; the parser needs the exact declaration text and fails loud otherwise.
 - No aarch64 clean-room runner is reachable from this branch, so the aarch64 leg is argued from the steps, not run.
