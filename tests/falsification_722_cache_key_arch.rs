@@ -79,3 +79,45 @@ fn an_unmodified_copy_passes() {
     let _ = fs::remove_dir_all(&dir);
     assert!(ok, "guard failed on an unmodified copy:\n{text}");
 }
+
+/// A scratch tree where only the `key:` line of lint.yml loses its arch segment
+/// and a `restore-keys:` line that still carries it is added, so a comparison of
+/// key-line count against arch-line count (1 == 1) would have passed it.
+#[test]
+fn a_key_without_arch_is_caught_even_if_restore_keys_has_it() {
+    let dir = scratch_tree("mixed", false);
+    let lint = dir.join(".github/workflows/lint.yml");
+    let text = fs::read_to_string(&lint).unwrap();
+    let mut out = String::new();
+    for line in text.lines() {
+        if line.trim_start().starts_with("key: ") {
+            let pad = &line[..line.len() - line.trim_start().len()];
+            out.push_str(&line.replace("${{ runner.arch }}-", ""));
+            out.push('\n');
+            out.push_str(&format!(
+                "{pad}restore-keys: lint-${{{{ runner.arch }}}}-\n"
+            ));
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    fs::write(&lint, out).unwrap();
+    let (ok, text) = run_guard(&dir);
+    let _ = fs::remove_dir_all(&dir);
+    assert!(!ok, "guard passed a key with no arch:\n{text}");
+    assert!(text.contains("FAIL .github/workflows/lint.yml"), "{text}");
+}
+
+#[test]
+fn a_block_scalar_restore_keys_is_refused() {
+    let dir = scratch_tree("block", false);
+    let msrv = dir.join(".github/workflows/msrv.yml");
+    let mut text = fs::read_to_string(&msrv).unwrap();
+    text.push_str("          restore-keys: |\n            msrv-${{ runner.arch }}-\n");
+    fs::write(&msrv, text).unwrap();
+    let (ok, text) = run_guard(&dir);
+    let _ = fs::remove_dir_all(&dir);
+    assert!(!ok, "guard accepted a block-scalar restore-keys:\n{text}");
+    assert!(text.contains("FAIL .github/workflows/msrv.yml"), "{text}");
+}
