@@ -120,4 +120,52 @@ fn a_block_scalar_restore_keys_is_refused() {
     let _ = fs::remove_dir_all(&dir);
     assert!(!ok, "guard accepted a block-scalar restore-keys:\n{text}");
     assert!(text.contains("FAIL .github/workflows/msrv.yml"), "{text}");
+    assert!(text.contains("1 empty/block/sequence"), "{text}");
+}
+
+#[test]
+fn a_sequence_restore_keys_is_refused() {
+    let dir = scratch_tree("seq", false);
+    let msrv = dir.join(".github/workflows/msrv.yml");
+    let mut text = fs::read_to_string(&msrv).unwrap();
+    text.push_str("          restore-keys:\n            - msrv-${{ runner.arch }}-\n");
+    fs::write(&msrv, text).unwrap();
+    let (ok, text) = run_guard(&dir);
+    let _ = fs::remove_dir_all(&dir);
+    assert!(!ok, "guard accepted a sequence restore-keys:\n{text}");
+    assert!(text.contains("1 empty/block/sequence"), "{text}");
+}
+
+#[test]
+fn an_arch_only_in_a_comment_does_not_count() {
+    let dir = scratch_tree("comment", false);
+    let lint = dir.join(".github/workflows/lint.yml");
+    let text = fs::read_to_string(&lint).unwrap();
+    let text = text.replace(
+        "${{ runner.os }}-${{ runner.arch }}-${{ matrix.features }}",
+        "${{ runner.os }}-${{ matrix.features }}",
+    );
+    let text = text.replacen(
+        "-${{ hashFiles('**/Cargo.lock') }}",
+        "-${{ hashFiles('**/Cargo.lock') }}  # runner.arch",
+        1,
+    );
+    fs::write(&lint, text).unwrap();
+    let (ok, text) = run_guard(&dir);
+    let _ = fs::remove_dir_all(&dir);
+    assert!(!ok, "guard counted runner.arch inside a comment:\n{text}");
+    assert!(text.contains("FAIL .github/workflows/lint.yml"), "{text}");
+}
+
+#[test]
+fn a_missing_workflow_is_a_failure_not_a_pass() {
+    let dir = scratch_tree("missing", false);
+    fs::remove_file(dir.join(".github/workflows/msrv.yml")).unwrap();
+    let (ok, text) = run_guard(&dir);
+    let _ = fs::remove_dir_all(&dir);
+    assert!(!ok, "guard passed with msrv.yml absent:\n{text}");
+    assert!(
+        text.contains("FAIL .github/workflows/msrv.yml: file is missing"),
+        "{text}"
+    );
 }
