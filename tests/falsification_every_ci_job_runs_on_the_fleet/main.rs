@@ -154,8 +154,10 @@ const ARCH_NEUTRAL_JOBS: [(&str, &str); 3] = [
 /// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
 /// it uploads would be wrong rather than absent.
 ///
-/// Every runner forjar can reach is `X64`, so naming it costs no capacity and
-/// states the assumption instead of relying on someone not clicking the box.
+/// Every self-hosted runner forjar can reach today is `X64` (the label is only an
+/// assumption, not a guarantee, which is why a job must name its architecture), so
+/// naming it costs no capacity and states the assumption instead of relying on
+/// someone not clicking the box.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
     let arches = ["X64", "ARM64"];

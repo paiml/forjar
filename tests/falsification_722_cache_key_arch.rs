@@ -169,3 +169,53 @@ fn a_missing_workflow_is_a_failure_not_a_pass() {
         "{text}"
     );
 }
+
+/// The workflow files named in `ARCH_NEUTRAL_JOBS`, read from the source of
+/// tests/falsification_every_ci_job_runs_on_the_fleet/main.rs (a separate test
+/// binary, so it cannot be imported).
+fn arch_neutral_files() -> Vec<String> {
+    let src = fs::read_to_string(
+        repo().join("tests/falsification_every_ci_job_runs_on_the_fleet/main.rs"),
+    )
+    .unwrap();
+    let start = src
+        .find("const ARCH_NEUTRAL_JOBS")
+        .expect("ARCH_NEUTRAL_JOBS is declared");
+    let body = &src[start..];
+    let body = &body[body.find("= [").unwrap()..];
+    let body = &body[..body.find("];").unwrap()];
+    let mut files: Vec<String> = body
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("(\""))
+        .filter_map(|l| l.split('"').next())
+        .map(str::to_string)
+        .collect();
+    files.sort();
+    files.dedup();
+    assert!(!files.is_empty(), "read no files out of ARCH_NEUTRAL_JOBS");
+    files
+}
+
+/// One list is authoritative: every workflow file with an arch-neutral job must be
+/// checked by BOTH this test's WORKFLOWS and the shell guard, or its cache key
+/// could drop runner.arch with every test green.
+#[test]
+fn every_arch_neutral_workflow_is_in_the_guarded_set() {
+    let guard = fs::read_to_string(repo().join("tests/cache-key-arch-guard.sh")).unwrap();
+    let (_, text) = run_guard(&repo());
+    for f in arch_neutral_files() {
+        let path = format!(".github/workflows/{f}");
+        assert!(
+            WORKFLOWS.contains(&path.as_str()),
+            "{path} has an ARCH_NEUTRAL_JOBS entry but is not in WORKFLOWS"
+        );
+        assert!(
+            guard.contains(&path),
+            "{path} has an ARCH_NEUTRAL_JOBS entry but is not in cache-key-arch-guard.sh"
+        );
+        assert!(
+            text.contains(&format!("ok {path}")),
+            "guard did not report {path}:\n{text}"
+        );
+    }
+}
