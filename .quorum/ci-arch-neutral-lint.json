@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "forjar#722 (PMAT-721) — the clippy, file-health and msrv jobs named X64 though nothing in them is x86-only, which kept them off aarch64 runners, and their target caches were keyed without runner.arch, so a mixed fleet would share one target dir across architectures. X64 is dropped from those three jobs' runs-on, every cache key now carries runner.arch, and a guard plus a Rust falsifier (run by ci.yml) keep it so.",
+  "branch": "ci/arch-neutral-lint",
+  "base": "b2918946",
+  "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
+  "diff_sha256": "532b1ada4a87f21bffd1193a4fefffc5dba9f179",
+  "recorded_at": "after round 4 at 37955c80. The one commit after it (1a98db33) adds only the four PMAT-721 evidence files; the hash covers them.",
+  "quorum": {
+    "rounds": 4,
+    "lanes": [
+      "head 8a52e0e2 — claude-sonnet-5 FAIL (answered by 1cb0e5ea and later)",
+      "head 8a52e0e2 — agy Gemini 4 Argon (High) FAIL, sandboxed",
+      "head 8a52e0e2 — agy Gemini 3.8 Flash (High) FAIL, sandboxed",
+      "head 1cb0e5ea — claude-sonnet-5 FAIL (answered by fcf9b307)",
+      "head 1cb0e5ea — agy Gemini 4 Argon (High) FAIL, sandboxed",
+      "head 1cb0e5ea — agy Gemini 3.8 Flash (High) FAIL, sandboxed",
+      "head fcf9b307 — claude-sonnet-5 PASS, one latent extra (flow-sequence restore-keys)",
+      "head fcf9b307 — agy Gemini 3.8 Flash (High) PASS, sandboxed",
+      "head fcf9b307 — agy Gemini 4 Argon (High) FAIL on C7, sandboxed: stale re-pinned entry fixed in 37955c80, matrix flatten predates the PR",
+      "head 37955c80 — claude-sonnet-5 PASS, no defects",
+      "head 37955c80 — agy Gemini 4 Argon (High) PASS, sandboxed, three non-blocking extras",
+      "head 37955c80 — agy Gemini 3.8 Flash (High) PASS, sandboxed"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 8,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "R1: round 3 Argon on C7 — an exempted job re-pinned to X64 was not reported stale; true, fixed in 37955c80.",
+      "R2: round 3 Argon on C7 — matrix legs are flattened before the arch check; pre-existing in scan.rs, untouched by this PR.",
+      "R3: round 2 Sonnet — quorum.yml does not run the new test; quorum.yml runs quorum-gate.sh, which runs the receipt's cargo target, and ci.yml runs it too."
+    ]
+  },
+  "falsification": {
+    "test": "every_cache_key_carries_runner_arch, the_pre_722_cache_keys_are_caught, an_unmodified_copy_passes, a_key_without_arch_is_caught_even_if_restore_keys_has_it, a_block_scalar_restore_keys_is_refused, a_sequence_restore_keys_is_refused, an_arch_only_in_a_comment_does_not_count, a_missing_workflow_is_a_failure_not_a_pass",
+    "test_file": "tests/falsification_722_cache_key_arch.rs",
+    "cargo_test_target": "falsification_722_cache_key_arch",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured locally. With lint.yml and msrv.yml reverted to b2918946 in a scratch copy the guard failed on a key-count mismatch and the_pre_722_cache_keys_are_caught passed by catching it; with the guard weakened (no comment strip, no restore-keys check) the comment and sequence cases failed. Restored, 8 passed. The existing falsification_every_ci_job_runs_on_the_fleet gave 13 passed on 37955c80."
+  },
+  "crux": {
+    "systems": [
+      "Swatinem/rust-cache: OS and arch are separate explicit key segments, plus a rustc -vV hash and the lockfile hash",
+      "actions/cache official examples: the Cargo recipe keys on runner.os and the lockfile hash only; no example keys on architecture",
+      "sccache: content-addressed per compilation unit; arch enters through rustc -vV host and the target in the args hash"
+    ],
+    "verdict": "No crux row is owed: adding runner.arch beside runner.os and the Cargo.lock hash matches the purpose-built Rust cache tool and is consistent with sccache keying on arch-sensitive data; the bare actions/cache example is the outlier."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes (Gemini 4 Argon (High), Gemini 3.8 Flash (High)) per round, brief inline plus the diff file, no build, no writes",
+    "rounds": 4,
+    "lanes_per_round": 2,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS. C1-C7 confirmed at 37955c80."
+  },
+  "pmat": {
+    "ticket": "PMAT-721",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 0 vacuous tests in tests/falsification_722_cache_key_arch.rs and none in the touched fleet-arch test",
+      "cargo test --locked --test falsification_722_cache_key_arch: 8 passed; cargo test --test falsification_every_ci_job_runs_on_the_fleet: 13 passed"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-721-agy.md",
+        "roles": ["agy"],
+        "blob": "f949d93e380fc9d299fe978116449c964c90c856",
+        "sha256": "6c539870bb5254d4f6b20edf2095d3997cf931bb8dd99dd9165f755ed792341e",
+        "bytes": 637
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-claims.md",
+        "roles": ["claims"],
+        "blob": "36fb57470204d8685ea744068716a0210d17b5ea",
+        "sha256": "4d6137c9dc57faba206830eabebf95aec362048e3d4c3dff1a5306831daa1109",
+        "bytes": 1572
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-judges.md",
+        "roles": ["judges"],
+        "blob": "6af648d471337ede1e322eaaae0ac7c89adcf51b",
+        "sha256": "bba3d935c1f4d7684c7aaffc0f8b376f001038194b2061d04321c7e4daea9c94",
+        "bytes": 4900
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-lanes.md",
+        "roles": ["lanes"],
+        "blob": "136c32e756230794565c9991c93e3c9fd47df1eb",
+        "sha256": "22869b29ed436d5b3b0267184882bce41196fce62fbb81f3783f346c13c00d95",
+        "bytes": 1872
+      }
+    ],
+    "total_bytes": 8981,
+    "claims_digest": ".quorum/evidence/PMAT-721-judges.md"
+  }
+}
