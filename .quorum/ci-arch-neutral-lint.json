@@ -4,10 +4,10 @@
   "branch": "ci/arch-neutral-lint",
   "base": "b2918946",
   "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
-  "diff_sha256": "532b1ada4a87f21bffd1193a4fefffc5dba9f179",
-  "recorded_at": "after round 4 at 37955c80. The one commit after it (1a98db33) adds only the four PMAT-721 evidence files; the hash covers them.",
+  "diff_sha256": "6ea5ca281a4aa61a2eb14be0e582f47a7bfd39ab",
+  "recorded_at": "after round 7 at e642d9d8. The one commit after it adds only the PMAT-721 evidence files for rounds 5 to 7; the hash covers them.",
   "quorum": {
-    "rounds": 4,
+    "rounds": 7,
     "lanes": [
       "head 8a52e0e2 — claude-sonnet-5 FAIL (answered by 1cb0e5ea and later)",
       "head 8a52e0e2 — agy Gemini 4 Argon (High) FAIL, sandboxed",
@@ -20,20 +20,31 @@
       "head fcf9b307 — agy Gemini 4 Argon (High) FAIL on C7, sandboxed: stale re-pinned entry fixed in 37955c80, matrix flatten predates the PR",
       "head 37955c80 — claude-sonnet-5 PASS, no defects",
       "head 37955c80 — agy Gemini 4 Argon (High) PASS, sandboxed, three non-blocking extras",
-      "head 37955c80 — agy Gemini 3.8 Flash (High) PASS, sandboxed"
+      "head 37955c80 — agy Gemini 3.8 Flash (High) PASS, sandboxed",
+      "head f31e59e9 — claude-sonnet-5-5 PASS, minor extras",
+      "head f31e59e9 — agy Gemini 4 Argon (High) FAIL, sandboxed: exit status unasserted, substring match (fixed e5c0a224)",
+      "head f31e59e9 — agy Gemini 3.8 Flash (High) FAIL, sandboxed: brittle parser (fixed e5c0a224)",
+      "head e5c0a224 — claude-sonnet-5-5 FAIL: empty list passes vacuously (fixed e642d9d8)",
+      "head e5c0a224 — agy Gemini 4 Argon (High) no output, timed out",
+      "head e5c0a224 — agy Gemini 3.8 Flash (High) FAIL, sandboxed: empty list, inline comment (fixed e642d9d8)",
+      "head e642d9d8 — claude-sonnet-5-5 PASS",
+      "head e642d9d8 — agy Gemini 4 Argon (High) PASS, sandboxed",
+      "head e642d9d8 — agy Gemini 3.8 Flash (High) PASS, sandboxed"
     ],
     "judges": 3,
     "refuters_per_claim": 3,
-    "claims_confirmed": 8,
-    "claims_refuted": 3,
+    "claims_confirmed": 9,
+    "claims_refuted": 5,
     "refuted_claims": [
       "R1: round 3 Argon on C7 — an exempted job re-pinned to X64 was not reported stale; true, fixed in 37955c80.",
       "R2: round 3 Argon on C7 — matrix legs are flattened before the arch check; pre-existing in scan.rs, untouched by this PR.",
-      "R3: round 2 Sonnet — quorum.yml does not run the new test; quorum.yml runs quorum-gate.sh, which runs the receipt's cargo target, and ci.yml runs it too."
+      "R3: round 2 Sonnet — quorum.yml does not run the new test; quorum.yml runs quorum-gate.sh, which runs the receipt's cargo target, and ci.yml runs it too.",
+      "R4: round 5 Argon and Flash — exit status unasserted, substring ok match, parser dropped lines; true, fixed in e5c0a224.",
+      "R5: round 6 — empty list and inline comment passed vacuously; true, fixed in e642d9d8."
     ]
   },
   "falsification": {
-    "test": "every_cache_key_carries_runner_arch, the_pre_722_cache_keys_are_caught, an_unmodified_copy_passes, a_key_without_arch_is_caught_even_if_restore_keys_has_it, a_block_scalar_restore_keys_is_refused, a_sequence_restore_keys_is_refused, an_arch_only_in_a_comment_does_not_count, a_missing_workflow_is_a_failure_not_a_pass",
+    "test": "every_cache_key_carries_runner_arch, the_pre_722_cache_keys_are_caught, an_unmodified_copy_passes, a_key_without_arch_is_caught_even_if_restore_keys_has_it, a_block_scalar_restore_keys_is_refused, a_sequence_restore_keys_is_refused, an_arch_only_in_a_comment_does_not_count, a_missing_workflow_is_a_failure_not_a_pass, every_arch_neutral_workflow_is_in_the_guarded_set",
     "test_file": "tests/falsification_722_cache_key_arch.rs",
     "cargo_test_target": "falsification_722_cache_key_arch",
     "reverted": true,
@@ -51,11 +62,11 @@
   "agy_teamwork": {
     "ran": true,
     "mode": "two sandboxed agy lanes (Gemini 4 Argon (High), Gemini 3.8 Flash (High)) per round, brief inline plus the diff file, no build, no writes",
-    "rounds": 4,
+    "rounds": 7,
     "lanes_per_round": 2,
     "sandbox": true,
     "writes": false,
-    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS. C1-C7 confirmed at 37955c80."
+    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS, rounds 5 and 6 FAIL on real gaps in the new test (fixed), round 7 both PASS. C1-C11 confirmed at e642d9d8."
   },
   "pmat": {
     "ticket": "PMAT-721",
@@ -72,33 +83,33 @@
       {
         "path": ".quorum/evidence/PMAT-721-agy.md",
         "roles": ["agy"],
-        "blob": "f949d93e380fc9d299fe978116449c964c90c856",
-        "sha256": "6c539870bb5254d4f6b20edf2095d3997cf931bb8dd99dd9165f755ed792341e",
-        "bytes": 637
+        "blob": "9547f749ad6d9500ee891a6cf4e5d13845baca27",
+        "sha256": "9143c1255df43cdb741b52b2ecaf76501810169c2147c60d992949fd083b05dd",
+        "bytes": 800
       },
       {
         "path": ".quorum/evidence/PMAT-721-claims.md",
         "roles": ["claims"],
-        "blob": "36fb57470204d8685ea744068716a0210d17b5ea",
-        "sha256": "4d6137c9dc57faba206830eabebf95aec362048e3d4c3dff1a5306831daa1109",
-        "bytes": 1572
+        "blob": "c8b8968248e0825a9a2237ab4b8d04131228a489",
+        "sha256": "331a5adab765c1bae7b2b3439c86f96fa18b70f3a8dfa71f3d464ae81e6ad37a",
+        "bytes": 1855
       },
       {
         "path": ".quorum/evidence/PMAT-721-judges.md",
         "roles": ["judges"],
-        "blob": "6af648d471337ede1e322eaaae0ac7c89adcf51b",
-        "sha256": "bba3d935c1f4d7684c7aaffc0f8b376f001038194b2061d04321c7e4daea9c94",
-        "bytes": 4900
+        "blob": "30eefa4a6e6d4c64cdad4806a04928586064200d",
+        "sha256": "48c9f01d99b6efd4d2821c9183de0c99f1b28462a2dc5ce5213e931268f1021c",
+        "bytes": 6113
       },
       {
         "path": ".quorum/evidence/PMAT-721-lanes.md",
         "roles": ["lanes"],
-        "blob": "136c32e756230794565c9991c93e3c9fd47df1eb",
-        "sha256": "22869b29ed436d5b3b0267184882bce41196fce62fbb81f3783f346c13c00d95",
-        "bytes": 1872
+        "blob": "d3700daee9af7448fc2fbb9522a324d339727188",
+        "sha256": "524130637e653b61ef0bee245584bf9abc0f038d12cbf1b9fd40acdb843e7312",
+        "bytes": 2454
       }
     ],
-    "total_bytes": 8981,
+    "total_bytes": 11222,
     "claims_digest": ".quorum/evidence/PMAT-721-judges.md"
   }
 }
