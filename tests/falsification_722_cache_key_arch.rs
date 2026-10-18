@@ -202,6 +202,7 @@ fn arch_neutral_files() -> Vec<String> {
         "parsed {} ARCH_NEUTRAL_JOBS entries, declared {declared}",
         files.len()
     );
+    assert!(!files.is_empty(), "read no files out of ARCH_NEUTRAL_JOBS");
     files.sort();
     files.dedup();
     files
@@ -216,6 +217,7 @@ fn every_arch_neutral_workflow_is_in_the_guarded_set() {
     let code: String = guard
         .lines()
         .filter(|l| !l.trim_start().starts_with('#'))
+        .map(|l| l.split(" #").next().unwrap_or(""))
         .collect::<Vec<_>>()
         .join("\n");
     let (ok, text) = run_guard(&repo());
