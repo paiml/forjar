@@ -105,7 +105,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: lint-${{ runner.os }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+          key: lint-${{ runner.os }}-${{ runner.arch }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Clippy
         shell: bash

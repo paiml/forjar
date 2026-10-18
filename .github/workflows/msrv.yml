@@ -59,7 +59,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: msrv-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          key: msrv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Verify MSRV compiles
         run: cargo check --all-targets
