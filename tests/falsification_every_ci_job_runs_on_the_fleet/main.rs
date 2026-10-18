@@ -175,7 +175,7 @@ fn a_fleet_job_names_the_architecture_it_needs() {
                 .iter()
                 .position(|(f, j)| *f == file.as_str() && *j == job_name)
             {
-                neutral_seen[i] = true;
+                neutral_seen[i] = !labels.iter().any(|l| arches.contains(&l.as_str()));
                 continue;
             }
             if labels.iter().any(|l| arches.contains(&l.as_str())) {
@@ -195,7 +195,7 @@ fn a_fleet_job_names_the_architecture_it_needs() {
         .collect();
     assert!(
         stale.is_empty(),
-        "ARCH_NEUTRAL_JOBS names self-hosted jobs that no longer exist: {stale:?}"
+        "ARCH_NEUTRAL_JOBS names jobs that no longer exist, are not self-hosted, or now pin an architecture: {stale:?}"
     );
     unpinned.sort();
     assert!(
