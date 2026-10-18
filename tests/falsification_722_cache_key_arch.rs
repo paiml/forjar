@@ -172,27 +172,38 @@ fn a_missing_workflow_is_a_failure_not_a_pass() {
 
 /// The workflow files named in `ARCH_NEUTRAL_JOBS`, read from the source of
 /// tests/falsification_every_ci_job_runs_on_the_fleet/main.rs (a separate test
-/// binary, so it cannot be imported).
+/// binary, so it cannot be imported). Every non-blank line inside the array must be
+/// one `("file.yml", "job"),` tuple, and the tuple count must equal the declared
+/// array length, so a reformatted entry fails loudly instead of being dropped.
 fn arch_neutral_files() -> Vec<String> {
     let src = fs::read_to_string(
         repo().join("tests/falsification_every_ci_job_runs_on_the_fleet/main.rs"),
     )
     .unwrap();
-    let start = src
-        .find("const ARCH_NEUTRAL_JOBS")
-        .expect("ARCH_NEUTRAL_JOBS is declared");
-    let body = &src[start..];
-    let body = &body[body.find("= [").unwrap()..];
-    let body = &body[..body.find("];").unwrap()];
-    let mut files: Vec<String> = body
-        .lines()
-        .filter_map(|l| l.trim().strip_prefix("(\""))
-        .filter_map(|l| l.split('"').next())
-        .map(str::to_string)
-        .collect();
+    let decl = src
+        .find("const ARCH_NEUTRAL_JOBS: [(&str, &str); ")
+        .expect("ARCH_NEUTRAL_JOBS is declared with a length");
+    let rest = &src[decl + "const ARCH_NEUTRAL_JOBS: [(&str, &str); ".len()..];
+    let declared: usize = rest[..rest.find(']').unwrap()].trim().parse().unwrap();
+    let body = &rest[rest.find("= [").expect("array opens") + 3..];
+    let body = &body[..body.find("\n];").expect("array closes")];
+    let mut files = Vec::new();
+    for line in body.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let tuple = line
+            .strip_prefix("(\"")
+            .and_then(|l| l.strip_suffix("\"),"))
+            .and_then(|l| l.split_once("\", \""))
+            .unwrap_or_else(|| panic!("unparsable ARCH_NEUTRAL_JOBS line: {line}"));
+        files.push(tuple.0.to_string());
+    }
+    assert_eq!(
+        files.len(),
+        declared,
+        "parsed {} ARCH_NEUTRAL_JOBS entries, declared {declared}",
+        files.len()
+    );
     files.sort();
     files.dedup();
-    assert!(!files.is_empty(), "read no files out of ARCH_NEUTRAL_JOBS");
     files
 }
 
@@ -202,7 +213,13 @@ fn arch_neutral_files() -> Vec<String> {
 #[test]
 fn every_arch_neutral_workflow_is_in_the_guarded_set() {
     let guard = fs::read_to_string(repo().join("tests/cache-key-arch-guard.sh")).unwrap();
-    let (_, text) = run_guard(&repo());
+    let code: String = guard
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let (ok, text) = run_guard(&repo());
+    assert!(ok, "guard failed on the real tree:\n{text}");
     for f in arch_neutral_files() {
         let path = format!(".github/workflows/{f}");
         assert!(
@@ -210,11 +227,11 @@ fn every_arch_neutral_workflow_is_in_the_guarded_set() {
             "{path} has an ARCH_NEUTRAL_JOBS entry but is not in WORKFLOWS"
         );
         assert!(
-            guard.contains(&path),
-            "{path} has an ARCH_NEUTRAL_JOBS entry but is not in cache-key-arch-guard.sh"
+            code.contains(&path),
+            "{path} has an ARCH_NEUTRAL_JOBS entry but is not in cache-key-arch-guard.sh code"
         );
         assert!(
-            text.contains(&format!("ok {path}")),
+            text.lines().any(|l| l.starts_with(&format!("ok {path}:"))),
             "guard did not report {path}:\n{text}"
         );
     }
