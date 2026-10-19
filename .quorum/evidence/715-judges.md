@@ -11,7 +11,7 @@ Three judges per claim: the three lanes of the round (gemini-4-argon-high, gemin
 3. [api] C3 — zip 9 changed ZipFile::name() to return a Result and both call sites in the tree handle it.
    - evidence: zip 9.0.5 `src/read/zipfile.rs:83` declares `pub fn name(&self) -> ZipResult<Cow<'_, str>>`. `src/core/store/conda.rs:82` now chains `by_index(i).ok().and_then(|f| f.name().ok()...)`, so a name error drops the entry exactly as a by_index error already did, and `src/cli/tests_image_android.rs:61` unwraps in a test. The opus lane grepped the tree and found no other caller of name() on a zip entry.
 4. [scope] C4 — apart from the conda.rs name handling, the diff is dependency pins, the lock and tests.
-   - evidence: the non-lock hunks are Cargo.toml:94 and :114, `src/core/store/conda.rs:82`, a test unwrap at `src/cli/tests_image_android.rs:61`, `#[cfg(test)] mod purifier_sec005_tests` at `src/core/mod.rs:36`, a `#[cfg(test)] mod sc1066_tests` in `src/core/purifier.rs:259`, and two test files. One side note from the opus lane, accepted: the zip bump also changes the library the production writer in `src/cli/image_android.rs` calls, which is the dependency pin itself and is covered by the unit run (80 passed).
+   - evidence: the non-lock hunks are Cargo.toml:94 and :114, `src/core/store/conda.rs:82`, a test unwrap at `src/cli/tests_image_android.rs:61`, `#[cfg(test)] mod purifier_sec005_tests` at `src/core/mod.rs:36`, a `#[cfg(test)] mod sc1066_tests` in `src/core/purifier.rs:258`, and two test files. One side note from the opus lane, accepted: the zip bump also changes the library the production writer in `src/cli/image_android.rs` calls, which is the dependency pin itself and is covered by the unit run (80 passed).
 
 ## REFUTED
 
