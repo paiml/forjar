@@ -17,6 +17,13 @@ use std::net::{IpAddr, UdpSocket};
 
 /// The source address the kernel would use for an outbound packet. UDP
 /// `connect` sends nothing; it only resolves the route. `None` with no route.
+/// The probe declines (by design) where the nonlocal-bind sysctl is unreadable
+/// or set, e.g. a sandbox with /proc/sys masked; a held-address assertion has
+/// nothing to measure there.
+fn probe_can_answer() -> bool {
+    std::fs::read_to_string("/proc/sys/net/ipv4/ip_nonlocal_bind").is_ok_and(|v| v.trim() == "0")
+}
+
 fn route_source_v4() -> Option<IpAddr> {
     let s = UdpSocket::bind("0.0.0.0:0").ok()?;
     s.connect("192.0.2.1:9").ok()?;
@@ -31,6 +38,10 @@ fn machine_at(addr: &str) -> Machine {
 
 #[test]
 fn falsify_iface_addr_is_local() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     let Some(ip) = route_source_v4() else {
         eprintln!("no IPv4 route on this host: nothing to measure");
         return;
@@ -43,6 +54,10 @@ fn falsify_iface_addr_is_local() {
 
 #[test]
 fn falsify_iface_addr_dispatches_locally() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     let Some(ip) = route_source_v4() else {
         eprintln!("no IPv4 route on this host: nothing to measure");
         return;
@@ -62,6 +77,10 @@ fn falsify_iface_addr_dispatches_locally() {
 #[cfg(target_os = "linux")]
 #[test]
 fn falsify_loopback_alias_dispatches_locally() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     let out = exec_script(&machine_at("127.0.0.2"), "echo \"$PPID\"")
         .unwrap_or_else(|e| panic!("127.0.0.2 (held by lo) was not run locally: {e}"));
     assert_eq!(out.stdout.trim(), std::process::id().to_string());
@@ -102,5 +121,9 @@ fn falsify_directed_broadcast_stays_remote() {
 
 #[test]
 fn falsify_mapped_held_addr_is_local() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     assert!(is_local_addr("::ffff:127.0.0.1"));
 }

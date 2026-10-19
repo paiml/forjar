@@ -12,6 +12,13 @@ use std::net::{IpAddr, UdpSocket};
 
 /// The source address the kernel would use for an outbound packet, if any.
 /// `connect` on UDP sends nothing; it only resolves the route.
+/// The probe declines (by design) where the nonlocal-bind sysctl is unreadable
+/// or set, e.g. a sandbox with /proc/sys masked; a held-address assertion has
+/// nothing to measure there.
+fn probe_can_answer() -> bool {
+    std::fs::read_to_string("/proc/sys/net/ipv4/ip_nonlocal_bind").is_ok_and(|v| v.trim() == "0")
+}
+
 fn route_source_v4() -> Option<IpAddr> {
     let s = UdpSocket::bind("0.0.0.0:0").ok()?;
     s.connect("192.0.2.1:9").ok()?;
@@ -21,6 +28,10 @@ fn route_source_v4() -> Option<IpAddr> {
 
 #[test]
 fn test_local_iface_route_source_addr_is_local() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     // No route at all (sandboxed CI): nothing to measure, and the loopback
     // tests below still discriminate.
     let Some(ip) = route_source_v4() else { return };
@@ -33,6 +44,10 @@ fn test_local_iface_route_source_addr_is_local() {
 #[cfg(target_os = "linux")]
 #[test]
 fn test_local_iface_whole_loopback_net_is_local() {
+    if !probe_can_answer() {
+        eprintln!("nonlocal-bind sysctl unreadable or set: the probe declines here");
+        return;
+    }
     // Linux routes all of 127.0.0.0/8 to lo; only the 127.0.0.1 spelling was
     // special-cased.
     assert!(is_local_addr("127.0.0.2"));

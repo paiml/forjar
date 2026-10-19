@@ -161,7 +161,8 @@ fn test_fj036_is_local_addr_comprehensive() {
     assert!(!is_local_addr("8.8.8.8"), "public IP must not be local");
     assert!(!is_local_addr("google.com"), "domain must not be local");
     assert!(!is_local_addr(""), "empty string must not be local");
-    // Linux holds all of 127/8 on lo (tests_local_iface); elsewhere the probe
+    // Linux routes 127/8 to lo, so 127.0.0.2 is held there (tests_local_iface);
+    // its broadcast 127.255.255.255 is not. Elsewhere the probe
     // declines and only the 127.0.0.1 spelling is local.
     #[cfg(not(target_os = "linux"))]
     assert!(
