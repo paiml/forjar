@@ -78,3 +78,48 @@ fn test_local_iface_mapped_v6_is_judged_as_v4() {
     assert!(probe_target("::1").unwrap().is_ipv6());
     assert_eq!(probe_target("thinkpad"), None);
 }
+
+/// Outside Linux the probe declines: its broadcast refusal is measured only on
+/// Linux. 127.0.0.2 is not held on macOS's lo0 either, and stays remote.
+#[cfg(not(target_os = "linux"))]
+#[test]
+fn test_local_iface_declines_off_linux() {
+    let ip: IpAddr = "127.0.0.1".parse().unwrap();
+    assert!(!ip_held_locally(ip, false));
+    assert!(!is_local_addr("127.0.0.2"));
+    assert!(is_local_addr("127.0.0.1")); // the spelling match is unchanged
+}
+
+/// The documented false negative: a held IPv6 link-local address is judged
+/// remote (no scope id to bind with), so it keeps going over SSH. Pinned so
+/// that recognising it later is a deliberate change, not a drive-by one.
+#[cfg(target_os = "linux")]
+#[test]
+fn test_local_iface_link_local_is_a_false_negative() {
+    let Ok(table) = std::fs::read_to_string("/proc/net/if_inet6") else {
+        return;
+    };
+    // Rows: 32 hex digits, ifindex, prefix len, scope (20 = link), flags, name.
+    let Some(hex) = table
+        .lines()
+        .filter_map(|l| l.split_whitespace().next().zip(l.split_whitespace().nth(3)))
+        .find(|(_, scope)| *scope == "20")
+        .map(|(h, _)| h.to_string())
+    else {
+        return;
+    };
+    let groups: Vec<&str> = (0..8).map(|i| &hex[i * 4..i * 4 + 4]).collect();
+    let addr = groups.join(":");
+    assert!(
+        addr.starts_with("fe80"),
+        "parsed {addr} from a scope-20 row"
+    );
+    assert!(
+        !is_local_addr(&addr),
+        "{addr} is link-local: documented as remote"
+    );
+    assert!(
+        !is_local_addr(&format!("{addr}%lo")),
+        "a scoped literal does not parse"
+    );
+}

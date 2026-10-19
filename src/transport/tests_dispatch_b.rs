@@ -161,6 +161,13 @@ fn test_fj036_is_local_addr_comprehensive() {
     assert!(!is_local_addr("8.8.8.8"), "public IP must not be local");
     assert!(!is_local_addr("google.com"), "domain must not be local");
     assert!(!is_local_addr(""), "empty string must not be local");
+    // Linux holds all of 127/8 on lo (tests_local_iface); elsewhere the probe
+    // declines and only the 127.0.0.1 spelling is local.
+    #[cfg(not(target_os = "linux"))]
+    assert!(
+        !is_local_addr("127.0.0.2"),
+        "127.0.0.2 is not local off Linux"
+    );
 }
 
 // ── FJ-261: SSH retry with exponential backoff ──
