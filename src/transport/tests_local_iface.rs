@@ -6,7 +6,7 @@
 //! "check if the address matches any local interface" and never did. On a
 //! host with no sshd that is a connection refused to itself.
 
-use super::local_iface::ip_held_locally;
+use super::local_iface::{ip_held_locally, probe_target, sysctl_enabled};
 use super::*;
 use std::net::{IpAddr, UdpSocket};
 
@@ -56,4 +56,25 @@ fn test_local_iface_nonlocal_bind_never_claims_local() {
     let ip: IpAddr = "127.0.0.1".parse().unwrap();
     assert!(!ip_held_locally(ip, true));
     assert!(ip_held_locally(ip, false));
+}
+
+#[test]
+fn test_local_iface_sysctl_value_parse() {
+    // Only an exact 0 lets the probe answer; anything else declines it.
+    assert!(!sysctl_enabled("0\n"));
+    assert!(!sysctl_enabled(" 0 "));
+    assert!(sysctl_enabled("1\n"));
+    assert!(sysctl_enabled("2"));
+    assert!(sysctl_enabled(""));
+}
+
+#[test]
+fn test_local_iface_mapped_v6_is_judged_as_v4() {
+    // `::ffff:a.b.c.d` binds through the IPv4 stack, so the IPv4 sysctl must
+    // govern it: the probe has to see the IPv4 address, not the v6 spelling.
+    let v4: IpAddr = "10.42.0.20".parse().unwrap();
+    assert_eq!(probe_target("::ffff:10.42.0.20"), Some(v4));
+    assert!(probe_target("::ffff:10.42.0.20").unwrap().is_ipv4());
+    assert!(probe_target("::1").unwrap().is_ipv6());
+    assert_eq!(probe_target("thinkpad"), None);
 }

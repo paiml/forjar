@@ -6,10 +6,10 @@
 //! declared by its static overlay address (`addr: 10.42.0.20`) and applied on
 //! itself was dispatched to SSH — connection refused on a host with no sshd.
 //!
-//! Dispatch is observed, not inferred: the test process exports a marker and
-//! the script echoes it. The local transport inherits the environment; an SSH
-//! session to the same host does not, so a marker that comes back proves the
-//! script ran in-process-tree, whatever sshd the host happens to run.
+//! Dispatch is observed, not inferred: the script echoes `$PPID`. The local
+//! transport spawns bash as a child of THIS process, so its parent is our pid;
+//! over SSH the parent is sshd. A matching pid proves the script ran here,
+//! whatever sshd the host happens to run.
 
 use forjar::core::types::Machine;
 use forjar::transport::{exec_script, is_local_addr};
@@ -47,18 +47,24 @@ fn falsify_iface_addr_dispatches_locally() {
         eprintln!("no IPv4 route on this host: nothing to measure");
         return;
     };
-    let mark = format!("forjar-iface-{}", std::process::id());
-    std::env::set_var("FORJAR_IFACE_MARK", &mark);
-    let out = exec_script(
-        &machine_at(&ip.to_string()),
-        "echo \"${FORJAR_IFACE_MARK:-unset}\"",
-    )
-    .unwrap_or_else(|e| panic!("addr {ip} (a local interface) was not run locally: {e}"));
+    let out = exec_script(&machine_at(&ip.to_string()), "echo \"$PPID\"")
+        .unwrap_or_else(|e| panic!("addr {ip} (a local interface) was not run locally: {e}"));
     assert_eq!(
         out.stdout.trim(),
-        mark,
-        "addr {ip} ran, but not in this process tree (the marker did not survive)"
+        std::process::id().to_string(),
+        "addr {ip} ran, but not as a child of this process"
     );
+}
+
+/// Needs no network: Linux routes all of 127.0.0.0/8 to `lo`, so 127.0.0.2 is
+/// held on every Linux runner, sandboxed or not. The route-source tests above
+/// return early without a route; this one cannot.
+#[cfg(target_os = "linux")]
+#[test]
+fn falsify_loopback_alias_dispatches_locally() {
+    let out = exec_script(&machine_at("127.0.0.2"), "echo \"$PPID\"")
+        .unwrap_or_else(|e| panic!("127.0.0.2 (held by lo) was not run locally: {e}"));
+    assert_eq!(out.stdout.trim(), std::process::id().to_string());
 }
 
 #[test]
@@ -68,4 +74,33 @@ fn falsify_unowned_addr_stays_remote() {
     assert!(!is_local_addr("0.0.0.0"));
     assert!(!is_local_addr("224.0.0.1"));
     assert!(!is_local_addr("255.255.255.255"));
+    // IPv4-mapped IPv6 is judged as the IPv4 address it is.
+    assert!(!is_local_addr("::ffff:192.0.2.1"));
+}
+
+/// Linux lets a UDP socket BIND a subnet's directed broadcast, which no
+/// interface holds; a bind-only probe called these local (quorum r1, measured
+/// on 192.168.1.255, 10.42.0.255, 172.17.255.255 and 127.255.255.255).
+#[test]
+fn falsify_directed_broadcast_stays_remote() {
+    #[cfg(target_os = "linux")]
+    assert!(
+        !is_local_addr("127.255.255.255"),
+        "lo's broadcast is not held"
+    );
+    let Some(IpAddr::V4(v4)) = route_source_v4() else {
+        eprintln!("no IPv4 route on this host: only the loopback case ran");
+        return;
+    };
+    // The .255 of the held address: its /24 broadcast, or on a wider prefix
+    // some other host's address — remote either way.
+    let [a, b, c, _] = v4.octets();
+    let bcast = format!("{a}.{b}.{c}.255");
+    assert!(!is_local_addr(&bcast), "{bcast} is a broadcast, not held");
+    assert!(!is_local_addr(&format!("::ffff:{bcast}")));
+}
+
+#[test]
+fn falsify_mapped_held_addr_is_local() {
+    assert!(is_local_addr("::ffff:127.0.0.1"));
 }

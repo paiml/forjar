@@ -479,6 +479,7 @@ pub fn controller_answers_for(machine: &Machine) -> bool {
 /// Is this address this very host? Exposed because drift needs the same
 /// answer: reading the controller's filesystem is CORRECT for a local machine
 /// and a wrong answer about somewhere else for any other. (forjar#310.)
+/// An IP literal counts when this host holds it: see `local_iface`.
 pub fn is_local_addr(addr: &str) -> bool {
     // Check if the address matches any local interface
     if addr == "127.0.0.1" || addr == "localhost" || addr == "::1" {
@@ -492,8 +493,5 @@ pub fn is_local_addr(addr: &str) -> bool {
     }
     // An IP literal held by one of this host's interfaces (e.g. a static
     // overlay address applied on the box itself, which may run no sshd).
-    match addr.parse::<std::net::IpAddr>() {
-        Ok(ip) => local_iface::ip_held_locally(ip, local_iface::nonlocal_bind_enabled(ip)),
-        Err(_) => false,
-    }
+    local_iface::addr_held_locally(addr)
 }
