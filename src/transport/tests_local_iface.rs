@@ -6,6 +6,7 @@
 //! "check if the address matches any local interface" and never did. On a
 //! host with no sshd that is a connection refused to itself.
 
+use super::local_iface::ip_held_locally;
 use super::*;
 use std::net::{IpAddr, UdpSocket};
 
