@@ -4,8 +4,8 @@
   "branch": "chore/bump-bashrs-7-4-2",
   "base": "b2918946",
   "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
-  "diff_sha256": "15ff2291da31b90167cc7d35ae87d22c0adcf4fb",
-  "recorded_at": "after one round at head 39fb79aa (code) plus bf0e81a8 (evidence files only). Commits after bf0e81a8 add only this receipt, which the gate excludes from the hash.",
+  "diff_sha256": "8837bd69923c5f8d07366e590f33295fce7d13b0",
+  "recorded_at": "after one round at head 39fb79aa (code) plus evidence-only commits. Commits after bf0e81a8 add only this receipt, which the gate excludes from the hash.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -74,8 +74,8 @@
       {
         "path": ".quorum/evidence/715-judges.md",
         "roles": ["judges"],
-        "blob": "d0b1494d122c9e6a5b0320103448b986f006873a",
-        "sha256": "fcec30908b4d57c9e8e0de31442950401a2cd283160dbc41461849de4c8e0b8f",
+        "blob": "ef66a9cfd6a36e31c107d3a443f335a8736696dd",
+        "sha256": "8e467640fb7fbc11c8545631bf829b62139748331a04072d2915063ae640078f",
         "bytes": 3301
       },
       {
