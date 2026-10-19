@@ -22,6 +22,8 @@ mod tests_generated_scripts_lint;
 #[cfg(test)]
 mod tests_i8_diagnosis;
 #[cfg(test)]
+mod tests_local_iface;
+#[cfg(test)]
 mod tests_ssh;
 #[cfg(test)]
 mod tests_timeout;
@@ -487,5 +489,40 @@ pub fn is_local_addr(addr: &str) -> bool {
             return true;
         }
     }
-    false
+    // An IP literal held by one of this host's interfaces (e.g. a static
+    // overlay address applied on the box itself, which may run no sshd).
+    match addr.parse::<std::net::IpAddr>() {
+        Ok(ip) => ip_held_locally(ip, nonlocal_bind_enabled(ip)),
+        Err(_) => false,
+    }
+}
+
+/// Does a local interface hold `ip`? Asked of the kernel by binding to it:
+/// `bind` succeeds only for an assigned address (EADDRNOTAVAIL otherwise),
+/// with no interface parsing and on every platform forjar runs on.
+///
+/// Unspecified, multicast and broadcast bind without being owned, so they are
+/// excluded. With non-local bind enabled every bind succeeds, so the probe
+/// cannot answer and declines: SSH, the behaviour before this probe existed.
+fn ip_held_locally(ip: std::net::IpAddr, nonlocal_bind: bool) -> bool {
+    use std::net::IpAddr;
+    if nonlocal_bind || ip.is_unspecified() || ip.is_multicast() {
+        return false;
+    }
+    if let IpAddr::V4(v4) = ip {
+        if v4.is_broadcast() {
+            return false;
+        }
+    }
+    std::net::UdpSocket::bind((ip, 0)).is_ok()
+}
+
+/// `net.ipv{4,6}.ip_nonlocal_bind` on Linux; absent (false) elsewhere.
+fn nonlocal_bind_enabled(ip: std::net::IpAddr) -> bool {
+    let path = if ip.is_ipv4() {
+        "/proc/sys/net/ipv4/ip_nonlocal_bind"
+    } else {
+        "/proc/sys/net/ipv6/ip_nonlocal_bind"
+    };
+    std::fs::read_to_string(path).is_ok_and(|v| v.trim() != "0")
 }
