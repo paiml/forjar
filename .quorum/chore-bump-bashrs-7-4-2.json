@@ -1,0 +1,92 @@
+{
+  "kind": "code",
+  "issue": "forjar#715 / PMAT-698 — bashrs 7.4.1 -> 7.4.2 clears the SEC005 disk-watch false positive (paiml/infra#1858); zip 2 -> 9 clears RUSTSEC-2026-0367/0368/0369 (also red on main); ZipFile::name() Result handling at src/core/store/conda.rs:82 and src/cli/tests_image_android.rs:61; regression tests src/core/purifier_sec005_tests.rs and tests/falsification_715_bashrs_742_sec005.rs.",
+  "branch": "chore/bump-bashrs-7-4-2",
+  "base": "b2918946",
+  "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
+  "diff_sha256": "15ff2291da31b90167cc7d35ae87d22c0adcf4fb",
+  "recorded_at": "after one round at head 39fb79aa (code) plus bf0e81a8 (evidence files only). Commits after bf0e81a8 add only this receipt, which the gate excludes from the hash.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "head 39fb79aa — agy gemini-4-argon-high: C1-C4 CONFIRMED, planted P1 REFUTED; printed OVERALL FAIL only because of the planted claim",
+      "head 39fb79aa — agy gemini-3.8-flash-high: C1-C4 CONFIRMED, planted P1 REFUTED, OVERALL PASS",
+      "head 39fb79aa — claude-opus-5-5 (claude -p): C1-C4 CONFIRMED, planted P1 REFUTED, OVERALL PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "P1 (planted, false): the conda.rs and tests_image_android.rs edits are cosmetic because ZipFile::name() already returned a Result in zip 2 — zip 2.4.2 returns &str; all 3 lanes refuted it"
+    ]
+  },
+  "falsification": {
+    "test": "ci_disk_watch_timer_enable_script_passes_i8, a_real_looking_openai_key_is_still_refused",
+    "test_file": "tests/falsification_715_bashrs_742_sec005.rs",
+    "cargo_test_target": "falsification_715_bashrs_742_sec005",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host at 39fb79aa. Green with bashrs 7.4.2: 2 passed. With Cargo.toml back to bashrs = \"7.4\" and cargo update -p bashrs --precise 7.4.1: ci_disk_watch_timer_enable_script_passes_i8 FAILED with 'false SEC005: bashrs lint errors', 1 passed 1 failed. Restored afterwards. cargo test --lib -- purifier conda image_android: 80 passed. cargo deny check advisories: advisories ok."
+  },
+  "crux": {
+    "systems": [
+      "cargo-deny / cargo-audit: clearing an advisory by moving to the patched release is the tools' preferred outcome over an ignore entry",
+      "GitHub Dependabot: a security update bumps the vulnerable dependency to the first patched version rather than dismissing the alert",
+      "Renovate: a lockfile-maintenance or vulnerability-fix PR bumps to the patched version and relies on the project's own tests to catch the breaking API change"
+    ],
+    "verdict": "No crux row is owed: all three fix a RUSTSEC advisory by upgrading to the patched version, as this PR does for zip, and the compile-breaking name() change is caught by the type checker plus the existing tests."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy --print with gemini-4-argon-high and gemini-3.8-flash-high, read-only brief, no build",
+    "rounds": 1,
+    "lanes_per_round": 2,
+    "sandbox": false,
+    "writes": false,
+    "verdict": "Both lanes confirmed C1-C4 and refuted the planted P1, citing the bashrs 7.4.2 token-start check and the zip 2.4.2 vs 9.0.5 name() signatures. A third agy lane (gemini-3.1-pro-high) never ran: the model id is unknown to agy, so it is not counted."
+  },
+  "pmat": {
+    "ticket": "PMAT-698",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at bf0e81a8: 378 files parsed, 4934 tests examined, 84 cannot fail, 0 of them in tests/falsification_715_bashrs_742_sec005.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/715-agy.md",
+        "roles": ["agy"],
+        "blob": "1c40d19710c9c68dd04dc28cb5a8fedc97cf1cb1",
+        "sha256": "c487011bd1ed12055be8d6143f07087b88715a55cd26377c47c8876504765cb1",
+        "bytes": 789
+      },
+      {
+        "path": ".quorum/evidence/715-claims.md",
+        "roles": ["claims"],
+        "blob": "d1f79ffef54486f7f2180cd05a309229f30f5f84",
+        "sha256": "fb307e662d45329e01ff449a993c1abfa86383c3c2dbb39dbe594d67f54aef72",
+        "bytes": 1329
+      },
+      {
+        "path": ".quorum/evidence/715-judges.md",
+        "roles": ["judges"],
+        "blob": "d0b1494d122c9e6a5b0320103448b986f006873a",
+        "sha256": "fcec30908b4d57c9e8e0de31442950401a2cd283160dbc41461849de4c8e0b8f",
+        "bytes": 3301
+      },
+      {
+        "path": ".quorum/evidence/715-lanes.md",
+        "roles": ["lanes"],
+        "blob": "5780dc1f035242492e05e6ae111d6819a697f172",
+        "sha256": "6079e446a7b2f4f1bfc06e04309428bd1b573be79df569fe25cd718e7373ac3b",
+        "bytes": 1185
+      }
+    ],
+    "total_bytes": 6604,
+    "claims_digest": ".quorum/evidence/715-judges.md"
+  }
+}
