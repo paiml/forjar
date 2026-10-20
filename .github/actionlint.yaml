@@ -24,3 +24,4 @@ self-hosted-runner:
     - ephemeral    # 7
     - docker       # 7
     - perf-solo    # 1
+    - mini         # 1  — mini-m4, the self-hosted mac (macOS, ARM64); nightly.yml darwin legs
