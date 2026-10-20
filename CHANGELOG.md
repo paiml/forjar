@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**The disk-budget reaper no longer costs more than the disk it defends (PMAT-727, #727).**
+One 15-minute pass on lambda-labs took 84 s of CPU: a `readlink` per /proc entry
+and per fd, a `tr|head` per pid, and an unbounded `find` over the scan root.
+The generated script now lists every cwd/fd link in ONE `find /proc/*/cwd
+/proc/*/fd` pass, reads `comm` with the `read` builtin, and runs every walk
+under `timeout` (`FORJAR_BUDGET_FIND_TIMEOUT`, default 120 s), `-xdev`, `nice` and
+`ionice -c3`. A walk that times out, or a /proc scan that saw nothing, is NOT
+MEASURED and fails safe: nothing is proven dead and nothing is deleted. The
+default cadence stays `hourly`; a faster one (e.g. `*:0/15`) is an explicit
+`budget_schedule`.
+
 ## [1.33.0] - 2026-09-28
 
 Promotes 1.33.0-rc.1 (below) unchanged, plus one release-pipeline fix.
