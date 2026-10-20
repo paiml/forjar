@@ -5011,3 +5011,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-733
+  github_issue: 733
+  item_type: task
+  title: 'RUSTSEC-2026-0381/0382/0383: bump rustls-webpki, webpki-roots, webpki-root-certs'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-20T20:00:49Z
+  updated: 2026-10-20T20:00:51.455420523+00:00
+  spec: null
+  acceptance_criteria:
+  - lockfile-only bump; cargo deny advisories red
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
