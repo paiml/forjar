@@ -135,6 +135,8 @@ fn stage_iso_workdir(
             continue;
         }
         let cfg = std::fs::read_to_string(&dst).map_err(|e| format!("read {iso_path}: {e}"))?;
+        // xorriso -extract keeps the ISO's 0444: replace the file, don't write into it.
+        std::fs::remove_file(&dst).map_err(|e| format!("replace {iso_path}: {e}"))?;
         std::fs::write(&dst, add_autoinstall_cmdline(&cfg))
             .map_err(|e| format!("write {iso_path}: {e}"))?;
         staged.push((iso_path.to_string(), dst));
@@ -311,17 +313,32 @@ pub fn generate_user_data(
 /// path]` pair installed onto the largest disk it found while looking pinned.
 /// A `serial:` glob is the safe pin: a stick that lands in the wrong machine
 /// matches no disk and fails instead of wiping one.
+///
+/// LVM layouts take `sizing-policy: all`. subiquity's default, `scaled`, makes
+/// a ~100 GB root and leaves the rest of the disk unallocated: on a build host
+/// that is a full disk at a fifth of its size.
 fn storage_layout_yaml(disk: &str) -> Result<String, String> {
     match disk {
-        "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
+        "auto-lvm" => Ok("    layout:\n      name: lvm\n      sizing-policy: all".to_string()),
         "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
         serial if serial.starts_with("serial:") => {
             let glob = &serial["serial:".len()..];
             if glob.is_empty() {
-                return Err("--disk serial: needs a glob, e.g. serial:*S58SNMFX200010W".to_string());
+                return Err("--disk serial: needs a glob, e.g. serial:*S58SNMFX200010W*".to_string());
+            }
+            // udev's NVMe ID_SERIAL ends in the namespace id (measured:
+            // Samsung_SSD_970_EVO_Plus_500GB_<serial>_1), so a glob anchored at the
+            // end matches no NVMe disk and subiquity stops mid-install with "Failed
+            // to find matching device". A trailing * also matches SATA serials.
+            if !glob.ends_with('*') {
+                return Err(format!(
+                    "--disk serial:{glob} matches no NVMe disk (udev's ID_SERIAL ends in \
+                     _<namespace>, e.g. ..._{tail}_1); use serial:{glob}*",
+                    tail = glob.trim_start_matches('*')
+                ));
             }
             Ok(format!(
-                "    layout:\n      name: lvm\n      match:\n        serial: {}",
+                "    layout:\n      name: lvm\n      sizing-policy: all\n      match:\n        serial: {}",
                 yaml_single_quoted(glob)
             ))
         }
@@ -331,7 +348,7 @@ fn storage_layout_yaml(disk: &str) -> Result<String, String> {
              (lsblk -dno SERIAL <dev>)"
         )),
         path if path.starts_with('/') => Ok(format!(
-            "    layout:\n      name: lvm\n      match:\n        path: {}",
+            "    layout:\n      name: lvm\n      sizing-policy: all\n      match:\n        path: {}",
             yaml_single_quoted(path)
         )),
         other => Err(format!(

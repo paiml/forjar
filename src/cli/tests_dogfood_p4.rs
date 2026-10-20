@@ -35,7 +35,7 @@ mod user_data {
 
     #[test]
     fn every_disk_layout_still_parses() {
-        for disk in ["auto-lvm", "auto-zfs", "/dev/nvme0n1", "serial:*S4EVNX0R123456"] {
+        for disk in ["auto-lvm", "auto-zfs", "/dev/nvme0n1", "serial:*S4EVNX0R123456*"] {
             let ud = generate_user_data("local", &machine(), disk, "en_US.UTF-8", "UTC").unwrap();
             serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&ud)
                 .unwrap_or_else(|e| panic!("{disk}: {e}\n---\n{ud}"));

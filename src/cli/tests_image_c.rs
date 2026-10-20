@@ -33,12 +33,12 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let m = keyed_machine(d.path());
         let y =
-            generate_user_data("box-01", &m, "serial:*S58SNMFX200010W", "C.UTF-8", "UTC").unwrap();
+            generate_user_data("box-01", &m, "serial:*S58SNMFX200010W*", "C.UTF-8", "UTC").unwrap();
         let storage = &autoinstall(&y)["storage"];
         assert_eq!(storage["layout"]["name"], Value::from("lvm"));
         assert_eq!(
             storage["layout"]["match"]["serial"],
-            Value::from("*S58SNMFX200010W")
+            Value::from("*S58SNMFX200010W*")
         );
         // subiquity ignores storage.config when storage.layout is set: emitting
         // both is how the pin was silently dropped.
@@ -46,6 +46,21 @@ mod tests {
             storage.get("config").is_none(),
             "layout + config: config is ignored"
         );
+        // subiquity's default lvm sizing-policy is `scaled`: root ~100 GB, the rest of
+        // the disk left unallocated. A build host needs the whole disk.
+        assert_eq!(storage["layout"]["sizing-policy"], Value::from("all"));
+    }
+
+    #[test]
+    fn test_731_serial_glob_anchored_at_the_end_is_refused() {
+        // udev's NVMe ID_SERIAL ends in the namespace id: measured on a real
+        // Samsung 970 EVO Plus as Samsung_SSD_970_EVO_Plus_500GB_<serial>_1, and
+        // subiquity stopped with "Failed to find matching device" for '*<serial>'.
+        let d = tempfile::tempdir().unwrap();
+        let m = keyed_machine(d.path());
+        let err = generate_user_data("box-01", &m, "serial:*S58SNMFX200010W", "C.UTF-8", "UTC")
+            .unwrap_err();
+        assert!(err.contains("serial:*S58SNMFX200010W*"), "must suggest the fix, got {err}");
     }
 
     #[test]
@@ -146,6 +161,12 @@ mod tests {
                    menuentry \"HWE\" {\n\tlinux\t/casper/hwe-vmlinuz  ---\n\tinitrd\t/casper/hwe-initrd\n}\n";
         std::fs::write(tree.join("boot/grub/grub.cfg"), cfg).unwrap();
         std::fs::write(tree.join("boot/grub/loopback.cfg"), cfg).unwrap();
+        // Ubuntu ISOs carry grub.cfg read-only (0444), and xorriso -extract keeps
+        // that mode: patching it in place fails with EACCES. The fixture must too.
+        for f in ["boot/grub/grub.cfg", "boot/grub/loopback.cfg"] {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(tree.join(f), std::fs::Permissions::from_mode(0o444)).unwrap();
+        }
         let iso = dir.join("base.iso");
         let ok = std::process::Command::new("xorriso")
             .args([
@@ -208,7 +229,7 @@ mod tests {
             Some("box-01"),
             &base,
             &out,
-            "serial:*X1",
+            "serial:*X1*",
             "C.UTF-8",
             "UTC",
             false,
@@ -220,7 +241,7 @@ mod tests {
         let ud = iso_file(&out, "/nocloud/user-data", &x);
         assert_eq!(
             autoinstall(&ud)["storage"]["layout"]["match"]["serial"],
-            Value::from("*X1")
+            Value::from("*X1*")
         );
         iso_file(&out, "/nocloud/meta-data", &x);
         assert!(iso_file(&out, "/forjar/forjar.yaml", &x).contains("box-01"));
