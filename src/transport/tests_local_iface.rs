@@ -6,7 +6,9 @@
 //! "check if the address matches any local interface" and never did. On a
 //! host with no sshd that is a connection refused to itself.
 
-use super::local_iface::{ip_held_locally, probe_target, sysctl_enabled};
+use super::local_iface::{
+    ip_held_locally, nonlocal_bind_path, nonlocal_bind_read, probe_target, sysctl_enabled,
+};
 use super::*;
 use std::net::{IpAddr, UdpSocket};
 
@@ -70,7 +72,33 @@ fn test_local_iface_nonlocal_bind_never_claims_local() {
     // resources here. The probe must decline rather than guess.
     let ip: IpAddr = "127.0.0.1".parse().unwrap();
     assert!(!ip_held_locally(ip, true));
+    // Off Linux the probe declines regardless (test_local_iface_declines_off_linux).
+    #[cfg(target_os = "linux")]
     assert!(ip_held_locally(ip, false));
+}
+
+#[test]
+fn test_local_iface_unreadable_sysctl_declines() {
+    // A host that will not say (masked /proc/sys) is not trusted to answer.
+    let masked = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+    assert!(nonlocal_bind_read(Err(masked)));
+    assert!(!nonlocal_bind_read(Ok("0\n".into())));
+    assert!(nonlocal_bind_read(Ok("1\n".into())));
+}
+
+#[test]
+fn test_local_iface_sysctl_path_follows_family() {
+    // ::ffff:a.b.c.d reaches here already folded, so it reads the IPv4 one.
+    let mapped = probe_target("::ffff:10.42.0.20").unwrap();
+    assert_eq!(
+        nonlocal_bind_path(mapped),
+        "/proc/sys/net/ipv4/ip_nonlocal_bind"
+    );
+    let v6: IpAddr = "::1".parse().unwrap();
+    assert_eq!(
+        nonlocal_bind_path(v6),
+        "/proc/sys/net/ipv6/ip_nonlocal_bind"
+    );
 }
 
 #[test]

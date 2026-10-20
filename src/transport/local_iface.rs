@@ -52,12 +52,21 @@ pub(crate) fn ip_held_locally(ip: std::net::IpAddr, nonlocal_bind: bool) -> bool
 /// `net.ipv{4,6}.ip_nonlocal_bind`. Unreadable counts as enabled, so a host
 /// that will not say declines the probe rather than being trusted.
 fn nonlocal_bind_enabled(ip: std::net::IpAddr) -> bool {
-    let path = if ip.is_ipv4() {
+    nonlocal_bind_read(std::fs::read_to_string(nonlocal_bind_path(ip)))
+}
+
+/// The sysctl that governs a bind of `ip` (already folded by `probe_target`).
+pub(crate) fn nonlocal_bind_path(ip: std::net::IpAddr) -> &'static str {
+    if ip.is_ipv4() {
         "/proc/sys/net/ipv4/ip_nonlocal_bind"
     } else {
         "/proc/sys/net/ipv6/ip_nonlocal_bind"
-    };
-    std::fs::read_to_string(path).map_or(true, |v| sysctl_enabled(&v))
+    }
+}
+
+/// A failed read counts as enabled: the probe declines.
+pub(crate) fn nonlocal_bind_read(read: std::io::Result<String>) -> bool {
+    read.map_or(true, |v| sysctl_enabled(&v))
 }
 
 /// A sysctl value reads enabled unless it is exactly `0`; a garbled value is
