@@ -255,3 +255,22 @@ mod sc1_gate_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod sc1066_tests {
+    use super::*;
+
+    /// bashrs 7.4.2 quote filter: `todo="$todo $WANT=$id"` assigns to `todo`
+    /// while reading `$todo` inside double quotes. Older bashrs flagged the
+    /// `$WANT=` shape as SC1066 and aborted `forjar apply` (t2-dedicated-label).
+    #[test]
+    fn the_apply_gate_accepts_a_quoted_accumulator_assignment() {
+        let script =
+            "todo=\"\"\nfor id in a b; do\n  todo=\"$todo $WANT=$id\"\ndone\necho \"$todo\"\n";
+        assert!(
+            validate_script(script).is_ok(),
+            "apply gate rejects todo=\"$todo $WANT=$id\": {:?}",
+            validate_script(script)
+        );
+    }
+}
