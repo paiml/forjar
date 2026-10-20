@@ -1,7 +1,7 @@
 {
   "kind": "code",
   "issue": "forjar#724 — is_local_addr said \"check if the address matches any local interface\" and never did: a machine declared by a static address it holds (overlay 10.42.0.20) and applied on itself was sent over SSH to itself",
-  "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
+  "base_commit": "33aa711ef48d7fe741f777f6e7419b099f2cb591",
   "base": "origin/main",
   "recorded_at": "2026-10-20",
   "quorum": {
