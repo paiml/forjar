@@ -5011,3 +5011,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-717
+  github_issue: 717
+  item_type: task
+  title: 'FJ-METAL-001: bare-metal netboot / USB parity spec'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-17T16:39:53Z
+  updated: 2026-10-17T16:39:53Z
+  spec: null
+  acceptance_criteria:
+  - 'Spec for taking forjar below the OS: one signed boot image (UKI) over network boot, USB and rescue partition, parity by hash. Spec file docs/specifications/FJ-METAL-001-bare-metal.md.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  epic: 697
