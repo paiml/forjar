@@ -4992,6 +4992,25 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-727
+  github_issue: 727
+  item_type: task
+  title: 'disk_budget reaper: bounded scan cost'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-20T14:58:48Z
+  updated: 2026-10-20T14:58:48Z
+  spec: null
+  acceptance_criteria:
+  - one /proc pass, time/IO limits, longer interval, cost test red on old shape
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 668
 - id: PMAT-717
   github_issue: 717
   item_type: task
