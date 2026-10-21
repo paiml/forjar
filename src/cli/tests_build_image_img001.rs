@@ -135,3 +135,20 @@ fn img001_path_file_lands_in_the_image_beside_packages_and_command() {
     let files: u64 = img.layers.iter().map(|l| l.file_count as u64).sum();
     assert_eq!(files, 1 + file_layers.iter().map(|l| l.len() as u64).sum::<u64>());
 }
+
+#[test]
+fn sandbox_with_json_is_rejected_before_any_work() {
+    // The guard runs before the file is even read: a missing file must not be
+    // the error we see.
+    let err = cmd_build(
+        std::path::Path::new("/nonexistent/forjar.yaml"),
+        "x",
+        false,
+        false,
+        false,
+        true,
+        true,
+    )
+    .unwrap_err();
+    assert!(err.contains("--json is not supported together with --sandbox"), "{err}");
+}

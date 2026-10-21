@@ -76,9 +76,10 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
         return Err("index.json has no manifests".into());
     }
 
-    // 2. Read the first manifest
-    let manifest_desc = &index.manifests[0];
-    let manifest_data = read_blob(layout_dir, &manifest_desc.digest)?;
+    // 2. Read the first manifest; if it is itself an index (multi-platform
+    //    image), resolve it to the linux/amd64 manifest (or its first entry).
+    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)?;
+    let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
         serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
 
@@ -104,6 +105,29 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
         os: config.os,
         config: config.config,
     })
+}
+
+/// Follow an OCI image index / docker manifest list down to a single image
+/// manifest digest. Prefers `linux/amd64`, else the first entry.
+fn resolve_manifest_digest(layout_dir: &Path, digest: &str, depth: u8) -> Result<String, String> {
+    let data = read_blob(layout_dir, digest)?;
+    let doc: serde_json::Value =
+        serde_json::from_slice(&data).map_err(|e| format!("parse manifest {digest}: {e}"))?;
+    let is_index = doc.get("manifests").is_some_and(|m| m.is_array());
+    if !is_index {
+        return Ok(digest.to_string());
+    }
+    if depth >= 3 {
+        return Err("image index nested too deeply".into());
+    }
+    let entries = doc["manifests"].as_array().cloned().unwrap_or_default();
+    let pick = entries
+        .iter()
+        .find(|m| m["platform"]["os"] == "linux" && m["platform"]["architecture"] == "amd64")
+        .or_else(|| entries.first())
+        .and_then(|m| m["digest"].as_str())
+        .ok_or("image index has no manifests")?;
+    resolve_manifest_digest(layout_dir, pick, depth + 1)
 }
 
 /// Read a blob from the OCI layout's blobs directory.
@@ -381,6 +405,25 @@ mod tests {
         let result = copy_base_blobs(src.path(), dst.path(), &layers);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid sha256 digest"));
+    }
+
+    #[test]
+    fn extract_base_layers_follows_image_index_to_amd64_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        create_test_layout(dir.path());
+        let idx_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let arm = "a".repeat(64);
+        let inner = format!(
+            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{arm}","size":1,"platform":{{"os":"linux","architecture":"arm64"}}}},{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"amd64"}}}}]}}"#
+        );
+        std::fs::write(dir.path().join("blobs/sha256").join(idx_hex), inner).unwrap();
+        let top = format!(
+            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"sha256:{idx_hex}","size":1}}]}}"#
+        );
+        std::fs::write(dir.path().join("index.json"), top).unwrap();
+        let r = extract_base_layers(dir.path()).unwrap();
+        assert_eq!(r.layers.len(), 1);
+        assert_eq!(r.architecture, "amd64");
     }
 
     #[test]

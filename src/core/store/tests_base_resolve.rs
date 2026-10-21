@@ -146,3 +146,17 @@ fn files_only_build_prefers_a_verified_local_base() {
     let work = root.path().join("w");
     assert!(resolve_build_base("ubuntu:22.04", root.path(), &work, None).is_ok());
 }
+
+#[test]
+fn podman_save_asks_for_an_oci_archive_and_docker_does_not() {
+    use super::base_resolve::save_args;
+    assert_eq!(
+        save_args("podman"),
+        ["save", "--format", "oci-archive", "-o"]
+    );
+    assert_eq!(
+        save_args("/usr/bin/podman"),
+        ["save", "--format", "oci-archive", "-o"]
+    );
+    assert_eq!(save_args("docker"), ["save", "-o"]);
+}

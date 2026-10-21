@@ -88,6 +88,21 @@ pub fn resolve_build_base(
     load_runtime_base(rt, base, work_dir)
 }
 
+/// Leading args of `<runtime> save`: podman defaults to a docker-archive, which
+/// has no `index.json`, so it must be asked for an OCI archive. Docker's `save`
+/// has no `--format` flag (its archive already carries an OCI layout).
+pub(crate) fn save_args(runtime: &str) -> Vec<&'static str> {
+    let base = Path::new(runtime)
+        .file_name()
+        .map(|n| n.to_string_lossy().contains("podman"))
+        .unwrap_or(false);
+    if base {
+        vec!["save", "--format", "oci-archive", "-o"]
+    } else {
+        vec!["save", "-o"]
+    }
+}
+
 /// Export `base_ref` from the container runtime into `work_dir` as an OCI layout
 /// (`<runtime> save`), after checking it is the declared digest.
 pub fn load_runtime_base(
@@ -117,7 +132,7 @@ pub fn load_runtime_base(
     std::fs::create_dir_all(work_dir).map_err(|e| format!("create base dir: {e}"))?;
     let tar_path = work_dir.join("base.tar");
     let save = Command::new(runtime)
-        .args(["save", "-o"])
+        .args(save_args(runtime))
         .arg(&tar_path)
         .arg(base_ref)
         .output()

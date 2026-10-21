@@ -16,7 +16,7 @@ diff is the top layer (with `packages` present `command` is a build command, not
 the entrypoint); `index.json` carries `org.opencontainers.image.ref.name` so
 `--load` keeps the tag; `--json` prints `manifest_digest`; `--push` prints
 `pushed: registry/repo@sha256:...`. Registry configs with JSON `null` collections
-now parse. Not done: `path:` file layers are still not added in the container path.
+now parse. `path:` Files layers land on top of the packages/command diff (never dropped). The diff layer carries Added and Changed files and OCI whiteouts (`.wh.<name>`, opaque dirs for deleted-and-rebuilt dirs) for deleted base paths. A multi-platform base (OCI image index) resolves to its linux/amd64 manifest; podman bases are saved as `oci-archive`; `--sandbox --json` is rejected again.
 
 **The disk-budget reaper no longer costs more than the disk it defends (PMAT-727, #727).**
 One 15-minute pass on lambda-labs took 84 s of CPU: a `readlink` per /proc entry

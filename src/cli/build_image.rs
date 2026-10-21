@@ -26,7 +26,7 @@ pub(crate) fn cmd_build(
     // combinations whose stdout it cannot own, rather than emitting JSON with
     // `docker load` progress interleaved into it.
     if json {
-        reject_json_stdout_conflicts(load, push, far, false)?;
+        reject_json_stdout_conflicts(load, push, far, sandbox)?;
     }
     let config = super::helpers::parse_and_validate(file)?;
     let res = config

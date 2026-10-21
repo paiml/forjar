@@ -11,6 +11,7 @@ pub mod chunker;
 pub mod closure;
 pub mod conda;
 pub mod container_build;
+pub(crate) mod container_diff;
 pub(crate) mod container_layers;
 pub mod content;
 pub mod contract_coverage;
@@ -82,6 +83,8 @@ mod tests_closure;
 mod tests_conda;
 #[cfg(test)]
 mod tests_container_build;
+#[cfg(test)]
+mod tests_container_diff;
 #[cfg(test)]
 mod tests_contract_coverage;
 #[cfg(test)]
