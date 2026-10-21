@@ -10,10 +10,12 @@
 //! with Docker or Podman can build deterministic container images.
 
 use super::base_resolve::load_runtime_base;
+use super::container_layers::assemble_container_layers;
 use super::convergence_container::detect_container_runtime;
-use super::image_assembler::{assemble_image_with_base, AssembledImage};
+use super::image_assembler::AssembledImage;
+use super::layer_builder::LayerEntry;
 use super::overlay_export;
-use crate::core::types::{ImageBuildPlan, OciLayerConfig};
+use crate::core::types::ImageBuildPlan;
 use std::path::Path;
 use std::process::Command;
 
@@ -30,6 +32,15 @@ pub struct ContainerBuildResult {
     pub duration_ms: u64,
 }
 
+/// `build_image_in_container_with_files` with no `path:` Files layers.
+pub fn build_image_in_container(
+    plan: &ImageBuildPlan,
+    apply_scripts: &[String],
+    output_dir: &Path,
+) -> Result<ContainerBuildResult, String> {
+    build_image_in_container_with_files(plan, apply_scripts, &[], output_dir)
+}
+
 /// Build an OCI image by running apply scripts inside a container.
 ///
 /// Algorithm:
@@ -40,9 +51,10 @@ pub struct ContainerBuildResult {
 /// 5. Scan extracted files through overlay_export
 /// 6. Assemble OCI image via image_assembler
 /// 7. Clean up container
-pub fn build_image_in_container(
+pub fn build_image_in_container_with_files(
     plan: &ImageBuildPlan,
     apply_scripts: &[String],
+    file_layers: &[Vec<LayerEntry>],
     output_dir: &Path,
 ) -> Result<ContainerBuildResult, String> {
     let start = std::time::Instant::now();
@@ -89,36 +101,9 @@ pub fn build_image_in_container(
         .map_err(|e| format!("overlay scan: {e}"))?;
     let entries = overlay_export::merge_overlay_entries(&scan);
 
-    // Step 5: Assemble OCI image
-    let layer_entries = vec![entries];
-    let mut build_plan = plan.clone();
-    if build_plan.layers.is_empty() {
-        build_plan
-            .layers
-            .push(crate::core::types::LayerStrategy::Files {
-                paths: vec!["(container diff)".into()],
-            });
-    }
-    // Ensure plan layers match entry count
-    while build_plan.layers.len() < layer_entries.len() {
-        build_plan
-            .layers
-            .push(crate::core::types::LayerStrategy::Files {
-                paths: vec!["(container diff)".into()],
-            });
-    }
-    while build_plan.layers.len() > layer_entries.len() {
-        build_plan.layers.pop();
-    }
-
-    let image = assemble_image_with_base(
-        &build_plan,
-        &layer_entries,
-        output_dir,
-        &OciLayerConfig::default(),
-        None,
-        Some(&base),
-    )?;
+    // Step 5: Assemble OCI image: container diff, then the resource's own
+    // `path:` Files layers on top (IMG-001: never dropped).
+    let image = assemble_container_layers(plan, entries, file_layers, output_dir, Some(&base))?;
 
     Ok(ContainerBuildResult {
         image,

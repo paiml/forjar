@@ -209,7 +209,13 @@ fn cmd_build_sandbox(
         println!("  Scripts: {}", apply_scripts.len());
     }
 
-    let result = container_build::build_image_in_container(plan, &apply_scripts, output_dir)?;
+    let file_layers = sandbox_file_layers(plan, config)?;
+    let result = container_build::build_image_in_container_with_files(
+        plan,
+        &apply_scripts,
+        &file_layers,
+        output_dir,
+    )?;
 
     if json {
         print_build_json(&plan.tag, output_dir, Some(&result.image), false);
@@ -219,6 +225,17 @@ fn cmd_build_sandbox(
     println!("  Layout: {}", output_dir.display());
 
     run_distribution(resource, &plan.tag, output_dir, load, push, far)
+}
+
+/// IMG-001: the resource's `path:` Files layers, to sit on top of the container
+/// diff. `image_build_scripts` covers only packages and command, and image
+/// resources are filtered out of the apply scripts, so without these the file
+/// the spec declares never lands in the image.
+pub(crate) fn sandbox_file_layers(
+    plan: &ImageBuildPlan,
+    config: &ForjarConfig,
+) -> Result<Vec<Vec<LayerEntry>>, String> {
+    collect_layer_entries(&super::build_image_exec::files_only_plan(plan), config)
 }
 
 /// Refs #210: the one place an image resource's reference is decided.

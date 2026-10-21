@@ -98,3 +98,13 @@ pub(crate) fn build_json_doc(
         "total_size": result.map(|r| r.total_size),
     })
 }
+
+/// The plan reduced to its `path:` Files layers: what the container diff does
+/// not carry and must be layered on top of it (IMG-001, forjar#757 review).
+pub(crate) fn files_only_plan(plan: &ImageBuildPlan) -> ImageBuildPlan {
+    let mut files = plan.clone();
+    files
+        .layers
+        .retain(|l| matches!(l, LayerStrategy::Files { .. }));
+    files
+}

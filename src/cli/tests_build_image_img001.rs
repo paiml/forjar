@@ -103,3 +103,35 @@ fn img001_json_prints_the_manifest_digest_fresh_and_cached() {
         "a cache hit reads the digest back from the layout on disk"
     );
 }
+
+#[test]
+fn img001_path_file_lands_in_the_image_beside_packages_and_command() {
+    let config = spec();
+    let res = &config.resources["build-image"];
+    let plan = test_build_plan_from_resource("build-image", res, &config).unwrap();
+    assert!(plan_needs_execution(&plan), "packages+command: container path");
+    let file_layers = sandbox_file_layers(&plan, &config).unwrap();
+    let paths: Vec<&str> = file_layers
+        .iter()
+        .flatten()
+        .map(|e| e.path.as_str())
+        .collect();
+    assert!(
+        paths.iter().any(|p| p.ends_with("opt/img001/prejob-gate.sh")),
+        "path: file missing from the sandbox Files layers: {paths:?}"
+    );
+    // Assemble exactly as the container build does (stand-in container diff).
+    let out = tempfile::tempdir().unwrap();
+    let diff = vec![crate::core::store::layer_builder::LayerEntry::file(
+        "var/lib/dpkg/status",
+        b"x",
+        0o644,
+    )];
+    let img = crate::core::store::container_layers::assemble_container_layers(
+        &plan, diff, &file_layers, out.path(), None,
+    )
+    .unwrap();
+    assert!(img.layers.len() >= 2, "diff layer + a Files layer on top");
+    let files: u64 = img.layers.iter().map(|l| l.file_count as u64).sum();
+    assert_eq!(files, 1 + file_layers.iter().map(|l| l.len() as u64).sum::<u64>());
+}

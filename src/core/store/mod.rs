@@ -11,6 +11,7 @@ pub mod chunker;
 pub mod closure;
 pub mod conda;
 pub mod container_build;
+pub(crate) mod container_layers;
 pub mod content;
 pub mod contract_coverage;
 pub mod contract_scaffold;
