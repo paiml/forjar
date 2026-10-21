@@ -9,8 +9,9 @@
 //! This eliminates the pepita dependency for OCI builds — any system
 //! with Docker or Podman can build deterministic container images.
 
+use super::base_resolve::load_runtime_base;
 use super::convergence_container::detect_container_runtime;
-use super::image_assembler::{assemble_image, AssembledImage};
+use super::image_assembler::{assemble_image_with_base, AssembledImage};
 use super::overlay_export;
 use crate::core::types::{ImageBuildPlan, OciLayerConfig};
 use std::path::Path;
@@ -61,6 +62,12 @@ pub fn build_image_in_container(
     start_container(&runtime, &container_name, base_image)?;
     let container = ContainerGuard::new(&runtime, &container_name);
 
+    // IMG-001: the declared base becomes the bottom layers of the image, and a
+    // digest-pinned base must be exactly the digest the spec names.
+    let base_dir = std::env::temp_dir().join(format!("forjar-base-{}", build_unique_id()));
+    let _base_guard = TempDirGuard(base_dir.clone());
+    let base = load_runtime_base(&runtime, base_image, &base_dir)?;
+
     // Step 2: Execute apply scripts
     execute_scripts(&runtime, &container_name, apply_scripts)
         .map_err(|e| format!("apply script failed: {e}"))?;
@@ -104,12 +111,13 @@ pub fn build_image_in_container(
         build_plan.layers.pop();
     }
 
-    let image = assemble_image(
+    let image = assemble_image_with_base(
         &build_plan,
         &layer_entries,
         output_dir,
         &OciLayerConfig::default(),
         None,
+        Some(&base),
     )?;
 
     Ok(ContainerBuildResult {
@@ -334,7 +342,7 @@ mod tests {
         let output_dir = tmp.path().join("output");
         std::fs::create_dir_all(&output_dir).unwrap();
 
-        let image = assemble_image(
+        let image = crate::core::store::image_assembler::assemble_image(
             &plan,
             &entries,
             &output_dir,

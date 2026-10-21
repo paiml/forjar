@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`type: image` builds a real image (PMAT-756, #756, IMG-001).**
+A spec with `image:`, `packages` and `command` used to build an empty 508-byte
+scratch image. Now: the declared base is exported from the runtime and layered
+under the build (a `name@sha256:` base must resolve to exactly that digest, or
+the build fails); `packages` then `command` run against it and their filesystem
+diff is the top layer (with `packages` present `command` is a build command, not
+the entrypoint); `index.json` carries `org.opencontainers.image.ref.name` so
+`--load` keeps the tag; `--json` prints `manifest_digest`; `--push` prints
+`pushed: registry/repo@sha256:...`. Registry configs with JSON `null` collections
+now parse. Not done: `path:` file layers are still not added in the container path.
+
 **The disk-budget reaper no longer costs more than the disk it defends (PMAT-727, #727).**
 One 15-minute pass on lambda-labs took 84 s of CPU: a `readlink` per /proc entry
 and per fd, a `tr|head` per pid, and an unbounded `find` over the scan root.

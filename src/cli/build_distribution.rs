@@ -185,6 +185,7 @@ pub(crate) fn cmd_build_push(image_reference: &str, oci_dir: &Path) -> Result<()
     registry_push_http::verify_manifest_pushed(&push_config, &manifest_digest)?;
 
     print!("{}", registry_push::format_push_summary(&results));
+    println!("  pushed: {}", iref.to_digest_reference(&manifest_digest));
     println!(
         "  Verified: {} resolves to {manifest_digest} at the registry",
         iref.to_reference()
