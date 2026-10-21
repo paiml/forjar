@@ -71,9 +71,20 @@ fn rule_block(rule: &ReclaimRule) -> String {
     format!(
         r#"
 # -- rule: {name} ({kind}) --
-if [ "$FB_MET" != "1" ]; then
+# FAIL SAFE: without a completed /proc scan nothing is PROVEN dead, so the rule
+# deletes nothing (forjar#727: a timed-out or empty scan is not "no one is
+# using it").
+if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" != "1" ]; then
+  fb_log "rule {name}: open-path scan not measured - nothing proven dead, deleting nothing"
+fi
+if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
   fb_log {log_msg}
   {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+  if [ -s "$FB_UNMLOG" ]; then
+    FB_UNMEASURED=1
+    fb_log "  NOT MEASURED, no candidates from the unfinished walk: $(tr '\n' ';' <"$FB_UNMLOG")"
+    : >"$FB_UNMLOG"
+  fi
   while IFS= read -r cand; do
     [ -n "$cand" ] || continue
     fb_read_df
@@ -157,8 +168,11 @@ FB_LEDGER=$(mktemp) || exit 1
 FB_WOULD=$(mktemp) || exit 1
 FB_CANDS=$(mktemp) || exit 1
 FB_OPEN=$(mktemp) || exit 1
+FB_PROCRAW=$(mktemp) || exit 1
+FB_MARKERS=$(mktemp) || exit 1
+FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
-trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN"' EXIT INT TERM
+trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
 # as a test expression (SC1140) and rejects the script.
@@ -212,7 +226,7 @@ fi
 
 # "complete", not "done": bashrs reads a leading `done` inside the string
 # as the loop keyword (SC1035) and rejects the script.
-fb_log "complete: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, reclaimed ${{FB_RECLAIMED}} bytes, would_reclaim ${{FB_WOULD_BYTES}} bytes, tier=$FB_TIER health=$FB_HEALTH mode=$FB_MODE"
+fb_log "complete: ${{FB_USED_PCT}}% used, ${{FB_FREE_GB}}G free, unmeasured=$FB_UNMEASURED, reclaimed ${{FB_RECLAIMED}} bytes, would_reclaim ${{FB_WOULD_BYTES}} bytes, tier=$FB_TIER health=$FB_HEALTH mode=$FB_MODE"
 
 # Exit non-zero when a triggered pass failed to reach target. systemd marks the
 # unit failed, `forjar drift` sees it, and an inert reaper stops being invisible.
