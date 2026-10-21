@@ -66,7 +66,7 @@ fn refreshed_ids(filter: Option<&str>) -> Vec<String> {
         refresh: true,
         force_tag: None,
     };
-    let out = refresh::refresh_locks(&cfg, &HashMap::new());
+    let out = refresh_locks(&cfg, &HashMap::new());
     let mut ids: Vec<String> = out["localhost"].resources.keys().cloned().collect();
     ids.sort();
     ids

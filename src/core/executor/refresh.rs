@@ -190,3 +190,7 @@ pub(crate) fn persist_unlatched(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tests_refresh_closure.rs"]
+mod tests_refresh_closure;
