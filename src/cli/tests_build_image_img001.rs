@@ -152,3 +152,39 @@ fn sandbox_with_json_is_rejected_before_any_work() {
     .unwrap_err();
     assert!(err.contains("--json is not supported together with --sandbox"), "{err}");
 }
+
+fn spec_with_unrelated_resource() -> ForjarConfig {
+    let mut c = spec();
+    c.resources.insert(
+        "unrelated".into(),
+        serde_yaml_ng::from_str(
+            "type: task\nmachine: m\ncommand: \"echo UNRELATED-HOST-SCRIPT > /etc/leak\"\n",
+        )
+        .unwrap(),
+    );
+    c
+}
+
+#[test]
+fn img001_implicit_container_build_runs_only_the_image_resources_own_scripts() {
+    let config = spec_with_unrelated_resource();
+    let res = &config.resources["build-image"];
+    let plan = test_build_plan_from_resource("build-image", res, &config).unwrap();
+    let scripts =
+        super::build_image_exec::container_build_scripts(&plan, res, &config, false).unwrap();
+    assert_eq!(scripts.len(), 2, "packages + command only");
+    assert!(
+        !scripts.iter().any(|s| s.contains("UNRELATED-HOST-SCRIPT")),
+        "an unrelated resource's script must not run in the image build"
+    );
+}
+
+#[test]
+fn img001_explicit_sandbox_keeps_the_legacy_all_resources_scripts() {
+    let config = spec_with_unrelated_resource();
+    let res = &config.resources["build-image"];
+    let plan = test_build_plan_from_resource("build-image", res, &config).unwrap();
+    let scripts =
+        super::build_image_exec::container_build_scripts(&plan, res, &config, true).unwrap();
+    assert!(scripts.iter().any(|s| s.contains("UNRELATED-HOST-SCRIPT")));
+}

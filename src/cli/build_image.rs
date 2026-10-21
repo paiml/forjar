@@ -45,6 +45,7 @@ pub(crate) fn cmd_build(
     if sandbox || super::build_image_exec::plan_needs_execution(&plan) {
         return cmd_build_sandbox(
             resource,
+            sandbox,
             res,
             &plan,
             &config,
@@ -174,6 +175,7 @@ fn run_distribution(
 #[allow(clippy::too_many_arguments)]
 fn cmd_build_sandbox(
     resource: &str,
+    explicit_sandbox: bool,
     res: &Resource,
     plan: &ImageBuildPlan,
     config: &ForjarConfig,
@@ -185,24 +187,8 @@ fn cmd_build_sandbox(
 ) -> Result<(), String> {
     use crate::core::store::container_build;
 
-    // Generate apply scripts from non-image resources in the config
-    let mut apply_scripts: Vec<String> = super::build_image_exec::image_build_scripts(plan, res)?;
-    apply_scripts.extend(
-        config
-            .resources
-            .iter()
-            .filter(|(_, r)| !matches!(r.resource_type, crate::core::types::ResourceType::Image))
-            .filter_map(|(_, r)| {
-                let resolved = crate::core::resolver::resolve_resource_templates(
-                    r,
-                    &config.params,
-                    &config.machines,
-                )
-                .ok()?;
-                crate::core::codegen::apply_script(&resolved).ok()
-            })
-            .collect::<Vec<_>>(),
-    );
+    let apply_scripts =
+        super::build_image_exec::container_build_scripts(plan, res, config, explicit_sandbox)?;
 
     if !json {
         println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);

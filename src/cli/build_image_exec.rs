@@ -51,6 +51,38 @@ pub(crate) fn image_build_scripts(
     Ok(scripts)
 }
 
+/// Scripts the container build runs. The image resource's own `packages` /
+/// `command` only; unrelated resources in the config are NOT part of an image
+/// build. Only an explicit `--sandbox` keeps the legacy behaviour of also
+/// running every other (non-image) resource's apply script.
+pub(crate) fn container_build_scripts(
+    plan: &ImageBuildPlan,
+    res: &Resource,
+    config: &crate::core::types::ForjarConfig,
+    explicit_sandbox: bool,
+) -> Result<Vec<String>, String> {
+    let mut scripts = image_build_scripts(plan, res)?;
+    if !explicit_sandbox {
+        return Ok(scripts);
+    }
+    scripts.extend(
+        config
+            .resources
+            .values()
+            .filter(|r| !matches!(r.resource_type, ResourceType::Image))
+            .filter_map(|r| {
+                let resolved = crate::core::resolver::resolve_resource_templates(
+                    r,
+                    &config.params,
+                    &config.machines,
+                )
+                .ok()?;
+                crate::core::codegen::apply_script(&resolved).ok()
+            }),
+    );
+    Ok(scripts)
+}
+
 /// The manifest digest of the layout on disk (`index.json` -> first manifest).
 fn manifest_digest_on_disk(output_dir: &std::path::Path) -> Option<String> {
     let raw = std::fs::read(output_dir.join("index.json")).ok()?;

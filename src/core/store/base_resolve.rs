@@ -60,11 +60,56 @@ pub fn load_local_base(state_images: &Path, base: &str) -> Result<Option<BaseLay
         .filter_map(|m| m["digest"].as_str())
         .map(|d| format!("{repo}@{d}"))
         .collect();
-    verify_declared_digest(base, &seen)?;
+    if let Err(e) = verify_declared_digest(base, &seen) {
+        let tops: Vec<&str> = idx["manifests"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|m| m["digest"].as_str())
+            .collect();
+        if !index_pin_covers_layout(&dir, base, &tops) {
+            return Err(format!(
+                "{e} (if the pin is an image-index digest, the saved layout must also \
+                 contain that index blob; a single-platform layout alone cannot prove it)"
+            ));
+        }
+    }
     Ok(Some(BaseLayout {
         layout_dir: dir,
         layers,
     }))
+}
+
+/// A pin that names an image INDEX digest against a layout holding only a
+/// single-platform manifest (what `docker save` writes) is accepted only when
+/// the layout carries that index blob, the blob hashes to the pinned digest, and
+/// it lists the layout's manifest. Anything less is an unproven pin.
+pub(crate) fn index_pin_covers_layout(dir: &Path, base_ref: &str, tops: &[&str]) -> bool {
+    let Some((_, hex)) = base_ref.split_once("@sha256:") else {
+        return false;
+    };
+    if hex.len() != 64
+        || !hex
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return false;
+    }
+    let Ok(blob) = std::fs::read(dir.join(format!("blobs/sha256/{hex}"))) else {
+        return false;
+    };
+    if super::sandbox_exec::sha256_digest(&blob) != format!("sha256:{hex}") {
+        return false;
+    }
+    let Ok(doc) = serde_json::from_slice::<serde_json::Value>(&blob) else {
+        return false;
+    };
+    doc["manifests"].as_array().is_some_and(|ms| {
+        !tops.is_empty()
+            && tops
+                .iter()
+                .all(|t| ms.iter().any(|m| m["digest"].as_str() == Some(*t)))
+    })
 }
 
 /// The base for a files-only build: a local layout if present (verified), else

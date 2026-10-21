@@ -107,8 +107,21 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
     })
 }
 
+/// OCI architecture name for a Rust `ARCH` constant.
+pub(crate) fn oci_arch_for(rust_arch: &str) -> &str {
+    match rust_arch {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        other => other,
+    }
+}
+
+fn host_oci_arch() -> &'static str {
+    oci_arch_for(std::env::consts::ARCH)
+}
+
 /// Follow an OCI image index / docker manifest list down to a single image
-/// manifest digest. Prefers `linux/amd64`, else the first entry.
+/// manifest digest. Prefers `linux/<host arch>`, else the first entry.
 fn resolve_manifest_digest(layout_dir: &Path, digest: &str, depth: u8) -> Result<String, String> {
     let data = read_blob(layout_dir, digest)?;
     let doc: serde_json::Value =
@@ -123,7 +136,9 @@ fn resolve_manifest_digest(layout_dir: &Path, digest: &str, depth: u8) -> Result
     let entries = doc["manifests"].as_array().cloned().unwrap_or_default();
     let pick = entries
         .iter()
-        .find(|m| m["platform"]["os"] == "linux" && m["platform"]["architecture"] == "amd64")
+        .find(|m| {
+            m["platform"]["os"] == "linux" && m["platform"]["architecture"] == host_oci_arch()
+        })
         .or_else(|| entries.first())
         .and_then(|m| m["digest"].as_str())
         .ok_or("image index has no manifests")?;
@@ -424,6 +439,29 @@ mod tests {
         let r = extract_base_layers(dir.path()).unwrap();
         assert_eq!(r.layers.len(), 1);
         assert_eq!(r.architecture, "amd64");
+    }
+
+    #[test]
+    fn oci_arch_maps_rust_arch_names() {
+        assert_eq!(oci_arch_for("x86_64"), "amd64");
+        assert_eq!(oci_arch_for("aarch64"), "arm64");
+        assert_eq!(oci_arch_for("riscv64"), "riscv64");
+    }
+
+    #[test]
+    fn index_selection_prefers_the_host_architecture_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        create_test_layout(dir.path());
+        let idx_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let other = "a".repeat(64);
+        let host = host_oci_arch();
+        let foreign = if host == "amd64" { "arm64" } else { "amd64" };
+        let inner = format!(
+            r#"{{"schemaVersion":2,"manifests":[{{"digest":"sha256:{other}","size":1,"platform":{{"os":"linux","architecture":"{foreign}"}}}},{{"digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"{host}"}}}}]}}"#
+        );
+        std::fs::write(dir.path().join("blobs/sha256").join(idx_hex), inner).unwrap();
+        let got = resolve_manifest_digest(dir.path(), &format!("sha256:{idx_hex}"), 0).unwrap();
+        assert_eq!(got, format!("sha256:{MANIFEST_HEX}"));
     }
 
     #[test]
