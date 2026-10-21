@@ -21,33 +21,94 @@ pub(super) fn prelude() -> String {
     // shell profile defines.
     r#"
 # --- shared helpers -------------------------------------------------------
+# COST BOUND (forjar#727). This script runs from a timer on a loaded build box,
+# so every walk is bounded and deprioritised, and a walk that did not finish is
+# NOT MEASURED: it proves nothing dead and deletes nothing.
+FB_FIND_TIMEOUT="${FORJAR_BUDGET_FIND_TIMEOUT:-120}"
+case "$FB_FIND_TIMEOUT" in
+  ''|*[!0-9]*) FB_FIND_TIMEOUT=120 ;;
+esac
+FB_UNMEASURED=0
+FB_OPEN_OK=0
+fb_live_slugs=""
+
+# Run a command under timeout(1), nice and (when present) ionice. rc 124/137 =
+# timed out: the caller must treat that as not measured, never as "found none".
+fb_bounded() {
+  if command -v ionice >/dev/null 2>&1; then
+    set -- ionice -c3 nice -n 19 "$@"
+  else
+    set -- nice -n 19 "$@"
+  fi
+  if command -v timeout >/dev/null 2>&1; then
+    timeout -k 5 "$FB_FIND_TIMEOUT" "$@"
+  else
+    "$@"
+  fi
+}
+
+fb_timed_out() { [ "$1" = "124" ] || [ "$1" = "137" ]; }
+
 # A path is idle if no regular file under it was modified within N minutes.
 # This is a floor that protects in-flight builds, not the reclaim policy.
+# A walk that times out has not shown the path idle, so it is NOT idle.
 fb_is_idle() {
   [ -e "$1" ] || return 1
-  ! find "$1" -type f -mmin "-$2" -print -quit 2>/dev/null | grep -q .
+  fb_hit=$(fb_bounded find "$1" -xdev -type f -mmin "-$2" -print -quit 2>/dev/null)
+  fb_rc=$?
+  if fb_timed_out "$fb_rc"; then
+    FB_UNMEASURED=1
+    fb_log "  idle check timed out after ${FB_FIND_TIMEOUT}s, NOT MEASURED, keeping: $1"
+    return 1
+  fi
+  [ -z "$fb_hit" ]
 }
 
-fb_bytes() { du -sx --block-size=1 "$1" 2>/dev/null | cut -f1; }
+# Size is accounting only; a timed-out du reports nothing (0 bytes).
+fb_bytes() { fb_bounded du -sx --block-size=1 "$1" 2>/dev/null | cut -f1; }
 
-# Absolute paths currently held open by ANY process (cwd or fd). One pass over
-# /proc; the caller greps this file rather than re-scanning per candidate.
+# Absolute paths currently held open by ANY process (cwd or fd), in ONE pass:
+# a single find lists every /proc/<pid>/cwd and /proc/<pid>/fd/* link target
+# (no per-pid or per-fd process launch). The caller greps FB_OPEN rather than
+# re-scanning per candidate. The raw "<link><TAB><target>" list is kept in
+# FB_PROCRAW so the claude-session scan below needs no second pass.
+# FAIL SAFE: if the scan timed out or saw nothing (find always sees its own
+# parent shell, so an empty list means the scan did not work), FB_OPEN_OK stays
+# 0, fb_in_use answers "in use" for everything, and the reaper deletes nothing.
 fb_scan_open_paths() {
   : >"$FB_OPEN"
-  # `/proc/*` not `/proc/[0-9]*`: bashrs misparses the bracket glob as a test
-  # expression (SC1020/SC1140) and the whole script fails I8 purification.
-  # Non-pid entries are filtered by requiring a readable cmdline.
-  for p in /proc/*; do
-    [ -e "$p/cmdline" ] || continue
-    for l in "$p/cwd" "$p/fd"/*; do
-      t=$(readlink "$l" 2>/dev/null) || continue
-      case "$t" in /*) printf '%s\n' "$t" ;; esac
-    done
-  done 2> /dev/null | sort -u > "$FB_OPEN"
+  : >"$FB_PROCRAW"
+  FB_OPEN_OK=0
+  fb_live_slugs=""
+  fb_bounded find /proc/*/cwd /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
+  fb_rc=$?
+  if fb_timed_out "$fb_rc"; then
+    FB_UNMEASURED=1
+    fb_log "  /proc scan timed out after ${FB_FIND_TIMEOUT}s: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  if [ ! -s "$FB_PROCRAW" ]; then
+    FB_UNMEASURED=1
+    fb_log "  /proc scan saw no processes: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW" | sort -u >"$FB_OPEN"
+  FB_OPEN_OK=1
+  # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
+  # comm is read with the `read` builtin; only a matching pid costs a launch.
+  fb_tab=$(printf '\t')
+  while IFS="$fb_tab" read -r fb_src fb_tgt; do
+    case "$fb_src" in */cwd) ;; *) continue ;; esac
+    fb_comm=""
+    read -r fb_comm 2>/dev/null <"${fb_src%/cwd}/comm" || continue
+    case "$fb_comm" in *claude*) ;; *) continue ;; esac
+    fb_live_slugs="$fb_live_slugs $(printf '%s' "$fb_tgt" | tr '/' '-')"
+  done <"$FB_PROCRAW"
 }
 
-# True when some live process sits inside $1.
+# True when some live process sits inside $1. Unmeasured => in use (fail safe).
 fb_in_use() {
+  [ "$FB_OPEN_OK" = "1" ] || return 0
   [ -s "$FB_OPEN" ] || return 1
   grep -qF -e "$1" "$FB_OPEN"
 }
@@ -144,11 +205,21 @@ fn cargo_target() -> String {
 fb_find_cargo_target() {
   for root in "$@"; do
     [ -d "$root" ] || continue
-    find "$root" -mindepth 1 -maxdepth 7 -type f \
-      \( -name .rustc_info.json -o -name CACHEDIR.TAG \) 2> /dev/null |
-    while IFS= read -r fb_marker; do
-      dirname "$fb_marker"
-    done | sort -u |
+    # One bounded walk, kept on this filesystem, never entering .git. A walk that
+    # times out is NOT MEASURED: its partial output is discarded, so a root the
+    # reaper could not finish reading offers no candidates at all.
+    fb_bounded find "$root" -xdev -mindepth 1 -maxdepth 7 \
+      \( -name .git -type d -prune \) -o \
+      \( -type f \( -name .rustc_info.json -o -name CACHEDIR.TAG \) -print \) \
+      >"$FB_MARKERS" 2> /dev/null
+    fb_rc=$?
+    if fb_timed_out "$fb_rc"; then
+      # Runs in the pipeline subshell and stdout is the candidate list, so the
+      # note goes to a file the rule block reads back.
+      echo "find over $root timed out after ${FB_FIND_TIMEOUT}s" >>"$FB_UNMLOG"
+      continue
+    fi
+    sed -e 's|/[^/]*$||' "$FB_MARKERS" | sort -u |
     while IFS= read -r d; do
       if [ -f "$d/.rustc_info.json" ]; then
         fb_stamp "$d"
@@ -176,15 +247,6 @@ fn claude_scratchpad() -> String {
 fb_find_claude_scratchpad() {
   for root in "$@"; do
     [ -d "$root" ] || continue
-    # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
-    fb_live_slugs=""
-    for p in /proc/*; do
-      [ -e "$p/cmdline" ] || continue
-      c=$(tr '\0' '\n' <"$p/cmdline" 2>/dev/null | head -1) || continue
-      case "${c##*/}" in claude) ;; *) continue ;; esac
-      w=$(readlink "$p/cwd" 2>/dev/null) || continue
-      fb_live_slugs="$fb_live_slugs $(printf '%s' "$w" | tr '/' '-')"
-    done 2> /dev/null
     for s in "$root"/*/*/scratchpad; do
       [ -d "$s" ] || continue
       sess=$(dirname "$s"); proj=$(basename "$(dirname "$sess")")

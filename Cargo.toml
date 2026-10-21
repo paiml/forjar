@@ -91,7 +91,7 @@ clap = { version = "4", features = ["derive"], optional = true }
 indexmap = { version = "2.7", features = ["serde"] }
 forjar-contracts-macros = { path = "crates/forjar-contracts-macros", version = "=0.31.2" }
 base64 = "0.22.1"
-bashrs = "7.4"
+bashrs = "7.4.2"
 pforge-runtime = { version = "0.1.4", optional = true }
 # pmcp is the MCP protocol crate pforge-runtime itself speaks (it declares
 # `pmcp = "1.8", default-features = false`; the lock resolves 1.20.0), so this
@@ -111,7 +111,7 @@ rustc-hash = "2"
 age = { version = "0.11", default-features = false, optional = true }
 wasmi = { version = "0.40", optional = true }
 clap_complete = { version = "4", optional = true }
-zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd"] }
+zip = { version = "9", default-features = false, features = ["deflate", "bzip2", "zstd"] }
 bzip2 = "0.6"
 zstd = "0.13"
 tar = "0.4"

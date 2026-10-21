@@ -25,6 +25,9 @@ pub const DEFAULT_TARGET_FREE_PCT: u8 = 20;
 pub const DEFAULT_CRITICAL_FREE_GB: u64 = 50;
 /// Default reaper cadence. Hourly, not daily: a box that can burn 250G/day
 /// cannot be defended by a once-a-day pass.
+/// Hourly is the default; a faster cadence (e.g. `*:0/15`) is an explicit
+/// `budget_schedule` declaration. Each pass is bounded (timeout, -xdev, one
+/// /proc pass; forjar#727), so the cadence is a choice, not a cost trap.
 pub const DEFAULT_SCHEDULE: &str = "hourly";
 
 /// What a reclaim rule looks for under its roots.

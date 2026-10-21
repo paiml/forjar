@@ -1,0 +1,141 @@
+{
+  "kind": "code",
+  "issue": "forjar#724 — is_local_addr said \"check if the address matches any local interface\" and never did: a machine declared by a static address it holds (overlay 10.42.0.20) and applied on itself was sent over SSH to itself",
+  "base_commit": "33aa711ef48d7fe741f777f6e7419b099f2cb591",
+  "base": "origin/main",
+  "recorded_at": "2026-10-20",
+  "quorum": {
+    "lanes": [
+      "claim lane A — claude-sonnet, r1 at 16b144b7: read the diff and probed bind/connect in a scratch dir",
+      "claim lane B — claude-haiku, r1 at 16b144b7: independent probes of the broadcast and sysctl paths",
+      "claim lane C — gemini-4-argon-high via agy (cross-family), r4 at 984fb9b7 and r5 at c72ccb3a: file reads only, file:line citations"
+    ],
+    "refuters_per_claim": 3,
+    "kill_rule": "a claim survives when the last round to judge it confirmed it and the author re-measured it; any measured refutation was acted on before the next round",
+    "judges": 3,
+    "claims_confirmed": 8,
+    "claims_refuted": 9,
+    "refuted_claims": [
+      "[r1] The bind-only probe keeps directed broadcasts remote. — REFUTED: false — Linux lets a UDP socket bind a subnet's directed broadcast. Both r1 lanes measured 192.168.1.255, 10.42.0.255, 172.17.255.255 and 127.255.255.255 classified local at 16b144b7. Fixed in abd16b12 by requiring `connect` to succeed as well (`src/transport/local_iface.rs:49`), which refuses a broadcast destination without SO_BROADCAST.",
+      "[r1] The probe judges ::ffff:a.b.c.d under the right sysctl. — REFUTED: false at 16b144b7 — an IPv4-mapped literal read the IPv6 ip_nonlocal_bind while the kernel binds it through the IPv4 stack. Fixed in abd16b12 by `probe_target` folding with `to_canonical` (`src/transport/local_iface.rs:28`), pinned by `src/transport/tests_local_iface.rs:115`.",
+      "[r1] The route-source tests always measure something. — REFUTED: false — with no IPv4 route they return early and assert nothing, so on a network-less runner the fix had no discriminating test. abd16b12 added the 127.0.0.2 dispatch test at `tests/falsification_is_local_addr_interface.rs:79`, which needs no network on Linux.",
+      "[r2] The probe is correct on every platform forjar runs on. — REFUTED: unbacked — the broadcast refusal rests on Linux `connect` semantics and nobody measured macOS. 28519ba6 gates the probe to Linux (`src/transport/local_iface.rs:46`), so elsewhere it declines to SSH, the behaviour before it existed.",
+      "[r2] An unreadable sysctl declines the probe, as the module doc says. — REFUTED: false at abd16b12 — an unreadable /proc/sys/net read counted as disabled, so the probe answered. Found by the author while fixing r2; 28519ba6 makes a failed read count as enabled (`src/transport/local_iface.rs:69`).",
+      "[r2] Every address a local interface holds is recognised. — REFUTED: false for IPv6 link-local — fe80:: cannot be bound without a scope id and a scoped literal does not parse as an IpAddr. Narrowed and documented as a false negative, never a false positive, and pinned by `src/transport/tests_local_iface.rs:141`, which reads a real scope-20 row from /proc/net/if_inet6.",
+      "[r2] Any 127/8 address is local on Linux. — REFUTED: false for 127.255.255.255, lo's broadcast. This was the brief's wording, not the code's: the code and `tests/falsification_is_local_addr_interface.rs:104` already assert 127.255.255.255 remote. The comment that repeated the wording was corrected in 984fb9b7.",
+      "[r4] The test suite passes off Linux with the fix in place. — REFUTED: false at 984fb9b7 — Gemini found `test_local_iface_nonlocal_bind_never_claims_local` asserting `ip_held_locally(127.0.0.1, false)` on every platform while the probe declines off Linux, so it would panic on macOS and contradict the off-Linux test. Every Claude seat ran on Linux and missed it. c72ccb3a gates that assertion to Linux (`src/transport/tests_local_iface.rs:69`).",
+      "[r4] The unreadable-sysctl decline and the v4/v6 sysctl choice are pinned by tests. — REFUTED: false at 984fb9b7 — Gemini showed that mutating `map_or(true, …)` to `map_or(false, …)`, or swapping the two sysctl paths, left every test green. c72ccb3a splits the read into `nonlocal_bind_path` and `nonlocal_bind_read` and pins each (`src/transport/tests_local_iface.rs:81`, `src/transport/tests_local_iface.rs:90`); both mutations were measured red."
+    ],
+    "divergence": "Rounds 1–3 were a same-family (Claude sonnet + haiku) quorum, recorded as one. r2 split 2 PASS / 1 FAIL (haiku); r3 was 3/3 PASS. The cross-family Gemini lane then FAILED r4 on a defect every Claude seat missed because all ran on Linux — an un-gated assertion that panics off Linux — and PASSED r5 after the fix."
+  },
+  "crux": {
+    "systems": [
+      "Ansible",
+      "Puppet Bolt",
+      "pyinfra",
+      "Salt-SSH"
+    ],
+    "verdict": "None of the four infers local from the interfaces the controller holds; each needs an explicit connection setting or a localhost spelling. forjar goes further by asking the kernel (bind+connect, Linux only) and declines to SSH, the field default, wherever it cannot answer. The cost — a held address bypasses ssh-config remaps and the machine user/ssh_key — is documented in the module doc and is the trust forjar already extends to loopback spellings and /etc/hostname.",
+    "source": "documentation memory, recorded as cited not measured; .quorum/evidence/724-crux.md"
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "r4 (984fb9b7) FAIL: C1–C7 confirmed, C8 refuted — tests_local_iface asserted ip_held_locally(127.0.0.1,false) without a Linux gate, and the unreadable-sysctl fallback and v4/v6 sysctl path were untested. r5 (c72ccb3a) PASS: all eight claims confirmed with file:line citations, no new findings.",
+    "model": "Gemini 4 Argon (High) via agy --sandbox --print",
+    "unique_findings": [
+      "the off-Linux test contradiction, missed by all five Claude seats because each ran on Linux",
+      "map_or(true)->map_or(false) and the v4/v6 sysctl path were mutations no test killed"
+    ],
+    "did_not_cover": "it ran no probes (headless agy denies shell commands), so every verdict is cited rather than measured, and no field survey"
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 1,
+    "tests_examined": 5123,
+    "files_parsed": 396,
+    "accepted": [
+      {
+        "test": "src/transport/tests_dispatch.rs::test_154_kill_group_nonexistent_is_noop",
+        "reason": "pre-existing at base b2918946 and not edited by this branch; the branch touches tests_dispatch.rs only to swap RFC 1918 addresses for TEST-NET at lines 8, 9 and 232"
+      }
+    ],
+    "quality_gate": "pmat 3.42.0 analyze vacuous-tests at c72ccb3a: src/transport 185 tests / 18 files, 1 vacuous (pre-existing, accepted); tests/ 4938 tests / 378 files, 84 vacuous repo-wide, 0 in tests/falsification_is_local_addr_interface.rs; unmeasured 0 in both",
+    "limit": "the held-address tests return early where the probe must decline (nonlocal-bind sysctl unreadable or set, no IPv4 route) and were not flagged as conditional skips; the tests that cannot skip on Linux carry the discrimination"
+  },
+  "falsification": {
+    "test": "falsify_iface_addr_dispatches_locally and the five other tests of falsification_is_local_addr_interface (route-source address local and dispatched with $PPID == test pid; 127.0.0.2 dispatched locally with no network; unowned and directed-broadcast addresses remote; ::ffff:127.0.0.1 local)",
+    "test_file": "tests/falsification_is_local_addr_interface.rs",
+    "cargo_test_target": "falsification_is_local_addr_interface",
+    "reverted": "the local_iface::addr_held_locally arm removed from is_local_addr in src/transport/mod.rs (verified absent by grep count), test run, fixed file restored from a saved copy; re-run at 984fb9b7 with the same result",
+    "observed_failure": "test result: FAILED. 2 passed; 4 failed — falsify_iface_addr_is_local, falsify_iface_addr_dispatches_locally, falsify_loopback_alias_dispatches_locally, falsify_mapped_held_addr_is_local; the two still green assert addresses stay remote, which the reverted code also satisfies",
+    "other_reverts": "connect() removed -> falsify_directed_broadcast_stays_remote and falsify_unowned_addr_stays_remote fail; to_canonical removed -> test_local_iface_mapped_v6_is_judged_as_v4 fails; link-local assert inverted -> fails on a real fe80:: address; map_or(false) -> test_local_iface_unreadable_sysctl_declines fails; sysctl path branch inverted -> test_local_iface_sysctl_path_follows_family fails"
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/724-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 1099,
+        "sha256": "78e35ba54d48acfeb6c4a0bca009279fad744beb9a3d6b4df91d52955f9ea913",
+        "blob": "acbfec4627a744fa95be9101d7c37f3adb465411"
+      },
+      {
+        "path": ".quorum/evidence/724-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2260,
+        "sha256": "025d80a2e7dab2c479860340ee4855f15171b436675e2b3e879676aacbd52e1a",
+        "blob": "3b795d71673258f7838541adaccd60f7c2b30de5"
+      },
+      {
+        "path": ".quorum/evidence/724-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 9573,
+        "sha256": "5ed21c0e86a5d61cdd6860f569bcdc9ea58541eeae2b1dd2a554ffe65fc860b8",
+        "blob": "ea2e7006c8c23f0f4f2b80558900a3273c2f1a67"
+      },
+      {
+        "path": ".quorum/evidence/724-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 2232,
+        "sha256": "4bf71010fae33d1a123f55287567367943ab7c9cab5420c46d5fda281e669317",
+        "blob": "ae86e562ac52da8c5c39d8f29b3627b9e83305aa"
+      },
+      {
+        "path": ".quorum/evidence/724-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "bytes": 1946,
+        "sha256": "fe307df2eabd8c6b16f9745f1a3b4ef5adf3a4216b0b3c16006ce6dd36546b29",
+        "blob": "1084967858b68e57fcdffebd12e0867055a85290"
+      },
+      {
+        "path": ".quorum/evidence/724-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 1222,
+        "sha256": "f0b6071fb1af185593924cafc7ab10ecdca8b81e98fb870d6a8cc37a0f8979dc",
+        "blob": "c0dae4368272ce4237aef214bf6fddcccb624ce0"
+      }
+    ],
+    "total_bytes": 18332,
+    "claims_digest": ".quorum/evidence/724-judges.md",
+    "redaction": "raw lane and judge JSON is not committed; the markdown is extracted from it with host paths, scratch paths and session ids removed",
+    "known_limits": [
+      "Off-Linux behaviour is cited, not measured: no darwin target is installed on the author host; the probe returns false there by a cfg! gate.",
+      "The full integration suite was not re-run locally at c72ccb3a — the author host ran out of disk building ~400 test binaries (148 GiB target dir). lib (13578 passed) and the falsification target (6 passed) were run; forjar CI runs the rest."
+    ]
+  },
+  "diff_sha256": "543d2a1165ffcd496bb0fa2739bad0dcd088b8b7"
+}
