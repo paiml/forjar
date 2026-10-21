@@ -90,3 +90,53 @@ fn declared_base_that_cannot_be_produced_fails_loudly() {
     );
     assert!(String::from_utf8_lossy(&out.stderr).contains("forjar-756-no-such-base"));
 }
+
+fn write_cfg_scratch(dir: &Path) {
+    std::fs::write(
+        dir.join("forjar.yaml"),
+        "version: \"1.0\"\nname: t\nmachines:\n  m: {hostname: m, addr: 127.0.0.1}\nresources:\n  img:\n    type: image\n    machine: m\n    tag: \"t.invalid/x:1\"\n    path: /opt/a.txt\n    content: hi\n",
+    )
+    .unwrap();
+}
+
+fn json_doc(out: &Output) -> serde_json::Value {
+    assert!(
+        out.status.success(),
+        "build failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    serde_json::from_slice(&out.stdout).expect("one JSON document")
+}
+
+/// A layout first built as scratch must NOT come back CACHED once a base is
+/// declared and available: the base is part of the cache key.
+#[test]
+fn scratch_build_then_a_base_is_not_a_cache_hit() {
+    let t = tempfile::tempdir().unwrap();
+    write_cfg_scratch(t.path());
+    let first = json_doc(&build(t.path(), true));
+    assert_eq!(first["cached"], false);
+    let hash_scratch =
+        std::fs::read_to_string(t.path().join("state/images/img/build-cache.hash")).unwrap();
+
+    write_cfg(t.path(), "ubuntu:22.04");
+    write_base(t.path(), "ubuntu_22.04");
+    let second = json_doc(&build(t.path(), true));
+    assert_eq!(
+        second["cached"], false,
+        "scratch build served as the based image"
+    );
+    let hash_based =
+        std::fs::read_to_string(t.path().join("state/images/img/build-cache.hash")).unwrap();
+    assert_ne!(hash_scratch, hash_based, "input_hash ignores the base");
+}
+
+/// The same base twice is still a hit.
+#[test]
+fn same_base_twice_is_a_cache_hit() {
+    let t = tempfile::tempdir().unwrap();
+    write_cfg(t.path(), "ubuntu:22.04");
+    write_base(t.path(), "ubuntu_22.04");
+    assert_eq!(json_doc(&build(t.path(), true))["cached"], false);
+    assert_eq!(json_doc(&build(t.path(), true))["cached"], true);
+}

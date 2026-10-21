@@ -3,12 +3,11 @@
 //! Wires `assemble_image()` into the `forjar build` CLI command,
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
+use super::build_image_base;
+use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
 use crate::core::store::layer_builder::LayerEntry;
 use crate::core::store::overlay_export;
-use crate::core::types::{
-    ForjarConfig, ImageBuildMetrics, ImageBuildPlan, LayerMetric, LayerStrategy, OciLayerConfig,
-    Resource,
-};
+use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerConfig, Resource};
 
 /// FJ-2104: Build container image from a resource definition.
 #[allow(clippy::too_many_arguments)]
@@ -59,9 +58,30 @@ pub(crate) fn cmd_build(
 
     let layer_entries = collect_layer_entries(&plan, &config)?;
 
+    // IMG-001: the declared base sits under the built layers. It is resolved
+    // BEFORE the cache is consulted and keyed into the input hash, so a layout
+    // first built as scratch is never served as the based image. A base that
+    // cannot be produced (or fails its pinned digest) fails the build.
+    let base_work =
+        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
+    let base = build_image_base::resolve_plan_base(
+        &plan,
+        std::path::Path::new("state/images"),
+        &base_work,
+        build_image_base::detect_runtime(),
+    );
+    let base = match base {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&base_work);
+            return Err(e);
+        }
+    };
+
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
-    let input_hash = compute_layer_input_hash(&layer_entries);
-    if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
+    let input_hash = build_image_base::compute_layer_input_hash(&layer_entries, base.as_ref());
+    if let Some(cached) = build_image_base::check_build_cache(&output_dir, &input_hash) {
+        let _ = std::fs::remove_dir_all(&base_work);
         if json {
             print_build_json(&plan.tag, &output_dir, None, true);
             return Ok(());
@@ -74,30 +94,6 @@ pub(crate) fn cmd_build(
     }
 
     let start = std::time::Instant::now();
-    // IMG-001: the declared base sits under the built layers. A base that cannot
-    // be produced (or fails its pinned digest) fails the build; it never becomes
-    // a scratch image. Human text goes to stderr so `--json` owns stdout.
-    let base_work =
-        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
-    let base = match plan.base_image.as_deref() {
-        Some(name) => {
-            let runtime = ["docker", "podman"]
-                .into_iter()
-                .find(|r| super::dispatch_misc_b::which_runtime(r));
-            let b = crate::core::store::base_resolve::resolve_build_base(
-                name,
-                std::path::Path::new("state/images"),
-                &base_work,
-                runtime,
-            )?;
-            eprintln!(
-                "  {}",
-                crate::core::store::base_image::format_base_info(name, &b.layers)
-            );
-            Some(b)
-        }
-        None => None,
-    };
     let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
@@ -116,7 +112,7 @@ pub(crate) fn cmd_build(
 
     // FJ-2403/E17: Collect and persist image build metrics.
     record_build_metrics(&plan.tag, &result, duration, &output_dir);
-    write_build_cache(&output_dir, &input_hash);
+    build_image_base::write_build_cache(&output_dir, &input_hash);
 
     if json {
         print_build_json(&plan.tag, &output_dir, Some(&result), false);
@@ -124,66 +120,6 @@ pub(crate) fn cmd_build(
     }
 
     run_distribution(resource, &plan.tag, &output_dir, load, push, far)
-}
-
-/// The human build log: one line per layer, then the image summary.
-fn print_build_report(
-    resource: &str,
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    output_dir: &std::path::Path,
-    duration: std::time::Duration,
-) {
-    println!("\nBuilding {resource} ({tag})");
-    for (i, layer) in result.layers.iter().enumerate() {
-        println!(
-            "  Layer {}/{}: {} files, {} -> {} bytes",
-            i + 1,
-            result.layers.len(),
-            layer.file_count,
-            layer.uncompressed_size,
-            layer.compressed_size
-        );
-    }
-    println!(
-        "\n  Image: {} ({} layers, {} bytes)",
-        tag,
-        result.layers.len(),
-        result.total_size
-    );
-    println!("  Layout: {}", output_dir.display());
-    println!("  Built in {:.1}s", duration.as_secs_f64());
-}
-
-/// FJ-2403/E17: Collect and persist image build metrics. A write failure warns
-/// on stderr and is otherwise ignored, as it was inline.
-fn record_build_metrics(
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    duration: std::time::Duration,
-    output_dir: &std::path::Path,
-) {
-    let metrics = ImageBuildMetrics {
-        tag: tag.to_string(),
-        layer_count: result.layers.len(),
-        total_size: result.total_size,
-        layers: result
-            .layers
-            .iter()
-            .map(|l| LayerMetric {
-                file_count: l.file_count,
-                uncompressed_size: l.uncompressed_size,
-                compressed_size: l.compressed_size,
-            })
-            .collect(),
-        duration_secs: duration.as_secs_f64(),
-        built_at: crate::tripwire::eventlog::now_iso8601(),
-        forjar_version: env!("CARGO_PKG_VERSION").to_string(),
-        target_arch: std::env::consts::ARCH.to_string(),
-    };
-    if let Err(e) = metrics.write_to(output_dir) {
-        eprintln!("  warning: {e}");
-    }
 }
 
 /// Refs #212: the flags `--json` cannot share stdout with.
@@ -232,19 +168,6 @@ fn run_distribution(
         cmd_build_far(resource, output_dir)?;
     }
     Ok(())
-}
-
-fn print_build_json(
-    tag: &str,
-    output_dir: &std::path::Path,
-    result: Option<&crate::core::store::image_assembler::AssembledImage>,
-    cached: bool,
-) {
-    let doc = super::build_image_exec::build_json_doc(tag, output_dir, result, cached);
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&doc).unwrap_or_else(|_| "{}".to_string())
-    );
 }
 
 /// FJ-2103: Build image inside container sandbox (Docker/Podman).
@@ -487,42 +410,6 @@ fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
         }
     }
     (config_paths, app_paths)
-}
-
-/// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
-fn compute_layer_input_hash(layer_entries: &[Vec<LayerEntry>]) -> String {
-    let mut hasher = blake3::Hasher::new();
-    for entries in layer_entries {
-        for entry in entries {
-            hasher.update(entry.path.as_bytes());
-            hasher.update(&entry.content);
-            hasher.update(&entry.mode.to_le_bytes());
-        }
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
-/// FJ-2403/E16: Check if a cached build with the same input hash exists.
-/// Returns a cache-hit message if found, None otherwise.
-fn check_build_cache(output_dir: &std::path::Path, input_hash: &str) -> Option<String> {
-    let cache_path = output_dir.join("build-cache.hash");
-    let cached_hash = std::fs::read_to_string(&cache_path).ok()?;
-    if cached_hash.trim() == input_hash {
-        let metrics_path = output_dir.join("build-metrics.json");
-        if metrics_path.exists() {
-            return Some(format!(
-                "Layer inputs unchanged (hash: {:.16}…), skipping rebuild",
-                input_hash
-            ));
-        }
-    }
-    None
-}
-
-/// FJ-2403/E16: Write the input hash for cache checking on next build.
-fn write_build_cache(output_dir: &std::path::Path, input_hash: &str) {
-    let cache_path = output_dir.join("build-cache.hash");
-    let _ = std::fs::write(cache_path, input_hash);
 }
 
 /// Exposed for testing.
