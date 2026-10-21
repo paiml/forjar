@@ -15,7 +15,8 @@ const BASE_CONFIG_HEX: &str = "aabbccdd00112233445566778899aabbccddeeff001122334
 const BASE_LAYER_HEX: &str = "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff";
 const BASE_DIFF_ID: &str =
     "sha256:99887766554433221100ffeeddccbbaa99887766554433221100ffeeddccbbaa";
-const BASE_MANIFEST_HEX: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+pub(super) const BASE_MANIFEST_HEX: &str =
+    "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
 
 fn plan() -> ImageBuildPlan {
     ImageBuildPlan {
@@ -39,7 +40,7 @@ fn read_json(path: &Path) -> serde_json::Value {
 
 /// A tiny but structurally valid single-layer base layout, as `docker save`
 /// of a pulled image produces.
-fn write_base_layout(dir: &Path) {
+pub(super) fn write_base_layout(dir: &Path) {
     let blobs = dir.join("blobs/sha256");
     std::fs::create_dir_all(&blobs).unwrap();
     let mut cfg = OciImageConfig::linux_amd64(vec![BASE_DIFF_ID.into()]);

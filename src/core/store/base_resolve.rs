@@ -37,16 +37,55 @@ pub fn verify_declared_digest(base_ref: &str, seen: &[String]) -> Result<(), Str
 }
 
 /// Layout already present under `state/images/<base>` (e.g. from `skopeo copy`).
-pub fn load_local_base(state_images: &Path, base: &str) -> Option<BaseLayout> {
+///
+/// `Ok(None)` only when no layout exists. A layout that exists but cannot be
+/// read, or that is not the digest a pinned base declares (or whose digest
+/// cannot be measured), is an error: it is never silently skipped or layered.
+pub fn load_local_base(state_images: &Path, base: &str) -> Result<Option<BaseLayout>, String> {
     let dir = state_images.join(local_base_dir_name(base));
-    if !dir.join("index.json").exists() {
-        return None;
+    let index_path = dir.join("index.json");
+    if !index_path.exists() {
+        return Ok(None);
     }
-    let layers = extract_base_layers(&dir).ok()?;
-    Some(BaseLayout {
+    let layers = extract_base_layers(&dir)
+        .map_err(|e| format!("local base layout {}: {e}", dir.display()))?;
+    let raw = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
+    let idx: serde_json::Value =
+        serde_json::from_slice(&raw).map_err(|e| format!("parse index.json: {e}"))?;
+    let repo = base.split('@').next().unwrap_or(base);
+    let seen: Vec<String> = idx["manifests"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m["digest"].as_str())
+        .map(|d| format!("{repo}@{d}"))
+        .collect();
+    verify_declared_digest(base, &seen)?;
+    Ok(Some(BaseLayout {
         layout_dir: dir,
         layers,
-    })
+    }))
+}
+
+/// The base for a files-only build: a local layout if present (verified), else
+/// exported from the container runtime (verified). With neither, FAIL: a declared
+/// base that cannot be produced must not become a scratch image.
+pub fn resolve_build_base(
+    base: &str,
+    state_images: &Path,
+    work_dir: &Path,
+    runtime: Option<&str>,
+) -> Result<BaseLayout, String> {
+    if let Some(b) = load_local_base(state_images, base)? {
+        return Ok(b);
+    }
+    let rt = runtime.ok_or_else(|| {
+        format!(
+            "cannot produce base {base}: no layout under {} and no container runtime to export it",
+            state_images.display()
+        )
+    })?;
+    load_runtime_base(rt, base, work_dir)
 }
 
 /// Export `base_ref` from the container runtime into `work_dir` as an OCI layout

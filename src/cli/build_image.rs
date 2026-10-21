@@ -74,16 +74,30 @@ pub(crate) fn cmd_build(
     }
 
     let start = std::time::Instant::now();
-    // IMG-001: a base laid out under state/images/<base> sits under the built layers.
-    let base = plan.base_image.as_deref().and_then(|b| {
-        crate::core::store::base_resolve::load_local_base(std::path::Path::new("state/images"), b)
-    });
-    if let (Some(b), Some(name)) = (base.as_ref(), plan.base_image.as_deref()) {
-        println!(
-            "  {}",
-            crate::core::store::base_image::format_base_info(name, &b.layers)
-        );
-    }
+    // IMG-001: the declared base sits under the built layers. A base that cannot
+    // be produced (or fails its pinned digest) fails the build; it never becomes
+    // a scratch image. Human text goes to stderr so `--json` owns stdout.
+    let base_work =
+        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
+    let base = match plan.base_image.as_deref() {
+        Some(name) => {
+            let runtime = ["docker", "podman"]
+                .into_iter()
+                .find(|r| super::dispatch_misc_b::which_runtime(r));
+            let b = crate::core::store::base_resolve::resolve_build_base(
+                name,
+                std::path::Path::new("state/images"),
+                &base_work,
+                runtime,
+            )?;
+            eprintln!(
+                "  {}",
+                crate::core::store::base_image::format_base_info(name, &b.layers)
+            );
+            Some(b)
+        }
+        None => None,
+    };
     let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
@@ -91,7 +105,9 @@ pub(crate) fn cmd_build(
         &OciLayerConfig::default(),
         None, // E12: default to host architecture
         base.as_ref(),
-    )?;
+    );
+    let _ = std::fs::remove_dir_all(&base_work);
+    let result = result?;
     let duration = start.elapsed();
 
     if !json {
