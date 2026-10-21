@@ -34,6 +34,16 @@ use std::collections::{HashMap, HashSet};
 /// transport error is not either — neither observes a diverged resource, and
 /// re-applying on "I could not look" would rebuild the world whenever a host is
 /// briefly unreachable.
+/// forjar#753: under `-r X` the refresh scope is X plus its transitive
+/// `depends_on` closure (the planner's own `goal_closure`), so a dependency
+/// the host already satisfies is seeded instead of planned as `create`. An
+/// unknown filter id falls back to exact match.
+fn in_resource_scope(cfg: &ApplyConfig, filter: &str, id: &str) -> bool {
+    id == filter
+        || resolver::goal_closure(cfg.config, &[filter.to_string()])
+            .is_ok_and(|set| set.contains(id))
+}
+
 /// Does `--refresh` owe this resource a check?
 ///
 /// Honours the apply's own scoping — `--refresh -t stack-tools` must not pay
@@ -41,8 +51,10 @@ use std::collections::{HashMap, HashSet};
 /// with no artifact (FJ-2725), so it has nothing to observe and must never be
 /// forced every run.
 pub(super) fn refresh_in_scope(cfg: &ApplyConfig, id: &str, resource: &Resource) -> bool {
-    if cfg.resource_filter.is_some_and(|f| id != f) {
-        return false;
+    if let Some(f) = cfg.resource_filter {
+        if !in_resource_scope(cfg, f, id) {
+            return false;
+        }
     }
     if cfg
         .tag_filter
