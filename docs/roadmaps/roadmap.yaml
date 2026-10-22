@@ -5072,3 +5072,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-704
+  github_issue: 704
+  item_type: task
+  title: 'apply --dry-run plans from the gate''s drift findings: a drifted depends_on prerequisite the apply would repair previews as an update, not "no changes"'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-13T12:20:00Z
+  updated: 2026-10-13T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - '`tests_dry_run_drift_repair::scoped_dry_run_lists_dependency_drift_that_apply_repairs`: after a converged apply and a tampered depends_on prerequisite, the `-r leaf` dry-run plan lists the prerequisite as Update, a second dry run plans the same (no lock write), and a real `apply -r leaf` restores it; the test is red with the `overlay_drift` call in `scoped_dry_run_plan` removed.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
