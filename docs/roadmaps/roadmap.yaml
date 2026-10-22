@@ -5034,3 +5034,22 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-708
+  github_issue: 708
+  item_type: task
+  title: 'service state: stopped skips the stop when the unit is activating (auto-restart) and records converged (forjar#708)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-14T11:21:39Z
+  updated: 2026-10-14T11:21:47Z
+  spec: null
+  acceptance_criteria:
+  - 'For type: service with state: stopped, the apply script stops the unit whenever its ActiveState is not inactive/failed (activating, active, reloading, deactivating), leaves an inactive or unloaded unit alone, and fails if the unit is still not stopped after systemctl stop; the check passes only for ActiveState inactive/failed. tests/falsification_service_stop_activating.rs executes both scripts against a fake systemctl with systemd''s real is-active exit codes: 4 of its 8 tests are red on origin/main 9a37a2ff and all 8 green with the fix, a second apply is a no-op success, and both rendered scripts pass forjar''s own bashrs gate. Fixes #708.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
