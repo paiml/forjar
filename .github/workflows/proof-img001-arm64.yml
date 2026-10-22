@@ -1,0 +1,24 @@
+# Proof run for forjar#768 (PMAT-756, IMG-001): green variant on gx10 (ARM64).
+# Runs ONLY the base-index test; prints the arch the test derives its index from.
+name: proof-img001-arm64
+on:
+  push:
+    branches: ['proof/img001-arm64-*']
+  workflow_dispatch:
+jobs:
+  arm64-proof:
+    runs-on: [self-hosted, Linux, ARM64, gx10, clean-room]
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Host arch
+        run: |
+          echo "runner=$RUNNER_NAME uname -m=$(uname -m)"
+          case "$(uname -m)" in aarch64) echo "host_oci_arch=arm64";; x86_64) echo "host_oci_arch=amd64";; esac
+          [ "$(uname -m)" = aarch64 ] || { echo "NOT ARM64: proof void"; exit 1; }
+      - run: rustup show
+      - name: green test
+        run: cargo test --lib core::store::base_image::tests::extract_base_layers_follows_image_index_to_the_host_arch_manifest -- --exact --nocapture
