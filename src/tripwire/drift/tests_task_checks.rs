@@ -134,6 +134,7 @@ fn no_task_checks_declines_the_work_and_says_so() {
         &resources,
         DriftOptions {
             run_task_checks: false,
+            ..DriftOptions::default()
         },
     );
 
