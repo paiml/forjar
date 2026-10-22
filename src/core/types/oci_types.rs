@@ -123,7 +123,11 @@ pub struct OciImageConfig {
     /// Rootfs section with diff IDs.
     pub rootfs: OciRootfs,
     /// Build history entries.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub history: Vec<OciHistoryEntry>,
 }
 
@@ -178,13 +182,25 @@ impl OciImageConfig {
 #[serde(rename_all = "PascalCase")]
 pub struct OciRuntimeConfig {
     /// Entrypoint command.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub entrypoint: Vec<String>,
     /// Default command arguments.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub cmd: Vec<String>,
     /// Environment variables.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub env: Vec<String>,
     /// Working directory.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -193,11 +209,29 @@ pub struct OciRuntimeConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user: Option<String>,
     /// Exposed ports.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "HashMap::is_empty"
+    )]
     pub exposed_ports: HashMap<String, serde_json::Value>,
     /// Labels.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "null_as_default",
+        skip_serializing_if = "HashMap::is_empty"
+    )]
     pub labels: HashMap<String, String>,
+}
+
+/// Registries and container runtimes emit JSON `null` for empty collections;
+/// serde's `default` only covers an ABSENT key.
+fn null_as_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
 }
 
 /// OCI rootfs descriptor.
