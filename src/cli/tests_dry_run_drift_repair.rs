@@ -79,7 +79,7 @@ policy:
         resolve_selection(&mut config, &sel, false).unwrap();
         let scope = GateScope::default();
         let observed = check_pre_apply_drift(&config, state, scope, false, true, false).unwrap();
-        let plan = scoped_dry_run_plan(&config, state, &scope, &observed).unwrap();
+        let plan = scoped_dry_run_plan(&config, state, &scope, &observed, true).unwrap();
         plan.changes
             .into_iter()
             .map(|c| (c.resource_id, c.action))

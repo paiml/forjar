@@ -3,13 +3,15 @@
 use super::apply::*;
 use super::apply_helpers::*;
 use super::colors::{red, yellow};
-use super::drift_lockless::{dry_run_lockless, scan_lockless};
+pub(crate) use super::drift_dry_run::cmd_drift_dry_run;
+pub(super) use super::drift_dry_run::print_dry_run_report;
+use super::drift_lockless::scan_lockless;
 use super::drift_report::{
     census_json, print_drift_summary, render_finding, run_drift_alert, send_drift_notification,
 };
-use super::drift_state::{collect_machine_locks, machine_state_dirs, refuse_out_of_scope};
+use super::drift_state::collect_machine_locks;
 use super::helpers::*;
-use crate::core::{state, types};
+use crate::core::types;
 use crate::tripwire::drift;
 use std::path::Path;
 
@@ -102,6 +104,10 @@ pub(super) fn report_machine_findings(
     }
     acc.censuses.push(census_json(name, &census));
     acc.total_drift += drifted.len();
+    acc.version_drift += drifted
+        .iter()
+        .filter(|f| drift::version_pin::is_version_finding(f))
+        .count();
     acc.total_unmeasured += unmeasured.len();
 
     if drifted.is_empty() && unmeasured.is_empty() {
@@ -251,6 +257,10 @@ pub(super) struct DriftScan {
     pub(super) total_unmeasured: usize,
     pub(super) unmeasured: Vec<serde_json::Value>,
     pub(super) censuses: Vec<serde_json::Value>,
+    /// forjar#613: how many of `total_drift` are version-pin findings. They
+    /// are reported like any drift and never remediated: re-applying a pin
+    /// that is behind the live binary is the downgrade itself.
+    pub(super) version_drift: usize,
 }
 
 impl DriftScan {
@@ -258,6 +268,7 @@ impl DriftScan {
     fn absorb(&mut self, mut part: DriftScan) {
         self.total_drift += part.total_drift;
         self.total_unmeasured += part.total_unmeasured;
+        self.version_drift += part.version_drift;
         self.findings.append(&mut part.findings);
         self.unmeasured.append(&mut part.unmeasured);
         self.censuses.append(&mut part.censuses);
@@ -298,6 +309,44 @@ pub(crate) fn cmd_drift(
     all_stacks: bool,
     no_task_checks: bool,
 ) -> Result<(), String> {
+    cmd_drift_offline(
+        config_path,
+        state_dir,
+        machine_filter,
+        _tripwire_compat,
+        alert_cmd,
+        auto_remediate,
+        dry_run,
+        json,
+        verbose,
+        env_file,
+        all_stacks,
+        no_task_checks,
+        false,
+    )
+}
+
+/// `cmd_drift`, plus forjar#613's `--offline`: skip comparing version pins with
+/// the latest upstream release. The census names every pin it did not compare.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_drift_offline(
+    config_path: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    // PMAT-562 (forjar#562, paiml/infra#605): accepted and ignored. The verdict
+    // reaches the exit code on EVERY run now; `--tripwire` stays parseable so
+    // no cron line on the fleet breaks, and it changes nothing.
+    _tripwire_compat: bool,
+    alert_cmd: Option<&str>,
+    auto_remediate: bool,
+    dry_run: bool,
+    json: bool,
+    verbose: bool,
+    env_file: Option<&Path>,
+    all_stacks: bool,
+    no_task_checks: bool,
+    offline: bool,
+) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
 
     // forjar#488: WHAT THIS RUN IS ABOUT.
@@ -337,6 +386,8 @@ pub(crate) fn cmd_drift(
         verbose,
         detect: drift::DriftOptions {
             run_task_checks: !no_task_checks,
+            check_upstream: !offline,
+            ..drift::DriftOptions::default()
         },
     };
     let scan = scan_machines_for_drift(
@@ -355,12 +406,23 @@ pub(crate) fn cmd_drift(
     let DriftScan {
         total_drift,
         total_unmeasured,
+        version_drift,
         ..
     } = scan;
 
     if total_drift > 0 {
         if let Some(cmd) = alert_cmd {
             run_drift_alert(cmd, total_drift)?;
+        }
+        // forjar#613: remediation re-applies every resource, and for a live
+        // binary AHEAD of its pin that is a silent downgrade. The fix for a
+        // version finding is an edit to the pin, never an apply.
+        if auto_remediate && version_drift > 0 {
+            return Err(format!(
+                "refusing --auto-remediate: {version_drift} version-pin finding(s); \
+                 re-applying would move a live binary to its pin (possibly a downgrade). \
+                 Update the pin in the config instead"
+            ));
         }
         if auto_remediate {
             run_drift_remediation(
@@ -398,93 +460,4 @@ pub(crate) fn cmd_drift(
     }
 
     Ok(())
-}
-
-/// Records what a drift check would inspect on one machine: in JSON mode each
-/// resource is appended to `checks`, otherwise the machine and its resources are
-/// printed. Returns the number of resources accounted for.
-fn record_dry_run_checks(
-    name: &str,
-    lock: &types::StateLock,
-    json: bool,
-    checks: &mut Vec<serde_json::Value>,
-) -> usize {
-    if !json {
-        println!("Machine: {} ({} resources)", name, lock.resources.len());
-    }
-    for (res_id, res_state) in &lock.resources {
-        if json {
-            checks.push(serde_json::json!({
-                "machine": name,
-                "resource": res_id,
-                "status": res_state.status,
-                "hash": res_state.hash,
-            }));
-        } else {
-            println!("  would check: {} (status: {})", res_id, res_state.status);
-        }
-    }
-    lock.resources.len()
-}
-
-/// Emits the dry-run result: a JSON report, or a human-readable total.
-pub(super) fn print_dry_run_report(
-    json: bool,
-    total: usize,
-    checks: &[serde_json::Value],
-) -> Result<(), String> {
-    if json {
-        let report = serde_json::json!({
-            "dry_run": true,
-            "total_checks": total,
-            "checks": checks,
-        });
-        let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
-    } else {
-        println!();
-        println!("Dry run: {total} resource(s) would be checked");
-    }
-    Ok(())
-}
-
-/// Dry-run mode for drift: lists resources that would be checked without connecting.
-///
-/// forjar#385: takes the config, because with an ABSENT state dir the preview
-/// has to come from the same place the run does. A preview that dies where the
-/// run succeeds is a worse answer than no preview at all.
-pub(crate) fn cmd_drift_dry_run(
-    config: Option<&types::ForjarConfig>,
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-    scope: Option<&[String]>,
-    json: bool,
-    no_task_checks: bool,
-) -> Result<(), String> {
-    // forjar#488: THE PREVIEW REFUSES WHAT THE RUN REFUSES.
-    //
-    // The scope guard lived in `collect_machine_locks`, which the preview does
-    // not go through — it calls `machine_state_dirs` directly. So
-    // `drift --dry-run -m <undeclared>` scanned zero machines and printed
-    // "0 resource(s) would be checked", exit 0: the same false green the guard
-    // exists to prevent, in the command an operator reaches for FIRST when
-    // they are unsure. Found by two of three review lanes independently.
-    refuse_out_of_scope(machine_filter, scope)?;
-    let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
-        let opts = drift::DriftOptions {
-            run_task_checks: !no_task_checks,
-        };
-        return dry_run_lockless(state_dir, machine_filter, config, json, opts);
-    };
-    let mut checks: Vec<serde_json::Value> = Vec::new();
-    let mut total = 0usize;
-
-    for name in names {
-        if let Some(lock) = state::load_lock(state_dir, &name)? {
-            total += record_dry_run_checks(&name, &lock, json, &mut checks);
-        }
-    }
-
-    print_dry_run_report(json, total, &checks)
 }
