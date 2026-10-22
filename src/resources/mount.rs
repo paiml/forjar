@@ -117,7 +117,15 @@ fn detach_stack(t: &str, lazy: bool) -> String {
 fn remount(t: &str, ft: &str, o: &str, s: &str, automount: bool, lazy: bool) -> String {
     let detach = detach_stack(t, lazy);
     if automount {
-        format!("systemctl daemon-reload\n  {detach}\n  ls {t} >/dev/null")
+        // A FRESH entry has no trigger yet: daemon-reload generates the
+        // `.automount` unit but never starts it, so `ls` alone mounts nothing.
+        // Restart it after the detach so the trigger it arms is the one systemd
+        // mounts from (never `enable --now`; restart re-arms an active one).
+        format!(
+            "systemctl daemon-reload\n  {detach}\n  \
+             systemctl restart \"$(systemd-escape --path {t}).automount\"\n  \
+             ls {t} >/dev/null"
+        )
     } else {
         format!("{detach}\n  mount -t {ft} -o {o} {s} {t}")
     }
