@@ -21,7 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
     steps:
