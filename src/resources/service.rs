@@ -31,6 +31,42 @@ if ! command -v systemctl >/dev/null 2>&1; then\n  \
   exit 0\n\
 fi";
 
+/// PMAT-708: the shell condition "this unit is stopped".
+///
+/// `! systemctl is-active` is NOT that condition. `is-active` exits 0 only for
+/// `active` and `reloading`, so its negation is also true for `activating` and
+/// `deactivating`. A `Restart=always` unit between runs sits in `activating`
+/// (SubState `auto-restart`); on yoga, 2026-10-14, the apply skipped the stop,
+/// disabled the unit, recorded converged, and the unit was running a job ten
+/// seconds later. Stopped means `ActiveState` is `inactive` or `failed`, which
+/// is also what systemd reports for a unit with no unit file.
+fn is_stopped(n: &str) -> String {
+    format!(
+        "case \"$(systemctl show -p ActiveState --value {n} 2>/dev/null)\" in inactive|failed) true ;; *) false ;; esac"
+    )
+}
+
+/// PMAT-708: converge a unit to stopped, and fail if it did not get there.
+///
+/// The stop is gated on [`is_stopped`], not on `is-active`, so a unit that is
+/// `activating`, `active`, `reloading` or `deactivating` is stopped, and an
+/// inactive or unloaded one (whose `systemctl stop` exits 5) is left alone,
+/// which keeps a second apply a no-op success. After the stop the state is
+/// read again: a unit something re-activates (a socket, a timer) has not
+/// converged, and recording it converged is the defect.
+fn stop_lines(n: &str) -> String {
+    let stopped = is_stopped(n);
+    format!(
+        "if ! {stopped}; then\n  \
+           systemctl stop {n}\n  \
+           if ! {stopped}; then\n    \
+             printf 'FORJAR_ERROR: %s is %s after systemctl stop\\n' {n} \"$(systemctl show -p ActiveState --value {n} 2>/dev/null)\" >&2\n    \
+             exit 1\n  \
+           fi\n\
+         fi"
+    )
+}
+
 /// Generate shell to check service state.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
@@ -44,7 +80,7 @@ pub fn check_script(resource: &Resource) -> String {
 
     let active = if state == "stopped" {
         verdict::assert_that(
-            &format!("! systemctl is-active --quiet {n} 2>/dev/null"),
+            &is_stopped(&n),
             &format!("inactive:{name}"),
             &format!("active:{name}"),
         )
@@ -99,9 +135,7 @@ pub fn apply_script(resource: &Resource) -> String {
             ));
         }
         "stopped" => {
-            lines.push(format!(
-                "if systemctl is-active --quiet '{name}'; then\n  systemctl stop '{name}'\nfi"
-            ));
+            lines.push(stop_lines(&sh_squote(name)));
         }
         _ => {}
     }

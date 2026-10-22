@@ -5011,3 +5011,82 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-703
+  github_issue: 703
+  item_type: task
+  title: 'security audit red on main: quinn-proto RUSTSEC-2026-0338/0340/0343 + cargo-deny unsafe-libyaml'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-13T11:19:29Z
+  updated: 2026-10-13T11:19:32.225728905+00:00
+  spec: null
+  acceptance_criteria:
+  - 'Cargo.lock pins quinn-proto 0.11.18 (was 0.11.17), the first release carrying the fixes for RUSTSEC-2026-0338, RUSTSEC-2026-0340 and RUSTSEC-2026-0343; no other Cargo.lock line changes and `cargo metadata --locked` accepts the lock'
+  - '`cargo audit --deny yanked` with the .cargo/audit.toml ignores reports 0 vulnerabilities (was 3); no ignore or exemption entry is added to deny.toml or .cargo/audit.toml'
+  - '`cargo build --locked` and `cargo test --locked --workspace --lib` pass'
+  - 'NOT cleared by this change: `cargo deny check advisories` stays red on RUSTSEC-2024-0449 (unsafe-libyaml 0.2.11 unmaintained); crates.io has no later unsafe-libyaml, and every serde_yaml, serde_yaml_ng, pforge-config and bashrs release still depends on it, so no bump reaches it'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+  release: 1.34.0
+- id: PMAT-708
+  github_issue: 708
+  item_type: task
+  title: 'service state: stopped skips the stop when the unit is activating (auto-restart) and records converged (forjar#708)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-14T11:21:39Z
+  updated: 2026-10-14T11:21:47Z
+  spec: null
+  acceptance_criteria:
+  - 'For type: service with state: stopped, the apply script stops the unit whenever its ActiveState is not inactive/failed (activating, active, reloading, deactivating), leaves an inactive or unloaded unit alone, and fails if the unit is still not stopped after systemctl stop; the check passes only for ActiveState inactive/failed. tests/falsification_service_stop_activating.rs executes both scripts against a fake systemctl with systemd''s real is-active exit codes: 4 of its 8 tests are red on origin/main 9a37a2ff and all 8 green with the fix, a second apply is a no-op success, and both rendered scripts pass forjar''s own bashrs gate. Fixes #708.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-753
+  github_issue: 753
+  item_type: task
+  title: 'refresh: -r X --refresh must evaluate X''s depends_on closure (forjar#753)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T18:20:11Z
+  updated: 2026-10-21T18:20:16.389822325+00:00
+  spec: null
+  acceptance_criteria:
+  - refresh_in_scope returns false for all ids but the -r filter, so satisfied dependencies with no lock entry plan as create. Scope = X + goal_closure.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-704
+  github_issue: 704
+  item_type: task
+  title: 'apply --dry-run plans from the gate''s drift findings: a drifted depends_on prerequisite the apply would repair previews as an update, not "no changes"'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-13T12:20:00Z
+  updated: 2026-10-13T12:20:00Z
+  spec: null
+  acceptance_criteria:
+  - '`tests_dry_run_drift_repair::scoped_dry_run_lists_dependency_drift_that_apply_repairs`: after a converged apply and a tampered depends_on prerequisite, the `-r leaf` dry-run plan lists the prerequisite as Update, a second dry run plans the same (no lock write), and a real `apply -r leaf` restores it; the test is red with the `overlay_drift` call in `scoped_dry_run_plan` removed.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
