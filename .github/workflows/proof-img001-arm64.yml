@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 jobs:
   arm64-proof:
-    runs-on: [self-hosted, Linux, ARM64, gx10, clean-room]
+    runs-on: [self-hosted, Linux, ARM64, gx10, clean-room, build]
     timeout-minutes: 40
     env:
       CARGO_INCREMENTAL: "0"
@@ -27,6 +27,7 @@ jobs:
           rustup toolchain install "$want" --profile minimal --component rustfmt,clippy || { echo "ENVIRONMENT FAILURE: rustup could not install $want; proof void, re-run"; exit 78; }
           rustup show active-toolchain
       - name: Build tests (no run)
-        run: cargo test --lib --no-run || { echo "ENVIRONMENT FAILURE: build failed before the test ran; proof void, re-run"; exit 78; }
+        run: |
+          cargo test --lib --no-run || { echo "ENVIRONMENT FAILURE: build failed before the test ran; proof void, re-run"; exit 78; }
       - name: green test
         run: cargo test --lib core::store::base_image::tests::extract_base_layers_follows_image_index_to_the_host_arch_manifest -- --exact --nocapture
