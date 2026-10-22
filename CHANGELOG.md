@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+**`type: image` builds a real image (PMAT-756, #756, IMG-001).**
+A spec with `image:`, `packages` and `command` used to build an empty 508-byte
+scratch image. Now: the declared base is exported from the runtime and layered
+under the build (a `name@sha256:` base must resolve to exactly that digest, or
+the build fails); `packages` then `command` run against it and their filesystem
+diff is the top layer (with `packages` present `command` is a build command, not
+the entrypoint); `index.json` carries `org.opencontainers.image.ref.name` so
+`--load` keeps the tag; `--json` prints `manifest_digest`; `--push` prints
+`pushed: registry/repo@sha256:...`. Registry configs with JSON `null` collections
+now parse. `path:` Files layers land on top of the packages/command diff (never dropped). The diff layer carries Added and Changed files and OCI whiteouts (`.wh.<name>`, opaque dirs for deleted-and-rebuilt dirs) for deleted base paths. A multi-platform base (OCI image index) resolves to its linux/amd64 manifest; podman bases are saved as `oci-archive`; `--sandbox --json` is rejected again.
+
 
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a

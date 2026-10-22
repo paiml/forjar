@@ -5068,3 +5068,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-756
+  github_issue: 756
+  item_type: task
+  title: 'IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T20:16:56Z
+  updated: 2026-10-21T20:16:56Z
+  spec: null
+  acceptance_criteria:
+  - 'paiml/infra#2074 IMG-001 gaps 1-4: empty scratch image from forjar build'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696

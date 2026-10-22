@@ -3,6 +3,7 @@
 //! Connects the layer builder (FJ-2102) with OCI types (FJ-2101) to produce
 //! loadable OCI images from `type: image` resource definitions.
 
+use crate::core::store::base_image::{copy_base_blobs, BaseImageLayers};
 use crate::core::store::layer_builder::{
     build_layer, compute_dual_digest, write_oci_layout, LayerEntry,
 };
@@ -26,6 +27,17 @@ pub struct AssembledImage {
     pub layers: Vec<LayerBuildResult>,
     /// Total compressed size.
     pub total_size: u64,
+    /// `sha256:` digest of the image manifest blob (what a registry addresses the image by).
+    pub manifest_digest: String,
+}
+
+/// A base image already on disk as an OCI layout, to be layered under the built layers.
+#[derive(Debug, Clone)]
+pub struct BaseLayout {
+    /// Directory holding the base `index.json` and `blobs/sha256/`.
+    pub layout_dir: std::path::PathBuf,
+    /// Layers, diff_ids, history and runtime config read from that layout.
+    pub layers: BaseImageLayers,
 }
 
 /// Assemble a complete OCI image from a build plan.
@@ -40,6 +52,25 @@ pub fn assemble_image(
     layer_config: &OciLayerConfig,
     target_arch: Option<&str>,
 ) -> Result<AssembledImage, String> {
+    assemble_image_with_base(
+        plan,
+        layer_entries,
+        output_dir,
+        layer_config,
+        target_arch,
+        None,
+    )
+}
+
+/// `assemble_image` with an optional base layout layered underneath.
+pub fn assemble_image_with_base(
+    plan: &ImageBuildPlan,
+    layer_entries: &[Vec<LayerEntry>],
+    output_dir: &Path,
+    layer_config: &OciLayerConfig,
+    target_arch: Option<&str>,
+    base: Option<&BaseLayout>,
+) -> Result<AssembledImage, String> {
     if plan.layers.len() != layer_entries.len() {
         return Err(format!(
             "layer count mismatch: plan has {} layers but {} entry sets provided",
@@ -50,35 +81,44 @@ pub fn assemble_image(
 
     let built_layers = build_all_layers(layer_entries, layer_config)?;
 
-    // Collect diff_ids and descriptors
-    let diff_ids: Vec<String> = built_layers
-        .iter()
-        .map(|(r, _)| r.diff_id.clone())
-        .collect();
-    let layer_descriptors: Vec<OciDescriptor> = built_layers
-        .iter()
-        .map(|(r, _)| r.to_descriptor())
-        .collect();
+    // Collect diff_ids and descriptors: base layers (bottom) first, built layers on top.
+    let mut diff_ids: Vec<String> = base.map(|b| b.layers.diff_ids.clone()).unwrap_or_default();
+    diff_ids.extend(built_layers.iter().map(|(r, _)| r.diff_id.clone()));
+    let mut layer_descriptors: Vec<OciDescriptor> =
+        base.map(|b| b.layers.layers.clone()).unwrap_or_default();
+    layer_descriptors.extend(built_layers.iter().map(|(r, _)| r.to_descriptor()));
     let layer_results: Vec<LayerBuildResult> =
         built_layers.iter().map(|(r, _)| r.clone()).collect();
     let total_size: u64 = built_layers.iter().map(|(r, _)| r.compressed_size).sum();
 
     // Build and serialize image config (E12: support target architecture)
-    let config = build_image_config(plan, target_arch, diff_ids);
+    let config = build_image_config(plan, target_arch, diff_ids, base);
     let config_json =
         serde_json::to_vec_pretty(&config).map_err(|e| format!("serialize config: {e}"))?;
     let config_digest = compute_dual_digest(&config_json);
 
     // Build and serialize manifest
-    let manifest = OciManifest::new(config_digest.oci_digest(), layer_descriptors);
+    let manifest = OciManifest::new(config_digest.oci_digest(), layer_descriptors.clone());
     let manifest_json =
         serde_json::to_vec_pretty(&manifest).map_err(|e| format!("serialize manifest: {e}"))?;
     let manifest_digest = compute_dual_digest(&manifest_json);
 
     // Write OCI layout, manifest blob, index, and Docker-compat manifest
     write_oci_layout(output_dir, &built_layers, &config_json)?;
-    write_manifest_and_index(output_dir, &manifest_json, &manifest_digest.sha256)?;
-    write_docker_manifest(output_dir, plan, &layer_results, &config_digest.sha256)?;
+    if let Some(b) = base {
+        copy_base_blobs(&b.layout_dir, output_dir, &b.layers)?;
+    }
+    write_manifest_and_index(
+        output_dir,
+        &manifest_json,
+        &manifest_digest.sha256,
+        &plan.tag,
+    )?;
+    let layer_digests: Vec<&str> = layer_descriptors
+        .iter()
+        .map(|d| d.digest.as_str())
+        .collect();
+    write_docker_manifest(output_dir, plan, &layer_digests, &config_digest.sha256)?;
 
     // FJ-2200: Postcondition — valid OCI layout
     debug_assert!(
@@ -90,7 +130,7 @@ pub fn assemble_image(
         "assemble_image: index.json missing"
     );
     debug_assert!(
-        manifest.layers.len() == layer_results.len(),
+        manifest.layers.len() == layer_descriptors.len(),
         "assemble_image: manifest layer count mismatch"
     );
 
@@ -100,6 +140,7 @@ pub fn assemble_image(
         config,
         layers: layer_results,
         total_size,
+        manifest_digest: format!("sha256:{}", manifest_digest.sha256),
     })
 }
 
@@ -148,8 +189,9 @@ fn build_image_config(
     plan: &ImageBuildPlan,
     target_arch: Option<&str>,
     diff_ids: Vec<String>,
+    base: Option<&BaseLayout>,
 ) -> OciImageConfig {
-    let history: Vec<OciHistoryEntry> = plan
+    let built_history: Vec<OciHistoryEntry> = plan
         .layers
         .iter()
         .map(|strategy| OciHistoryEntry {
@@ -160,8 +202,19 @@ fn build_image_config(
         })
         .collect();
 
-    let arch = target_arch.unwrap_or("amd64");
-    let mut config = OciImageConfig::for_arch(arch, "linux", diff_ids);
+    let mut history: Vec<OciHistoryEntry> =
+        base.map(|b| b.layers.history.clone()).unwrap_or_default();
+    history.extend(built_history);
+
+    let arch = base
+        .map(|b| b.layers.architecture.as_str())
+        .or(target_arch)
+        .unwrap_or("amd64");
+    let os = base.map_or("linux", |b| b.layers.os.as_str());
+    let mut config = OciImageConfig::for_arch(arch, os, diff_ids);
+    if let Some(b) = base {
+        config.config = b.layers.config.clone();
+    }
     config.history = history;
     if let Some(ref ep) = plan.entrypoint {
         config.config.entrypoint = ep.clone();
@@ -177,6 +230,7 @@ fn write_manifest_and_index(
     output_dir: &Path,
     manifest_json: &[u8],
     manifest_hex: &str,
+    tag: &str,
 ) -> Result<(), String> {
     std::fs::write(
         output_dir.join(format!("blobs/sha256/{manifest_hex}")),
@@ -188,7 +242,15 @@ fn write_manifest_and_index(
         media_type: "application/vnd.oci.image.manifest.v1+json".into(),
         digest: format!("sha256:{manifest_hex}"),
         size: manifest_json.len() as u64,
-        annotations: HashMap::new(),
+        // IMG-001: without a ref name an OCI-layout `load` (containerd image store)
+        // keeps the image untagged; `manifest.json` RepoTags alone is not read there.
+        annotations: HashMap::from([
+            (
+                "org.opencontainers.image.ref.name".to_string(),
+                tag.to_string(),
+            ),
+            ("io.containerd.image.name".to_string(), tag.to_string()),
+        ]),
     });
     let index_json =
         serde_json::to_vec_pretty(&index).map_err(|e| format!("serialize index: {e}"))?;
@@ -200,15 +262,12 @@ fn write_manifest_and_index(
 fn write_docker_manifest(
     output_dir: &Path,
     plan: &ImageBuildPlan,
-    layer_results: &[LayerBuildResult],
+    layer_digests: &[&str],
     config_hex: &str,
 ) -> Result<(), String> {
-    let docker_layers: Vec<String> = layer_results
+    let docker_layers: Vec<String> = layer_digests
         .iter()
-        .map(|r| {
-            let hex = r.digest.strip_prefix("sha256:").unwrap_or(&r.digest);
-            format!("blobs/sha256/{hex}")
-        })
+        .map(|d| format!("blobs/sha256/{}", d.strip_prefix("sha256:").unwrap_or(d)))
         .collect();
     let docker_manifest = serde_json::json!([{
         "RepoTags": [&plan.tag],
