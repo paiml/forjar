@@ -194,6 +194,7 @@ mod tests {
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
             Commands::Drift(DriftArgs {
+                offline: false,
                 file: dir.path().join("forjar.yaml"),
                 machine: None,
                 state_dir: state,
