@@ -5030,3 +5030,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-738
+  github_issue: 738
+  item_type: task
+  title: 'mount: fresh x-systemd.automount fstab entry never starts the .automount unit'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T11:47:15Z
+  updated: 2026-10-21T11:47:15Z
+  spec: null
+  acceptance_criteria:
+  - 'Start <systemd-escape --path>.automount after daemon-reload so a fresh entry mounts (Refs #738)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
