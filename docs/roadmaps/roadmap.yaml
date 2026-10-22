@@ -5053,3 +5053,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-753
+  github_issue: 753
+  item_type: task
+  title: 'refresh: -r X --refresh must evaluate X''s depends_on closure (forjar#753)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T18:20:11Z
+  updated: 2026-10-21T18:20:16.389822325+00:00
+  spec: null
+  acceptance_criteria:
+  - refresh_in_scope returns false for all ids but the -r filter, so satisfied dependencies with no lock entry plan as create. Scope = X + goal_closure.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
