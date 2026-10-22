@@ -139,6 +139,8 @@ mod tests_image_assembler;
 mod tests_image_assembler_img001;
 #[cfg(test)]
 mod tests_image_ref;
+#[cfg(test)]
+mod tests_img001_review;
 #[cfg(all(test, feature = "db"))]
 mod tests_ingest;
 #[cfg(test)]

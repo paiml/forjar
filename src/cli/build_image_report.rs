@@ -24,7 +24,7 @@ pub(super) fn print_build_report(
     println!(
         "\n  Image: {} ({} layers, {} bytes)",
         tag,
-        result.layers.len(),
+        result.layer_count(),
         result.total_size
     );
     println!("  Layout: {}", output_dir.display());
@@ -41,7 +41,7 @@ pub(super) fn record_build_metrics(
 ) {
     let metrics = ImageBuildMetrics {
         tag: tag.to_string(),
-        layer_count: result.layers.len(),
+        layer_count: result.layer_count(),
         total_size: result.total_size,
         layers: result
             .layers

@@ -126,7 +126,8 @@ pub(crate) fn build_json_doc(
             .map(|r| r.manifest_digest.clone())
             .or_else(|| manifest_digest_on_disk(output_dir)),
         "layers": layers,
-        "layer_count": result.map(|r| r.layers.len()),
+        "layer_count": result.map(|r| r.layer_count()),
+        "built_layer_count": result.map(|r| r.layers.len()),
         "total_size": result.map(|r| r.total_size),
     })
 }

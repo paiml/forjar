@@ -10,7 +10,7 @@ verdict: PASS (unit scope and a real docker round trip, both measured; see "Real
 
 - the declared base is exported from the runtime and layered under the build; a `name@sha256:` base must match exactly
 - `packages` then `command` run in a container; their filesystem diff is the top layer, then the resource's `path:` Files layers
-- review round 1 fixes: the diff layer now carries Added, Changed and Deleted (new `src/core/store/container_diff.rs`; D becomes `.wh.<name>`, a deleted-and-rebuilt dir becomes `.wh..wh..opq`; changed directories are never copied whole); `--sandbox --json` is rejected again; an OCI image index at `manifests[0]` resolves to linux/amd64 (else first); `podman save` uses `--format oci-archive` (docker has no such flag); CHANGELOG updated
+- review round 1 fixes: the diff layer now carries Added, Changed and Deleted (new `src/core/store/container_diff.rs`; D becomes `.wh.<name>`, a deleted-and-rebuilt dir becomes `.wh..wh..opq`; changed directories are never copied whole); `--sandbox --json` is rejected again; an OCI image index at `manifests[0]` resolves to linux/<host arch> (round 1 said amd64; round 2 maps ARCH; else first); `podman save` uses `--format oci-archive` (docker has no such flag); CHANGELOG updated
 
 ## Test evidence
 
@@ -24,6 +24,7 @@ verdict: PASS (unit scope and a real docker round trip, both measured; see "Real
 - docker 29.8.1 on this host (podman absent). Base `debian:bookworm-slim` (1 layer, local); spec: `packages: [coreutils]`, `command: echo MODIFIED > /etc/issue && rm /etc/issue.net && echo ADDED > /opt-added.txt`, `path:` a local file, plus an unrelated `type: task` resource that writes /tmp/should-not-exist.
 - `forjar build -f forjar.yaml --resource img --load`: "Scripts: 2" (unrelated task excluded), "3 files changed, 2 layers", "Loaded image: forjar-rt:1".
 - Inspected with `docker run --entrypoint sh`: /etc/issue = MODIFIED (base: Debian GNU/Linux 12); /etc/issue.net absent (present in base); /opt-added.txt = ADDED; the `path:` file present (path shown by `find`; content not read back); /etc/debian_version 12.15 (base preserved); /tmp/should-not-exist absent. `docker history`: base layer + `forjar: files (container diff)` + `forjar: files` layers; image layers=3 vs base 1; arch amd64.
+- Review of #757 at 9e04d702 (13 findings), fixed on epic #768 (PMAT-756): REAL package install on docker 29.8.1, base debian:bookworm-slim, `packages: [vim-tiny]` + `command: mkdir -p /opt/emptydir` + a `path:` file, `forjar build --load`: "115 files changed, 3 layers"; in the loaded image /usr/bin/vi -> /etc/alternatives/vi -> /usr/bin/vim.tiny are symlinks (not host file content), /opt/emptydir exists, /var/cache/apt/archives/partial keeps mode 700, `vi --version` runs. RED-on-revert (each fix reverted, its test FAILED): symlink-following walk (read host /etc), no dir entries, dirs skipped in extract, 300 s lifetime, default-base applied, total_size built-only. The `--sandbox --json` findings do not apply at c781b7db: `reject_json_stdout_conflicts` already names `--sandbox` and `sandbox_with_json_is_rejected_before_any_work` passes; the implicit packages path with `--json` is intended and prints JSON only.
 - Not covered: podman, an index-digest-pinned base via a real pull, non-amd64 hosts.
 
 IMPL-PMAT-756-RECEIPT-END

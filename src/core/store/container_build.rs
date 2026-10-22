@@ -79,7 +79,10 @@ pub fn build_image_in_container_with_files(
     // digest-pinned base must be exactly the digest the spec names.
     let base_dir = std::env::temp_dir().join(format!("forjar-base-{}", build_unique_id()));
     let _base_guard = TempDirGuard(base_dir.clone());
-    let base = load_runtime_base(&runtime, base_image, &base_dir)?;
+    let base = match declared_base(plan) {
+        Some(declared) => Some(load_runtime_base(&runtime, declared, &base_dir)?),
+        None => None,
+    };
 
     // Step 2: Execute apply scripts
     execute_scripts(&runtime, &container_name, apply_scripts)
@@ -104,7 +107,7 @@ pub fn build_image_in_container_with_files(
 
     // Step 5: Assemble OCI image: container diff, then the resource's own
     // `path:` Files layers on top (IMG-001: never dropped).
-    let image = assemble_container_layers(plan, entries, file_layers, output_dir, Some(&base))?;
+    let image = assemble_container_layers(plan, entries, file_layers, output_dir, base.as_ref())?;
 
     Ok(ContainerBuildResult {
         image,
@@ -114,19 +117,39 @@ pub fn build_image_in_container_with_files(
     })
 }
 
+/// How long the build container idles. It must outlive the base `docker save`
+/// plus a slow package install (the old 300 s did not: `--rm` then removed the
+/// container mid-build); `ContainerGuard` removes it as soon as the build ends.
+const CONTAINER_LIFETIME_SECS: u32 = 3600;
+
+/// The base the image spec DECLARES. An image with no `image:` gets no base
+/// layers: the container still needs *some* userland to run in, but that
+/// default is a build host, not part of the image the spec describes.
+fn declared_base(plan: &ImageBuildPlan) -> Option<&str> {
+    plan.base_image.as_deref()
+}
+
+fn run_args(container_name: &str, base_image: &str) -> Vec<String> {
+    let secs = CONTAINER_LIFETIME_SECS.to_string();
+    [
+        "run",
+        "-d",
+        "--rm",
+        "--name",
+        container_name,
+        base_image,
+        "sleep",
+        &secs,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
+
 /// Start an ephemeral container from a base image.
 fn start_container(runtime: &str, container_name: &str, base_image: &str) -> Result<(), String> {
     let output = Command::new(runtime)
-        .args([
-            "run",
-            "-d",
-            "--rm",
-            "--name",
-            container_name,
-            base_image,
-            "sleep",
-            "300",
-        ])
+        .args(run_args(container_name, base_image))
         .output()
         .map_err(|e| format!("container start: {e}"))?;
 
@@ -232,7 +255,7 @@ pub fn format_container_build(result: &ContainerBuildResult) -> String {
         "Container build ({runtime}): {files} files changed, {layers} layers, {size} bytes ({ms}ms)",
         runtime = result.runtime,
         files = result.changed_files,
-        layers = result.image.layers.len(),
+        layers = result.image.layer_count(),
         size = result.image.total_size,
         ms = result.duration_ms,
     )
@@ -336,6 +359,29 @@ mod tests {
     fn container_guard_cleans_up_on_drop() {
         // Constructing and dropping must not panic; cleanup runs `true rm -f`.
         let _guard = ContainerGuard::new("true", "forjar-build-guardtest");
+    }
+
+    #[test]
+    fn undeclared_base_is_not_layered() {
+        let mut plan = test_plan();
+        assert_eq!(
+            declared_base(&plan),
+            None,
+            "default debian leaked into the image"
+        );
+        plan.base_image = Some("ubuntu:24.04".into());
+        assert_eq!(declared_base(&plan), Some("ubuntu:24.04"));
+    }
+
+    #[test]
+    fn container_outlives_a_slow_base_save_and_install() {
+        let args = run_args("c", "img");
+        let secs: u32 = args.last().unwrap().parse().unwrap();
+        assert!(
+            secs >= 3600,
+            "container lifetime {secs}s is shorter than a package install"
+        );
+        assert!(args.contains(&"--rm".to_string()));
     }
 
     /// #8: build_unique_id is non-empty and PID-suffixed.

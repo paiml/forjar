@@ -66,12 +66,14 @@ fn main() {
             content: b"hello forjar".to_vec(),
             mode: 0o644,
             is_dir: false,
+            link_target: None,
         }],
         vec![LayerEntry {
             path: "usr/bin/curl".into(),
             content: b"fake-curl".to_vec(),
             mode: 0o755,
             is_dir: false,
+            link_target: None,
         }],
     ];
     let result = assemble_image(

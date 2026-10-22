@@ -77,7 +77,7 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
     }
 
     // 2. Read the first manifest; if it is itself an index (multi-platform
-    //    image), resolve it to the linux/amd64 manifest (or its first entry).
+    //    image), resolve it to the linux/<host arch> manifest (or its first entry).
     let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
@@ -423,13 +423,15 @@ mod tests {
     }
 
     #[test]
-    fn extract_base_layers_follows_image_index_to_amd64_manifest() {
+    fn extract_base_layers_follows_image_index_to_the_host_arch_manifest() {
         let dir = tempfile::tempdir().unwrap();
         create_test_layout(dir.path());
         let idx_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         let arm = "a".repeat(64);
+        let host = host_oci_arch();
+        let foreign = if host == "amd64" { "arm64" } else { "amd64" };
         let inner = format!(
-            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{arm}","size":1,"platform":{{"os":"linux","architecture":"arm64"}}}},{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"amd64"}}}}]}}"#
+            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{arm}","size":1,"platform":{{"os":"linux","architecture":"{foreign}"}}}},{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"{host}"}}}}]}}"#
         );
         std::fs::write(dir.path().join("blobs/sha256").join(idx_hex), inner).unwrap();
         let top = format!(
@@ -438,7 +440,7 @@ mod tests {
         std::fs::write(dir.path().join("index.json"), top).unwrap();
         let r = extract_base_layers(dir.path()).unwrap();
         assert_eq!(r.layers.len(), 1);
-        assert_eq!(r.architecture, "amd64");
+        // The foreign-arch entry has no blob: a wrong pick would fail above.
     }
 
     #[test]

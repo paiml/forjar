@@ -88,14 +88,33 @@ pub(crate) fn write_markers(plan: &DiffPlan, extract_dir: &Path) -> Result<(), S
     Ok(())
 }
 
-/// Is `path` a directory inside the container? (Directories are never copied
-/// whole: a changed dir would drag its unchanged base contents into the layer.)
-fn is_dir_in_container(runtime: &str, container: &str, path: &str) -> bool {
-    Command::new(runtime)
-        .args(["exec", container, "test", "-d", path])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+/// What `path` is inside the container, from `stat` (which does NOT follow a
+/// symlink: `test -d` did, so a link to a directory was skipped as a directory).
+#[derive(Debug, PartialEq, Eq)]
+enum PathKind {
+    /// A real directory and its permission bits.
+    Dir(u32),
+    /// Anything else (file, symlink, ...): copied with `cp`, which keeps links.
+    Other,
+}
+
+fn path_kind(runtime: &str, container: &str, path: &str) -> PathKind {
+    let out = Command::new(runtime)
+        .args(["exec", container, "stat", "-c", "%F %a", path])
+        .output();
+    let Ok(o) = out else { return PathKind::Other };
+    if !o.status.success() {
+        return PathKind::Other;
+    }
+    parse_stat(&String::from_utf8_lossy(&o.stdout))
+}
+
+fn parse_stat(text: &str) -> PathKind {
+    let text = text.trim();
+    match text.strip_prefix("directory ") {
+        Some(mode) => PathKind::Dir(u32::from_str_radix(mode.trim(), 8).unwrap_or(0o755)),
+        None => PathKind::Other,
+    }
 }
 
 /// Extract the container's A/C files and D whiteouts into `extract_dir`.
@@ -117,8 +136,17 @@ pub(crate) fn extract_changes(
     let plan = plan_diff(&entries);
 
     let mut count = 0;
+    // Directories are carried as entries of their own (never copied whole: a
+    // changed dir would drag its unchanged base contents into the layer), so an
+    // empty directory a package creates and a directory mode change survive.
+    // Modes are applied last so a read-only dir cannot block later copies.
+    let mut dirs: Vec<(std::path::PathBuf, u32)> = Vec::new();
     for path in &plan.copy {
-        if is_dir_in_container(runtime, container_name, path) {
+        if let PathKind::Dir(mode) = path_kind(runtime, container_name, path) {
+            let local = extract_dir.join(path.trim_start_matches('/'));
+            std::fs::create_dir_all(&local).map_err(|e| format!("dir {path}: {e}"))?;
+            dirs.push((local, mode));
+            count += 1;
             continue;
         }
         let local_path = extract_dir.join(path.trim_start_matches('/'));
@@ -137,5 +165,9 @@ pub(crate) fn extract_changes(
         }
     }
     write_markers(&plan, extract_dir)?;
+    for (local, mode) in dirs.iter().rev() {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(local, std::fs::Permissions::from_mode(*mode));
+    }
     Ok(count + plan.whiteouts.len() + plan.opaque_dirs.len())
 }

@@ -25,10 +25,18 @@ pub struct AssembledImage {
     pub config: OciImageConfig,
     /// Per-layer build results.
     pub layers: Vec<LayerBuildResult>,
-    /// Total compressed size.
+    /// Total compressed size of EVERY layer in the manifest (base + built).
     pub total_size: u64,
     /// `sha256:` digest of the image manifest blob (what a registry addresses the image by).
     pub manifest_digest: String,
+}
+
+impl AssembledImage {
+    /// Layers in the image manifest: the base's plus the built ones. `layers`
+    /// holds only the built ones, so its length is not the image's layer count.
+    pub fn layer_count(&self) -> usize {
+        self.manifest.layers.len()
+    }
 }
 
 /// A base image already on disk as an OCI layout, to be layered under the built layers.
@@ -89,7 +97,7 @@ pub fn assemble_image_with_base(
     layer_descriptors.extend(built_layers.iter().map(|(r, _)| r.to_descriptor()));
     let layer_results: Vec<LayerBuildResult> =
         built_layers.iter().map(|(r, _)| r.clone()).collect();
-    let total_size: u64 = built_layers.iter().map(|(r, _)| r.compressed_size).sum();
+    let total_size: u64 = layer_descriptors.iter().map(|d| d.size).sum();
 
     // Build and serialize image config (E12: support target architecture)
     let config = build_image_config(plan, target_arch, diff_ids, base);
