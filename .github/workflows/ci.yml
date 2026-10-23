@@ -35,7 +35,7 @@ jobs:
   # heavy job below gates on it. The release gate (`make dogfood-release`) is
   # untouched and still runs everything.
   classify:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     outputs:
       code: ${{ steps.class.outputs.code }}
       gate_c: ${{ steps.class.outputs.gate_c }}
@@ -71,7 +71,7 @@ jobs:
   # then dirties the tree and skips release creation entirely.
   lockfile:
     name: lockfile-preflight
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -111,7 +111,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -275,7 +275,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: no-default-features
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -310,7 +310,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: doctests
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -391,7 +391,7 @@ jobs:
   dogfood-guards:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -411,7 +411,7 @@ jobs:
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
   gate:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room]
     needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:
