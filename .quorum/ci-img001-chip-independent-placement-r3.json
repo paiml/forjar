@@ -2,7 +2,7 @@
   "issue": "#772 - chip-independent CI placement on the epic (r3): X64 dropped from dogfood-surface and ledger-replay, clippy check names pinned, runner.arch in cache keys, two arch-guard holes closed",
   "base_commit": "9eac37cc6bbe9271986b9faa2666f5fe26fcb9d5",
   "base": "origin/main",
-  "diff_sha256": "6a5d735c67fcae9d84111fc90b7ff9cf736790fe",
+  "diff_sha256": "91ff9dc1a07a4a6c686f419e1ba5c55d9ba39ca6",
   "recorded_at": "2026-10-23",
   "quorum": {
     "lanes": [
@@ -54,16 +54,16 @@
   },
   "evidence": {
     "claims_digest": ".quorum/evidence/r3-claims.md",
-    "total_bytes": 8731,
+    "total_bytes": 8800,
     "files": [
       {
         "path": ".quorum/evidence/r3-claims.md",
         "roles": [
           "claims"
         ],
-        "bytes": 4706,
-        "sha256": "de790308a2e9efcc0452558e40ba9498eaaa6d7bdbf5f13fddb5fa184795e047",
-        "blob": "880c137bac93129113768fda7742aaf813b78aee"
+        "bytes": 4775,
+        "sha256": "01d9c75d778a3e85b33dec9a685a50d5ec5c1e0b549f6ce93238e1bd42328ebe",
+        "blob": "37bc0b21bf1d6c9e5c1da199048a1018580613fe"
       },
       {
         "path": ".quorum/evidence/r3-lanes.md",
