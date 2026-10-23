@@ -5030,3 +5030,41 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-735
+  github_issue: 735
+  item_type: task
+  title: main advisories (webpki) + split disk_budget tests
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-21T06:23:15Z
+  updated: 2026-10-21T06:23:15Z
+  spec: null
+  acceptance_criteria:
+  - cargo update webpki crates; split tests.rs under 500 lines
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-672
+  github_issue: 672
+  item_type: task
+  title: 'Release Audit: draft release reads as a release, API error reads as a skip'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T18:02:42Z
+  updated: 2026-10-17T18:02:42Z
+  spec: null
+  acceptance_criteria:
+  - refs forjar#672; picks 2eb32922
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
