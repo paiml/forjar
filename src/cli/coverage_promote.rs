@@ -32,7 +32,7 @@ pub(crate) fn coverage_state_dir(file: &Path) -> PathBuf {
 /// PMAT-088: Map each resource id to its current desired-state hash.
 ///
 /// This is the hash a persisted L3-L5 record must match to still count.
-fn resource_hashes(config: &ForjarConfig) -> HashMap<String, String> {
+fn resource_hashes(config: &ForjarConfig) -> Result<HashMap<String, String>, String> {
     config
         .resources
         .iter()
@@ -43,11 +43,11 @@ fn resource_hashes(config: &ForjarConfig) -> HashMap<String, String> {
                 &config.data_values,
                 &config.machines,
             )
-            .unwrap_or_else(|_| resource.clone());
-            (
+            .map_err(|e| format!("resource '{rid}': {e}"))?;
+            Ok((
                 rid.clone(),
                 crate::core::planner::hash_desired_state(&resolved),
-            )
+            ))
         })
         .collect()
 }
@@ -62,8 +62,8 @@ pub(crate) fn persist_convergence_coverage(
     config: &ForjarConfig,
     results: &[ConvergenceResult],
     pairwise: bool,
-) {
-    let hashes = resource_hashes(config);
+) -> Result<(), String> {
+    let hashes = resource_hashes(config)?;
     let records: Vec<_> = results
         .iter()
         .filter_map(|r| {
@@ -79,9 +79,12 @@ pub(crate) fn persist_convergence_coverage(
         })
         .collect();
     if records.is_empty() {
-        return;
+        return Ok(());
     }
+    // Coverage records are a cache of what a run proved; failing to write one
+    // never changes the verdict, so the write error is the only thing ignored.
     let _ = append_records(&coverage_state_dir(file), &records);
+    Ok(())
 }
 
 /// Per-resource mutation tallies: (attempted, detected, errored).
@@ -110,8 +113,8 @@ pub(crate) fn persist_mutation_coverage(
     file: &Path,
     config: &ForjarConfig,
     report: &MutationReport,
-) {
-    let hashes = resource_hashes(config);
+) -> Result<(), String> {
+    let hashes = resource_hashes(config)?;
     let tallies = tally_mutations(report);
     let records: Vec<_> = tallies
         .iter()
@@ -121,9 +124,12 @@ pub(crate) fn persist_mutation_coverage(
         })
         .collect();
     if records.is_empty() {
-        return;
+        return Ok(());
     }
+    // Coverage records are a cache of what a run proved; failing to write one
+    // never changes the verdict, so the write error is the only thing ignored.
     let _ = append_records(&coverage_state_dir(file), &records);
+    Ok(())
 }
 
 /// Compute the static L0-L2 base level for a resource.
@@ -146,22 +152,22 @@ pub(crate) fn coverage_entry(
     config: &ForjarConfig,
     spec_resources: &HashSet<String>,
     records: &[TestCoverageRecord],
-) -> ResourceCoverage {
+) -> Result<ResourceCoverage, String> {
     let resolved = resolver::resolve_resource_templates(
         resource,
         &config.params,
         &config.data_values,
         &config.machines,
     )
-    .unwrap_or_else(|_| resource.clone());
+    .map_err(|e| format!("resource '{rid}': {e}"))?;
     let base = static_coverage_level(&resolved, spec_resources.contains(rid));
     let current_hash = crate::core::planner::hash_desired_state(&resolved);
     let level = promote_level(base, records, rid, &current_hash);
-    ResourceCoverage {
+    Ok(ResourceCoverage {
         resource_id: rid.to_string(),
         level,
         resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
-    }
+    })
 }
 
 /// PMAT-088: Print the coverage summary including L3-L5 buckets.

@@ -277,5 +277,5 @@ fn env_text_invalid_config() {
     let file = dir.path().join("forjar.yaml");
     std::fs::write(&file, "invalid: yaml: [broken").unwrap();
     let result = super::diff_cmd::cmd_env(&file, false);
-    assert!(result.is_ok());
+    assert!(result.is_err(), "a manifest that does not load is an error, not an empty env");
 }

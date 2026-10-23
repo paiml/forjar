@@ -39,7 +39,7 @@ pub(crate) fn cmd_plan(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
@@ -48,7 +48,7 @@ pub(crate) fn cmd_plan(
     // line the config is NARROWED twice — `--target` retains one resource plus
     // its transitive deps, and `strip_unrequested_phony` removes every
     // unrequested phony resource. `apply --plan-file` rebuilds the config from
-    // the file and stops after `resolve_data_sources`
+    // the file and stops after `resolve_data_sources_with_base`
     // (`apply_from_plan::prepare_config`), so it recomputes the leg over the
     // UNNARROWED config and the two can never agree. Measured: a config with
     // one `phony: true` resource planned and applied back-to-back, nothing

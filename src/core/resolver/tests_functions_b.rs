@@ -130,7 +130,7 @@ data:
     default: "0.0.0.0"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    super::data::resolve_data_sources(&mut config).unwrap();
+    super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
     let val = config.data_values.get("bad_dns").unwrap();
     assert_eq!(val.clone(), "0.0.0.0");
 }
@@ -151,7 +151,8 @@ data:
     value: "nonexistent-domain-12345.invalid"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let result = super::data::resolve_data_sources(&mut config);
+    let result =
+        super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("DNS"));
 }
@@ -172,7 +173,8 @@ data:
     value: "exit 1"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let result = super::data::resolve_data_sources(&mut config);
+    let result =
+        super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("command failed"));
 }
@@ -210,7 +212,7 @@ data:
         state_dir.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    super::data::resolve_data_sources(&mut config).unwrap();
+    super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
     let val = config.data_values.get("upstream").unwrap();
     assert_eq!(val.clone(), "fallback-value");
 }
@@ -251,7 +253,7 @@ data:
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     // Should succeed (staleness is a warning, not an error)
-    super::data::resolve_data_sources(&mut config).unwrap();
+    super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
     let val = config.data_values.get("upstream").unwrap();
     assert_eq!(val.clone(), "web.example.com");
 }
@@ -271,7 +273,8 @@ data:
     type: file
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let result = super::data::resolve_data_sources(&mut config);
+    let result =
+        super::data::resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("requires 'value' field"));
 }

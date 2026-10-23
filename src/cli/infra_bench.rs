@@ -236,6 +236,12 @@ fn run_benchmarks(
     state_dir: &std::path::Path,
     iterations: usize,
 ) -> Result<Vec<BenchResult>, String> {
+    // Timing a manifest whose `data:` source fails would time a load that cannot
+    // succeed in real use; check once, outside the timed loops (forjar#660).
+    crate::cli::helpers::require_data_sources(
+        &crate::cli::helpers::parse_and_validate_unresolved(config_path)?,
+        config_path,
+    )?;
     let mut results = Vec::new();
 
     // 1. Validate

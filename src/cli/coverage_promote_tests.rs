@@ -48,7 +48,9 @@ fn entry_for(config: &ForjarConfig, state_dir: &std::path::Path) -> CoverageLeve
     let records = load_records(state_dir);
     let spec: HashSet<String> = HashSet::new();
     let r = config.resources.get("pkg").unwrap();
-    coverage_entry("pkg", r, config, &spec, &records).level
+    coverage_entry("pkg", r, config, &spec, &records)
+        .unwrap()
+        .level
 }
 
 // ── (a) A fresh resource (no records) reports its static L0-L2 level ──
@@ -137,7 +139,7 @@ fn persist_convergence_writes_l3_on_pass() {
     let file = dir.path().join("forjar.yaml");
     // coverage_state_dir(file) == dir/state — write the record there.
     let results = vec![conv_result("pkg", true, true, true)];
-    persist_convergence_coverage(&file, &config, &results, false);
+    persist_convergence_coverage(&file, &config, &results, false).unwrap();
     let records = load_records(&coverage_state_dir(&file));
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].level, CoverageLevel::L3);
@@ -150,7 +152,7 @@ fn persist_convergence_writes_l5_when_pairwise() {
     let config = parse();
     let file = dir.path().join("forjar.yaml");
     let results = vec![conv_result("pkg", true, true, true)];
-    persist_convergence_coverage(&file, &config, &results, true);
+    persist_convergence_coverage(&file, &config, &results, true).unwrap();
     let records = load_records(&coverage_state_dir(&file));
     assert_eq!(records[0].level, CoverageLevel::L5);
 }
@@ -164,7 +166,7 @@ fn persist_convergence_writes_failing_record_on_failure() {
     let config = parse();
     let file = dir.path().join("forjar.yaml");
     let results = vec![conv_result("pkg", false, true, false)];
-    persist_convergence_coverage(&file, &config, &results, false);
+    persist_convergence_coverage(&file, &config, &results, false).unwrap();
     let records = load_records(&coverage_state_dir(&file));
     assert_eq!(records.len(), 1, "a failure must record a demotion");
     assert_eq!(records[0].level, CoverageLevel::L3);
@@ -193,7 +195,7 @@ fn persist_mutation_writes_l4_when_all_detected() {
     let file = dir.path().join("forjar.yaml");
     let report =
         MutationReport::from_results(vec![mut_result("pkg", true), mut_result("pkg", true)]);
-    persist_mutation_coverage(&file, &config, &report);
+    persist_mutation_coverage(&file, &config, &report).unwrap();
     let records = load_records(&coverage_state_dir(&file));
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].level, CoverageLevel::L4);
@@ -208,7 +210,7 @@ fn persist_mutation_writes_failing_record_with_survivor() {
     let file = dir.path().join("forjar.yaml");
     let report =
         MutationReport::from_results(vec![mut_result("pkg", true), mut_result("pkg", false)]);
-    persist_mutation_coverage(&file, &config, &report);
+    persist_mutation_coverage(&file, &config, &report).unwrap();
     let records = load_records(&coverage_state_dir(&file));
     assert_eq!(records.len(), 1, "a survivor must record a demotion");
     assert_eq!(records[0].level, CoverageLevel::L4);
@@ -223,13 +225,15 @@ fn end_to_end_convergence_then_coverage_promotes() {
     let config = parse();
     let file = dir.path().join("forjar.yaml");
     let results = vec![conv_result("pkg", true, true, true)];
-    persist_convergence_coverage(&file, &config, &results, false);
+    persist_convergence_coverage(&file, &config, &results, false).unwrap();
 
     // Now read back from the SAME state dir coverage_state_dir(file) resolves to.
     let records = load_records(&coverage_state_dir(&file));
     let spec: HashSet<String> = HashSet::new();
     let r = config.resources.get("pkg").unwrap();
-    let level = coverage_entry("pkg", r, &config, &spec, &records).level;
+    let level = coverage_entry("pkg", r, &config, &spec, &records)
+        .unwrap()
+        .level;
     assert_eq!(level, CoverageLevel::L3);
 }
 
@@ -248,19 +252,23 @@ fn end_to_end_regression_at_same_hash_demotes() {
         &config,
         &[conv_result("pkg", true, true, true)],
         false,
-    );
+    )
+    .unwrap();
     // Later run: convergence fails at the same (unchanged) config → demotion.
     persist_convergence_coverage(
         &file,
         &config,
         &[conv_result("pkg", false, true, false)],
         false,
-    );
+    )
+    .unwrap();
 
     let records = load_records(&coverage_state_dir(&file));
     let spec: HashSet<String> = HashSet::new();
     let r = config.resources.get("pkg").unwrap();
-    let level = coverage_entry("pkg", r, &config, &spec, &records).level;
+    let level = coverage_entry("pkg", r, &config, &spec, &records)
+        .unwrap()
+        .level;
     assert!(
         level < CoverageLevel::L3,
         "a regression at an unchanged config_hash must demote below L3, got {level:?}"

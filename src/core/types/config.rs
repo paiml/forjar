@@ -88,7 +88,7 @@ pub struct ForjarConfig {
     pub include_provenance: HashMap<String, String>,
 
     /// forjar#660: resolved `data:` source values, keyed by data key. Filled by
-    /// `resolver::resolve_data_sources`; read by the template resolver for
+    /// `resolver::resolve_data_sources_with_base`; read by the template resolver for
     /// `{{data.x}}`. Not a param (a param is user-declared and validated as
     /// one) and never serialized.
     #[serde(skip)]

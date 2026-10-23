@@ -256,16 +256,21 @@ fn cmd_build_sandbox(
         .resources
         .iter()
         .filter(|(_, r)| !matches!(r.resource_type, crate::core::types::ResourceType::Image))
-        .filter_map(|(_, r)| {
+        .map(|(id, r)| {
+            // A resource whose templates do not resolve fails the build; it used
+            // to be dropped here and the image built without it (forjar#660).
             let resolved = crate::core::resolver::resolve_resource_templates(
                 r,
                 &config.params,
                 &config.data_values,
                 &config.machines,
             )
-            .ok()?;
-            crate::core::codegen::apply_script(&resolved).ok()
+            .map_err(|e| format!("resource '{id}': {e}"))?;
+            Ok(crate::core::codegen::apply_script(&resolved).ok())
         })
+        .collect::<Result<Vec<Option<String>>, String>>()?
+        .into_iter()
+        .flatten()
         .collect();
 
     println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);

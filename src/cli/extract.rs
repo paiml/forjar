@@ -21,6 +21,7 @@ pub(crate) fn cmd_extract(
     // forjar#660: the sub-config is a MANIFEST (templates and `data:` sources stay
     // in it for the next run to resolve), so it is built from the unresolved one.
     let config = crate::cli::helpers::parse_and_validate_unresolved(file)?;
+    crate::cli::helpers::require_data_sources(&config, file)?;
     let mut extracted = config.clone();
 
     // Filter resources by tag/group/glob

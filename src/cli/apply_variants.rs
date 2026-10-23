@@ -354,7 +354,7 @@ pub(crate) fn cmd_refresh_only(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
 
     // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
     // tampered lock has destroyed the only evidence the tamper happened.

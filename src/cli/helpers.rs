@@ -11,7 +11,7 @@ pub(crate) use super::colors::{bold, color_enabled, dim, green, red, yellow, NO_
 /// Parse, validate, expand recipes AND resolve `data:` sources (forjar#660).
 ///
 /// THE loader for every command that reads `--file`. `{{data.x}}` only resolves
-/// after `resolve_data_sources` has run, and a reader that loaded the file by
+/// after `resolve_data_sources_with_base` has run, and a reader that loaded the file by
 /// hand skipped it (show, explain, check, output, apply --check, ...). Resolving
 /// by default makes the correct path the short one; a failing `data:` source is
 /// an `Err` here, never a config with the reference left in it.
@@ -40,6 +40,22 @@ pub(crate) fn load_resolved_value(
 /// (`UNRESOLVED_LOADER_ALLOWLIST`); a new caller fails that test.
 pub(crate) fn parse_and_validate_unresolved(file: &Path) -> Result<types::ForjarConfig, String> {
     parser::parse_and_validate(file)
+}
+
+/// For the readers that must keep the manifest UNRESOLVED (they emit, merge or
+/// time it, and resolving would bake `data:` output into what they write) but
+/// still must not succeed on a manifest whose `data:` source fails: resolve a
+/// COPY and throw the values away (forjar#660).
+pub(crate) fn require_data_sources(
+    config: &types::ForjarConfig,
+    file: &Path,
+) -> Result<(), String> {
+    crate::core::resolver::require_known_data_refs(config)?;
+    let mut probe = config.clone();
+    crate::core::resolver::resolve_data_sources_with_base(
+        &mut probe,
+        crate::core::resolver::manifest_dir(file),
+    )
 }
 
 /// Refuse to report on a state directory that is not there.

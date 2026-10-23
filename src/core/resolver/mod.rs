@@ -6,6 +6,7 @@
 
 mod dag;
 mod data;
+mod data_subst;
 pub(crate) mod functions;
 mod redaction;
 mod resource;
@@ -13,7 +14,11 @@ pub(crate) mod staleness;
 pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
-pub use data::{load_resolved_config, load_resolved_config_lenient, resolve_data_sources};
+pub use data::{
+    load_resolved_config, load_resolved_config_lenient, manifest_dir,
+    resolve_data_sources_with_base,
+};
+pub(crate) use data_subst::require_known_data_refs;
 pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{
     has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,

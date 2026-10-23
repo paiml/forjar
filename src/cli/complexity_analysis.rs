@@ -200,6 +200,7 @@ pub(crate) fn cmd_complexity(file: &Path, json: bool) -> Result<(), String> {
         c.includes = vec!["_".to_string(); include_count]; // restore count for scoring
         Ok(c)
     })?;
+    super::helpers::require_data_sources(&config, file)?;
     let report = compute_complexity(&config);
 
     if json {

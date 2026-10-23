@@ -131,7 +131,7 @@ pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(
     // A config that parses but whose `data:` sources fail is an error, not "no
     // config": reporting on it would read the manifest with nothing resolved.
     if let Ok(mut config) = parse_and_validate_unresolved(file) {
-        resolver::resolve_data_sources(&mut config)?;
+        resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
         if let Ok(execution_order) = resolver::build_execution_order(&config) {
             for rid in &execution_order {
                 if let Some(resource) = config.resources.get(rid) {

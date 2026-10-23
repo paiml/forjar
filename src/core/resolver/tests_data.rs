@@ -1,4 +1,4 @@
-use super::data::resolve_data_sources;
+use super::data::resolve_data_sources_with_base;
 use super::template::resolve_template_with_data;
 use super::*;
 
@@ -30,7 +30,7 @@ data:
         data_file.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     // Should have injected data_values[app_version]
     let val = config.data_values.get("app_version").unwrap();
@@ -53,7 +53,7 @@ data:
     value: "echo test-host"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("hostname").unwrap();
     assert_eq!(val.clone(), "test-host");
@@ -76,7 +76,7 @@ data:
     default: "fallback"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("missing").unwrap();
     assert_eq!(val.clone(), "fallback");
@@ -98,7 +98,7 @@ data:
     value: /nonexistent/file
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let result = resolve_data_sources(&mut config);
+    let result = resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("file error"));
 }
@@ -131,7 +131,7 @@ data:
         data_file.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     // Now resolve the template
     let resolved = resolve_template_with_data(
@@ -162,7 +162,7 @@ data:
     default: "fallback"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("fail").unwrap();
     assert_eq!(val.clone(), "fallback");
@@ -184,7 +184,7 @@ data:
     value: localhost
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("loopback").unwrap();
     let ip = val.clone();
@@ -229,7 +229,7 @@ data:
         state_dir.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("db_connection").unwrap();
     assert_eq!(val.clone(), "db.example.com");
@@ -252,7 +252,7 @@ data:
     default: "localhost:8080"
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("upstream").unwrap();
     assert_eq!(val.clone(), "localhost:8080");
@@ -274,7 +274,7 @@ data:
     state_dir: /nonexistent/state
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let result = resolve_data_sources(&mut config);
+    let result = resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("state lock not found"));
 }
@@ -311,7 +311,7 @@ data:
         state_dir.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
 
     let val = config.data_values.get("all_outputs").unwrap();
     let json_str = val.clone();
@@ -352,7 +352,7 @@ data:
         state_dir.display()
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
-    let result = resolve_data_sources(&mut config);
+    let result = resolve_data_sources_with_base(&mut config, std::path::Path::new("."));
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("none of requested outputs"));
 }
@@ -369,7 +369,7 @@ machines:
 resources: {}
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    resolve_data_sources(&mut config).unwrap();
+    resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
     // no data sources resolved, no params touched
     assert!(config.data_values.is_empty());
     assert!(!config.params.keys().any(|k| k.contains("__data__")));

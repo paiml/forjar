@@ -11,6 +11,8 @@ pub(crate) fn cmd_config_merge(
 ) -> Result<(), String> {
     let mut config_a = crate::cli::helpers::parse_and_validate_unresolved(file_a)?;
     let config_b = crate::cli::helpers::parse_and_validate_unresolved(file_b)?;
+    crate::cli::helpers::require_data_sources(&config_a, file_a)?;
+    crate::cli::helpers::require_data_sources(&config_b, file_b)?;
 
     // Detect machine collisions
     let machine_collisions: Vec<_> = config_b

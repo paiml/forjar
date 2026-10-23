@@ -358,7 +358,7 @@ fn load_apply_config(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
     Ok(config)
 }
 

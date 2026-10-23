@@ -193,7 +193,7 @@ fn check_drift_coverage_silent(config: &types::ForjarConfig) -> Result<(), Strin
             &config.data_values,
             &config.machines,
         )
-        .unwrap_or_else(|_| res.clone());
+        .map_err(|e| format!("template resolution failed: {e}"))?;
         if codegen::check_script(&resolved).is_err() {
             uncovered += 1;
         }

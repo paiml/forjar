@@ -370,8 +370,6 @@ fn print_all_outputs(
 }
 
 pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
-    use crate::core::state;
-
     let config = parse_and_validate(file)?;
 
     if config.outputs.is_empty() {
@@ -383,7 +381,13 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
         return Ok(());
     }
 
-    let resolved = state::resolve_outputs(&config).map_err(|e| e.into_message())?;
+    // The loader resolved `outputs:` exactly once (forjar#660). Resolving the
+    // already-resolved text again re-reads any `{{` a data value contained.
+    let resolved: indexmap::IndexMap<String, String> = config
+        .outputs
+        .iter()
+        .map(|(k, o)| (k.clone(), o.value.clone()))
+        .collect();
 
     if let Some(k) = key {
         match resolved.get(k) {
