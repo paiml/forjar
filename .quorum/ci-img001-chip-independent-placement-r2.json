@@ -1,0 +1,58 @@
+{
+  "kind": "code",
+  "issue": "forjar#770 (PMAT-770): r2 base question and chip-independent placement (IMG-001 unblock), rebuilt on origin/main 1a2fef64.",
+  "branch": "ci/img001-chip-independent-placement-r2",
+  "diff_sha256": "fe35ea38534c355c7117222446d19f613d1fd365",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-argon-high: a",
+      "agy gemini-3.8-flash-high: a",
+      "claude-haiku-4-5: a"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "C5: the current r2 branch can satisfy quorum-gate.sh as kind:code without touching a test file",
+      "C6 (planted control): r2 adds an ARCH_NEUTRAL allow-list to the fleet test (false: no test file is touched)",
+      "C7 (planted control): r2 removes clean-room from the runs-on labels as well as X64 (false: both stay clean-room)"
+    ]
+  },
+  "falsification": {
+    "test": "a_fleet_job_names_the_architecture_it_needs (the guard in tests/falsification_every_ci_job_runs_on_the_fleet/main.rs)",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet/main.rs",
+    "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
+    "reverted": false,
+    "observed_failure": "NOT MET: this branch touches no test file, so the gate's free-rider rule rejects it. Decision of the round is option (a): rebase onto origin/epic/forjar-img-001, where the ARCH_NEUTRAL guard lives, and add the guard-hole test there."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions self-hosted runners: omitting the arch label accepts either",
+      "GitLab Runner tags: an untagged job runs on any runner accepting untagged jobs",
+      "Buildkite agent tags and queues: a missing arch tag means any agent in the queue"
+    ],
+    "verdict": "No crux row is owed: the question is which branch to stack on, and stacking a PR on its epic is ordinary practice."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy sessions (gemini-4-argon-high, gemini-3.8-flash-high), print mode, plan mode, inline evidence, no tools, no bypass flag",
+    "rounds": 1,
+    "lanes_per_round": 2,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "Both returned VERDICT a (rebase onto the epic, retarget the PR); both refuted the gate claim C5 and both planted controls."
+  },
+  "pmat": {
+    "ticket": "PMAT-770",
+    "tools": ["analyze_vacuous_tests", "no Rust test is touched by this branch"],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [{"path":".quorum/evidence/772r2-agy.md","roles":["agy"],"blob":"c481ce95a47af3d86b4eb8ee4eda289a931ae09a","sha256":"7b825a0ed7a6436655cc83a9a0b0573ec78644dddaf3123c1747bb1f9b5c06d3","bytes":401},{"path":".quorum/evidence/772r2-claims.md","roles":["claims"],"blob":"00f342ec6407575b0c861bd3782fdb0aa9723949","sha256":"3160e598733c1572a52be42e3a397c4e7876c2823888f3b365e9c79255d1233f","bytes":3569},{"path":".quorum/evidence/772r2-judges.md","roles":["judges"],"blob":"53176905ac5297054d91534d8f6d2f88c503dc10","sha256":"8e17916cb63a57aea55a0772584adfe1b2ad8a06fe55dc93ad7c2f8024d5d26e","bytes":765},{"path":".quorum/evidence/772r2-lanes.md","roles":["lanes"],"blob":"7b9b90e04995e80fbeced1a6e70e2b2cdc5fde59","sha256":"f0812c4ccb9cc5b39867f489af0fbb5a139ffe6687a4533b6eb1424a02bc8384","bytes":949},{"path":".quorum/evidence/772r2-pmat.md","roles":["pmat"],"blob":"3e2f85fb8f966f5124d45d76f34a5eee3c3e3312","sha256":"6491220e3a0332cb8b4d5105d409f597747255d775a9b646a100ea20a0451095","bytes":161},{"path":".quorum/evidence/772r2-crux.md","roles":["crux"],"blob":"d9160922e35df46a40a81d05836cf8c2496b980b","sha256":"0d047f2c9058580acbdc3aa01ddee6894e52ec533107168ed0f26cd7654d7eb7","bytes":414}],
+    "total_bytes": 6259,
+    "claims_digest": ".quorum/evidence/772r2-claims.md"
+  }
+}
