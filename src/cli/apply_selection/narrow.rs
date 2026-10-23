@@ -51,7 +51,7 @@ pub(super) fn drop_negatives(
     verbose: bool,
 ) -> Result<Dropped, String> {
     let mut dropped: Dropped = Vec::new();
-    if let Some(p) = sel.exclude {
+    for p in sel.exclude_patterns() {
         let cause = format!("--exclude '{p}'");
         collect_dropped(config, closure, &mut dropped, &cause, |id| {
             crate::cli::helpers_state::simple_glob_match(p, id)

@@ -30,8 +30,9 @@ pub(super) fn apply_dry_run_output(
     state_dir: &Path,
     scope: &GateScope<'_>,
     json: bool,
+    seed_lockless: bool,
 ) -> Result<(), String> {
-    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope)?;
+    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope, seed_lockless)?;
     if json {
         let output = super::apply_dry_run::render_dry_run_json(&plan);
         println!(
