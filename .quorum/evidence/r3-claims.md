@@ -21,7 +21,7 @@ Measured against the merge-base with origin/main (the gate's fixed base); the la
    - evidence: grep of actions/cache in the five workflows shows one cache step per file and a restore-keys block only in coverage.yml, which the diff updates in lockstep with its key. The ARCH_NEUTRAL consumer of those keys is tests/falsification_every_ci_job_runs_on_the_fleet/main.rs:143.
 
 6. [argon,flash,opus5] Latent limitation, accepted as a follow-up: runner_legs emits one leg per matrix key rather than the product, so a runs-on built from two matrix expressions would be mis-judged.
-   - evidence: the loop at tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:228 builds legs per key. No workflow in the tree uses two matrix expressions in one runs-on (release.yml, nightly.yml and lint.yml use the single matrix.runner key), so no current job is mis-judged; severity low, ticket not required for merge.
+   - evidence: the loop beside tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:127 (runner_labels, whose per-leg sibling runner_legs sits below it) builds legs per key. No workflow in the tree uses two matrix expressions in one runs-on (release.yml, nightly.yml and lint.yml use the single matrix.runner key), so no current job is mis-judged; severity low, ticket not required for merge.
 
 ## REFUTED - 3 claims killed
 
@@ -29,7 +29,7 @@ Measured against the merge-base with origin/main (the gate's fixed base); the la
    - corrected: false by measurement. The check-runs of origin/main list the four clippy names exactly as the matrix.check strings spell them, so the pinned names are transcribed from reality rather than reconstructed. See tests/falsification_every_ci_job_runs_on_the_fleet/arch.rs:117 for the guard that stays separate from naming.
 
 2. [opus5] Medium: restore-keys is unchanged in four of the five cache files, so a cross-arch target restore could still happen.
-   - corrected: false. Only coverage.yml has a restore-keys block, and it was changed; bench, msrv, stress and lint each have a single key line that gained runner.arch. A restore cannot match an arch-less key that no step writes. Related code is tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:202.
+   - corrected: false. Only coverage.yml has a restore-keys block, and it was changed; bench, msrv, stress and lint each have a single key line that gained runner.arch. A restore cannot match an arch-less key that no step writes. Related code is tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:127.
 
 3. [opus5] Medium: runner_legs fails open when runs-on cannot be resolved, hiding an unpinned fleet job.
-   - corrected: not true of this tree. The only templated runs-on values are matrix.runner in lint.yml, release.yml and nightly.yml, each backed by a matrix that defines runner, so none resolves to an empty leg today. Recorded as hardening, not a defect of this change; see tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:228.
+   - corrected: not true of this tree. The only templated runs-on values are matrix.runner in lint.yml, release.yml and nightly.yml, each backed by a matrix that defines runner, so none resolves to an empty leg today. Recorded as hardening, not a defect of this change; see tests/falsification_every_ci_job_runs_on_the_fleet/scan.rs:127.
