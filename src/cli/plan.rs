@@ -31,7 +31,7 @@ pub(crate) fn cmd_plan(
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_unresolved(file)?;
 
     // FJ-333: Apply hypothetical param overrides
     apply_what_if_overrides(&mut config, what_if)?;
@@ -250,7 +250,7 @@ pub(crate) fn cmd_plan_compact(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let config = parse_validate_resolve(file)?;
+    let config = parse_and_validate(file)?;
     let execution_order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks, None);

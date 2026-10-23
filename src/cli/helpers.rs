@@ -8,17 +8,25 @@ use std::path::Path;
 #[allow(unused_imports)]
 pub(crate) use super::colors::{bold, color_enabled, dim, green, red, yellow, NO_COLOR};
 
-/// Parse, validate, and expand recipes in a forjar config file.
-pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
-    parser::parse_and_validate(file)
-}
-
 /// Parse, validate, expand recipes AND resolve `data:` sources (forjar#660).
 ///
-/// Use this, not [`parse_and_validate`], in any command that resolves
-/// templates: `{{data.x}}` only resolves after `resolve_data_sources` has run.
-pub(crate) fn parse_validate_resolve(file: &Path) -> Result<types::ForjarConfig, String> {
+/// THE loader for every command that reads `--file`. `{{data.x}}` only resolves
+/// after `resolve_data_sources` has run, and a reader that loaded the file by
+/// hand skipped it (show, explain, check, output, apply --check, ...). Resolving
+/// by default makes the correct path the short one; a failing `data:` source is
+/// an `Err` here, never a config with the reference left in it.
+pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
     crate::core::resolver::load_resolved_config(file)
+}
+
+/// Parse, validate and expand recipes WITHOUT resolving `data:` sources.
+///
+/// Only for a command that must not execute `data:` commands or that has to
+/// tell a parse failure apart from a resolve failure. Every caller is listed,
+/// with its reason, in `tests/falsification_660_every_reader_resolves_data.rs`
+/// (`UNRESOLVED_LOADER_ALLOWLIST`); a new caller fails that test.
+pub(crate) fn parse_and_validate_unresolved(file: &Path) -> Result<types::ForjarConfig, String> {
+    parser::parse_and_validate(file)
 }
 
 /// Refuse to report on a state directory that is not there.

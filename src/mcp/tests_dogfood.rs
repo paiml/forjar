@@ -10,6 +10,7 @@
 use pforge_runtime::Handler;
 
 use super::handlers::*;
+use super::handlers_drift::DriftHandler;
 use super::types::*;
 
 /// Two resources, one templated path, so a selector that reaches only the body
@@ -209,4 +210,71 @@ async fn graph_echoes_the_format_it_actually_rendered() {
         .expect("dot");
     assert_eq!(dot.format, "dot");
     assert!(dot.graph.starts_with("digraph forjar"), "{dot:?}");
+}
+
+// ── forjar#660: the MCP readers resolve `data:` sources too ──────────
+
+fn write_data_manifest(dir: &std::path::Path, command: &str) -> String {
+    let path = dir.join("forjar.yaml");
+    std::fs::write(
+        &path,
+        format!(
+            "version: \"1.0\"\nname: data-660\n\
+             machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\n\
+             resources:\n  cfg:\n    type: file\n    machine: m1\n    path: {}/out.txt\n    content: \"greeting={{{{data.greeting}}}}\"\n\
+             data:\n  greeting:\n    type: command\n    value: \"{command}\"\n",
+            dir.display()
+        ),
+    )
+    .expect("write manifest");
+    path.to_str().expect("utf-8 path").to_string()
+}
+
+#[tokio::test]
+async fn mcp_readers_fail_on_a_failing_data_source_and_resolve_a_good_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state").display().to_string();
+
+    let bad = write_data_manifest(dir.path(), "exit 3");
+    let e = PlanHandler
+        .handle(PlanInput {
+            path: bad.clone(),
+            state_dir: Some(state.clone()),
+            resource: None,
+            tag: None,
+        })
+        .await
+        .expect_err("forjar_plan must fail");
+    assert!(format!("{e:?}").contains("data source 'greeting'"), "{e:?}");
+    let e = ShowHandler
+        .handle(ShowInput {
+            path: bad.clone(),
+            resource: None,
+        })
+        .await
+        .expect_err("forjar_show must fail");
+    assert!(format!("{e:?}").contains("data source 'greeting'"), "{e:?}");
+    let e = DriftHandler
+        .handle(DriftInput {
+            path: bad,
+            state_dir: Some(state),
+            machine: None,
+        })
+        .await
+        .expect_err("forjar_drift must fail");
+    assert!(format!("{e:?}").contains("data source 'greeting'"), "{e:?}");
+
+    let good = write_data_manifest(dir.path(), "echo hello-from-data");
+    let out = ShowHandler
+        .handle(ShowInput {
+            path: good,
+            resource: None,
+        })
+        .await
+        .expect("show resolves a good data source");
+    assert!(
+        out.config.to_string().contains("hello-from-data"),
+        "{:?}",
+        out.config
+    );
 }

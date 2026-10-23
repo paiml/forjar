@@ -176,7 +176,7 @@ pub(super) fn apply_post_actions(
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {
-        let resolved = state::resolve_outputs(config);
+        let resolved = state::resolve_outputs(config).map_err(|e| e.into_message())?;
         state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
     }
 

@@ -1,6 +1,5 @@
 //! FJ-1383: Config merge — combine two forjar config files.
 
-use crate::core::parser;
 use std::path::Path;
 
 /// Merge two forjar config files. Detects resource/machine collisions.
@@ -10,8 +9,8 @@ pub(crate) fn cmd_config_merge(
     output: Option<&Path>,
     allow_collisions: bool,
 ) -> Result<(), String> {
-    let mut config_a = parser::parse_and_validate(file_a)?;
-    let config_b = parser::parse_and_validate(file_b)?;
+    let mut config_a = crate::cli::helpers::parse_and_validate_unresolved(file_a)?;
+    let config_b = crate::cli::helpers::parse_and_validate_unresolved(file_b)?;
 
     // Detect machine collisions
     let machine_collisions: Vec<_> = config_b

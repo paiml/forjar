@@ -179,7 +179,10 @@ fn compute_score(dims: &[usize; 7]) -> u32 {
 pub(crate) fn cmd_complexity(file: &Path, json: bool) -> Result<(), String> {
     // Try full parse first; if includes fail, parse without includes
     // so we can still analyze the base config's complexity.
-    let config = parse_and_validate(file).or_else(|_| {
+    // Unresolved on purpose: complexity counts STRUCTURE (resources, includes,
+    // depth) and renders no template, so running `data:` commands would only
+    // add a way to fail. The fallback below is for broken includes.
+    let config = parse_and_validate_unresolved(file).or_else(|_| {
         let raw =
             std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
         let mut c = crate::core::parser::parse_config(&raw)?;

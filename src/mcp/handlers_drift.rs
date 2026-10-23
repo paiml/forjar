@@ -47,7 +47,7 @@ use pforge_runtime::Handler;
 use std::path::{Path, PathBuf};
 
 use crate::core::types::StateLock;
-use crate::core::{parser, resolver, state, unattended};
+use crate::core::{resolver, state, unattended};
 use crate::tripwire::drift;
 
 use super::types::*;
@@ -194,7 +194,8 @@ impl Handler for DriftHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let parsed = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let parsed = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
         let (config, unattended_skipped) = unattended::sanitize_config(&parsed);
 
         // PMAT-197: resources MUST be template-resolved before they are

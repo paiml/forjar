@@ -348,7 +348,7 @@ pub(crate) fn cmd_refresh_only(
 ) -> Result<(), String> {
     super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
 
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_unresolved(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }

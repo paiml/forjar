@@ -3,7 +3,7 @@
 use pforge_runtime::Handler;
 use std::path::PathBuf;
 
-use crate::core::{parser, planner, quality_gate, resolver, state};
+use crate::core::{planner, quality_gate, resolver, state};
 
 use super::types::*;
 
@@ -38,7 +38,7 @@ impl Handler for ValidateHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
-        match parser::parse_and_validate(&path) {
+        match crate::core::resolver::load_resolved_config(&path) {
             Ok(config) => Ok(ValidateOutput {
                 valid: true,
                 resource_count: config.resources.len(),
@@ -65,7 +65,8 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let parsed = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let parsed = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         // forjar#372: this verb is published with `readOnlyHint: true`, which
         // `src/verb/spec.rs` defines as "safe for an agent to call unattended".
@@ -188,7 +189,8 @@ impl Handler for LintHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let config = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         let mut warnings = Vec::new();
 
@@ -292,7 +294,8 @@ impl Handler for GraphHandler {
             }
         };
 
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let config = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         let mut graph = String::new();
         match fmt {
@@ -338,8 +341,8 @@ impl Handler for ShowHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let mut config =
-            parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let mut config = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         // GH-212 (#208): resolve ONCE, before the fan-out. The whole-config
         // branch used to serialise the freshly parsed Config, so it answered

@@ -188,7 +188,7 @@ pub(crate) fn cmd_run(
     param_strings: &[String],
     json: bool,
 ) -> Result<(), String> {
-    let mut config = parse_validate_resolve(file)?;
+    let mut config = parse_and_validate(file)?;
 
     // `--param` is merged into `config.params`, which is what makes it visible
     // to BOTH spellings — `{{params.key}}` (resolver) and the bare `{{ key }}`

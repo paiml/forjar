@@ -61,9 +61,14 @@ fn analyze_resource(
     resource_id: &str,
     resource: &types::Resource,
     config: &types::ForjarConfig,
-) -> Option<ContractRow> {
-    let resolved =
-        resolver::resolve_resource_templates(resource, &config.params, &config.machines).ok()?;
+) -> Result<ContractRow, crate::core::error::ForjarError> {
+    // forjar#660: a resource whose templates do not resolve is an ERROR. `.ok()?`
+    // dropped it from the report, so the table was clean for a manifest that
+    // could not be rendered.
+    let resolved = resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+        .map_err(|e| {
+            crate::core::error::ForjarError::validation(format!("resource '{resource_id}': {e}"))
+        })?;
     let rtype = format!("{:?}", resource.resource_type).to_lowercase();
 
     let has_check = codegen::check_script(&resolved).is_ok();
@@ -77,7 +82,7 @@ fn analyze_resource(
         _ => ContractLevel::L0Unlabeled,
     };
 
-    Some(ContractRow {
+    Ok(ContractRow {
         resource_id: resource_id.to_string(),
         resource_type: rtype,
         level,
@@ -114,17 +119,20 @@ fn build_summary(rows: Vec<ContractRow>) -> ContractSummary {
 pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(), String> {
     let mut rows: Vec<ContractRow> = Vec::new();
 
+    // UNRESOLVED loader, on purpose: a parse failure is graceful here (the report
+    // still lists the codebase contracts) while a resolve failure must not be, and
+    // the resolving loader returns both as one `Err`.
     // Gracefully handle missing/empty config — still report codebase contracts.
     // A config that parses but whose `data:` sources fail is an error, not "no
     // config": reporting on it would read the manifest with nothing resolved.
-    if let Ok(mut config) = parse_and_validate(file) {
+    if let Ok(mut config) = parse_and_validate_unresolved(file) {
         resolver::resolve_data_sources(&mut config)?;
         if let Ok(execution_order) = resolver::build_execution_order(&config) {
             for rid in &execution_order {
                 if let Some(resource) = config.resources.get(rid) {
-                    if let Some(row) = analyze_resource(rid, resource, &config) {
-                        rows.push(row);
-                    }
+                    rows.push(
+                        analyze_resource(rid, resource, &config).map_err(|e| e.into_message())?,
+                    );
                 }
             }
         }

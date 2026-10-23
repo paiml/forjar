@@ -313,7 +313,9 @@ pub(crate) fn cmd_env_diff(
 /// FJ-277: Show resolved environment info.
 pub(crate) fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
     let parsed_config = if file.exists() {
-        parse_and_validate(file).ok()
+        // Unresolved on purpose: `env` reports the environment, and the config is
+        // optional context that no template is rendered into.
+        parse_and_validate_unresolved(file).ok()
     } else {
         None
     };

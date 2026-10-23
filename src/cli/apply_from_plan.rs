@@ -107,7 +107,7 @@ fn prepare_config(
     env_file: Option<&Path>,
     workspace: Option<&str>,
 ) -> Result<types::ForjarConfig, String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_unresolved(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }

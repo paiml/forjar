@@ -79,7 +79,7 @@ pub(crate) fn cmd_lock(
 ) -> Result<(), String> {
     use crate::core::planner::hash_desired_state;
 
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_unresolved(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }

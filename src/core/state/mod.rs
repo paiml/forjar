@@ -254,7 +254,13 @@ fn warn_on_stack_conflict(
 }
 
 /// FJ-1260: Resolve all output values from a config into a flat map.
-pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMap<String, String> {
+///
+/// forjar#660: a template that does not resolve is an ERROR. This used to fall
+/// back to the raw `{{...}}` text, so `forjar output` printed an unresolved
+/// reference with exit 0 and `apply` persisted it as the stack's output.
+pub fn resolve_outputs(
+    config: &super::types::ForjarConfig,
+) -> Result<indexmap::IndexMap<String, String>, super::error::ForjarError> {
     let mut resolved = indexmap::IndexMap::new();
     for (k, output) in &config.outputs {
         let value = super::resolver::resolve_template_with_secrets(
@@ -263,10 +269,10 @@ pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMa
             &config.machines,
             &config.secrets,
         )
-        .unwrap_or_else(|_| output.value.clone());
+        .map_err(|e| super::error::ForjarError::validation(format!("output '{k}': {e}")))?;
         resolved.insert(k.clone(), value);
     }
-    resolved
+    Ok(resolved)
 }
 
 /// FJ-1260 + FJ-3300: Persist resolved outputs into the global lock file.

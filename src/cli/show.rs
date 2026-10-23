@@ -32,7 +32,7 @@ pub(crate) fn cmd_show(
     resource_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let mut config = parse_validate_resolve(file)?;
+    let mut config = parse_and_validate(file)?;
 
     // Resolve templates in all resources
     for (_id, resource) in config.resources.iter_mut() {
@@ -137,7 +137,7 @@ fn explain_json(
 
 /// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
 pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<(), String> {
-    let config = parse_validate_resolve(file)?;
+    let config = parse_and_validate(file)?;
 
     let resource = config
         .resources
@@ -375,7 +375,7 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
         return Ok(());
     }
 
-    let resolved = state::resolve_outputs(&config);
+    let resolved = state::resolve_outputs(&config).map_err(|e| e.into_message())?;
 
     if let Some(k) = key {
         match resolved.get(k) {
