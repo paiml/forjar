@@ -5173,3 +5173,22 @@ roadmap:
   labels:
   - kind:code
   notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2).'
+- id: PMAT-740
+  github_issue: 740
+  item_type: task
+  title: 'forjar type: docker gains state: pulled (IMG-001 spike, task 2a)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-19T00:00:00Z
+  updated: 2026-10-19T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - type docker accepts state pulled; pulls the image and reports converged when present
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
