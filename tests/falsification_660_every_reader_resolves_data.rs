@@ -92,6 +92,11 @@ fn text(out: &Output) -> String {
 
 /// A manifest whose only template is a `data:` command source.
 fn fixture() -> tempfile::TempDir {
+    fixture_with("echo hello-from-data")
+}
+
+/// The same manifest with a `data:` command of the caller's choosing.
+fn fixture_with(data_command: &str) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("tmpdir");
     let target = dir.path().join("out.txt");
     let yaml = format!(
@@ -110,9 +115,10 @@ resources:
 data:
   greeting:
     type: command
-    value: "echo hello-from-data"
+    value: "{}"
 "#,
-        target.display()
+        target.display(),
+        data_command
     );
     std::fs::write(dir.path().join("forjar.yaml"), yaml).expect("write fixture");
     dir
@@ -242,3 +248,71 @@ fn skip_list_names_real_commands() {
         "NOT_RUN names commands the binary does not have: {stale:?}"
     );
 }
+
+/// A `data:` source that FAILS must fail the command too.
+///
+/// The happy-path test above only proves `unknown data source` stopped
+/// appearing. A reader that swallows the resolve error (`if let Ok(..)`)
+/// passes it: it exits 0 having read nothing. Here the source exits 3, so a
+/// command that renders templates must exit non-zero, and no command may exit
+/// 0 while printing a reference it never resolved.
+#[test]
+fn a_failing_data_source_fails_every_reader() {
+    let dir = fixture_with("exit 3");
+    let mut probed = Vec::new();
+    let mut swallowed = Vec::new();
+    let mut leaked = Vec::new();
+    for cmd in subcommands(dir.path()) {
+        if NOT_RUN.contains(&cmd.as_str())
+            || !text(&run(dir.path(), &[&cmd, "--help"])).contains("--file")
+        {
+            continue;
+        }
+        let mut args = vec![cmd.as_str(), "-f", "forjar.yaml"];
+        args.extend_from_slice(extra_args(&cmd));
+        let out = run(dir.path(), &args);
+        let ok = out.status.success();
+        if ok && text(&out).contains("{{data.") {
+            leaked.push(cmd.clone());
+        }
+        if ok && RENDERS_TEMPLATES.contains(&cmd.as_str()) {
+            swallowed.push(cmd.clone());
+        }
+        probed.push(cmd);
+    }
+    assert!(
+        probed.len() >= 40,
+        "only {} --file subcommands were probed",
+        probed.len()
+    );
+    for must in RENDERS_TEMPLATES {
+        assert!(
+            probed.iter().any(|c| c == must),
+            "`{must}` was never probed"
+        );
+    }
+    assert!(
+        swallowed.is_empty(),
+        "exited 0 with a failing `data:` source (resolve error swallowed): {swallowed:?}"
+    );
+    assert!(
+        leaked.is_empty(),
+        "exited 0 printing an unresolved `{{{{data.` reference: {leaked:?}"
+    );
+}
+
+/// Commands that read resources through the resolved config, so a failing
+/// `data:` source must stop them.
+const RENDERS_TEMPLATES: &[&str] = &[
+    "show",
+    "explain",
+    "check",
+    "test",
+    "codegen",
+    "plan",
+    "plan-compact",
+    "prove",
+    "contracts",
+    "drift",
+    "build",
+];

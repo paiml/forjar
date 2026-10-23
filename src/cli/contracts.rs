@@ -115,7 +115,10 @@ pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(
     let mut rows: Vec<ContractRow> = Vec::new();
 
     // Gracefully handle missing/empty config — still report codebase contracts.
-    if let Ok(config) = parse_validate_resolve(file) {
+    // A config that parses but whose `data:` sources fail is an error, not "no
+    // config": reporting on it would read the manifest with nothing resolved.
+    if let Ok(mut config) = parse_and_validate(file) {
+        resolver::resolve_data_sources(&mut config)?;
         if let Ok(execution_order) = resolver::build_execution_order(&config) {
             for rid in &execution_order {
                 if let Some(resource) = config.resources.get(rid) {
