@@ -1,0 +1,106 @@
+{
+  "issue": "#772 - chip-independent CI placement on the epic (r3): X64 dropped from dogfood-surface and ledger-replay, clippy check names pinned, runner.arch in cache keys, two arch-guard holes closed",
+  "base_commit": "9eac37cc6bbe9271986b9faa2666f5fe26fcb9d5",
+  "base": "origin/main",
+  "diff_sha256": "6a5d735c67fcae9d84111fc90b7ff9cf736790fe",
+  "recorded_at": "2026-10-23",
+  "quorum": {
+    "lanes": [
+      "argon-agy",
+      "flash-agy",
+      "sonnet5-claude",
+      "opus5-claude"
+    ],
+    "refuters_per_claim": 4,
+    "judges": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "High: the features-empty clippy legs would still be renamed by GitHub with an empty element, so required checks hang and #772 recurs.",
+      "Medium: restore-keys is unchanged in four of the five cache files, so a cross-arch target restore could still happen.",
+      "Medium: runner_legs fails open when runs-on cannot be resolved, hiding an unpinned fleet job."
+    ],
+    "note": "Lane review covered the r3 delta against origin/epic/forjar-img-001; the gate hash is over the diff against its fixed origin/main merge-base, which also contains the epic. The epic portion was reviewed in earlier rounds. agy ran (argon, flash); the gpt-oss seat returned 429 and was replaced by a Claude lane. Not degraded same-family."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions matrix naming - a job name is the joined matrix values unless name: pins it",
+      "Kubernetes node selectors - an arch label is a scheduling constraint judged per node pool",
+      "Bazel remote execution platforms - cache keys include the exec platform so cross-arch artifacts never alias"
+    ],
+    "verdict": "All three keep placement, naming and cache identity as separate explicit keys; this change does the same by pinning check names, leaving arch off neutral jobs, and adding runner.arch to cache keys."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "argon and flash agy lanes PASS and both agy judges PASS; gpt-oss seat 429, replaced by a Claude lane",
+    "unique_findings": [
+      "pinned check names keep X64 on legs that no longer pin it (intentional, commented)",
+      "runner_legs does not form a product across two matrix keys (latent, unused today)"
+    ]
+  },
+  "pmat": {
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "falsification": {
+    "test": "reverted ci.yml and proofs.yml to the epic (1 of 17 red); flattened unpinned_in and removed the hosted-runner branch of stale_in (2 of 17 red); restored, 17 of 17 green",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet/arch.rs",
+    "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
+    "reverted": true,
+    "observed_failure": "a_fleet_job_names_the_architecture_it_needs FAILED with the workflow hunks reverted; a_matrix_with_one_pinned_leg_and_one_unpinned_leg_fails and a_neutral_job_moved_to_a_hosted_runner_is_stale FAILED with the guard logic reverted"
+  },
+  "evidence": {
+    "claims_digest": ".quorum/evidence/r3-claims.md",
+    "total_bytes": 8731,
+    "files": [
+      {
+        "path": ".quorum/evidence/r3-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "bytes": 4706,
+        "sha256": "de790308a2e9efcc0452558e40ba9498eaaa6d7bdbf5f13fddb5fa184795e047",
+        "blob": "880c137bac93129113768fda7742aaf813b78aee"
+      },
+      {
+        "path": ".quorum/evidence/r3-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "bytes": 2175,
+        "sha256": "920c18d62d42718f9ff15460a6b4568287d91036725c3db69dd3dc4ceb12bfb0",
+        "blob": "00ffa8a8350455a32f50e949af84080a398b84f9"
+      },
+      {
+        "path": ".quorum/evidence/r3-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "bytes": 637,
+        "sha256": "8cef2502da1ca414c8f6806e42bc746f05a2d9a734a47c58b73251a4cc096d99",
+        "blob": "7b2e03dbbf921c87e5d57a33c02334ca978622e6"
+      },
+      {
+        "path": ".quorum/evidence/r3-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "bytes": 689,
+        "sha256": "78b9135a8d9e12bc5e4f493c8eb0c5a5ee87e2e22226e0c397147a899647bd1c",
+        "blob": "82f9c1fa1ab2fe2afcfeba190267b97156b025c4"
+      },
+      {
+        "path": ".quorum/evidence/r3-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "bytes": 524,
+        "sha256": "790f0874c1d0d6b4c1d44db680d17f67e5c9d6ad73f863f764031b46b533bc98",
+        "blob": "4ac46fdc01cedec091e11dafdfe428496ba8fba7"
+      }
+    ]
+  }
+}
