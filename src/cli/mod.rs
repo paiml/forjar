@@ -148,6 +148,7 @@ mod history;
 mod history_resource;
 pub mod image_android;
 pub mod image_cmd;
+mod image_iso_pack;
 mod impact_analysis;
 mod import_cmd;
 mod inert_flags;
