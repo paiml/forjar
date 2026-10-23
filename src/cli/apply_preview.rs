@@ -37,6 +37,7 @@ pub(super) fn print_generated_scripts(args: &ApplyArgs) -> Result<(), String> {
             id,
             resource,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         );

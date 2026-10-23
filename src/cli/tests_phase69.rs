@@ -20,19 +20,19 @@ mod tests {
     // FJ-813: validate --check-resource-tags
     #[test]
     fn test_fj813_check_resource_tags_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web, server]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web, server]\n");
         assert!(cmd_validate_check_resource_tags(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj813_check_resource_tags_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_tags(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj813_check_resource_tags_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web]\n");
         assert!(cmd_validate_check_resource_tags(f.path(), true).is_ok());
     }
 
@@ -58,19 +58,19 @@ mod tests {
     // FJ-815: graph --resource-fanin
     #[test]
     fn test_fj815_resource_fanin_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_fanin(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj815_resource_fanin_no_deps() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_fanin(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj815_resource_fanin_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
         assert!(cmd_graph_resource_fanin(f.path(), true).is_ok());
     }
 
@@ -207,19 +207,19 @@ mod tests {
     // FJ-817: validate --check-resource-state-consistency
     #[test]
     fn test_fj817_state_consistency_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  svc1:\n    machine: m1\n    type: service\n    name: nginx\n    state: running\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  svc1:\n    machine: m1\n    type: service\n    name: nginx\n    state: running\n");
         assert!(cmd_validate_check_resource_state_consistency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj817_state_consistency_no_state() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_state_consistency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj817_state_consistency_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
         assert!(cmd_validate_check_resource_state_consistency(f.path(), true).is_ok());
     }
 
@@ -245,19 +245,19 @@ mod tests {
     // FJ-819: graph --isolated-subgraphs
     #[test]
     fn test_fj819_isolated_subgraphs_connected() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_isolated_subgraphs(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj819_isolated_subgraphs_disconnected() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: a\n  b:\n    machine: m1\n    type: package\n    name: b\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: a\n  b:\n    machine: m1\n    type: package\n    name: b\n");
         assert!(cmd_graph_isolated_subgraphs(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj819_isolated_subgraphs_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: a\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: a\n");
         assert!(cmd_graph_isolated_subgraphs(f.path(), true).is_ok());
     }
 

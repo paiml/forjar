@@ -19,6 +19,19 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
     crate::core::resolver::load_resolved_config(file)
 }
 
+/// The resolved manifest as a generic YAML document, for the readers that walk
+/// `resources:` as a mapping (store pin / convert / purity). It goes through the
+/// resolving loader like every other reader (forjar#660); it is never a raw parse
+/// of the file.
+pub(crate) fn load_resolved_value(
+    file: &Path,
+) -> Result<serde_yaml_ng::Value, crate::core::error::ForjarError> {
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
+    serde_yaml_ng::to_value(&config).map_err(|e| {
+        crate::core::error::ForjarError::validation(format!("serialize {}: {e}", file.display()))
+    })
+}
+
 /// Parse, validate and expand recipes WITHOUT resolving `data:` sources.
 ///
 /// Only for a command that must not execute `data:` commands or that has to

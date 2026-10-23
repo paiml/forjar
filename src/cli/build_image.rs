@@ -260,6 +260,7 @@ fn cmd_build_sandbox(
             let resolved = crate::core::resolver::resolve_resource_templates(
                 r,
                 &config.params,
+                &config.data_values,
                 &config.machines,
             )
             .ok()?;

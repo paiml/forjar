@@ -36,7 +36,7 @@ resources:
     machine: web
 outputs:
   web_addr:
-    value: "{{machines.web.addr}}"
+    value: "{{machine.web.addr}}"
 "#;
 
     const CONFIG_MODIFIED: &str = r#"
@@ -68,9 +68,9 @@ resources:
     machine: db
 outputs:
   web_addr:
-    value: "{{machines.web.addr}}"
+    value: "{{machine.web.addr}}"
   db_addr:
-    value: "{{machines.db.addr}}"
+    value: "{{machine.db.addr}}"
 "#;
 
     #[test]

@@ -205,6 +205,7 @@ impl Handler for DriftHandler {
         let resolved = resolver::resolve_all(
             &config.resources,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         );

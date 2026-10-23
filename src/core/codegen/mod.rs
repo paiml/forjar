@@ -33,6 +33,7 @@ pub fn emit_for_cli(file: &std::path::Path, resource: &str, phase: &str) -> Resu
     let resolved = crate::core::resolver::resolve_all(
         &cfg.resources,
         &cfg.params,
+        &cfg.data_values,
         &cfg.machines,
         &cfg.secrets,
     );

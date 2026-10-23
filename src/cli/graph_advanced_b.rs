@@ -64,9 +64,7 @@ fn compute_max_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>
 
 /// FJ-815: Fan-in count per resource (how many depend on it).
 pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut fanin: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for name in config.resources.keys() {
         fanin.insert(name.clone(), 0);
@@ -97,9 +95,7 @@ pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), St
 
 /// FJ-819: Detect disconnected subgraphs in the DAG.
 pub(crate) fn cmd_graph_isolated_subgraphs(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let components = find_connected_components(&config);
     if json {
         let items: Vec<String> = components
@@ -185,9 +181,7 @@ pub(crate) fn cmd_graph_resource_dependency_critical_path_length(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let paths = compute_critical_path_lengths(&config);
     if json {
         let items: Vec<String> = paths
@@ -246,9 +240,7 @@ pub(crate) fn cmd_graph_resource_dependency_redundancy_score(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_redundancy_scores(&config);
     if json {
         let items: Vec<String> = scores

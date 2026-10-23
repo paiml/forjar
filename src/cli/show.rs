@@ -36,8 +36,12 @@ pub(crate) fn cmd_show(
 
     // Resolve templates in all resources
     for (_id, resource) in config.resources.iter_mut() {
-        *resource =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        *resource = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
     }
 
     if let Some(resource_id) = resource_filter {
@@ -148,8 +152,12 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         types::MachineTarget::Single(m) => m.clone(),
         types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
     };
-    let resolved =
-        resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+    let resolved = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )?;
 
     let transport_type = detect_transport_type(&machine_name, &config.machines);
 

@@ -42,13 +42,17 @@ fn check_paths_absolute(config: &types::ForjarConfig, errors: &mut Vec<String>) 
 /// Check that template vars resolve.
 fn check_templates_resolve(config: &types::ForjarConfig, errors: &mut Vec<String>) {
     // Inject data source defaults so {{data.*}} templates resolve during validation
-    let mut params = config.params.clone();
+    // (resolved values, when the loader ran, win over the declared defaults).
+    let params = &config.params;
+    let mut data = config.data_values.clone();
     for (key, ds) in &config.data {
-        let val = ds.default.clone().unwrap_or_default();
-        params.insert(format!("__data__{key}"), serde_yaml_ng::Value::String(val));
+        data.entry(key.clone())
+            .or_insert_with(|| ds.default.clone().unwrap_or_default());
     }
     for (id, resource) in &config.resources {
-        if let Err(e) = resolver::resolve_resource_templates(resource, &params, &config.machines) {
+        if let Err(e) =
+            resolver::resolve_resource_templates(resource, params, &data, &config.machines)
+        {
             errors.push(format!("{id}: template error: {e}"));
         }
     }
@@ -160,8 +164,12 @@ fn check_no_dependency_cycle(
 fn print_expanded_config(config: &types::ForjarConfig) -> Result<(), String> {
     let mut expanded = config.clone();
     for (_id, resource) in expanded.resources.iter_mut() {
-        *resource =
-            resolver::resolve_resource_templates(resource, &expanded.params, &expanded.machines)?;
+        *resource = resolver::resolve_resource_templates(
+            resource,
+            &expanded.params,
+            &expanded.data_values,
+            &expanded.machines,
+        )?;
     }
     let yaml =
         serde_yaml_ng::to_string(&expanded).map_err(|e| format!("serialization error: {e}"))?;

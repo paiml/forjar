@@ -33,9 +33,13 @@ fn parse() -> ForjarConfig {
 /// Current desired-state hash for resource `rid` in the parsed config.
 fn current_hash(config: &ForjarConfig, rid: &str) -> String {
     let r = config.resources.get(rid).expect("resource exists");
-    let resolved =
-        crate::core::resolver::resolve_resource_templates(r, &config.params, &config.machines)
-            .unwrap_or_else(|_| r.clone());
+    let resolved = crate::core::resolver::resolve_resource_templates(
+        r,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .unwrap_or_else(|_| r.clone());
     crate::core::planner::hash_desired_state(&resolved)
 }
 

@@ -1,5 +1,5 @@
 use super::data::resolve_data_sources;
-use super::template::resolve_template;
+use super::template::resolve_template_with_data;
 use super::*;
 
 #[test]
@@ -32,9 +32,9 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    // Should have injected __data__app_version
-    let val = config.params.get("__data__app_version").unwrap();
-    assert_eq!(yaml_value_to_string(val), "1.2.3");
+    // Should have injected data_values[app_version]
+    let val = config.data_values.get("app_version").unwrap();
+    assert_eq!(val.clone(), "1.2.3");
 }
 
 #[test]
@@ -55,8 +55,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__hostname").unwrap();
-    assert_eq!(yaml_value_to_string(val), "test-host");
+    let val = config.data_values.get("hostname").unwrap();
+    assert_eq!(val.clone(), "test-host");
 }
 
 #[test]
@@ -78,8 +78,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__missing").unwrap();
-    assert_eq!(yaml_value_to_string(val), "fallback");
+    let val = config.data_values.get("missing").unwrap();
+    assert_eq!(val.clone(), "fallback");
 }
 
 #[test]
@@ -134,7 +134,14 @@ data:
     resolve_data_sources(&mut config).unwrap();
 
     // Now resolve the template
-    let resolved = resolve_template("env={{data.env}}", &config.params, &config.machines).unwrap();
+    let resolved = resolve_template_with_data(
+        "env={{data.env}}",
+        &config.params,
+        &config.data_values,
+        &config.machines,
+        &SecretsConfig::default(),
+    )
+    .unwrap();
     assert_eq!(resolved, "env=production");
 }
 
@@ -157,8 +164,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__fail").unwrap();
-    assert_eq!(yaml_value_to_string(val), "fallback");
+    let val = config.data_values.get("fail").unwrap();
+    assert_eq!(val.clone(), "fallback");
 }
 
 #[test]
@@ -179,8 +186,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__loopback").unwrap();
-    let ip = yaml_value_to_string(val);
+    let val = config.data_values.get("loopback").unwrap();
+    let ip = val.clone();
     assert!(ip == "127.0.0.1" || ip == "::1", "got: {ip}");
 }
 
@@ -224,8 +231,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__db_connection").unwrap();
-    assert_eq!(yaml_value_to_string(val), "db.example.com");
+    let val = config.data_values.get("db_connection").unwrap();
+    assert_eq!(val.clone(), "db.example.com");
 }
 
 #[test]
@@ -247,8 +254,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__upstream").unwrap();
-    assert_eq!(yaml_value_to_string(val), "localhost:8080");
+    let val = config.data_values.get("upstream").unwrap();
+    assert_eq!(val.clone(), "localhost:8080");
 }
 
 #[test]
@@ -306,8 +313,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
 
-    let val = config.params.get("__data__all_outputs").unwrap();
-    let json_str = yaml_value_to_string(val);
+    let val = config.data_values.get("all_outputs").unwrap();
+    let json_str = val.clone();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
     assert_eq!(parsed["host"], "web.example.com");
     assert_eq!(parsed["port"], "443");
@@ -363,6 +370,7 @@ resources: {}
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     resolve_data_sources(&mut config).unwrap();
-    // No __data__ keys added
-    assert!(!config.params.keys().any(|k| k.starts_with("__data__")));
+    // no data sources resolved, no params touched
+    assert!(config.data_values.is_empty());
+    assert!(!config.params.keys().any(|k| k.contains("__data__")));
 }

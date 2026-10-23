@@ -27,19 +27,19 @@ mod tests {
     // FJ-909: validate --check-resource-dependency-completeness
     #[test]
     fn test_fj909_dependency_completeness_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_validate_check_resource_dependency_completeness(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj909_dependency_completeness_missing() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [nonexistent]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [nonexistent]\n");
         assert!(cmd_validate_check_resource_dependency_completeness(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj909_dependency_completeness_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_dependency_completeness(f.path(), true).is_ok());
     }
 
@@ -66,19 +66,19 @@ mod tests {
     // FJ-911: graph --resource-dependency-centrality-score
     #[test]
     fn test_fj911_centrality_score_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_dependency_centrality_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj911_centrality_score_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_dependency_centrality_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj911_centrality_score_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_dependency_centrality_score(f.path(), true).is_ok());
     }
 
@@ -214,19 +214,19 @@ mod tests {
     // FJ-913: validate --check-resource-state-coverage
     #[test]
     fn test_fj913_state_coverage_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
         assert!(cmd_validate_check_resource_state_coverage(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj913_state_coverage_missing() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_state_coverage(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj913_state_coverage_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_state_coverage(f.path(), true).is_ok());
     }
 
@@ -253,19 +253,19 @@ mod tests {
     // FJ-915: graph --resource-dependency-bridge-detection
     #[test]
     fn test_fj915_bridge_detection_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj915_bridge_detection_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj915_bridge_detection_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), true).is_ok());
     }
 

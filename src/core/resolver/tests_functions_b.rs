@@ -131,8 +131,8 @@ data:
 "#;
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     super::data::resolve_data_sources(&mut config).unwrap();
-    let val = config.params.get("__data__bad_dns").unwrap();
-    assert_eq!(yaml_value_to_string(val), "0.0.0.0");
+    let val = config.data_values.get("bad_dns").unwrap();
+    assert_eq!(val.clone(), "0.0.0.0");
 }
 
 #[test]
@@ -211,8 +211,8 @@ data:
     );
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     super::data::resolve_data_sources(&mut config).unwrap();
-    let val = config.params.get("__data__upstream").unwrap();
-    assert_eq!(yaml_value_to_string(val), "fallback-value");
+    let val = config.data_values.get("upstream").unwrap();
+    assert_eq!(val.clone(), "fallback-value");
 }
 
 #[test]
@@ -252,8 +252,8 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
     // Should succeed (staleness is a warning, not an error)
     super::data::resolve_data_sources(&mut config).unwrap();
-    let val = config.params.get("__data__upstream").unwrap();
-    assert_eq!(yaml_value_to_string(val), "web.example.com");
+    let val = config.data_values.get("upstream").unwrap();
+    assert_eq!(val.clone(), "web.example.com");
 }
 
 #[test]

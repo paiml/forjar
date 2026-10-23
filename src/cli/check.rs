@@ -435,8 +435,12 @@ pub(crate) fn cmd_check_selected(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
 
         let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
         else {

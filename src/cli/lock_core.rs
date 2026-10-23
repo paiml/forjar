@@ -93,6 +93,7 @@ pub(crate) fn cmd_lock(
     config.resources = resolver::resolve_all(
         &config.resources,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     );

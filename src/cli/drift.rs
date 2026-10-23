@@ -47,6 +47,7 @@ fn check_machine_drift(
             let resolved = crate::core::resolver::resolve_all(
                 &cfg.resources,
                 &cfg.params,
+                &cfg.data_values,
                 &cfg.machines,
                 &cfg.secrets,
             );

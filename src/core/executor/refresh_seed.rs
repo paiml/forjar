@@ -43,9 +43,12 @@ pub(super) fn check_passes_on(cfg: &ApplyConfig, resource: &Resource, machine_na
     if cfg.machine_filter.is_some_and(|f| machine_name != f) {
         return false;
     }
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)
-    else {
+    let Ok(resolved) = resolver::resolve_resource_templates(
+        resource,
+        &cfg.config.params,
+        &cfg.config.data_values,
+        &cfg.config.machines,
+    ) else {
         return false;
     };
     let Ok(script) = codegen::check_script(&resolved) else {

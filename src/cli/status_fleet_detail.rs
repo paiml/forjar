@@ -57,9 +57,7 @@ fn collect_drift_times(sd: &Path, targets: &[&String]) -> Vec<(String, String, S
 
 /// FJ-794: Show resource count per machine from config.
 pub(crate) fn cmd_status_machine_resource_count(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let counts = count_resources_per_machine(&config);
     if json {
         let items: Vec<String> = counts

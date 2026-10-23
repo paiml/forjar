@@ -200,6 +200,7 @@ fn refreshed_live_hash(
     let resolved = resolver::resolve_resource_templates_with_secrets(
         resource,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )

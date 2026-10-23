@@ -65,10 +65,15 @@ fn analyze_resource(
     // forjar#660: a resource whose templates do not resolve is an ERROR. `.ok()?`
     // dropped it from the report, so the table was clean for a manifest that
     // could not be rendered.
-    let resolved = resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-        .map_err(|e| {
-            crate::core::error::ForjarError::validation(format!("resource '{resource_id}': {e}"))
-        })?;
+    let resolved = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .map_err(|e| {
+        crate::core::error::ForjarError::validation(format!("resource '{resource_id}': {e}"))
+    })?;
     let rtype = format!("{:?}", resource.resource_type).to_lowercase();
 
     let has_check = codegen::check_script(&resolved).is_ok();

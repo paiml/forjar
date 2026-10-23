@@ -327,8 +327,12 @@ fn run_test_sweep(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
 
         let rtype = format!("{:?}", resource.resource_type).to_lowercase();
         // A resource type with no check script is skipped, never failed.

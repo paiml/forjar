@@ -191,6 +191,7 @@ pub(crate) fn cmd_destroy(
     let resolved = resolver::resolve_all(
         &config.resources,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     );

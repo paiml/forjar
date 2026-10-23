@@ -74,8 +74,13 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved =
-                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
+            let resolved = resolver::resolve_resource_templates(
+                r,
+                &config.params,
+                &config.data_values,
+                &config.machines,
+            )
+            .ok()?;
             let script = codegen::apply_script(&resolved).ok()?;
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
             let refs = [script.as_str()];
@@ -145,8 +150,13 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved =
-                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
+            let resolved = resolver::resolve_resource_templates(
+                r,
+                &config.params,
+                &config.data_values,
+                &config.machines,
+            )
+            .ok()?;
             let apply = codegen::apply_script(&resolved).ok()?;
             let check = codegen::check_script(&resolved).unwrap_or_default();
             let rtype = format!("{:?}", r.resource_type).to_lowercase();

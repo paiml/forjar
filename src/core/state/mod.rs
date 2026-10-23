@@ -263,9 +263,10 @@ pub fn resolve_outputs(
 ) -> Result<indexmap::IndexMap<String, String>, super::error::ForjarError> {
     let mut resolved = indexmap::IndexMap::new();
     for (k, output) in &config.outputs {
-        let value = super::resolver::resolve_template_with_secrets(
+        let value = super::resolver::resolve_template_with_data(
             &output.value,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         )

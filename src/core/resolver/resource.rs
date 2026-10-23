@@ -1,4 +1,4 @@
-use super::template::resolve_template_with_secrets;
+use super::template::resolve_template_with_data;
 use crate::core::types::*;
 use std::collections::HashMap;
 
@@ -6,12 +6,13 @@ use std::collections::HashMap;
 fn resolve_opt(
     field: &Option<String>,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<Option<String>, String> {
     match field {
-        Some(val) => Ok(Some(resolve_template_with_secrets(
-            val, params, machines, secrets,
+        Some(val) => Ok(Some(resolve_template_with_data(
+            val, params, data, machines, secrets,
         )?)),
         None => Ok(None),
     }
@@ -21,12 +22,13 @@ fn resolve_opt(
 fn resolve_list(
     items: &[String],
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<Vec<String>, String> {
     items
         .iter()
-        .map(|s| resolve_template_with_secrets(s, params, machines, secrets))
+        .map(|s| resolve_template_with_data(s, params, data, machines, secrets))
         .collect()
 }
 
@@ -34,34 +36,35 @@ fn resolve_list(
 fn resolve_core_fields(
     r: &mut Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<(), String> {
-    r.content = resolve_opt(&r.content, params, machines, secrets)?;
-    r.source = resolve_opt(&r.source, params, machines, secrets)?;
-    r.path = resolve_opt(&r.path, params, machines, secrets)?;
-    r.target = resolve_opt(&r.target, params, machines, secrets)?;
-    r.owner = resolve_opt(&r.owner, params, machines, secrets)?;
-    r.group = resolve_opt(&r.group, params, machines, secrets)?;
-    r.mode = resolve_opt(&r.mode, params, machines, secrets)?;
-    r.name = resolve_opt(&r.name, params, machines, secrets)?;
+    r.content = resolve_opt(&r.content, params, data, machines, secrets)?;
+    r.source = resolve_opt(&r.source, params, data, machines, secrets)?;
+    r.path = resolve_opt(&r.path, params, data, machines, secrets)?;
+    r.target = resolve_opt(&r.target, params, data, machines, secrets)?;
+    r.owner = resolve_opt(&r.owner, params, data, machines, secrets)?;
+    r.group = resolve_opt(&r.group, params, data, machines, secrets)?;
+    r.mode = resolve_opt(&r.mode, params, data, machines, secrets)?;
+    r.name = resolve_opt(&r.name, params, data, machines, secrets)?;
     // PMAT-560: `exec_start: {{params.eph_dir}}/run.sh` is the shape every
     // fleet manifest will use; an unresolved literal would never equal what
     // systemd reports and the parity check would be permanently divergent.
-    r.exec.exec_start = resolve_opt(&r.exec.exec_start, params, machines, secrets)?;
-    r.exec.exec_sha256 = resolve_opt(&r.exec.exec_sha256, params, machines, secrets)?;
-    r.options = resolve_opt(&r.options, params, machines, secrets)?;
-    r.command = resolve_opt(&r.command, params, machines, secrets)?;
-    r.schedule = resolve_opt(&r.schedule, params, machines, secrets)?;
-    r.port = resolve_opt(&r.port, params, machines, secrets)?;
-    r.protocol = resolve_opt(&r.protocol, params, machines, secrets)?;
-    r.action = resolve_opt(&r.action, params, machines, secrets)?;
-    r.from_addr = resolve_opt(&r.from_addr, params, machines, secrets)?;
-    r.image = resolve_opt(&r.image, params, machines, secrets)?;
-    r.shell = resolve_opt(&r.shell, params, machines, secrets)?;
-    r.home = resolve_opt(&r.home, params, machines, secrets)?;
-    r.restart = resolve_opt(&r.restart, params, machines, secrets)?;
-    r.version = resolve_opt(&r.version, params, machines, secrets)?;
+    r.exec.exec_start = resolve_opt(&r.exec.exec_start, params, data, machines, secrets)?;
+    r.exec.exec_sha256 = resolve_opt(&r.exec.exec_sha256, params, data, machines, secrets)?;
+    r.options = resolve_opt(&r.options, params, data, machines, secrets)?;
+    r.command = resolve_opt(&r.command, params, data, machines, secrets)?;
+    r.schedule = resolve_opt(&r.schedule, params, data, machines, secrets)?;
+    r.port = resolve_opt(&r.port, params, data, machines, secrets)?;
+    r.protocol = resolve_opt(&r.protocol, params, data, machines, secrets)?;
+    r.action = resolve_opt(&r.action, params, data, machines, secrets)?;
+    r.from_addr = resolve_opt(&r.from_addr, params, data, machines, secrets)?;
+    r.image = resolve_opt(&r.image, params, data, machines, secrets)?;
+    r.shell = resolve_opt(&r.shell, params, data, machines, secrets)?;
+    r.home = resolve_opt(&r.home, params, data, machines, secrets)?;
+    r.restart = resolve_opt(&r.restart, params, data, machines, secrets)?;
+    r.version = resolve_opt(&r.version, params, data, machines, secrets)?;
     Ok(())
 }
 
@@ -69,30 +72,31 @@ fn resolve_core_fields(
 fn resolve_extended_fields(
     r: &mut Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<(), String> {
     // PMAT-039: GPU / ML model fields
-    r.driver_version = resolve_opt(&r.driver_version, params, machines, secrets)?;
-    r.cuda_version = resolve_opt(&r.cuda_version, params, machines, secrets)?;
-    r.rocm_version = resolve_opt(&r.rocm_version, params, machines, secrets)?;
-    r.gpu_backend = resolve_opt(&r.gpu_backend, params, machines, secrets)?;
-    r.compute_mode = resolve_opt(&r.compute_mode, params, machines, secrets)?;
+    r.driver_version = resolve_opt(&r.driver_version, params, data, machines, secrets)?;
+    r.cuda_version = resolve_opt(&r.cuda_version, params, data, machines, secrets)?;
+    r.rocm_version = resolve_opt(&r.rocm_version, params, data, machines, secrets)?;
+    r.gpu_backend = resolve_opt(&r.gpu_backend, params, data, machines, secrets)?;
+    r.compute_mode = resolve_opt(&r.compute_mode, params, data, machines, secrets)?;
 
     // Task fields (ALB-027)
-    r.working_dir = resolve_opt(&r.working_dir, params, machines, secrets)?;
-    r.completion_check = resolve_opt(&r.completion_check, params, machines, secrets)?;
-    r.pre_apply = resolve_opt(&r.pre_apply, params, machines, secrets)?;
-    r.post_apply = resolve_opt(&r.post_apply, params, machines, secrets)?;
-    r.script = resolve_opt(&r.script, params, machines, secrets)?;
+    r.working_dir = resolve_opt(&r.working_dir, params, data, machines, secrets)?;
+    r.completion_check = resolve_opt(&r.completion_check, params, data, machines, secrets)?;
+    r.pre_apply = resolve_opt(&r.pre_apply, params, data, machines, secrets)?;
+    r.post_apply = resolve_opt(&r.post_apply, params, data, machines, secrets)?;
+    r.script = resolve_opt(&r.script, params, data, machines, secrets)?;
 
     // github_release fields
-    r.install_dir = resolve_opt(&r.install_dir, params, machines, secrets)?;
-    r.repo = resolve_opt(&r.repo, params, machines, secrets)?;
-    r.tag = resolve_opt(&r.tag, params, machines, secrets)?;
-    r.asset_pattern = resolve_opt(&r.asset_pattern, params, machines, secrets)?;
-    r.binary = resolve_opt(&r.binary, params, machines, secrets)?;
-    r.build_machine = resolve_opt(&r.build_machine, params, machines, secrets)?;
+    r.install_dir = resolve_opt(&r.install_dir, params, data, machines, secrets)?;
+    r.repo = resolve_opt(&r.repo, params, data, machines, secrets)?;
+    r.tag = resolve_opt(&r.tag, params, data, machines, secrets)?;
+    r.asset_pattern = resolve_opt(&r.asset_pattern, params, data, machines, secrets)?;
+    r.binary = resolve_opt(&r.binary, params, data, machines, secrets)?;
+    r.build_machine = resolve_opt(&r.build_machine, params, data, machines, secrets)?;
     Ok(())
 }
 
@@ -108,51 +112,52 @@ fn resolve_extended_fields(
 fn resolve_build_and_overlay_fields(
     r: &mut Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<(), String> {
     // Build I/O — consumed by the staleness probe and the executor.
-    r.task_inputs = resolve_list(&r.task_inputs, params, machines, secrets)?;
-    r.ambient_inputs = resolve_list(&r.ambient_inputs, params, machines, secrets)?;
-    r.scatter = resolve_list(&r.scatter, params, machines, secrets)?;
-    r.gather = resolve_list(&r.gather, params, machines, secrets)?;
-    r.cache_dir = resolve_opt(&r.cache_dir, params, machines, secrets)?;
-    r.when = resolve_opt(&r.when, params, machines, secrets)?;
+    r.task_inputs = resolve_list(&r.task_inputs, params, data, machines, secrets)?;
+    r.ambient_inputs = resolve_list(&r.ambient_inputs, params, data, machines, secrets)?;
+    r.scatter = resolve_list(&r.scatter, params, data, machines, secrets)?;
+    r.gather = resolve_list(&r.gather, params, data, machines, secrets)?;
+    r.cache_dir = resolve_opt(&r.cache_dir, params, data, machines, secrets)?;
+    r.when = resolve_opt(&r.when, params, data, machines, secrets)?;
 
     // Dispatch/selection strings consumed by the generators.
-    r.state = resolve_opt(&r.state, params, machines, secrets)?;
-    r.provider = resolve_opt(&r.provider, params, machines, secrets)?;
-    r.fs_type = resolve_opt(&r.fs_type, params, machines, secrets)?;
-    r.groups = resolve_list(&r.groups, params, machines, secrets)?;
-    r.ssh_authorized_keys = resolve_list(&r.ssh_authorized_keys, params, machines, secrets)?;
-    r.arch = resolve_list(&r.arch, params, machines, secrets)?;
+    r.state = resolve_opt(&r.state, params, data, machines, secrets)?;
+    r.provider = resolve_opt(&r.provider, params, data, machines, secrets)?;
+    r.fs_type = resolve_opt(&r.fs_type, params, data, machines, secrets)?;
+    r.groups = resolve_list(&r.groups, params, data, machines, secrets)?;
+    r.ssh_authorized_keys = resolve_list(&r.ssh_authorized_keys, params, data, machines, secrets)?;
+    r.arch = resolve_list(&r.arch, params, data, machines, secrets)?;
 
     // Model fields.
-    r.checksum = resolve_opt(&r.checksum, params, machines, secrets)?;
-    r.format = resolve_opt(&r.format, params, machines, secrets)?;
-    r.quantization = resolve_opt(&r.quantization, params, machines, secrets)?;
+    r.checksum = resolve_opt(&r.checksum, params, data, machines, secrets)?;
+    r.format = resolve_opt(&r.format, params, data, machines, secrets)?;
+    r.quantization = resolve_opt(&r.quantization, params, data, machines, secrets)?;
 
     // Isolation (pepita).
-    r.chroot_dir = resolve_opt(&r.chroot_dir, params, machines, secrets)?;
-    r.cpuset = resolve_opt(&r.cpuset, params, machines, secrets)?;
+    r.chroot_dir = resolve_opt(&r.chroot_dir, params, data, machines, secrets)?;
+    r.cpuset = resolve_opt(&r.cpuset, params, data, machines, secrets)?;
 
     // Fleet overlay — a templated overlay IP would otherwise be configured
     // literally on the interface.
-    r.overlay_ip = resolve_opt(&r.overlay_ip, params, machines, secrets)?;
-    r.overlay_iface = resolve_opt(&r.overlay_iface, params, machines, secrets)?;
-    r.overlay_lower = resolve_opt(&r.overlay_lower, params, machines, secrets)?;
-    r.overlay_upper = resolve_opt(&r.overlay_upper, params, machines, secrets)?;
-    r.overlay_work = resolve_opt(&r.overlay_work, params, machines, secrets)?;
-    r.overlay_merged = resolve_opt(&r.overlay_merged, params, machines, secrets)?;
+    r.overlay_ip = resolve_opt(&r.overlay_ip, params, data, machines, secrets)?;
+    r.overlay_iface = resolve_opt(&r.overlay_iface, params, data, machines, secrets)?;
+    r.overlay_lower = resolve_opt(&r.overlay_lower, params, data, machines, secrets)?;
+    r.overlay_upper = resolve_opt(&r.overlay_upper, params, data, machines, secrets)?;
+    r.overlay_work = resolve_opt(&r.overlay_work, params, data, machines, secrets)?;
+    r.overlay_merged = resolve_opt(&r.overlay_merged, params, data, machines, secrets)?;
 
     // Disk budget — the cadence, and every reclaim root. Roots are the paths
     // the reaper DELETES under, so an unexpanded `{{params.home}}` there is not
     // a cosmetic bug: the literal would simply never match and the rule would
     // silently reclaim nothing, which is the exact silent-inertness this
     // resource exists to prevent.
-    r.budget_schedule = resolve_opt(&r.budget_schedule, params, machines, secrets)?;
+    r.budget_schedule = resolve_opt(&r.budget_schedule, params, data, machines, secrets)?;
     for rule in &mut r.budget_reclaim {
-        rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
+        rule.roots = resolve_list(&rule.roots, params, data, machines, secrets)?;
     }
 
     // Backup sync. `backup_token` is the important one: it arrives as
@@ -160,20 +165,21 @@ fn resolve_build_and_overlay_fields(
     // rclone.conf as the literal credential. The sources matter for the same
     // reason budget roots do — an unexpanded path matches nothing, and a backup
     // that silently protects nothing is exactly what this resource replaced.
-    r.backup.remote = resolve_opt(&r.backup.remote, params, machines, secrets)?;
-    r.backup.remote_type = resolve_opt(&r.backup.remote_type, params, machines, secrets)?;
-    r.backup.schedule = resolve_opt(&r.backup.schedule, params, machines, secrets)?;
+    r.backup.remote = resolve_opt(&r.backup.remote, params, data, machines, secrets)?;
+    r.backup.remote_type = resolve_opt(&r.backup.remote_type, params, data, machines, secrets)?;
+    r.backup.schedule = resolve_opt(&r.backup.schedule, params, data, machines, secrets)?;
     // FJ-038: `{{params.home}}`-style templates must expand here too, or the
     // literal reaches the generated archive script and names a path that does
     // not exist.
-    r.archive.destination = resolve_opt(&r.archive.destination, params, machines, secrets)?;
-    r.archive.schedule = resolve_opt(&r.archive.schedule, params, machines, secrets)?;
-    r.archive.dirs = resolve_list(&r.archive.dirs, params, machines, secrets)?;
-    r.backup.bandwidth_limit = resolve_opt(&r.backup.bandwidth_limit, params, machines, secrets)?;
-    r.backup.token = resolve_opt(&r.backup.token, params, machines, secrets)?;
-    r.backup.source = resolve_list(&r.backup.source, params, machines, secrets)?;
+    r.archive.destination = resolve_opt(&r.archive.destination, params, data, machines, secrets)?;
+    r.archive.schedule = resolve_opt(&r.archive.schedule, params, data, machines, secrets)?;
+    r.archive.dirs = resolve_list(&r.archive.dirs, params, data, machines, secrets)?;
+    r.backup.bandwidth_limit =
+        resolve_opt(&r.backup.bandwidth_limit, params, data, machines, secrets)?;
+    r.backup.token = resolve_opt(&r.backup.token, params, data, machines, secrets)?;
+    r.backup.source = resolve_list(&r.backup.source, params, data, machines, secrets)?;
     for v in r.backup.remote_config.values_mut() {
-        *v = resolve_template_with_secrets(v, params, machines, secrets)?;
+        *v = resolve_template_with_data(v, params, data, machines, secrets)?;
     }
 
     Ok(())
@@ -187,13 +193,14 @@ fn resolve_build_and_overlay_fields(
 fn resolve_stages(
     r: &mut Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<(), String> {
     for stage in &mut r.stages {
-        stage.command = resolve_opt(&stage.command, params, machines, secrets)?;
-        stage.inputs = resolve_list(&stage.inputs, params, machines, secrets)?;
-        stage.outputs = resolve_list(&stage.outputs, params, machines, secrets)?;
+        stage.command = resolve_opt(&stage.command, params, data, machines, secrets)?;
+        stage.inputs = resolve_list(&stage.inputs, params, data, machines, secrets)?;
+        stage.outputs = resolve_list(&stage.outputs, params, data, machines, secrets)?;
     }
     Ok(())
 }
@@ -202,30 +209,38 @@ fn resolve_stages(
 pub fn resolve_resource_templates(
     resource: &Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
 ) -> Result<Resource, String> {
-    resolve_resource_templates_with_secrets(resource, params, machines, &SecretsConfig::default())
+    resolve_resource_templates_with_secrets(
+        resource,
+        params,
+        data,
+        machines,
+        &SecretsConfig::default(),
+    )
 }
 
 /// Resolve all templates with explicit secrets configuration.
 pub fn resolve_resource_templates_with_secrets(
     resource: &Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Result<Resource, String> {
     let mut r = resource.clone();
 
-    resolve_core_fields(&mut r, params, machines, secrets)?;
-    resolve_extended_fields(&mut r, params, machines, secrets)?;
-    resolve_build_and_overlay_fields(&mut r, params, machines, secrets)?;
-    resolve_stages(&mut r, params, machines, secrets)?;
+    resolve_core_fields(&mut r, params, data, machines, secrets)?;
+    resolve_extended_fields(&mut r, params, data, machines, secrets)?;
+    resolve_build_and_overlay_fields(&mut r, params, data, machines, secrets)?;
+    resolve_stages(&mut r, params, data, machines, secrets)?;
 
-    r.ports = resolve_list(&r.ports, params, machines, secrets)?;
-    r.environment = resolve_list(&r.environment, params, machines, secrets)?;
-    r.volumes = resolve_list(&r.volumes, params, machines, secrets)?;
-    r.packages = resolve_list(&r.packages, params, machines, secrets)?;
-    r.output_artifacts = resolve_list(&r.output_artifacts, params, machines, secrets)?;
+    r.ports = resolve_list(&r.ports, params, data, machines, secrets)?;
+    r.environment = resolve_list(&r.environment, params, data, machines, secrets)?;
+    r.volumes = resolve_list(&r.volumes, params, data, machines, secrets)?;
+    r.packages = resolve_list(&r.packages, params, data, machines, secrets)?;
+    r.output_artifacts = resolve_list(&r.output_artifacts, params, data, machines, secrets)?;
 
     Ok(r)
 }
@@ -253,15 +268,15 @@ pub fn resolve_or_fallback(
     resource_id: &str,
     resource: &Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> Resource {
-    resolve_resource_templates_with_secrets(resource, params, machines, secrets).unwrap_or_else(
-        |e| {
+    resolve_resource_templates_with_secrets(resource, params, data, machines, secrets)
+        .unwrap_or_else(|e| {
             eprintln!("warning: template resolution failed for {resource_id}: {e}");
             resource.clone()
-        },
-    )
+        })
 }
 
 /// Resolve every resource in a map. Use this anywhere a whole config is handed
@@ -269,6 +284,7 @@ pub fn resolve_or_fallback(
 pub fn resolve_all(
     resources: &indexmap::IndexMap<String, Resource>,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &indexmap::IndexMap<String, Machine>,
     secrets: &SecretsConfig,
 ) -> indexmap::IndexMap<String, Resource> {
@@ -277,7 +293,7 @@ pub fn resolve_all(
         .map(|(id, r)| {
             (
                 id.clone(),
-                resolve_or_fallback(id, r, params, machines, secrets),
+                resolve_or_fallback(id, r, params, data, machines, secrets),
             )
         })
         .collect()

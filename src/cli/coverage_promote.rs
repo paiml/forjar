@@ -37,9 +37,13 @@ fn resource_hashes(config: &ForjarConfig) -> HashMap<String, String> {
         .resources
         .iter()
         .map(|(rid, resource)| {
-            let resolved =
-                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                    .unwrap_or_else(|_| resource.clone());
+            let resolved = resolver::resolve_resource_templates(
+                resource,
+                &config.params,
+                &config.data_values,
+                &config.machines,
+            )
+            .unwrap_or_else(|_| resource.clone());
             (
                 rid.clone(),
                 crate::core::planner::hash_desired_state(&resolved),
@@ -143,8 +147,13 @@ pub(crate) fn coverage_entry(
     spec_resources: &HashSet<String>,
     records: &[TestCoverageRecord],
 ) -> ResourceCoverage {
-    let resolved = resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-        .unwrap_or_else(|_| resource.clone());
+    let resolved = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .unwrap_or_else(|_| resource.clone());
     let base = static_coverage_level(&resolved, spec_resources.contains(rid));
     let current_hash = crate::core::planner::hash_desired_state(&resolved);
     let level = promote_level(base, records, rid, &current_hash);

@@ -1,6 +1,5 @@
 //! FJ-1384: Stack extraction — split a config into sub-configs by tag/group/glob.
 
-use super::helpers::*;
 use super::helpers_state::simple_glob_match;
 use crate::core::types;
 use std::collections::HashSet;
@@ -19,7 +18,9 @@ pub(crate) fn cmd_extract(
         return Err("at least one of --tags, --group, or --glob is required".to_string());
     }
 
-    let config = parse_and_validate(file)?;
+    // forjar#660: the sub-config is a MANIFEST (templates and `data:` sources stay
+    // in it for the next run to resolve), so it is built from the unresolved one.
+    let config = crate::cli::helpers::parse_and_validate_unresolved(file)?;
     let mut extracted = config.clone();
 
     // Filter resources by tag/group/glob

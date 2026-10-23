@@ -337,6 +337,7 @@ fn collect_why_reasons(
             resource_id,
             resource,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         );

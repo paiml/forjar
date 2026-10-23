@@ -55,9 +55,7 @@ pub(super) fn collect_durations(sd: &Path, targets: &[&String]) -> Vec<(String, 
 
 /// FJ-764: Show which resources target each machine.
 pub(crate) fn cmd_status_machine_resource_map(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let map = build_machine_resource_map(&config);
     if json {
         let items: Vec<String> = map

@@ -283,6 +283,7 @@ fn prepare_wave_resources(
         let resolved = resolver::resolve_resource_templates_with_secrets(
             resource,
             &cfg.config.params,
+            &cfg.config.data_values,
             &cfg.config.machines,
             &cfg.config.secrets,
         )?;

@@ -111,6 +111,7 @@ fn resolve_task(
     crate::core::resolver::resolve_resource_templates_with_secrets(
         &staged,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )

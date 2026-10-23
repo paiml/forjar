@@ -6,9 +6,7 @@ use std::path::Path;
 
 /// FJ-943: Maximum outgoing edges per node (fan-out bottleneck).
 pub(crate) fn cmd_graph_resource_dependency_fan_out(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut fan_outs: Vec<(String, usize)> = config
         .resources
         .iter()
@@ -38,9 +36,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_out(file: &Path, json: bool) -> 
 }
 /// FJ-947: Maximum incoming edges per node (convergence point).
 pub(crate) fn cmd_graph_resource_dependency_fan_in(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut in_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for name in config.resources.keys() {
         in_counts.insert(name.clone(), 0);
@@ -78,9 +74,7 @@ pub(crate) fn cmd_graph_resource_dependency_path_count(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<&String> = config.resources.keys().collect();
     let n = names.len();
     let mut total_paths = 0usize;
@@ -118,9 +112,7 @@ pub(crate) fn cmd_graph_resource_dependency_articulation_points(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let n = names.len();
     let mut points = Vec::new();
@@ -222,9 +214,7 @@ pub(crate) fn cmd_graph_resource_dependency_longest_path(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let mut longest = 0usize;
     let mut longest_path: Vec<String> = Vec::new();
@@ -284,9 +274,7 @@ pub(crate) fn cmd_graph_resource_dependency_strongly_connected(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let sccs = tarjan_scc(&config, &names);
     let non_trivial: Vec<&Vec<String>> = sccs.iter().filter(|c| c.len() > 1).collect();

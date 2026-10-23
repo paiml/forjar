@@ -172,8 +172,9 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
 }
 
 /// FJ-223: Resolve all data sources and inject values into config params.
-/// Data sources are stored with `__data__` prefix to avoid conflicts.
+/// Values land in `config.data_values`, never in `params` (forjar#660).
 pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
+    let mut resolved = DataValues::new();
     for (key, source) in &config.data {
         let value = match source.source_type {
             DataSourceType::File => resolve_file_source(key, source),
@@ -182,19 +183,17 @@ pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
             DataSourceType::ForjarState => resolve_forjar_state_source(key, source),
         }?;
 
-        config.params.insert(
-            format!("__data__{key}"),
-            serde_yaml_ng::Value::String(value),
-        );
+        resolved.insert(key.clone(), value);
     }
+    config.data_values = resolved;
     Ok(())
 }
 
 /// forjar#660: the one load path for any command that resolves templates.
 ///
 /// `{{data.x}}` is not a template the resolver can answer from the file: it
-/// reads `__data__x` out of `params`, which only `resolve_data_sources`
-/// writes. That precondition used to be re-typed by hand in each subcommand
+/// reads it out of `config.data_values`, which only `resolve_data_sources`
+/// fills. That precondition used to be re-typed by hand in each subcommand
 /// (`plan`, `apply`, `lock`, …) and the ones that forgot it — `show`,
 /// `explain`, `check`, `test`, `codegen`, `build`, `drift`, `plan-compact`,
 /// `prove`, `run` —
@@ -202,7 +201,38 @@ pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
 /// on a config with the reference left unresolved. Parsing and resolving are
 /// now one call, so a reader cannot get the first without the second.
 pub fn load_resolved_config(path: &std::path::Path) -> Result<ForjarConfig, String> {
-    let mut config = crate::core::parser::parse_and_validate(path)?;
-    resolve_data_sources(&mut config)?;
+    let config = crate::core::parser::parse_and_validate(path)?;
+    finish_resolving(config).map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// The same resolution over a manifest that is only PARSED, not validated.
+///
+/// For the diagnostics (`graph *`, `status *`, `validate --check-*`, scoring)
+/// whose job is to report on a manifest that may be structurally wrong: they
+/// used to read it with a bare serde parse, and putting `validate_config` in
+/// front of them would turn "report what is wrong" into "refuse to look". They
+/// still resolve `data:` sources and `outputs:` (forjar#660); what they skip is
+/// the structural validation and recipe expansion they never had.
+pub fn load_resolved_config_lenient(
+    path: &std::path::Path,
+) -> Result<ForjarConfig, crate::core::error::ForjarError> {
+    let config = crate::core::parser::parse_config_file(path)
+        .map_err(crate::core::error::ForjarError::validation)?;
+    finish_resolving(config)
+}
+
+fn finish_resolving(
+    mut config: ForjarConfig,
+) -> Result<ForjarConfig, crate::core::error::ForjarError> {
+    resolve_data_sources(&mut config).map_err(crate::core::error::ForjarError::validation)?;
+    // `outputs:` carry templates too (`{{data.x}}`, `{{params.y}}`); resolving them
+    // here means every reader that prints the config prints resolved outputs, and
+    // a template that cannot resolve fails the load instead of printing raw.
+    let outputs = crate::core::state::resolve_outputs(&config)?;
+    for (k, v) in outputs {
+        if let Some(o) = config.outputs.get_mut(&k) {
+            o.value = v;
+        }
+    }
     Ok(config)
 }

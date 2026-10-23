@@ -144,9 +144,7 @@ fn print_depths_text(sorted: &[(String, usize)], max_depth: usize) {
 
 /// FJ-684: Identify tightly-coupled resource clusters
 pub(crate) fn cmd_graph_resource_clusters(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let adj = build_bidirectional_adj(&config);
     let clusters = find_connected_components(&config, &adj);
@@ -246,9 +244,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
 
 /// FJ-654: Find orphan resources (no dependents or dependencies)
 pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     // Build sets: who depends on whom, who is depended upon
     let mut has_deps: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -293,9 +289,7 @@ pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), 
 
 /// FJ-644: Show max dependency depth per resource
 pub(crate) fn cmd_graph_dependency_depth(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let depths = compute_dependency_depths(&config);
 

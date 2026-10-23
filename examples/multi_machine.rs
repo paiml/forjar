@@ -195,8 +195,13 @@ fn show_dependency_edges(config: &types::ForjarConfig) {
 fn show_template_resolution(config: &types::ForjarConfig) {
     println!("\n=== Template Resolution ===\n");
     let resource = &config.resources["app-config"];
-    let resolved = resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-        .expect("resolve failed");
+    let resolved = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .expect("resolve failed");
     println!("app-config content (resolved):");
     if let Some(ref content) = resolved.content {
         for line in content.lines() {
@@ -208,9 +213,13 @@ fn show_template_resolution(config: &types::ForjarConfig) {
 fn show_mount_script(config: &types::ForjarConfig) {
     println!("\n=== Generated Scripts (app-nfs-mount) ===\n");
     let mount_resource = &config.resources["app-nfs-mount"];
-    let mount_resolved =
-        resolver::resolve_resource_templates(mount_resource, &config.params, &config.machines)
-            .expect("resolve failed");
+    let mount_resolved = resolver::resolve_resource_templates(
+        mount_resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .expect("resolve failed");
     if let Ok(script) = codegen::apply_script(&mount_resolved) {
         println!("Apply script:");
         for line in script.lines() {

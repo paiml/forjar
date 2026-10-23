@@ -38,20 +38,28 @@ impl Handler for ValidateHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
-        match crate::core::resolver::load_resolved_config(&path) {
-            Ok(config) => Ok(ValidateOutput {
-                valid: true,
-                resource_count: config.resources.len(),
-                machine_count: config.machines.len(),
-                errors: vec![],
-            }),
-            Err(e) => Ok(ValidateOutput {
+        // A manifest that does not parse or validate is a RESULT of this tool
+        // (`valid: false` with the errors). A `data:` source that fails to
+        // resolve is not a statement about the manifest: it is a failure to
+        // evaluate it, and reporting it as `valid: false` inside an `Ok` (or, worse,
+        // `valid: true` without resolving) lets a caller read "checked" off a run
+        // that never rendered the templates. forjar#660.
+        if let Err(e) = crate::core::parser::parse_and_validate(&path) {
+            return Ok(ValidateOutput {
                 valid: false,
                 resource_count: 0,
                 machine_count: 0,
                 errors: e.lines().map(|l| l.to_string()).collect(),
-            }),
+            });
         }
+        let config = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
+        Ok(ValidateOutput {
+            valid: true,
+            resource_count: config.resources.len(),
+            machine_count: config.machines.len(),
+            errors: vec![],
+        })
     }
 }
 
@@ -352,13 +360,17 @@ impl Handler for ShowHandler {
         // tool advertises itself as "Show fully resolved config with templates
         // expanded"; both branches must honour that. Mirrors `cli::show`.
         for (id, resource) in config.resources.iter_mut() {
-            *resource =
-                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                    .map_err(|e| {
-                        pforge_runtime::Error::Handler(format!(
-                            "cannot resolve templates for resource '{id}': {e}"
-                        ))
-                    })?;
+            *resource = resolver::resolve_resource_templates(
+                resource,
+                &config.params,
+                &config.data_values,
+                &config.machines,
+            )
+            .map_err(|e| {
+                pforge_runtime::Error::Handler(format!(
+                    "cannot resolve templates for resource '{id}': {e}"
+                ))
+            })?;
         }
 
         let config_value = if let Some(ref r) = input.resource {
