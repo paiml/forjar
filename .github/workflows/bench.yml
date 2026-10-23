@@ -64,7 +64,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: bench-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          key: bench-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run benchmarks
         run: cargo bench --bench core_bench --bench store_bench --bench copia_bench -- --output-format bencher 2>/dev/null | tee bench-output.txt
