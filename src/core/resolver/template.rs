@@ -112,6 +112,7 @@ pub fn redact_secrets(text: &str, secret_values: &[String]) -> String {
 fn resolve_variable<'a>(
     key: &str,
     params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
     machines: &'a indexmap::IndexMap<String, Machine>,
     secrets_cfg: &SecretsConfig,
 ) -> Result<Cow<'a, str>, String> {
@@ -131,9 +132,8 @@ fn resolve_variable<'a>(
     }
     if let Some(data_key) = key.strip_prefix("data.") {
         return Ok(Cow::Owned(
-            params
-                .get(&format!("__data__{data_key}"))
-                .map(yaml_value_to_string)
+            data.get(data_key)
+                .cloned()
                 .ok_or_else(|| format!("unknown data source: {data_key}"))?,
         ));
     }
@@ -182,6 +182,17 @@ pub fn resolve_template_with_secrets(
     machines: &indexmap::IndexMap<String, Machine>,
     secrets_cfg: &SecretsConfig,
 ) -> Result<String, String> {
+    resolve_template_with_data(template, params, &DataValues::new(), machines, secrets_cfg)
+}
+
+/// Resolve all template variables, reading `{{data.x}}` from `data` (forjar#660).
+pub fn resolve_template_with_data(
+    template: &str,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    data: &DataValues,
+    machines: &indexmap::IndexMap<String, Machine>,
+    secrets_cfg: &SecretsConfig,
+) -> Result<String, String> {
     let mut result = template.to_string();
     let mut start = 0;
 
@@ -193,9 +204,15 @@ pub fn resolve_template_with_secrets(
         let close = open + close + 2;
         let key = result[open + 2..close - 2].trim();
 
-        let value = resolve_variable(key, params, machines, secrets_cfg)?;
+        let value = resolve_variable(key, params, data, machines, secrets_cfg)?;
         result.replace_range(open..close, &value);
         start = open + value.len();
+    }
+
+    // forjar#660: a data value was written into the config with its braces
+    // masked so this scan could not expand it a second time; unmask last.
+    if !data.is_empty() && result.contains([super::data_subst::OPEN, super::data_subst::CLOSE]) {
+        result = super::data_subst::decode_str(&result);
     }
 
     // forjar#674: an export shows an `ENC[age,...]` literal as written, the way

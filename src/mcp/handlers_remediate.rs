@@ -12,7 +12,6 @@
 
 use super::handlers::RemediateHandler;
 use super::types::*;
-use crate::core::parser;
 use crate::core::remediate::{self, Report};
 use pforge_runtime::Handler;
 use std::path::PathBuf;
@@ -31,7 +30,8 @@ impl Handler for RemediateHandler {
         let source = std::fs::read_to_string(&path).map_err(|e| {
             pforge_runtime::Error::Handler(format!("cannot read {}: {e}", path.display()))
         })?;
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let config = crate::core::resolver::load_resolved_config(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
         let report = remediate::remediate(&source, &config, input.policy_ids.as_deref())
             .map_err(pforge_runtime::Error::Handler)?;
         Ok(project(report))

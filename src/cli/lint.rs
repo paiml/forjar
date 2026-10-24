@@ -375,7 +375,7 @@ pub(crate) fn cmd_lint_with_writer(
     gate: &LintGateArgs,
     out: &mut dyn super::output::OutputWriter,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     // The gate is computed in core and rendered here. `forjar_lint` calls the
     // same function and renders the same strings, so the two surfaces cannot

@@ -1,5 +1,4 @@
 use super::graph_intelligence_ext2::*;
-use crate::core::types;
 use std::path::Path;
 
 pub(super) fn bfs_reachable(out: &[Vec<usize>], start: usize, n: usize) -> usize {
@@ -40,9 +39,7 @@ pub(crate) fn cmd_graph_resource_dependency_eccentricity_map(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let n = names.len();
     if n == 0 {
@@ -106,9 +103,7 @@ pub(crate) fn cmd_graph_resource_dependency_diameter_path(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let n = names.len();
     if n == 0 {
@@ -189,9 +184,7 @@ pub(crate) fn cmd_graph_resource_dependency_bridge_criticality(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<&str> = config.resources.keys().map(|s| s.as_str()).collect();
     let idx: std::collections::HashMap<&str, usize> =
         names.iter().enumerate().map(|(i, n)| (*n, i)).collect();
@@ -262,9 +255,7 @@ pub(crate) fn cmd_graph_resource_dependency_conditional_subgraph(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut conditional: Vec<(String, String)> = Vec::new();
     let mut unconditional: Vec<String> = Vec::new();
     for (name, res) in &config.resources {

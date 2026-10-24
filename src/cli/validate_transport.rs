@@ -17,9 +17,7 @@ pub(crate) fn cmd_validate_check_recipe_input_completeness(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_recipe_input_completeness_gaps(&config);
 
@@ -118,9 +116,7 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_content_duplicates(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_content_hash_duplicates(&config);
 
@@ -215,9 +211,7 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_machine_affinity_violations(&config);
 

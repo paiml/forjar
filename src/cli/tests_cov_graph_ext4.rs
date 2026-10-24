@@ -21,7 +21,7 @@ mod tests {
         f
     }
 
-    const CFG: &str = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    tags:\n      - web\n  cfg:\n    machine: m1\n    type: file\n    path: /etc/nginx.conf\n    content: hi\n    state: present\n    depends_on:\n      - pkg\n    tags:\n      - web\n  svc:\n    machine: m1\n    type: service\n    name: nginx\n    depends_on:\n      - cfg\n  remote:\n    machine: m2\n    type: package\n    name: redis\n    depends_on:\n      - pkg\n";
+    const CFG: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    tags:\n      - web\n  cfg:\n    machine: m1\n    type: file\n    path: /etc/nginx.conf\n    content: hi\n    state: present\n    depends_on:\n      - pkg\n    tags:\n      - web\n  svc:\n    machine: m1\n    type: service\n    name: nginx\n    depends_on:\n      - cfg\n  remote:\n    machine: m2\n    type: package\n    name: redis\n    depends_on:\n      - pkg\n";
 
     // graph_intelligence_ext
     #[test]

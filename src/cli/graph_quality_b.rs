@@ -83,9 +83,7 @@ pub(crate) fn cmd_graph_resource_dependency_cluster_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let clusters = find_clusters(&config);
     if json {
         print_cluster_json(&clusters);

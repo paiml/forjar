@@ -167,9 +167,7 @@ pub(crate) fn cmd_graph_resource_dependency_weight_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"dependency_weight_analysis\":[]}}");
@@ -289,9 +287,7 @@ pub(crate) fn cmd_graph_resource_dependency_topological_summary(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"topological_summary\":[]}}");

@@ -249,6 +249,13 @@ impl fmt::Display for ForjarError {
 
 impl std::error::Error for ForjarError {}
 
+/// Lets a `Result<_, String>` command `?` a typed loader (forjar#417 migration).
+impl From<ForjarError> for String {
+    fn from(e: ForjarError) -> Self {
+        e.into_message()
+    }
+}
+
 /// TEMPORARY. Classify an error that arrived as a bare `String`.
 ///
 /// Order matters: a class a producer DECLARED (via a marker) always wins over

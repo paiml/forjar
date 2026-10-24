@@ -327,8 +327,12 @@ fn run_test_sweep(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
 
         let rtype = format!("{:?}", resource.resource_type).to_lowercase();
         // A resource type with no check script is skipped, never failed.
@@ -388,7 +392,7 @@ pub(crate) fn cmd_test(
     use std::time::Instant;
     let t0 = Instant::now();
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     if verbose {
         eprintln!(

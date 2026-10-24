@@ -47,6 +47,7 @@ fn check_machine_drift(
             let resolved = crate::core::resolver::resolve_all(
                 &cfg.resources,
                 &cfg.params,
+                &cfg.data_values,
                 &cfg.machines,
                 &cfg.secrets,
             );
@@ -183,7 +184,7 @@ fn load_drift_config(
     if !config_path.exists() {
         return Ok(None);
     }
-    let mut cfg = parse_and_validate(config_path)?;
+    let mut cfg = parse_and_validate_for_render(config_path)?;
     if let Some(path) = env_file {
         load_env_params(&mut cfg, path)?;
     }

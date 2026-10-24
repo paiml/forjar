@@ -376,6 +376,7 @@ mod tests {
             "t",
             &raw,
             &params,
+            &Default::default(),
             &indexmap::IndexMap::new(),
             &types::SecretsConfig::default(),
         );

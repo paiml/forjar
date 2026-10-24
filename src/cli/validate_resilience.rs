@@ -30,9 +30,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hook_coverage(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_lifecycle_hook_coverage_gaps(&config);
 
@@ -97,9 +95,7 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation_age(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_secret_rotation_warnings(&config);
 
@@ -147,9 +143,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_chain_depth(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let violations = find_depth_limit_violations(&config);
 

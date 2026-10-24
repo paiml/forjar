@@ -52,9 +52,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_isolation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_dependency_isolation_warnings(&cfg);
 
@@ -152,9 +150,7 @@ pub(crate) fn cmd_validate_check_resource_tag_value_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_tag_consistency_warnings(&cfg);
 
@@ -226,9 +222,7 @@ pub(crate) fn cmd_validate_check_resource_machine_distribution_balance(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let (per_machine, balanced) = compute_distribution_balance(&cfg);
 

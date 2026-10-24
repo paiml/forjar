@@ -9,9 +9,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_ordering(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_ordering_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -53,9 +51,7 @@ pub(crate) fn cmd_validate_check_resource_tag_completeness(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let missing = find_missing_tags(&config);
     if json {
         let items: Vec<String> = missing
@@ -90,9 +86,7 @@ pub(crate) fn cmd_validate_check_resource_naming_standards(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_naming_violations(&config);
     if json {
         let items: Vec<String> = violations
@@ -133,9 +127,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_symmetry(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let asymmetries = find_dependency_asymmetries(&config);
     if json {
         let items: Vec<String> = asymmetries
@@ -175,9 +167,7 @@ pub(crate) fn cmd_validate_check_resource_circular_alias(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let cycles = find_circular_aliases(&config);
     if json {
         let items: Vec<String> = cycles
@@ -216,9 +206,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_depth_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let limit = 5;
     let violations = find_depth_limit_violations(&config, limit);
     if json {
@@ -286,9 +274,7 @@ pub(crate) fn cmd_validate_check_resource_unused_params(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let defined: Vec<String> = config.params.keys().cloned().collect();
     let mut used = std::collections::HashSet::new();
     for res in config.resources.values() {
@@ -320,9 +306,7 @@ pub(crate) fn cmd_validate_check_resource_content_hash_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut mismatches = Vec::new();
     for (name, res) in &config.resources {
         if let (Some(ref declared), Some(ref actual_content)) = (&res.checksum, &res.content) {
