@@ -171,7 +171,11 @@ fn record_one(
                 ctx.timeout_secs,
             ) {
                 Some(verdict) => {
-                    let error = super::failure_text::verify_failure(&site, out, &verdict);
+                    // PMAT-5880: the excerpt copies stdout/stderr into the lock, events,
+                    // last-apply and stderr, so it takes the same redaction as the transcript.
+                    let error = executed
+                        .transcript
+                        .redact(&super::failure_text::verify_failure(&site, out, &verdict));
                     fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
                 }
                 None => converge(
@@ -186,7 +190,10 @@ fn record_one(
             }
         }
         Ok(out) => {
-            let error = super::failure_text::exec_failure(&site, out);
+            // PMAT-5880: same redaction as the transcript (see verify_failure above).
+            let error = executed
+                .transcript
+                .redact(&super::failure_text::exec_failure(&site, out));
             let outcome = fail(cfg, rec, ctx, trace_session, machine_name, counters, &error);
             update_run_meta(
                 ctx,
