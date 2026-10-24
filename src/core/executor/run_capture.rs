@@ -202,7 +202,8 @@ impl Transcript {
         }
     }
 
-    fn redact(&self, text: &str) -> String {
+    /// PMAT-5880: also the policy for a failure EXCERPT, not only a transcript.
+    pub(super) fn redact(&self, text: &str) -> String {
         crate::core::resolver::redact_transcript(text, &self.secrets)
     }
 }
