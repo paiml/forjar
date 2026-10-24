@@ -224,7 +224,23 @@ pub fn resolve_data_sources_with_base(
 /// without the second.
 pub fn load_resolved_config(path: &Path) -> Result<ForjarConfig, String> {
     let config = crate::core::parser::parse_and_validate(path)?;
-    finish_resolving(config, manifest_dir(path))
+    finish_resolving(config, manifest_dir(path), true)
+        .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// The same load for a command that changes the params first (`--env-file`,
+/// `--workspace`, `--what-if`) and renders its own `outputs:` later (plan, apply,
+/// lock, refresh). `prepare` runs after parse and validation and BEFORE any
+/// `data:` source runs, so a source can template those params; `outputs:` have
+/// their `{{data.x}}` written in but are left for `state::resolve_outputs` to
+/// resolve once, when they are persisted.
+pub fn load_resolved_config_with(
+    path: &Path,
+    prepare: impl FnOnce(&mut ForjarConfig) -> Result<(), String>,
+) -> Result<ForjarConfig, String> {
+    let mut config = crate::core::parser::parse_and_validate(path)?;
+    prepare(&mut config)?;
+    finish_resolving(config, manifest_dir(path), false)
         .map_err(crate::core::error::ForjarError::into_message)
 }
 
@@ -241,32 +257,34 @@ pub fn load_resolved_config_lenient(
 ) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     let config = crate::core::parser::parse_config_file(path)
         .map_err(crate::core::error::ForjarError::validation)?;
-    finish_resolving(config, manifest_dir(path))
+    finish_resolving(config, manifest_dir(path), true)
 }
 
-/// Resolve the `data:` sources AND write their values into every string of
-/// `resources`, `params` and `outputs` (forjar#660).
+/// Resolve the `data:` sources AND write their values into EVERY string of the
+/// config (forjar#660), whichever section it is in.
 ///
-/// `pin`, `sbom`, `compare` and the tag/version diagnostics read those fields
-/// straight off the loaded config, so a `version: "{{data.v}}"` that was only
-/// resolved on the render path hashed, listed and compared as the literal
-/// reference. Outputs are resolved exactly once, here; a reader must not run
-/// `state::resolve_outputs` over them again.
+/// `pin`, `sbom`, `compare`, `-t`/`-g` and the tag/version diagnostics read
+/// those fields straight off the loaded config, so a `version: "{{data.v}}"`
+/// that was only resolved on the render path hashed, listed and compared as the
+/// literal reference. With `outputs` true they are resolved here exactly once
+/// and a reader must not run `state::resolve_outputs` over them again.
 pub(crate) fn finish_resolving(
     mut config: ForjarConfig,
     base: &Path,
+    outputs: bool,
 ) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     resolve_data_sources_with_base(&mut config, base)
         .map_err(crate::core::error::ForjarError::validation)?;
-    super::data_subst::require_known_data_refs(&config)
-        .map_err(crate::core::error::ForjarError::validation)?;
     super::data_subst::substitute_data_refs(&mut config)
         .map_err(crate::core::error::ForjarError::validation)?;
+    if !outputs {
+        return Ok(config);
+    }
     // `outputs:` carry templates too (`{{data.x}}`, `{{params.y}}`); resolving them
     // here means every reader that prints the config prints resolved outputs, and
     // a template that cannot resolve fails the load instead of printing raw.
-    let outputs = crate::core::state::resolve_outputs(&config)?;
-    for (k, v) in outputs {
+    let resolved = crate::core::state::resolve_outputs(&config)?;
+    for (k, v) in resolved {
         if let Some(o) = config.outputs.get_mut(&k) {
             o.value = v;
         }

@@ -15,9 +15,10 @@ pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::{
-    load_resolved_config, load_resolved_config_lenient, manifest_dir,
+    load_resolved_config, load_resolved_config_lenient, load_resolved_config_with, manifest_dir,
     resolve_data_sources_with_base,
 };
+pub use data_subst::decode_literals;
 pub(crate) use data_subst::require_known_data_refs;
 pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{

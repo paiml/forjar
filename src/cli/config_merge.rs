@@ -2,6 +2,27 @@
 
 use std::path::Path;
 
+/// Keys declared under `data:` in both files with different definitions.
+fn conflicting_data_keys(
+    a: &crate::core::types::ForjarConfig,
+    b: &crate::core::types::ForjarConfig,
+) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for (key, source_b) in &b.data {
+        let Some(source_a) = a.data.get(key) else {
+            continue;
+        };
+        let (va, vb) = (
+            serde_yaml_ng::to_value(source_a).map_err(|e| format!("data '{key}': {e}"))?,
+            serde_yaml_ng::to_value(source_b).map_err(|e| format!("data '{key}': {e}"))?,
+        );
+        if va != vb {
+            out.push(key.clone());
+        }
+    }
+    Ok(out)
+}
+
 /// Merge two forjar config files. Detects resource/machine collisions.
 pub(crate) fn cmd_config_merge(
     file_a: &Path,
@@ -42,12 +63,27 @@ pub(crate) fn cmd_config_merge(
         ));
     }
 
+    // forjar#660: `data:` merges too, or every `{{data.x}}` of the second file is
+    // unknown in the merged one. Two different definitions of one key cannot both
+    // be kept, and `--allow-collisions` does not choose between them: an error.
+    let data_conflicts = conflicting_data_keys(&config_a, &config_b)?;
+    if let Some(key) = data_conflicts.first() {
+        return Err(format!(
+            "data source '{key}' is defined differently in {} and {}",
+            file_a.display(),
+            file_b.display()
+        ));
+    }
+
     // Merge (right takes precedence on collisions)
     for (k, v) in config_b.machines {
         config_a.machines.insert(k, v);
     }
     for (k, v) in config_b.resources {
         config_a.resources.insert(k, v);
+    }
+    for (k, v) in config_b.data {
+        config_a.data.entry(k).or_insert(v);
     }
     for (k, v) in config_b.params {
         config_a.params.entry(k).or_insert(v);

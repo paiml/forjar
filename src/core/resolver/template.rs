@@ -209,6 +209,12 @@ pub fn resolve_template_with_data(
         start = open + value.len();
     }
 
+    // forjar#660: a data value was written into the config with its braces
+    // masked so this scan could not expand it a second time; unmask last.
+    if result.contains(super::data_subst::LITERAL_BRACE) {
+        result = super::data_subst::decode_str(&result);
+    }
+
     // forjar#674: an export shows an `ENC[age,...]` literal as written, the way
     // it shows `{{secrets.<key>}}` by name; it is never decrypted into a script.
     if secrets_cfg.provider.as_deref() == Some(EXPORT_REDACTED_SECRET_PROVIDER) {

@@ -214,12 +214,7 @@ const RAW_PARSE_ALLOWLIST: &[(&str, &str)] = &[
 const UNRESOLVED_LOADER_ALLOWLIST: &[(&str, &str)] = &[
     ("src/cli/helpers.rs:parse_and_validate_unresolved", "defines the unresolved loader the rows below call"),
     ("src/mcp/handlers.rs:handle", "ValidateHandler parses unresolved FIRST only to tell an invalid manifest (a `valid: false` result) from a failing data: source (an error); it then calls the resolving loader"),
-    ("src/cli/apply.rs:load_apply_config", "injects --env-file / --workspace params BEFORE resolving, so data: commands can template them; resolves with the manifest's base dir right after"),
-    ("src/cli/apply_variants.rs:cmd_refresh_only", "same ordering as apply: params first, then data: sources with the manifest's base dir"),
-    ("src/cli/apply_from_plan.rs:prepare_config", "same ordering: must rebuild exactly the config `plan` sealed"),
-    ("src/cli/plan.rs:cmd_plan", "applies --what-if / env-file / workspace overrides before resolving data: with the manifest's base dir"),
-    ("src/cli/lock_core.rs:cmd_lock", "same ordering as apply: params first, then data: with the manifest's base dir"),
-    ("src/cli/contracts.rs:cmd_contracts", "a parse failure is graceful (codebase contracts still print) while a data: failure is an error; data: sources are resolved right after"),
+    ("src/cli/contracts.rs:load_for_contracts", "an UNPARSABLE manifest is graceful (codebase contracts still print); one that parses is then loaded through the resolving loader and its failure is returned"),
     ("src/cli/complexity_analysis.rs:cmd_complexity", "counts structure on the unresolved manifest; a failing data: source still fails it via helpers::require_data_sources"),
     ("src/cli/extract.rs:cmd_extract", "EMITS a sub-manifest: templates and `data:` sources stay in it; a failing source still fails it via helpers::require_data_sources"),
     ("src/cli/config_merge.rs:cmd_config_merge", "WRITES the merged manifest: resolving would bake data: output into the file; a failing source still fails it via helpers::require_data_sources"),
@@ -230,7 +225,6 @@ const UNRESOLVED_LOADER_ALLOWLIST: &[(&str, &str)] = &[
 ];
 
 const SWALLOW_ALLOWLIST: &[(&str, &str)] = &[
-    ("src/cli/contracts.rs:cmd_contracts", "an unparsable manifest is not fatal for `contracts` (codebase contracts still print); the data: resolve right after it IS an error"),
     ("src/cli/apply_variants.rs:refreshed_live_hash", "the config was loaded through the resolving loader, which already failed on an unknown reference; the fallback only covers a secrets-provider error, and the refresh query then runs the raw resource"),
     ("src/core/resolver/resource.rs:resolve_or_fallback", "documented fallback: warns on stderr and keeps the raw resource for destroy/refresh scripts"),
     ("src/cli/print_helpers.rs:print_plan_change", "display only: falls back to the raw text for a resource the planner already reported as unresolvable"),

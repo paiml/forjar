@@ -349,12 +349,13 @@ pub(crate) fn cmd_refresh_only(
 ) -> Result<(), String> {
     super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
 
-    let mut config = parse_and_validate_unresolved(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
+    let config = resolver::load_resolved_config_with(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
     // tampered lock has destroyed the only evidence the tamper happened.

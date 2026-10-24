@@ -79,12 +79,13 @@ pub(crate) fn cmd_lock(
 ) -> Result<(), String> {
     use crate::core::planner::hash_desired_state;
 
-    let mut config = parse_and_validate_unresolved(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
+    let mut config = resolver::load_resolved_config_with(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // FJ-2733: write apply's hash universe. `executor::record_success` hashes
     // the RESOLVED resource; hashing the raw one here made `lock --verify`,

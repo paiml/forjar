@@ -26,7 +26,10 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
 pub(crate) fn load_resolved_value(
     file: &Path,
 ) -> Result<serde_yaml_ng::Value, crate::core::error::ForjarError> {
-    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
+    let mut config = crate::core::resolver::load_resolved_config_lenient(file)?;
+    // A reader that prints or hashes strings shows a data value as written.
+    crate::core::resolver::decode_literals(&mut config)
+        .map_err(crate::core::error::ForjarError::validation)?;
     serde_yaml_ng::to_value(&config).map_err(|e| {
         crate::core::error::ForjarError::validation(format!("serialize {}: {e}", file.display()))
     })

@@ -31,15 +31,15 @@ pub(crate) fn cmd_plan(
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate_unresolved(file)?;
-
-    // FJ-333: Apply hypothetical param overrides
-    apply_what_if_overrides(&mut config, what_if)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
+    let mut config = resolver::load_resolved_config_with(file, |config| {
+        // FJ-333: Apply hypothetical param overrides
+        apply_what_if_overrides(config, what_if)?;
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //

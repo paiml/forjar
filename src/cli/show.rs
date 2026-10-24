@@ -43,6 +43,8 @@ pub(crate) fn cmd_show(
             &config.machines,
         )?;
     }
+    // Everything below is printed, not rendered: show a data value as written.
+    resolver::decode_literals(&mut config)?;
 
     if let Some(resource_id) = resource_filter {
         let resource = config

@@ -120,18 +120,27 @@ fn build_summary(rows: Vec<ContractRow>) -> ContractSummary {
     }
 }
 
+/// Load the manifest through the one resolving loader. An UNPARSABLE manifest is
+/// not fatal for `contracts` (the codebase contracts still print), so it is
+/// `None`; one that parses and then fails to resolve (a failing `data:` source,
+/// an unknown reference) is an error, not "no config".
+fn load_for_contracts(file: &Path) -> Result<Option<types::ForjarConfig>, String> {
+    match resolver::load_resolved_config(file) {
+        Ok(config) => Ok(Some(config)),
+        Err(e) => match parse_and_validate_unresolved(file) {
+            Ok(_) => Err(e),
+            Err(_) => Ok(None),
+        },
+    }
+}
+
 /// FJ-2200: Real contract coverage report.
 pub(crate) fn cmd_contracts(coverage: bool, file: &Path, json: bool) -> Result<(), String> {
     let mut rows: Vec<ContractRow> = Vec::new();
 
-    // UNRESOLVED loader, on purpose: a parse failure is graceful here (the report
-    // still lists the codebase contracts) while a resolve failure must not be, and
-    // the resolving loader returns both as one `Err`.
-    // Gracefully handle missing/empty config — still report codebase contracts.
-    // A config that parses but whose `data:` sources fail is an error, not "no
-    // config": reporting on it would read the manifest with nothing resolved.
-    if let Ok(mut config) = parse_and_validate_unresolved(file) {
-        resolver::resolve_data_sources_with_base(&mut config, resolver::manifest_dir(file))?;
+    // Gracefully handle a missing/unparsable config (the codebase contracts still
+    // print); a config that parses but whose `data:` sources fail is an error.
+    if let Some(config) = load_for_contracts(file)? {
         if let Ok(execution_order) = resolver::build_execution_order(&config) {
             for rid in &execution_order {
                 if let Some(resource) = config.resources.get(rid) {
