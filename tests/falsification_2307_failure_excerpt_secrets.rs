@@ -43,8 +43,19 @@ fn run(parallel: bool, fail: bool) -> (tempfile::TempDir, i32, String) {
 
 /// Same config, caller-supplied tail of the command and extra resource keys.
 fn run_body(parallel: bool, body: &str, extra: &str) -> (tempfile::TempDir, i32, String) {
+    run_check(parallel, body, extra, None)
+}
+
+/// `check`: a completion_check expression replacing the default `test -f <out>`.
+fn run_check(
+    parallel: bool,
+    body: &str,
+    extra: &str,
+    check: Option<&str>,
+) -> (tempfile::TempDir, i32, String) {
     let dir = tempfile::tempdir().unwrap();
     let out_file = dir.path().join("delivered-token");
+    let check = check.map_or_else(|| format!("test -f {}", out_file.display()), str::to_string);
     let cfg = dir.path().join("forjar.yaml");
     fs::write(
         &cfg,
@@ -55,7 +66,7 @@ fn run_body(parallel: bool, body: &str, extra: &str) -> (tempfile::TempDir, i32,
              resources:\n  deliver:\n    type: task\n    machine: local\n    command: |\n\
              \x20     umask 077\n\
              \x20     printf %s '{{{{secrets.gate-token}}}}' > {out}\n\
-             \x20     {body}\n\x20   completion_check: test -f {out}\n{extra}",
+             \x20     {body}\n\x20   completion_check: {check}\n{extra}",
             out = out_file.display(),
         ),
     )
@@ -262,4 +273,17 @@ fn redact_transcript_empty_set_is_identity_and_nonempty_always_redacts() {
     );
     assert_eq!(r("a SECRET b", &["SECRET".to_string()]), "a *** b");
     assert_eq!(r("", &["SECRET".to_string()]), "");
+}
+
+#[test]
+fn not_converged_headline_prints_the_check_without_the_secret() {
+    // The command exits 0; the check (which names the secret) fails, so the
+    // headline echoes the RESOLVED completion_check, plaintext included.
+    for parallel in [false, true] {
+        let check = format!("test -f /nonexistent-2307 && test '{SECRET_REF}' = x");
+        let (dir, rc, printed) = run_check(parallel, "true", "", Some(&check));
+        assert_ne!(rc, 0, "{printed}");
+        assert!(printed.contains("NOT CONVERGED"), "{printed}");
+        assert_no_leak(&dir, &printed, &format!("headline, parallel={parallel}"));
+    }
 }
