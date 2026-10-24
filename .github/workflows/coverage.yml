@@ -123,9 +123,9 @@ jobs:
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
-          key: coverage-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          key: coverage-cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            coverage-cargo-${{ runner.os }}-
+            coverage-cargo-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install cargo-llvm-cov
         run: cargo install --locked cargo-llvm-cov

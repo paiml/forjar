@@ -193,3 +193,56 @@ pub(crate) fn job_runs_cargo(job: &Value) -> bool {
         })
     })
 }
+
+/// The label set of EACH leg a job can run on. A literal `runs-on` is one leg.
+/// A `${{ matrix.<key> }}` expression is one leg per `include:` entry that sets
+/// `<key>` (and one per element of a top-level `<key>:` list), each joined with
+/// the literal labels `runs-on` also names. [`runner_labels`] flattens these,
+/// which lets one leg's `X64` vouch for a sibling leg that names nothing.
+pub(crate) fn runner_legs(job: &Value) -> Vec<Vec<String>> {
+    let Some(runs_on) = job.get("runs-on") else {
+        return Vec::new();
+    };
+    let mut literal = Vec::new();
+    push_labels(&mut literal, runs_on);
+    let keys: Vec<String> = literal
+        .iter()
+        .filter(|l| l.contains("${{"))
+        .filter_map(|l| {
+            let at = l.find("matrix.")? + "matrix.".len();
+            let key: String = l[at..]
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+                .collect();
+            Some(key)
+        })
+        .collect();
+    literal.retain(|l| !l.contains("${{"));
+    if keys.is_empty() {
+        return vec![literal];
+    }
+    let Some(matrix) = job.get("strategy").and_then(|s| s.get("matrix")) else {
+        return vec![literal];
+    };
+    let mut legs: Vec<Vec<String>> = Vec::new();
+    for key in &keys {
+        let mut values: Vec<&Value> = Vec::new();
+        if let Some(Value::Sequence(include)) = matrix.get("include") {
+            values.extend(include.iter().filter_map(|leg| leg.get(key.as_str())));
+        }
+        match matrix.get(key.as_str()) {
+            Some(Value::Sequence(seq)) => values.extend(seq.iter()),
+            Some(other) => values.push(other),
+            None => {}
+        }
+        for v in values {
+            let mut leg = literal.clone();
+            push_labels(&mut leg, v);
+            legs.push(leg);
+        }
+    }
+    if legs.is_empty() {
+        legs.push(literal);
+    }
+    legs
+}
