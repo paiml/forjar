@@ -302,5 +302,6 @@ mod tests_image;
 mod tests_image_android;
 #[cfg(test)]
 mod tests_image_b;
+mod tests_image_c;
 #[cfg(test)]
 mod tests_query_format;

@@ -4,6 +4,7 @@
 //! and optionally repacks a base ISO with xorriso to produce a bootable image.
 
 use super::helpers::*;
+use super::image_iso_pack::{embed_forjar_binary, extract_iso_file, repack_iso};
 use std::path::Path;
 
 /// Generate autoinstall user-data YAML for a machine.
@@ -70,11 +71,11 @@ pub fn cmd_image_iso(
     let work = std::env::temp_dir().join(format!("forjar-image-{work_id}"));
     std::fs::create_dir_all(&work).map_err(|e| format!("create work dir: {e}"))?;
 
-    // Extract base ISO and stage the autoinstall payload
-    stage_iso_workdir(&work, base_iso, &user_data, file)?;
+    // Stage the autoinstall payload and the patched grub configs
+    let grub_cfgs = stage_iso_workdir(&work, base_iso, &user_data, file)?;
 
-    // Repack ISO with xorriso
-    repack_iso(&work, output)?;
+    // Repack: the base ISO's boot records replayed, the payload mapped in
+    repack_iso(&work, base_iso, output, &grub_cfgs)?;
 
     // Clean up temp directory
     let _ = std::fs::remove_dir_all(&work);
@@ -99,33 +100,77 @@ fn ensure_xorriso() -> Result<(), String> {
     }
 }
 
-/// Extract the base ISO and stage the autoinstall payload
-/// (user-data, meta-data, forjar binary, forjar.yaml) into the work dir.
+/// Grub configs that boot the installer; each `linux` line gets the
+/// autoinstall cmdline.
+const GRUB_CFGS: [&str; 2] = ["/boot/grub/grub.cfg", "/boot/grub/loopback.cfg"];
+
+/// Stage the autoinstall payload (user-data, meta-data, forjar binary,
+/// forjar.yaml) and patched grub configs under the work dir. Returns the
+/// grub configs found in the base ISO, as (ISO path, staged file).
+///
+/// #731: this used to extract the whole ISO to `work/iso` and write the
+/// payload to `work/nocloud` and `work/forjar`, OUTSIDE the tree `repack_iso`
+/// packed, so the stick never carried its seed.
 fn stage_iso_workdir(
     work: &Path,
     base_iso: &Path,
     user_data: &str,
     file: &Path,
-) -> Result<(), String> {
-    // Extract base ISO
-    extract_iso(base_iso, work)?;
-
-    // Write user-data and meta-data
+) -> Result<Vec<(String, std::path::PathBuf)>, String> {
     let nocloud = work.join("nocloud");
     std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
     std::fs::write(nocloud.join("user-data"), user_data)
         .map_err(|e| format!("write user-data: {e}"))?;
     std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
 
-    // Copy forjar binary into ISO
     embed_forjar_binary(work)?;
-
-    // Copy forjar.yaml into ISO
-    let iso_config_dir = work.join("forjar");
-    std::fs::create_dir_all(&iso_config_dir).map_err(|e| format!("create forjar dir: {e}"))?;
-    std::fs::copy(file, iso_config_dir.join("forjar.yaml"))
+    std::fs::copy(file, work.join("forjar").join("forjar.yaml"))
         .map_err(|e| format!("copy config: {e}"))?;
-    Ok(())
+
+    let grub_dir = work.join("grub");
+    std::fs::create_dir_all(&grub_dir).map_err(|e| format!("create grub dir: {e}"))?;
+    let mut staged = Vec::new();
+    for iso_path in GRUB_CFGS {
+        let dst = grub_dir.join(iso_path.rsplit('/').next().unwrap_or("grub.cfg"));
+        if !extract_iso_file(base_iso, iso_path, &dst)? {
+            continue;
+        }
+        let cfg = std::fs::read_to_string(&dst).map_err(|e| format!("read {iso_path}: {e}"))?;
+        // xorriso -extract keeps the ISO's 0444: replace the file, don't write into it.
+        std::fs::remove_file(&dst).map_err(|e| format!("replace {iso_path}: {e}"))?;
+        std::fs::write(&dst, add_autoinstall_cmdline(&cfg))
+            .map_err(|e| format!("write {iso_path}: {e}"))?;
+        staged.push((iso_path.to_string(), dst));
+    }
+    if staged.is_empty() {
+        return Err(format!(
+            "{}: no /boot/grub/grub.cfg — not an Ubuntu live ISO",
+            base_iso.display()
+        ));
+    }
+    Ok(staged)
+}
+
+/// Add `autoinstall ds=nocloud;s=/cdrom/nocloud/` to every `linux` line, before
+/// the `---` separator when there is one. grub reads `;` as a command separator,
+/// so the ds= value is single-quoted. Lines that already say `autoinstall` are
+/// left alone.
+pub fn add_autoinstall_cmdline(cfg: &str) -> String {
+    const ARGS: &str = " autoinstall 'ds=nocloud;s=/cdrom/nocloud/'";
+    cfg.lines()
+        .map(|line| {
+            let t = line.trim_start();
+            if !t.starts_with("linux") || t.starts_with("linux16") || line.contains("autoinstall") {
+                return line.to_string();
+            }
+            match line.find(" ---") {
+                Some(i) => format!("{}{ARGS}{}", &line[..i], &line[i..]),
+                None => format!("{line}{ARGS}"),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + if cfg.ends_with('\n') { "\n" } else { "" }
 }
 
 /// Print the ISO generation summary (JSON or human-readable).
@@ -186,13 +231,18 @@ pub fn generate_user_data(
     locale: &str,
     timezone: &str,
 ) -> Result<String, String> {
-    // GH-91: name not yet used for user-data personalization
-    let _ = name;
     let hostname = &machine.hostname;
     let username = &machine.user;
 
-    // Read SSH public key if specified
+    // #731: the only way into the installed box is a key (no password login),
+    // so an image with no key is an image of an unreachable machine.
     let ssh_keys = read_ssh_pub_key(machine.ssh_key.as_deref())?;
+    if ssh_keys.is_empty() {
+        return Err(format!(
+            "machine '{name}' has no ssh_key: the installed box would be unreachable \
+             (password login is disabled); set machines.{name}.ssh_key"
+        ));
+    }
 
     // Determine storage layout
     let storage_layout = storage_layout_yaml(disk)?;
@@ -206,15 +256,22 @@ pub fn generate_user_data(
     yaml.push_str("  identity:\n");
     yaml.push_str(&format!("    hostname: {hostname}\n"));
     yaml.push_str(&format!("    username: {username}\n"));
+    // #731: subiquity's schema requires identity.password; without it the
+    // install stops at an interactive prompt. '!' is a locked password: keys only.
+    yaml.push_str("    password: '!'\n");
 
     // SSH
-    yaml.push_str("  ssh:\n    install-server: true\n");
-    if !ssh_keys.is_empty() {
-        yaml.push_str("    authorized-keys:\n");
-        for key in &ssh_keys {
-            yaml.push_str(&format!("      - {key}\n"));
-        }
+    yaml.push_str("  ssh:\n    install-server: true\n    allow-pw: false\n");
+    yaml.push_str("    authorized-keys:\n");
+    for key in &ssh_keys {
+        yaml.push_str(&format!("      - {}\n", yaml_single_quoted(key)));
     }
+
+    // #731: DHCP on any wired NIC, during the install and on the installed box
+    // (this used to be a comment saying "configure via netplan if needed").
+    yaml.push_str(
+        "  network:\n    version: 2\n    ethernets:\n      wired:\n        match:\n          name: 'en*'\n        dhcp4: true\n",
+    );
 
     // Storage
     yaml.push_str("  storage:\n");
@@ -247,32 +304,70 @@ pub fn generate_user_data(
     // Firstboot systemd service
     yaml.push_str(&firstboot_service_command());
 
-    // Network config from machine addr (static IP if specified)
-    if machine.addr != "127.0.0.1" && machine.addr != "container" && machine.addr != "pepita" {
-        yaml.push_str(&format!(
-            "  # Static IP: {}\n  # Configure via netplan in late-commands if needed\n",
-            machine.addr
-        ));
-    }
-
     Ok(yaml)
 }
 
 /// Map the disk argument to an autoinstall storage layout YAML snippet.
+///
+/// #731: the pin MUST be `layout.match`. subiquity ignores `storage.config`
+/// whenever `storage.layout` is present, so the old `layout` + `config: [disk
+/// path]` pair installed onto the largest disk it found while looking pinned.
+/// A `serial:` glob is the safe pin: a stick that lands in the wrong machine
+/// matches no disk and fails instead of wiping one.
+///
+/// LVM layouts take `sizing-policy: all`. subiquity's default, `scaled`, makes
+/// a ~100 GB root and leaves the rest of the disk unallocated: on a build host
+/// that is a full disk at a fifth of its size.
 fn storage_layout_yaml(disk: &str) -> Result<String, String> {
     match disk {
-        "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
+        "auto-lvm" => Ok("    layout:\n      name: lvm\n      sizing-policy: all".to_string()),
         "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
+        serial if serial.starts_with("serial:") => {
+            let glob = &serial["serial:".len()..];
+            if glob.is_empty() {
+                return Err("--disk serial: needs a glob, e.g. serial:*S58SNMFX200010W*".to_string());
+            }
+            // udev's NVMe ID_SERIAL ends in the namespace id (measured:
+            // Samsung_SSD_970_EVO_Plus_500GB_<serial>_1), so a glob anchored at the
+            // end matches no NVMe disk and subiquity stops mid-install with "Failed
+            // to find matching device". A trailing * also matches SATA serials.
+            if !glob.ends_with('*') {
+                return Err(format!(
+                    "--disk serial:{glob} matches no NVMe disk (udev's ID_SERIAL ends in \
+                     _<namespace>, e.g. ..._{tail}_1); use serial:{glob}*",
+                    tail = glob.trim_start_matches('*')
+                ));
+            }
+            Ok(format!(
+                "    layout:\n      name: lvm\n      sizing-policy: all\n      match:\n        serial: {}",
+                yaml_single_quoted(glob)
+            ))
+        }
+        link if link.starts_with("/dev/disk/") => Err(format!(
+            "{link}: subiquity matches a disk by kernel path (/dev/nvme0n1) or serial, never \
+             by a /dev/disk/by-* link, so this would match nothing; use --disk serial:<glob> \
+             (lsblk -dno SERIAL <dev>)"
+        )),
         path if path.starts_with('/') => Ok(format!(
-            "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
+            "    layout:\n      name: lvm\n      sizing-policy: all\n      match:\n        path: {}",
+            yaml_single_quoted(path)
         )),
         other => Err(format!(
-            "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
+            "unknown disk layout: {other} (use auto-lvm, auto-zfs, serial:<glob> or /dev/<kernel name>)"
         )),
     }
 }
 
-/// Read SSH public key file (tries .pub extension).
+/// YAML single-quoted scalar ('' is the only escape). A serial glob starts
+/// with '*', which unquoted YAML reads as an alias.
+fn yaml_single_quoted(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
+}
+
+/// Read the public half of a machine's `ssh_key`.
+///
+/// #731: an unreadable key file used to return `Ok(vec![])`, and the image
+/// built "successfully" for a box no one could log into.
 pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
     let Some(key_path) = ssh_key else {
         return Ok(Vec::new());
@@ -286,14 +381,13 @@ pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
     };
 
     let expanded = expand_tilde(&pub_path);
-    match std::fs::read_to_string(&expanded) {
-        Ok(content) => Ok(content
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(|l| l.to_string())
-            .collect()),
-        Err(_) => Ok(Vec::new()),
-    }
+    let content = std::fs::read_to_string(&expanded)
+        .map_err(|e| format!("ssh_key public half {expanded}: {e}"))?;
+    Ok(content
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect())
 }
 
 /// Expand ~ to $HOME in a path string.
@@ -365,87 +459,4 @@ WantedBy=multi-user.target"#;
     cmd.push('\n');
     cmd.push_str("    - curtin in-target -- systemctl enable forjar-firstboot\n");
     cmd
-}
-
-/// Extract a base ISO using xorriso.
-fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), String> {
-    let extract_dir = work_dir.join("iso");
-    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create iso dir: {e}"))?;
-
-    let status = std::process::Command::new("xorriso")
-        .args([
-            "-osirrox",
-            "on",
-            "-indev",
-            &base_iso.display().to_string(),
-            "-extract",
-            "/",
-            &extract_dir.display().to_string(),
-        ])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .status()
-        .map_err(|e| format!("run xorriso extract: {e}"))?;
-
-    if !status.success() {
-        return Err("xorriso extraction failed".to_string());
-    }
-    Ok(())
-}
-
-/// Copy the current forjar binary into the ISO working directory.
-fn embed_forjar_binary(work_dir: &Path) -> Result<(), String> {
-    let bin_dir = work_dir.join("iso").join("forjar").join("bin");
-    std::fs::create_dir_all(&bin_dir).map_err(|e| format!("create bin dir: {e}"))?;
-    if let Ok(exe) = std::env::current_exe() {
-        std::fs::copy(&exe, bin_dir.join("forjar"))
-            .map_err(|e| format!("copy forjar binary: {e}"))?;
-    }
-    Ok(())
-}
-
-/// Repack an extracted ISO directory into a bootable ISO using xorriso.
-fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
-    let iso_dir = work_dir.join("iso");
-
-    let status = std::process::Command::new("xorriso")
-        .args([
-            "-as",
-            "mkisofs",
-            "-r",
-            "-V",
-            "FORJAR_AUTOINSTALL",
-            "-o",
-            &output.display().to_string(),
-            "-J",
-            "-joliet-long",
-            "-b",
-            "boot/grub/i386-pc/eltorito.img",
-            "-c",
-            "boot.catalog",
-            "-no-emul-boot",
-            "-boot-load-size",
-            "4",
-            "-boot-info-table",
-            "--grub2-boot-info",
-            "--grub2-mbr",
-            &iso_dir
-                .join("boot/grub/i386-pc/boot_hybrid.img")
-                .display()
-                .to_string(),
-            "-eltorito-alt-boot",
-            "-e",
-            "boot/grub/efi.img",
-            "-no-emul-boot",
-            &iso_dir.display().to_string(),
-        ])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .status()
-        .map_err(|e| format!("run xorriso repack: {e}"))?;
-
-    if !status.success() {
-        return Err("xorriso ISO repack failed".to_string());
-    }
-    Ok(())
 }

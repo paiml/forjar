@@ -12,8 +12,15 @@ mod user_data {
     use crate::cli::image_cmd::{firstboot_service_command, generate_user_data, indent_block};
     use crate::core::types::Machine;
 
+    // #731: a keyless machine is refused (the box would be unreachable).
     fn machine() -> Machine {
-        Machine::ssh("sandbox-local", "127.0.0.1", "nobody")
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let key = std::env::temp_dir().join(format!("forjar-731-dogfood-{}-{n}", std::process::id()));
+        std::fs::write(key.with_extension("pub"), "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey op@example\n").unwrap();
+        let mut m = Machine::ssh("sandbox-local", "127.0.0.1", "nobody");
+        m.ssh_key = Some(key.display().to_string());
+        m
     }
 
     #[test]
@@ -28,7 +35,7 @@ mod user_data {
 
     #[test]
     fn every_disk_layout_still_parses() {
-        for disk in ["auto-lvm", "auto-zfs", "/dev/nvme0n1"] {
+        for disk in ["auto-lvm", "auto-zfs", "/dev/nvme0n1", "serial:*S4EVNX0R123456*"] {
             let ud = generate_user_data("local", &machine(), disk, "en_US.UTF-8", "UTC").unwrap();
             serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&ud)
                 .unwrap_or_else(|e| panic!("{disk}: {e}\n---\n{ud}"));

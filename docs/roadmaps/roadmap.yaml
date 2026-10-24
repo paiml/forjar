@@ -5011,6 +5011,44 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-731
+  github_issue: 731
+  item_type: task
+  title: 'fix(image): an autoinstall ISO that actually installs (forjar#731, PR #732)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-22T14:17:04Z
+  updated: 2026-10-22T14:17:04Z
+  spec: null
+  acceptance_criteria:
+  - 'Ticket for PR #732 which carried no Pmat-Ticket trailer (EMG3-2); issue #731.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 765
+- id: PMAT-756
+  github_issue: 756
+  item_type: task
+  title: 'IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T20:16:56Z
+  updated: 2026-10-21T20:16:56Z
+  spec: null
+  acceptance_criteria:
+  - 'paiml/infra#2074 IMG-001 gaps 1-4: empty scratch image from forjar build'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
 - id: PMAT-735
   github_issue: 735
   item_type: task
