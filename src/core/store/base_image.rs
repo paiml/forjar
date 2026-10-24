@@ -66,6 +66,14 @@ pub struct BaseImageLayers {
 /// assert_eq!(layers.layers.len(), layers.diff_ids.len());
 /// ```
 pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String> {
+    extract_base_layers_for_arch(layout_dir, host_oci_arch())
+}
+
+/// [`extract_base_layers`] for an explicit OCI architecture (`amd64`, `arm64`).
+pub(crate) fn extract_base_layers_for_arch(
+    layout_dir: &Path,
+    arch: &str,
+) -> Result<BaseImageLayers, String> {
     // 1. Read and parse index.json
     let index_path = layout_dir.join("index.json");
     let index_data = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
@@ -76,9 +84,10 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
         return Err("index.json has no manifests".into());
     }
 
-    // 2. Read the first manifest
-    let manifest_desc = &index.manifests[0];
-    let manifest_data = read_blob(layout_dir, &manifest_desc.digest)?;
+    // 2. Read the first manifest; if it is itself an index (multi-platform
+    //    image), resolve it to the linux manifest of `arch`, else its first entry.
+    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, arch, 0)?;
+    let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
         serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
 
@@ -104,6 +113,46 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
         os: config.os,
         config: config.config,
     })
+}
+
+/// OCI architecture name for a Rust `ARCH` constant.
+pub(crate) fn oci_arch_for(rust_arch: &str) -> &str {
+    match rust_arch {
+        "x86_64" => "amd64",
+        "aarch64" => "arm64",
+        other => other,
+    }
+}
+
+fn host_oci_arch() -> &'static str {
+    oci_arch_for(std::env::consts::ARCH)
+}
+
+/// Follow an OCI image index / docker manifest list down to a single image
+/// manifest digest. Prefers `linux/<arch>`, else the first entry.
+fn resolve_manifest_digest(
+    layout_dir: &Path,
+    digest: &str,
+    arch: &str,
+    depth: u8,
+) -> Result<String, String> {
+    let data = read_blob(layout_dir, digest)?;
+    let doc: serde_json::Value =
+        serde_json::from_slice(&data).map_err(|e| format!("parse manifest {digest}: {e}"))?;
+    if !doc.get("manifests").is_some_and(|m| m.is_array()) {
+        return Ok(digest.to_string());
+    }
+    if depth >= 3 {
+        return Err("image index nested too deeply".into());
+    }
+    let entries = doc["manifests"].as_array().cloned().unwrap_or_default();
+    let pick = entries
+        .iter()
+        .find(|m| m["platform"]["os"] == "linux" && m["platform"]["architecture"] == arch)
+        .or_else(|| entries.first())
+        .and_then(|m| m["digest"].as_str())
+        .ok_or("image index has no manifests")?;
+    resolve_manifest_digest(layout_dir, pick, arch, depth + 1)
 }
 
 /// Read a blob from the OCI layout's blobs directory.
@@ -175,11 +224,13 @@ mod tests {
     use super::*;
     use crate::core::types::{OciDescriptor, OciImageConfig, OciIndex, OciManifest};
 
-    const CONFIG_HEX: &str = "aabbccdd00112233445566778899aabbccddeeff00112233445566778899aabb";
+    pub(super) const CONFIG_HEX: &str =
+        "aabbccdd00112233445566778899aabbccddeeff00112233445566778899aabb";
     const LAYER_HEX: &str = "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff";
-    const MANIFEST_HEX: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+    pub(super) const MANIFEST_HEX: &str =
+        "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
 
-    fn create_test_layout(dir: &Path) {
+    pub(super) fn create_test_layout(dir: &Path) {
         let blobs = dir.join("blobs/sha256");
         std::fs::create_dir_all(&blobs).unwrap();
 
@@ -401,3 +452,7 @@ mod tests {
         assert!(result.unwrap_err().contains("no manifests"));
     }
 }
+
+#[cfg(test)]
+#[path = "tests_base_image_arch.rs"]
+mod tests_arch;

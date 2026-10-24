@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A multi-platform base resolves to the build target's manifest (PMAT-756, #756, IMG-001).**
+When a base layout's top entry is an OCI image index (or docker manifest list),
+`extract_base_layers` follows it to the `linux` manifest of the architecture it
+builds for: `amd64` on an x86_64 host, `arm64` on an aarch64 host, else the
+index's first entry. Tests name the architecture instead of reading the host, so
+they hold on both chips.
+
 **The disk-budget reaper no longer costs more than the disk it defends (PMAT-727, #727).**
 One 15-minute pass on lambda-labs took 84 s of CPU: a `readlink` per /proc entry
 and per fd, a `tr|head` per pid, and an unbounded `find` over the scan root.
