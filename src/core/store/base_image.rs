@@ -85,7 +85,7 @@ pub(crate) fn extract_base_layers_for_arch(
     }
 
     // 2. Read the first manifest; if it is itself an index (multi-platform
-    //    image), resolve it to the linux manifest of `arch`, else its first entry.
+    //    image), resolve it to the linux manifest of `arch`, else fail.
     let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, arch, 0)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
@@ -129,7 +129,7 @@ fn host_oci_arch() -> &'static str {
 }
 
 /// Follow an OCI image index / docker manifest list down to a single image
-/// manifest digest. Prefers `linux/<arch>`, else the first entry.
+/// manifest digest. Only ever picks a `linux/<arch>` entry; otherwise it is an error.
 fn resolve_manifest_digest(
     layout_dir: &Path,
     digest: &str,
@@ -149,9 +149,8 @@ fn resolve_manifest_digest(
     let pick = entries
         .iter()
         .find(|m| m["platform"]["os"] == "linux" && m["platform"]["architecture"] == arch)
-        .or_else(|| entries.first())
         .and_then(|m| m["digest"].as_str())
-        .ok_or("image index has no manifests")?;
+        .ok_or_else(|| format!("image index has no linux/{arch} manifest"))?;
     resolve_manifest_digest(layout_dir, pick, arch, depth + 1)
 }
 
