@@ -194,7 +194,7 @@ impl Handler for DriftHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let parsed = crate::core::resolver::load_resolved_config(&path)
+        let parsed = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
         let (config, unattended_skipped) = unattended::sanitize_config(&parsed);
 

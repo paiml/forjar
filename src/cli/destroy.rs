@@ -173,7 +173,7 @@ pub(crate) fn cmd_destroy(
         );
     }
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     // `build_execution_order` on the RAW config is sound: `depends_on` is
     // deliberately never templated (see resolver::tests_completeness).
     let execution_order = resolver::build_execution_order(&config)?;
@@ -320,7 +320,7 @@ pub(crate) fn cmd_rollback(
     let previous_yaml = String::from_utf8_lossy(&output.stdout);
     let previous_config: types::ForjarConfig = serde_yaml_ng::from_str(&previous_yaml)
         .map_err(|e| format!("cannot parse previous config (HEAD~{revision}): {e}"))?;
-    let current_config = parse_and_validate(file)?;
+    let current_config = parse_and_validate_for_render(file)?;
 
     let changes = compute_rollback_changes(&previous_config, &current_config, revision);
 

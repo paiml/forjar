@@ -283,7 +283,7 @@ pub(super) fn emit_deep_json(results: &[(&str, Result<(), String>)]) -> Result<(
 
 /// Run all deep validation checks and aggregate results.
 pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     // JSON mode: run checks silently to avoid stdout contamination
     if json {

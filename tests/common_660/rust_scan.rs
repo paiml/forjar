@@ -249,7 +249,8 @@ pub fn test_only_files(files: &[PathBuf]) -> BTreeSet<PathBuf> {
     let mut found = BTreeSet::new();
     let mut work: Vec<PathBuf> = Vec::new();
     for f in files {
-        let code = blank_literals(&std::fs::read_to_string(f).expect("read"));
+        let raw = std::fs::read_to_string(f).expect("read");
+        let code = blank_literals(&raw);
         for (s, e) in cfg_test_ranges(&code) {
             let item = code[s..e].trim_end_matches(';');
             let after_attr = item.rsplit(']').next().unwrap_or("").trim();
@@ -259,7 +260,11 @@ pub fn test_only_files(files: &[PathBuf]) -> BTreeSet<PathBuf> {
                 .or_else(|| after_attr.strip_prefix("mod "))
             {
                 if name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                    work.push(mod_file(f, name, &includes));
+                    // `#[path = "x.rs"]` names the file; offsets survive blanking.
+                    match path_attr(&raw[s..e]) {
+                        Some(p) => work.push(f.parent().expect("parent").join(p)),
+                        None => work.push(mod_file(f, name, &includes)),
+                    }
                 }
             }
         }
@@ -432,9 +437,43 @@ pub fn swallowed_results(code: &str, token: &str) -> Vec<(usize, String)> {
                 why.push(pat.to_string());
             }
         }
+        if !propagated && lead.ends_with("match") && match_arm_drops_err(&code[end..]) {
+            why.push("match Err(_)".to_string());
+        }
         if !why.is_empty() {
             out.push((pos, why.join(" ")));
         }
     }
     out
+}
+
+/// The file named by a `#[path = "..."]` attribute in the text of one item.
+fn path_attr(item: &str) -> Option<String> {
+    let at = item.find("#[path")?;
+    let rest = &item[at..];
+    let q1 = rest.find('"')?;
+    let q2 = rest[q1 + 1..].find('"')?;
+    Some(rest[q1 + 1..q1 + 1 + q2].to_string())
+}
+
+/// Does the `{ ... }` block at the start of `rest` have an `Err(_)` arm?
+fn match_arm_drops_err(rest: &str) -> bool {
+    let t = rest.trim_start();
+    if !t.starts_with('{') {
+        return false;
+    }
+    let mut depth = 0usize;
+    for (i, c) in t.char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return t[..i].replace(' ', "").contains("Err(_)=>");
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }

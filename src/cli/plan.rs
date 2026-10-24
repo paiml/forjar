@@ -250,7 +250,7 @@ pub(crate) fn cmd_plan_compact(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let execution_order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks, None);

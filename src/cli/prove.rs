@@ -16,7 +16,7 @@ pub(crate) fn cmd_prove(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let mut config = resolver::load_resolved_config(file)?;
+    let mut config = resolver::load_resolved_config_for_render(file)?;
 
     // FJ-2733: prove the config that will RUN, not the one that was typed.
     //

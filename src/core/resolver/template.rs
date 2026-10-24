@@ -211,7 +211,7 @@ pub fn resolve_template_with_data(
 
     // forjar#660: a data value was written into the config with its braces
     // masked so this scan could not expand it a second time; unmask last.
-    if result.contains(super::data_subst::LITERAL_BRACE) {
+    if !data.is_empty() && result.contains([super::data_subst::OPEN, super::data_subst::CLOSE]) {
         result = super::data_subst::decode_str(&result);
     }
 

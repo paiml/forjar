@@ -15,8 +15,6 @@ use std::path::Path;
 /// recipe-defined packages, containers, and models appear in the SBOM.
 pub(crate) fn cmd_sbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let mut config = crate::core::resolver::load_resolved_config(file)?;
-    // The SBOM lists a data value as written, not as the masked stand-in.
-    crate::core::resolver::decode_literals(&mut config)?;
     // FJ-1399: Expand recipes so their inner resources appear in the SBOM.
     let config_dir = file.parent();
     let _ = parser::expand_recipes(&mut config, config_dir);

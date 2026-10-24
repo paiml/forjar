@@ -392,7 +392,7 @@ pub(crate) fn cmd_test(
     use std::time::Instant;
     let t0 = Instant::now();
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     if verbose {
         eprintln!(

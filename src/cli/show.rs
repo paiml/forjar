@@ -32,7 +32,7 @@ pub(crate) fn cmd_show(
     resource_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_for_render(file)?;
 
     // Resolve templates in all resources
     for (_id, resource) in config.resources.iter_mut() {
@@ -143,7 +143,7 @@ fn explain_json(
 
 /// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
 pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     let resource = config
         .resources
@@ -239,8 +239,8 @@ fn print_explain_dependencies(resource: &types::Resource) {
 
 // FJ-363: Compare two config files
 pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
-    let config1 = parse_and_validate(file1)?;
-    let config2 = parse_and_validate(file2)?;
+    let config1 = parse_and_validate_for_render(file1)?;
+    let config2 = parse_and_validate_for_render(file2)?;
 
     let keys1: std::collections::HashSet<&String> = config1.resources.keys().collect();
     let keys2: std::collections::HashSet<&String> = config2.resources.keys().collect();
@@ -299,7 +299,7 @@ pub(crate) use super::template_cmd::cmd_template;
 
 // FJ-220 + FJ-3200: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool, sarif: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let result = parser::evaluate_policies_full(&config);
 
     if sarif {
@@ -372,7 +372,7 @@ fn print_all_outputs(
 }
 
 pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     if config.outputs.is_empty() {
         if json {

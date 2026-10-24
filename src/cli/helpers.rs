@@ -19,6 +19,15 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
     crate::core::resolver::load_resolved_config(file)
 }
 
+/// [`parse_and_validate`] for a command that renders resources from the config
+/// (`resolve_resource_templates`, the planner, codegen). A data value is written
+/// with its braces held back so the template resolver cannot expand it again; a
+/// command that prints config text it did not render calls
+/// `resolver::decode_literals` first.
+pub(crate) fn parse_and_validate_for_render(file: &Path) -> Result<types::ForjarConfig, String> {
+    crate::core::resolver::load_resolved_config_for_render(file)
+}
+
 /// The resolved manifest as a generic YAML document, for the readers that walk
 /// `resources:` as a mapping (store pin / convert / purity). It goes through the
 /// resolving loader like every other reader (forjar#660); it is never a raw parse
@@ -26,10 +35,7 @@ pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, Str
 pub(crate) fn load_resolved_value(
     file: &Path,
 ) -> Result<serde_yaml_ng::Value, crate::core::error::ForjarError> {
-    let mut config = crate::core::resolver::load_resolved_config_lenient(file)?;
-    // A reader that prints or hashes strings shows a data value as written.
-    crate::core::resolver::decode_literals(&mut config)
-        .map_err(crate::core::error::ForjarError::validation)?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     serde_yaml_ng::to_value(&config).map_err(|e| {
         crate::core::error::ForjarError::validation(format!("serialize {}: {e}", file.display()))
     })

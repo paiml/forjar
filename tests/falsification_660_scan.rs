@@ -13,6 +13,7 @@
 
 mod common_660;
 
+use common_660::lists::*;
 use common_660::rust_scan::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -22,11 +23,6 @@ fn is_loader_module(rel: &str) -> bool {
     rel.starts_with("src/core/parser/")
         || rel == "src/core/resolver/data.rs"
         || rel == "src/core/resolver/data_subst.rs"
-}
-
-fn is_test_name(path: &Path) -> bool {
-    let stem = path.file_stem().unwrap().to_string_lossy();
-    stem.starts_with("tests") || stem.ends_with("_tests") || stem.ends_with("_test")
 }
 
 type Spans = Vec<(usize, usize, String)>;
@@ -39,13 +35,18 @@ struct Tree {
 }
 
 fn tree() -> Tree {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    tree_at(Path::new(env!("CARGO_MANIFEST_DIR")))
+}
+
+/// What is a test file is decided by structure: the target of a `#[cfg(test)]
+/// mod`, never a file NAME. `src/cli/check_test.rs` is production code.
+fn tree_at(root: &Path) -> Tree {
     let mut files = Vec::new();
     rust_files(&root.join("src"), &mut files);
     let test_only = test_only_files(&files);
     let mut scanned = Vec::new();
     for f in &files {
-        if test_only.contains(f) || is_test_name(f) {
+        if test_only.contains(f) {
             continue;
         }
         let rel = f
@@ -118,23 +119,57 @@ fn unresolved_loader_hits(
     out
 }
 
-const LOAD_TOKENS: &[&str] = &[
-    "parse_and_validate",
-    "parse_and_validate_unresolved",
-    "load_resolved_config",
-    "load_resolved_config_lenient",
-    "load_resolved_value",
-    "resolve_resource_templates",
-    "resolve_resource_templates_with_secrets",
-    "resolve_data_sources_with_base",
-    "resolve_outputs",
-    "require_data_sources",
-    "finish_resolving",
-];
+/// Names of every `fn load_*` / `prepare_*` in the resolver and the CLI.
+fn derive_loaders(files: &[Scanned]) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    for (rel, _code, spans) in files {
+        if !(rel.starts_with("src/core/resolver/") || rel.starts_with("src/cli/")) {
+            continue;
+        }
+        for (_, _, name) in spans {
+            if name.starts_with("load_") || name.starts_with("prepare_") {
+                out.insert(name.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Loader fns with no classification, and classifications with no fn.
+fn unclassified_loaders(derived: &BTreeSet<String>) -> Vec<String> {
+    let known: BTreeSet<&str> = MANIFEST_LOADERS
+        .iter()
+        .copied()
+        .chain(NOT_A_MANIFEST_LOADER.iter().map(|(n, _)| *n))
+        .collect();
+    let mut bad = Vec::new();
+    for d in derived {
+        if !known.contains(d.as_str()) {
+            bad.push(format!(
+                "loader fn `{d}` is in neither MANIFEST_LOADERS nor NOT_A_MANIFEST_LOADER"
+            ));
+        }
+    }
+    for k in &known {
+        if !derived.contains(*k) {
+            bad.push(format!("STALE loader row `{k}` matches no fn"));
+        }
+    }
+    bad
+}
 
 fn swallow_hits(rel: &str, code: &str, spans: &[(usize, usize, String)]) -> BTreeSet<String> {
+    swallow_hits_for(rel, code, spans, MANIFEST_LOADERS)
+}
+
+fn swallow_hits_for(
+    rel: &str,
+    code: &str,
+    spans: &[(usize, usize, String)],
+    loaders: &[&str],
+) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
-    for tok in LOAD_TOKENS {
+    for tok in BASE_TOKENS.iter().chain(loaders) {
         for (pos, _why) in swallowed_results(code, tok) {
             out.insert(format!("{rel}:{}", enclosing_fn(spans, pos)));
         }
@@ -184,53 +219,6 @@ fn collect(
         .flat_map(|(rel, code, spans)| f(rel, code, spans))
         .collect()
 }
-
-const RAW_PARSE_ALLOWLIST: &[(&str, &str)] = &[
-    ("src/cli/apply_helpers.rs:load_env_params", "parses the flat --env-file params mapping, not a manifest"),
-    ("src/cli/destroy.rs:cmd_rollback", "parses a PREVIOUS git revision of the manifest to diff resource sets; data: sources must not run against history"),
-    ("src/cli/lint_fix.rs:lint_auto_fix", "lint --fix rewrites the manifest text; it edits the raw document and must not run data: commands"),
-    ("src/cli/lsp_validate.rs:validate_yaml", "checks YAML syntax of an editor buffer, the unsaved text of a file"),
-    ("src/cli/reseal.rs:reseal_one", "reseal rewrites the manifest bytes in place; resolving would bake data: output into the file"),
-    ("src/cli/state_identity.rs:applied_under_before", "reads only `name:` of a stored applied-config snapshot under the state dir"),
-    ("src/cli/status_trends.rs:count_changes_from_logs", "parses one event-log line, not a manifest"),
-    ("src/cli/template_cmd.rs:classify", "asks which top-level keys the file has (recipe vs config) before the loader runs; no value is read"),
-    ("src/cli/template_cmd.rs:yaml_scalar", "parses one `-V KEY=VALUE` scalar, not a manifest"),
-    ("src/cli/undo_helpers.rs:parse_replay_resource", "parses a resource fragment recorded in a destroy log"),
-    ("src/cli/validate_policy.rs:cmd_validate_policy_file", "reads a separate POLICY file, not the manifest"),
-    ("src/cli/verify.rs:recorded_output_hash", "reads a lock/attestation document under the state dir, not the manifest"),
-    ("src/core/remediate/mod.rs:emit_in_style", "round-trips one candidate scalar to choose a quoting style"),
-    ("src/core/state/integrity.rs:check_lock_file", "checks that a LOCK file is well-formed YAML, not a manifest"),
-    ("src/core/store/convert_exec.rs:apply_conversion", "WRITES the converted manifest in place after a backup; resolving would bake data: output into the file"),
-    ("src/core/store/derivation.rs:parse_derivation", "reads a derivation document of the store, not a manifest"),
-    ("src/core/store/ingest.rs:ingest_generations", "reads a stored generation snapshot, not the live manifest"),
-    ("src/core/store/ingest.rs:ingest_lock_file", "reads a state LOCK file into the store index"),
-    ("src/core/store/ingest.rs:upsert_machine", "reads a state LOCK file into the store index"),
-    ("src/core/store/meta.rs:read_meta", "reads store metadata, not a manifest"),
-    ("src/core/store/provider.rs:parse_import_config", "reads an import-provider config, not a manifest"),
-    ("src/core/store/secret_scan.rs:scan_yaml_str", "scans arbitrary YAML text for secrets; the text is the caller's, nothing resolves"),
-    ("src/core/yaml_edit/verify.rs:changed_paths_of_text", "diffs two texts of an edit (before/after); the edit is made on the raw document"),
-];
-
-const UNRESOLVED_LOADER_ALLOWLIST: &[(&str, &str)] = &[
-    ("src/cli/helpers.rs:parse_and_validate_unresolved", "defines the unresolved loader the rows below call"),
-    ("src/mcp/handlers.rs:handle", "ValidateHandler parses unresolved FIRST only to tell an invalid manifest (a `valid: false` result) from a failing data: source (an error); it then calls the resolving loader"),
-    ("src/cli/contracts.rs:load_for_contracts", "an UNPARSABLE manifest is graceful (codebase contracts still print); one that parses is then loaded through the resolving loader and its failure is returned"),
-    ("src/cli/complexity_analysis.rs:cmd_complexity", "counts structure on the unresolved manifest; a failing data: source still fails it via helpers::require_data_sources"),
-    ("src/cli/extract.rs:cmd_extract", "EMITS a sub-manifest: templates and `data:` sources stay in it; a failing source still fails it via helpers::require_data_sources"),
-    ("src/cli/config_merge.rs:cmd_config_merge", "WRITES the merged manifest: resolving would bake data: output into the file; a failing source still fails it via helpers::require_data_sources"),
-    ("src/cli/infra_bench.rs:run_benchmarks", "times parse+validate; the sources are checked once, outside the timed loops, via helpers::require_data_sources"),
-    ("src/cli/init.rs:cmd_fmt", "fmt REWRITES the file, so it serializes the unresolved manifest; a failing source still fails it via helpers::require_data_sources"),
-    ("src/cli/lsp_validate.rs:validate_yaml", "validates an editor buffer that is not on disk; no base dir, no data: run"),
-    ("src/cli/undo_helpers.rs:build_replay_config", "rebuilds a config from a destroy-log record; the record holds already-resolved resources"),
-];
-
-const SWALLOW_ALLOWLIST: &[(&str, &str)] = &[
-    ("src/cli/apply_variants.rs:refreshed_live_hash", "the config was loaded through the resolving loader, which already failed on an unknown reference; the fallback only covers a secrets-provider error, and the refresh query then runs the raw resource"),
-    ("src/core/resolver/resource.rs:resolve_or_fallback", "documented fallback: warns on stderr and keeps the raw resource for destroy/refresh scripts"),
-    ("src/cli/print_helpers.rs:print_plan_change", "display only: falls back to the raw text for a resource the planner already reported as unresolvable"),
-    ("src/core/executor/refresh.rs:refresh_check_fails", "an unresolvable resource counts as a failing check, i.e. it is re-applied, which then reports the error"),
-    ("src/core/executor/refresh_seed.rs:check_passes_on", "an unresolvable resource does not pass its check, which then reports the error on apply"),
-];
 
 #[test]
 fn no_raw_manifest_parse_outside_the_loader() {
@@ -332,4 +320,165 @@ fn the_scans_ignore_tests_comments_strings_and_propagation() {
             "{src}"
         );
     }
+}
+
+// ---- round 5 --------------------------------------------------------------
+
+/// A loader fn nobody classified is RED, so a new `load_*` cannot dodge the
+/// swallow scan by not being in a hand-kept list.
+#[test]
+fn every_load_or_prepare_fn_is_classified() {
+    let t = tree();
+    let derived = derive_loaders(&t.scanned);
+    assert!(
+        derived.len() > 20,
+        "derived only {} loader fns",
+        derived.len()
+    );
+    let bad = unclassified_loaders(&derived);
+    assert!(bad.is_empty(), "{}", bad.join("\n"));
+}
+
+/// Plant a mutant: a new `pub fn load_*` that returns a config, and a caller
+/// that swallows it. The classification must go red, and the swallow scan
+/// must see the caller once the loader is listed.
+#[test]
+fn a_planted_unlisted_loader_goes_red() {
+    let src = "pub fn load_planted_config(p: &Path) -> Result<ForjarConfig, String> { todo!() }\nfn cmd_x(p: &Path) { let _ = load_planted_config(p); }\n";
+    let (code, spans) = planted(src);
+    let files = vec![(
+        "src/cli/planted.rs".to_string(),
+        code.clone(),
+        spans.clone(),
+    )];
+    let derived = derive_loaders(&files);
+    assert!(derived.contains("load_planted_config"));
+    let bad = unclassified_loaders(&derived);
+    assert!(
+        bad.iter().any(|b| b.contains("load_planted_config")),
+        "the unlisted loader was accepted: {bad:?}"
+    );
+    // The swallow scan is blind to it with today's list: that is what the
+    // classification above protects against.
+    assert!(swallow_hits("src/cli/planted.rs", &code, &spans).is_empty());
+    let with = swallow_hits_for(
+        "src/cli/planted.rs",
+        &code,
+        &spans,
+        &["load_planted_config"],
+    );
+    assert_eq!(with.len(), 1, "{with:?}");
+}
+
+#[test]
+fn the_listed_manifest_loaders_are_each_watched() {
+    for name in MANIFEST_LOADERS {
+        for swallow in [
+            format!("fn f() {{ let _ = {name}(p); }}"),
+            format!("fn f() {{ let c = {name}(p).ok(); }}"),
+            format!("fn f() {{ match {name}(p) {{ Ok(c) => c, Err(_) => return }}; }}"),
+        ] {
+            let (code, spans) = planted(&swallow);
+            assert_eq!(
+                swallow_hits("src/cli/p.rs", &code, &spans).len(),
+                1,
+                "{swallow}"
+            );
+        }
+    }
+}
+
+/// A production file whose NAME ends `_test` is scanned like any other. The
+/// planted tree has one `_test.rs` that bypasses the loader and one real test
+/// module (`#[cfg(test)] mod`) that does the same.
+#[test]
+fn a_file_named_like_a_test_is_scanned_by_structure_not_by_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let cli = dir.path().join("src/cli");
+    std::fs::create_dir_all(&cli).unwrap();
+    let bypass = "pub fn cmd_x(f: &Path) {\n    let c = parse_and_validate_unresolved(f);\n}\n";
+    std::fs::write(
+        cli.join("mod.rs"),
+        "mod check_test;\nmod other;\n#[cfg(test)]\nmod tests_real;\n",
+    )
+    .unwrap();
+    std::fs::write(cli.join("check_test.rs"), bypass).unwrap();
+    std::fs::write(cli.join("other.rs"), "pub fn ok() {}\n").unwrap();
+    std::fs::write(cli.join("tests_real.rs"), bypass).unwrap();
+    let t = tree_at(dir.path());
+    let hits: BTreeSet<String> = t
+        .scanned
+        .iter()
+        .flat_map(|(rel, code, spans)| unresolved_loader_hits(rel, code, spans))
+        .collect();
+    assert_eq!(
+        hits.iter().cloned().collect::<Vec<_>>(),
+        vec!["src/cli/check_test.rs:cmd_x".to_string()],
+        "the `_test.rs` bypass must be seen and the cfg(test) module must not"
+    );
+    assert!(
+        !judge("t", &hits, &[]).is_empty(),
+        "the bypass was accepted"
+    );
+}
+
+/// A function that renders resources must load the config in render form,
+/// or the template resolver scans a data value a second time.
+fn reader_load_in_a_renderer(
+    rel: &str,
+    code: &str,
+    spans: &[(usize, usize, String)],
+) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    if rel.starts_with("src/core/resolver/") || rel.starts_with("src/core/parser/") {
+        return out;
+    }
+    let renders = |s: &str| {
+        [
+            "resolve_resource_templates(",
+            "resolve_resource_templates_with_secrets(",
+            "resolve_template_with_data(",
+            "resolve_template(",
+        ]
+        .iter()
+        .any(|t| s.contains(t))
+    };
+    for (start, end, name) in spans {
+        let body = &code[*start..*end];
+        if !renders(body) {
+            continue;
+        }
+        for pat in [
+            "parse_and_validate(",
+            "load_resolved_config(",
+            "load_resolved_config_lenient(",
+        ] {
+            if body.contains(pat) && !body.contains(&format!("fn {pat}")) {
+                out.insert(format!("{rel}:{name}"));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn a_renderer_loads_in_render_form() {
+    let hits = collect(reader_load_in_a_renderer);
+    let bad = judge("renderer on a reader load", &hits, &[]);
+    assert!(bad.is_empty(), "{}", bad.join("\n"));
+}
+
+#[test]
+fn a_planted_renderer_on_the_reader_loader_goes_red() {
+    let (code, spans) = planted(
+        "fn cmd_x(f: &Path) {\n    let c = parse_and_validate(f)?;\n    let r = resolve_resource_templates(&a, &b, &c, &d)?;\n}\n",
+    );
+    assert_eq!(
+        reader_load_in_a_renderer("src/cli/p.rs", &code, &spans).len(),
+        1
+    );
+    let (code, spans) = planted(
+        "fn cmd_x(f: &Path) {\n    let c = parse_and_validate_for_render(f)?;\n    let r = resolve_resource_templates(&a, &b, &c, &d)?;\n}\n",
+    );
+    assert!(reader_load_in_a_renderer("src/cli/p.rs", &code, &spans).is_empty());
 }

@@ -222,10 +222,35 @@ pub fn resolve_data_sources_with_base(
 /// were swallowed, reported on a config with the reference left unresolved.
 /// Parsing and resolving are now one call, so a reader cannot get the first
 /// without the second.
+///
+/// The config comes back in READER form: every data value as written, no
+/// stand-in character in any string. A command that renders resources from it
+/// loads with [`load_resolved_config_for_render`] instead.
 pub fn load_resolved_config(path: &Path) -> Result<ForjarConfig, String> {
     let config = crate::core::parser::parse_and_validate(path)?;
-    finish_resolving(config, manifest_dir(path), true)
+    finish_resolving(config, manifest_dir(path), true, Form::Reader)
         .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// [`load_resolved_config`] in RENDER form, for a command that hands the config's
+/// resources to the template resolver (`resolve_resource_templates`,
+/// `resolve_template*`). Data values are written with their braces held back so
+/// the resolver cannot scan them a second time; the resolver restores them as its
+/// last step. A command that prints or hashes this config without rendering must
+/// call `decode_literals` first. `tests/falsification_660_scan.rs` requires every
+/// file that renders to load through this function or `load_resolved_config_with`.
+pub fn load_resolved_config_for_render(path: &Path) -> Result<ForjarConfig, String> {
+    let config = crate::core::parser::parse_and_validate(path)?;
+    finish_resolving(config, manifest_dir(path), true, Form::Render)
+        .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// Which side of the loader a caller is on. Reader form is decoded; render form
+/// keeps the stand-ins for the template resolver's last step.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Form {
+    Reader,
+    Render,
 }
 
 /// The same load for a command that changes the params first (`--env-file`,
@@ -240,7 +265,7 @@ pub fn load_resolved_config_with(
 ) -> Result<ForjarConfig, String> {
     let mut config = crate::core::parser::parse_and_validate(path)?;
     prepare(&mut config)?;
-    finish_resolving(config, manifest_dir(path), false)
+    finish_resolving(config, manifest_dir(path), false, Form::Render)
         .map_err(crate::core::error::ForjarError::into_message)
 }
 
@@ -257,7 +282,7 @@ pub fn load_resolved_config_lenient(
 ) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     let config = crate::core::parser::parse_config_file(path)
         .map_err(crate::core::error::ForjarError::validation)?;
-    finish_resolving(config, manifest_dir(path), true)
+    finish_resolving(config, manifest_dir(path), true, Form::Reader)
 }
 
 /// Resolve the `data:` sources AND write their values into EVERY string of the
@@ -272,21 +297,28 @@ pub(crate) fn finish_resolving(
     mut config: ForjarConfig,
     base: &Path,
     outputs: bool,
+    form: Form,
 ) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     resolve_data_sources_with_base(&mut config, base)
         .map_err(crate::core::error::ForjarError::validation)?;
-    super::data_subst::substitute_data_refs(&mut config)
+    super::data_subst::substitute_data_refs(&mut config, form == Form::Render || outputs)
         .map_err(crate::core::error::ForjarError::validation)?;
-    if !outputs {
-        return Ok(config);
-    }
-    // `outputs:` carry templates too (`{{data.x}}`, `{{params.y}}`); resolving them
-    // here means every reader that prints the config prints resolved outputs, and
-    // a template that cannot resolve fails the load instead of printing raw.
-    let resolved = crate::core::state::resolve_outputs(&config)?;
-    for (k, v) in resolved {
-        if let Some(o) = config.outputs.get_mut(&k) {
-            o.value = v;
+    if outputs {
+        // `outputs:` carry templates too (`{{data.x}}`, `{{params.y}}`); resolving them
+        // here means every reader that prints the config prints resolved outputs, and
+        // a template that cannot resolve fails the load instead of printing raw.
+        let resolved = crate::core::state::resolve_outputs(&config)?;
+        for (k, v) in resolved {
+            if let Some(o) = config.outputs.get_mut(&k) {
+                o.value = v;
+            }
+        }
+        // Outputs were resolved by the template resolver, which scans every string it
+        // is given; the values were held back for that pass, so a reader gets them back
+        // now. The reader form never leaves a stand-in in a returned config.
+        if form == Form::Reader {
+            super::data_subst::decode_literals(&mut config)
+                .map_err(crate::core::error::ForjarError::validation)?;
         }
     }
     Ok(config)

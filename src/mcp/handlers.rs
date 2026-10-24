@@ -52,7 +52,7 @@ impl Handler for ValidateHandler {
                 errors: e.lines().map(|l| l.to_string()).collect(),
             });
         }
-        let config = crate::core::resolver::load_resolved_config(&path)
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
         Ok(ValidateOutput {
             valid: true,
@@ -73,7 +73,7 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let parsed = crate::core::resolver::load_resolved_config(&path)
+        let parsed = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
 
         // forjar#372: this verb is published with `readOnlyHint: true`, which
@@ -197,7 +197,7 @@ impl Handler for LintHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let config = crate::core::resolver::load_resolved_config(&path)
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
 
         let mut warnings = Vec::new();
@@ -302,7 +302,7 @@ impl Handler for GraphHandler {
             }
         };
 
-        let config = crate::core::resolver::load_resolved_config(&path)
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
 
         let mut graph = String::new();
@@ -349,7 +349,7 @@ impl Handler for ShowHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let mut config = crate::core::resolver::load_resolved_config(&path)
+        let mut config = crate::core::resolver::load_resolved_config_for_render(&path)
             .map_err(pforge_runtime::Error::Handler)?;
 
         // GH-212 (#208): resolve ONCE, before the fan-out. The whole-config

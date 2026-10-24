@@ -12,8 +12,7 @@ use std::path::Path;
 
 /// Generate CBOM from config and state.
 pub(crate) fn cmd_cbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
-    let mut config = crate::core::resolver::load_resolved_config(file)?;
-    crate::core::resolver::decode_literals(&mut config)?;
+    let config = crate::core::resolver::load_resolved_config(file)?;
     let entries = collect_crypto_entries(&config, state_dir);
 
     if json {

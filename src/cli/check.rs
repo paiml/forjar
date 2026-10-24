@@ -363,7 +363,7 @@ pub(crate) fn cmd_check(
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_for_render(file)?;
     let selectors = super::apply_selection::Selectors {
         resource: resource_filter,
         tag: tag_filter,

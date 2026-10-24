@@ -156,7 +156,7 @@ fn expand_config_file(
 ) -> Result<String, String> {
     // forjar#660: the shared loader, so `{{data.x}}` resolves and a failing
     // `data:` source fails the command.
-    let config = crate::core::resolver::load_resolved_config(path)?;
+    let config = crate::core::resolver::load_resolved_config_for_render(path)?;
     let mut params = config.params.clone();
     for (k, v) in vars {
         params.insert(k.clone(), yaml_scalar(v));

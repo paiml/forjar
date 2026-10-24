@@ -21,7 +21,7 @@
 //! caller to infer it from a missing state directory.
 
 use super::commands::ApplyArgs;
-use super::helpers::parse_and_validate;
+use super::helpers::parse_and_validate_for_render;
 use crate::core::{codegen, resolver, types};
 
 /// Print the generated apply script for every resource in the config.
@@ -30,7 +30,7 @@ use crate::core::{codegen, resolver, types};
 /// aborting: a preview that dies on the first unsupported resource type shows
 /// less than one that says which resource it could not render.
 pub(super) fn print_generated_scripts(args: &ApplyArgs) -> Result<(), String> {
-    let config = parse_and_validate(&args.file)?;
+    let config = parse_and_validate_for_render(&args.file)?;
     println!("Generated scripts for {}:", config.name);
     for (id, resource) in &config.resources {
         let resolved = resolver::resolve_or_fallback(

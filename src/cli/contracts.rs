@@ -125,7 +125,7 @@ fn build_summary(rows: Vec<ContractRow>) -> ContractSummary {
 /// `None`; one that parses and then fails to resolve (a failing `data:` source,
 /// an unknown reference) is an error, not "no config".
 fn load_for_contracts(file: &Path) -> Result<Option<types::ForjarConfig>, String> {
-    match resolver::load_resolved_config(file) {
+    match resolver::load_resolved_config_for_render(file) {
         Ok(config) => Ok(Some(config)),
         Err(e) => match parse_and_validate_unresolved(file) {
             Ok(_) => Err(e),

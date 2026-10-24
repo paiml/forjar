@@ -18,6 +18,8 @@ use std::path::Path;
 
 /// Functions that load a manifest and resolve its `data:` block.
 const LOADERS: &[&str] = &[
+    "load_resolved_config_for_render",
+    "parse_and_validate_for_render(",
     "load_resolved_config",
     "load_resolved_config_with",
     "load_resolved_config_lenient",

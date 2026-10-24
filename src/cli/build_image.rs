@@ -29,7 +29,7 @@ pub(crate) fn cmd_build(
     if json {
         reject_json_stdout_conflicts(load, push, far, sandbox)?;
     }
-    let config = super::helpers::parse_and_validate(file)?;
+    let config = super::helpers::parse_and_validate_for_render(file)?;
     let res = config
         .resources
         .get(resource)

@@ -12,7 +12,7 @@ use std::path::Path;
 
 /// FJ-583: Show execution graph without applying.
 pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     // Build and display the execution DAG
     let mut graph: Vec<(String, Vec<String>)> = Vec::new();
@@ -52,7 +52,7 @@ pub(crate) fn cmd_apply_canary_machine(
     timeout: Option<u64>,
     yes: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     if !config.machines.contains_key(canary) {
         return Err(format!(
             "canary machine '{}' not found (available: {})",
@@ -386,7 +386,7 @@ pub(crate) fn cmd_apply_dry_run_cost(
     state_dir: &Path,
     machine: Option<&str>,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, state_dir, machine)?;
     let plan = planner::plan(&config, &order, &locks, None);

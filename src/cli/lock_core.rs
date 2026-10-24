@@ -318,7 +318,7 @@ fn print_prune_summary(pruned: usize, yes: bool) {
 
 // FJ-366: Lock prune — remove stale lock entries
 pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
 
     let entries =

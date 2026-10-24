@@ -2,6 +2,7 @@
 //! fixtures, and the `-f` command list DERIVED FROM THE CLAP DEFINITION.
 #![allow(dead_code)]
 
+pub mod lists;
 pub mod rust_scan;
 use clap::{CommandFactory, Parser};
 use std::path::Path;
