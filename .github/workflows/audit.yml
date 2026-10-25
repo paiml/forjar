@@ -13,7 +13,7 @@ on:
 
 jobs:
   audit:
-    runs-on: [self-hosted, clean-room]
+    runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
