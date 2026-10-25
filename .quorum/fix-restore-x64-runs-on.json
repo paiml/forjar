@@ -4,8 +4,8 @@
   "branch": "fix/restore-x64-runs-on",
   "base": "1a2fef64",
   "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
-  "diff_sha256": "a6acfb90a111f290401bcde30898ff606b63529f",
-  "recorded_at": "after one planted round (3 claim lanes, 3 refuters per claim, 3 judges, one planted control killed 3 of 3) and a measured revert probe, at the pre-receipt head 0dbbde9e; the commit after it adds only this receipt and its evidence files.",
+  "diff_sha256": "9600b00f86b604c2378dbaa3e5d48a4e8b3334c8",
+  "recorded_at": "round 2, after a new planted round (3 claude-opus-5-5 claim lanes that also refuted, 3 claude-opus-5-5 judges, fresh planted control C4 killed 3 of 3), at head 125140d5 plus the round-2 evidence commit; replaces the round-1 binding a6acfb90 that went stale when the receipt commit changed the gate hash.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -18,8 +18,8 @@
     "claims_confirmed": 3,
     "claims_refuted": 2,
     "refuted_claims": [
-      "C4 (planted control): ARCH_NEUTRAL admits any unpinned job whose workflow file name is listed (false: the table is empty and file and job must both match)",
-      "C5: the diff guarantees the gx10 ARM64 runners never pick up these jobs (it is label-only; runner groups and access are outside the repo)"
+      "C4 (planted control): the diff modifies src/ production Rust (false: 11 workflow files and the guard test only; src/ changes belong to epic commits below the PR base)",
+      "C5: the diff guarantees the gx10 ARM64 runners never pick up these jobs (it is label-only; runner registration and reusable-workflow callers are outside the repo)"
     ]
   },
   "falsification": {
@@ -69,33 +69,6 @@
         "bytes": 431
       },
       {
-        "path": ".quorum/evidence/791-claims.md",
-        "roles": [
-          "claims"
-        ],
-        "blob": "4ca60db6907107c71c95bf15167818310055c210",
-        "sha256": "96d5fc009c71039c135835595494383c2cacbf54697e04caeda1b81bb4c2d22b",
-        "bytes": 2644
-      },
-      {
-        "path": ".quorum/evidence/791-judges.md",
-        "roles": [
-          "judges"
-        ],
-        "blob": "70aecf8684357b70405d45a23d93c5a62ae8fc51",
-        "sha256": "18dbf82f28b0bfe7e59b799a989517510c2c1bfa12c78f58f4aed7fd933a5c8d",
-        "bytes": 1241
-      },
-      {
-        "path": ".quorum/evidence/791-lanes.md",
-        "roles": [
-          "lanes"
-        ],
-        "blob": "0b7264e3e8dd1221efac6d652a4b2ef5a715584b",
-        "sha256": "ced88ccf7553b2e52f5874df574ab5e3c5fe90f91ba44cc6741d3a7f24ad1254",
-        "bytes": 1501
-      },
-      {
         "path": ".quorum/evidence/791-pmat.md",
         "roles": [
           "pmat"
@@ -112,9 +85,36 @@
         "blob": "6b67faf0820485946f3eb8384bdc9bc44aec7345",
         "sha256": "0d9e379782f961b03c6c05e3a8a403838a6eb388f72959198407bbea0f5a9c1b",
         "bytes": 903
+      },
+      {
+        "path": ".quorum/evidence/791-r2-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "e503e75b53f8fbf0d7a0c589546b2d67d4070ae4",
+        "sha256": "2808c614532498b6f4ef6faba5b448fe24cfadc6d579022790f3781041c2615e",
+        "bytes": 3101
+      },
+      {
+        "path": ".quorum/evidence/791-r2-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "561968f81abd1f9752c823758918acf4a4f89e30",
+        "sha256": "5b3be370202d453008c971d659bf0fe784ac71eb85c4e7cba61c5a27b42b7460",
+        "bytes": 1433
+      },
+      {
+        "path": ".quorum/evidence/791-r2-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "7633211abec5d270ecf362030b125b8251da1d08",
+        "sha256": "fc409dfcad386a560f998725f0ecb3e370dead86771f1e7860105f3c55402266",
+        "bytes": 1202
       }
     ],
-    "total_bytes": 7107,
-    "claims_digest": ".quorum/evidence/791-claims.md"
+    "total_bytes": 7457,
+    "claims_digest": ".quorum/evidence/791-r2-claims.md"
   }
 }
