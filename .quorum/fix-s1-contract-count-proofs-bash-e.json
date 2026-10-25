@@ -4,7 +4,7 @@
   "branch": "fix/s1-contract-count-proofs-bash-e",
   "base": "1a2fef64",
   "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
-  "diff_sha256": "923ac5ba0007c503145d2d6d28229d2440531a58",
+  "diff_sha256": "844b499f7ea806615132147e6bbf9be979feb0b9",
   "recorded_at": "round 1, after a planted round (3 claude-opus-5-5 claim lanes that also refuted, 3 claude-opus-5-5 judges, planted control C3 killed 3 of 3), at head ef18358d.",
   "quorum": {
     "rounds": 1,
@@ -50,7 +50,8 @@
   "pmat": {
     "ticket": "PMAT-756",
     "tools": [
-      "manual vacuous-test review: the new test requires at least one contract with both fields and was shown red on main's contract"
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 0 items in tests/falsification_contract_summary_counts_match.rs"
     ],
     "vacuous_tests_in_touched_paths": 0,
     "accepted": []
@@ -71,9 +72,9 @@
         "roles": [
           "pmat"
         ],
-        "blob": "9a17daa361be60a9e4329a265ca272b3ef7e018e",
-        "sha256": "9b63439556712484ebcac95260ed090daca1cb1130d00b29eaff53c13519f073",
-        "bytes": 306
+        "blob": "69be24d881cd36ee2fb9e2d8763cfc472362e65d",
+        "sha256": "effd61f43686c4ed6ea13be0f499f27d2382cbac6204051bc3368f6aab269f82",
+        "bytes": 420
       },
       {
         "path": ".quorum/evidence/s1-crux.md",
@@ -112,7 +113,7 @@
         "bytes": 703
       }
     ],
-    "total_bytes": 5304,
+    "total_bytes": 5418,
     "claims_digest": ".quorum/evidence/s1-claims.md"
   }
 }
