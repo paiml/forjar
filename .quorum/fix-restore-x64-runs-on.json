@@ -1,0 +1,120 @@
+{
+  "kind": "code",
+  "issue": "forjar#791: restore the X64 runs-on label on every clean-room workflow job (R1, NOAH 16:08Z, \"Restore the X64 runs-on label on the affected forjar workflows. This line is the permission. Smallest diff only.\"); supersedes PMAT-756. ARCH_NEUTRAL emptied and the architecture guard split into two helpers.",
+  "branch": "fix/restore-x64-runs-on",
+  "base": "1a2fef64",
+  "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
+  "diff_sha256": "a6acfb90a111f290401bcde30898ff606b63529f",
+  "recorded_at": "after one planted round (3 claim lanes, 3 refuters per claim, 3 judges, one planted control killed 3 of 3) and a measured revert probe, at the pre-receipt head 0dbbde9e; the commit after it adds only this receipt and its evidence files.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "claude-opus-5-5 lane 1 (code and refactor): PASS",
+      "claude-opus-5-5 lane 2 (workflow side): PASS",
+      "claude-opus-5-5 lane 3 (gate weakening): PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "C4 (planted control): ARCH_NEUTRAL admits any unpinned job whose workflow file name is listed (false: the table is empty and file and job must both match)",
+      "C5: the diff guarantees the gx10 ARM64 runners never pick up these jobs (it is label-only; runner groups and access are outside the repo)"
+    ]
+  },
+  "falsification": {
+    "test": "a_fleet_job_names_the_architecture_it_needs",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet/main.rs",
+    "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host. Green on the PR head: 13 passed, 0 failed. With .github/workflows restored to the epic base 2cf561b0: 12 passed, 1 failed (a_fleet_job_names_the_architecture_it_needs). Restored: 13 passed."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions self-hosted runners: runs-on is a label set; omitting the arch label accepts either architecture",
+      "GitLab Runner tags: an untagged job runs on any runner that accepts untagged jobs",
+      "Buildkite agent queues and tags: a missing arch tag means any agent in the queue",
+      "Jenkins node labels: no label expression runs anywhere; mixed fleets pin by label"
+    ],
+    "verdict": "No crux row is owed: pinning every clean-room job to X64 is the conservative common practice, and the guard keeps an unpinned job from returning silently."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy out of scope for this round; Claude Code claude-opus-5-5 lanes, read-only tools, no writes, never the author model (claude-sonnet-5-5)",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "SOUND: label-only workflow edits plus a guard that admits nothing. Non-blocking findings F1 (stale PMAT-756 doc comment above ARCH_NEUTRAL, edit refused by the ticket hook), F2 (matrix-leg flattening in runner_labels, pre-existing), F3 (reusable-workflow callers carry no runs-on)."
+  },
+  "pmat": {
+    "ticket": "PMAT-756",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 381 files parsed, 4952 tests examined, 0 in tests/falsification_every_ci_job_runs_on_the_fleet"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/791-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "806c5a67655bf298fed29b041844eb7bdd091bc9",
+        "sha256": "251fafa9395367e228869df127afe296c290d6b0b4a5866f7037e8fd5f9634d7",
+        "bytes": 431
+      },
+      {
+        "path": ".quorum/evidence/791-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "4ca60db6907107c71c95bf15167818310055c210",
+        "sha256": "96d5fc009c71039c135835595494383c2cacbf54697e04caeda1b81bb4c2d22b",
+        "bytes": 2644
+      },
+      {
+        "path": ".quorum/evidence/791-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "70aecf8684357b70405d45a23d93c5a62ae8fc51",
+        "sha256": "18dbf82f28b0bfe7e59b799a989517510c2c1bfa12c78f58f4aed7fd933a5c8d",
+        "bytes": 1241
+      },
+      {
+        "path": ".quorum/evidence/791-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "0b7264e3e8dd1221efac6d652a4b2ef5a715584b",
+        "sha256": "ced88ccf7553b2e52f5874df574ab5e3c5fe90f91ba44cc6741d3a7f24ad1254",
+        "bytes": 1501
+      },
+      {
+        "path": ".quorum/evidence/791-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "7364252009d75e1b8f1e02dfb373f39523693ebd",
+        "sha256": "5fb142ff2b2c7cd2d6fc316d4fd5864451091dc15c27cf132dbcb70de35aab71",
+        "bytes": 387
+      },
+      {
+        "path": ".quorum/evidence/791-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "6b67faf0820485946f3eb8384bdc9bc44aec7345",
+        "sha256": "0d9e379782f961b03c6c05e3a8a403838a6eb388f72959198407bbea0f5a9c1b",
+        "bytes": 903
+      }
+    ],
+    "total_bytes": 7107,
+    "claims_digest": ".quorum/evidence/791-claims.md"
+  }
+}
