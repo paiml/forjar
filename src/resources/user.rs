@@ -56,7 +56,18 @@ pub fn check_script(resource: &Resource) -> String {
         let live = format!(
             "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,"
         );
-        field("groups", live, &want.join(","));
+        let want = want.join(",");
+        // the primary may be implicit, so it is dropped from the declared list
+        // in the shell against the same $p, exactly as from the live set
+        let want_sh = format!(
+            "p=$(id -gn {u} 2>/dev/null); printf '%s' {} | tr ',' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,",
+            sh_squote(&want)
+        );
+        a.push(verdict::assert_that(
+            &format!("[ \"$({live})\" = \"$({want_sh})\" ]"),
+            &format!("groups={want}"),
+            &format!("groups!={want}"),
+        ));
     }
     verdict::check_script_from(&a)
 }

@@ -170,3 +170,18 @@ fn absent_is_judged_the_right_way_round() {
     present.state = Some("absent".to_string());
     assert_ne!(run(&present, "").0, 0, "absent + user exists = diverged");
 }
+
+#[test]
+fn a_declared_primary_group_in_groups_still_converges() {
+    // PMAT-721 / forjar#759: `groups` lists the primary group (group: course,
+    // groups: [course, ...]). Live `id -Gn` minus the primary can never contain
+    // it, so the declared list must drop it too or the check never converges.
+    let mut r = declared();
+    r.group = Some("course".to_string());
+    r.groups.push("course".to_string());
+    let (rc, out) = run(&r, "");
+    assert_eq!(
+        rc, 0,
+        "primary group listed in groups: must not read as drift: {out}"
+    );
+}
