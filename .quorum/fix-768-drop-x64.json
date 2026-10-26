@@ -1,0 +1,122 @@
+{
+  "kind": "code",
+  "issue": "forjar#768 (PMAT-756): drop X64 from the chip-neutral CI jobs so ARM64 clean-room runners can take them; the architecture guard admits an explicit ARCH_NEUTRAL list and still fails an unlisted job that names no architecture.",
+  "branch": "fix/768-drop-x64",
+  "base": "8ef33501",
+  "base_commit": "8ef335018f97c976574cebe17bc3d86d7381c8c5",
+  "diff_sha256": "730efbc96a1ff3d437cfe7fd4948d2fe08641ced",
+  "recorded_at": "after one planted round (3 claim lanes, 3 refuters, 3 judges, one planted control killed 3 of 3) and a measured revert probe, at the pre-receipt head of this branch; the commit after it adds only this receipt.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-argon-high: SOUND-WITH-CORRECTIONS",
+      "agy gemini-3.8-flash-high: SOUND-WITH-CORRECTIONS",
+      "claude-haiku-4-5: SOUND (scoped rerun; the unscoped run was discarded)"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 8,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "C4: the guard catches a matrix job where one leg names X64 and another leg names no architecture (it does not: runner_labels flattens the legs, so one X64 leg pins the whole job)",
+      "C5: the staleness check fails when a listed ARCH_NEUTRAL job stops being self-hosted (it does not: seen is recorded before the self-hosted filter)",
+      "C9 (planted control): ARCH_NEUTRAL admits an unlisted self-hosted job with no arch label if its workflow file is listed (false: file and job id must both match)",
+      "C10: the diff guarantees the gx10 ARM64 runners pick up the relaxed jobs (it only makes them label-eligible; runner-group access is outside the repo)"
+    ]
+  },
+  "falsification": {
+    "test": "a_fleet_job_names_the_architecture_it_needs (control: the epic-base version of the same file)",
+    "test_file": "tests/falsification_every_ci_job_runs_on_the_fleet/main.rs",
+    "cargo_test_target": "falsification_every_ci_job_runs_on_the_fleet",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host. Green on the PR head: 13 passed, 0 failed. With the test file restored to the epic base version over these workflows: 12 passed, 1 failed (a_fleet_job_names_the_architecture_it_needs: these fleet jobs name no architecture, and clean-room spans X64 and ARM64; naming audit, behavior, classify, doctests and others). Restored: 13 passed."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions self-hosted runners: runs-on is a label set; omitting the arch label accepts either architecture",
+      "GitLab Runner tags: an untagged job runs on any runner that accepts untagged jobs",
+      "Buildkite agent queues and tags: a missing arch tag means any agent in the queue; artifact steps get per-arch queues",
+      "Jenkins node labels: no label expression runs anywhere; release jobs are pinned by label"
+    ],
+    "verdict": "No crux row is owed: pinning artifact producers and leaving verification jobs unpinned is common practice; the added ARCH_NEUTRAL guard is stricter than the other systems, which let an unpinned job through silently."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy sessions (gemini-4-argon-high, gemini-3.8-flash-high), print mode, no writes, with the checkout and scratch directory as the only added directories; they also sat as refuters 1 and 2 and judges 1 and 2",
+    "rounds": 1,
+    "lanes_per_round": 2,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "SOUND-WITH-CORRECTIONS: the placement edits are label-only and release jobs keep X64; two holes in the guard (mixed matrix legs, staleness ignoring self-hosted) are recorded as refuted claims C4 and C5."
+  },
+  "pmat": {
+    "ticket": "PMAT-756",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 380 files parsed, 4944 tests examined, 84 cannot fail, 0 of them in tests/falsification_every_ci_job_runs_on_the_fleet"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/768-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "1268f9f566572e989334518f63ca9e487d2632c4",
+        "sha256": "c86f35ece318e00a2322ac46f0a9c25b4ad958058cef7583dbce3d851823f245",
+        "bytes": 726
+      },
+      {
+        "path": ".quorum/evidence/768-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "c3fe65506f052794cec4b4299a66f7e35ff1e5b3",
+        "sha256": "1abe21ac7937ed3483e32bb7a792fbae9891b92dd2e7ebe4184dc8e5a9b46ae8",
+        "bytes": 6380
+      },
+      {
+        "path": ".quorum/evidence/768-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3bbfcd8e7c6f34e909559eff5d8463e46cb9afa8",
+        "sha256": "75c6b9eb35d89f53e70ce3da657106ad0de89f15e21a81a698f2773e1f1affdc",
+        "bytes": 1589
+      },
+      {
+        "path": ".quorum/evidence/768-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "9045af6c3b1e7054ee4923af90d842361ee0e1a2",
+        "sha256": "69761c88b56c7a443d97a37aca9db6a4d26a6ec7ae90d840b0d1f002981623c8",
+        "bytes": 1872
+      },
+      {
+        "path": ".quorum/evidence/768-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "d62bd976ca4636350210f01e7bb1f4d16666fd71",
+        "sha256": "003e0e426141e958e9c674135d546705d9a8249ac0ddd5d4b578c711a6914720",
+        "bytes": 395
+      },
+      {
+        "path": ".quorum/evidence/768-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "46a5ed64ff30729f88bfbb04d640fc7085f1a0d0",
+        "sha256": "1322ece51b75aa1325e318bcd01eeec70308f39c344647cf40caa0045bcea1f9",
+        "bytes": 1404
+      }
+    ],
+    "total_bytes": 12366,
+    "claims_digest": ".quorum/evidence/768-claims.md"
+  }
+}

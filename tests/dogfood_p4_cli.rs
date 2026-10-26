@@ -35,6 +35,7 @@ machines:
     hostname: sandbox-local
     addr: 127.0.0.1
     user: nobody
+    ssh_key: ~/.ssh/id_ed25519
     arch: x86_64
 resources:
   hello:
@@ -276,10 +277,20 @@ fn image_help_does_not_reference_a_nonexistent_iso_flag() {
 #[test]
 fn image_user_data_file_is_valid_yaml() {
     let d = sandbox(CONFIG);
-    let out = run(
-        d.path(),
-        &["image", "-m", "local", "--user-data", "-o", "ud.yaml"],
-    );
+    // The machine names an ssh_key; its public half must exist, so give the child
+    // its own HOME rather than depend on the host user having ~/.ssh/id_ed25519.pub.
+    let home = d.path().join("home");
+    std::fs::create_dir_all(home.join(".ssh")).unwrap();
+    std::fs::write(
+        home.join(".ssh/id_ed25519.pub"),
+        "ssh-ed25519 AAAATESTKEY test\n",
+    )
+    .unwrap();
+    let out = forjar(d.path())
+        .env("HOME", &home)
+        .args(["image", "-m", "local", "--user-data", "-o", "ud.yaml"])
+        .output()
+        .expect("run forjar");
     assert!(out.status.success(), "{}", stderr(&out));
     let body = std::fs::read_to_string(d.path().join("ud.yaml")).unwrap();
     serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&body)
