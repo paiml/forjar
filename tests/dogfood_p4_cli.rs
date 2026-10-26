@@ -35,6 +35,7 @@ machines:
     hostname: sandbox-local
     addr: 127.0.0.1
     user: nobody
+    ssh_key: ~/.ssh/id_ed25519
     arch: x86_64
 resources:
   hello:

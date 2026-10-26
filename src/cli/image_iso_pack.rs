@@ -20,7 +20,7 @@ pub(super) fn extract_iso_file(
 }
 
 /// Copy the current forjar binary into the staged payload.
-pub(super) fn embed_forjar_binary(work: &Path) -> Result<(), String> {
+pub(super) fn embed_forjar_binary(work: &Path) -> Result<(), crate::core::error::ForjarError> {
     let bin_dir = work.join("forjar").join("bin");
     std::fs::create_dir_all(&bin_dir).map_err(|e| format!("create bin dir: {e}"))?;
     if let Ok(exe) = std::env::current_exe() {

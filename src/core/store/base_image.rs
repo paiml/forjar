@@ -78,7 +78,8 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
 
     // 2. Read the first manifest; if it is itself an index (multi-platform
     //    image), resolve it to the linux/<host arch> manifest (or its first entry).
-    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)?;
+    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)
+        .map_err(crate::core::error::ForjarError::into_untyped)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
         serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
@@ -122,7 +123,11 @@ fn host_oci_arch() -> &'static str {
 
 /// Follow an OCI image index / docker manifest list down to a single image
 /// manifest digest. Prefers `linux/<host arch>`, else the first entry.
-fn resolve_manifest_digest(layout_dir: &Path, digest: &str, depth: u8) -> Result<String, String> {
+fn resolve_manifest_digest(
+    layout_dir: &Path,
+    digest: &str,
+    depth: u8,
+) -> Result<String, crate::core::error::ForjarError> {
     let data = read_blob(layout_dir, digest)?;
     let doc: serde_json::Value =
         serde_json::from_slice(&data).map_err(|e| format!("parse manifest {digest}: {e}"))?;

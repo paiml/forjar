@@ -56,11 +56,16 @@ pub fn scan_overlay_upper(upper_dir: &Path, strip_prefix: &Path) -> Result<Overl
         total_bytes: 0,
         file_count: 0,
     };
-    walk_dir(upper_dir, strip_prefix, &mut scan)?;
+    walk_dir(upper_dir, strip_prefix, &mut scan)
+        .map_err(crate::core::error::ForjarError::into_untyped)?;
     Ok(scan)
 }
 
-fn walk_dir(dir: &Path, strip_prefix: &Path, scan: &mut OverlayScan) -> Result<(), String> {
+fn walk_dir(
+    dir: &Path,
+    strip_prefix: &Path,
+    scan: &mut OverlayScan,
+) -> Result<(), crate::core::error::ForjarError> {
     let read_dir =
         std::fs::read_dir(dir).map_err(|e| format!("read_dir {}: {e}", dir.display()))?;
 

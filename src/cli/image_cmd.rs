@@ -123,7 +123,7 @@ fn stage_iso_workdir(
         .map_err(|e| format!("write user-data: {e}"))?;
     std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
 
-    embed_forjar_binary(work)?;
+    embed_forjar_binary(work).map_err(crate::core::error::ForjarError::into_untyped)?;
     std::fs::copy(file, work.join("forjar").join("forjar.yaml"))
         .map_err(|e| format!("copy config: {e}"))?;
 
