@@ -150,7 +150,7 @@ fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarCo
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.
-fn passes_machine_filters(
+pub(crate) fn passes_machine_filters(
     resource: &Resource,
     machine_name: &str,
     resource_id: &str,
