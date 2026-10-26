@@ -25,6 +25,14 @@ pub(crate) enum PlanVersionPins {
     },
 }
 
+impl PlanVersionPins {
+    /// The mode plain `forjar plan` runs in: it always asks the box, and
+    /// `--offline` drops only the upstream half (forjar#613).
+    pub(crate) fn for_plan(offline: bool) -> Self {
+        Self::Check { upstream: !offline }
+    }
+}
+
 /// One verdict row.
 pub(crate) struct PinRow {
     machine: String,
@@ -135,4 +143,25 @@ pub(crate) fn to_json(rows: &[PinRow]) -> serde_json::Value {
             })
             .collect(),
     )
+}
+
+#[cfg(test)]
+mod mode_tests {
+    use super::PlanVersionPins;
+
+    #[test]
+    fn plain_plan_asks_the_box_and_upstream() {
+        assert_eq!(
+            PlanVersionPins::for_plan(false),
+            PlanVersionPins::Check { upstream: true }
+        );
+    }
+
+    #[test]
+    fn offline_plan_still_asks_the_box() {
+        assert_eq!(
+            PlanVersionPins::for_plan(true),
+            PlanVersionPins::Check { upstream: false }
+        );
+    }
 }

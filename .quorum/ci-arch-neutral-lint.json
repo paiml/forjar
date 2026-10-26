@@ -49,7 +49,7 @@
     "cargo_test_target": "falsification_722_cache_key_arch",
     "reverted": true,
     "still_green_when_reverted": false,
-    "observed_failure": "Measured locally. With lint.yml and msrv.yml reverted to b2918946 in a scratch copy the guard failed on a key-count mismatch and the_pre_722_cache_keys_are_caught passed by catching it; with the guard weakened (no comment strip, no restore-keys check) the comment and sequence cases failed. Restored, 8 passed. The existing falsification_every_ci_job_runs_on_the_fleet gave 13 passed on 37955c80."
+    "observed_failure": "Measured locally. With lint.yml and msrv.yml reverted to b2918946 in a scratch copy the guard failed on a key-count mismatch and the_pre_722_cache_keys_are_caught passed by catching it; with the guard weakened (no comment strip, no restore-keys check) the comment and sequence cases failed. Restored, 9 passed. The existing falsification_every_ci_job_runs_on_the_fleet gave 13 passed on 37955c80."
   },
   "crux": {
     "systems": [
@@ -73,7 +73,7 @@
     "tools": [
       "analyze_vacuous_tests",
       "pmat analyze vacuous-tests -p . -f json: 0 vacuous tests in tests/falsification_722_cache_key_arch.rs and none in the touched fleet-arch test",
-      "cargo test --locked --test falsification_722_cache_key_arch: 8 passed; cargo test --test falsification_every_ci_job_runs_on_the_fleet: 13 passed"
+      "cargo test --locked --test falsification_722_cache_key_arch: 9 passed; cargo test --test falsification_every_ci_job_runs_on_the_fleet: 13 passed"
     ],
     "vacuous_tests_in_touched_paths": 0,
     "accepted": []

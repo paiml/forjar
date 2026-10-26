@@ -38,7 +38,9 @@ declared `completion_check` passes as unchanged. The apply records it
 `converged` (with no `applied_at`: nothing ran), as the converge it replaces
 did, so `drift` still inspects the guard; the previews write nothing. A check
 that fails or cannot run still plans `create`.
-Plain `forjar plan` stays lock-relative and does not contact hosts.
+Plain `forjar plan` keeps its actions lock-relative, but it does contact hosts: it
+asks each versioned `github_release` binary for its live `--version` (and, unless
+`--offline`, the latest upstream release) and prints the verdicts beside the plan.
 `tests/falsification_lockless_check_before_create.rs` runs a real apply on
 localhost; `src/cli/tests_plan_apply_same_set.rs` asserts the two sets are equal.
 

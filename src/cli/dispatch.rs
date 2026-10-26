@@ -81,7 +81,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 out.as_deref(),
                 why,
                 group.as_deref(),
-                PlanVersionPins::Check { upstream: !offline },
+                PlanVersionPins::for_plan(offline),
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),

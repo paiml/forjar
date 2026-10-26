@@ -391,3 +391,22 @@ fn fj613_nightly_is_named_not_passed() {
         "{out:?}"
     );
 }
+
+/// An invalid repo slug asks nothing of the box, so it is UNMEASURED and is not
+/// one of this detector's drift verdicts (review of forjar#759, finding 4).
+#[test]
+fn invalid_repo_slug_is_unmeasured_not_a_version_finding() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut r = ollama(dir.path());
+    r.repo = Some("not a repo; rm -rf /".to_string());
+    let v = super::version_pin::check_version_pins(
+        "box",
+        &local_machine(),
+        &config_with("ollama", r),
+        false,
+    );
+    assert_eq!(v.findings.len(), 1);
+    assert!(v.findings[0].is_unmeasured());
+    assert!(!super::version_pin::is_version_finding(&v.findings[0]));
+    assert!(v.findings[0].detail.contains("invalid github repo slug"));
+}
