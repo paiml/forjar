@@ -206,6 +206,7 @@ mod tests {
             what_if: vec![],
             out: None,
             why: false,
+            refresh: false,
         };
         let _ = format!("{a:?}");
     }

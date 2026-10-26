@@ -1,6 +1,6 @@
 ---
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   kind: pattern
   created: "2026-08-26"
   author: "PAIML Engineering"
@@ -38,6 +38,7 @@ metadata:
     - "issue: https://github.com/paiml/forjar/issues/305"
     - "prior art: Terraform plan -detailed-exitcode; ArgoCD Synced/OutOfSync conditions"
     - "issue: https://github.com/paiml/forjar/issues/497"
+    - "issue: https://github.com/paiml/forjar/issues/415 — `plan --refresh`, the revision the notes below demand"
 
 equations:
   plan_ranges_over_config_and_lock_only:
@@ -47,7 +48,7 @@ equations:
     domain: "config ∈ ForjarConfig, locks ∈ HashMap<String, StateLock>"
     codomain: "ExecutionPlan"
     invariants:
-      - "plan opens no transport and contacts no machine"
+      - "plan WITHOUT `--refresh` opens no transport and contacts no machine (forjar#415 revised this; see plan_refresh_hands_the_planner_measured_locks)"
       - "plan's counts are therefore silent about anything changed behind forjar's back"
       - "This is DESIRABLE and is not the defect; the defect is failing to say so"
     notes: |
@@ -55,6 +56,47 @@ equations:
       network has to contradict a written equation rather than quietly widen
       the domain. If plan ever becomes host-aware, this contract must be
       revised, not silently outgrown.
+
+      REVISED by forjar#415. The FUNCTION above is unchanged: the planner is
+      still pure in (config, locks). What `--refresh` changes is which locks
+      the CLI hands it, and that is stated as its own equation below rather
+      than by weakening this one.
+
+  plan_refresh_hands_the_planner_measured_locks:
+    formula: |
+      plan --refresh = plan(config, order, refresh(locks, host), tag)
+      refresh(locks, host)[m][r].status = Drifted  ⟺  drift(m) measured r as changed (or it already was)
+      refresh leaves every other field of every entry, and the locks ON DISK, untouched
+    domain: "config ∈ ForjarConfig, locks ∈ HashMap<String, StateLock>, host = the declared machines"
+    codomain: "ExecutionPlan"
+    invariants:
+      - "The detectors are the ones `forjar drift` runs (detect_drift_full_reported over resolved resources); plan grows no second notion of drift"
+      - "An UNMEASURED finding (forjar#549) is not drift: it marks nothing and is counted as unconsulted"
+      - "A lock whose machine the config does not declare cannot be asked; its observed entries count as unconsulted"
+      - "plan --refresh writes no state; `drift` and `apply --refresh` remain the commands that do"
+      - "The machine surface says which quantifier was used: `lock_relative: false` and a `refresh` object iff --refresh ran"
+      - "The lock-relative sentence is NOT printed under --refresh (it would be false); the refreshed disclosure fires iff something went unmeasured, and names `forjar drift`"
+      - "plan --refresh --out is refused: a sealed plan is re-checked against the locks on disk, which a refresh does not write, so it could never apply"
+    notes: |
+      Opt-in and slow on purpose: a round-trip per machine, exactly the cost
+      the description above declines to impose on every plan.
+
+      SCOPE. #415 is titled "plan/check/--dry-run are lock-relative", but its
+      Fix and Success criterion name `plan --refresh` alone. Quoted from the
+      issue:
+        Fix: "`plan --refresh` that runs state-query before diffing, reusing
+          the drift machinery. ... Keep the existing honest labelling for the
+          default (non-refresh) path."
+        Success criterion: "Drift a file on the host, then `plan --refresh`
+          must show it as a change **without** an intervening `apply` or
+          `drift` run."
+      And plan was the only one of the three that could not consult a host:
+        - `check` runs each resource's check script ON THE TARGET
+          (src/cli/check.rs:130: `transport::exec_script(machine, check_script)`).
+        - `apply --dry-run --refresh` refreshes before the dry-run return
+          (src/core/executor/mod.rs:401 `refresh::refresh_locks` precedes
+          `if cfg.dry_run` at :437).
+      So this equation covers plan only, and neither of the other two changes.
 
   disclosure_is_a_function_of_unconsulted_observations:
     formula: |
@@ -216,6 +258,13 @@ falsification:
       because it asked the machine predicate before a map that could not
       answer per machine.
     expected: "a_stale_local_probe_moves_only_the_row_it_measured and a_stale_local_probe_does_not_plan_the_remote_row fail"
+  - id: refresh-is-a-no-op
+    description: |
+      Make refresh_locks_for_plan return without marking anything. A file
+      edited on the target after apply then plans `0 to change` under
+      --refresh, exactly as without it, while the JSON still says
+      `lock_relative: false`: a refresh that claims to have looked.
+    expected: "falsify_415_refresh_plans_a_file_edited_behind_forjars_back fails"
 
 # The `falsification:` block above says how to BREAK the property. This block
 # says where the property is CURRENTLY PINNED — the shipped tests that go red
@@ -306,3 +355,45 @@ falsification_tests:
     prediction: "with the probe map handed in by the caller, `plan` over [box, far] with the local input rewritten plans box Update, far NoOp, and names far"
     test: "src/core/planner/tests_unprobed.rs::a_stale_local_probe_does_not_plan_the_remote_row"
     if_fails: "The key is right in the binary and wrong at the boundary, or the reverse — one of the two tests is pinning the wrong thing"
+
+  - id: FALSIFY-PQ-015
+    rule: "plan --refresh plans what the host holds, and writes nothing"
+    prediction: "a file edited on the target after apply: plain plan has `to_update: 0, lock_relative: true`; `plan --refresh` has `to_update: 1, lock_relative: false, refresh.drifted: 1`; state bytes and the target are unchanged"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_plans_a_file_edited_behind_forjars_back"
+    if_fails: "Either --refresh is a flag that is accepted and ignored (the FJ-3010 shape) or plan has started writing state"
+
+  - id: FALSIFY-PQ-016
+    rule: "A refresh of a converged host plans nothing"
+    prediction: "converged sandbox: `plan --refresh` has `to_update: 0` and `refresh.drifted: 0`"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_of_a_converged_host_plans_nothing"
+    if_fails: "--refresh reads every entry as drifted (e.g. comparing unresolved templates, PMAT-197) and rebuilds the world"
+
+  - id: FALSIFY-PQ-017
+    rule: "A refreshed plan does not print the lock-relative sentence"
+    prediction: "`plan --refresh` text has `1 to change` and `1 resource(s) measured as drifted`, and not the `did not contact any machine` disclosure"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_text_does_not_claim_it_stayed_off_the_host"
+    if_fails: "The output states a quantifier the run did not use"
+
+  - id: FALSIFY-PQ-018
+    rule: "A refreshed plan is never sealed"
+    prediction: "`plan --refresh --out f` exits nonzero naming `plan --refresh --out` and writes no f"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_refuses_to_seal_a_plan_file"
+    if_fails: "A plan file is written that `apply --plan-file` can only reject, against locks it was never computed from"
+
+  - id: FALSIFY-PQ-019
+    rule: "`refresh.drifted` is what the host showed, not how many statuses flipped"
+    prediction: "file edited and the lock entry saved as Drifted via `save_lock`, then `plan --refresh` reports `refresh.drifted: 1`"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_counts_drift_the_lock_already_recorded"
+    if_fails: "The refresh line under-reports a host it just measured as changed"
+
+  - id: FALSIFY-PQ-020
+    rule: "What a refresh could not measure is disclosed, counted, and planned from the lock alone"
+    prediction: "a machine at TEST-NET-3: `plan --refresh` has `lock_relative: false`, `refresh.drifted: 0`, `unconsulted_observations: 1`, the same changes as plain plan, a disclosure naming `forjar drift`, and the lock bytes unchanged"
+    test: "tests/falsification_415_plan_refresh_consults_the_host.rs::falsify_415_refresh_discloses_what_it_could_not_measure"
+    if_fails: "An unanswered query is read as drift (rebuild on 'could not look'), or a refreshed plan hides the machines it never reached"
+
+  - id: FALSIFY-PQ-021
+    rule: "A refresh counts every entry it planned from the lock alone, not only the unanswered queries"
+    prediction: "a census with one unanswered query, one observed entry skipped for a changed mask and one observed entry never censused counts 3; inspected, unobserved and out-of-scope entries count 0"
+    test: "src/tripwire/drift/tests_refresh_census.rs::a_refresh_discloses_skipped_observations_and_unanswered_queries"
+    if_fails: "A refreshed plan plans a skipped observation from the lock without saying so — the silence --refresh was added to end"

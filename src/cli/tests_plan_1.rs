@@ -134,6 +134,7 @@ resources:
             what_if: vec![],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { cost, .. }) => assert!(cost),
@@ -162,6 +163,7 @@ resources:
             what_if: vec!["port=8080".to_string()],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { what_if, .. }) => {
