@@ -39,9 +39,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_completeness_audit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let missing = find_missing_deps(&cfg);
 
@@ -123,9 +121,7 @@ pub(crate) fn cmd_validate_check_resource_machine_coverage_gap(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let gaps = find_machine_coverage_gaps(&cfg);
 
@@ -205,9 +201,7 @@ pub(crate) fn cmd_validate_check_resource_path_depth_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let violations = find_path_depth_violations(&cfg, PATH_DEPTH_LIMIT);
 

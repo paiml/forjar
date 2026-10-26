@@ -10,9 +10,7 @@ pub(crate) fn cmd_validate_check_resource_naming_pattern(
     json: bool,
     pattern: &str,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_naming_pattern_violations(&config, pattern);
     if json {
         let items: Vec<String> = violations.iter().map(|r| format!("\"{r}\"")).collect();
@@ -63,9 +61,7 @@ pub(crate) fn cmd_validate_check_resource_provider_support(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_provider_support_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -111,9 +107,7 @@ pub(crate) fn cmd_validate_check_resource_secret_refs(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_secret_ref_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -153,9 +147,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency_hints(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let missing = find_idempotency_hint_gaps(&config);
     if json {
         let items: Vec<String> = missing
@@ -195,9 +187,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_depth(
     json: bool,
     max_depth: usize,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_depth_violations(&config, max_depth);
     if json {
         let items: Vec<String> = violations
@@ -264,9 +254,7 @@ pub(crate) fn cmd_validate_check_resource_machine_affinity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_machine_affinity_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -304,9 +292,7 @@ pub(crate) fn cmd_validate_check_resource_drift_risk(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = score_drift_risk(&config);
     if json {
         let items: Vec<String> = scores
@@ -357,9 +343,7 @@ pub(crate) fn cmd_validate_check_resource_tag_coverage(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let missing = find_tag_coverage_gaps(&config);
     if json {
         let items: Vec<String> = missing.iter().map(|r| format!("\"{r}\"")).collect();
@@ -391,9 +375,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hooks(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_lifecycle_hook_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -436,9 +418,7 @@ pub(crate) fn cmd_validate_check_resource_provider_version(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_provider_version_issues(&config);
     if json {
         let items: Vec<String> = issues

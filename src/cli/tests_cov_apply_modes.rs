@@ -162,7 +162,7 @@ mod tests {
         // Build the plan exactly as cmd_apply_from_plan reconstructs the config.
         let mut config = parse_and_validate(&cfg).unwrap();
         inject_workspace_param(&mut config, Some("pfws"));
-        resolver::resolve_data_sources(&mut config).unwrap();
+        resolver::resolve_data_sources_with_base(&mut config, std::path::Path::new(".")).unwrap();
         let order = resolver::build_execution_order(&config).unwrap();
         let locks = load_machine_locks(&config, &sd, None).unwrap();
         let plan = planner::plan(&config, &order, &locks, None);

@@ -12,7 +12,7 @@ use std::path::Path;
 
 /// FJ-583: Show execution graph without applying.
 pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     // Build and display the execution DAG
     let mut graph: Vec<(String, Vec<String>)> = Vec::new();
@@ -52,7 +52,7 @@ pub(crate) fn cmd_apply_canary_machine(
     timeout: Option<u64>,
     yes: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     if !config.machines.contains_key(canary) {
         return Err(format!(
             "canary machine '{}' not found (available: {})",
@@ -200,6 +200,7 @@ fn refreshed_live_hash(
     let resolved = resolver::resolve_resource_templates_with_secrets(
         resource,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )
@@ -348,12 +349,13 @@ pub(crate) fn cmd_refresh_only(
 ) -> Result<(), String> {
     super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
 
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    let config = resolver::load_resolved_config_with(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
     // tampered lock has destroyed the only evidence the tamper happened.
@@ -384,7 +386,7 @@ pub(crate) fn cmd_apply_dry_run_cost(
     state_dir: &Path,
     machine: Option<&str>,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, state_dir, machine)?;
     let plan = planner::plan(&config, &order, &locks, None);

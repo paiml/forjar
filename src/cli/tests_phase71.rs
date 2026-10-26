@@ -20,19 +20,19 @@ mod tests {
     // FJ-829: validate --check-resource-naming-pattern
     #[test]
     fn test_fj829_naming_pattern_match() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app-nginx:\n    machine: m1\n    type: package\n    name: nginx\n  app-redis:\n    machine: m1\n    type: package\n    name: redis\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app-nginx:\n    machine: m1\n    type: package\n    name: nginx\n  app-redis:\n    machine: m1\n    type: package\n    name: redis\n");
         assert!(cmd_validate_check_resource_naming_pattern(f.path(), false, "app").is_ok());
     }
 
     #[test]
     fn test_fj829_naming_pattern_violation() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  bad_name:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  bad_name:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_naming_pattern(f.path(), false, "^app").is_ok());
     }
 
     #[test]
     fn test_fj829_naming_pattern_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app-test:\n    machine: m1\n    type: package\n    name: test\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app-test:\n    machine: m1\n    type: package\n    name: test\n");
         assert!(cmd_validate_check_resource_naming_pattern(f.path(), true, "app").is_ok());
     }
 
@@ -58,19 +58,19 @@ mod tests {
     // FJ-831: graph --critical-dependency-path
     #[test]
     fn test_fj831_critical_dep_path_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  mid:\n    machine: m1\n    type: package\n    name: mid\n    depends_on: [base]\n  top:\n    machine: m1\n    type: package\n    name: top\n    depends_on: [mid]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  mid:\n    machine: m1\n    type: package\n    name: mid\n    depends_on: [base]\n  top:\n    machine: m1\n    type: package\n    name: top\n    depends_on: [mid]\n");
         assert!(cmd_graph_critical_dependency_path(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj831_critical_dep_path_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_critical_dependency_path(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj831_critical_dep_path_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
         assert!(cmd_graph_critical_dependency_path(f.path(), true).is_ok());
     }
 
@@ -206,19 +206,19 @@ mod tests {
     // FJ-833: validate --check-resource-provider-support
     #[test]
     fn test_fj833_provider_support_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_provider_support(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj833_provider_support_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_provider_support(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj833_provider_support_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_provider_support(f.path(), true).is_ok());
     }
 
@@ -244,19 +244,19 @@ mod tests {
     // FJ-835: graph --resource-depth-histogram
     #[test]
     fn test_fj835_depth_histogram_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_depth_histogram(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj835_depth_histogram_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_depth_histogram(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj835_depth_histogram_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
         assert!(cmd_graph_resource_depth_histogram(f.path(), true).is_ok());
     }
 

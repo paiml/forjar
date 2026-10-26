@@ -1,4 +1,5 @@
 use crate::core::types::*;
+use std::path::Path;
 
 /// Get the value field or return an error for data sources that require it.
 fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, String> {
@@ -8,9 +9,9 @@ fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, Strin
         .ok_or_else(|| format!("data source '{key}' requires 'value' field"))
 }
 
-fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_file_source(key: &str, source: &DataSource, base: &Path) -> Result<String, String> {
     let path = require_value(key, source)?;
-    std::fs::read_to_string(path)
+    std::fs::read_to_string(base.join(path))
         .map(|s| s.trim().to_string())
         .or_else(|e| {
             source
@@ -129,9 +130,13 @@ fn outputs_as_json(key: &str, outputs: &serde_yaml_ng::Mapping) -> Result<String
 /// FJ-1260: Resolve forjar-state data source by reading outputs from another config's state.
 /// Reads the global lock (`forjar.lock.yaml`) in the given state directory and extracts
 /// stored output values. Falls back to `default` if the state is unavailable.
-fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_forjar_state_source(
+    key: &str,
+    source: &DataSource,
+    base: &Path,
+) -> Result<String, String> {
     let state_dir = source.state_dir.as_deref().unwrap_or("state");
-    let lock_path = std::path::Path::new(state_dir).join("forjar.lock.yaml");
+    let lock_path = base.join(state_dir).join("forjar.lock.yaml");
 
     if !lock_path.exists() {
         return source.default.clone().ok_or_else(|| {
@@ -171,21 +176,150 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     outputs_as_json(key, outputs)
 }
 
-/// FJ-223: Resolve all data sources and inject values into config params.
-/// Data sources are stored with `__data__` prefix to avoid conflicts.
-pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
+/// The directory a manifest's relative `data:` paths are read from: the
+/// manifest's own directory, never the process's working directory (forjar#660).
+pub fn manifest_dir(file: &Path) -> &Path {
+    file.parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+}
+
+/// FJ-223: Resolve all data sources into `config.data_values`, reading relative
+/// `file`/`forjar-state` paths from `base` (the manifest's directory).
+///
+/// Values land in `config.data_values`, never in `params` (forjar#660). There is
+/// deliberately NO variant without a base: the one that existed let `plan`,
+/// `apply` and `lock` resolve against the working directory while `show`
+/// resolved against the manifest, so one manifest meant two things.
+pub fn resolve_data_sources_with_base(
+    config: &mut ForjarConfig,
+    base: &Path,
+) -> Result<(), String> {
+    // An undeclared `{{data.KEY}}` is checked BEFORE any source runs, in every
+    // caller, not just the ones that go through `finish_resolving`.
+    super::data_subst::require_known_data_refs(config)?;
+    let mut resolved = DataValues::new();
     for (key, source) in &config.data {
         let value = match source.source_type {
-            DataSourceType::File => resolve_file_source(key, source),
+            DataSourceType::File => resolve_file_source(key, source, base),
             DataSourceType::Command => resolve_command_source(key, source),
             DataSourceType::Dns => resolve_dns_source(key, source),
-            DataSourceType::ForjarState => resolve_forjar_state_source(key, source),
+            DataSourceType::ForjarState => resolve_forjar_state_source(key, source, base),
         }?;
 
-        config.params.insert(
-            format!("__data__{key}"),
-            serde_yaml_ng::Value::String(value),
-        );
+        resolved.insert(key.clone(), value);
     }
+    config.data_values = resolved;
     Ok(())
+}
+
+/// forjar#660: the one load path for any command that resolves templates.
+///
+/// `{{data.x}}` is not a template the resolver can answer from the file: it
+/// reads it out of `config.data_values`, which only `resolve_data_sources_with_base`
+/// fills. That precondition used to be re-typed by hand in each subcommand and
+/// the ones that forgot it failed with `unknown data source`, or, where errors
+/// were swallowed, reported on a config with the reference left unresolved.
+/// Parsing and resolving are now one call, so a reader cannot get the first
+/// without the second.
+///
+/// The config comes back in READER form: every data value as written, no
+/// stand-in character in any string. A command that renders resources from it
+/// loads with [`load_resolved_config_for_render`] instead.
+pub fn load_resolved_config(path: &Path) -> Result<ForjarConfig, String> {
+    let config = crate::core::parser::parse_and_validate(path)?;
+    finish_resolving(config, manifest_dir(path), true, Form::Reader)
+        .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// [`load_resolved_config`] in RENDER form, for a command that hands the config's
+/// resources to the template resolver (`resolve_resource_templates`,
+/// `resolve_template*`). Data values are written with their braces held back so
+/// the resolver cannot scan them a second time; the resolver restores them as its
+/// last step. A command that prints or hashes this config without rendering must
+/// call `decode_literals` first. `tests/falsification_660_scan.rs` requires every
+/// file that renders to load through this function or `load_resolved_config_with`.
+pub fn load_resolved_config_for_render(path: &Path) -> Result<ForjarConfig, String> {
+    let config = crate::core::parser::parse_and_validate(path)?;
+    finish_resolving(config, manifest_dir(path), true, Form::Render)
+        .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// Which side of the loader a caller is on. Reader form is decoded; render form
+/// keeps the stand-ins for the template resolver's last step.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Form {
+    Reader,
+    Render,
+}
+
+/// The same load for a command that changes the params first (`--env-file`,
+/// `--workspace`, `--what-if`) and renders its own `outputs:` later (plan, apply,
+/// lock, refresh). `prepare` runs after parse and validation and BEFORE any
+/// `data:` source runs, so a source can template those params; `outputs:` have
+/// their `{{data.x}}` written in but are left for `state::resolve_outputs` to
+/// resolve once, when they are persisted.
+pub fn load_resolved_config_with(
+    path: &Path,
+    prepare: impl FnOnce(&mut ForjarConfig) -> Result<(), String>,
+) -> Result<ForjarConfig, String> {
+    let mut config = crate::core::parser::parse_and_validate(path)?;
+    prepare(&mut config)?;
+    finish_resolving(config, manifest_dir(path), false, Form::Render)
+        .map_err(crate::core::error::ForjarError::into_message)
+}
+
+/// The same resolution over a manifest that is only PARSED, not validated.
+///
+/// For the diagnostics (`graph *`, `status *`, `validate --check-*`, scoring)
+/// whose job is to report on a manifest that may be structurally wrong: they
+/// used to read it with a bare serde parse, and putting `validate_config` in
+/// front of them would turn "report what is wrong" into "refuse to look". They
+/// still resolve `data:` sources and `outputs:` (forjar#660); what they skip is
+/// the structural validation and recipe expansion they never had.
+pub fn load_resolved_config_lenient(
+    path: &Path,
+) -> Result<ForjarConfig, crate::core::error::ForjarError> {
+    let config = crate::core::parser::parse_config_file(path)
+        .map_err(crate::core::error::ForjarError::validation)?;
+    finish_resolving(config, manifest_dir(path), true, Form::Reader)
+}
+
+/// Resolve the `data:` sources AND write their values into EVERY string of the
+/// config (forjar#660), whichever section it is in.
+///
+/// `pin`, `sbom`, `compare`, `-t`/`-g` and the tag/version diagnostics read
+/// those fields straight off the loaded config, so a `version: "{{data.v}}"`
+/// that was only resolved on the render path hashed, listed and compared as the
+/// literal reference. With `outputs` true they are resolved here exactly once
+/// and a reader must not run `state::resolve_outputs` over them again.
+pub(crate) fn finish_resolving(
+    mut config: ForjarConfig,
+    base: &Path,
+    outputs: bool,
+    form: Form,
+) -> Result<ForjarConfig, crate::core::error::ForjarError> {
+    resolve_data_sources_with_base(&mut config, base)
+        .map_err(crate::core::error::ForjarError::validation)?;
+    super::data_subst::substitute_data_refs(&mut config, form == Form::Render || outputs)
+        .map_err(crate::core::error::ForjarError::validation)?;
+    if outputs {
+        // `outputs:` carry templates too (`{{data.x}}`, `{{params.y}}`); resolving them
+        // here means every reader that prints the config prints resolved outputs, and
+        // a template that cannot resolve fails the load instead of printing raw.
+        let resolved = crate::core::state::resolve_outputs(&config)?;
+        for (k, v) in resolved {
+            if let Some(o) = config.outputs.get_mut(&k) {
+                o.value = v;
+            }
+        }
+        // Outputs were resolved by the template resolver, which scans every string it
+        // is given; the values were held back for that pass, so a reader gets them back
+        // now. The reader form never leaves a stand-in in a returned config.
+        if form == Form::Reader {
+            super::data_subst::decode_literals(&mut config)
+                .map_err(crate::core::error::ForjarError::validation)?;
+        }
+    }
+    Ok(config)
 }

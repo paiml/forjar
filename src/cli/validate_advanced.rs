@@ -7,9 +7,7 @@ use std::path::Path;
 
 /// FJ-797: Detect resources not referenced by any depends_on chain.
 pub(crate) fn cmd_validate_check_orphan_resources(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let orphans = find_orphan_resources(&config);
     if json {
         let items: Vec<String> = orphans.iter().map(|o| format!("\"{o}\"")).collect();
@@ -52,9 +50,7 @@ fn find_orphan_resources(config: &types::ForjarConfig) -> Vec<String> {
 
 /// FJ-801: Validate machine architecture fields are consistent.
 pub(crate) fn cmd_validate_check_machine_arch(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let valid_archs = [
         "x86_64", "aarch64", "arm64", "armv7", "riscv64", "ppc64le", "s390x",
     ];
@@ -88,9 +84,7 @@ pub(crate) fn cmd_validate_check_resource_health_conflicts(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let conflicts = find_health_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
@@ -135,9 +129,7 @@ fn find_health_conflicts(config: &types::ForjarConfig) -> Vec<(String, String)> 
 
 /// FJ-809: Detect resources with overlapping scope on same machine.
 pub(crate) fn cmd_validate_check_resource_overlap(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let overlaps = find_resource_overlaps(&config);
     if json {
         let items: Vec<String> = overlaps
@@ -206,9 +198,7 @@ fn resources_conflict(ra: &types::Resource, rb: &types::Resource) -> bool {
 
 /// FJ-813: Enforce tag conventions (required tags, naming rules).
 pub(crate) fn cmd_validate_check_resource_tags(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_tag_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -252,9 +242,7 @@ pub(crate) fn cmd_validate_check_resource_state_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = find_state_consistency_issues(&config);
     if json {
         let items: Vec<String> = issues
@@ -307,9 +295,7 @@ pub(crate) fn cmd_validate_check_resource_dependencies_complete(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let missing = find_missing_deps(&config);
     if json {
         let items: Vec<String> = missing
@@ -346,9 +332,7 @@ pub(crate) fn cmd_validate_check_machine_connectivity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let issues = check_machine_addrs(&config);
     if json {
         let items: Vec<String> = issues

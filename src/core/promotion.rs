@@ -89,7 +89,7 @@ fn evaluate_single_gate(config_file: &Path, gate: &PromotionGate) -> GateResult 
 
 /// Validate gate: runs `forjar validate` checks.
 fn evaluate_validate_gate(config_file: &Path, deep: bool) -> GateResult {
-    let config = match crate::core::parser::parse_and_validate(config_file) {
+    let config = match crate::core::resolver::load_resolved_config(config_file) {
         Ok(c) => c,
         Err(e) => {
             return GateResult {
@@ -120,7 +120,7 @@ fn evaluate_validate_gate(config_file: &Path, deep: bool) -> GateResult {
 
 /// Policy gate: runs policy evaluation.
 fn evaluate_policy_gate(config_file: &Path) -> GateResult {
-    let config = match crate::core::parser::parse_and_validate(config_file) {
+    let config = match crate::core::resolver::load_resolved_config(config_file) {
         Ok(c) => c,
         Err(e) => {
             return GateResult {

@@ -116,7 +116,8 @@ const W_PRF: u32 = 30;
 /// Compute Forjar Score for a config file.
 pub fn compute_from_file(file: &Path, input: &ScoringInput) -> Result<ScoringResult, String> {
     let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
-    let config: ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
+    // forjar#660: the resolving loader, like every other manifest reader.
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     // Use file contents as raw_yaml if not provided
     if input.raw_yaml.is_some() {
         return Ok(compute(&config, input));

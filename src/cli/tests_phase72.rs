@@ -20,19 +20,19 @@ mod tests {
     // FJ-837: validate --check-resource-secret-refs
     #[test]
     fn test_fj837_secret_refs_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_secret_refs(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj837_secret_refs_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_secret_refs(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj837_secret_refs_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_secret_refs(f.path(), true).is_ok());
     }
 
@@ -58,19 +58,19 @@ mod tests {
     // FJ-839: graph --resource-coupling-score
     #[test]
     fn test_fj839_coupling_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_coupling_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj839_coupling_no_deps() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg1:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_coupling_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj839_coupling_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
         assert!(cmd_graph_resource_coupling_score(f.path(), true).is_ok());
     }
 
@@ -206,19 +206,19 @@ mod tests {
     // FJ-841: validate --check-resource-idempotency-hints
     #[test]
     fn test_fj841_idempotency_hints_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
         assert!(cmd_validate_check_resource_idempotency_hints(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj841_idempotency_hints_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_idempotency_hints(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj841_idempotency_hints_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_idempotency_hints(f.path(), true).is_ok());
     }
 
@@ -244,19 +244,19 @@ mod tests {
     // FJ-843: graph --resource-change-frequency
     #[test]
     fn test_fj843_change_freq_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_change_frequency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj843_change_freq_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_change_frequency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj843_change_freq_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n");
         assert!(cmd_graph_resource_change_frequency(f.path(), true).is_ok());
     }
 

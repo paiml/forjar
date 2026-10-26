@@ -39,7 +39,19 @@ fn print_plan_change(change: &types::PlannedChange, config: Option<&types::Forja
             types::PlanAction::Create | types::PlanAction::Update
         ) {
             if let Some(resource) = cfg.resources.get(&change.resource_id) {
-                if let Some(ref content) = resource.content {
+                if let Some(ref raw) = resource.content {
+                    // forjar#660: show the content the apply will write, not the
+                    // template. A resource whose templates do not resolve falls
+                    // back to the raw text (the planner already reported why).
+                    let resolved = resolver::resolve_resource_templates(
+                        resource,
+                        &cfg.params,
+                        &cfg.data_values,
+                        &cfg.machines,
+                    )
+                    .ok()
+                    .and_then(|r| r.content);
+                    let content = resolved.as_ref().unwrap_or(raw);
                     let old_content = if matches!(change.action, types::PlanAction::Update) {
                         resource
                             .path
@@ -328,6 +340,7 @@ pub(crate) fn export_scripts(
         let resolved = resolver::resolve_resource_templates_with_secrets(
             resource,
             &config.params,
+            &config.data_values,
             &config.machines,
             &redacted,
         )?;

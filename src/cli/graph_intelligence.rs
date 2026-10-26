@@ -10,9 +10,7 @@ pub(crate) fn cmd_graph_resource_dependency_centrality_score(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_centrality_scores(&config);
     if json {
         let items: Vec<String> = scores
@@ -134,9 +132,7 @@ pub(crate) fn cmd_graph_resource_dependency_bridge_detection(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bridges = detect_bridge_edges(&config);
     if json {
         let items: Vec<String> = bridges
@@ -237,9 +233,7 @@ pub(crate) fn cmd_graph_resource_dependency_cluster_coefficient(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let coefficients = compute_cluster_coefficients(&config);
     if json {
         let items: Vec<String> = coefficients

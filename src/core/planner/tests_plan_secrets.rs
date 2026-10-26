@@ -50,6 +50,7 @@ resources:
     let resolved = super::resolver::resolve_resource_templates_with_secrets(
         resource,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )
@@ -68,9 +69,13 @@ resources:
     // old behavior. Either way the hash differs from the file-provider
     // executor hash, so the old planner replanned this resource as Update
     // forever.
-    let old_resolved =
-        super::resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-            .unwrap_or_else(|_| resource.clone());
+    let old_resolved = super::resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )
+    .unwrap_or_else(|_| resource.clone());
     assert_ne!(
         hash_desired_state(&old_resolved),
         executor_hash,

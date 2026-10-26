@@ -1,7 +1,7 @@
 //! Inline performance benchmarks (FJ-139).
 
 use super::infra_bench_baseline as baseline;
-use crate::core::{parser, planner, resolver, state, types::*};
+use crate::core::{planner, resolver, state, types::*};
 use crate::tripwire::{drift as tripwire_drift, hasher};
 use std::time::Instant;
 
@@ -236,6 +236,12 @@ fn run_benchmarks(
     state_dir: &std::path::Path,
     iterations: usize,
 ) -> Result<Vec<BenchResult>, String> {
+    // Timing a manifest whose `data:` source fails would time a load that cannot
+    // succeed in real use; check once, outside the timed loops (forjar#660).
+    crate::cli::helpers::require_data_sources(
+        &crate::cli::helpers::parse_and_validate_unresolved(config_path)?,
+        config_path,
+    )?;
     let mut results = Vec::new();
 
     // 1. Validate
@@ -243,7 +249,7 @@ fn run_benchmarks(
     let start = Instant::now();
     for _ in 0..iterations {
         let s = Instant::now();
-        let _ = parser::parse_and_validate(config_path)?;
+        let _ = crate::cli::helpers::parse_and_validate_unresolved(config_path)?;
         samples.push(s.elapsed().as_micros());
     }
     results.push(BenchResult {
@@ -259,7 +265,7 @@ fn run_benchmarks(
     let start = Instant::now();
     for _ in 0..iterations {
         let s = Instant::now();
-        let config = parser::parse_and_validate(config_path)?;
+        let config = crate::cli::helpers::parse_and_validate_unresolved(config_path)?;
         let order = resolver::build_execution_order(&config)?;
         let locks = std::collections::HashMap::new();
         let _ = planner::plan(&config, &order, &locks, None);
@@ -308,7 +314,7 @@ fn run_benchmarks(
     });
 
     // 5. Topo sort
-    let topo_config = parser::parse_and_validate(config_path)?;
+    let topo_config = crate::cli::helpers::parse_and_validate_unresolved(config_path)?;
     let mut samples = Vec::with_capacity(iterations);
     let start = Instant::now();
     for _ in 0..iterations {
