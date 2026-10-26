@@ -2,7 +2,8 @@
 //! so its layers can sit under the built ones, and prove the base is the one
 //! the spec declared.
 
-use super::base_image::{extract_base_layers, extract_base_layers_pinned};
+use super::base_image::extract_base_layers;
+use super::base_image_pin::extract_base_layers_pinned;
 use super::image_assembler::BaseLayout;
 use std::path::Path;
 use std::process::Command;

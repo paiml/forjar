@@ -42,3 +42,6 @@ Measured (this worktree, x86_64):
 - Not covered: `load_runtime_base` still calls the unpinned extract (a `save <one ref>` writes one top entry, so not reachable as C1); an image-index pin keeps manifests[0].
 
 IMPL-PMAT-756-RECEIPT-END
+
+### C1 split
+2026-10-26T18:56:47Z: extract_base_layers_pinned moved to src/core/store/base_image_pin.rs (no logic change). wc -l: base_image.rs 453 (was 506; epic 491; main 403), base_image_pin.rs 60. `cargo fmt --all -- --check` clean; `cargo test --lib tests_base_pin_manifest` 1 passed; `cargo test --lib core::store` 1208 passed, 0 failed, 3 ignored.
