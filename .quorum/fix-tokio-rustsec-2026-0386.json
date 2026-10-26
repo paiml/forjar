@@ -4,7 +4,7 @@
   "branch": "fix/tokio-rustsec-2026-0386",
   "base": "main",
   "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
-  "diff_sha256": "a92f87d3b0167304f3090eaa26fab6231bffb73d",
+  "diff_sha256": "c941d530caa4ab1d8ec95621949f429e25da0b10",
   "recorded_at": "round 1, after a planted round (3 claude-opus-5-5 claim lanes that also refuted, 3 claude-opus-5-5 judges, planted control C3 killed 3 of 3).",
   "quorum": {
     "rounds": 1,
