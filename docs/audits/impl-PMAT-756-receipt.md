@@ -29,9 +29,9 @@ verdict: PASS (unit scope and a real docker round trip, both measured; see "Real
 
 ## C1 — base manifest pin (forjar#795)
 
-Branch fix/img001-c1-manifest-pin, code head ea19cca9 (into epic/forjar-img-001). Separate from #757 above.
+Branch fix/img001-c1-manifest-pin, code heads ea19cca9 (fix) and 470d8374 (module split) (into epic/forjar-img-001). Separate from #757 above.
 
-- Change: `extract_base_layers_pinned(layout_dir, pin)` in `src/core/store/base_image.rs` picks the top `index.json` entry whose digest equals the pin, else keeps `manifests[0]` (an image-index pin matching no top entry; the caller has already proven it). `extract_base_layers` delegates with `None`. `load_local_base` in `base_resolve.rs` derives the pin from `<ref>@sha256:<hex>` and passes it.
+- Change: `extract_base_layers_pinned(layout_dir, pin)`, which now lives in `src/core/store/base_image_pin.rs` (split out at 470d8374), picks the top `index.json` entry whose digest equals the pin, else keeps `manifests[0]` (an image-index pin matching no top entry; the caller has already proven it). `extract_base_layers` delegates with `None`. `load_local_base` in `base_resolve.rs` derives the pin from `<ref>@sha256:<hex>` and passes it.
 - New test file: `src/core/store/tests_base_pin_manifest.rs` (registered in `store/mod.rs`), test `pinned_base_layers_the_manifest_the_pin_names_not_manifests_zero`.
 
 Measured (this worktree, x86_64):
@@ -41,7 +41,7 @@ Measured (this worktree, x86_64):
 - `cargo fmt --all -- --check` clean (this commit touches only the receipt).
 - Not covered: `load_runtime_base` still calls the unpinned extract (a `save <one ref>` writes one top entry, so not reachable as C1); an image-index pin keeps manifests[0].
 
-IMPL-PMAT-756-RECEIPT-END
-
 ### C1 split
 2026-10-26T18:56:47Z: extract_base_layers_pinned moved to src/core/store/base_image_pin.rs (no logic change). wc -l: base_image.rs 453 (was 506; epic 491; main 403), base_image_pin.rs 60. `cargo fmt --all -- --check` clean; `cargo test --lib tests_base_pin_manifest` 1 passed; `cargo test --lib core::store` 1208 passed, 0 failed, 3 ignored.
+
+IMPL-PMAT-756-RECEIPT-END
