@@ -31,12 +31,20 @@ jobs:
         include:
           - runner: [self-hosted, clean-room]
             features: ""
+            check: "clippy (self-hosted, clean-room, X64)"
           - runner: [self-hosted, clean-room]
             features: encryption
+            check: "clippy (self-hosted, clean-room, X64, encryption)"
           - runner: macos-latest
             features: ""
+            check: "clippy (macos-latest)"
           - runner: macos-latest
             features: encryption
+            check: "clippy (macos-latest, encryption)"
+    # Explicit, because the auto-generated name is the matrix values joined:
+    # dropping X64 from a leg silently renamed its check (forjar#772). These are
+    # the names main reported before X64 was dropped; the label is a name, not a pin.
+    name: ${{ matrix.check }}
     runs-on: ${{ matrix.runner }}
     # infra#430, as on the fleet jobs above: the clean-room runners share one
     # ~/.cargo and an hourly reaper deletes registry/src under live builds. The
@@ -105,7 +113,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: lint-${{ runner.os }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+          key: lint-${{ runner.os }}-${{ runner.arch }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Clippy
         shell: bash

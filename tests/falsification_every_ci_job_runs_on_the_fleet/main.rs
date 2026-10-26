@@ -43,6 +43,7 @@
 //! THIS TEST PARSES THE WORKFLOWS rather than grepping them, so a hosted label
 //! inside a comment is prose and a hosted label inside a matrix is a finding.
 
+mod arch;
 mod controls;
 mod scan;
 
@@ -174,6 +175,11 @@ const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[
     ("ci.yml", "doctests", "doctests run on any chip"),
     (
         "ci.yml",
+        "dogfood-surface",
+        "dogfood surface checks, no artifact",
+    ),
+    (
+        "ci.yml",
         "dogfood-guards",
         "shell/forjar guards, chip-independent",
     ),
@@ -209,6 +215,11 @@ const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[
         "path classifier, emits only job outputs",
     ),
     ("proofs.yml", "proofs", "proof replay, chip-independent"),
+    (
+        "proofs.yml",
+        "ledger-replay",
+        "ledger replay over its own build, chip-independent",
+    ),
     ("quorum.yml", "receipt", "quorum receipt verification"),
     (
         "release-audit.yml",
@@ -232,33 +243,14 @@ const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[
 /// be written down: a job that merely LOSES its arch label is still caught.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
-    let arches = ["X64", "ARM64"];
-    let mut unpinned = Vec::new();
-    let mut seen: Vec<(String, String, bool)> = Vec::new(); // (file, job, has_arch)
-    for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let labels = runner_labels(job);
-            let name = name.as_str().unwrap_or("?").to_string();
-            let has_arch = labels.iter().any(|l| arches.contains(&l.as_str()));
-            seen.push((file.clone(), name.clone(), has_arch));
-            if !labels.iter().any(|l| l == "self-hosted") {
-                continue;
-            }
-            if has_arch {
-                continue;
-            }
-            let neutral = ARCH_NEUTRAL
-                .iter()
-                .any(|(f, j, _)| *f == file.as_str() && *j == name);
-            if neutral {
-                continue;
-            }
-            unpinned.push(format!("  {file}  job `{name}`  runs-on {labels:?}"));
-        }
-    }
+    let neutral: Vec<(&str, &str)> = ARCH_NEUTRAL.iter().map(|(f, j, _)| (*f, *j)).collect();
+    let docs = workflows();
+    // Judged per matrix LEG (forjar#772): one leg's `X64` no longer vouches for
+    // a sibling leg that names nothing.
+    let mut unpinned: Vec<String> = docs
+        .iter()
+        .flat_map(|(file, doc)| arch::unpinned_in(file, doc, &neutral))
+        .collect();
     unpinned.sort();
     assert!(
         unpinned.is_empty(),
@@ -269,21 +261,13 @@ fn a_fleet_job_names_the_architecture_it_needs() {
         unpinned.join("\n")
     );
 
-    // The list cannot go stale: every entry exists and carries no arch label.
-    let mut stale = Vec::new();
-    for (f, j, _) in ARCH_NEUTRAL {
-        match seen.iter().find(|(sf, sj, _)| sf == f && sj == j) {
-            None => stale.push(format!("  {f}  job `{j}` does not exist")),
-            Some((_, _, true)) => {
-                stale.push(format!("  {f}  job `{j}` carries an arch label"));
-            }
-            Some(_) => {}
-        }
-    }
+    // The list cannot go stale: every entry exists, is on the fleet, and
+    // carries no arch label.
+    let stale = arch::stale_in(&docs, &neutral);
     assert!(
         stale.is_empty(),
-        "ARCH_NEUTRAL has stale entries (a listed job must exist and must NOT \
-         name an architecture):\n{}",
+        "ARCH_NEUTRAL has stale entries (a listed job must exist, run on a \
+         self-hosted runner, and NOT name an architecture):\n{}",
         stale.join("\n")
     );
 }

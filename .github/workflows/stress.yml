@@ -52,7 +52,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: stress-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          key: stress-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Stress test iteration ${{ matrix.iteration }}
         run: |
