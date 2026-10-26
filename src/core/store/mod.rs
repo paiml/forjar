@@ -68,6 +68,8 @@ pub mod validate;
 pub mod verify;
 
 #[cfg(test)]
+mod tests_base_pin_manifest;
+#[cfg(test)]
 mod tests_base_resolve;
 #[cfg(test)]
 mod tests_bash_provability;

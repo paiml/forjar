@@ -66,6 +66,17 @@ pub struct BaseImageLayers {
 /// assert_eq!(layers.layers.len(), layers.diff_ids.len());
 /// ```
 pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String> {
+    extract_base_layers_pinned(layout_dir, None)
+}
+
+/// Like [`extract_base_layers`], but when `pin` is a manifest digest present at the
+/// top of `index.json`, layers and config come from THAT manifest rather than
+/// `manifests[0]` (IMG-001 C1). A pin that matches no top entry (an image-index
+/// pin) keeps the default entry; the caller has already proven it.
+pub(crate) fn extract_base_layers_pinned(
+    layout_dir: &Path,
+    pin: Option<&str>,
+) -> Result<BaseImageLayers, String> {
     // 1. Read and parse index.json
     let index_path = layout_dir.join("index.json");
     let index_data = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
@@ -76,9 +87,13 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
         return Err("index.json has no manifests".into());
     }
 
+    let top = pin
+        .and_then(|p| index.manifests.iter().find(|m| m.digest == p))
+        .unwrap_or(&index.manifests[0]);
+
     // 2. Read the first manifest; if it is itself an index (multi-platform
     //    image), resolve it to the linux/<host arch> manifest (or its first entry).
-    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)
+    let manifest_digest = resolve_manifest_digest(layout_dir, &top.digest, 0)
         .map_err(crate::core::error::ForjarError::into_untyped)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
