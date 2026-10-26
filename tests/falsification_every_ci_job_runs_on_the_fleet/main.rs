@@ -139,83 +139,51 @@ fn a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself() {
 ///
 /// The list is two-sided (see the test below): a listed job must exist and must
 /// carry no arch label, and an unlisted job without one fails.
-const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[
-    (
-        "audit.yml",
-        "audit",
-        "dependency/advisory audit, no artifact",
-    ),
-    (
-        "behavior.yml",
-        "behavior",
-        "behavior spec checks, no artifact",
-    ),
-    (
-        "bench.yml",
-        "classify",
-        "path classifier, emits only job outputs",
-    ),
-    (
-        "ci.yml",
-        "classify",
-        "path classifier, emits only job outputs",
-    ),
-    ("ci.yml", "lockfile", "Cargo.lock consistency check"),
-    (
-        "ci.yml",
-        "examples-validate",
-        "validates example configs, chip-independent",
-    ),
-    (
-        "ci.yml",
-        "no-default-features",
-        "feature-matrix compile check, no artifact",
-    ),
-    ("ci.yml", "doctests", "doctests run on any chip"),
-    (
-        "ci.yml",
-        "dogfood-guards",
-        "shell/forjar guards, chip-independent",
-    ),
-    (
-        "ci.yml",
-        "gate",
-        "aggregates needs.*.result, builds nothing",
-    ),
-    (
-        "convergence.yml",
-        "convergence",
-        "convergence checks, no artifact",
-    ),
-    (
-        "lint.yml",
-        "clippy",
-        "lint on any chip; macOS legs are hosted",
-    ),
-    (
-        "lint.yml",
-        "file-health",
-        "file-size/health scan, chip-independent",
-    ),
-    ("msrv.yml", "msrv", "MSRV compile check, no artifact"),
-    (
-        "nightly.yml",
-        "check-activity",
-        "git activity probe, emits only outputs",
-    ),
-    (
-        "proofs.yml",
-        "classify",
-        "path classifier, emits only job outputs",
-    ),
-    ("proofs.yml", "proofs", "proof replay, chip-independent"),
-    ("quorum.yml", "receipt", "quorum receipt verification"),
-    (
-        "release-audit.yml",
-        "audit",
-        "release metadata audit, no artifact",
-    ),
-];
+/// EMPTY since R1 (NOAH 16:08Z, forjar#791): every self-hosted job pins `X64` again, so no
+/// job is deliberately arch-silent. The list stays, and so does its two-sided check, so a
+/// future chip-neutral job can be listed here WITH a reason instead of a waiver.
+const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[];
+
+/// Every self-hosted job that names no architecture and is not in [`ARCH_NEUTRAL`],
+/// plus every `(file, job, has_arch)` seen, for the staleness half of the check.
+fn arch_scan() -> (Vec<String>, Vec<(String, String, bool)>) {
+    let arches = ["X64", "ARM64"];
+    let mut unpinned = Vec::new();
+    let mut seen: Vec<(String, String, bool)> = Vec::new();
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            let labels = runner_labels(job);
+            let name = name.as_str().unwrap_or("?").to_string();
+            let has_arch = labels.iter().any(|l| arches.contains(&l.as_str()));
+            seen.push((file.clone(), name.clone(), has_arch));
+            let neutral = ARCH_NEUTRAL
+                .iter()
+                .any(|(f, j, _)| *f == file.as_str() && *j == name);
+            if labels.iter().any(|l| l == "self-hosted") && !has_arch && !neutral {
+                unpinned.push(format!("  {file}  job `{name}`  runs-on {labels:?}"));
+            }
+        }
+    }
+    unpinned.sort();
+    (unpinned, seen)
+}
+
+/// `ARCH_NEUTRAL` entries that name a job that is gone or that carries an arch label.
+fn stale_arch_neutral(seen: &[(String, String, bool)]) -> Vec<String> {
+    ARCH_NEUTRAL
+        .iter()
+        .filter_map(
+            |(f, j, _)| match seen.iter().find(|(sf, sj, _)| sf == f && sj == j) {
+                None => Some(format!("  {f}  job `{j}` does not exist")),
+                Some((_, _, true)) => Some(format!("  {f}  job `{j}` carries an arch label")),
+                Some(_) => None,
+            },
+        )
+        .collect()
+}
 
 /// A fleet job names the ARCHITECTURE it needs, or is listed in
 /// [`ARCH_NEUTRAL`] as chip-independent on purpose.
@@ -232,34 +200,7 @@ const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[
 /// be written down: a job that merely LOSES its arch label is still caught.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
-    let arches = ["X64", "ARM64"];
-    let mut unpinned = Vec::new();
-    let mut seen: Vec<(String, String, bool)> = Vec::new(); // (file, job, has_arch)
-    for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let labels = runner_labels(job);
-            let name = name.as_str().unwrap_or("?").to_string();
-            let has_arch = labels.iter().any(|l| arches.contains(&l.as_str()));
-            seen.push((file.clone(), name.clone(), has_arch));
-            if !labels.iter().any(|l| l == "self-hosted") {
-                continue;
-            }
-            if has_arch {
-                continue;
-            }
-            let neutral = ARCH_NEUTRAL
-                .iter()
-                .any(|(f, j, _)| *f == file.as_str() && *j == name);
-            if neutral {
-                continue;
-            }
-            unpinned.push(format!("  {file}  job `{name}`  runs-on {labels:?}"));
-        }
-    }
-    unpinned.sort();
+    let (unpinned, seen) = arch_scan();
     assert!(
         unpinned.is_empty(),
         "these fleet jobs name no architecture and are not in ARCH_NEUTRAL, and \
@@ -270,16 +211,7 @@ fn a_fleet_job_names_the_architecture_it_needs() {
     );
 
     // The list cannot go stale: every entry exists and carries no arch label.
-    let mut stale = Vec::new();
-    for (f, j, _) in ARCH_NEUTRAL {
-        match seen.iter().find(|(sf, sj, _)| sf == f && sj == j) {
-            None => stale.push(format!("  {f}  job `{j}` does not exist")),
-            Some((_, _, true)) => {
-                stale.push(format!("  {f}  job `{j}` carries an arch label"));
-            }
-            Some(_) => {}
-        }
-    }
+    let stale = stale_arch_neutral(&seen);
     assert!(
         stale.is_empty(),
         "ARCH_NEUTRAL has stale entries (a listed job must exist and must NOT \
