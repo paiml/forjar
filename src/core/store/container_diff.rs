@@ -157,14 +157,18 @@ pub(crate) fn extract_changes(
             let _ = std::fs::create_dir_all(parent);
         }
         let src = format!("{container_name}:{path}");
-        // Best-effort: skip files that can't be copied (sockets, etc.)
-        if let Ok(o) = Command::new(runtime)
+        // Best-effort: sockets and the like cannot be copied, but a skipped path
+        // is SAID, never silent: a package file dropped from the layer shows here.
+        match Command::new(runtime)
             .args(["cp", &src, &local_path.to_string_lossy()])
             .output()
         {
-            if o.status.success() {
-                count += 1;
-            }
+            Ok(o) if o.status.success() => count += 1,
+            Ok(o) => eprintln!(
+                "forjar: warning: {runtime} cp {src} failed, path left out of the layer: {}",
+                String::from_utf8_lossy(&o.stderr).trim()
+            ),
+            Err(e) => eprintln!("forjar: warning: {runtime} cp {src}: {e}"),
         }
     }
     write_markers(&plan, extract_dir).map_err(crate::core::error::ForjarError::into_untyped)?;
