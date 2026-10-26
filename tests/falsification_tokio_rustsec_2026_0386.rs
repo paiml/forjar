@@ -21,7 +21,7 @@ fn locked_tokio() -> (u32, u32, u32) {
 #[test]
 fn locked_tokio_is_a_patched_version() {
     let v = locked_tokio();
-    let patched = (v >= (1, 51, 6) && v < (1, 52, 0)) || v >= (1, 53, 3);
+    let patched = ((1, 51, 6)..(1, 52, 0)).contains(&v) || v >= (1, 53, 3);
     assert!(
         patched,
         "RUSTSEC-2026-0386: Cargo.lock pins tokio {v:?}, unpatched"
