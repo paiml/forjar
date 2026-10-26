@@ -3,6 +3,7 @@
 //! the spec declared.
 
 use super::base_image::extract_base_layers;
+use super::base_image_pin::extract_base_layers_pinned;
 use super::image_assembler::BaseLayout;
 use std::path::Path;
 use std::process::Command;
@@ -47,7 +48,10 @@ pub fn load_local_base(state_images: &Path, base: &str) -> Result<Option<BaseLay
     if !index_path.exists() {
         return Ok(None);
     }
-    let layers = extract_base_layers(&dir)
+    let pin = base
+        .split_once("@sha256:")
+        .map(|(_, h)| format!("sha256:{h}"));
+    let layers = extract_base_layers_pinned(&dir, pin.as_deref())
         .map_err(|e| format!("local base layout {}: {e}", dir.display()))?;
     let raw = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
     let idx: serde_json::Value =

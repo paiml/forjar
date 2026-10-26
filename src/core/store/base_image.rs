@@ -3,7 +3,8 @@
 //! Reads an existing OCI layout (e.g., pulled via `skopeo copy`) to extract
 //! layer descriptors and diff_ids for use as base layers in `assemble_image()`.
 
-use crate::core::types::{OciDescriptor, OciImageConfig, OciIndex, OciManifest};
+use super::base_image_pin::extract_base_layers_pinned;
+use crate::core::types::OciDescriptor;
 use std::path::Path;
 
 /// Validate that `digest` is a `sha256:`-prefixed lowercase 64-char hex digest
@@ -66,46 +67,7 @@ pub struct BaseImageLayers {
 /// assert_eq!(layers.layers.len(), layers.diff_ids.len());
 /// ```
 pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String> {
-    // 1. Read and parse index.json
-    let index_path = layout_dir.join("index.json");
-    let index_data = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
-    let index: OciIndex =
-        serde_json::from_slice(&index_data).map_err(|e| format!("parse index.json: {e}"))?;
-
-    if index.manifests.is_empty() {
-        return Err("index.json has no manifests".into());
-    }
-
-    // 2. Read the first manifest; if it is itself an index (multi-platform
-    //    image), resolve it to the linux/<host arch> manifest (or its first entry).
-    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)
-        .map_err(crate::core::error::ForjarError::into_untyped)?;
-    let manifest_data = read_blob(layout_dir, &manifest_digest)?;
-    let manifest: OciManifest =
-        serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
-
-    // 3. Read the image config
-    let config_data = read_blob(layout_dir, &manifest.config.digest)?;
-    let config: OciImageConfig =
-        serde_json::from_slice(&config_data).map_err(|e| format!("parse image config: {e}"))?;
-
-    // 4. Validate layer count matches diff_ids
-    if manifest.layers.len() != config.rootfs.diff_ids.len() {
-        return Err(format!(
-            "layer count mismatch: manifest has {} layers, config has {} diff_ids",
-            manifest.layers.len(),
-            config.rootfs.diff_ids.len(),
-        ));
-    }
-
-    Ok(BaseImageLayers {
-        layers: manifest.layers,
-        diff_ids: config.rootfs.diff_ids,
-        history: config.history,
-        architecture: config.architecture,
-        os: config.os,
-        config: config.config,
-    })
+    extract_base_layers_pinned(layout_dir, None)
 }
 
 /// OCI architecture name for a Rust `ARCH` constant.
@@ -123,7 +85,7 @@ fn host_oci_arch() -> &'static str {
 
 /// Follow an OCI image index / docker manifest list down to a single image
 /// manifest digest. Prefers `linux/<host arch>`, else the first entry.
-fn resolve_manifest_digest(
+pub(super) fn resolve_manifest_digest(
     layout_dir: &Path,
     digest: &str,
     depth: u8,
@@ -151,7 +113,7 @@ fn resolve_manifest_digest(
 }
 
 /// Read a blob from the OCI layout's blobs directory.
-fn read_blob(layout_dir: &Path, digest: &str) -> Result<Vec<u8>, String> {
+pub(super) fn read_blob(layout_dir: &Path, digest: &str) -> Result<Vec<u8>, String> {
     let hex = validate_sha256_hex(digest)?;
     let blob_path = layout_dir.join(format!("blobs/sha256/{hex}"));
     std::fs::read(&blob_path).map_err(|e| format!("read blob {digest}: {e}"))
