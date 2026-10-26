@@ -241,20 +241,6 @@ impl ForjarError {
     }
 }
 
-/// Lets a not-yet-migrated `String` error flow into a typed producer with
-/// `?`; the class is read by the same named fallback as everywhere else.
-impl From<String> for ForjarError {
-    fn from(message: String) -> Self {
-        Self::from_untyped(message)
-    }
-}
-
-impl From<&str> for ForjarError {
-    fn from(message: &str) -> Self {
-        Self::from_untyped(message)
-    }
-}
-
 impl fmt::Display for ForjarError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.message)
