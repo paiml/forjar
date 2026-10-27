@@ -5067,3 +5067,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-826
+  github_issue: 826
+  item_type: task
+  title: CI/gate jobs to [self-hosted, clean-room, ARM64]; X64 release/tool jobs stay
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-27T15:24:25Z
+  updated: 2026-10-27T15:24:25Z
+  spec: null
+  acceptance_criteria:
+  - 'Operator via arbiter-cop 2026-10-27; forjar#826. runs-on only. Falsifier: green X64/red ARM64 -> revert that job + ticket.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
