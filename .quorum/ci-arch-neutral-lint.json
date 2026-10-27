@@ -66,7 +66,7 @@
     "lanes_per_round": 2,
     "sandbox": true,
     "writes": false,
-    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS, rounds 5 and 6 FAIL on real gaps in the new test (fixed), round 7 both PASS. C1-C8 confirmed at e642d9d8."
+    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS, rounds 5 and 6 FAIL on real gaps in the new test (fixed), round 7 both PASS. C1-C11 confirmed at e642d9d8."
   },
   "pmat": {
     "ticket": "PMAT-721",
