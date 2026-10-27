@@ -4,12 +4,10 @@
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
 use super::build_image_base;
+use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
 use crate::core::store::layer_builder::LayerEntry;
 use crate::core::store::overlay_export;
-use crate::core::types::{
-    ForjarConfig, ImageBuildMetrics, ImageBuildPlan, LayerMetric, LayerStrategy, OciLayerConfig,
-    Resource,
-};
+use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerConfig, Resource};
 
 /// FJ-2104: Build container image from a resource definition.
 #[allow(clippy::too_many_arguments)]
@@ -125,66 +123,6 @@ pub(crate) fn cmd_build(
     run_distribution(resource, &plan.tag, &output_dir, load, push, far)
 }
 
-/// The human build log: one line per layer, then the image summary.
-fn print_build_report(
-    resource: &str,
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    output_dir: &std::path::Path,
-    duration: std::time::Duration,
-) {
-    println!("\nBuilding {resource} ({tag})");
-    for (i, layer) in result.layers.iter().enumerate() {
-        println!(
-            "  Layer {}/{}: {} files, {} -> {} bytes",
-            i + 1,
-            result.layers.len(),
-            layer.file_count,
-            layer.uncompressed_size,
-            layer.compressed_size
-        );
-    }
-    println!(
-        "\n  Image: {} ({} layers, {} bytes)",
-        tag,
-        result.layers.len(),
-        result.total_size
-    );
-    println!("  Layout: {}", output_dir.display());
-    println!("  Built in {:.1}s", duration.as_secs_f64());
-}
-
-/// FJ-2403/E17: Collect and persist image build metrics. A write failure warns
-/// on stderr and is otherwise ignored, as it was inline.
-fn record_build_metrics(
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    duration: std::time::Duration,
-    output_dir: &std::path::Path,
-) {
-    let metrics = ImageBuildMetrics {
-        tag: tag.to_string(),
-        layer_count: result.layers.len(),
-        total_size: result.total_size,
-        layers: result
-            .layers
-            .iter()
-            .map(|l| LayerMetric {
-                file_count: l.file_count,
-                uncompressed_size: l.uncompressed_size,
-                compressed_size: l.compressed_size,
-            })
-            .collect(),
-        duration_secs: duration.as_secs_f64(),
-        built_at: crate::tripwire::eventlog::now_iso8601(),
-        forjar_version: env!("CARGO_PKG_VERSION").to_string(),
-        target_arch: std::env::consts::ARCH.to_string(),
-    };
-    if let Err(e) = metrics.write_to(output_dir) {
-        eprintln!("  warning: {e}");
-    }
-}
-
 /// Refs #212: the flags `--json` cannot share stdout with.
 ///
 /// Lifted out of `cmd_build` unchanged, including the order the flags are
@@ -231,48 +169,6 @@ fn run_distribution(
         cmd_build_far(resource, output_dir)?;
     }
     Ok(())
-}
-
-/// Refs #212: the machine-readable form of a build.
-///
-/// Reports the layout that is on disk, not a synthesised description of one:
-/// `layout_exists` is a stat of `index.json`, so a consumer can tell a real
-/// build from a claim. On a cache hit there is no fresh `AssembledImage`, and
-/// the manifest is read back from the layout the earlier build wrote.
-fn print_build_json(
-    tag: &str,
-    output_dir: &std::path::Path,
-    result: Option<&crate::core::store::image_assembler::AssembledImage>,
-    cached: bool,
-) {
-    let layers: Vec<serde_json::Value> = result
-        .map(|r| {
-            r.layers
-                .iter()
-                .map(|l| {
-                    serde_json::json!({
-                        "file_count": l.file_count,
-                        "uncompressed_size": l.uncompressed_size,
-                        "compressed_size": l.compressed_size,
-                        "digest": l.digest,
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let doc = serde_json::json!({
-        "tag": tag,
-        "layout": output_dir.display().to_string(),
-        "layout_exists": output_dir.join("index.json").exists(),
-        "cached": cached,
-        "layers": layers,
-        "layer_count": result.map(|r| r.layers.len()),
-        "total_size": result.map(|r| r.total_size),
-    });
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&doc).unwrap_or_else(|_| "{}".to_string())
-    );
 }
 
 /// FJ-2103: Build image inside container sandbox (Docker/Podman).
