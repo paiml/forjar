@@ -184,6 +184,28 @@ pub(crate) fn record(
     locks.clone()
 }
 
+/// APPLY entry point: `record` with the selectors read off the apply's own
+/// `ApplyConfig` (`-r` / `-g`). Lives here, not in `executor/mod.rs`, so that
+/// file stays under the 500-line file-health ceiling.
+pub(crate) fn record_for_apply(
+    cfg: &super::ApplyConfig<'_>,
+    scope: Option<&PlanScope>,
+    locks: &mut HashMap<String, StateLock>,
+) -> HashMap<String, StateLock> {
+    let selectors = RecordFilters {
+        resource: cfg.resource_filter,
+        group: cfg.group_filter,
+    };
+    record(
+        cfg.config,
+        cfg.machine_filter,
+        cfg.tag_filter,
+        scope,
+        selectors,
+        locks,
+    )
+}
+
 #[cfg(test)]
 #[path = "tests_lockless_check.rs"]
 mod tests_lockless_check;

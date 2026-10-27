@@ -153,3 +153,28 @@ fn record_leaves_a_failing_check_unrecorded() {
     );
     assert!(!locks.contains_key("local"));
 }
+
+#[test]
+fn record_honours_non_default_resource_and_group_selectors() {
+    // A passing check that `-r` / `-g` exclude is neither asked nor recorded;
+    // the matching selector still records it (the other lane only passed defaults).
+    let config = cfg(Some("true"));
+    let run = |resource, group| {
+        let mut locks = HashMap::new();
+        record(
+            &config,
+            None,
+            None,
+            None,
+            RecordFilters { resource, group },
+            &mut locks,
+        );
+        locks.contains_key("local")
+    };
+    assert!(run(Some("guarded"), None), "matching -r records");
+    assert!(!run(Some("other"), None), "non-matching -r is excluded");
+    assert!(
+        !run(None, Some("no-such-group")),
+        "non-matching -g is excluded"
+    );
+}
