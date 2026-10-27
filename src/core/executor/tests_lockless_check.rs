@@ -3,7 +3,7 @@
 //! Each case runs a REAL check against `localhost`, so it measures what the
 //! planner will be handed, not a claim about it.
 
-use super::{record, seeded};
+use super::{record, seeded, RecordFilters};
 use crate::core::planner;
 use crate::core::resolver;
 use crate::core::types::*;
@@ -120,7 +120,14 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
     let mut locks = HashMap::new();
     let preview = seeded(&config, None, None, &locks);
     assert!(locks.is_empty(), "the preview must not write");
-    let view = record(&config, None, None, None, &mut locks);
+    let view = record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     let ids =
         |l: &HashMap<String, StateLock>| l["local"].resources.keys().cloned().collect::<Vec<_>>();
     assert_eq!(ids(&view), ids(&preview), "record and seeded must agree");
@@ -136,6 +143,13 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
 fn record_leaves_a_failing_check_unrecorded() {
     let config = cfg(Some("false"));
     let mut locks = HashMap::new();
-    record(&config, None, None, None, &mut locks);
+    record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     assert!(!locks.contains_key("local"));
 }

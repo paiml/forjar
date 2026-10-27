@@ -57,6 +57,13 @@ pub(crate) fn host_check_passes(
         .is_some_and(|out| out.success())
 }
 
+/// The operator's `-r` / `-g` selectors, as the executor applies them.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct RecordFilters<'a> {
+    pub resource: Option<&'a str>,
+    pub group: Option<&'a str>,
+}
+
 /// Is this resource one the lockless check applies to at all?
 fn declares_a_check(resource: &Resource, tag_filter: Option<&str>) -> bool {
     resource.completion_check.is_some()
@@ -77,10 +84,18 @@ fn add_passing(
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
     scope: Option<&PlanScope>,
+    selectors: RecordFilters<'_>,
     locks: &mut HashMap<String, StateLock>,
 ) {
     for (id, resource) in &config.resources {
         if !declares_a_check(resource, tag_filter) {
+            continue;
+        }
+        // `-r` / `-g` narrow what the executor runs; the host check and the
+        // record must follow the same predicate (PMAT-721 quorum blocker).
+        if super::machine_b::excluded_by_resource_filter(selectors.resource, id)
+            || super::machine_b::excluded_by_group_filter(selectors.group, resource)
+        {
             continue;
         }
         for machine in resource.machine.iter() {
@@ -135,7 +150,14 @@ pub(crate) fn seeded(
     locks: &HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
     let mut out = locks.clone();
-    add_passing(config, machine_filter, tag_filter, None, &mut out);
+    add_passing(
+        config,
+        machine_filter,
+        tag_filter,
+        None,
+        RecordFilters::default(),
+        &mut out,
+    );
     out
 }
 
@@ -155,9 +177,10 @@ pub(crate) fn record(
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
     scope: Option<&PlanScope>,
+    selectors: RecordFilters<'_>,
     locks: &mut HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
-    add_passing(config, machine_filter, tag_filter, scope, locks);
+    add_passing(config, machine_filter, tag_filter, scope, selectors, locks);
     locks.clone()
 }
 

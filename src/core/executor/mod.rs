@@ -408,6 +408,10 @@ pub fn apply_scoped(
             cfg.machine_filter,
             cfg.tag_filter,
             scope,
+            lockless_check::RecordFilters {
+                resource: cfg.resource_filter,
+                group: cfg.group_filter,
+            },
             &mut locks,
         )
     };
