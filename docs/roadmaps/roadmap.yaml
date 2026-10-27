@@ -5067,3 +5067,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-796
+  github_issue: 796
+  item_type: task
+  title: 'fix(deps): zstd 0.13 -> 0.14.3 clears RUSTSEC-2026-0391/0398/0403/0410 on the direct path'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-27T03:19:05Z
+  updated: 2026-10-27T03:19:05Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 763
