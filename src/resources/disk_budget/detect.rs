@@ -119,10 +119,14 @@ fb_stamp() { printf '%s\t%s\n' "$(stat -c %Y "$1" 2>/dev/null || echo 0)" "$1"; 
 # SEC011 guard: refuse anything that is not a plausible reclaim target.
 # Deletion candidates all come from globs and finds; a glob that matches one
 # level too high, or a variable that came back empty, must abort rather than
-# delete. Depth >= 3 keeps the reaper away from `/`, `/home`, `/home/noah`,
-# `/tmp` and every other top-level directory even if a root is misdeclared.
+# delete. `fb_sweepable <cand> <prefix>...`: the candidate must be a STRICT
+# descendant of the literal (pre-glob) prefix of one of its rule's declared
+# roots, never `/` or a top-level directory, and never `$HOME` itself. Depth 2
+# is allowed only under `/tmp` (forjar#627: a floor of 3 refused every
+# `/tmp/*-target`, so such a rule validated, ran, and reclaimed nothing).
 fb_sweepable() {
   fb_p="$1"
+  shift
   if [ -z "$fb_p" ]; then fb_log "  REFUSE empty path"; return 1; fi
   case "$fb_p" in
     /*) ;;
@@ -133,8 +137,31 @@ fb_sweepable() {
     */) fb_log "  REFUSE trailing slash: $fb_p"; return 1 ;;
   esac
   fb_depth=$(printf '%s' "$fb_p" | tr -cd '/' | wc -c)
-  if [ "$fb_depth" -lt 3 ]; then
+  if [ "$fb_depth" -lt 2 ]; then
     fb_log "  REFUSE too shallow (depth $fb_depth): $fb_p"
+    return 1
+  fi
+  if [ "$fb_depth" -eq 2 ]; then
+    case "$fb_p" in
+      /tmp/*) ;;
+      *) fb_log "  REFUSE too shallow (depth 2, not /tmp): $fb_p"; return 1 ;;
+    esac
+  fi
+  if [ -n "$HOME" ] && [ "$fb_p" = "$HOME" ]; then
+    fb_log "  REFUSE \$HOME itself: $fb_p"
+    return 1
+  fi
+  fb_under=0
+  for fb_r in "$@"; do
+    case "$fb_r" in
+      "" | /) continue ;;
+    esac
+    case "$fb_p" in
+      "$fb_r"/*) fb_under=1; break ;;
+    esac
+  done
+  if [ "$fb_under" != "1" ]; then
+    fb_log "  REFUSE outside declared roots: $fb_p"
     return 1
   fi
   [ -e "$fb_p" ] || return 1
