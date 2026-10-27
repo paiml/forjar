@@ -3,6 +3,7 @@
 //! Wires `assemble_image()` into the `forjar build` CLI command,
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
+use super::build_image_base;
 use crate::core::store::layer_builder::LayerEntry;
 use crate::core::store::overlay_export;
 use crate::core::types::{
@@ -48,9 +49,30 @@ pub(crate) fn cmd_build(
 
     let layer_entries = collect_layer_entries(&plan, &config)?;
 
+    // IMG-001: the declared base sits under the built layers. It is resolved
+    // BEFORE the cache is consulted and keyed into the input hash, so a layout
+    // first built as scratch is never served as the based image. A base that
+    // cannot be produced (or fails its pinned digest) fails the build.
+    let base_work =
+        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
+    let base = build_image_base::resolve_plan_base(
+        &plan,
+        std::path::Path::new("state/images"),
+        &base_work,
+        build_image_base::detect_runtime(),
+    );
+    let base = match base {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&base_work);
+            return Err(e);
+        }
+    };
+
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
-    let input_hash = compute_layer_input_hash(&layer_entries);
-    if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
+    let input_hash = build_image_base::compute_layer_input_hash(&layer_entries, base.as_ref());
+    if let Some(cached) = build_image_base::check_build_cache(&output_dir, &input_hash) {
+        let _ = std::fs::remove_dir_all(&base_work);
         if json {
             print_build_json(&plan.tag, &output_dir, None, true);
             return Ok(());
@@ -63,13 +85,16 @@ pub(crate) fn cmd_build(
     }
 
     let start = std::time::Instant::now();
-    let result = crate::core::store::image_assembler::assemble_image(
+    let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
         &output_dir,
         &OciLayerConfig::default(),
         None, // E12: default to host architecture
-    )?;
+        base.as_ref(),
+    );
+    let _ = std::fs::remove_dir_all(&base_work);
+    let result = result?;
     let duration = start.elapsed();
 
     if !json {
@@ -78,7 +103,7 @@ pub(crate) fn cmd_build(
 
     // FJ-2403/E17: Collect and persist image build metrics.
     record_build_metrics(&plan.tag, &result, duration, &output_dir);
-    write_build_cache(&output_dir, &input_hash);
+    build_image_base::write_build_cache(&output_dir, &input_hash);
 
     if json {
         print_build_json(&plan.tag, &output_dir, Some(&result), false);
@@ -459,42 +484,6 @@ fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
         }
     }
     (config_paths, app_paths)
-}
-
-/// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
-fn compute_layer_input_hash(layer_entries: &[Vec<LayerEntry>]) -> String {
-    let mut hasher = blake3::Hasher::new();
-    for entries in layer_entries {
-        for entry in entries {
-            hasher.update(entry.path.as_bytes());
-            hasher.update(&entry.content);
-            hasher.update(&entry.mode.to_le_bytes());
-        }
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
-/// FJ-2403/E16: Check if a cached build with the same input hash exists.
-/// Returns a cache-hit message if found, None otherwise.
-fn check_build_cache(output_dir: &std::path::Path, input_hash: &str) -> Option<String> {
-    let cache_path = output_dir.join("build-cache.hash");
-    let cached_hash = std::fs::read_to_string(&cache_path).ok()?;
-    if cached_hash.trim() == input_hash {
-        let metrics_path = output_dir.join("build-metrics.json");
-        if metrics_path.exists() {
-            return Some(format!(
-                "Layer inputs unchanged (hash: {:.16}…), skipping rebuild",
-                input_hash
-            ));
-        }
-    }
-    None
-}
-
-/// FJ-2403/E16: Write the input hash for cache checking on next build.
-fn write_build_cache(output_dir: &std::path::Path, input_hash: &str) {
-    let cache_path = output_dir.join("build-cache.hash");
-    let _ = std::fs::write(cache_path, input_hash);
 }
 
 /// Exposed for testing.
