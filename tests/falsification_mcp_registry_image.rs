@@ -124,6 +124,7 @@ fn entries(files: &[(&str, &[u8])]) -> Vec<LayerEntry> {
             content: content.to_vec(),
             mode: 0o644,
             is_dir: false,
+            link_target: None,
         })
         .collect()
 }
