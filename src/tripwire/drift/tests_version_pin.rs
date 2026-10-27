@@ -1,6 +1,8 @@
 //! forjar#613: a pinned binary whose live `--version` is not its pin is drift.
 
-use super::version_pin::{declared_pin, parse_semver, Pin, Semver};
+use super::version_pin::{
+    declared_pin, evaluate, parse_semver, Live, Outcome, Pin, Semver, Upstream,
+};
 use crate::core::types::{Resource, ResourceType};
 
 // ---------------------------------------------------------------------------
@@ -55,4 +57,93 @@ fn fj613_declared_pin_from_tag() {
     assert_eq!(declared_pin(&r), Pin::Version(v(0, 33, 2)));
     r.tag = Some("nightly".into());
     assert_eq!(declared_pin(&r), Pin::Unversioned("nightly".into()));
+}
+
+// ---------------------------------------------------------------------------
+// Verdicts ("latest CRUX tooling only").
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fj613_pin_behind_upstream_is_drift() {
+    let out = evaluate(
+        "ollama",
+        "ollama/ollama",
+        &Pin::Version(v(0, 33, 2)),
+        &Live::Version(v(0, 33, 2)),
+        &Upstream::Version(v(0, 34, 2)),
+    );
+    assert_eq!(out.len(), 1, "{out:?}");
+    assert!(
+        matches!(&out[0], Outcome::Drift { expected, actual, .. } if expected == "latest 0.34.2" && actual == "pin 0.33.2"),
+        "{out:?}"
+    );
+}
+
+#[test]
+fn fj613_pin_at_upstream_and_live_is_clean() {
+    let out = evaluate(
+        "ollama",
+        "ollama/ollama",
+        &Pin::Version(v(0, 34, 2)),
+        &Live::Version(v(0, 34, 2)),
+        &Upstream::Version(v(0, 34, 2)),
+    );
+    assert!(out.is_empty(), "{out:?}");
+}
+
+#[test]
+fn fj613_upstream_unanswered_is_unmeasured() {
+    let out = evaluate(
+        "ollama",
+        "ollama/ollama",
+        &Pin::Version(v(0, 34, 2)),
+        &Live::Version(v(0, 34, 2)),
+        &Upstream::Unmeasured("curl: (22) 403".into()),
+    );
+    assert!(
+        matches!(&out[..], [Outcome::Unmeasured(e)] if e.contains("403")),
+        "{out:?}"
+    );
+}
+
+#[test]
+fn fj613_tag_latest_compares_live_with_upstream() {
+    let out = evaluate(
+        "ollama",
+        "ollama/ollama",
+        &Pin::Latest,
+        &Live::Version(v(0, 33, 2)),
+        &Upstream::Version(v(0, 34, 2)),
+    );
+    assert!(
+        matches!(&out[..], [Outcome::Drift { detail, .. }] if detail.contains("upgrade")),
+        "{out:?}"
+    );
+
+    let offline = evaluate(
+        "ollama",
+        "ollama/ollama",
+        &Pin::Latest,
+        &Live::Version(v(0, 33, 2)),
+        &Upstream::NotChecked,
+    );
+    assert!(
+        matches!(&offline[..], [Outcome::NotChecked(_)]),
+        "{offline:?}"
+    );
+}
+
+#[test]
+fn fj613_nightly_is_named_not_passed() {
+    let out = evaluate(
+        "apr",
+        "paiml/aprender",
+        &Pin::Unversioned("nightly".into()),
+        &Live::Missing,
+        &Upstream::NotChecked,
+    );
+    assert!(
+        matches!(&out[..], [Outcome::NotChecked(w)] if w.contains("nightly")),
+        "{out:?}"
+    );
 }

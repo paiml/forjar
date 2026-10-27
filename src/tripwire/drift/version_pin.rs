@@ -69,3 +69,105 @@ pub fn is_versioned_binary(resource: &Resource) -> bool {
     resource.resource_type == ResourceType::GithubRelease
         && resource.state.as_deref() != Some("absent")
 }
+
+/// What the live binary said.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Live {
+    /// Not installed at the declared path. Plan and the state query own that.
+    Missing,
+    /// `--version` printed this.
+    Version(Semver),
+    /// `--version` printed no version. The first line is kept as evidence.
+    Unparseable(String),
+}
+
+/// What the repo's latest GitHub release is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Upstream {
+    /// `--offline`, or a surface that does not reach the network.
+    NotChecked,
+    /// `releases/latest` answered with this tag.
+    Version(Semver),
+    /// Asked and got no usable answer. The string says why.
+    Unmeasured(String),
+}
+
+/// One verdict about one resource.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Outcome {
+    /// The declared and live versions differ, or the pin is behind upstream.
+    Drift {
+        /// What the declaration requires.
+        expected: String,
+        /// What was found.
+        actual: String,
+        /// Operator-facing explanation.
+        detail: String,
+    },
+    /// The question was asked and could not be answered.
+    Unmeasured(String),
+    /// The question was not asked. It is named, never counted as a pass.
+    NotChecked(String),
+}
+
+/// Compare the pin with the live binary and with upstream. Pure; no I/O.
+pub fn evaluate(
+    binary: &str,
+    repo: &str,
+    pin: &Pin,
+    live: &Live,
+    upstream: &Upstream,
+) -> Vec<Outcome> {
+    let mut out = Vec::new();
+    let expected = match pin {
+        Pin::Unversioned(tag) => {
+            out.push(Outcome::NotChecked(format!(
+                "tag '{tag}' names no version, so the live {binary} was not compared with it"
+            )));
+            return out;
+        }
+        Pin::Version(p) => Some(*p),
+        Pin::Latest => match upstream {
+            Upstream::Version(u) => Some(*u),
+            _ => None,
+        },
+    };
+    match (live, expected) {
+        (Live::Unparseable(raw), _) => out.push(Outcome::Unmeasured(format!(
+            "cannot measure: `{binary} --version` printed no version (\"{raw}\")"
+        ))),
+        (Live::Version(l), Some(e)) if *l != e => out.push(Outcome::Drift {
+            expected: format!("version {e}"),
+            actual: format!("version {l}"),
+            detail: format!(
+                "live {binary} is {l}, declared {} is {e}; apply would {} it",
+                if matches!(pin, Pin::Latest) {
+                    "latest"
+                } else {
+                    "pin"
+                },
+                if *l > e { "DOWNGRADE" } else { "upgrade" }
+            ),
+        }),
+        _ => {}
+    }
+    match (pin, upstream) {
+        (Pin::Version(p), Upstream::Version(u)) if p < u => out.push(Outcome::Drift {
+            expected: format!("latest {u}"),
+            actual: format!("pin {p}"),
+            detail: format!("pin {p} is behind the latest {repo} release {u}"),
+        }),
+        (_, Upstream::Unmeasured(why)) => out.push(Outcome::Unmeasured(format!(
+            "latest {repo} release not measured: {why}"
+        ))),
+        (Pin::Version(p), Upstream::NotChecked) => out.push(Outcome::NotChecked(format!(
+            "upstream not checked (offline): pin {p} was not compared with the latest {repo} release"
+        ))),
+        (Pin::Latest, Upstream::NotChecked) => out.push(Outcome::NotChecked(
+            "upstream not checked (offline): tag 'latest' cannot be compared without it"
+                .to_string(),
+        )),
+        _ => {}
+    }
+    out
+}
