@@ -39,6 +39,7 @@
 //! and the pull agent call, turns this detector off: re-applying a pin that is
 //! behind the live binary IS the downgrade this detector exists to report.
 
+use super::census::DriftCensus;
 use super::ignore::should_ignore_drift;
 use super::unmeasured::{self, Reading};
 use super::DriftFinding;
@@ -389,4 +390,40 @@ fn finding(id: &str, expected: &str, actual: &str, detail: String) -> DriftFindi
         actual_hash: actual.to_string(),
         detail,
     }
+}
+
+/// Fold one machine's verdicts into a drift run's census and findings.
+pub(super) fn detect(
+    machine_name: &str,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+    opts: super::DriftOptions,
+    census: &mut DriftCensus,
+) -> Vec<DriftFinding> {
+    if !opts.check_version_pins {
+        for (id, r) in resources {
+            if is_versioned_binary(r) && r.machine.iter().any(|m| m == machine_name) {
+                census.version_not_checked(id, "version pins not checked on this surface".into());
+            }
+        }
+        return Vec::new();
+    }
+    let v = check_version_pins(machine_name, machine, resources, opts.check_upstream);
+    for id in &v.inspected {
+        census.inspected(id, &ResourceType::GithubRelease);
+    }
+    for (id, why) in v.not_checked {
+        census.version_not_checked(&id, why);
+    }
+    v.findings
+}
+
+/// Is this finding one of this detector's drift verdicts?
+///
+/// Its `expected_hash` holds a version (`version 0.33.2`, `latest 0.34.2`), and
+/// no digest-based detector writes that, because a digest is `blake3:…`.
+pub fn is_version_finding(f: &DriftFinding) -> bool {
+    f.resource_type == ResourceType::GithubRelease
+        && !f.is_unmeasured()
+        && (f.expected_hash.starts_with("version ") || f.expected_hash.starts_with("latest "))
 }

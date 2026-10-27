@@ -337,6 +337,7 @@ pub(crate) fn cmd_drift(
         verbose,
         detect: drift::DriftOptions {
             run_task_checks: !no_task_checks,
+            ..drift::DriftOptions::default()
         },
     };
     let scan = scan_machines_for_drift(
@@ -474,6 +475,7 @@ pub(crate) fn cmd_drift_dry_run(
     let Some(names) = machine_state_dirs(state_dir, machine_filter, scope)? else {
         let opts = drift::DriftOptions {
             run_task_checks: !no_task_checks,
+            ..drift::DriftOptions::default()
         };
         return dry_run_lockless(state_dir, machine_filter, config, json, opts);
     };

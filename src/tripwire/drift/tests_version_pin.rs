@@ -3,7 +3,225 @@
 use super::version_pin::{
     declared_pin, evaluate, parse_probe, parse_semver, Live, Outcome, Pin, Semver, Upstream,
 };
-use crate::core::types::{Resource, ResourceType};
+use super::*;
+use crate::core::types::{MachineTarget, Resource, ResourceLock, StateLock};
+use indexmap::IndexMap;
+use std::collections::HashMap;
+use std::os::unix::fs::PermissionsExt;
+
+fn local_machine() -> Machine {
+    serde_yaml_ng::from_str("hostname: box\naddr: 127.0.0.1").unwrap()
+}
+
+/// Offline: no test reaches api.github.com. The upstream leg is covered by the
+/// pure `evaluate` / `parse_probe` tests below.
+fn offline() -> DriftOptions {
+    DriftOptions {
+        check_upstream: false,
+        ..DriftOptions::default()
+    }
+}
+
+/// A fake binary at `<dir>/ollama` whose `--version` prints `output`.
+fn fake_binary(dir: &std::path::Path, output: &str) {
+    let path = dir.join("ollama");
+    std::fs::write(&path, format!("#!/bin/sh\nprintf '%s\\n' '{output}'\n")).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// paiml/infra's shape: ollama pinned to v0.33.2.
+fn ollama(dir: &std::path::Path) -> Resource {
+    Resource {
+        resource_type: ResourceType::GithubRelease,
+        machine: MachineTarget::Single("box".to_string()),
+        repo: Some("ollama/ollama".to_string()),
+        tag: Some("v0.33.2".to_string()),
+        asset_pattern: Some("*linux-amd64*".to_string()),
+        binary: Some("ollama".to_string()),
+        install_dir: Some(dir.display().to_string()),
+        ..Default::default()
+    }
+}
+
+fn config_with(id: &str, resource: Resource) -> IndexMap<String, Resource> {
+    let mut resources = IndexMap::new();
+    resources.insert(id.to_string(), resource);
+    resources
+}
+
+fn lock_with(entries: Vec<(&str, ResourceLock)>) -> StateLock {
+    StateLock {
+        schema: "1.0".to_string(),
+        machine: "box".to_string(),
+        hostname: "box".to_string(),
+        generated_at: "now".to_string(),
+        generator: "test".to_string(),
+        created_by: None,
+        blake3_version: "1.8".to_string(),
+        resources: entries
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect(),
+    }
+}
+
+/// A converged lock entry whose baseline was taken AFTER the out-of-band
+/// install, so the digest path compares the box with itself and sees nothing.
+fn rebaselined_entry(resource: &Resource) -> ResourceLock {
+    let q = crate::core::codegen::state_query_script(resource).unwrap();
+    let out = crate::transport::exec_script(&local_machine(), &q).unwrap();
+    let live = crate::tripwire::hasher::hash_string_or_sentinel(
+        &crate::core::observation_mask::masked_for(&out.stdout, resource),
+    );
+    ResourceLock {
+        resource_type: ResourceType::GithubRelease,
+        status: ResourceStatus::Converged,
+        applied_at: None,
+        duration_seconds: None,
+        hash: "blake3:desired".to_string(),
+        observed: Some(live),
+        details: HashMap::new(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The headline: RED before the fix, GREEN after.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees() {
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.34.2");
+    let r = ollama(dir.path());
+    let lock = lock_with(vec![("ollama-binary", rebaselined_entry(&r))]);
+    let resources = config_with("ollama-binary", r);
+
+    let report = detect_drift_full_reported(&lock, &local_machine(), &resources, offline());
+
+    let drifted: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| !f.is_unmeasured() && f.resource_id == "ollama-binary")
+        .collect();
+    assert_eq!(
+        drifted.len(),
+        1,
+        "live ollama 0.34.2 under a v0.33.2 pin must be DRIFT; got {:?}",
+        report.findings
+    );
+    assert_eq!(drifted[0].expected_hash, "version 0.33.2");
+    assert_eq!(drifted[0].actual_hash, "version 0.34.2");
+    assert!(
+        drifted[0].detail.contains("DOWNGRADE"),
+        "the operator must be told the apply would move the box backwards: {}",
+        drifted[0].detail
+    );
+    // Offline is NAMED, never silently green.
+    let lines = report.census.summary_lines().join("\n");
+    assert!(
+        lines.contains("version pin NOT checked 1: ollama-binary (upstream not checked (offline)"),
+        "census must name the pin that was not compared with upstream:\n{lines}"
+    );
+}
+
+#[test]
+fn fj613_a_pin_never_applied_from_here_is_still_compared() {
+    // infra's actual state: not in the lock at all.
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.34.2");
+    let lock = lock_with(vec![]);
+    let resources = config_with("ollama-binary", ollama(dir.path()));
+
+    let report = detect_drift_full_reported(&lock, &local_machine(), &resources, offline());
+
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|f| version_pin::is_version_finding(f) && f.actual_hash == "version 0.34.2"),
+        "got {:?}",
+        report.findings
+    );
+    assert_eq!(report.census.inspected_total(), 1);
+}
+
+#[test]
+fn fj613_lockless_run_compares_the_pin() {
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.34.2");
+    let resources = config_with("ollama-binary", ollama(dir.path()));
+
+    let report = detect_drift_lockless("box", &local_machine(), &resources, offline());
+
+    assert!(
+        report.findings.iter().any(version_pin::is_version_finding),
+        "got {:?}",
+        report.findings
+    );
+}
+
+#[test]
+fn fj613_matching_version_is_clean_and_offline_is_still_named() {
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.33.2");
+    let resources = config_with("ollama-binary", ollama(dir.path()));
+
+    let report =
+        detect_drift_full_reported(&lock_with(vec![]), &local_machine(), &resources, offline());
+
+    assert!(report.findings.is_empty(), "got {:?}", report.findings);
+    assert_eq!(report.census.version_not_checked_ids().len(), 1);
+}
+
+#[test]
+fn fj613_unparseable_version_is_unmeasured_never_clean() {
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "usage: ollama [command]");
+    let resources = config_with("ollama-binary", ollama(dir.path()));
+
+    let report =
+        detect_drift_full_reported(&lock_with(vec![]), &local_machine(), &resources, offline());
+
+    assert_eq!(report.findings.len(), 1, "got {:?}", report.findings);
+    assert!(report.findings[0].is_unmeasured());
+    assert!(report.findings[0].detail.contains("cannot measure"));
+    assert_eq!(report.census.unmeasured_total(), 1);
+}
+
+#[test]
+fn fj613_remediation_wrapper_never_sees_version_findings() {
+    // `detect_drift_full` feeds the apply gate: a version finding there would
+    // mark the resource drifted and re-apply the older pin.
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.34.2");
+    let r = ollama(dir.path());
+    let lock = lock_with(vec![("ollama-binary", rebaselined_entry(&r))]);
+    let resources = config_with("ollama-binary", r);
+
+    let findings = detect_drift_full(&lock, &local_machine(), &resources);
+
+    assert!(findings.is_empty(), "got {findings:?}");
+}
+
+#[test]
+fn fj613_disabled_surface_names_the_pins_it_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    fake_binary(dir.path(), "ollama version is 0.34.2");
+    let resources = config_with("ollama-binary", ollama(dir.path()));
+    let opts = DriftOptions {
+        run_task_checks: false,
+        check_version_pins: false,
+        check_upstream: false,
+    };
+
+    let report = detect_drift_full_reported(&lock_with(vec![]), &local_machine(), &resources, opts);
+
+    assert!(report.findings.is_empty());
+    assert_eq!(
+        report.census.version_not_checked_ids(),
+        vec![("ollama-binary", "version pins not checked on this surface")]
+    );
+}
 
 // ---------------------------------------------------------------------------
 // Parsing.
@@ -172,4 +390,23 @@ fn fj613_nightly_is_named_not_passed() {
         matches!(&out[..], [Outcome::NotChecked(w)] if w.contains("nightly")),
         "{out:?}"
     );
+}
+
+/// An invalid repo slug asks nothing of the box, so it is UNMEASURED and is not
+/// one of this detector's drift verdicts (review of forjar#759, finding 4).
+#[test]
+fn invalid_repo_slug_is_unmeasured_not_a_version_finding() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut r = ollama(dir.path());
+    r.repo = Some("not a repo; rm -rf /".to_string());
+    let v = super::version_pin::check_version_pins(
+        "box",
+        &local_machine(),
+        &config_with("ollama", r),
+        false,
+    );
+    assert_eq!(v.findings.len(), 1);
+    assert!(v.findings[0].is_unmeasured());
+    assert!(!super::version_pin::is_version_finding(&v.findings[0]));
+    assert!(v.findings[0].detail.contains("invalid github repo slug"));
 }
