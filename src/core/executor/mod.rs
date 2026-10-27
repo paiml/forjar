@@ -403,7 +403,13 @@ pub fn apply_scoped(
     } else if cfg.dry_run {
         locks.clone()
     } else {
-        lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)
+        lockless_check::record(
+            cfg.config,
+            cfg.machine_filter,
+            cfg.tag_filter,
+            scope,
+            &mut locks,
+        )
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
     // whose sources changed on disk plans as Update rather than NoOp.

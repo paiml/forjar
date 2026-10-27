@@ -11,7 +11,7 @@ Crux lane (competitive survey, read-only): Swatinem/rust-cache puts runner OS an
 
 Judge input given at head 484803a5, before the three later commits (all posted on the PR): three Opus routing votes (two APPROVE_WITH_CHANGE, one APPROVE; the changes were runner.arch in the cache keys and restoring the roadmap, both done) and two non-author Opus PASS checks. They are cited, not re-run, and are not counted as lanes here.
 
-Rounds 5 to 7 (the new ARCH_NEUTRAL_JOBS tie, claims C8–C11), lanes claude-sonnet-5-5, agy Gemini 4 Argon (High), agy Gemini 3.8 Flash (High), none claude-opus-5-5:
+Rounds 5 to 7 (the new ARCH_NEUTRAL_JOBS tie, claim C8), lanes claude-sonnet-5-5, agy Gemini 4 Argon (High), agy Gemini 3.8 Flash (High), none claude-opus-5-5:
 - Round 5, head f31e59e9: Sonnet PASS, Argon FAIL, Flash FAIL. Findings: exit status unasserted, substring ok match, parser dropped unparsable lines. Fixed in e5c0a224.
 - Round 6, head e5c0a224: Sonnet FAIL, Argon no output (timed out), Flash FAIL. Finding: an empty list passed vacuously, plus inline comments. Fixed in e642d9d8.
-- Round 7, head e642d9d8: Sonnet PASS, Argon PASS, Flash PASS. C8–C11 confirmed.
+- Round 7, head e642d9d8: Sonnet PASS, Argon PASS, Flash PASS. C8 confirmed.

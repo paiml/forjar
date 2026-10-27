@@ -28,6 +28,7 @@ use super::super::codegen;
 use super::super::resolver;
 use super::super::state;
 use super::super::types::*;
+use super::plan_scope::PlanScope;
 use crate::transport;
 use std::collections::HashMap;
 
@@ -75,6 +76,7 @@ fn add_passing(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
+    scope: Option<&PlanScope>,
     locks: &mut HashMap<String, StateLock>,
 ) {
     for (id, resource) in &config.resources {
@@ -86,6 +88,9 @@ fn add_passing(
                 // The planner skips an arch mismatch or a false `when:`; asking
                 // (and recording) a resource it will not plan is a false record.
                 || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
+                // `apply --plan-file`: a pair the reviewed plan did not name is
+                // neither checked on the host nor recorded (PMAT-721 review F2).
+                || scope.is_some_and(|s| !s.covers(machine, id))
             {
                 continue;
             }
@@ -130,7 +135,7 @@ pub(crate) fn seeded(
     locks: &HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
     let mut out = locks.clone();
-    add_passing(config, machine_filter, tag_filter, &mut out);
+    add_passing(config, machine_filter, tag_filter, None, &mut out);
     out
 }
 
@@ -149,9 +154,10 @@ pub(crate) fn record(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
+    scope: Option<&PlanScope>,
     locks: &mut HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
-    add_passing(config, machine_filter, tag_filter, locks);
+    add_passing(config, machine_filter, tag_filter, scope, locks);
     locks.clone()
 }
 
