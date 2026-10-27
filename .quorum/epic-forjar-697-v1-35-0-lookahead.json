@@ -1,0 +1,149 @@
+{
+  "kind": "code",
+  "issue": "forjar epic 697 v1.35.0 lookahead (PMAT-613, 615, 618, 622, 627, 721, 727, 740): honest-check tripwires, -r/-g selection parity, user groups convergence, disk_budget guards, arch-neutral lint jobs, docker state pulled. This receipt covers the whole branch at d6e7e542.",
+  "branch": "epic/forjar-697-v1-35-0-lookahead",
+  "base": "493ccc36",
+  "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
+  "diff_sha256": "95a5307527c1b48e267b7c75c411534bee4d4e19",
+  "recorded_at": "after the full-diff round at d6e7e542. The evidence commit after it adds only files under .quorum/evidence/PMAT-721-d6e7e542; the hash covers them.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "Round A head 64517a4f - gemini-4-argon-high (agy) FAIL: mod.rs 509 lines and a unit-test gap, both true, fixed in d6e7e542",
+      "Round A head 64517a4f - gemini-3.8-flash-high (agy) FAIL: 509 lines true; seeded() preflight leak and ticket-scope claims refuted",
+      "Round A head 64517a4f - claude-haiku-4-5 PASS, no findings",
+      "Round B head d6e7e542 full diff - gemini-4-argon-high (agy) PASS",
+      "Round B head d6e7e542 full diff - gemini-3.8-flash-high (agy) PASS, nine cited findings",
+      "Round B head d6e7e542 full diff - claude-haiku-4-5 PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "judges_note": "judges and refuters_per_claim are 3 because they are mapped to the 3 independent full-diff lanes of Round B (quorum-forjar759-d6e7e542-full.json), each of which reviewed the whole 7,457-line diff against all eight tickets. They are not separate judge and refuter panels. Lane 3 returns a one-paragraph summary with no findings.",
+    "claims_confirmed": 11,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round A lane 2 - seeded() hardcodes no scope and default filters, so the interactive preflight still runs host completion checks on resources excluded with -r/-g; false, apply.rs runs resolve_selection (src/cli/apply.rs:96) and prunes the config before the preflight calls seeded (src/cli/apply_preflight.rs:321).",
+      "R2: Round A lane 2 - executor changes under the PMAT-721 label are outside every ticket; false as to scope, the lockless check and its recording are PMAT-615's acceptance criteria. The trailer label on review-fix commits is a labelling note only."
+    ]
+  },
+  "falsification": {
+    "test": "plan_file_apply_records_no_lock_entry_for_an_out_of_scope_resource, plan_file_apply_with_r_filter_neither_checks_nor_records_the_excluded_resource, plan_file_apply_with_g_filter_neither_checks_nor_records_the_excluded_resource",
+    "test_file": "tests/falsification_plan_file_lockless_record_in_scope.rs",
+    "cargo_test_target": "falsification_plan_file_lockless_record_in_scope",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured locally. GREEN with the fix at 2026-10-27T01:59:03Z (3 passed). With src/core/executor reverted to caaff23b at 2026-10-27T01:59:51Z the target went RED (2 failed, 1 passed): the -r and the -g test failed with \"filtered-out resource's completion_check RAN on the host\". Restored at 2026-10-27T02:00:17Z, GREEN again (3 passed)."
+  },
+  "crux": {
+    "systems": [
+      "Ansible user module: append=false keeps exactly the declared groups, and the primary group is a separate parameter",
+      "SaltStack user state: groups is the declared list, remove_groups defaults True, the primary gid is outside the groups logic",
+      "Chef guards: only_if and not_if run a shell command on the node to decide whether the resource acts",
+      "Terraform plan -target: the selection is extended to everything the target depends on, with a documented drift warning",
+      "Ansible community.docker.docker_image: pulls only when the image is missing and leaves digest references undocumented"
+    ],
+    "verdict": "No crux row is owed. Where documentation exists the branch matches the surveyed tools: primary group kept apart from supplementary groups (Ansible, Salt), shell-probe guards that ask the box (Chef, Salt), dependency-closed selection (Terraform). Two choices go beyond the documentation and are forjar's own: tolerating a primary group listed in groups:, and requiring a sha256 digest for docker pulls. Sources and quotes: .quorum/evidence/PMAT-721-d6e7e542/crux.md."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy executor, sandboxed read-only lanes with the brief inline; two gemini lanes plus one claude-haiku-4-5 lane per round",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "Round A at 64517a4f: FAIL, FAIL, PASS; real findings fixed in d6e7e542, two claims refuted. Round B at d6e7e542, full diff: PASS, PASS, PASS (agreed=true)."
+  },
+  "pmat": {
+    "ticket": "PMAT-721",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 20,020 tests in 2,244 files; 0 findings in the test files this branch wrote",
+      "cargo test --test falsification_plan_file_lockless_record_in_scope: 3 passed with the fix, 2 failed with the executor reverted"
+    ],
+    "vacuous_tests_in_touched_paths": 72,
+    "accepted": [
+      {
+        "test": "src/cli/tests_cov_args_extra_b.rs (41 tests)",
+        "reason": "pre-existing no-failure-mode flags; the branch changed one line, adding offline: false to an args literal"
+      },
+      {
+        "test": "src/cli/tests_cov_args_extra_c.rs (25 tests)",
+        "reason": "pre-existing no-failure-mode flags; the branch changed one line, adding offline: false to an args literal"
+      },
+      {
+        "test": "src/cli/tests_cov_apply_b.rs (4 tests)",
+        "reason": "pre-existing print-helper smoke tests (no-failure-mode); the branch changed four lines elsewhere in the file to pass the new apply_dry_run_output argument"
+      },
+      {
+        "test": "src/cli/tests_show_1.rs (1 test)",
+        "reason": "pre-existing no-failure-mode flag; the branch changed exclude: None to exclude: vec![] on one line"
+      },
+      {
+        "test": "src/cli/tests_diff_cmd.rs (1 test)",
+        "reason": "pre-existing no-failure-mode flag; the branch changed exclude: None to exclude: vec![] on one line"
+      }
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "233f0a4f4250cbbb71b1666c49fe46daee95aed4",
+        "sha256": "5747a0e7c4be4a0ed2f9bbd7cb0aef1a61b633ff257bbd5d0a8f308727c45ca9",
+        "bytes": 982
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/claims.md",
+        "roles": [
+          "claims",
+          "judges"
+        ],
+        "blob": "415dd8590bbfa5f81881fd62426fab7e13b57c26",
+        "sha256": "f7d47da21ad6a90252e404e126828713cd1685ca92d6e7a91a241fb91f843918",
+        "bytes": 5721
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "4837d7de37fcc1db8205fd6a61a0923aaa0c3044",
+        "sha256": "6ab72f1437b3cebbb1211d4591111bc0e9543e020d73c2c3d733d72a83fbd2f4",
+        "bytes": 5281
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "f8f5ebd3e200cc12a11160d81944b228ae6d902d",
+        "sha256": "1a37a097b67c03b1b265eea1ad0ca032b544977a11b49c887541e2edfa62a4a3",
+        "bytes": 956
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/round-64517a4f-lane-3.json",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "0138ac67db6a0421d338d3a6f97f9f2cf078a4c6",
+        "sha256": "2217cb1ed850f7140a8d10bb4336eca6003e794f08e41079edfe0d629b64d4a1",
+        "bytes": 1932
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-d6e7e542/round-d6e7e542-full-lane-3.json",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "d46da5d6d20f05a87c0e79541ac89be0cacafe0d",
+        "sha256": "62753db05f98777883d771604156cc9ef481518d90f0141ff0bf29c12e0dae74",
+        "bytes": 1536
+      }
+    ],
+    "total_bytes": 16408,
+    "claims_digest": ".quorum/evidence/PMAT-721-d6e7e542/claims.md",
+    "omitted_lane_files_note": "Four of the six lane files (Round A lanes 1 and 2, Round B lanes 1 and 2) embed a session UUID, which the redaction gate rejects; they were left out rather than edited, since the copies must be byte for byte. Their verdicts are in the committed round files under the operator handoff directory and summarised in claims.md and agy.md. Only the two lane-3 files are attached."
+  }
+}
