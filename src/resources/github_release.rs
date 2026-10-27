@@ -99,6 +99,7 @@ pub fn apply_script(resource: &Resource) -> String {
         ),
         _ => format!(
             "set -euo pipefail\n\
+             {}\
              TMPDIR=$(mktemp -d)\n\
              trap 'rm -rf \"$TMPDIR\"' EXIT\n\
              \n\
@@ -160,9 +161,51 @@ pub fn apply_script(resource: &Resource) -> String {
              # Verify\n\
              VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'installed' )\n\
              echo \"installed:{repo}:$VER\"",
+            downgrade_guard(resource, &bin_path, repo),
             sh_squote(&format!("ERROR: binary {binary} not found in release asset"))
         ),
     }
+}
+
+/// forjar#613: refuse to install a pinned version OLDER than the live binary.
+///
+/// Every path that installs a `github_release` ends in this script: a lockless
+/// Create, the apply drift gate's re-apply, `--force`, the pull agent. The one
+/// on-box place to stop a downgrade is here, before the download. The live
+/// version is parsed the way `version_pin::parse_semver` parses it: the first
+/// `N.N.N` at a token boundary, not part of a longer dotted run. When no version
+/// can be read, the install goes ahead, because this resource also repairs a
+/// broken binary. Only a pin that names a version is guarded; `latest` and
+/// `nightly` are not ordered against the box.
+fn downgrade_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
+    use crate::tripwire::drift::version_pin::{declared_pin, Pin};
+    let Pin::Version(pin) = declared_pin(resource) else {
+        return String::new();
+    };
+    let refuse = sh_squote(&format!(
+        "ERROR: refusing to downgrade {repo}: the pin is {pin}. Update the pin to the live version, or remove the binary to roll back on purpose. Live:"
+    ));
+    format!(
+        "# forjar#613: never install a pin older than the live binary.\n\
+         if [ -x {bin_path} ]; then\n\
+         \x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | \
+         grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
+         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' || true )\n\
+         \x20 if [ -n \"$FJ_LIVE\" ]; then\n\
+         \x20\x20\x20 FJ_MAJ=\"${{FJ_LIVE%%.*}}\"\n\
+         \x20\x20\x20 FJ_REST=\"${{FJ_LIVE#*.}}\"\n\
+         \x20\x20\x20 FJ_MIN=\"${{FJ_REST%%.*}}\"\n\
+         \x20\x20\x20 FJ_PAT=\"${{FJ_REST#*.}}\"\n\
+         \x20\x20\x20 if [ \"$FJ_MAJ\" -gt {maj} ] || {{ [ \"$FJ_MAJ\" -eq {maj} ] && {{ [ \"$FJ_MIN\" -gt {min} ] || {{ [ \"$FJ_MIN\" -eq {min} ] && [ \"$FJ_PAT\" -gt {pat} ]; }}; }}; }}; then\n\
+         \x20\x20\x20\x20\x20 echo {refuse} \"$FJ_LIVE\" >&2\n\
+         \x20\x20\x20\x20\x20 exit 1\n\
+         \x20\x20\x20 fi\n\
+         \x20 fi\n\
+         fi\n",
+        maj = pin.major,
+        min = pin.minor,
+        pat = pin.patch,
+    )
 }
 
 /// Generate shell to query installed binary state (for BLAKE3 hashing).
