@@ -160,3 +160,50 @@ fn podman_save_asks_for_an_oci_archive_and_docker_does_not() {
     );
     assert_eq!(save_args("docker"), ["save", "-o"]);
 }
+
+// ---- index-digest pin vs a single-platform `docker save` layout ----
+
+fn write_index_blob(dir: &std::path::Path, listing: &str) -> String {
+    let hex = super::sandbox_exec::sha256_digest(listing.as_bytes())
+        .trim_start_matches("sha256:")
+        .to_string();
+    std::fs::write(dir.join("blobs/sha256").join(&hex), listing).unwrap();
+    hex
+}
+
+#[test]
+fn index_digest_pin_is_accepted_when_the_layout_holds_the_hashing_index_blob() {
+    let root = local_base_root("ubuntu:22.04");
+    let dir = root.path().join(local_base_dir_name("ubuntu:22.04"));
+    let listing = format!(
+        r#"{{"schemaVersion":2,"manifests":[{{"digest":"sha256:{BASE_MANIFEST_HEX}","platform":{{"os":"linux","architecture":"amd64"}}}}]}}"#
+    );
+    let hex = write_index_blob(&dir, &listing);
+    let pinned = format!("ubuntu@sha256:{hex}");
+    // the dir name must follow the pinned ref
+    std::fs::rename(&dir, root.path().join(local_base_dir_name(&pinned))).unwrap();
+    assert!(load_local_base(root.path(), &pinned).unwrap().is_some());
+}
+
+#[test]
+fn index_digest_pin_without_the_index_blob_is_refused_with_a_clear_error() {
+    let pinned = format!("ubuntu@sha256:{}", "2".repeat(64));
+    let root = local_base_root(&pinned);
+    let err = load_local_base(root.path(), &pinned).unwrap_err();
+    assert!(
+        err.contains("image-index digest") && err.contains("mismatch"),
+        "{err}"
+    );
+}
+
+#[test]
+fn index_digest_pin_whose_blob_does_not_hash_to_the_pin_is_refused() {
+    let root = local_base_root("ubuntu:22.04");
+    let dir = root.path().join(local_base_dir_name("ubuntu:22.04"));
+    let listing = format!(r#"{{"manifests":[{{"digest":"sha256:{BASE_MANIFEST_HEX}"}}]}}"#);
+    let fake = "3".repeat(64);
+    std::fs::write(dir.join("blobs/sha256").join(&fake), listing).unwrap();
+    let pinned = format!("ubuntu@sha256:{fake}");
+    std::fs::rename(&dir, root.path().join(local_base_dir_name(&pinned))).unwrap();
+    assert!(load_local_base(root.path(), &pinned).is_err());
+}

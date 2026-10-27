@@ -18,6 +18,8 @@ use std::path::Path;
 pub struct OverlayScan {
     /// Regular files/directories to include in the layer.
     pub entries: Vec<LayerEntry>,
+    /// Directory entries (empty dirs and directory modes would otherwise be lost).
+    pub dirs: Vec<LayerEntry>,
     /// Whiteout entries (deletions in lower layers).
     pub whiteouts: Vec<WhiteoutEntry>,
     /// Total bytes of regular files.
@@ -47,36 +49,23 @@ pub struct OverlayScan {
 /// assert_eq!(scan.entries.len(), 1);
 /// ```
 pub fn scan_overlay_upper(upper_dir: &Path, strip_prefix: &Path) -> Result<OverlayScan, String> {
-    let mut entries = Vec::new();
-    let mut whiteouts = Vec::new();
-    let mut total_bytes: u64 = 0;
-    let mut file_count: usize = 0;
-
-    walk_dir(
-        upper_dir,
-        strip_prefix,
-        &mut entries,
-        &mut whiteouts,
-        &mut total_bytes,
-        &mut file_count,
-    )?;
-
-    Ok(OverlayScan {
-        entries,
-        whiteouts,
-        total_bytes,
-        file_count,
-    })
+    let mut scan = OverlayScan {
+        entries: Vec::new(),
+        dirs: Vec::new(),
+        whiteouts: Vec::new(),
+        total_bytes: 0,
+        file_count: 0,
+    };
+    walk_dir(upper_dir, strip_prefix, &mut scan)
+        .map_err(crate::core::error::ForjarError::into_untyped)?;
+    Ok(scan)
 }
 
 fn walk_dir(
     dir: &Path,
     strip_prefix: &Path,
-    entries: &mut Vec<LayerEntry>,
-    whiteouts: &mut Vec<WhiteoutEntry>,
-    total_bytes: &mut u64,
-    file_count: &mut usize,
-) -> Result<(), String> {
+    scan: &mut OverlayScan,
+) -> Result<(), crate::core::error::ForjarError> {
     let read_dir =
         std::fs::read_dir(dir).map_err(|e| format!("read_dir {}: {e}", dir.display()))?;
 
@@ -101,7 +90,8 @@ fn walk_dir(
                 .unwrap_or_default();
             if suffix == ".wh..opq" {
                 // Opaque directory marker
-                whiteouts.push(WhiteoutEntry::OpaqueDir { path: parent });
+                scan.whiteouts
+                    .push(WhiteoutEntry::OpaqueDir { path: parent });
             } else {
                 // File deletion: .wh.<filename>
                 let deleted_path = if parent.is_empty() {
@@ -109,27 +99,38 @@ fn walk_dir(
                 } else {
                     format!("{parent}/{suffix}")
                 };
-                whiteouts.push(WhiteoutEntry::FileDelete { path: deleted_path });
+                scan.whiteouts
+                    .push(WhiteoutEntry::FileDelete { path: deleted_path });
             }
             continue;
         }
 
-        if path.is_dir() {
-            walk_dir(
-                &path,
-                strip_prefix,
-                entries,
-                whiteouts,
-                total_bytes,
-                file_count,
-            )?;
-        } else if path.is_file() {
+        // Never follow a link: `is_dir`/`is_file` + `read` would put the HOST's
+        // target content in the image (a link to /etc/alternatives/cc is absolute
+        // and resolves against the host, not the container).
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("file type {}: {e}", path.display()))?;
+        if file_type.is_symlink() {
+            let target = std::fs::read_link(&path)
+                .map_err(|e| format!("read_link {}: {e}", path.display()))?;
+            scan.file_count += 1;
+            scan.entries.push(LayerEntry::symlink(
+                &rel_path,
+                &target.to_string_lossy(),
+                0o777,
+            ));
+        } else if file_type.is_dir() {
+            scan.dirs.push(LayerEntry::dir(&rel_path, file_mode(&path)));
+            walk_dir(&path, strip_prefix, scan)?;
+        } else if file_type.is_file() {
             let content =
                 std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
             let mode = file_mode(&path);
-            *total_bytes += content.len() as u64;
-            *file_count += 1;
-            entries.push(LayerEntry::file(&rel_path, &content, mode));
+            scan.total_bytes += content.len() as u64;
+            scan.file_count += 1;
+            scan.entries
+                .push(LayerEntry::file(&rel_path, &content, mode));
         }
     }
 
@@ -148,7 +149,8 @@ pub fn whiteouts_to_entries(whiteouts: &[WhiteoutEntry]) -> Vec<LayerEntry> {
 
 /// Merge regular entries and whiteout entries into a single layer entry set.
 pub fn merge_overlay_entries(scan: &OverlayScan) -> Vec<LayerEntry> {
-    let mut all = scan.entries.clone();
+    let mut all = scan.dirs.clone();
+    all.extend(scan.entries.iter().cloned());
     all.extend(whiteouts_to_entries(&scan.whiteouts));
     all
 }
@@ -276,13 +278,14 @@ mod tests {
 
         let scan = scan_overlay_upper(dir.path(), dir.path()).unwrap();
         let merged = merge_overlay_entries(&scan);
-        assert_eq!(merged.len(), 2); // 1 file + 1 whiteout entry
+        assert_eq!(merged.len(), 3); // 1 dir + 1 file + 1 whiteout entry
     }
 
     #[test]
     fn format_overlay_scan_output() {
         let scan = OverlayScan {
             entries: vec![],
+            dirs: vec![],
             whiteouts: vec![WhiteoutEntry::FileDelete { path: "x".into() }],
             total_bytes: 2048,
             file_count: 5,
