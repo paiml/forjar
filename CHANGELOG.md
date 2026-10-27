@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`--exclude` is repeatable, understands `*` anywhere and `{a,b}`, and refuses a
+pattern that matches nothing (PMAT-622, #622).** A second `--exclude` was refused by
+clap, and `a*a` or `{a,b}-dir` were exact-match literals that matched nothing, so
+the apply ran everything at exit 0. A typo did the same. `--exclude` now accumulates
+(`ApplyScope` carries the list, so `apply`, `--check` and `--dry-run` read one list).
+`simple_glob_match` backtracks on inner stars and expands nested, repeated brace
+groups, which also widens `--subset`, `--resource-filter` and `extract`. Every exclude
+pattern must match a resource in the config, or the run exits non-zero with
+`--exclude 'p' matches no resource`.
+
 **The disk-budget reaper no longer costs more than the disk it defends (PMAT-727, #727).**
 One 15-minute pass on lambda-labs took 84 s of CPU: a `readlink` per /proc entry
 and per fd, a `tr|head` per pid, and an unbounded `find` over the scan root.
