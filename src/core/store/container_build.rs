@@ -9,6 +9,7 @@
 //! This eliminates the pepita dependency for OCI builds — any system
 //! with Docker or Podman can build deterministic container images.
 
+use super::container_diff::extract_changes;
 use super::convergence_container::detect_container_runtime;
 use super::image_assembler::{assemble_image, AssembledImage};
 use super::overlay_export;
@@ -177,68 +178,6 @@ fn execute_scripts(runtime: &str, container_name: &str, scripts: &[String]) -> R
         }
     }
     Ok(())
-}
-
-/// Extract changed files from container to a local directory.
-///
-/// Uses `docker diff` to identify changes, then `docker cp` to extract them.
-fn extract_changes(
-    runtime: &str,
-    container_name: &str,
-    extract_dir: &Path,
-) -> Result<usize, String> {
-    // Get list of changed files
-    let diff_output = Command::new(runtime)
-        .args(["diff", container_name])
-        .output()
-        .map_err(|e| format!("docker diff: {e}"))?;
-
-    if !diff_output.status.success() {
-        let stderr = String::from_utf8_lossy(&diff_output.stderr);
-        return Err(format!("docker diff failed: {}", stderr.trim()));
-    }
-
-    let diff_text = String::from_utf8_lossy(&diff_output.stdout);
-
-    // docker diff format: "A /path" (added), "C /path" (changed dir), "D /path" (deleted)
-    // We want A (added files) only — C entries are directory change markers
-    let added_paths: Vec<&str> = diff_text
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.starts_with('A') {
-                Some(trimmed[2..].trim())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let file_count = added_paths.len();
-
-    // Extract each added file via docker cp
-    for path in &added_paths {
-        let local_rel = path.strip_prefix('/').unwrap_or(path);
-        let local_path = extract_dir.join(local_rel);
-
-        if let Some(parent) = local_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-
-        let src = format!("{container_name}:{path}");
-        let cp_result = Command::new(runtime)
-            .args(["cp", &src, &local_path.to_string_lossy()])
-            .output();
-
-        // Best-effort: skip files that can't be copied (sockets, etc.)
-        if let Ok(output) = cp_result {
-            if !output.status.success() {
-                continue;
-            }
-        }
-    }
-
-    Ok(file_count)
 }
 
 /// Clean up container (best-effort).
