@@ -5067,3 +5067,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-721
+  github_issue: 721
+  item_type: task
+  title: 'ci: arch-neutral runs-on for clippy, msrv, file-health'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-18T16:08:00Z
+  updated: 2026-10-18T16:08:10Z
+  spec: null
+  acceptance_criteria:
+  - Remove X64 from runs-on of arch-neutral jobs; cache keys carry runner.arch
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
