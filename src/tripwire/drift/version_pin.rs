@@ -39,7 +39,11 @@
 //! and the pull agent call, turns this detector off: re-applying a pin that is
 //! behind the live binary IS the downgrade this detector exists to report.
 
-use crate::core::types::{Resource, ResourceType};
+use super::ignore::should_ignore_drift;
+use super::unmeasured::{self, Reading};
+use super::DriftFinding;
+use crate::core::shell_escape::{is_valid_repo, sh_squote};
+use crate::core::types::{Machine, Resource, ResourceType};
 
 pub use super::semver::{parse_semver, Semver};
 
@@ -170,4 +174,219 @@ pub fn evaluate(
         _ => {}
     }
     out
+}
+
+const LIVE: &str = "@@forjar-live";
+const MISSING: &str = "@@forjar-missing";
+const UPSTREAM: &str = "@@forjar-upstream";
+
+/// The one read-only query: run `--version`, and optionally ask upstream.
+///
+/// The upstream leg is `github_release::apply_script`'s own fetch — `curl`
+/// against `api.github.com/repos/<repo>/releases/...`, on the target — pointed
+/// at `releases/latest`. A curl failure prints its reason, which becomes an
+/// UNMEASURED verdict, never a pass.
+pub fn probe_script(resource: &Resource, check_upstream: bool) -> String {
+    let binary = resource.binary.as_deref().unwrap_or("unknown");
+    let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
+    let bin = sh_squote(&format!("{install_dir}/{binary}"));
+    let mut s = format!(
+        "if [ -x {bin} ]; then echo '{LIVE}'; {bin} --version 2>&1 | head -n 20; \
+         else echo '{MISSING}'; fi\n"
+    );
+    if check_upstream {
+        let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+        let url = sh_squote(&format!(
+            "https://api.github.com/repos/{repo}/releases/latest"
+        ));
+        s.push_str(&format!(
+            "echo '{UPSTREAM}'\n\
+             if R=$(curl -fsS --max-time 20 {url} 2>&1); then \
+             printf '%s\\n' \"$R\" | grep -o '\"tag_name\": *\"[^\"]*\"' | head -n 1; \
+             else printf 'error: %s\\n' \"$(printf '%s' \"$R\" | head -n 1)\"; fi\n"
+        ));
+    }
+    s.push_str("exit 0\n");
+    s
+}
+
+/// Split the probe's stdout into its live and upstream answers.
+pub fn parse_probe(stdout: &str, check_upstream: bool) -> (Live, Upstream) {
+    let (head, tail) = match stdout.split_once(UPSTREAM) {
+        Some((h, t)) => (h, Some(t)),
+        None => (stdout, None),
+    };
+    let live = if head.contains(MISSING) {
+        Live::Missing
+    } else {
+        let text = head.split_once(LIVE).map_or(head, |(_, t)| t);
+        match parse_semver(text) {
+            Some(v) => Live::Version(v),
+            None => Live::Unparseable(first_line(text)),
+        }
+    };
+    let upstream = match (check_upstream, tail) {
+        (false, _) => Upstream::NotChecked,
+        (true, None) => Upstream::Unmeasured("the probe printed no upstream answer".into()),
+        (true, Some(t)) => {
+            let t = t.trim();
+            if let Some(err) = t.strip_prefix("error:") {
+                Upstream::Unmeasured(format!("curl: {}", err.trim()))
+            } else {
+                match parse_semver(t) {
+                    Some(v) => Upstream::Version(v),
+                    None => Upstream::Unmeasured(format!(
+                        "no semver tag_name in the release API answer (\"{}\")",
+                        first_line(t)
+                    )),
+                }
+            }
+        }
+    };
+    (live, upstream)
+}
+
+fn first_line(text: &str) -> String {
+    let line = text
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .unwrap_or("no output");
+    line.chars().take(200).collect()
+}
+
+/// Every verdict for one machine's versioned binaries, in declaration order.
+pub struct VersionPinVerdicts {
+    /// Drift and unmeasured findings, in the shape every drift consumer reads.
+    pub findings: Vec<DriftFinding>,
+    /// `(resource id, why)` for every question that was not asked.
+    pub not_checked: Vec<(String, String)>,
+    /// Resource ids whose live binary was asked.
+    pub inspected: Vec<String>,
+}
+
+/// Check every declared versioned binary on `machine_name`.
+///
+/// `resources` must already be template-resolved (PMAT-197).
+pub fn check_version_pins(
+    machine_name: &str,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+    check_upstream: bool,
+) -> VersionPinVerdicts {
+    let mut v = VersionPinVerdicts {
+        findings: Vec::new(),
+        not_checked: Vec::new(),
+        inspected: Vec::new(),
+    };
+    for (id, resource) in resources {
+        if !is_versioned_binary(resource)
+            || !resource.machine.iter().any(|m| m == machine_name)
+            || should_ignore_drift(id, resources)
+        {
+            continue;
+        }
+        check_one(id, resource, machine, check_upstream, &mut v);
+    }
+    v
+}
+
+fn check_one(
+    id: &str,
+    resource: &Resource,
+    machine: &Machine,
+    check_upstream: bool,
+    v: &mut VersionPinVerdicts,
+) {
+    let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+    let binary = resource.binary.as_deref().unwrap_or("unknown");
+    let pin = declared_pin(resource);
+    if !is_valid_repo(repo) {
+        // Nothing was asked of the box, so this is UNMEASURED (a class every
+        // consumer already handles), never a drift verdict.
+        v.findings.push(DriftFinding::unmeasured(
+            id,
+            ResourceType::GithubRelease,
+            &pin_label(&pin),
+            format!("invalid github repo slug: {repo}"),
+        ));
+        return;
+    }
+    // A tag with no version needs no probe: there is nothing to compare.
+    if let Pin::Unversioned(_) = pin {
+        for o in evaluate(binary, repo, &pin, &Live::Missing, &Upstream::NotChecked) {
+            push_outcome(id, o, v);
+        }
+        return;
+    }
+    let script = probe_script(resource, check_upstream);
+    let out = match unmeasured::read(machine, &script) {
+        Reading::Answered(out) if out.success() => out,
+        Reading::Answered(out) => {
+            v.findings.push(DriftFinding::unmeasured(
+                id,
+                ResourceType::GithubRelease,
+                &pin_label(&pin),
+                format!(
+                    "version probe failed (exit {}): {}",
+                    out.exit_code,
+                    first_line(&out.stderr)
+                ),
+            ));
+            return;
+        }
+        Reading::Unmeasured(why) => {
+            v.findings.push(DriftFinding::unmeasured(
+                id,
+                ResourceType::GithubRelease,
+                &pin_label(&pin),
+                why,
+            ));
+            return;
+        }
+    };
+    let (live, upstream) = parse_probe(&out.stdout, check_upstream);
+    if live != Live::Missing {
+        v.inspected.push(id.to_string());
+    }
+    for o in evaluate(binary, repo, &pin, &live, &upstream) {
+        push_outcome(id, o, v);
+    }
+}
+
+fn pin_label(pin: &Pin) -> String {
+    match pin {
+        Pin::Version(p) => format!("version {p}"),
+        Pin::Latest => "latest".to_string(),
+        Pin::Unversioned(t) => t.clone(),
+    }
+}
+
+fn push_outcome(id: &str, o: Outcome, v: &mut VersionPinVerdicts) {
+    match o {
+        Outcome::Drift {
+            expected,
+            actual,
+            detail,
+        } => v.findings.push(finding(id, &expected, &actual, detail)),
+        Outcome::Unmeasured(why) => v.findings.push(DriftFinding::unmeasured(
+            id,
+            ResourceType::GithubRelease,
+            "a measured version",
+            why,
+        )),
+        Outcome::NotChecked(why) => v.not_checked.push((id.to_string(), why)),
+    }
+}
+
+/// A version finding. The hash fields carry versions, never digests, because
+/// no digest was taken.
+fn finding(id: &str, expected: &str, actual: &str, detail: String) -> DriftFinding {
+    DriftFinding {
+        resource_id: id.to_string(),
+        resource_type: ResourceType::GithubRelease,
+        expected_hash: expected.to_string(),
+        actual_hash: actual.to_string(),
+        detail,
+    }
 }

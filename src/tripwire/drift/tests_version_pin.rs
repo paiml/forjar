@@ -1,7 +1,7 @@
 //! forjar#613: a pinned binary whose live `--version` is not its pin is drift.
 
 use super::version_pin::{
-    declared_pin, evaluate, parse_semver, Live, Outcome, Pin, Semver, Upstream,
+    declared_pin, evaluate, parse_probe, parse_semver, Live, Outcome, Pin, Semver, Upstream,
 };
 use crate::core::types::{Resource, ResourceType};
 
@@ -57,6 +57,32 @@ fn fj613_declared_pin_from_tag() {
     assert_eq!(declared_pin(&r), Pin::Version(v(0, 33, 2)));
     r.tag = Some("nightly".into());
     assert_eq!(declared_pin(&r), Pin::Unversioned("nightly".into()));
+}
+
+#[test]
+fn fj613_parse_probe_splits_live_and_upstream() {
+    let (live, up) = parse_probe(
+        "@@forjar-live\nollama version is 0.34.2\n@@forjar-upstream\n\"tag_name\": \"v0.35.0\"\n",
+        true,
+    );
+    assert_eq!(live, Live::Version(v(0, 34, 2)));
+    assert_eq!(up, Upstream::Version(v(0, 35, 0)));
+
+    let (live, up) = parse_probe(
+        "@@forjar-missing\n@@forjar-upstream\nerror: curl: (6) Could not resolve host: api.github.com\n",
+        true,
+    );
+    assert_eq!(live, Live::Missing);
+    assert!(matches!(up, Upstream::Unmeasured(ref e) if e.contains("Could not resolve host")));
+
+    let (_, up) = parse_probe("@@forjar-live\nx 1.0.0\n@@forjar-upstream\n", true);
+    assert!(
+        matches!(up, Upstream::Unmeasured(_)),
+        "empty answer is not a version"
+    );
+
+    let (_, up) = parse_probe("@@forjar-live\nx 1.0.0\n", false);
+    assert_eq!(up, Upstream::NotChecked);
 }
 
 // ---------------------------------------------------------------------------
