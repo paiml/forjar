@@ -234,11 +234,11 @@ fn references_data_key(text: &str, key: &str) -> bool {
             let before_ok = inner[..i]
                 .chars()
                 .next_back()
-                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '.'));
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-' || c == '.'));
             let after_ok = inner[i + needle.len()..]
                 .chars()
                 .next()
-                .is_none_or(|c| !(c.is_alphanumeric() || c == '_'));
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-'));
             before_ok && after_ok
         })
     })

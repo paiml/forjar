@@ -109,6 +109,7 @@ mod graph_compliance;
 mod verify;
 // GH-212: `graph_core::parse_graph_format` is the single format parser shared
 // with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
+mod data_isolation;
 pub(crate) mod graph_core;
 mod graph_cross;
 mod graph_export;
@@ -173,7 +174,6 @@ mod logs_follow;
 mod logs_gc;
 pub mod lsp;
 // GH-215: maps a diagnostic message back to a range in the document.
-mod data_isolation;
 mod lsp_locate;
 mod lsp_publish;
 mod lsp_validate;

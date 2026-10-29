@@ -441,3 +441,16 @@ fn test_strict_resolver_still_errors() {
     let err = resolve_data_sources(&mut config).unwrap_err();
     assert!(err.contains("command failed (exit 127)"));
 }
+
+#[test]
+fn test_reference_match_respects_hyphenated_keys() {
+    let yaml = "version: \"1.0\"\nname: h\nmachines: { m: { hostname: m, addr: 127.0.0.1 } }\ndata:\n  foo: { type: command, value: \"exit 1\" }\nresources:\n  uses_other: { type: file, machine: m, path: /tmp/h, content: \"{{data.foo-bar}}\" }\n  uses_foo: { type: file, machine: m, path: /tmp/h2, content: \"{{data.foo}}\" }\n";
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let failures = super::data::resolve_data_sources_isolated(&mut config);
+    let dep = super::data::dependents_of_failures(&config, &failures);
+    assert!(dep.contains_key("uses_foo"));
+    assert!(
+        !dep.contains_key("uses_other"),
+        "data.foo-bar is not data.foo"
+    );
+}

@@ -1,9 +1,11 @@
 //! PMAT-828 (forjar#828): one failing `data:` source must skip only the
 //! resources that reference it, not fail the whole plan or apply.
 //!
-//! Every assertion is on the files the run wrote, plus the exit status: the
-//! unrelated resource's file must exist, the dependent's must not, and the run
-//! must still exit non-zero so the failure is never silent.
+//! The assertions are on the files the run wrote, the exit status and the
+//! output naming the failed source: the unrelated resource's file must exist,
+//! the dependent's must not, and the run must still exit non-zero so the
+//! failure is never silent. Only `apply` is driven here; `plan` is covered by
+//! the in-crate test `plan_isolates_failed_data_source_to_its_dependents`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -103,5 +105,29 @@ fn apply_writes_the_dependent_when_the_data_source_succeeds() {
         fs::read_to_string(sb.path("dependent.txt")).unwrap(),
         "v=ok\n",
         "{out}"
+    );
+}
+
+/// A skipped resource is skipped, not forgotten: a later outage of its data
+/// source must leave the file it converged earlier and its lock entry alone.
+#[test]
+fn a_later_data_source_outage_does_not_forget_a_converged_dependent() {
+    let sb = Sandbox::new();
+    let cfg = sb.config();
+    let healthy = fs::read_to_string(&cfg).unwrap();
+    fs::write(&cfg, healthy.replace("exit 127", "echo ok")).unwrap();
+    let (ok, out) = sb.run("apply", &cfg);
+    assert!(ok, "first apply:\n{out}");
+    fs::write(&cfg, healthy).unwrap();
+    let (ok, out) = sb.run("apply", &cfg);
+    assert!(!ok, "outage must fail the run:\n{out}");
+    assert_eq!(
+        fs::read_to_string(sb.path("dependent.txt")).unwrap(),
+        "v=ok\n"
+    );
+    let lock = fs::read_to_string(sb.path("state/local/state.lock.yaml")).unwrap_or_default();
+    assert!(
+        lock.contains("dependent"),
+        "lock entry forgotten:\n{lock}\n{out}"
     );
 }
