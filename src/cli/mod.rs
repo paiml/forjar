@@ -40,6 +40,7 @@ mod cost_estimate;
 mod coverage_promote;
 mod cross_machine_deps;
 mod data_freshness;
+mod data_isolation;
 mod data_validate;
 mod dataset_lineage;
 mod destroy;
@@ -109,7 +110,6 @@ mod graph_compliance;
 mod verify;
 // GH-212: `graph_core::parse_graph_format` is the single format parser shared
 // with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
-mod data_isolation;
 pub(crate) mod graph_core;
 mod graph_cross;
 mod graph_export;
