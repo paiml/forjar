@@ -414,24 +414,16 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         base_sd
     };
 
+    // GH-211 / PMAT-160: read selectors once so `--cost-limit` and `cmd_apply_scoped`
+    // count and execute the exact same selected resource set.
+    let scope = super::dispatch_apply_check::scope_of(args);
     if let Some(limit) = args.cost_limit {
-        check_cost_limit(
-            &args.file,
-            &sd,
-            args.machine.as_deref(),
-            args.tag.as_deref(),
-            limit,
-        )?;
+        check_cost_limit_for_args(args, &sd, &scope, limit)?;
     }
-
     // FJ-3203 / FJQ: the pre-apply quality gate.
     if args.policy_check {
         super::apply_quality_gate::check_quality_gate(&args.file, &args.policy_dir, verbose)?;
     }
-
-    // GH-211: the four scope selectors that were declared and never read.
-    // PMAT-160: read through the same function `--check` reads them with.
-    let scope = super::dispatch_apply_check::scope_of(args);
 
     let result = cmd_apply_scoped(
         &args.file,
