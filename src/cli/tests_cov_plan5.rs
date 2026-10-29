@@ -126,3 +126,55 @@ mod tests {
         let _ = cmd_plan(f.path(), d.path(), None, Some("pkg"), None, false, false, None, None, None, false, None, false, &[], None, false, None);
     }
 }
+
+#[cfg(test)]
+mod data_source_fault_isolation {
+    use super::*;
+    use std::io::Write;
+
+    fn write_temp_config(yaml: &str) -> tempfile::NamedTempFile {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(yaml.as_bytes()).unwrap();
+        f.flush().unwrap();
+        f
+    }
+
+    #[test]
+    fn plan_isolates_failed_data_source_to_its_dependents() {
+        let yaml = r#"
+version: "1.0"
+name: iso
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  dependent:
+    type: file
+    machine: m1
+    path: /tmp/forjar-iso-dep
+    content: "v={{data.broken}}"
+  unrelated:
+    type: file
+    machine: m1
+    path: /tmp/forjar-iso-unrel
+    content: static
+data:
+  broken:
+    type: command
+    value: "exit 127"
+"#;
+        let f = write_temp_config(yaml);
+        let state_dir = tempfile::tempdir().unwrap();
+        let out = tempfile::tempdir().unwrap().keep().join("plan.json");
+        let result = cmd_plan(
+            f.path(), state_dir.path(), None, None, None, false, false, None, None, None,
+            false, None, false, &[], Some(&out), false, None,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("broken") && err.contains("127"), "{err}");
+        let saved = std::fs::read_to_string(&out).unwrap();
+        assert!(saved.contains("unrelated"), "unrelated resource must be planned");
+        assert!(!saved.contains("\"dependent\""), "dependent must be skipped");
+    }
+}

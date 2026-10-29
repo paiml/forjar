@@ -39,7 +39,7 @@ pub(crate) fn cmd_plan(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    let data_faults = super::data_isolation::resolve_isolated(&mut config);
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
@@ -139,7 +139,7 @@ pub(crate) fn cmd_plan(
             out_path,
         )?;
         println!("Plan saved to {}", out_path.display());
-        return Ok(());
+        return super::data_isolation::fail_if_any(&data_faults);
     }
 
     if why {
@@ -166,7 +166,7 @@ pub(crate) fn cmd_plan(
         print_plan_cost(&plan);
     }
 
-    Ok(())
+    super::data_isolation::fail_if_any(&data_faults)
 }
 
 /// FJ-333: Decides what the hypothetical params are for this run — parses each
