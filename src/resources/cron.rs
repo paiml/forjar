@@ -85,6 +85,41 @@ pub fn check_script(resource: &Resource) -> String {
     format!("{CRONTAB_CHECK_GUARD}\n{SUDO_PREAMBLE}\n{verdict}")
 }
 
+/// The `state: absent` script. It fails CLOSED.
+///
+/// The read used to be `crontab -l 2>/dev/null || true`, so any failed read
+/// (EPERM, a broken sudo, a missing binary) became an empty string, the block
+/// filter turned it into an empty crontab, and `crontab -` installed it over
+/// the user's real one (found by the infra#2441 review).
+///
+/// `crontab -l` exits 1 for both "no crontab for <user>" and every real error,
+/// so the exit code alone cannot tell them apart: the message decides. Only
+/// `no crontab for` means there is nothing to remove. Anything else exits 1
+/// with the read error on stderr and installs nothing. The install happens
+/// only when the filter actually removed lines; a crontab without this
+/// resource's block is converged and is never rewritten.
+fn absent_script(u: &str, strip: &str) -> String {
+    format!(
+        "set -euo pipefail\n\
+         {SUDO_PREAMBLE}\n\
+         ERR=$(mktemp)\n\
+         trap 'rm -f \"$ERR\"' EXIT\n\
+         RC=0\n\
+         EXISTING=$($SUDO crontab -u {u} -l 2>\"$ERR\") || RC=$?\n\
+         if [ \"$RC\" -ne 0 ]; then\n  \
+           if [ \"$(grep -c '^no crontab' \"$ERR\")\" -ge 1 ]; then\n    \
+             exit 0\n  \
+           fi\n  \
+           cat \"$ERR\" >&2\n  \
+           printf '%s\\n' \"forjar: cannot read the crontab; refusing to rewrite it\" >&2\n  \
+           exit 1\n\
+         fi\n\
+         KEPT=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
+         [ \"$KEPT\" = \"$EXISTING\" ] && exit 0\n\
+         printf '%s\\n' \"$KEPT\" | $SUDO crontab -u {u} -"
+    )
+}
+
 /// Generate shell script to add/remove a cron entry.
 pub fn apply_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
@@ -96,12 +131,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let strip = delete_block(&marker, &cmd_marker);
 
     match state {
-        "absent" => format!(
-            "set -euo pipefail\n\
-             {SUDO_PREAMBLE}\n\
-             EXISTING=$($SUDO crontab -u {u} -l 2>/dev/null || true)\n\
-             echo \"$EXISTING\" | {strip} | $SUDO crontab -u {u} -"
-        ),
+        "absent" => absent_script(&u, &strip),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
             let command = resource.command.as_deref().unwrap_or("true");
