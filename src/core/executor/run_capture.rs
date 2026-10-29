@@ -202,8 +202,34 @@ impl Transcript {
         }
     }
 
-    fn redact(&self, text: &str) -> String {
+    /// PMAT-5880: also the policy for a failure EXCERPT, not only a transcript.
+    ///
+    /// An EMPTY secret set is a no-op ONLY because `for_resource` found no
+    /// `{{secrets.*}}` span; a resource whose values cannot be named is
+    /// `suppress`, and `redact_output` withholds its streams instead.
+    pub(super) fn redact(&self, text: &str) -> String {
         crate::core::resolver::redact_transcript(text, &self.secrets)
+    }
+
+    /// PMAT-5880: the streams a failure excerpt is cut FROM, redacted BEFORE the
+    /// cut so a secret straddling the head or tail boundary cannot leak a prefix.
+    /// `suppress` withholds them whole: redaction cannot name those values.
+    pub(super) fn redact_output(
+        &self,
+        out: &crate::transport::ExecOutput,
+    ) -> crate::transport::ExecOutput {
+        let one = |s: &str| {
+            if self.suppress && !s.trim().is_empty() {
+                "[withheld: sensitive resource]".to_string()
+            } else {
+                self.redact(s)
+            }
+        };
+        crate::transport::ExecOutput {
+            exit_code: out.exit_code,
+            stdout: one(&out.stdout),
+            stderr: one(&out.stderr),
+        }
     }
 }
 
