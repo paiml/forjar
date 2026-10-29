@@ -1,0 +1,103 @@
+{
+  "kind": "code",
+  "issue": "PMAT-829 (forjar#829) \u2014 apply --cost-limit planned the whole file instead of the selected resources; it now counts the selection only.",
+  "branch": "fix/cost-limit-resource-filter",
+  "base": "493ccc36",
+  "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
+  "diff_sha256": "0000000000000000000000000000000000000000",
+  "recorded_at": "one round recorded in .quorum/evidence/PMAT-829-lanes.md; round 1 passed 3/3.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 4ee5cd2a \u2014 agy Gemini 4 Argon (High): PASS",
+      "round 1, head 4ee5cd2a \u2014 agy Gemini 4 Argon (Medium): PASS",
+      "round 1, head 4ee5cd2a \u2014 claude Opus 5.5: PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round 1; a Claude Opus lane stands in for the quota-exhausted agy Claude/gpt-oss models, never the author's id (Sonnet 5.5).",
+    "kill_rule": "every refuted item is recorded in the judges digest as a known gap; nothing was dismissed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "the exclude and skip test asserts only success and no cost-limit error, so it would not catch the apply itself ignoring the flags; it is shallower than the -r test.",
+      "no test covers dependency closure, where a selected resource depends on an unselected one, so parity of the counted set with the applied set is shown only for independent resources."
+    ]
+  },
+  "falsification": {
+    "test": "cost_limit_counts_only_the_selected_resource (RED on origin/main: Cost limit exceeded for unselected resources)",
+    "test_file": "tests/falsification_cost_limit_honors_selection.rs",
+    "cargo_test_target": "falsification_cost_limit_honors_selection",
+    "observed_failure": "see the test header: the named failure is what the test asserts absent on origin/main",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "A verb must resolve the same inputs the verbs it previews resolve; mature tools evaluate data sources/selection before computing a plan or check.",
+    "systems": [
+      "Terraform: plan and refresh evaluate data sources before rendering [X]",
+      "Ansible: --check mode gathers facts and lookups before evaluating tasks [X]",
+      "Puppet: noop mode compiles the full catalog with facts first [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes and one claude -p lane, diff pasted inline",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS."
+  },
+  "pmat": {
+    "ticket": "PMAT-829",
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-829-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "68e8a85f085c5d4bc671f816daced6a94e5c2fd5",
+        "sha256": "c0ded0c78cb56b4aeb49dded93eb1c02d8934a3a25b64232134fa32f92f3af06",
+        "bytes": 321
+      },
+      {
+        "path": ".quorum/evidence/PMAT-829-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "6d7d5aaf3aea129c4a4138f1c99374a9124947bb",
+        "sha256": "d76982441e4b81e04a726926822b8e2f9b2be252aff65d51d0163fa46af98e3f",
+        "bytes": 620
+      },
+      {
+        "path": ".quorum/evidence/PMAT-829-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "a9a99d1d57b9ef80b2ff6f45c380b45c47b53bbf",
+        "sha256": "54a1d2b36fd179916b18ebe68185687bf26a536637d74298b2549fd182f0cd71",
+        "bytes": 1954
+      },
+      {
+        "path": ".quorum/evidence/PMAT-829-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "56a8f204aedab592993d874d7c0282675af6e0dc",
+        "sha256": "45279a1f10de6c6b38b254ea8604883a16cae7140ff657a250db5e3785ae3315",
+        "bytes": 212
+      }
+    ],
+    "total_bytes": 3107,
+    "claims_digest": ".quorum/evidence/PMAT-829-judges.md"
+  }
+}
