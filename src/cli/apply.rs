@@ -8,7 +8,7 @@ use super::apply_summary::print_apply_summary;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
-use crate::core::{executor, resolver, state, types};
+use crate::core::{executor, state, types};
 use std::path::Path;
 
 pub(crate) use super::apply_scope::cmd_apply;
@@ -67,7 +67,7 @@ pub(crate) fn cmd_apply_scoped(
 
     let events_mode = output_mode == Some("events");
     let t_parse = Instant::now();
-    let mut config = load_apply_config(file, env_file, workspace)?;
+    let (mut config, data_faults) = load_apply_config(file, env_file, workspace)?;
     let dur_parse = t_parse.elapsed();
 
     print_apply_banner(&config, verbose);
@@ -182,7 +182,8 @@ pub(crate) fn cmd_apply_scoped(
     if dry_run {
         // PMAT-160: the SAME scope the drift gate and the ControlMaster opener
         // took, so what the dry run lists is what the run would act on.
-        return apply_dry_run_output(&config, state_dir, &gate_scope, json);
+        apply_dry_run_output(&config, state_dir, &gate_scope, json)?;
+        return super::data_isolation::fail_if_any(&data_faults);
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
@@ -216,7 +217,8 @@ pub(crate) fn cmd_apply_scoped(
     super::apply_snapshot::maybe_record_generation(&config, state_dir, dry_run, verbose);
 
     if events_mode {
-        return print_events_output(&results);
+        print_events_output(&results)?;
+        return super::data_isolation::fail_if_any(&data_faults);
     }
 
     print_apply_summary(
@@ -267,7 +269,7 @@ pub(crate) fn cmd_apply_scoped(
         &t_total,
     )?;
 
-    Ok(())
+    super::data_isolation::fail_if_any(&data_faults)
 }
 
 /// GH-91: Warn that --sequential is not yet implemented.
@@ -352,14 +354,14 @@ fn load_apply_config(
     file: &Path,
     env_file: Option<&Path>,
     workspace: Option<&str>,
-) -> Result<types::ForjarConfig, String> {
+) -> Result<(types::ForjarConfig, Vec<String>), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
-    Ok(config)
+    let data_faults = super::data_isolation::resolve_isolated(&mut config);
+    Ok((config, data_faults))
 }
 
 /// GH-210 (FJ-129): which already-converged resources `--force` will re-apply.
