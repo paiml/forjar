@@ -4,7 +4,7 @@
   "branch": "fix/check-drift-resolve-data-sources",
   "base": "493ccc36",
   "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
-  "diff_sha256": "0000000000000000000000000000000000000000",
+  "diff_sha256": "2c7328046027ad9d120b9db186fe880837742bec",
   "recorded_at": "one round recorded in .quorum/evidence/PMAT-832-lanes.md; round 1 passed 3/3.",
   "quorum": {
     "rounds": 1,
