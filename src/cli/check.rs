@@ -364,6 +364,8 @@ pub(crate) fn cmd_check(
     verbose: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
+    // Templates below read `{{data.*}}`; resolve the sources first, as plan/apply do.
+    resolver::resolve_data_sources(&mut config)?;
     let selectors = super::apply_selection::Selectors {
         resource: resource_filter,
         tag: tag_filter,
