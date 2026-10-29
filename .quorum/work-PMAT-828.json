@@ -4,7 +4,7 @@
   "branch": "work/PMAT-828",
   "base": "493ccc36",
   "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
-  "diff_sha256": "7f8fdd42c6cea366f1bf323c82ba0f6b1bdd2cce",
+  "diff_sha256": "f0ee748e5a747d6721dbf85ff76e6cb51dee0d45",
   "recorded_at": "two rounds recorded in .quorum/evidence/PMAT-828-lanes.md; round 2 passed 3/3.",
   "quorum": {
     "rounds": 2,
@@ -67,9 +67,9 @@
         "roles": [
           "claims"
         ],
-        "blob": "ad2a82d612b6f2ee9bd89218adf48bb505301a05",
-        "sha256": "27c13819de73487db2b40cce646282ae8b240df995cceee06068df87c42b7feb",
-        "bytes": 926
+        "blob": "881e6a296cbba848c2d49b04a0e0a6c9d1e1b741",
+        "sha256": "1cdc813bc5b1dc6bbdd4ef9d4b232d6db549522e2bfd7bab957e8a51d0147ef7",
+        "bytes": 923
       },
       {
         "path": ".quorum/evidence/PMAT-828-lanes.md",
@@ -85,9 +85,9 @@
         "roles": [
           "judges"
         ],
-        "blob": "52062f1d32cac1a4b12b59badba1dc68f2b85043",
-        "sha256": "924ea74d9bf3d92be28c68a8a755047056560218b012839bc157baaf03badbde",
-        "bytes": 3611
+        "blob": "3ae84becb9484a21ce893fbc15417009b98ee5fc",
+        "sha256": "f4dc8e90369ac84afbf6d3704db21f0fdbcb008041869f59248fd95a5149af55",
+        "bytes": 3694
       },
       {
         "path": ".quorum/evidence/PMAT-828-agy.md",
@@ -99,7 +99,7 @@
         "bytes": 276
       }
     ],
-    "total_bytes": 6016,
+    "total_bytes": 6096,
     "claims_digest": ".quorum/evidence/PMAT-828-judges.md"
   }
 }
