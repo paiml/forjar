@@ -93,7 +93,8 @@ pub(super) fn run_post_flight(script: &str) {
     }
 }
 
-/// Check cost limit against planned changes.
+/// Check cost limit against planned changes across the entire config (used in unit tests).
+#[cfg(test)]
 pub(super) fn check_cost_limit(
     file: &Path,
     sd: &Path,
@@ -101,7 +102,44 @@ pub(super) fn check_cost_limit(
     tag: Option<&str>,
     limit: usize,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let selectors = super::apply_selection::Selectors {
+        tag,
+        ..Default::default()
+    };
+    check_cost_limit_selected(file, sd, machine, tag, &selectors, limit)
+}
+
+/// Check cost limit against planned changes for an `ApplyArgs` invocation,
+/// resolving `-r`, `-g`, `--subset`, `--exclude`, `--skip`, etc. first.
+pub(super) fn check_cost_limit_for_args(
+    args: &super::commands::ApplyArgs,
+    sd: &Path,
+    scope: &super::apply_scope::ApplyScope<'_>,
+    limit: usize,
+) -> Result<(), String> {
+    let sel = super::dispatch_apply_check::selectors_of(args, scope);
+    check_cost_limit_selected(
+        &args.file,
+        sd,
+        args.machine.as_deref(),
+        args.tag.as_deref(),
+        &sel,
+        limit,
+    )
+}
+
+/// Check cost limit against planned changes after resolving resource selectors
+/// (`-r`, `-g`, `--subset`, `--exclude`, `--skip`, `--only-machine`, etc.).
+pub(super) fn check_cost_limit_selected(
+    file: &Path,
+    sd: &Path,
+    machine: Option<&str>,
+    tag: Option<&str>,
+    selectors: &super::apply_selection::Selectors<'_>,
+    limit: usize,
+) -> Result<(), String> {
+    let mut config = parse_and_validate(file)?;
+    super::apply_selection::resolve_selection(&mut config, selectors, false)?;
     let order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, sd, machine)?;
     let plan = planner::plan(&config, &order, &locks, tag);
@@ -109,6 +147,7 @@ pub(super) fn check_cost_limit(
         .changes
         .iter()
         .filter(|c| c.action != types::PlanAction::NoOp)
+        .filter(|c| machine.is_none_or(|m| c.machine == m))
         .count();
     if change_count > limit {
         return Err(format!(

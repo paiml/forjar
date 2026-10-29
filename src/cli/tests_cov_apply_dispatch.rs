@@ -123,6 +123,38 @@ mod tests {
     }
 
     #[test]
+    fn check_cost_limit_respects_resource_selector() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n    content: a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    content: b\n",
+        )
+        .unwrap();
+        // Unselected: 2 changes planned -> fails limit 1
+        let unoped = check_cost_limit(&file, &state_dir, None, None, 1);
+        assert!(unoped.is_err());
+        assert!(unoped.unwrap_err().contains("2 changes planned, limit is 1"));
+
+        // With `-r a`: only 1 change planned -> passes limit 1, fails limit 0
+        let sel_a = crate::cli::apply_selection::Selectors {
+            resource: Some("a"),
+            ..Default::default()
+        };
+        let ok_one = check_cost_limit_selected(&file, &state_dir, None, None, &sel_a, 1);
+        assert!(ok_one.is_ok(), "expected -r a to count 1 change: {ok_one:?}");
+        let fail_zero = check_cost_limit_selected(&file, &state_dir, None, None, &sel_a, 0);
+        assert!(fail_zero.is_err());
+        assert!(
+            fail_zero
+                .unwrap_err()
+                .contains("1 changes planned, limit is 0")
+        );
+    }
+
+    #[test]
     fn check_operator_auth_no_restrictions() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("forjar.yaml");
