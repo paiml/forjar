@@ -21,4 +21,18 @@ ignore = [
     "RUSTSEC-2026-0104",  # rustls-webpki 0.103.12: reachable panic in CRL parsing, transitive
     "RUSTSEC-2026-0173",  # proc-macro-error2: unmaintained, transitive via i18n-embed-fl/age, no drop-in replacement
     "RUSTSEC-2024-0449",  # unsafe-libyaml: unmaintained, no fix; via serde_yaml_ng/serde_yaml (bashrs, pforge-config, forjar, forjar-contracts); remove with #714
+    "RUSTSEC-2026-0391",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0395",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0396",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0397",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0398",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0399",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0400",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0401",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0402",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0403",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0404",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0405",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0406",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
+    "RUSTSEC-2026-0374",  # basic-toml: unmaintained, transitive; audited 2026-10-30
 ]

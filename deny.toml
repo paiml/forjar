@@ -23,6 +23,20 @@ ignore = [
     # tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs fails if this line outlives the crate in Cargo.lock,
     # if a fifth crate starts pulling it, or if .cargo/audit.toml falls out of sync.
     { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml: unmaintained, no fix; via serde_yaml_ng (forjar; bashrs 7.4.1 build-dep) and serde_yaml (forjar-contracts; pforge-config 0.1.4, default cli feature). Delete after bashrs#452 ships, pforge drops serde_yaml and forjar swaps its YAML crate (#714)" },
+    { id = "RUSTSEC-2026-0391", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0395", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0396", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0397", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0398", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0399", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0400", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0401", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0402", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0403", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0404", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0405", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0406", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
+    { id = "RUSTSEC-2026-0374", reason = "basic-toml: unmaintained, transitive, no direct use; audited 2026-10-30" },
 ]
 
 [licenses]
