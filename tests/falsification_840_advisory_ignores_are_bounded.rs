@@ -1,4 +1,4 @@
-//! PMAT-735 (#835): the 14 advisory ignores added for the zstd advisories
+//! PMAT-840 (#835): the 14 advisory ignores added for the zstd advisories
 //! (RUSTSEC-2026-0391, -0395..-0406) and basic-toml (RUSTSEC-2026-0374) are
 //! only honest while bounded. Each ignore must be
 //!
@@ -107,7 +107,7 @@ fn the_ignore_set_does_not_grow_unreviewed() {
                 && ignores().iter().any(|(i, _, _)| l.contains(i.as_str()))
         })
         .count();
-    assert_eq!(n, 14, "the PMAT-735 ignore set is exactly 14 lines");
+    assert_eq!(n, 14, "the PMAT-840 ignore set is exactly 14 lines");
 }
 
 // ---- reachability: the ignore silences the ID for ANY consumer of the crate,
@@ -230,7 +230,7 @@ fn every_ignore_line_is_counted_in_both_files() {
     assert_eq!(
         deny_ids().len(),
         23,
-        "deny.toml ignore lines: 8 older + unsafe-libyaml + the 14 of PMAT-735"
+        "deny.toml ignore lines: 8 older + unsafe-libyaml + the 14 of PMAT-840"
     );
     assert_eq!(
         audit_ids().len(),
