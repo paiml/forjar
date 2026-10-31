@@ -36,7 +36,7 @@ ignore = [
     { id = "RUSTSEC-2026-0404", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
     { id = "RUSTSEC-2026-0405", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
     { id = "RUSTSEC-2026-0406", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
-    { id = "RUSTSEC-2026-0374", reason = "basic-toml: unmaintained, transitive, no direct use; audited 2026-10-30" },
+    { id = "RUSTSEC-2026-0374", reason = "basic-toml 0.1.10: unmaintained; reaches forjar only via age -> i18n-embed-fl -> i18n-config, no direct use; audited 2026-10-30, removed when age's i18n chain drops it and Cargo.lock no longer locks it (#836)" },
 ]
 
 [licenses]

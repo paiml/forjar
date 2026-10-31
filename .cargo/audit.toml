@@ -21,18 +21,18 @@ ignore = [
     "RUSTSEC-2026-0104",  # rustls-webpki 0.103.12: reachable panic in CRL parsing, transitive
     "RUSTSEC-2026-0173",  # proc-macro-error2: unmaintained, transitive via i18n-embed-fl/age, no drop-in replacement
     "RUSTSEC-2024-0449",  # unsafe-libyaml: unmaintained, no fix; via serde_yaml_ng/serde_yaml (bashrs, pforge-config, forjar, forjar-contracts); remove with #714
-    "RUSTSEC-2026-0391",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0395",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0396",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0397",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0398",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0399",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0400",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0401",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0402",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0403",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0404",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0405",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0406",  # zstd via bashrs 7.4.2 -> batuta-common (bashrs#466); audited 2026-10-30
-    "RUSTSEC-2026-0374",  # basic-toml: unmaintained, transitive; audited 2026-10-30
+    "RUSTSEC-2026-0391",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0395",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0396",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0397",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0398",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0399",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0400",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0401",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0402",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0403",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0404",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0405",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0406",  # zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs
+    "RUSTSEC-2026-0374",  # basic-toml 0.1.10: unmaintained; reaches forjar only via age -> i18n-embed-fl -> i18n-config, no direct use; audited 2026-10-30, removed when age's i18n chain drops it and Cargo.lock no longer locks it (#836)
 ]
