@@ -109,3 +109,145 @@ fn the_ignore_set_does_not_grow_unreviewed() {
         .count();
     assert_eq!(n, 14, "the PMAT-735 ignore set is exactly 14 lines");
 }
+
+// ---- reachability: the ignore silences the ID for ANY consumer of the crate,
+// so the locked dependents are pinned to the reviewed ones.
+
+/// `(name, version, [(dep name, dep version if the lock spells one)])`.
+fn lock_graph() -> Vec<(String, String, Vec<(String, Option<String>)>)> {
+    let mut out = Vec::new();
+    for block in read("Cargo.lock").split("[[package]]").skip(1) {
+        let (mut name, mut version, mut deps, mut in_deps) = (None, None, Vec::new(), false);
+        for line in block.lines().map(str::trim) {
+            if let Some(v) = line.strip_prefix("name = ") {
+                name = Some(v.trim_matches('"').to_string());
+            } else if let Some(v) = line.strip_prefix("version = ") {
+                version = Some(v.trim_matches('"').to_string());
+            } else if line == "dependencies = [" {
+                in_deps = true;
+            } else if in_deps && line == "]" {
+                in_deps = false;
+            } else if in_deps {
+                let mut it = line
+                    .trim_end_matches(',')
+                    .trim_matches('"')
+                    .split_whitespace();
+                if let Some(d) = it.next() {
+                    deps.push((d.to_string(), it.next().map(str::to_string)));
+                }
+            }
+        }
+        out.push((
+            name.expect("package without name"),
+            version.expect("package without version"),
+            deps,
+        ));
+    }
+    assert!(
+        out.len() > 100,
+        "parsed only {} packages: parser broken",
+        out.len()
+    );
+    out
+}
+
+/// Names of the packages whose dependency list reaches `name@version`. A dep
+/// spelled without a version resolves to the sole locked version of that name.
+fn dependents(name: &str, version: &str) -> Vec<String> {
+    let graph = lock_graph();
+    let versions: Vec<&str> = graph
+        .iter()
+        .filter(|(n, _, _)| n == name)
+        .map(|(_, v, _)| v.as_str())
+        .collect();
+    let mut out: Vec<String> = graph
+        .iter()
+        .filter(|(_, _, deps)| {
+            deps.iter().any(|(d, v)| {
+                d == name
+                    && match v {
+                        Some(v) => v == version,
+                        None => versions == [version],
+                    }
+            })
+        })
+        .map(|(n, _, _)| n.clone())
+        .collect();
+    out.sort();
+    out
+}
+
+#[test]
+fn zstd_0_13_reaches_forjar_only_through_batuta_common() {
+    assert_eq!(
+        dependents("zstd", "0.13.3"),
+        ["batuta-common"],
+        "zstd 0.13.3 must be consumed by batuta-common alone; forjar's own zstd is 0.14"
+    );
+    assert_eq!(
+        dependents("zstd-safe", "7.2.4"),
+        ["zstd"],
+        "zstd-safe 7.2.4 must be consumed only by zstd 0.13.3"
+    );
+}
+
+#[test]
+fn basic_toml_reaches_forjar_only_through_i18n_config() {
+    assert_eq!(dependents("basic-toml", "0.1.10"), ["i18n-config"]);
+}
+
+// ---- totals: a 15th ignore (or any new one) fails here.
+
+fn deny_ids() -> Vec<String> {
+    let mut v: Vec<String> = read("deny.toml")
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("{ id = \"RUSTSEC-"))
+        .filter_map(|l| l.split('"').nth(1).map(str::to_string))
+        .collect();
+    v.sort();
+    v
+}
+
+fn audit_ids() -> Vec<String> {
+    let mut v: Vec<String> = read(".cargo/audit.toml")
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("\"RUSTSEC-"))
+        .filter_map(|l| l.split('"').nth(1).map(str::to_string))
+        .collect();
+    v.sort();
+    v
+}
+
+#[test]
+fn every_ignore_line_is_counted_in_both_files() {
+    assert_eq!(
+        deny_ids().len(),
+        23,
+        "deny.toml ignore lines: 8 older + unsafe-libyaml + the 14 of PMAT-735"
+    );
+    assert_eq!(
+        audit_ids().len(),
+        24,
+        "audit.toml ignore lines: the deny.toml set plus the legacy RUSTSEC-2026-0097"
+    );
+    let extra: Vec<String> = audit_ids()
+        .into_iter()
+        .filter(|i| !deny_ids().contains(i))
+        .collect();
+    assert_eq!(
+        extra,
+        ["RUSTSEC-2026-0097"],
+        "audit.toml may differ from deny.toml only by the legacy -0097"
+    );
+}
+
+#[test]
+fn the_basic_toml_ignore_cites_its_upstream_advisory() {
+    let r = deny_reason("RUSTSEC-2026-0374").expect("ignore missing");
+    assert!(
+        r.contains("https://rustsec.org/advisories/RUSTSEC-2026-0374.html"),
+        "no upstream URL: {r}"
+    );
+}
