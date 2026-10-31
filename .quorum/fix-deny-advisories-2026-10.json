@@ -1,0 +1,120 @@
+{
+  "kind": "code",
+  "issue": "forjar#835 (PMAT-840): main red on cargo-deny/cargo-audit advisories; bump zstd 0.13 -> 0.14, bound 14 audited ignores (13 zstd via bashrs 7.4.2 -> batuta-common, 1 basic-toml via age) mirrored in deny.toml and .cargo/audit.toml, blake3-state contract count 4 -> 3.",
+  "branch": "fix/deny-advisories-2026-10",
+  "base": "main",
+  "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
+  "diff_sha256": "803d5d6470ae0a0ac6a8079789f0c09228d4ecaa",
+  "recorded_at": "round 1, degraded: same-family (3 claude-haiku-4-5 claim lanes that also refuted, 3 claude-haiku-4-5 judges; authors are Sonnet 5.5 and Opus 5.5); planted control C5 killed 3 of 3 by lanes and 3 of 3 by judges.",
+  "degraded": "same-family",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "claude-haiku-4-5 lane 1: PASS",
+      "claude-haiku-4-5 lane 2: PASS",
+      "claude-haiku-4-5 lane 3: PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "C5 (planted control): the diff modifies production Rust code under src/ (false: Cargo.toml, Cargo.lock, deny.toml, .cargo/audit.toml, one contract, the roadmap and one new test under tests/ only)"
+    ]
+  },
+  "falsification": {
+    "test": "every_ignore_line_is_counted_in_both_files",
+    "test_file": "tests/falsification_840_advisory_ignores_are_bounded.rs",
+    "cargo_test_target": "falsification_840_advisory_ignores_are_bounded",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Green on the branch: 8 passed. With the RUSTSEC-2026-0405 line deleted from .cargo/audit.toml: every_ignore_line_is_counted_in_both_files and deny_and_audit_agree_with_identical_reasons fail (audit.toml ignore lines 23, expected 24). File restored: 8 passed."
+  },
+  "crux": {
+    "systems": [
+      "cargo-deny: an ignore is a recorded exception with a reason, and unmatched ignores warn",
+      "cargo-audit: audit.toml ignore list kept in sync with deny.toml to avoid two policies",
+      "npm audit with an overrides allowlist: accepted advisory carries a justification and an owner",
+      "Dependabot security updates: bumps the direct dependency, leaves transitive pins to their owner"
+    ],
+    "verdict": "Bumping what we own and ignoring only the transitive path we cannot move, with the removal condition in the reason, is common practice."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy unavailable; Claude Code claude-haiku-4-5 lanes, no tools, never an author model; degraded: same-family",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "SOUND: zstd bump plus bounded, audited, mirrored ignores with a falsifier that goes red."
+  },
+  "pmat": {
+    "ticket": "PMAT-840",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 0 items in tests/falsification_840_advisory_ignores_are_bounded.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/840-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "ca2ab93325a273c747f879df46300db5b9017147",
+        "sha256": "dfd113dc9797b4dc06f31268550c06e8599d138d7afd4b6118675e72df12af02",
+        "bytes": 439
+      },
+      {
+        "path": ".quorum/evidence/840-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "fc90680ea2875cc5a4b9493685873dae8b8aee76",
+        "sha256": "e6ffe8496e60cbee0faee183adbd2298423a8a3e41a9820c9ed4a9aa9ee88f2b",
+        "bytes": 317
+      },
+      {
+        "path": ".quorum/evidence/840-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "9df3b7ccc4df2b6e302aed5f3c57ad5cd4b93116",
+        "sha256": "7d3808286197283640d7b9f555d4ca1e893edc5633be3bee8d48cdd28897ad7c",
+        "bytes": 755
+      },
+      {
+        "path": ".quorum/evidence/840-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "27f50a8a2db6bf313ce69644b9b38a6658c00453",
+        "sha256": "42f8b0f5baaa983df77ca7c8c80f914ed72d2d5b6b486820ff357e2f53982b65",
+        "bytes": 2515
+      },
+      {
+        "path": ".quorum/evidence/840-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "7c15c85853cf2a1294763f9fd14840e9bb07d3ec",
+        "sha256": "e027849d8450357161f5da8dd300d6bbab8b4be459d7457c26449d3eafb100cb",
+        "bytes": 1043
+      },
+      {
+        "path": ".quorum/evidence/840-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "bd0baff403c0cfce1994965e009b9984e5026815",
+        "sha256": "c1ac6385fd386a00116489750d31b8cc23fb23cbc8ed64ef6424a039f5532234",
+        "bytes": 842
+      }
+    ],
+    "total_bytes": 5911,
+    "claims_digest": ".quorum/evidence/840-claims.md"
+  }
+}
