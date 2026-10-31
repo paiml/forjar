@@ -40,6 +40,11 @@
 //! silently deleted: dropping them would drop this project's coverage of those
 //! platforms, which is a decision, not a cleanup.
 //!
+//! Since then the org gained one macOS runner, `mini-m4` (labels `macOS`,
+//! `ARM64`, `mini`). nightly.yml's two darwin legs build there, which is safe
+//! because nightly.yml runs only on schedule and workflow_dispatch; the darwin
+//! legs of lint.yml and release.yml still run on GitHub's hosted macOS.
+//!
 //! THIS TEST PARSES THE WORKFLOWS rather than grepping them, so a hosted label
 //! inside a comment is prose and a hosted label inside a matrix is a finding.
 
@@ -261,7 +266,6 @@ fn the_platforms_the_fleet_cannot_serve_are_exactly_these() {
 
     let expected: BTreeMap<String, usize> = [
         ("lint.yml:macos-latest", 2),
-        ("nightly.yml:macos-latest", 2),
         ("nightly.yml:windows-latest", 1),
         ("release.yml:macos-latest", 2),
     ]
@@ -292,6 +296,8 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         "yoga",
         "gpu",
         "cuda",
+        // the self-hosted mac (mini-m4) that the nightly darwin legs build on
+        "mini",
     ];
     let mut bare = Vec::new();
     for (file, doc) in workflows() {
