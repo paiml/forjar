@@ -5034,6 +5034,25 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
+- id: PMAT-735
+  github_issue: 735
+  item_type: task
+  title: main advisories (webpki) + split disk_budget tests
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-21T06:23:15Z
+  updated: 2026-10-21T06:23:15Z
+  spec: null
+  acceptance_criteria:
+  - cargo update webpki crates; split tests.rs under 500 lines
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
 - id: PMAT-708
   github_issue: 708
   item_type: task
@@ -5046,6 +5065,25 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'For type: service with state: stopped, the apply script stops the unit whenever its ActiveState is not inactive/failed (activating, active, reloading, deactivating), leaves an inactive or unloaded unit alone, and fails if the unit is still not stopped after systemctl stop; the check passes only for ActiveState inactive/failed. tests/falsification_service_stop_activating.rs executes both scripts against a fake systemctl with systemd''s real is-active exit codes: 4 of its 8 tests are red on origin/main 9a37a2ff and all 8 green with the fix, a second apply is a no-op success, and both rendered scripts pass forjar''s own bashrs gate. Fixes #708.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-672
+  github_issue: 672
+  item_type: task
+  title: 'Release Audit: draft release reads as a release, API error reads as a skip'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T18:02:42Z
+  updated: 2026-10-17T18:02:42Z
+  spec: null
+  acceptance_criteria:
+  - refs forjar#672; picks 2eb32922
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5090,3 +5128,21 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-773
+  github_issue: 773
+  item_type: task
+  title: 'audit red: yanked clipboard-win 5.4.1 in Cargo.lock'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-23T10:15:28Z
+  updated: 2026-10-23T10:15:28Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 763
