@@ -113,8 +113,13 @@ fn the_ignore_set_does_not_grow_unreviewed() {
 // ---- reachability: the ignore silences the ID for ANY consumer of the crate,
 // so the locked dependents are pinned to the reviewed ones.
 
-/// `(name, version, [(dep name, dep version if the lock spells one)])`.
-fn lock_graph() -> Vec<(String, String, Vec<(String, Option<String>)>)> {
+/// A dependency edge: `(dep name, dep version if the lock spells one)`.
+type LockDep = (String, Option<String>);
+
+/// `(name, version, deps)` for one locked package.
+type LockPkg = (String, String, Vec<LockDep>);
+
+fn lock_graph() -> Vec<LockPkg> {
     let mut out = Vec::new();
     for block in read("Cargo.lock").split("[[package]]").skip(1) {
         let (mut name, mut version, mut deps, mut in_deps) = (None, None, Vec::new(), false);
