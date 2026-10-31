@@ -152,7 +152,7 @@ lean_proofs:
     theorems: [PrefixOfAppend, HashDeterministic, HashHasBlakePrefix, HashNonEmpty]
     status: proved
 verification_summary:
-  total_obligations: 4
+  total_obligations: 3
   l4_lean_proved: 2
   l4_not_applicable: 1   # I/O obligations, falsification-tested not Lean-proved
   l4_sorry_count: 0
