@@ -5014,3 +5014,78 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: null
+- id: PMAT-727
+  github_issue: 727
+  item_type: task
+  title: 'disk_budget reaper: bounded scan cost'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-20T14:58:48Z
+  updated: 2026-10-20T14:58:48Z
+  spec: null
+  acceptance_criteria:
+  - one /proc pass, time/IO limits, longer interval, cost test red on old shape
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 668
+- id: PMAT-735
+  github_issue: 735
+  item_type: task
+  title: main advisories (webpki) + split disk_budget tests
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-21T06:23:15Z
+  updated: 2026-10-21T06:23:15Z
+  spec: null
+  acceptance_criteria:
+  - cargo update webpki crates; split tests.rs under 500 lines
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-672
+  github_issue: 672
+  item_type: task
+  title: 'Release Audit: draft release reads as a release, API error reads as a skip'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T18:02:42Z
+  updated: 2026-10-17T18:02:42Z
+  spec: null
+  acceptance_criteria:
+  - refs forjar#672; picks 2eb32922
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-773
+  github_issue: 773
+  item_type: task
+  title: 'audit red: yanked clipboard-win 5.4.1 in Cargo.lock'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-23T10:15:28Z
+  updated: 2026-10-23T10:15:28Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 763

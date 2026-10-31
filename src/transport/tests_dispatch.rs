@@ -5,8 +5,8 @@ fn test_transport_local_detection() {
     assert!(is_local_addr("127.0.0.1"));
     assert!(is_local_addr("localhost"));
     assert!(is_local_addr("::1"));
-    assert!(!is_local_addr("192.168.1.100"));
-    assert!(!is_local_addr("10.0.0.1"));
+    assert!(!is_local_addr("192.0.2.100"));
+    assert!(!is_local_addr("203.0.113.1"));
 }
 
 /// BH-MUT-0001: Kill mutation of exec_script local dispatch.
@@ -229,7 +229,7 @@ fn test_transport_ipv6_loopback_is_local() {
 fn test_transport_remote_addr_not_local() {
     assert!(!is_local_addr("8.8.8.8"));
     assert!(!is_local_addr("google.com"));
-    assert!(!is_local_addr("192.168.1.1"));
+    assert!(!is_local_addr("192.0.2.1"));
 }
 
 #[test]

@@ -24,6 +24,9 @@
 #
 # Usage:
 #   release-object-audit.sh check  <tag>            read-only, exit 1 on violations
+#   release-object-audit.sh worklist                one line per v* tag: audit
+#                                                   <tag> or skip: <tag> <why>;
+#                                                   exit 2 when it cannot measure
 #   release-object-audit.sh repair <tag> [--apply]  prints the gh commands;
 #                                                   --apply actually runs them
 #
@@ -31,6 +34,8 @@
 #   FORJAR_AUDIT_ASSETS_FILE   newline-separated asset names, instead of gh api
 #   FORJAR_AUDIT_SUMS_FILE     a SHA256SUMS file, instead of downloading one
 #   FORJAR_AUDIT_SIDECAR_DIR   a directory of *.tar.gz.sha256 files
+#   FORJAR_AUDIT_RELEASES_FILE the releases list JSON, instead of gh api
+#   FORJAR_AUDIT_TAGS_FILE     newline-separated tags, instead of git tag
 set -euo pipefail
 
 REPO="${FORJAR_AUDIT_REPO:-paiml/forjar}"
@@ -44,6 +49,7 @@ usage() {
   printf 'usage: release-object-audit.sh check <tag>\n' >&2
   printf '       release-object-audit.sh repair <tag>\n' >&2
   printf '       release-object-audit.sh repair <tag> --apply\n' >&2
+  printf '       release-object-audit.sh worklist\n' >&2
   exit 2
 }
 
@@ -296,13 +302,73 @@ cmd_repair() {
   cmd_check "$tag"
 }
 
+# ---------------------------------------------------------------- worklist --
+
+# Which tags `check` should read: one line per `v*` tag, either `audit <tag>`
+# or `skip: <tag> <why>`.
+#
+# forjar#672. The workflow used to ask `releases/tags/<tag>` once per tag and
+# treat `|| echo 0` as "no assets". Two defects in one line:
+#   * a DRAFT release is not served by `releases/tags/<tag>`, so v1.33.0-rc.1
+#     read as HTTP 404; gh writes the error body to stdout, `|| echo 0` appends
+#     a 0, n became `{"message":"Not Found",...}0`, the skip never fired and the
+#     lane went red every day on a tag that has no published release;
+#   * any error that left stdout empty became n=0 and was printed as
+#     `skip: has no assets` — a tag the lane never measured, reported as one it
+#     measured and skipped.
+# So the release list is read ONCE, drafts excluded, and a failed or malformed
+# read exits 2: "cannot measure" is never a skip.
+release_list() {
+  if [ -n "${FORJAR_AUDIT_RELEASES_FILE:-}" ]; then
+    cat -- "$FORJAR_AUDIT_RELEASES_FILE"
+    return 0
+  fi
+  gh api --paginate "repos/$REPO/releases?per_page=100"
+}
+
+tag_list() {
+  if [ -n "${FORJAR_AUDIT_TAGS_FILE:-}" ]; then
+    cat -- "$FORJAR_AUDIT_TAGS_FILE"
+    return 0
+  fi
+  git tag -l 'v*' | sort -V
+}
+
+cmd_worklist() {
+  local raw="$WORK/releases.json" pub="$WORK/published.tsv" tags="$WORK/tags.txt" t n
+  release_list >"$raw" || die "cannot measure: the release list could not be read (#672)"
+  # --paginate emits one array per page; anything that is not an array (an
+  # error body, a truncated page) refuses instead of reading as "no releases".
+  jq -r 'if type != "array" then error("not a release list") else .[] end
+         | select(.draft | not)
+         | [.tag_name, (.assets | length)] | @tsv' <"$raw" >"$pub" ||
+    die "cannot measure: the release list is not a list of releases (#672)"
+  tag_list >"$tags" || die "cannot measure: the tag list could not be read (#672)"
+  if [ -s "$tags" ] && [ ! -s "$pub" ]; then
+    die "cannot measure: tags exist but the release list holds no published release (#672)"
+  fi
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    n=$(awk -F'\t' -v t="$t" '$1 == t { print $2; exit }' "$pub")
+    if [ -z "$n" ]; then
+      # Whether a tag HAS a release is nightly.yml's parity check, not this one.
+      printf 'skip: %s has no published release (none, or a draft)\n' "$t"
+    elif [ "$n" = "0" ]; then
+      # v1.0.0 predates the binary pipeline: no assets is not contamination.
+      printf 'skip: %s has no assets\n' "$t"
+    else
+      printf 'audit %s\n' "$t"
+    fi
+  done <"$tags"
+}
+
 main() {
   local sub="${1:-check}" tag="${2:-}"
   APPLY="no"
   if [ "${3:-}" = "--apply" ]; then
     APPLY="yes"
   fi
-  if [ -z "$tag" ]; then
+  if [ -z "$tag" ] && [ "$sub" != "worklist" ]; then
     usage
   fi
   WORK=$(mktemp -d)
@@ -310,6 +376,7 @@ main() {
   case "$sub" in
   check) cmd_check "$tag" ;;
   repair) cmd_repair "$tag" ;;
+  worklist) cmd_worklist ;;
   *) die "unknown subcommand: $sub" ;;
   esac
 }

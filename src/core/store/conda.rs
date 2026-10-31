@@ -79,7 +79,12 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
     let mut all_files: Vec<CondaFileEntry> = Vec::new();
 
     let names: Vec<String> = (0..archive.len())
-        .filter_map(|i| archive.by_index(i).ok().map(|f| f.name().to_string()))
+        .filter_map(|i| {
+            archive
+                .by_index(i)
+                .ok()
+                .and_then(|f| f.name().ok().map(|n| n.to_string()))
+        })
         .collect();
 
     for name in &names {
