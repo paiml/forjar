@@ -171,7 +171,7 @@ fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
         });
     }
     if let Some(ref state) = resource.state {
-        let valid = ["running", "stopped", "absent"];
+        let valid = ["running", "stopped", "absent", "pulled"];
         if !valid.contains(&state.as_str()) {
             errors.push(ValidationError {
                 message: format!(
@@ -181,6 +181,18 @@ fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
                     valid.join(", ")
                 ),
             });
+        }
+    }
+    // IMG-001: a pulled image is pinned by content, so a tag alone is rejected.
+    if resource.state.as_deref() == Some("pulled") {
+        if let Some(ref image) = resource.image {
+            if crate::resources::docker::image_digest(image).is_none() {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{id}' (docker) state pulled requires image@sha256:<64 hex digest>, got '{image}'"
+                    ),
+                });
+            }
         }
     }
 }
