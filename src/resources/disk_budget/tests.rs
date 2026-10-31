@@ -348,3 +348,7 @@ fn systemctl_probes_emit_exactly_one_line_each() {
     }
     assert!(s.contains("| head -1"));
 }
+
+#[cfg(unix)]
+mod execution;
+mod reaper_cost;
