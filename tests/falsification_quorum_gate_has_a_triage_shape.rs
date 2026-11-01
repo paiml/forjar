@@ -512,3 +512,21 @@ fn a_rust_file_under_docs_specifications_is_refused_by_name() {
         r.text
     );
 }
+
+/// r1 fix (4): the key-file rail is explicit. #788's shape (a `.flow009/*.pub`
+/// key file plus the roadmap) passes; a `.rs` under `.flow009/` is refused.
+#[test]
+fn flow009_key_files_are_on_the_rail_and_rust_there_is_not() {
+    let f = triage_fixture(
+        &triage_digest(),
+        Some((".flow009/batcher.pub", "ssh-ed25519 AAAA\n")),
+    );
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_eq!(r.code, 0, "{}", r.text);
+    let f = triage_fixture(&triage_digest(), Some((".flow009/x.rs", "pub fn x() {}\n")));
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains(".flow009/x.rs"), "{}", r.text);
+}

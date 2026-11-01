@@ -273,8 +273,77 @@ fn the_same_receipt_fails_with_the_src_change_reverted() {
 /// A filter that matches nothing runs 0 tests and would pass cargo: refused.
 #[test]
 fn a_lib_filter_that_matches_no_test_is_refused() {
-    let c = code_fixture(true, "no_such_test_anywhere", TESTS_REL);
+    let c = code_fixture(true, "tests_one::no_such_test", TESTS_REL);
     let r = gate_on(&c);
     assert_ne!(r.code, 0, "{}", r.text);
     assert!(r.text.contains("ran no test"), "{}", r.text);
+}
+
+/// r1 fix (2): a free-rider points the lib filter at a test that is not in the
+/// branch's touched test_file; it must be refused before cargo runs.
+#[test]
+fn a_lib_filter_naming_a_test_outside_test_file_is_refused() {
+    let c = code_fixture(true, "other_module::unrelated_green", TESTS_REL);
+    let r = gate_on(&c);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains("does not name a test in"), "{}", r.text);
+}
+
+/// r1 fix (3): the success mark is not printed when the falsification test
+/// fails (it used to print before the test ran).
+#[test]
+fn the_success_mark_is_absent_when_the_test_fails() {
+    let c = code_fixture(false, "tests_one::one_is_two", TESTS_REL);
+    let r = gate_on(&c);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(!r.text.contains("✓ quorum receipt valid"), "{}", r.text);
+}
+
+fn gate_without_jq(c: &Code, shim_jq: Option<&str>) -> Run {
+    let tip = stdout_of(&git(&c.repo, &["rev-parse", "HEAD"]));
+    let bin = c.repo.join(".git/nojq-bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for e in std::fs::read_dir("/usr/bin").unwrap().flatten() {
+        let n = e.file_name();
+        if n != "jq" {
+            let _ = std::os::unix::fs::symlink(e.path(), bin.join(&n));
+        }
+    }
+    if let Some(body) = shim_jq {
+        std::fs::write(bin.join("jq"), body).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(bin.join("jq"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let mut cmd = Command::new("/usr/bin/bash");
+    cmd.arg(gate())
+        .args([
+            "--remote-ref",
+            &format!("refs/heads/{BRANCH}"),
+            "--local-sha",
+            &tip,
+        ])
+        .current_dir(&c.repo)
+        .env("PATH", &bin)
+        .env("QUORUM_ACTOR", ACTOR)
+        .env("PRINT_HASH", "0");
+    let out = scrub(&mut cmd).output().unwrap();
+    let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
+    text.push_str(&String::from_utf8_lossy(&out.stderr));
+    Run {
+        code: out.status.code().unwrap_or(-1),
+        text,
+    }
+}
+
+/// r1 fix (1): no jq, or a jq that cannot read the kind, is a refusal -- never a
+/// silent default to kind=code.
+#[test]
+fn a_missing_or_broken_jq_is_refused_not_defaulted() {
+    let c = code_fixture(true, "tests_one::one_is_two", TESTS_REL);
+    let r = gate_without_jq(&c, None);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains("jq is required"), "{}", r.text);
+    let r = gate_without_jq(&c, Some("#!/bin/sh\nexit 3\n"));
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains("cannot read .kind"), "{}", r.text);
 }
