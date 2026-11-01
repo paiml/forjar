@@ -180,3 +180,24 @@ fn live_groups_are_sorted_in_the_c_locale_like_the_declared_side() {
     let s = check_script(&r);
     assert!(s.contains("LC_ALL=C sort -u"), "{s}");
 }
+
+#[test]
+fn a_declared_primary_group_in_groups_still_converges() {
+    // `groups: [course, courses, cop-inbox]` where `course` is the primary: the
+    // live side drops the primary, so the declared side must too.
+    let mut r = declared();
+    r.groups.push("course".to_string());
+    let (rc, out) = run(&r, "");
+    assert_eq!(rc, 0, "{out}");
+}
+
+#[test]
+fn a_numeric_gid_declaration_is_compared_to_the_gid() {
+    let mut r = declared();
+    r.group = Some("1100".to_string());
+    let (rc, out) = run(&r, "");
+    assert_eq!(rc, 0, "{out}");
+    r.group = Some("1101".to_string());
+    let (rc, _) = run(&r, "");
+    assert_eq!(rc, 1, "a different gid must diverge");
+}
