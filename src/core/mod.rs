@@ -33,6 +33,8 @@ pub mod promotion;
 pub mod promotion_events;
 pub mod prove;
 pub mod purifier;
+#[cfg(test)]
+mod purifier_sec005_tests;
 mod purifier_sec017;
 pub mod quality_gate;
 pub mod recipe;
