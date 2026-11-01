@@ -99,6 +99,15 @@ fi
 # In advisory mode a failure is REPORTED IN FULL and then forgiven. Silence would
 # be worse than no gate: the contributor learns nothing and the maintainer gets a
 # PR that merely looks checked.
+# die_hard: refusals that were inside the Python pass on main (its die() exits 1
+# in EVERY mode, and the caller's `|| exit 1` kept it so, advisory included).
+# The checks moved to bash in forjar#846 keep that exit: a gate that exits 0 in
+# advisory mode on a failing falsification test would be a new bypass.
+die_hard() {
+    echo "✗ QUORUM GATE: $*" >&2
+    exit 1
+}
+
 die() {
     echo "✗ QUORUM GATE: $*" >&2
     if [ "$MODE" = "advisory" ]; then
@@ -451,9 +460,9 @@ touched="$(git diff --name-only "$merge_base" "$pushed")"
 # docs/specifications: declaring the kind would otherwise be the cheapest way to
 # skip the falsification below.
 command -v jq >/dev/null 2>&1 \
-    || die "jq is required to read the receipt's kind and the falsification fields; install jq (no silent default to kind=code)"
+    || die_hard "jq is required to read the receipt's kind and the falsification fields; install jq (no silent default to kind=code)"
 receipt_kind="$(jq -er '.kind // "code"' "$receipt_blob" 2>/dev/null)" \
-    || die "cannot read .kind from the receipt with jq; refusing to guess a kind"
+    || die_hard "cannot read .kind from the receipt with jq; refusing to guess a kind"
 if [ "$receipt_kind" = "triage" ]; then
     off_rail=""
     while IFS= read -r p; do
@@ -467,7 +476,7 @@ if [ "$receipt_kind" = "triage" ]; then
         esac
     done <<< "$touched"
     if [ -n "$off_rail" ]; then
-        die "a kind: triage receipt over a diff that touches$off_rail
+        die_hard "a kind: triage receipt over a diff that touches$off_rail
   A triage branch is classify + link, no code: docs/audits/**, the roadmap,
   the release ledger docs/roadmaps/releases.yaml, docs/specifications/**.md,
   .flow009/*.pub|yaml|md|json and its own receipt under .quorum/. Any .rs file is code, and
@@ -741,11 +750,22 @@ if [ "$receipt_kind" != "triage" ]; then
     f_file="$(jq -r '.falsification.test_file // empty' "$receipt_blob")"
     lib_filter_ok() {
         # The lib filter must name a test that lives in test_file: its module
-        # path (src/a/tests_x.rs -> a::tests_x) prefixes the filter, or the
-        # filter's last segment is a `fn` in test_file at the pushed commit.
+        # path (src/a/tests_x.rs -> a::tests_x) equals or prefixes the filter AND
+        # the filter's last segment is a #[test] fn in test_file at the pushed commit.
         local mod last
         mod="${f_file#src/}"; mod="${mod%.rs}"; mod="${mod//\//::}"
-        case "$f_target" in "$mod"|"$mod"::*) return 0 ;; esac
+        # src/a/mod.rs -> a ; src/lib.rs, src/main.rs, src/mod.rs -> crate root
+        case "$mod" in mod|lib|main) mod="" ;; *::mod) mod="${mod%::mod}" ;; esac
+        # The filter must sit in test_file's module: equal to it (every test of
+        # that module) or start with it plus `::`. At the crate root any path is
+        # in the module. A same-named fn in another module is not this file's.
+        if [ -n "$mod" ]; then
+            case "$f_target" in
+                "$mod") return 0 ;;
+                "$mod"::*) ;;
+                *) return 1 ;;
+            esac
+        fi
         last="${f_target##*::}"
         # The fn must be a real test: the first non-attribute line above it is
         # #[test] (other attributes may sit between). Matched literally, never
@@ -765,9 +785,9 @@ if [ "$receipt_kind" != "triage" ]; then
     }
     if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$pushed")" ]; then
         if [[ "$f_file" =~ ^src/(.*/)?tests[^/]*\.rs$ ]]; then
-            lib_filter_ok || die "the lib filter '$f_target' does not name a test in $f_file
-  A free-rider could point it at any green test: the filter must start with the
-  module path of test_file, or end in a fn defined there."
+            lib_filter_ok || die_hard "the lib filter '$f_target' does not name a test in $f_file
+  A free-rider could point it at any green test: the filter must equal or start
+  with test_file's module path (plus ::) and end in a #[test] fn defined there."
             mode_args=(--lib "$f_target"); lib_mode=1
         else
             mode_args=(--test "$f_target"); lib_mode=0
@@ -781,13 +801,13 @@ if [ "$receipt_kind" != "triage" ]; then
         unset_args=()
         while IFS= read -r v; do unset_args+=(-u "$v"); done < <(compgen -e | grep '^GIT_' || true)
         test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet 2>&1)" \
-            || die "the falsification test does NOT pass on this tree:
+            || die_hard "the falsification test does NOT pass on this tree:
 $(printf '%s\n' "$test_out" | tail -n 15 | sed 's/^/     /')"
         if [ "$lib_mode" = 1 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
-            die "the lib filter '$f_target' ran no test (0 passed): it names nothing, so it proves nothing"
+            die_hard "the lib filter '$f_target' ran no test (0 passed): it names nothing, so it proves nothing"
         fi
         if [ "$lib_mode" = 0 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
-            die "cargo test ${mode_args[*]} reported no passed test: nothing was verified"
+            die_hard "cargo test ${mode_args[*]} reported no passed test: nothing was verified"
         fi
         echo "  falsification test passes with the fix (N passed, N > 0): cargo test ${mode_args[*]}"
     fi

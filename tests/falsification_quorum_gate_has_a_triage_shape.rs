@@ -530,3 +530,33 @@ fn flow009_key_files_are_on_the_rail_and_rust_there_is_not() {
     assert_ne!(r.code, 0, "{}", r.text);
     assert!(r.text.contains(".flow009/x.rs"), "{}", r.text);
 }
+
+/// r3 fix (3): the triage-rail refusal moved to bash; it exits 1 in blocking AND
+/// advisory mode, as the Python pass did on main.
+#[test]
+fn the_triage_rail_refusal_exits_one_in_both_modes() {
+    let f = triage_fixture(&triage_digest(), Some(CODE_EDIT));
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let tip = stdout_of(&git(&f.repo, &["rev-parse", "HEAD"]));
+    for actor in [ACTOR, "someone-else@example.com"] {
+        let mut cmd = Command::new("bash");
+        cmd.arg(gate())
+            .args([
+                "--remote-ref",
+                &format!("refs/heads/{BRANCH}"),
+                "--local-sha",
+                &tip,
+            ])
+            .current_dir(&f.repo)
+            .env("QUORUM_ACTOR", actor)
+            .env("PRINT_HASH", "0");
+        let out = scrub(&mut cmd).output().unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(out.status.code(), Some(1), "as {actor}: {text}");
+        assert!(text.contains("src/lib.rs"), "{text}");
+    }
+}

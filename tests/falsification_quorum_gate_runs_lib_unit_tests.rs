@@ -276,7 +276,7 @@ fn a_lib_filter_that_matches_no_test_is_refused() {
     let c = code_fixture(true, "tests_one::no_such_test", TESTS_REL);
     let r = gate_on(&c);
     assert_ne!(r.code, 0, "{}", r.text);
-    assert!(r.text.contains("ran no test"), "{}", r.text);
+    assert!(r.text.contains("does not name a test in"), "{}", r.text);
 }
 
 /// r1 fix (2): a free-rider points the lib filter at a test that is not in the
@@ -355,19 +355,106 @@ fn tie_refused(filter: &str) -> bool {
     r.text.contains("does not name a test in")
 }
 
-/// r2 fix (1): only a fn directly under #[test] (other attributes allowed in
-/// between) ties a filter to test_file; a same-named helper and a regex
-/// metachar name do not.
+/// r3 fix (1)+(2): the filter must sit in test_file's module AND name a real
+/// #[test] there. The bypass -- the right fn name under another module path --
+/// is refused; the right module path passes.
 #[test]
-fn the_fn_branch_requires_a_real_test_and_matches_literally() {
-    // Passes the tie (then cargo finds nothing under that module: a later refusal).
-    assert!(!tie_refused("other_module::one_is_two"));
-    assert!(!tie_refused("other_module::attr_between"));
-    // A helper without #[test] is not a test.
-    assert!(tie_refused("other_module::helper_not_a_test"));
-    // Regex metacharacters are literal: `.*` / `one_is_.wo` match nothing.
-    assert!(tie_refused("other_module::.*"));
-    assert!(tie_refused("other_module::one_is_.wo"));
+fn the_filter_must_sit_in_the_test_files_module_and_name_a_real_test() {
+    for ok in ["tests_one::one_is_two", "tests_one::attr_between"] {
+        let c = code_fixture(true, ok, TESTS_REL);
+        let r = gate_on(&c);
+        assert_eq!(r.code, 0, "{ok}: {}", r.text);
+    }
+    for bad in [
+        "planner::tests::one_is_two", // same-named fn, other module: the bypass
+        "other_module::attr_between",
+        "one_is_two",                   // no module path at all
+        "tests_one::helper_not_a_test", // right module, not a #[test]
+        "tests_one::.*",                // regex metachar, matched literally
+        "tests_one::one_is_.wo",
+    ] {
+        assert!(tie_refused(bad), "{bad} must be refused");
+    }
+}
+
+/// Module-path derivation: mod.rs -> parent module; nested files -> a::b::tests_c.
+#[test]
+fn module_paths_derive_from_test_file() {
+    // Drive the gate's own lib_filter_ok in isolation from the script text.
+    let script = std::fs::read_to_string(gate()).unwrap();
+    let start = script.find("    lib_filter_ok() {").unwrap();
+    let end = script[start..].find("\n    }\n").unwrap() + start + 7;
+    let func = script[start..end].to_string();
+    let run = |file: &str, filter: &str, body: &str| -> bool {
+        let dir = tempfile::tempdir().unwrap();
+        let sh = format!(
+            "set -e\ncd {d}\ngit init -q . && git config user.email a@b && git config user.name t\n\
+             mkdir -p \"$(dirname {file})\" && printf '%s' '{body}' > {file}\n\
+             git add -A && git commit -qm x\npushed=HEAD f_file={file} f_target='{filter}'\n{func}\nlib_filter_ok\n",
+            d = dir.path().display()
+        );
+        Command::new("bash")
+            .arg("-c")
+            .arg(sh)
+            .status()
+            .unwrap()
+            .success()
+    };
+    let body = "#[test]\nfn x() {}\n";
+    assert!(run("src/a/b/tests_c.rs", "a::b::tests_c::x", body));
+    assert!(!run("src/a/b/tests_c.rs", "a::tests_c::x", body));
+    assert!(run("src/a/b/tests_c.rs", "a::b::tests_c", body));
+    assert!(run("src/a/mod.rs", "a::x", body));
+    assert!(!run("src/a/mod.rs", "b::x", body));
+    assert!(run("src/lib.rs", "x", body));
+}
+
+/// r3 fix (3): every refusal that moved to bash exits 1 in BOTH modes, as the
+/// Python pass's `|| exit 1` did on main -- advisory included.
+#[test]
+fn moved_refusals_exit_one_in_blocking_and_advisory_mode() {
+    let cases: [(&str, bool, &str); 3] = [
+        ("tests_one::one_is_two", false, "does NOT pass"), // test fails: src reverted
+        (
+            "planner::tests::one_is_two",
+            true,
+            "does not name a test in",
+        ),
+        (
+            "tests_one::helper_not_a_test",
+            true,
+            "does not name a test in",
+        ),
+    ];
+    for (filter, fixed, msg) in cases {
+        let c = code_fixture(fixed, filter, TESTS_REL);
+        for actor in [ACTOR, "someone-else@example.com"] {
+            let tip = stdout_of(&git(&c.repo, &["rev-parse", "HEAD"]));
+            let mut cmd = Command::new("bash");
+            cmd.arg(gate())
+                .args([
+                    "--remote-ref",
+                    &format!("refs/heads/{BRANCH}"),
+                    "--local-sha",
+                    &tip,
+                ])
+                .current_dir(&c.repo)
+                .env("CARGO_TARGET_DIR", c.repo.join("target"))
+                .env("QUORUM_ACTOR", actor)
+                .env("PRINT_HASH", "0");
+            let out = scrub(&mut cmd).output().unwrap();
+            let text = format!(
+                "{}{}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            );
+            assert_eq!(out.status.code(), Some(1), "{filter} as {actor}: {text}");
+            assert!(text.contains(msg), "{filter} as {actor}: {text}");
+            if actor != ACTOR {
+                assert!(!text.contains("NOT blocking your push"), "{text}");
+            }
+        }
+    }
 }
 
 /// r2 fix (3): the lanes/refuters line main printed is back, exactly.
