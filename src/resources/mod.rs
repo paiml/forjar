@@ -33,6 +33,7 @@ mod tests_service_exec;
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;
@@ -57,6 +58,8 @@ mod tests_file_b;
 #[cfg(test)]
 mod tests_file_content_escape;
 #[cfg(test)]
+mod tests_github_release_downgrade;
+#[cfg(test)]
 mod tests_gpu;
 #[cfg(test)]
 mod tests_mount;
@@ -78,3 +81,5 @@ mod tests_user;
 mod tests_user_authkeys_escape;
 #[cfg(test)]
 mod tests_user_b;
+#[cfg(test)]
+mod tests_user_check_attrs;

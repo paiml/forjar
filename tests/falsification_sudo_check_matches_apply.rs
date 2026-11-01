@@ -225,6 +225,7 @@ fn every_dispatchable_type_elevates_all_three_or_none() {
         ResourceType::DiskBudget,
         ResourceType::BackupSync,
         ResourceType::NasArchive,
+        ResourceType::TmpReaper,
     ];
 
     for rt in all {

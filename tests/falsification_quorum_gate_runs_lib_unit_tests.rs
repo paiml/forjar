@@ -479,7 +479,7 @@ fn the_quorum_workflow_gets_jq_before_the_gate_on_a_self_hosted_runner() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/quorum.yml"),
     )
     .unwrap();
-    assert!(y.contains("runs-on: [self-hosted, clean-room, X64]"));
+    assert!(y.contains("runs-on: [self-hosted, clean-room, ARM64]"));
     assert!(
         !y.contains("ubuntu-"),
         "a GitHub-hosted runner is forbidden"

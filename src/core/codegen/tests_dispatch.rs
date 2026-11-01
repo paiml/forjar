@@ -377,6 +377,7 @@ fn falsify_cd_001_002_every_resource_type_dispatches() {
         ResourceType::DiskBudget,
         ResourceType::BackupSync,
         ResourceType::NasArchive,
+        ResourceType::TmpReaper,
     ];
 
     for rt in all {
