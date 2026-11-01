@@ -56,11 +56,24 @@ pub(crate) fn host_check_passes(
         .is_some_and(|out| out.success())
 }
 
+/// Do this type's own check scripts read `completion_check`?
+fn consults_completion_check(t: &ResourceType) -> bool {
+    matches!(t, ResourceType::Task | ResourceType::Build)
+}
+
 /// Is this resource one the lockless check applies to at all?
 fn declares_a_check(resource: &Resource, tag_filter: Option<&str>) -> bool {
-    resource.completion_check.is_some()
-        && !resource.phony
-        && tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
+    // Only types whose own check_script consults `completion_check`: on any other
+    // type the field is ignored and the type's check (e.g. `test -f`) would seed
+    // a stale resource as converged.
+    if resource.completion_check.is_none() || resource.phony {
+        return false;
+    }
+    consults_completion_check(&resource.resource_type) && has_tag(resource, tag_filter)
+}
+
+fn has_tag(resource: &Resource, tag_filter: Option<&str>) -> bool {
+    tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
 }
 
 /// Add a converged entry to `locks` for every `(machine, resource)` that has no
@@ -82,33 +95,45 @@ fn add_passing(
             continue;
         }
         for machine in resource.machine.iter() {
-            if machine_filter.is_some_and(|f| machine != f)
-                // The planner skips an arch mismatch or a false `when:`; asking
-                // (and recording) a resource it will not plan is a false record.
-                || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
-            {
-                continue;
-            }
-            let has_entry = locks
-                .get(machine)
-                .is_some_and(|l| l.resources.contains_key(id));
-            if has_entry || !host_check_passes(config, resource, machine) {
-                continue;
-            }
-            let hostname = config
-                .machines
-                .get(machine)
-                .map_or(machine, |m| m.hostname.as_str());
-            locks
-                .entry(machine.to_string())
-                .or_insert_with(|| state::new_lock(machine, hostname))
-                .resources
-                .insert(
-                    id.clone(),
-                    super::refresh_seed::converged_entry(config, id, resource),
-                );
+            seed_one(config, machine_filter, locks, id, resource, machine);
         }
     }
+}
+
+/// One `(machine, resource)` pair of [`add_passing`].
+fn seed_one(
+    config: &ForjarConfig,
+    machine_filter: Option<&str>,
+    locks: &mut HashMap<String, StateLock>,
+    id: &str,
+    resource: &Resource,
+    machine: &str,
+) {
+    if machine_filter.is_some_and(|f| machine != f)
+        // The planner skips an arch mismatch or a false `when:`; asking
+        // (and recording) a resource it will not plan is a false record.
+        || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
+    {
+        return;
+    }
+    let has_entry = locks
+        .get(machine)
+        .is_some_and(|l| l.resources.contains_key(id));
+    if has_entry || !host_check_passes(config, resource, machine) {
+        return;
+    }
+    let hostname = config
+        .machines
+        .get(machine)
+        .map_or(machine, |m| m.hostname.as_str());
+    locks
+        .entry(machine.to_string())
+        .or_insert_with(|| state::new_lock(machine, hostname))
+        .resources
+        .insert(
+            id.to_string(),
+            super::refresh_seed::converged_entry(config, id, resource),
+        );
 }
 
 /// PREVIEW: the locks the planner will read, without touching `locks`. For the

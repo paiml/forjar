@@ -139,3 +139,14 @@ fn record_leaves_a_failing_check_unrecorded() {
     record(&config, None, None, &mut locks);
     assert!(!locks.contains_key("local"));
 }
+
+#[test]
+fn a_completion_check_on_a_non_task_type_is_not_asked() {
+    // `file` ignores completion_check; its own check is `test -f`, which would
+    // seed a stale file as converged and never write the declared content.
+    let mut config = cfg(Some("true"));
+    let r = config.resources.get_mut("guarded").unwrap();
+    r.resource_type = ResourceType::File;
+    let locks = seeded(&config, None, None, &HashMap::new());
+    assert!(locks.get("local").is_none_or(|l| l.resources.is_empty()));
+}
