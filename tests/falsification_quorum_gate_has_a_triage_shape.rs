@@ -479,3 +479,36 @@ fn a_code_receipt_with_no_falsification_is_still_refused() {
     assert_ne!(r.code, 0, "{}", r.text);
     assert!(r.text.contains("falsification"), "{}", r.text);
 }
+
+/// forjar#846: the spec pages and the flow ledger are on the rail.
+#[test]
+fn a_triage_receipt_over_spec_pages_and_the_flow_ledger_is_on_the_rail() {
+    for (path, body) in [
+        ("docs/specifications/new-spec.md", "# spec\n"),
+        (".flow009/ledger.yaml", "rows: []\n"),
+    ] {
+        let f = triage_fixture(&triage_digest(), Some((path, body)));
+        assert!(f.touched.contains(path), "{:?}", f.touched);
+        commit_full_receipt(&f, Some("triage"), not_applicable());
+        let r = whole_gate(&f);
+        assert_eq!(r.code, 0, "{path} was refused as off the rail:\n{}", r.text);
+    }
+}
+
+/// forjar#846 falsifier: a `.rs` file under docs/specifications is code, never
+/// rail -- the rail admits `.md` there and nothing else.
+#[test]
+fn a_rust_file_under_docs_specifications_is_refused_by_name() {
+    let f = triage_fixture(
+        &triage_digest(),
+        Some(("docs/specifications/sneaky.rs", "pub fn x() {}\n")),
+    );
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(
+        r.text.contains("docs/specifications/sneaky.rs"),
+        "{}",
+        r.text
+    );
+}

@@ -442,6 +442,36 @@ fi
 # required to be one of them (see the free-rider defence below).
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
+# THE TRIAGE RAIL (forjar#491, PMAT-226, forjar#846), enforced here in bash.
+# A `kind: triage` receipt is verified FROM THE DIFF, not trusted from the
+# receipt: the branch may touch docs/audits/**, the roadmap, the release ledger
+# docs/roadmaps/releases.yaml (named by file, not directory), the spec pages
+# docs/specifications/**.md, the flow ledger .flow009/**, and its own receipt
+# under .quorum/. A `.rs` file anywhere is code and is refused first, even under
+# docs/specifications: declaring the kind would otherwise be the cheapest way to
+# skip the falsification below.
+receipt_kind="$(jq -r '.kind // "code"' "$receipt_blob" 2>/dev/null || echo code)"
+if [ "$receipt_kind" = "triage" ]; then
+    off_rail=""
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        case "$p" in
+            *.rs) off_rail="$off_rail $p" ;;
+            docs/audits/*|docs/roadmaps/roadmap.yaml|docs/roadmaps/releases.yaml|.quorum/*|.flow009/*) ;;
+            docs/specifications/*.md) ;;
+            *) off_rail="$off_rail $p" ;;
+        esac
+    done <<< "$touched"
+    if [ -n "$off_rail" ]; then
+        die "a kind: triage receipt over a diff that touches$off_rail
+  A triage branch is classify + link, no code: docs/audits/**, the roadmap,
+  the release ledger docs/roadmaps/releases.yaml, docs/specifications/**.md,
+  .flow009/** and its own receipt under .quorum/. Any .rs file is code, and
+  anything else is code too: a code change is judged as code -- with a
+  falsification test it wrote itself."
+    fi
+fi
+
 python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
 import json, os, subprocess, sys
 
@@ -478,22 +508,8 @@ for field in ("issue", "diff_sha256", "quorum", "falsification", "crux", "agy_te
 receipt_kind = r.get("kind", "code")
 if receipt_kind not in ("code", "triage"):
     die(f"receipt kind={receipt_kind!r} is not one of code | triage")
-if receipt_kind == "triage":
-    # PMAT-226: the release ledger, docs/roadmaps/releases.yaml, is the roadmap's
-    # sibling -- declared goals, one row per tag, edited textually -- and booking
-    # a tag's row after the cut is classify + link with no code in it. Named by
-    # file, not by directory: docs/roadmaps/** would admit any future file there.
-    def on_rail(p):
-        return p.startswith("docs/audits/") or p == "docs/roadmaps/roadmap.yaml" \
-            or p == "docs/roadmaps/releases.yaml" or p.startswith(".quorum/")
-    off_rail = sorted(p for p in touched if not on_rail(p))
-    if off_rail:
-        die("a kind: triage receipt over a diff that touches "
-            + ", ".join(off_rail) + "\n"
-            "  A triage branch is classify + link, no diff: docs/audits/**, the roadmap,\n"
-            "  the release ledger docs/roadmaps/releases.yaml and its own receipt under\n"
-            "  .quorum/. Anything else is code, and a code change is judged as code --\n"
-            "  with a falsification test it wrote itself.")
+# The triage rail (what a kind: triage diff may touch) is enforced in bash, above
+# this pass (forjar#846), so it can name paths without more embedded Python.
 
 # THE BINDING. Without this the whole gate is theater: one receipt would clear
 # every future branch, and an amended commit would keep a verdict about code
@@ -707,23 +723,6 @@ if head_now != pushed_full:
           "on the PR head.")
 else:
     print(f"  verifying falsification test passes with the fix: {target}")
-    # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push hook,
-    # where git has exported GIT_DIR for the repository being pushed. A test that
-    # spawns `git` in its own tempdir then inherits that GIT_DIR and operates on
-    # the developer's repository with the tempdir as work tree -- measured on
-    # 2026-09-02: a falsification test's `git add -A && git commit` deleted 2,556
-    # tracked files from the branch under review. The tests get a clean git
-    # environment; the gate keeps its own.
-    test_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    proc = subprocess.run(
-        ["cargo", "test", "--test", target, "--quiet"],
-        capture_output=True, text=True, env=test_env,
-    )
-    if proc.returncode != 0:
-        tail = (proc.stdout + proc.stderr).strip().splitlines()[-15:]
-        die("the falsification test does NOT pass on this tree:\n     "
-            + "\n     ".join(tail))
-
 print(f"✓ quorum receipt valid for {r['issue']}")
 print(f"    lanes={len(lanes)} refuters={refuters} judges={judges} "
       f"confirmed={confirmed} refuted={refuted}")
@@ -731,6 +730,40 @@ print(f"    falsification: {f['test']}")
 print(f"      reverted: {f['reverted']}")
 print(f"      observed: {f['observed_failure']}")
 PY
+
+# THE FALSIFICATION TEST RUN (moved out of the python pass above, forjar#846).
+# Two shapes of test, both required to be touched by the branch (the python pass
+# checked that): an integration test, `cargo test --test <target>`, or -- when
+# test_file is a lib unit-test module, src/**/tests*.rs -- `cargo test --lib
+# <filter>`, with the receipt's cargo_test_target as the filter. A lib filter
+# that matches no test passes cargo with 0 run, so "N passed" with N > 0 is
+# required: an unmeasured test must never read like a green one.
+if [ "$receipt_kind" != "triage" ]; then
+    f_target="$(jq -r '.falsification.cargo_test_target // empty' "$receipt_blob")"
+    f_file="$(jq -r '.falsification.test_file // empty' "$receipt_blob")"
+    if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$pushed")" ]; then
+        if [[ "$f_file" =~ ^src/(.*/)?tests[^/]*\.rs$ ]]; then
+            mode_args=(--lib "$f_target"); lib_mode=1
+        else
+            mode_args=(--test "$f_target"); lib_mode=0
+        fi
+        # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push
+        # hook, where git has exported GIT_DIR for the repository being pushed. A
+        # test that spawns `git` in its own tempdir then inherits that GIT_DIR and
+        # operates on the developer's repository with the tempdir as work tree --
+        # measured on 2026-09-02: a falsification test's `git add -A && git commit`
+        # deleted 2,556 tracked files from the branch under review.
+        unset_args=()
+        while IFS= read -r v; do unset_args+=(-u "$v"); done < <(compgen -e | grep '^GIT_' || true)
+        test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet 2>&1)" \
+            || die "the falsification test does NOT pass on this tree:
+$(printf '%s\n' "$test_out" | tail -n 15 | sed 's/^/     /')"
+        if [ "$lib_mode" = 1 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
+            die "the lib filter '$f_target' ran no test (0 passed): it names nothing, so it proves nothing"
+        fi
+        echo "  falsification test passes with the fix: cargo test ${mode_args[*]}"
+    fi
+fi
 
 # EVIDENCE -- the owner's rule: intermediate results AND conclusion attached.
 #
