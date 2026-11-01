@@ -5067,6 +5067,44 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-725
+  github_issue: 725
+  item_type: task
+  title: 'FLOW-009 RC-2: add .flow009/batcher.pub (batcher public key)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-24T15:24:49Z
+  updated: 2026-10-24T15:24:49Z
+  spec: null
+  acceptance_criteria:
+  - forjar#725
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  epic: 696
+- id: PMAT-840
+  github_issue: 840
+  item_type: task
+  title: 'main red: bound zstd 0.13/basic-toml advisory ignores (deny.toml + audit.toml in sync) and fix blake3-state contract count'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-31T11:44:45Z
+  updated: 2026-10-31T11:44:45Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar main is red on cargo-deny/cargo-audit advisories (N27 andon). forjar bumps its own zstd to 0.14; zstd 0.13.3/zstd-safe 7.2.4 remain only via bashrs 7.4.2 -> batuta-common (fix: bashrs#466), basic-toml 0.1.10 only via age -> i18n-embed-fl -> i18n-config (#836). Acceptance: 14 audited ignores with reasons identical in deny.toml and .cargo/audit.toml; falsification test parses Cargo.lock and fails if any ignored crate gains another dependent or an ignore line is added/removed; contracts/blake3-state-v1.yaml total_obligations matches proof_obligations (3). PR #835. Replaces the mis-cited PMAT-735 (webpki + disk_budget).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 763
 - id: PMAT-721
   github_issue: 721
   item_type: task
