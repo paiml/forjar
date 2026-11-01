@@ -9,10 +9,14 @@
 //! This eliminates the pepita dependency for OCI builds — any system
 //! with Docker or Podman can build deterministic container images.
 
+use super::base_resolve::load_runtime_base;
+use super::container_diff::extract_changes;
+use super::container_layers::assemble_container_layers;
 use super::convergence_container::detect_container_runtime;
-use super::image_assembler::{assemble_image, AssembledImage};
+use super::image_assembler::AssembledImage;
+use super::layer_builder::LayerEntry;
 use super::overlay_export;
-use crate::core::types::{ImageBuildPlan, OciLayerConfig};
+use crate::core::types::ImageBuildPlan;
 use std::path::Path;
 use std::process::Command;
 
@@ -29,6 +33,15 @@ pub struct ContainerBuildResult {
     pub duration_ms: u64,
 }
 
+/// `build_image_in_container_with_files` with no `path:` Files layers.
+pub fn build_image_in_container(
+    plan: &ImageBuildPlan,
+    apply_scripts: &[String],
+    output_dir: &Path,
+) -> Result<ContainerBuildResult, String> {
+    build_image_in_container_with_files(plan, apply_scripts, &[], output_dir)
+}
+
 /// Build an OCI image by running apply scripts inside a container.
 ///
 /// Algorithm:
@@ -39,9 +52,10 @@ pub struct ContainerBuildResult {
 /// 5. Scan extracted files through overlay_export
 /// 6. Assemble OCI image via image_assembler
 /// 7. Clean up container
-pub fn build_image_in_container(
+pub fn build_image_in_container_with_files(
     plan: &ImageBuildPlan,
     apply_scripts: &[String],
+    file_layers: &[Vec<LayerEntry>],
     output_dir: &Path,
 ) -> Result<ContainerBuildResult, String> {
     let start = std::time::Instant::now();
@@ -60,6 +74,15 @@ pub fn build_image_in_container(
     // `sleep 300`.
     start_container(&runtime, &container_name, base_image)?;
     let container = ContainerGuard::new(&runtime, &container_name);
+
+    // IMG-001: the declared base becomes the bottom layers of the image, and a
+    // digest-pinned base must be exactly the digest the spec names.
+    let base_dir = std::env::temp_dir().join(format!("forjar-base-{}", build_unique_id()));
+    let _base_guard = TempDirGuard(base_dir.clone());
+    let base = match declared_base(plan) {
+        Some(declared) => Some(load_runtime_base(&runtime, declared, &base_dir)?),
+        None => None,
+    };
 
     // Step 2: Execute apply scripts
     execute_scripts(&runtime, &container_name, apply_scripts)
@@ -82,35 +105,9 @@ pub fn build_image_in_container(
         .map_err(|e| format!("overlay scan: {e}"))?;
     let entries = overlay_export::merge_overlay_entries(&scan);
 
-    // Step 5: Assemble OCI image
-    let layer_entries = vec![entries];
-    let mut build_plan = plan.clone();
-    if build_plan.layers.is_empty() {
-        build_plan
-            .layers
-            .push(crate::core::types::LayerStrategy::Files {
-                paths: vec!["(container diff)".into()],
-            });
-    }
-    // Ensure plan layers match entry count
-    while build_plan.layers.len() < layer_entries.len() {
-        build_plan
-            .layers
-            .push(crate::core::types::LayerStrategy::Files {
-                paths: vec!["(container diff)".into()],
-            });
-    }
-    while build_plan.layers.len() > layer_entries.len() {
-        build_plan.layers.pop();
-    }
-
-    let image = assemble_image(
-        &build_plan,
-        &layer_entries,
-        output_dir,
-        &OciLayerConfig::default(),
-        None,
-    )?;
+    // Step 5: Assemble OCI image: container diff, then the resource's own
+    // `path:` Files layers on top (IMG-001: never dropped).
+    let image = assemble_container_layers(plan, entries, file_layers, output_dir, base.as_ref())?;
 
     Ok(ContainerBuildResult {
         image,
@@ -120,19 +117,39 @@ pub fn build_image_in_container(
     })
 }
 
+/// How long the build container idles. It must outlive the base `docker save`
+/// plus a slow package install (the old 300 s did not: `--rm` then removed the
+/// container mid-build); `ContainerGuard` removes it as soon as the build ends.
+const CONTAINER_LIFETIME_SECS: u32 = 3600;
+
+/// The base the image spec DECLARES. An image with no `image:` gets no base
+/// layers: the container still needs *some* userland to run in, but that
+/// default is a build host, not part of the image the spec describes.
+fn declared_base(plan: &ImageBuildPlan) -> Option<&str> {
+    plan.base_image.as_deref()
+}
+
+fn run_args(container_name: &str, base_image: &str) -> Vec<String> {
+    let secs = CONTAINER_LIFETIME_SECS.to_string();
+    [
+        "run",
+        "-d",
+        "--rm",
+        "--name",
+        container_name,
+        base_image,
+        "sleep",
+        &secs,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
+
 /// Start an ephemeral container from a base image.
 fn start_container(runtime: &str, container_name: &str, base_image: &str) -> Result<(), String> {
     let output = Command::new(runtime)
-        .args([
-            "run",
-            "-d",
-            "--rm",
-            "--name",
-            container_name,
-            base_image,
-            "sleep",
-            "300",
-        ])
+        .args(run_args(container_name, base_image))
         .output()
         .map_err(|e| format!("container start: {e}"))?;
 
@@ -177,68 +194,6 @@ fn execute_scripts(runtime: &str, container_name: &str, scripts: &[String]) -> R
         }
     }
     Ok(())
-}
-
-/// Extract changed files from container to a local directory.
-///
-/// Uses `docker diff` to identify changes, then `docker cp` to extract them.
-fn extract_changes(
-    runtime: &str,
-    container_name: &str,
-    extract_dir: &Path,
-) -> Result<usize, String> {
-    // Get list of changed files
-    let diff_output = Command::new(runtime)
-        .args(["diff", container_name])
-        .output()
-        .map_err(|e| format!("docker diff: {e}"))?;
-
-    if !diff_output.status.success() {
-        let stderr = String::from_utf8_lossy(&diff_output.stderr);
-        return Err(format!("docker diff failed: {}", stderr.trim()));
-    }
-
-    let diff_text = String::from_utf8_lossy(&diff_output.stdout);
-
-    // docker diff format: "A /path" (added), "C /path" (changed dir), "D /path" (deleted)
-    // We want A (added files) only — C entries are directory change markers
-    let added_paths: Vec<&str> = diff_text
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.starts_with('A') {
-                Some(trimmed[2..].trim())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let file_count = added_paths.len();
-
-    // Extract each added file via docker cp
-    for path in &added_paths {
-        let local_rel = path.strip_prefix('/').unwrap_or(path);
-        let local_path = extract_dir.join(local_rel);
-
-        if let Some(parent) = local_path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-
-        let src = format!("{container_name}:{path}");
-        let cp_result = Command::new(runtime)
-            .args(["cp", &src, &local_path.to_string_lossy()])
-            .output();
-
-        // Best-effort: skip files that can't be copied (sockets, etc.)
-        if let Ok(output) = cp_result {
-            if !output.status.success() {
-                continue;
-            }
-        }
-    }
-
-    Ok(file_count)
 }
 
 /// Clean up container (best-effort).
@@ -300,7 +255,7 @@ pub fn format_container_build(result: &ContainerBuildResult) -> String {
         "Container build ({runtime}): {files} files changed, {layers} layers, {size} bytes ({ms}ms)",
         runtime = result.runtime,
         files = result.changed_files,
-        layers = result.image.layers.len(),
+        layers = result.image.layer_count(),
         size = result.image.total_size,
         ms = result.duration_ms,
     )
@@ -334,7 +289,7 @@ mod tests {
         let output_dir = tmp.path().join("output");
         std::fs::create_dir_all(&output_dir).unwrap();
 
-        let image = assemble_image(
+        let image = crate::core::store::image_assembler::assemble_image(
             &plan,
             &entries,
             &output_dir,
@@ -404,6 +359,29 @@ mod tests {
     fn container_guard_cleans_up_on_drop() {
         // Constructing and dropping must not panic; cleanup runs `true rm -f`.
         let _guard = ContainerGuard::new("true", "forjar-build-guardtest");
+    }
+
+    #[test]
+    fn undeclared_base_is_not_layered() {
+        let mut plan = test_plan();
+        assert_eq!(
+            declared_base(&plan),
+            None,
+            "default debian leaked into the image"
+        );
+        plan.base_image = Some("ubuntu:24.04".into());
+        assert_eq!(declared_base(&plan), Some("ubuntu:24.04"));
+    }
+
+    #[test]
+    fn container_outlives_a_slow_base_save_and_install() {
+        let args = run_args("c", "img");
+        let secs: u32 = args.last().unwrap().parse().unwrap();
+        assert!(
+            secs >= 3600,
+            "container lifetime {secs}s is shorter than a package install"
+        );
+        assert!(args.contains(&"--rm".to_string()));
     }
 
     /// #8: build_unique_id is non-empty and PID-suffixed.
