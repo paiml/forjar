@@ -108,6 +108,11 @@ impl Entry {
 #[derive(Debug, Clone, Default)]
 pub struct DriftCensus {
     entries: BTreeMap<String, Entry>,
+    /// forjar#613: versioned binaries whose pin was NOT compared (offline, a
+    /// tag that names no version, a surface that does not execute binaries),
+    /// keyed by id, with why. Separate from `entries` because the live binary
+    /// may well have been inspected; only one question about it went unasked.
+    version_not_checked: BTreeMap<String, String>,
 }
 
 impl DriftCensus {
@@ -154,6 +159,19 @@ impl DriftCensus {
         });
         entry.skipped = None;
         entry.unmeasured = true;
+    }
+
+    /// forjar#613: record a version question this run did not ask, and why.
+    pub(super) fn version_not_checked(&mut self, id: &str, why: String) {
+        self.version_not_checked.insert(id.to_string(), why);
+    }
+
+    /// `(id, why)` for every versioned binary whose pin was not fully compared.
+    pub fn version_not_checked_ids(&self) -> Vec<(&str, &str)> {
+        self.version_not_checked
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect()
     }
 
     /// Resources this run had an opinion about — inspected, unmeasured or skipped.
@@ -250,6 +268,18 @@ impl DriftCensus {
                 self.unmeasured_ids().join(", ")
             ));
         }
+        // forjar#613: a pin nobody compared must not read as an up-to-date one.
+        if !self.version_not_checked.is_empty() {
+            lines.push(format!(
+                "version pin NOT checked {}: {}",
+                self.version_not_checked.len(),
+                self.version_not_checked
+                    .iter()
+                    .map(|(id, why)| format!("{id} ({why})"))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
+        }
         lines
     }
 
@@ -264,6 +294,7 @@ impl DriftCensus {
             "unmeasured": self.unmeasured_total(),
             "inspected_by_type": self.inspected_by_type(),
             "skipped_by_reason": self.skipped_by_reason(),
+            "version_not_checked": self.version_not_checked,
         })
     }
 }
