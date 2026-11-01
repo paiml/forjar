@@ -342,7 +342,8 @@ jobs:
           for c in contracts/*.yaml; do
             case "$c" in */binding.yaml) continue ;;   # a registry, not a contract
             esac
-            OUT=$(pv validate "$c" 2>&1); EC=$?
+            # `bash -e` aborts on a failed $(...) assignment before EC=$? runs, which hid the error text
+            OUT=$(pv validate "$c" 2>&1) && EC=0 || EC=$?
             if [ "$EC" -ne 0 ]; then
               echo "::error file=$c::$(printf '%s' "$OUT" | grep -i error | head -1)"
               fail=$((fail+1))
