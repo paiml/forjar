@@ -66,6 +66,14 @@ pub fn detect_drift_lockless(
             findings.push(f);
         }
     }
+    // forjar#613: a pin is an assertion too, and needs no lock to be checked.
+    findings.extend(super::version_pin::detect(
+        machine_name,
+        machine,
+        resources,
+        opts,
+        &mut census,
+    ));
     DriftReport::new(findings, census)
 }
 
@@ -228,6 +236,7 @@ mod tests {
         let res = resources(vec![("guard", task("false"))]);
         let opts = DriftOptions {
             run_task_checks: false,
+            ..DriftOptions::default()
         };
         let report = detect_drift_lockless("sandbox", &machine(), &res, opts);
         assert!(report.findings.is_empty());

@@ -6,13 +6,76 @@ use crate::core::shell_escape::{sh_squote, sh_write_file};
 use crate::core::types::Resource;
 use crate::resources::verdict;
 
-/// Generate shell script to check if a user exists and its properties.
+/// A check asks for every DECLARED attribute, not just presence.
+///
+/// It used to be `id <name>` alone: a declared uid, shell, home, primary group or
+/// supplementary group set was applied once and never asked about again, so a
+/// user hand-added to another group still read converged. For an isolation user
+/// that is the entire defect. `state: absent` was judged backwards too.
+/// Undeclared fields are not asserted. `groups` is the exact supplementary set,
+/// because `usermod --groups` (the apply) replaces the set rather than adding.
 pub fn check_script(resource: &Resource) -> String {
     let username = resource.name.as_deref().unwrap_or("unknown");
-    verdict::single(
-        &format!("id {} >/dev/null 2>&1", sh_squote(username)),
+    let u = sh_squote(username);
+    if resource.state.as_deref() == Some("absent") {
+        return verdict::check_script_from(&[verdict::assert_that(
+            &format!("! id {u} >/dev/null 2>&1"),
+            &format!("absent:{username}"),
+            &format!("exists:{username}"),
+        )]);
+    }
+    let mut a = vec![verdict::assert_that(
+        &format!("id {u} >/dev/null 2>&1"),
         &format!("exists:{username}"),
         &format!("missing:{username}"),
+    )];
+    let mut field = |name: &str, live: String, want: &str| {
+        a.push(verdict::assert_that(
+            &format!("[ \"$({live})\" = {} ]", sh_squote(want)),
+            &format!("{name}={want}"),
+            &format!("{name}!={want}"),
+        ));
+    };
+    if let Some(uid) = resource.uid {
+        field("uid", format!("id -u {u} 2>/dev/null"), &uid.to_string());
+    }
+    if let Some(ref shell) = resource.shell {
+        field("shell", format!("getent passwd {u} | cut -d: -f7"), shell);
+    }
+    if let Some(ref home) = resource.home {
+        field("home", format!("getent passwd {u} | cut -d: -f6"), home);
+    }
+    if let Some(ref group) = resource.group {
+        // `--gid` accepts a numeric gid, so a numeric declaration is compared to `id -g`.
+        let flag = if group.bytes().all(|c| c.is_ascii_digit()) {
+            "-g"
+        } else {
+            "-gn"
+        };
+        field("group", format!("id {flag} {u} 2>/dev/null"), group);
+    }
+    if !resource.groups.is_empty() {
+        a.push(groups_assertion(&u, &resource.groups));
+    }
+    verdict::check_script_from(&a)
+}
+
+/// The exact supplementary set. Both sides drop the primary group (`id -Gn`
+/// lists it, `usermod --groups` does not take it as supplementary) and sort in
+/// the C locale, so neither a declared primary nor the box's collation can make
+/// the check diverge forever.
+fn groups_assertion(u: &str, groups: &[String]) -> String {
+    let want: Vec<String> = groups.iter().map(|g| sh_squote(g)).collect();
+    let norm = "grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,";
+    let cond = format!(
+        "p=$(id -gn {u} 2>/dev/null); [ \"$(id -Gn {u} 2>/dev/null | tr ' ' '\\n' | {norm})\" = \"$(printf '%s\\n' {} | {norm})\" ]",
+        want.join(" ")
+    );
+    let label = groups.join(",");
+    verdict::assert_that(
+        &cond,
+        &format!("groups={label}"),
+        &format!("groups!={label}"),
     )
 }
 
