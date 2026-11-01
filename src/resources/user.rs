@@ -54,7 +54,7 @@ pub fn check_script(resource: &Resource) -> String {
         want.dedup();
         // supplementary = `id -Gn` minus the primary group, sorted, comma-joined
         let live = format!(
-            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,"
+            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,"
         );
         field("groups", live, &want.join(","));
     }

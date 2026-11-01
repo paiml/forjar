@@ -254,6 +254,8 @@ fn tmp_globs_and_deep_roots_are_accepted() {
         "/tmp/claude-1000",
         "/home/x/src",
         "/data",
+        "/home/*/src/*/target",
+        "/srv/*/build/*",
     ] {
         assert!(budget_of(&with_root(root)).is_ok(), "{root}");
     }

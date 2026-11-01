@@ -140,7 +140,15 @@ impl ReclaimRule {
             }
             let is_glob = root.contains(['*', '?', '[']);
             let depth = prefix.matches('/').count();
-            if is_glob && prefix.starts_with('/') && depth == 1 && prefix != "/tmp" {
+            // Only a root whose glob is the LAST segment directly under the prefix
+            // yields depth-2 candidates; `/home/*/src/*/target` reaches deeper.
+            let single_segment = !root[prefix.len()..].trim_start_matches('/').contains('/');
+            if is_glob
+                && prefix.starts_with('/')
+                && depth == 1
+                && prefix != "/tmp"
+                && single_segment
+            {
                 return Err(format!(
                     "disk_budget rule '{}': root '{root}' matches only depth-2 paths \
                      outside /tmp, which the reaper always refuses — the rule \
