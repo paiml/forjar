@@ -419,7 +419,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     let scope = super::dispatch_apply_check::scope_of(args);
 
     if let Some(limit) = args.cost_limit {
-        let sel = super::dispatch_apply_check::selectors_of(args, &scope).with_scope(&scope);
+        let sel = super::dispatch_apply_check::selectors_of(args, &scope);
         check_cost_limit(
             &args.file,
             &sd,
