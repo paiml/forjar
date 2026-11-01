@@ -67,7 +67,7 @@ jobs:
   # ledger defect — 34 minutes, the single most expensive job a PR pays for,
   # and it cannot be affected by a change that touches no code.
   classify:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:
@@ -261,7 +261,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: ledger-replay
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # forjar#447 (second signature, measured on the host 2026-09-03): all 16
     # clean-room runners share ONE $HOME/.cargo registry, and two sweepers
     # delete extracted crate sources by age (the hourly ci-reaper's
@@ -378,7 +378,7 @@ jobs:
 
   proofs:
     name: proofs
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     needs: [classify, kani, lean, contracts, ledger-replay]
     if: always()
     steps:
