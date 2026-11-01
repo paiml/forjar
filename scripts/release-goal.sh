@@ -50,75 +50,89 @@ NOW="${DOGFOOD_NOW:-$(date -u +%s)}" # bashrs disable-line=DET002
 # `pmat work edit` writes it.
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)" # bashrs disable-line=DET002
 
-# Add label $2 to row $1, textually and idempotently; bump the row's
-# `updated:`. Prints one line saying what it did.
+# One row of docs/roadmaps/roadmap.yaml, edited as text (PMAT-607: this was a
+# python3 heredoc). The row is `- id: TICKET` up to the next `- id: `. The
+# label lines are `  - LABEL` directly under `  labels:`, and `labels: []` is
+# the empty list. The row's `updated:` is bumped, as `pmat work edit` bumps it.
+# Exit 0 means the new text is on stdout. 10 means nothing to do. 3 means
+# TICKET is not a row, and 4 means the row has no labels: key.
+# RG_OP is add or remove.
+ROW_EDIT_AWK='
+{ line[++n] = $0 }
+END {
+  t = ENVIRON["RG_T"]; l = "  - " ENVIRON["RG_L"]; op = ENVIRON["RG_OP"]
+  for (i = 1; i <= n; i++) if (line[i] == "- id: " t) { s = i; break }
+  if (!s) exit 3
+  e = n + 1
+  for (i = s + 1; i <= n; i++) if (substr(line[i], 1, 6) == "- id: ") { e = i; break }
+  at = 0; drop = 0
+  for (i = s; i < e; i++) if (line[i] == l) { at = i; break }
+  if (op == "add") {
+    if (at) exit 10
+    for (i = s + 1; i < e; i++) if (line[i] == "  labels: []") { line[i] = "  labels:"; at = i; break }
+    if (!at) {
+      for (i = s + 1; i < e; i++) if (line[i] == "  labels:") { at = i; break }
+      if (!at) exit 4
+      while (at + 1 < e && substr(line[at + 1], 1, 4) == "  - ") at++
+    }
+  } else {
+    if (!at) exit 10
+    drop = at
+    for (i = s + 1; i < e; i++) {
+      if (i == drop) continue
+      if (line[i] == "  labels:") {
+        j = i + 1; if (j == drop) j++
+        if (j >= e || substr(line[j], 1, 4) != "  - ") line[i] = "  labels: []"
+        break
+      }
+    }
+  }
+  for (i = s; i < e; i++) if (substr(line[i], 1, 11) == "  updated: ") { line[i] = "  updated: " ENVIRON["RG_S"]; break }
+  for (i = 1; i <= n; i++) {
+    if (i == drop) continue
+    print line[i]
+    if (op == "add" && i == at) print l
+  }
+}'
+
+# Edit row $2 (op $1) for label $3 -> prints one line saying what it did.
+edit_row() {
+  local op="$1" ticket="$2" label="$3" path=docs/roadmaps/roadmap.yaml rc=0
+  local tmp="${path}.release-goal.tmp"
+  RG_OP="$op" RG_T="$ticket" RG_L="$label" RG_S="$STAMP" awk "$ROW_EDIT_AWK" "$path" >"$tmp" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    rm -f "${tmp:?}"
+  fi
+  case "$op:$rc" in
+    add:0) mv "$tmp" "$path"; echo "labelled ${ticket} ${label}" ;;
+    remove:0) mv "$tmp" "$path"; echo "removed  ${ticket} ${label}" ;;
+    add:10) echo "already  ${ticket} ${label}" ;;
+    remove:10) echo "absent   ${ticket} ${label}" ;;
+    *:3) echo "release-goal: ${ticket} is not a row of ${path}" >&2; exit 3 ;;
+    *:4) echo "release-goal: ${ticket} has no labels: key" >&2; exit 3 ;;
+    *) echo "release-goal: awk exited ${rc} editing ${ticket} in ${path}" >&2; exit 3 ;;
+  esac
+}
+
+# Add label $2 to row $1, textually and idempotently. Prints one line.
 label_row() {
-  python3 - "$1" "$2" "$STAMP" <<'PY'
-import io, re, sys
-ticket, label, now = sys.argv[1], sys.argv[2], sys.argv[3]
-path = "docs/roadmaps/roadmap.yaml"
-text = io.open(path, encoding="utf-8").read()
-head = re.search(r"^- id: %s$" % re.escape(ticket), text, re.M)
-if not head:
-    print("release-goal: %s is not a row of %s" % (ticket, path), file=sys.stderr)
-    sys.exit(3)
-start = head.start()
-after = re.search(r"^- id: ", text[head.end():], re.M)
-end = head.end() + after.start() if after else len(text)
-block = text[start:end]
-if re.search(r"^  - %s$" % re.escape(label), block, re.M):
-    print("already  %s %s" % (ticket, label))
-    sys.exit(0)
-if "\n  labels: []\n" in block:
-    block = block.replace("\n  labels: []\n", "\n  labels:\n  - %s\n" % label, 1)
-else:
-    m = re.search(r"^  labels:\n((?:  - .*\n)*)", block, re.M)
-    if not m:
-        print("release-goal: %s has no labels: key" % ticket, file=sys.stderr)
-        sys.exit(3)
-    block = block[: m.end()] + "  - %s\n" % label + block[m.end():]
-block = re.sub(r"^  updated: .*$", "  updated: %s" % now, block, count=1, flags=re.M)
-io.open(path, "w", encoding="utf-8").write(text[:start] + block + text[end:])
-print("labelled %s %s" % (ticket, label))
-PY
+  edit_row add "$1" "$2"
 }
 
 # Remove label $2 from row $1, textually. Prints one line.
 unlabel_row() {
-  python3 - "$1" "$2" "$STAMP" <<'PY'
-import io, re, sys
-ticket, label, now = sys.argv[1], sys.argv[2], sys.argv[3]
-path = "docs/roadmaps/roadmap.yaml"
-text = io.open(path, encoding="utf-8").read()
-head = re.search(r"^- id: %s$" % re.escape(ticket), text, re.M)
-if not head:
-    print("release-goal: %s is not a row of %s" % (ticket, path), file=sys.stderr)
-    sys.exit(3)
-start = head.start()
-after = re.search(r"^- id: ", text[head.end():], re.M)
-end = head.end() + after.start() if after else len(text)
-block = text[start:end]
-line = "  - %s\n" % label
-if line not in block:
-    print("absent   %s %s" % (ticket, label))
-    sys.exit(0)
-block = block.replace(line, "", 1)
-if re.search(r"^  labels:\n(?!  - )", block, re.M):
-    block = re.sub(r"^  labels:\n", "  labels: []\n", block, count=1, flags=re.M)
-block = re.sub(r"^  updated: .*$", "  updated: %s" % now, block, count=1, flags=re.M)
-io.open(path, "w", encoding="utf-8").write(text[:start] + block + text[end:])
-print("removed  %s %s" % (ticket, label))
-PY
+  edit_row remove "$1" "$2"
 }
 
-# The tag just below $1 among the tags reachable from $1 -> LOWER.
+# The release tag just below $1 among those reachable from $1 -> LOWER.
 lower_tag_of() {
   local rc=0 t
   # PMAT-239: one capture and one awk, never a three-stage pipe whose last
   # two stages exit early and leave git holding a closed pipe.
   local all
   all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
-  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
+  dogfood_release_tags "$all"
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$DOGFOOD_RELEASE_TAGS")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} failed (exit ${rc})"
   fi
@@ -272,6 +286,44 @@ cmd_sync() {
   [ "$missing" -eq 0 ] || exit 1
 }
 
+# Write row $4 (cmd_window's text for tag $1) into the ledger, and make the
+# next goal $2, due $3. The row goes after the last row, and `next:` is
+# rewritten under it. `releases: []` opens as `releases:`. Text below the
+# `next:` block is not kept. PMAT-607: this was a python3 heredoc.
+book_row() {
+  local path=docs/roadmaps/releases.yaml rc=0 cut
+  local tmp="${path}.release-goal.tmp"
+  RG_ROW="$4" RG_NEXT="$2" RG_DUE="$3" awk '
+    $0 == "next:" { found = 1 }
+    found { next }
+    NR > 1 && !opened && $0 == "releases: []" { $0 = "releases:"; opened = 1 }
+    { line[++n] = $0 }
+    END {
+      if (!found) exit 3
+      while (n > 0 && line[n] == "") n--
+      for (i = 1; i <= n; i++) print line[i]
+      row = ENVIRON["RG_ROW"]
+      sub(/\n+$/, "", row)
+      print row
+      print "next:"
+      print "  tag: " ENVIRON["RG_NEXT"]
+      print "  due: " ENVIRON["RG_DUE"]
+    }' "$path" >"$tmp" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    rm -f "${tmp:?}"
+    if [ "$rc" -eq 3 ]; then
+      echo "release-goal: no next: block in ${path}" >&2
+    else
+      echo "release-goal: awk exited ${rc} writing ${path}" >&2
+    fi
+    exit 3
+  fi
+  mv "$tmp" "$path"
+  cut="${4#*cut: }"
+  cut="${cut%%$'\n'*}"
+  echo "declared ${1} (cut ${cut}) and next ${2} due ${3}"
+}
+
 cmd_cut() {
   local tag="$1" next="" cadence_days due row lower t shipped
   shift
@@ -291,23 +343,7 @@ cmd_cut() {
   dogfood_epoch "$DOGFOOD_TAG_DATE"
   dogfood_iso $((DOGFOOD_EPOCH + cadence_days * 86400)); due="$DOGFOOD_ISO"
   row="$(cmd_window "$tag")"
-  python3 - "$tag" "$next" "$due" "$row" <<'PY'
-import io, re, sys
-tag, nxt, due, row = sys.argv[1:5]
-path = "docs/roadmaps/releases.yaml"
-text = io.open(path, encoding="utf-8").read()
-m = re.search(r"^next:\n(?:  .*\n?)*", text, re.M)
-if not m:
-    print("release-goal: no next: block in %s" % path, file=sys.stderr)
-    sys.exit(3)
-text = text.replace("\nreleases: []\n", "\nreleases:\n", 1)
-m = re.search(r"^next:\n(?:  .*\n?)*", text, re.M)
-row = row.rstrip("\n") + "\n"
-before = text[: m.start()].rstrip("\n") + "\n"
-text = before + row + "next:\n  tag: %s\n  due: %s\n" % (nxt, due)
-io.open(path, "w", encoding="utf-8").write(text)
-print("declared %s (cut %s) and next %s due %s" % (tag, row.split("cut: ")[1].split("\n")[0], nxt, due))
-PY
+  book_row "$tag" "$next" "$due" "$row"
   # The labels: every ticket the tag shipped carries release:TAG; a ticket
   # that carried release:TAG as a goal and did not ship moves to release:NEXT
   # (the plan grill: a goal that missed the cut must not block it).

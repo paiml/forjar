@@ -27,6 +27,9 @@
 # The caller must define `fail()` (printing its own `GATE <letter> FAIL …`)
 # BEFORE sourcing this file.
 
+# shellcheck source=scripts/dogfood/lib/tags.sh
+. "${BASH_SOURCE[0]%/*}/tags.sh"
+
 # The GitHub client. Named here because it is a REQUIREMENT of the gates, not
 # a convenience: the set of PRs merged since a tag is a fact only GitHub holds,
 # so a gh that cannot answer leaves the window unmeasured, and an unmeasured
@@ -45,7 +48,7 @@ REPO="paiml/forjar"
 # may have been truncated and no gate knows the set it is checking.
 PR_PAGE_LIMIT=200
 
-# The newest v* tag reachable from HEAD -> DOGFOOD_PREV_TAG.
+# The newest release tag (lib/tags.sh) reachable from HEAD -> DOGFOOD_PREV_TAG.
 #
 # Reachability, not recency: a tag on a branch this checkout does not contain
 # says nothing about what is in this tree. No tag at all is UNMEASURED and not
@@ -59,12 +62,13 @@ dogfood_prev_tag() {
   # first line with parameter expansion: one process, no signal.
   local tags
   tags="$(git tag --list 'v*' --sort=-v:refname --merged HEAD)" || rc=$?
-  tag="${tags%%$'\n'*}"
+  dogfood_release_tags "$tags"
+  tag="${DOGFOOD_RELEASE_TAGS%%$'\n'*}"
   if [ "$rc" -ne 0 ]; then
     fail "git tag --merged HEAD exited ${rc} — the lower bound of the PR window cannot be read, so the window is UNMEASURED"
   fi
   if [ -z "$tag" ]; then
-    fail "no v* tag is reachable from HEAD, so the set of merged PRs has no lower bound — UNMEASURED, and an unbounded window would make this gate vacuous"
+    fail "no vX.Y.Z release tag is reachable from HEAD, so the set of merged PRs has no lower bound — UNMEASURED, and an unbounded window would make this gate vacuous"
   fi
   DOGFOOD_PREV_TAG="$tag"
 }
