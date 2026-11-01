@@ -152,6 +152,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         secrets: Default::default(),
         environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     }
 }
 
