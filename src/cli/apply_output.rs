@@ -1,6 +1,6 @@
 //! Apply command output formatting helpers.
 
-use super::apply_drift::GateScope;
+use super::apply_drift::{DriftRepair, GateScope};
 use super::apply_helpers::*;
 use super::helpers::*;
 use crate::core::state::stamp;
@@ -25,13 +25,17 @@ pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
 /// `-r`, `-g`), feeds both the text body and `--json` — see `apply_dry_run`.
 /// The JSON branch used to plan on its own and skipped even the machine
 /// filter the text branch applied, so the two bodies could disagree.
+///
+/// `observed` is the drift gate's findings for this run, so the preview plans
+/// the repairs the real apply would make.
 pub(super) fn apply_dry_run_output(
     config: &types::ForjarConfig,
     state_dir: &Path,
     scope: &GateScope<'_>,
+    observed: &[DriftRepair],
     json: bool,
 ) -> Result<(), String> {
-    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope)?;
+    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope, observed)?;
     if json {
         let output = super::apply_dry_run::render_dry_run_json(&plan);
         println!(
