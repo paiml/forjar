@@ -4,6 +4,7 @@
 //! output is placed under a deterministic path derived from its inputs.
 
 pub mod base_image;
+pub mod base_resolve;
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;
@@ -64,6 +65,8 @@ pub mod sync_exec;
 pub mod validate;
 pub mod verify;
 
+#[cfg(test)]
+mod tests_base_resolve;
 #[cfg(test)]
 mod tests_bash_provability;
 #[cfg(test)]
