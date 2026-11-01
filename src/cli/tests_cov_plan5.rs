@@ -140,7 +140,7 @@ mod data_source_fault_isolation {
     }
 
     #[test]
-    fn plan_isolates_failed_data_source_to_its_dependents() {
+    fn plan_out_refuses_to_seal_when_a_data_source_failed() {
         let yaml = r#"
 version: "1.0"
 name: iso
@@ -173,8 +173,7 @@ data:
         );
         let err = result.unwrap_err();
         assert!(err.contains("broken") && err.contains("127"), "{err}");
-        let saved = std::fs::read_to_string(&out).unwrap();
-        assert!(saved.contains("unrelated"), "unrelated resource must be planned");
-        assert!(!saved.contains("\"dependent\""), "dependent must be skipped");
+        assert!(err.contains("no plan file written"), "{err}");
+        assert!(!out.exists(), "a plan apply --plan-file cannot apply must not be sealed");
     }
 }

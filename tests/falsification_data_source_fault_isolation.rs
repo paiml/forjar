@@ -4,8 +4,8 @@
 //! The assertions are on the files the run wrote, the exit status and the
 //! output naming the failed source: the unrelated resource's file must exist,
 //! the dependent's must not, and the run must still exit non-zero so the
-//! failure is never silent. Only `apply` is driven here; `plan --out` is covered
-//! by the in-crate test `plan_isolates_failed_data_source_to_its_dependents`.
+//! failure is never silent. Only `apply` is driven here; `plan --out` (refuses to seal) is covered
+//! by the in-crate test `plan_out_refuses_to_seal_when_a_data_source_failed`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
