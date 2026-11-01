@@ -35,6 +35,7 @@ fn every_resource_type_appears_in_all_types() {
         "overlay_interface",
         "disk_budget",
         "backup_sync",
+        "tmp_reaper",
     ] {
         assert!(
             listed.iter().any(|l| l == name),
@@ -43,7 +44,7 @@ fn every_resource_type_appears_in_all_types() {
     }
     assert_eq!(
         listed.len(),
-        21,
+        22,
         "ALL_TYPES has {} entries; update this test when a type is added",
         listed.len()
     );

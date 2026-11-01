@@ -50,6 +50,7 @@ pub(super) fn run_for(t: &ResourceType) -> Outcome {
         ResourceType::NasArchive => nas_archive(t),
         ResourceType::File => file(t),
         ResourceType::Cron => cron(t),
+        ResourceType::TmpReaper => tmp_reaper(t),
         other => bad(
             other,
             "declared Exercised but has no exercise — add one or mark NotApplicable",
@@ -428,4 +429,53 @@ fn nas_archive(t: &ResourceType) -> Outcome {
         "verified-then-deleted on a matching tree, and REFUSED to delete against \
          a mismatched destination (the predecessor's defect)",
     )
+}
+
+/// `tmp_reaper` — the generated shell, run against a real tree: an old file
+/// goes, a new one stays, a second pass removes nothing, and `/` is refused.
+fn tmp_reaper(t: &ResourceType) -> Outcome {
+    let dir = match scratch("tmp_reaper") {
+        Ok(d) => d,
+        Err(e) => return bad(t, format!("scratch dir: {e}")),
+    };
+    let (old, new) = (dir.join("old"), dir.join("new"));
+    if fs::write(&old, "x").is_err() || fs::write(&new, "x").is_err() {
+        return bad(t, "could not seed files");
+    }
+    let aged = Command::new("touch")
+        .args(["-d", "10 days ago"])
+        .arg(&old)
+        .status();
+    if !aged.map(|s| s.success()).unwrap_or(false) {
+        return bad(t, "could not age the fixture");
+    }
+    let r = crate::core::types::Resource {
+        resource_type: ResourceType::TmpReaper,
+        path: Some(dir.to_string_lossy().into_owned()),
+        max_age: Some("7d".into()),
+        ..Default::default()
+    };
+    let script = crate::resources::tmp_reaper::apply_script(&r);
+    let run = |s: &str| Command::new("bash").arg("-c").arg(s).output();
+    let first = run(&script);
+    let second = run(&script);
+    let root = crate::resources::tmp_reaper::spec_of(&crate::core::types::Resource {
+        path: Some("/".into()),
+        ..r.clone()
+    });
+    let _ = fs::remove_dir_all(&dir);
+    match (first, second) {
+        (Ok(a), Ok(b))
+            if String::from_utf8_lossy(&a.stdout).contains("removed 1 file(s), 1 inode(s)")
+                && String::from_utf8_lossy(&b.stdout).contains("removed 0 file(s), 0 inode(s)")
+                && !old.exists()
+                && root.is_err() =>
+        {
+            ok(t, "old removed, new kept, second pass removed 0, / refused")
+        }
+        _ => bad(
+            t,
+            "reaper did not behave: old kept, count wrong, or / accepted",
+        ),
+    }
 }

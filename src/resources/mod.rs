@@ -33,6 +33,7 @@ mod tests_service_exec;
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;

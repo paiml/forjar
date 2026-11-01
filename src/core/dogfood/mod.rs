@@ -76,7 +76,7 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
 
         // Emit shell, but against interfaces that are stable, self-evident from
         // the emitted text, and already pinned by falsification suites.
-        ResourceType::File | ResourceType::Cron => Coverage::Exercised,
+        ResourceType::File | ResourceType::Cron | ResourceType::TmpReaper => Coverage::Exercised,
 
         // Require privileged, host-mutating or networked state that a dogfood
         // run must not touch. Covered by the clean room and by convergence
@@ -126,6 +126,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::DiskBudget,
     ResourceType::BackupSync,
     ResourceType::NasArchive,
+    ResourceType::TmpReaper,
 ];
 
 /// Run every exercised resource type against reality.
