@@ -143,8 +143,8 @@ fn a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself() {
 /// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
 /// it uploads would be wrong rather than absent.
 ///
-/// Every runner forjar can reach is `X64`, so naming it costs no capacity and
-/// states the assumption instead of relying on someone not clicking the box.
+/// Naming the architecture (`X64` or `ARM64`, deliberately) states the
+/// assumption instead of relying on someone not clicking the box.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
     let arches = ["X64", "ARM64"];
@@ -171,8 +171,7 @@ fn a_fleet_job_names_the_architecture_it_needs() {
     assert!(
         unpinned.is_empty(),
         "these fleet jobs name no architecture, and `clean-room` spans X64 and \
-         ARM64:\n{}\n\nAdd `X64` (or `ARM64`, deliberately). Every runner this \
-         repository can reach today is X64, so this costs nothing and removes \
+         ARM64:\n{}\n\nAdd `X64` or `ARM64`, deliberately; naming it removes \
          the chance that a checkbox on a runner group turns an x86_64 release \
          binary into an ARM one.",
         unpinned.join("\n")
