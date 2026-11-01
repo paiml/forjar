@@ -143,3 +143,48 @@ fn config_thresholds_must_be_1_to_100_and_mounts_absolute() {
     };
     assert_eq!(validate_config(&cfg).len(), 2);
 }
+
+fn btrfs_root() -> String {
+    df(&[
+        "/dev/sda2 btrfs 0 0 0 - /",
+        "tmpfs tmpfs 1000 100 900 10% /tmp",
+    ])
+}
+
+#[test]
+fn a_dash_on_root_is_not_red_and_is_reported_as_unmeasured() {
+    let readings = parse_df_i(&btrfs_root());
+    assert_eq!(
+        evaluate(&InodePressure::default(), &readings),
+        Ok(vec![]),
+        "a '-' IUse% must never be a finding"
+    );
+    assert_eq!(
+        unmeasured_mounts(&InodePressure::default(), &readings),
+        vec!["/".to_string()]
+    );
+}
+
+#[test]
+fn a_dash_on_an_explicitly_watched_mount_is_unmeasured_not_an_error() {
+    let cfg = InodePressure {
+        threshold_pct: 90,
+        mounts: vec![WatchedMount {
+            path: "/".into(),
+            threshold_pct: None,
+        }],
+    };
+    let readings = parse_df_i(&btrfs_root());
+    assert_eq!(evaluate(&cfg, &readings), Ok(vec![]));
+    assert_eq!(unmeasured_mounts(&cfg, &readings), vec!["/".to_string()]);
+}
+
+#[test]
+fn unwatched_dash_rows_are_not_reported() {
+    // efivarfs prints '-' in the fixture and is neither / nor tmpfs.
+    assert!(unmeasured_mounts(
+        &InodePressure::default(),
+        &parse_df_i(&fixture("10%", "10%"))
+    )
+    .is_empty());
+}

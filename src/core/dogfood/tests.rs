@@ -121,3 +121,33 @@ fn disk_budget_exercise_detects_both_real_cargo_layouts() {
     );
     assert!(o.detail.contains("4 real shapes"), "{}", o.detail);
 }
+
+/// A reaper that claims the right counts but deletes the wrong things.
+fn mutant(rm: &'static str) -> impl Fn(&crate::core::types::Resource) -> String {
+    move |r| {
+        format!(
+            "P='{}'\nif [ -e \"$P/.m\" ]; then echo 'removed 0 file(s), 0 inode(s)'; else touch \"$P/.m\"; {rm}; echo 'removed 1 file(s), 1 inode(s)'; fi",
+            r.path.as_deref().unwrap_or("")
+        )
+    }
+}
+
+#[test]
+fn tmp_reaper_exercise_passes_the_real_reaper() {
+    let o = super::exercise_tmp_reaper::run(&ResourceType::TmpReaper);
+    assert!(o.passed, "{}", o.detail);
+}
+
+#[test]
+fn tmp_reaper_exercise_fails_a_reaper_that_removes_the_new_file_too() {
+    let m = mutant("rm -f \"$P\"/old \"$P\"/new");
+    let o = super::exercise_tmp_reaper::run_with(&ResourceType::TmpReaper, &m);
+    assert!(!o.passed, "'new kept' is not asserted: {}", o.detail);
+}
+
+#[test]
+fn tmp_reaper_exercise_fails_a_reaper_that_keeps_the_old_file() {
+    let m = mutant(":");
+    let o = super::exercise_tmp_reaper::run_with(&ResourceType::TmpReaper, &m);
+    assert!(!o.passed, "'old removed' is not asserted: {}", o.detail);
+}

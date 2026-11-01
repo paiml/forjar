@@ -1,5 +1,5 @@
 //! forjar#847: inode-pressure check — a filesystem can be out of inodes while it
-//! still has free blocks. STUB: tests first.
+//! still has free blocks.
 
 use serde::{Deserialize, Serialize};
 
@@ -123,9 +123,8 @@ pub fn evaluate(
             .iter()
             .find(|r| r.mount == w.path)
             .ok_or_else(|| format!("not measured: mount {} is not in `df -i` output", w.path))?;
-        let pct = r
-            .iuse_pct
-            .ok_or_else(|| format!("not measured: mount {} reports no inode accounting", w.path))?;
+        // A `-` (btrfs and friends) is reported by `unmeasured_mounts`, not red.
+        let Some(pct) = r.iuse_pct else { continue };
         out.extend(crossing(
             r,
             pct,
@@ -133,6 +132,23 @@ pub fn evaluate(
         ));
     }
     Ok(out)
+}
+
+/// Watched mounts whose `IUse%` is `-` (btrfs and friends: no inode table to
+/// count). They are NOT MEASURED: a warning, never red, never a pass.
+pub fn unmeasured_mounts(cfg: &InodePressure, readings: &[InodeReading]) -> Vec<String> {
+    let watched = |r: &InodeReading| {
+        if cfg.mounts.is_empty() {
+            r.mount == "/" || r.fstype == "tmpfs"
+        } else {
+            cfg.mounts.iter().any(|w| w.path == r.mount)
+        }
+    };
+    readings
+        .iter()
+        .filter(|r| r.iuse_pct.is_none() && watched(r))
+        .map(|r| r.mount.clone())
+        .collect()
 }
 
 /// Config-time checks: thresholds in 1..=100, mounts absolute.

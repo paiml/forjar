@@ -12,41 +12,51 @@ fn df(root: &str, tmp: &str) -> Result<String, String> {
     ))
 }
 
+fn one(df: Result<String, String>) -> Vec<Target> {
+    vec![("localhost".to_string(), df)]
+}
+
 fn cfg() -> ForjarConfig {
     ForjarConfig::default()
 }
 
 #[test]
 fn drift_counts_a_99_percent_tmpfs_and_not_the_same_mount_at_10() {
-    assert_eq!(drift_count(&cfg(), df("10%", "99%"), true).unwrap(), 1);
-    assert_eq!(drift_count(&cfg(), df("10%", "10%"), true).unwrap(), 0);
+    assert_eq!(
+        drift_count(&cfg(), &one(df("10%", "99%")), true).unwrap(),
+        1
+    );
+    assert_eq!(
+        drift_count(&cfg(), &one(df("10%", "10%")), true).unwrap(),
+        0
+    );
 }
 
 #[test]
 fn drift_that_cannot_measure_fails_closed() {
-    let e = drift_count(&cfg(), Err("not measured: no df".into()), true).unwrap_err();
+    let e = drift_count(&cfg(), &one(Err("not measured: no df".into())), true).unwrap_err();
     assert!(e.contains("not measured"), "{e}");
 }
 
 #[test]
 fn validate_refuses_a_full_tmpfs_and_accepts_it_at_10() {
-    let e = pre_check(&cfg(), df("10%", "99%"), "validate", false).unwrap_err();
+    let e = pre_check(&cfg(), &one(df("10%", "99%")), "validate", false).unwrap_err();
     assert!(
         e.contains("/dev/shm") && e.contains("99%") && e.contains("validate"),
         "{e}"
     );
-    assert!(pre_check(&cfg(), df("10%", "10%"), "validate", false).is_ok());
+    assert!(pre_check(&cfg(), &one(df("10%", "10%")), "validate", false).is_ok());
 }
 
 #[test]
 fn apply_precheck_refuses_a_full_root_and_accepts_it_at_89() {
-    assert!(pre_check(&cfg(), df("90%", "10%"), "apply", false).is_err());
-    assert!(pre_check(&cfg(), df("89%", "10%"), "apply", false).is_ok());
+    assert!(pre_check(&cfg(), &one(df("90%", "10%")), "apply", false).is_err());
+    assert!(pre_check(&cfg(), &one(df("89%", "10%")), "apply", false).is_ok());
 }
 
 #[test]
 fn apply_dry_run_warns_and_does_not_refuse() {
-    assert!(pre_check(&cfg(), df("99%", "10%"), "apply", true).is_ok());
+    assert!(pre_check(&cfg(), &one(df("99%", "10%")), "apply", true).is_ok());
 }
 
 #[test]

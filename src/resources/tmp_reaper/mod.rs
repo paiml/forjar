@@ -106,8 +106,15 @@ pub fn check_script(r: &Resource) -> String {
         Ok(s) => s,
         Err(e) => return broken(&format!("tmp_reaper: {e}")),
     };
+    // Select exactly what `apply_script` removes: old files and symlinks
+    // (matching the pattern), plus old EMPTY directories when no pattern.
+    let dirs = if spec.pattern.is_none() {
+        " -o -type d -empty"
+    } else {
+        ""
+    };
     let cond = format!(
-        "[ -z \"$(find \"$P\" -xdev -mindepth 1 -mmin +{}{} -print -quit)\" ]",
+        "[ -z \"$(find \"$P\" -xdev -mindepth 1 -mmin +{} \\( \\( -type f -o -type l \\){}{dirs} \\) -print -quit)\" ]",
         spec.max_age_min,
         name_arg(&spec),
     );
@@ -156,10 +163,11 @@ pub fn state_query_script(r: &Resource) -> String {
         Err(e) => return broken(&format!("tmp_reaper: {e}")),
     };
     format!(
-        "{}\necho \"stale=$(find \"$P\" -xdev -mindepth 1 -mmin +{}{} | wc -l)\"",
+        "{}\necho \"stale=$(find \"$P\" -xdev -mindepth 1 -mmin +{} \\( \\( -type f -o -type l \\){}{} \\) | wc -l)\"",
         guard(&spec, "echo 'stale=absent'; exit 0"),
         spec.max_age_min,
         name_arg(&spec),
+        if spec.pattern.is_none() { " -o -type d -empty" } else { "" },
     )
 }
 

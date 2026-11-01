@@ -201,3 +201,60 @@ fn path_slash_is_refused_at_validate_time_and_a_real_path_is_not() {
     );
     assert!(validate_yaml("/var/tmp/work").is_empty());
 }
+
+fn mkfifo(p: &Path, days: u32) {
+    assert!(Command::new("mkfifo").arg(p).status().unwrap().success());
+    age(p, days);
+}
+
+#[test]
+fn check_ignores_what_apply_never_removes_so_it_converges() {
+    let d = tempfile::tempdir().unwrap();
+    // An old fifo, and an old directory that still holds a fresh file: apply
+    // removes neither, so check must not call either one stale.
+    mkfifo(&d.path().join("pipe"), 10);
+    let busy = d.path().join("busy");
+    std::fs::create_dir(&busy).unwrap();
+    file(&busy, "fresh", 0);
+    age(&busy, 10);
+    let r = res(d.path().to_str().unwrap(), "7d", None);
+    assert_eq!(
+        sh(&check_script(&r)).0,
+        0,
+        "check flags entries apply never removes"
+    );
+    assert_eq!(sh(&apply_script(&r)).0, 0);
+    assert!(d.path().join("pipe").exists() && busy.exists());
+    assert_eq!(sh(&check_script(&r)).0, 0, "never converges after apply");
+}
+
+#[test]
+fn check_flags_exactly_what_apply_removes() {
+    let d = tempfile::tempdir().unwrap();
+    let r = res(d.path().to_str().unwrap(), "7d", None);
+    let empty = d.path().join("empty");
+    std::fs::create_dir(&empty).unwrap();
+    age(&empty, 10);
+    assert_ne!(sh(&check_script(&r)).0, 0, "an old empty dir is stale");
+    sh(&apply_script(&r));
+    assert!(!empty.exists());
+    assert_eq!(sh(&check_script(&r)).0, 0);
+    let link = d.path().join("l");
+    std::os::unix::fs::symlink("/nonexistent", &link).unwrap();
+    age(&link, 10);
+    assert_ne!(sh(&check_script(&r)).0, 0, "an old symlink is stale");
+}
+
+#[test]
+fn with_a_pattern_check_looks_only_at_matching_files() {
+    let d = tempfile::tempdir().unwrap();
+    let empty = d.path().join("emptydir");
+    std::fs::create_dir(&empty).unwrap();
+    age(&empty, 10);
+    file(d.path(), "old.log", 10);
+    let r = res(d.path().to_str().unwrap(), "7d", Some("*.tmp"));
+    // apply with a pattern never touches directories or non-matching files.
+    assert_eq!(sh(&check_script(&r)).0, 0);
+    file(d.path(), "old.tmp", 10);
+    assert_ne!(sh(&check_script(&r)).0, 0);
+}

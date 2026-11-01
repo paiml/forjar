@@ -36,6 +36,7 @@
 
 use crate::core::types::ResourceType;
 
+mod exercise_tmp_reaper;
 mod exercises;
 #[cfg(test)]
 mod tests;
