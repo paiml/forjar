@@ -161,7 +161,7 @@ pub fn apply_script(resource: &Resource) -> String {
                 "set -euo pipefail\n\
                  {SUDO_PREAMBLE}\n\
                  {read}\n\
-                 EXISTING=$(printf '%s\\n' \"$EXISTING\" | {strip} || true)\n\
+                 EXISTING=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
                  {{\n\
                    echo \"$EXISTING\"\n\
                    echo {marker}\n\
@@ -194,9 +194,13 @@ pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let u = crontab_user(resource);
     let marker = sh_squote(&format!("# forjar:{name}"));
+    // An unreadable crontab is an error, not `cron=MISSING`: the lock would
+    // otherwise record "absent" for a job that may well exist.
+    let read = read_existing(&u, "EXISTING=''");
     format!(
         "{SUDO_PREAMBLE}\n\
-         $SUDO crontab -u {u} -l 2>/dev/null | grep -A2 -Fx {marker} || echo {}",
+         {read}\n\
+         printf '%s\\n' \"$EXISTING\" | grep -A2 -Fx {marker} || echo {}",
         sh_squote(&format!("cron=MISSING:{name}"))
     )
 }

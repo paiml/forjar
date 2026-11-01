@@ -117,6 +117,7 @@ fn run(script: &str, dir: &Path) -> Output {
         .arg("-c")
         .arg(script)
         .env("PATH", path)
+        .env("LC_ALL", "fr_FR.UTF-8") // the script must force C itself
         .output()
         .expect("run generated script")
 }
@@ -374,5 +375,62 @@ fn a_failed_install_fails_the_apply() {
     );
     let out = run(&script(), &dir);
     assert_ne!(out.status.code(), Some(0));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+fn state_query() -> String {
+    forjar::core::codegen::state_query_script(&present()).expect("cron state query")
+}
+
+/// The observation hashed into the lock: an unreadable crontab is an error,
+/// never `cron=MISSING`.
+#[test]
+fn state_query_with_a_failed_read_is_an_error_not_missing() {
+    let dir = host(
+        "qfail",
+        &Read::Fails("crontab: must be privileged to use -u"),
+    );
+    let out = run(&state_query(), &dir);
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("MISSING"));
+    assert_ne!(out.status.code(), Some(0));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn state_query_with_no_crontab_is_missing() {
+    let dir = host("qnone", &Read::NoCrontab);
+    let out = run(&state_query(), &dir);
+    assert!(String::from_utf8_lossy(&out.stdout).contains("cron=MISSING:backup"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// A filter that dies after a good read must not become an empty crontab.
+#[test]
+fn present_with_a_failing_filter_does_not_wipe_the_crontab() {
+    let dir = host("pawk", &Read::Has("MAILTO=x\n5 5 * * * keep-me\n"));
+    stub(&dir, "awk", "exit 2");
+    let out = run(&present_script(), &dir);
+    assert!(installed(&dir).is_none(), "installed {:?}", installed(&dir));
+    assert_ne!(out.status.code(), Some(0));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// The non-root path: `sudo env LC_ALL=C crontab` must actually execute.
+#[test]
+fn the_sudo_read_form_executes_for_a_non_root_caller() {
+    let dir = host(
+        "sudo",
+        &Read::Has("5 5 * * * keep-me\n# forjar:backup\n# forjar-cmd:backup\n0 1 * * * x\n"),
+    );
+    stub(&dir, "id", "echo 1000");
+    stub(&dir, "sudo", "[ \"$1\" = -n ] && shift\nexec \"$@\"");
+    let out = run(&script(), &dir);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(installed(&dir).as_deref(), Some("5 5 * * * keep-me\n"));
     let _ = fs::remove_dir_all(&dir);
 }

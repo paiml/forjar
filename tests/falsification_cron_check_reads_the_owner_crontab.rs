@@ -180,7 +180,8 @@ fn apply_check_and_state_query_address_the_same_crontab() {
         ("state_query", &query),
     ] {
         assert!(
-            script.contains("$SUDO crontab -u 'deploy'"),
+            (script.contains("$SUDO crontab -u 'deploy'")
+                || script.contains("$SUDO env LC_ALL=C crontab -u 'deploy'")),
             "{label} does not read/write deploy's crontab with the privilege it \
              needs:\n{script}"
         );

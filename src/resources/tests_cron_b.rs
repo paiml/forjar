@@ -158,7 +158,10 @@ fn test_fj033_apply_absent() {
 fn test_fj033_state_query() {
     let r = make_cron_resource("backup");
     let script = state_query_script(&r);
-    assert!(script.contains("$SUDO crontab -u 'root' -l"), "{script}");
+    assert!(
+        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        "{script}"
+    );
     assert!(script.contains("forjar:backup"));
     assert!(script.contains("cron=MISSING:backup"));
 }
@@ -244,7 +247,10 @@ fn test_fj033_state_query_custom_user() {
     let mut r = make_cron_resource("sync");
     r.owner = Some("deploy".to_string());
     let script = state_query_script(&r);
-    assert!(script.contains("$SUDO crontab -u 'deploy' -l"), "{script}");
+    assert!(
+        script.contains("$SUDO env LC_ALL=C crontab -u 'deploy' -l"),
+        "{script}"
+    );
 }
 
 // ── Edge-case tests (FJ-123) ─────────────────────────────────
@@ -315,7 +321,10 @@ fn test_fj132_state_query_default_owner() {
     let mut r = make_cron_resource("job");
     r.owner = None;
     let script = state_query_script(&r);
-    assert!(script.contains("$SUDO crontab -u 'root' -l"), "{script}");
+    assert!(
+        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        "{script}"
+    );
 }
 
 #[test]
@@ -345,9 +354,18 @@ fn test_fj132_check_and_query_same_user() {
     // forjar#348: one resolution, three call sites — the same user AND the
     // same privilege. They used to decide independently, which is how the
     // apply could write root's crontab while the check read the SSH user's.
-    assert!(check.contains("crontab -u 'www-data'"), "{check}");
-    assert!(query.contains("$SUDO crontab -u 'www-data'"), "{query}");
-    assert!(apply.contains("crontab -u 'www-data'"), "{apply}");
+    assert!(
+        check.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        "{check}"
+    );
+    assert!(
+        query.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        "{query}"
+    );
+    assert!(
+        apply.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        "{apply}"
+    );
 }
 
 // ── FJ-036: Cron resource handler tests ─────────────────────
@@ -443,7 +461,7 @@ fn test_fj036_cron_state_query_lists_crontab() {
     let r = make_cron_resource("hourly-sync");
     let script = state_query_script(&r);
     assert!(
-        script.contains("$SUDO crontab -u 'root' -l"),
+        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
         "state_query must use 'crontab -l' to list entries, under sudo"
     );
     assert!(
