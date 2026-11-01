@@ -381,8 +381,10 @@ pub use file::remote_path_digest;
 mod ignore;
 mod image;
 mod lockless;
+mod semver;
 mod task_check;
 mod unmeasured;
+pub mod version_pin;
 
 pub use census::{DriftCensus, SkipReason};
 pub use file::{check_file_drift, check_file_drift_via_transport};
@@ -419,3 +421,5 @@ mod tests_task_checks;
 mod tests_transport;
 #[cfg(test)]
 mod tests_unmeasured;
+#[cfg(test)]
+mod tests_version_pin;
