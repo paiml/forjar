@@ -5067,6 +5067,18 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-789
+  github_issue: 789
+  item_type: task
+  title: 'cron: state absent fails closed when crontab -l fails'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-25T05:46:47Z
+  updated: 2026-10-25T05:46:47Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar#789: cron.rs:99 crontab -l || true can wipe a crontab'
 - id: PMAT-826
   github_issue: 826
   item_type: task
