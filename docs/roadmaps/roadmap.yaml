@@ -5098,6 +5098,24 @@ roadmap:
   - kind:docs
   notes: null
   epic: 696
+- id: PMAT-5880
+  github_issue: null
+  item_type: task
+  title: 'redact resolved secrets from the failure excerpt (infra#2307 gate-token delivery)'
+  status: in_progress
+  priority: high
+  assigned_to: null
+  created: 2026-10-24T13:40:00Z
+  updated: 2026-10-24T13:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: null
 - id: PMAT-840
   github_issue: 840
   item_type: task

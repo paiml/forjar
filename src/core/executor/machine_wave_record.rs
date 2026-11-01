@@ -171,7 +171,14 @@ fn record_one(
                 ctx.timeout_secs,
             ) {
                 Some(verdict) => {
-                    let error = super::failure_text::verify_failure(&site, out, &verdict);
+                    // PMAT-5880: the excerpt copies stdout/stderr into the lock, events,
+                    // last-apply and stderr, so it takes the same redaction as the transcript.
+                    let t = &executed.transcript;
+                    let error = t.redact(&super::failure_text::verify_failure(
+                        &site,
+                        &t.redact_output(out),
+                        &t.redact(&verdict),
+                    ));
                     fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
                 }
                 None => converge(
@@ -186,7 +193,12 @@ fn record_one(
             }
         }
         Ok(out) => {
-            let error = super::failure_text::exec_failure(&site, out);
+            // PMAT-5880: same redaction as the transcript (see verify_failure above).
+            let t = &executed.transcript;
+            let error = t.redact(&super::failure_text::exec_failure(
+                &site,
+                &t.redact_output(out),
+            ));
             let outcome = fail(cfg, rec, ctx, trace_session, machine_name, counters, &error);
             update_run_meta(
                 ctx,
@@ -201,7 +213,10 @@ fn record_one(
             outcome
         }
         Err(e) => {
-            let error = super::failure_text::transport_failure(e);
+            // PMAT-5880: the transport error text can echo the script, so it is
+            // redacted before it is clipped and again as a whole.
+            let t = &executed.transcript;
+            let error = t.redact(&super::failure_text::transport_failure(&t.redact(e)));
             fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
         }
     }
