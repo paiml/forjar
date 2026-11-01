@@ -4,6 +4,7 @@
 //! output is placed under a deterministic path derived from its inputs.
 
 pub mod base_image;
+pub(crate) mod base_image_pin;
 pub mod base_resolve;
 pub mod cache;
 pub mod cache_exec;
@@ -67,6 +68,8 @@ pub mod sync_exec;
 pub mod validate;
 pub mod verify;
 
+#[cfg(test)]
+mod tests_base_pin_manifest;
 #[cfg(test)]
 mod tests_base_resolve;
 #[cfg(test)]
