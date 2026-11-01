@@ -423,3 +423,35 @@ fn maybe_rollback_generation_propagates_the_multi_stack_refusal() {
         "the refusal must name the ticket and the stacks it would revert: {err}"
     );
 }
+
+// ── forjar#622: inner stars and brace alternatives ─────────────────
+#[test]
+fn simple_glob_match_inner_star() {
+    assert!(simple_glob_match("a*a", "alpha"));
+    assert!(simple_glob_match("lqw-*-dir", "lqw-gguf-dir"));
+    assert!(simple_glob_match("a*b*c", "a-b-c"));
+    assert!(!simple_glob_match("a*a", "alphb"));
+    // A star is greedy but must backtrack: "a*a" over "aXaYa" ends on 'a'.
+    assert!(simple_glob_match("a*a", "aXaYa"));
+    assert!(!simple_glob_match("a*b", "a"));
+}
+
+#[test]
+fn simple_glob_match_braces() {
+    assert!(simple_glob_match("{alpha,charlie}", "alpha"));
+    assert!(simple_glob_match("{alpha,charlie}", "charlie"));
+    assert!(!simple_glob_match("{alpha,charlie}", "bravo"));
+    assert!(simple_glob_match("{a,b}-dir", "b-dir"));
+    assert!(!simple_glob_match("{a,b}-dir", "c-dir"));
+    assert!(simple_glob_match("*-{gguf,st}-*", "x-st-y"));
+    // Nested and multiple groups expand as the cartesian product.
+    assert!(simple_glob_match("{a,b{1,2}}-{x,y}", "b2-y"));
+    assert!(!simple_glob_match("{a,b{1,2}}-{x,y}", "b3-y"));
+}
+
+#[test]
+fn simple_glob_match_unbalanced_brace_is_literal() {
+    assert!(simple_glob_match("{a", "{a"));
+    assert!(!simple_glob_match("{a", "a"));
+    assert!(simple_glob_match("a}", "a}"));
+}

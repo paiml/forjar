@@ -92,6 +92,77 @@ const fn default_min_idle_minutes() -> u64 {
     60
 }
 
+impl ReclaimRule {
+    /// The literal (pre-glob) directory a root's candidates must descend from.
+    ///
+    /// The reaper's SEC011 guard refuses any candidate that is not a strict
+    /// descendant of one of these, so a glob that ever resolves a level too
+    /// high is refused rather than deleted (forjar#627).
+    ///
+    /// ```
+    /// use forjar::core::types::ReclaimRule;
+    /// assert_eq!(ReclaimRule::root_prefix("/tmp/*-target"), "/tmp");
+    /// assert_eq!(ReclaimRule::root_prefix("/a/b/c*/d"), "/a/b");
+    /// assert_eq!(ReclaimRule::root_prefix("/mnt/targets/"), "/mnt/targets");
+    /// assert_eq!(ReclaimRule::root_prefix("/*"), "/");
+    /// ```
+    pub fn root_prefix(root: &str) -> String {
+        let prefix = match root.find(['*', '?', '[']) {
+            Some(i) => root[..i].rfind('/').map_or("", |j| &root[..j]),
+            None => root.trim_end_matches('/'),
+        };
+        if prefix.is_empty() {
+            "/".to_string()
+        } else {
+            prefix.to_string()
+        }
+    }
+
+    /// Refuse a root whose shape can only yield candidates the guard refuses.
+    ///
+    /// A prefix of `/` would let the rule reach anything, and a glob directly
+    /// under a top-level directory other than `/tmp` matches only depth-2
+    /// paths, which the guard never deletes — a rule that validates, runs, and
+    /// reclaims nothing by construction.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` naming the rule and root.
+    pub fn validate_roots(&self) -> Result<(), String> {
+        for root in &self.roots {
+            if let Some(why) = self.root_problem(root) {
+                return Err(format!(
+                    "disk_budget rule '{}': root '{root}' {why}",
+                    self.name
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Why `root` can only yield candidates the guard refuses, if it can.
+    fn root_problem(&self, root: &str) -> Option<&'static str> {
+        let prefix = Self::root_prefix(root);
+        if prefix == "/" {
+            return Some(
+                "has literal prefix '/', so it could reach anything — declare a deeper root",
+            );
+        }
+        let is_glob = root.contains(['*', '?', '[']);
+        if self.kind == ReclaimKind::Glob && !is_glob {
+            return Some("(kind glob) has no glob character, so its only candidate is the root itself, which the reaper refuses (not a strict descendant of its own prefix) — add a glob or use a scanning kind");
+        }
+        // Only a root whose glob is the LAST segment directly under the prefix
+        // yields depth-2 candidates; `/home/*/src/*/target` reaches deeper.
+        let single_segment = !root[prefix.len()..].trim_matches('/').contains('/');
+        let top_level = prefix.starts_with('/') && prefix.matches('/').count() == 1;
+        if is_glob && top_level && prefix != "/tmp" && single_segment {
+            return Some("matches only depth-2 paths outside /tmp, which the reaper always refuses — the rule would reclaim nothing");
+        }
+        None
+    }
+}
+
 /// Resolved, validated budget for one filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiskBudget {
@@ -126,7 +197,8 @@ impl DiskBudget {
     /// # Errors
     ///
     /// Returns `Err` when a percentage is out of range, or when the pair lacks
-    /// hysteresis — see [`Self::validate_hysteresis`].
+    /// hysteresis — see [`Self::validate_hysteresis`] — or when a rule root is
+    /// unusable — see [`ReclaimRule::validate_roots`].
     pub fn new(
         path: &str,
         high_watermark_pct: u8,
@@ -138,6 +210,9 @@ impl DiskBudget {
         validate_pct("high_watermark_pct", high_watermark_pct)?;
         validate_pct("target_free_pct", target_free_pct)?;
         Self::validate_hysteresis(high_watermark_pct, target_free_pct)?;
+        for rule in &reclaim {
+            rule.validate_roots()?;
+        }
         Ok(Self {
             path: path.to_string(),
             high_watermark_pct,
