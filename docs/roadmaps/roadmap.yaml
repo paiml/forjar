@@ -5105,3 +5105,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-775
+  github_issue: 775
+  item_type: task
+  title: 'audit red on main: tokio 1.53.1 unsound (RUSTSEC-2026-0386), lock to 1.54.1'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-10-24T12:00:00Z
+  updated: 2026-10-24T12:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 763
