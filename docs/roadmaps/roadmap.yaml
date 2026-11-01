@@ -5067,6 +5067,18 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-826
+  github_issue: 826
+  item_type: task
+  title: CI/gate jobs to [self-hosted, clean-room, ARM64]; X64 release/tool jobs stay
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-27T15:24:25Z
+  updated: 2026-10-27T15:24:25Z
+  spec: null
+  acceptance_criteria:
+  - 'Operator via arbiter-cop 2026-10-27; forjar#826. runs-on only. Falsifier: green X64/red ARM64 -> revert that job + ticket.'
 - id: PMAT-725
   github_issue: 725
   item_type: task
@@ -5105,3 +5117,128 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-721
+  github_issue: 721
+  item_type: task
+  title: 'ci: arch-neutral runs-on for clippy, msrv, file-health'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-18T16:08:00Z
+  updated: 2026-10-18T16:08:10Z
+  spec: null
+  acceptance_criteria:
+  - Remove X64 from runs-on of arch-neutral jobs; cache keys carry runner.arch
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
+- id: PMAT-613
+  github_issue: 613
+  item_type: task
+  title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T00:00:00Z
+  updated: 2026-09-24T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'src/tripwire/drift/tests_version_pin.rs fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees: a github_release pinned v0.33.2 whose binary prints "ollama version is 0.34.2", under a lock baselined after the install, yields one DRIFT finding (expected "version 0.33.2", actual "version 0.34.2", detail names the DOWNGRADE) and the census names the offline upstream skip; it fails with "got []" when the two version_pin::detect call sites are reverse-applied'
+  - 'unparseable --version is UNMEASURED; a pin behind the latest upstream release is DRIFT; --offline and tag nightly are NOT CHECKED and named; detect_drift_full (apply gate, pull agent) and MCP unattended drift never carry a version finding; drift --auto-remediate refuses when one exists'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-622
+  github_issue: 622
+  item_type: task
+  title: '--exclude is not repeatable and brace globs silently match nothing; a zero-match exclude is not an error'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T12:00:00Z
+  updated: 2026-09-24T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'tests/falsification_apply_filter_pipeline.rs: --exclude alpha --exclude charlie applies only bravo; --exclude {alpha,charlie} applies only bravo; --exclude a*a spares bravo and charlie; --exclude charlie --exclude chralie exits non-zero naming the typo and applies nothing. All four fail on origin/main aa04385e'
+  - 'src/cli/helpers_state.rs simple_glob_match: * anywhere with backtracking, {a,b} alternation (nested, several groups); an unbalanced brace is a literal. Reverting the matcher or the Vec turns the binary rows red again'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-615
+  github_issue: 615
+  item_type: task
+  title: 'forjar#615: plan -r and apply -r compute the same set; a lockless create asks its completion_check first'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T08:56:17Z
+  updated: 2026-09-24T08:56:17Z
+  spec: null
+  acceptance_criteria:
+  - 'plan -r/-g select the positive set closed over depends_on exactly as apply resolve_selection does; src/cli/tests_plan_apply_same_set.rs asserts plan and apply return the same id set for every selector shape over a depends_on chain and goes RED with the closure reverted.'
+  - 'The default apply path, its confirmation prompt and --dry-run seed a lockless resource whose completion_check passes on the host as converged, and the apply RECORDS it converged with no applied_at (the previews write nothing), so drift still inspects it; tests/falsification_lockless_check_before_create.rs runs a real apply against localhost on an empty state dir and goes RED with the seeding reverted, and with the recording reverted (as does falsification_drift_is_not_blind_to_task_guards).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Measured on paiml/infra lambda-labs, forjar 1.32.0, no lambda-labs lock: plan -r ollama-model-qwen35-4b said 1 to add, apply -r prompted 2 create, and the pulled-in ollama-binary command rm -rf /usr/local/lib/ollama while its check exited 0.'
+- id: PMAT-618
+  github_issue: 618
+  item_type: task
+  title: user check asks declared attrs, not presence
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-24T10:02:51Z
+  updated: 2026-09-24T10:02:51Z
+  spec: null
+  acceptance_criteria: []
+- id: PMAT-627
+  github_issue: 627
+  item_type: task
+  title: 'disk_budget SEC011 guard refused every /tmp child, so /tmp rules validated, ran and reclaimed nothing; the guard now checks declared roots'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-09-24T19:12:46Z
+  updated: 2026-09-24T19:12:46Z
+  spec: null
+  acceptance_criteria:
+  - 'fb_sweepable accepts a depth-2 /tmp child under a declared /tmp prefix and refuses /tmp itself, $HOME, and any candidate outside its rule''s declared root prefixes; the tests execute the real emitted shell helper and go RED when the fix is reverted.'
+  - 'forjar validate refuses a reclaim root whose literal prefix is / and a glob root that can only match depth-2 paths outside /tmp.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2).'
+- id: PMAT-740
+  github_issue: 740
+  item_type: task
+  title: 'forjar type: docker gains state: pulled (IMG-001 spike, task 2a)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-19T00:00:00Z
+  updated: 2026-10-19T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - type docker accepts state pulled; pulls the image and reports converged when present
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
