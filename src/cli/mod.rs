@@ -40,6 +40,7 @@ mod cost_estimate;
 mod coverage_promote;
 mod cross_machine_deps;
 mod data_freshness;
+mod data_isolation;
 mod data_validate;
 mod dataset_lineage;
 mod destroy;
