@@ -73,7 +73,9 @@ fn crontab_user(resource: &Resource) -> String {
 /// Read the user's crontab into `$EXISTING`, failing CLOSED.
 ///
 /// `crontab -l` exits 1 for both "no crontab for <user>" and every real error,
-/// so the message decides, and the read forces `LC_ALL=C` so that message is
+/// so the message decides, and the read sets `LC_ALL=C` (as a prefix assignment,
+/// never `sudo env`, so a crontab-only sudoers rule still matches; sudo passes it
+/// when `env_keep` holds `LC_*`, else a localized message fails closed) so that message is
 /// not English-by-accident. `on_none` runs for the benign case (nothing
 /// installed); anything else prints the error and exits 1 with nothing
 /// written. apply (present and absent) and check all read through this, so
@@ -83,7 +85,7 @@ fn read_existing(u: &str, on_none: &str) -> String {
         "ERR=$(mktemp)\n\
          trap 'rm -f \"$ERR\"' EXIT\n\
          RC=0\n\
-         EXISTING=$($SUDO env LC_ALL=C crontab -u {u} -l 2>\"$ERR\") || RC=$?\n\
+         EXISTING=$(LC_ALL=C $SUDO crontab -u {u} -l 2>\"$ERR\") || RC=$?\n\
          if [ \"$RC\" -ne 0 ]; then\n  \
            if [ \"$(grep -c '^no crontab' \"$ERR\")\" -ge 1 ]; then\n    \
              {on_none}\n  \

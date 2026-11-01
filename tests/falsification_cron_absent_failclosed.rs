@@ -415,7 +415,7 @@ fn present_with_a_failing_filter_does_not_wipe_the_crontab() {
     let _ = fs::remove_dir_all(&dir);
 }
 
-/// The non-root path: `sudo env LC_ALL=C crontab` must actually execute.
+/// The non-root path: `LC_ALL=C sudo crontab` must actually execute.
 #[test]
 fn the_sudo_read_form_executes_for_a_non_root_caller() {
     let dir = host(

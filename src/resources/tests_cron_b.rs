@@ -127,7 +127,7 @@ fn test_fj033_check_cron() {
     let script = check_script(&r);
     // forjar#348: the READ is as privileged as the write.
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'root' -l"),
         "{script}"
     );
     assert!(script.contains("forjar:backup"));
@@ -159,7 +159,7 @@ fn test_fj033_state_query() {
     let r = make_cron_resource("backup");
     let script = state_query_script(&r);
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'root' -l"),
         "{script}"
     );
     assert!(script.contains("forjar:backup"));
@@ -237,7 +237,7 @@ fn test_fj033_check_custom_user() {
     r.owner = Some("www-data".to_string());
     let script = check_script(&r);
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'www-data' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'www-data' -l"),
         "{script}"
     );
 }
@@ -248,7 +248,7 @@ fn test_fj033_state_query_custom_user() {
     r.owner = Some("deploy".to_string());
     let script = state_query_script(&r);
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'deploy' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'deploy' -l"),
         "{script}"
     );
 }
@@ -322,7 +322,7 @@ fn test_fj132_state_query_default_owner() {
     r.owner = None;
     let script = state_query_script(&r);
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'root' -l"),
         "{script}"
     );
 }
@@ -355,15 +355,15 @@ fn test_fj132_check_and_query_same_user() {
     // same privilege. They used to decide independently, which is how the
     // apply could write root's crontab while the check read the SSH user's.
     assert!(
-        check.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        check.contains("LC_ALL=C $SUDO crontab -u 'www-data'"),
         "{check}"
     );
     assert!(
-        query.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        query.contains("LC_ALL=C $SUDO crontab -u 'www-data'"),
         "{query}"
     );
     assert!(
-        apply.contains("$SUDO env LC_ALL=C crontab -u 'www-data'"),
+        apply.contains("LC_ALL=C $SUDO crontab -u 'www-data'"),
         "{apply}"
     );
 }
@@ -461,7 +461,7 @@ fn test_fj036_cron_state_query_lists_crontab() {
     let r = make_cron_resource("hourly-sync");
     let script = state_query_script(&r);
     assert!(
-        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        script.contains("LC_ALL=C $SUDO crontab -u 'root' -l"),
         "state_query must use 'crontab -l' to list entries, under sudo"
     );
     assert!(

@@ -153,7 +153,13 @@ esac
 
 const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
-printf '%s\n' "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
+printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
+# A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
+# `true` is the check guard's `sudo -n true` probe.
+case "$1" in
+  crontab|/usr/bin/crontab|true) ;;
+  *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
+esac
 exec "$@"
 "#;
 
@@ -337,7 +343,7 @@ fn fj362_applying_a_job_spares_a_prefix_siblings_markers() {
 
 /// The fake `sudo` logs each invocation. Every script that reads the crontab
 /// (check, state_query, apply present, apply absent) must run the read as
-/// `sudo env LC_ALL=C crontab -u <user> -l` and succeed, not merely contain it.
+/// `LC_ALL=C sudo crontab -u <user> -l` and succeed, not merely contain it.
 #[test]
 fn the_sudo_locale_forced_read_form_is_executed_by_every_reading_script() {
     let r = cron("backup", "0 3 * * *", CMD);
@@ -354,7 +360,7 @@ fn the_sudo_locale_forced_read_form_is_executed_by_every_reading_script() {
         let log = std::fs::read_to_string(format!("{}.sudolog", fx.store().display()))
             .unwrap_or_default();
         assert!(
-            log.contains("env LC_ALL=C crontab -u root -l"),
+            log.contains("LC_ALL=C crontab -u root -l"),
             "{what}: the sudo read form was not executed: {log:?} / {}",
             String::from_utf8_lossy(&out.stderr)
         );
