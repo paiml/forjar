@@ -5105,3 +5105,23 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-777
+  github_issue: 777
+  item_type: task
+  title: resource-timeout bounds wave apply script
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-23T18:10:27Z
+  updated: 2026-10-23T18:49:33Z
+  spec: null
+  acceptance_criteria:
+  - forjar#777
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
+  epic: 764
