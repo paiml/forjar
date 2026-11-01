@@ -93,15 +93,18 @@ pub(super) fn run_post_flight(script: &str) {
     }
 }
 
-/// Check cost limit against planned changes.
+/// Check cost limit against the changes planned for the SELECTED resources.
 pub(super) fn check_cost_limit(
     file: &Path,
     sd: &Path,
     machine: Option<&str>,
     tag: Option<&str>,
+    sel: &super::apply_selection::Selectors<'_>,
     limit: usize,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let mut config = parse_and_validate(file)?;
+    // forjar#829: count what the run would act on, not the whole file.
+    super::apply_selection::resolve_selection(&mut config, sel, false)?;
     let order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, sd, machine)?;
     let plan = planner::plan(&config, &order, &locks, tag);
