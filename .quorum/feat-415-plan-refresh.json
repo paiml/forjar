@@ -1,0 +1,107 @@
+{
+  "kind": "code",
+  "issue": "forjar#415 — plan was lock-relative and could not consult a host; plan --refresh now runs the drift detectors first, plans what they measured as changed, writes nothing, and discloses what it could not measure.",
+  "branch": "feat/415-plan-refresh",
+  "base": "61d5a703",
+  "base_commit": "61d5a7031f2725adf6114f8680421bf51d4624d2",
+  "diff_sha256": "313a19af98b3758a49fd77b09f0da70f3c924ede",
+  "recorded_at": "after r9 and the agy lane at 4b3f22c2 (378578f9 with main 61d5a703 merged in). The evidence commit de38cb17 adds only .quorum/evidence; the hash covers it.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "head 4b3f22c2, r9 — agy gemini-3.1-pro-high PASS, read-only plan lane, sandboxed clone left byte-identical",
+      "head 4b3f22c2, r9 — claude-sonnet-5 PASS (two lanes), no findings",
+      "head 4b3f22c2, r9 — claude-haiku-4-5 PASS, no findings"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "R1: delivering plan --refresh alone leaves two thirds of #415 undone — the issue Fix and Success criterion name plan --refresh alone; check and apply --dry-run --refresh already consult the host; PMAT-150 retitled.",
+      "R2: counting unanswered queries covers every entry planned from the lock alone — detector skips were silent; the census now counts the union.",
+      "R3: every unmeasured entry carries observed state — an unanswered query may carry only a locked hash; the disclosure dropped the claim.",
+      "R4: the unconsulted path needs no falsifier — test 6 now drives an unroutable host and is red without the unmeasured skip.",
+      "R5: the print_plan_json binding still names the real signature — it gained refreshed: Option<&RefreshOutcome>; binding.yaml updated."
+    ]
+  },
+  "falsification": {
+    "test": "falsify_415_refresh_discloses_what_it_could_not_measure (with falsify_415_refresh_plans_a_file_edited_behind_forjars_back and the census unit test a_refresh_discloses_skipped_observations_and_unanswered_queries)",
+    "test_file": "tests/falsification_415_plan_refresh_consults_the_host.rs",
+    "cargo_test_target": "falsification_415_plan_refresh_consults_the_host",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "On this branch: 6 of 6 integration tests, 2 of 2 census tests and 116 of 116 tripwire::drift tests pass. Revert probes, each restored afterwards: removing the is_unmeasured skip in plan_refresh turned falsify_415_refresh_discloses_what_it_could_not_measure red at its drifted assertion (unmeasured read as drift); removing the observed arm of unconsulted_observations turned the census test red (left 1, right 3)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform: plan refreshes provider state by default and plan -refresh=false opts out; a refresh-only plan writes nothing until applied",
+      "Pulumi: preview --refresh reads the live resources before diffing and writes no state during preview",
+      "Ansible: --check runs modules against the host in a no-change mode and reports what would change"
+    ],
+    "verdict": "No crux row is owed: consulting the target before diffing, without writing state, is what all three do. forjar keeps lock-relative as the default and states the quantifier in the output, where Terraform defaults to refresh."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "one agy lane (gemini-3.1-pro-high), plan mode, read-only, sandboxed clone, no build, no writes",
+    "rounds": 1,
+    "lanes_per_round": 1,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "PASS: --refresh --out is refused, the refresh reuses the drift machinery without writing state, and lock_relative depends on the refresh flag."
+  },
+  "pmat": {
+    "ticket": "forjar#415",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 2214 files parsed, 19877 tests examined, 432 cannot fail and 3 skip silently; 41 of them in a touched path, all in src/cli/tests_cov_args_extra_b.rs",
+      "cargo test --test falsification_415_plan_refresh_consults_the_host: 6 passed; red under each revert probe"
+    ],
+    "vacuous_tests_in_touched_paths": 41,
+    "accepted": [
+      "src/cli/tests_cov_args_extra_b.rs: all 41 no-failure-mode tests exist unchanged at base 61d5a703 (coverage constructors that only Debug-format an args struct). The diff edits one of them, test_cov_plan_args_construct, solely to add refresh: false, which the new PlanArgs field makes mandatory for it to compile; it adds no vacuous test."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/415-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "b71877397d5e2347db4623ed802bb1a2b0bcf394",
+        "sha256": "fbe1b4da220d90f3320ddd9aa1c38f9cb54d284807f3d19054b364e23430e1cc",
+        "bytes": 867
+      },
+      {
+        "path": ".quorum/evidence/415-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "61129b69fc8a7e92725e430b59fbdcbc067dab2e",
+        "sha256": "f034645be7a69fb8bc8d6c9fa9644a1c489e3b77de4a7c2bfa8bf83005bc3e14",
+        "bytes": 874
+      },
+      {
+        "path": ".quorum/evidence/415-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "7104eef8086197461d57642975c4010910de7f67",
+        "sha256": "05c7d8a261baff0a5b8c78250bcf4df3ab9189eabadbd95d5e4ced0556cedcaf",
+        "bytes": 487
+      },
+      {
+        "path": ".quorum/evidence/415-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "9c4af612f9b27e06ff1b2003fc53917f25da4265",
+        "sha256": "3b4364e0aa8dc470439fb28f130b909386d4b27725d6f5e70c3ac3b7d0371772",
+        "bytes": 4837
+      }
+    ],
+    "total_bytes": 7065,
+    "claims_digest": ".quorum/evidence/415-judges.md"
+  }
+}
