@@ -5117,6 +5117,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: GH-846
+  github_issue: 846
+  item_type: task
+  title: quorum-gate.sh has no rail for docs-spec, key-file or lib-test PRs; 3/3 PASS receipts fail
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-01T06:19:02.864300459+00:00
+  updated: 2026-11-01T06:19:02.864300459+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - bug
+  - triage:ready
+  notes: null
 - id: PMAT-721
   github_issue: 721
   item_type: task

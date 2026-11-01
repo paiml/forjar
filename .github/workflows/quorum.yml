@@ -75,6 +75,22 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # The gate reads the receipt's kind and falsification fields with jq and
+      # dies, by design, when jq is missing (forjar#846). quorum.yml has no
+      # `container:` and runs bare-metal on the clean-room fleet, so the tool
+      # comes from the host image. Show it when present; else install it with the
+      # guard binary-release.yml uses for musl-tools (apt-get may be absent, sudo
+      # may not be passwordless); fail by name if it is still absent.
+      - name: Ensure jq
+        run: |
+          if command -v jq >/dev/null 2>&1; then
+            echo "jq already present: $(command -v jq) $(jq --version)"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends jq
+          fi
+          command -v jq >/dev/null 2>&1 || { echo "::error::jq is absent on this runner and could not be installed; install jq on the clean-room image" >&2; exit 1; }
+
       - name: Verify quorum receipt
         env:
           # The gate resolves the branch from the ref being pushed; in CI the PR

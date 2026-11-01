@@ -89,6 +89,7 @@ mod doctor_machine;
 mod drift;
 mod drift_decline;
 mod drift_dry_run;
+mod drift_followup;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;

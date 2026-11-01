@@ -479,3 +479,84 @@ fn a_code_receipt_with_no_falsification_is_still_refused() {
     assert_ne!(r.code, 0, "{}", r.text);
     assert!(r.text.contains("falsification"), "{}", r.text);
 }
+
+/// forjar#846: the spec pages and the flow ledger are on the rail.
+#[test]
+fn a_triage_receipt_over_spec_pages_and_the_flow_ledger_is_on_the_rail() {
+    for (path, body) in [
+        ("docs/specifications/new-spec.md", "# spec\n"),
+        (".flow009/ledger.yaml", "rows: []\n"),
+    ] {
+        let f = triage_fixture(&triage_digest(), Some((path, body)));
+        assert!(f.touched.contains(path), "{:?}", f.touched);
+        commit_full_receipt(&f, Some("triage"), not_applicable());
+        let r = whole_gate(&f);
+        assert_eq!(r.code, 0, "{path} was refused as off the rail:\n{}", r.text);
+    }
+}
+
+/// forjar#846 falsifier: a `.rs` file under docs/specifications is code, never
+/// rail -- the rail admits `.md` there and nothing else.
+#[test]
+fn a_rust_file_under_docs_specifications_is_refused_by_name() {
+    let f = triage_fixture(
+        &triage_digest(),
+        Some(("docs/specifications/sneaky.rs", "pub fn x() {}\n")),
+    );
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(
+        r.text.contains("docs/specifications/sneaky.rs"),
+        "{}",
+        r.text
+    );
+}
+
+/// r1 fix (4): the key-file rail is explicit. #788's shape (a `.flow009/*.pub`
+/// key file plus the roadmap) passes; a `.rs` under `.flow009/` is refused.
+#[test]
+fn flow009_key_files_are_on_the_rail_and_rust_there_is_not() {
+    let f = triage_fixture(
+        &triage_digest(),
+        Some((".flow009/batcher.pub", "ssh-ed25519 AAAA\n")),
+    );
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_eq!(r.code, 0, "{}", r.text);
+    let f = triage_fixture(&triage_digest(), Some((".flow009/x.rs", "pub fn x() {}\n")));
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let r = whole_gate(&f);
+    assert_ne!(r.code, 0, "{}", r.text);
+    assert!(r.text.contains(".flow009/x.rs"), "{}", r.text);
+}
+
+/// r3 fix (3): the triage-rail refusal moved to bash; it exits 1 in blocking AND
+/// advisory mode, as the Python pass did on main.
+#[test]
+fn the_triage_rail_refusal_exits_one_in_both_modes() {
+    let f = triage_fixture(&triage_digest(), Some(CODE_EDIT));
+    commit_full_receipt(&f, Some("triage"), not_applicable());
+    let tip = stdout_of(&git(&f.repo, &["rev-parse", "HEAD"]));
+    for actor in [ACTOR, "someone-else@example.com"] {
+        let mut cmd = Command::new("bash");
+        cmd.arg(gate())
+            .args([
+                "--remote-ref",
+                &format!("refs/heads/{BRANCH}"),
+                "--local-sha",
+                &tip,
+            ])
+            .current_dir(&f.repo)
+            .env("QUORUM_ACTOR", actor)
+            .env("PRINT_HASH", "0");
+        let out = scrub(&mut cmd).output().unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(out.status.code(), Some(1), "as {actor}: {text}");
+        assert!(text.contains("src/lib.rs"), "{text}");
+    }
+}

@@ -99,6 +99,15 @@ fi
 # In advisory mode a failure is REPORTED IN FULL and then forgiven. Silence would
 # be worse than no gate: the contributor learns nothing and the maintainer gets a
 # PR that merely looks checked.
+# die_hard: refusals that were inside the Python pass on main (its die() exits 1
+# in EVERY mode, and the caller's `|| exit 1` kept it so, advisory included).
+# The checks moved to bash in forjar#846 keep that exit: a gate that exits 0 in
+# advisory mode on a failing falsification test would be a new bypass.
+die_hard() {
+    echo "✗ QUORUM GATE: $*" >&2
+    exit 1
+}
+
 die() {
     echo "✗ QUORUM GATE: $*" >&2
     if [ "$MODE" = "advisory" ]; then
@@ -442,6 +451,40 @@ fi
 # required to be one of them (see the free-rider defence below).
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
+# THE TRIAGE RAIL (forjar#491, PMAT-226, forjar#846), enforced here in bash.
+# A `kind: triage` receipt is verified FROM THE DIFF, not trusted from the
+# receipt: the branch may touch docs/audits/**, the roadmap, the release ledger
+# docs/roadmaps/releases.yaml (named by file, not directory), the spec pages
+# docs/specifications/**.md, the flow ledger and its key files .flow009/*.pub|yaml|md|json, and its own receipt
+# under .quorum/. A `.rs` file anywhere is code and is refused first, even under
+# docs/specifications: declaring the kind would otherwise be the cheapest way to
+# skip the falsification below.
+command -v jq >/dev/null 2>&1 \
+    || die_hard "jq is required to read the receipt's kind and the falsification fields; install jq (no silent default to kind=code)"
+receipt_kind="$(jq -er '.kind // "code"' "$receipt_blob" 2>/dev/null)" \
+    || die_hard "cannot read .kind from the receipt with jq; refusing to guess a kind"
+if [ "$receipt_kind" = "triage" ]; then
+    off_rail=""
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        case "$p" in
+            *.rs) off_rail="$off_rail $p" ;;
+            docs/audits/*|docs/roadmaps/roadmap.yaml|docs/roadmaps/releases.yaml|.quorum/*) ;;
+            .flow009/*.pub|.flow009/*.yaml|.flow009/*.md|.flow009/*.json) ;;
+            docs/specifications/*.md) ;;
+            *) off_rail="$off_rail $p" ;;
+        esac
+    done <<< "$touched"
+    if [ -n "$off_rail" ]; then
+        die_hard "a kind: triage receipt over a diff that touches$off_rail
+  A triage branch is classify + link, no code: docs/audits/**, the roadmap,
+  the release ledger docs/roadmaps/releases.yaml, docs/specifications/**.md,
+  .flow009/*.pub|yaml|md|json and its own receipt under .quorum/. Any .rs file is code, and
+  anything else is code too: a code change is judged as code -- with a
+  falsification test it wrote itself."
+    fi
+fi
+
 python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
 import json, os, subprocess, sys
 
@@ -478,22 +521,8 @@ for field in ("issue", "diff_sha256", "quorum", "falsification", "crux", "agy_te
 receipt_kind = r.get("kind", "code")
 if receipt_kind not in ("code", "triage"):
     die(f"receipt kind={receipt_kind!r} is not one of code | triage")
-if receipt_kind == "triage":
-    # PMAT-226: the release ledger, docs/roadmaps/releases.yaml, is the roadmap's
-    # sibling -- declared goals, one row per tag, edited textually -- and booking
-    # a tag's row after the cut is classify + link with no code in it. Named by
-    # file, not by directory: docs/roadmaps/** would admit any future file there.
-    def on_rail(p):
-        return p.startswith("docs/audits/") or p == "docs/roadmaps/roadmap.yaml" \
-            or p == "docs/roadmaps/releases.yaml" or p.startswith(".quorum/")
-    off_rail = sorted(p for p in touched if not on_rail(p))
-    if off_rail:
-        die("a kind: triage receipt over a diff that touches "
-            + ", ".join(off_rail) + "\n"
-            "  A triage branch is classify + link, no diff: docs/audits/**, the roadmap,\n"
-            "  the release ledger docs/roadmaps/releases.yaml and its own receipt under\n"
-            "  .quorum/. Anything else is code, and a code change is judged as code --\n"
-            "  with a falsification test it wrote itself.")
+# The triage rail (what a kind: triage diff may touch) is enforced in bash, above
+# this pass (forjar#846), so it can name paths without more embedded Python.
 
 # THE BINDING. Without this the whole gate is theater: one receipt would clear
 # every future branch, and an amended commit would keep a verdict about code
@@ -707,30 +736,91 @@ if head_now != pushed_full:
           "on the PR head.")
 else:
     print(f"  verifying falsification test passes with the fix: {target}")
-    # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push hook,
-    # where git has exported GIT_DIR for the repository being pushed. A test that
-    # spawns `git` in its own tempdir then inherits that GIT_DIR and operates on
-    # the developer's repository with the tempdir as work tree -- measured on
-    # 2026-09-02: a falsification test's `git add -A && git commit` deleted 2,556
-    # tracked files from the branch under review. The tests get a clean git
-    # environment; the gate keeps its own.
-    test_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    proc = subprocess.run(
-        ["cargo", "test", "--test", target, "--quiet"],
-        capture_output=True, text=True, env=test_env,
-    )
-    if proc.returncode != 0:
-        tail = (proc.stdout + proc.stderr).strip().splitlines()[-15:]
-        die("the falsification test does NOT pass on this tree:\n     "
-            + "\n     ".join(tail))
-
-print(f"✓ quorum receipt valid for {r['issue']}")
-print(f"    lanes={len(lanes)} refuters={refuters} judges={judges} "
-      f"confirmed={confirmed} refuted={refuted}")
-print(f"    falsification: {f['test']}")
-print(f"      reverted: {f['reverted']}")
-print(f"      observed: {f['observed_failure']}")
 PY
+
+# THE FALSIFICATION TEST RUN (moved out of the python pass above, forjar#846).
+# Two shapes of test, both required to be touched by the branch (the python pass
+# checked that): an integration test, `cargo test --test <target>`, or -- when
+# test_file is a lib unit-test module, src/**/tests*.rs -- `cargo test --lib
+# <filter>`, with the receipt's cargo_test_target as the filter. A lib filter
+# that matches no test passes cargo with 0 run, so "N passed" with N > 0 is
+# required: an unmeasured test must never read like a green one.
+if [ "$receipt_kind" != "triage" ]; then
+    f_target="$(jq -r '.falsification.cargo_test_target // empty' "$receipt_blob")"
+    f_file="$(jq -r '.falsification.test_file // empty' "$receipt_blob")"
+    lib_filter_ok() {
+        # The lib filter must name a test that lives in test_file: its module
+        # path (src/a/tests_x.rs -> a::tests_x) equals or prefixes the filter AND
+        # the filter's last segment is a #[test] fn in test_file at the pushed commit.
+        local mod last
+        mod="${f_file#src/}"; mod="${mod%.rs}"; mod="${mod//\//::}"
+        # src/a/mod.rs -> a ; src/lib.rs, src/main.rs, src/mod.rs -> crate root
+        case "$mod" in mod|lib|main) mod="" ;; *::mod) mod="${mod%::mod}" ;; esac
+        # The filter must sit in test_file's module: equal to it (every test of
+        # that module) or start with it plus `::`. At the crate root any path is
+        # in the module. A same-named fn in another module is not this file's.
+        if [ -n "$mod" ]; then
+            case "$f_target" in
+                "$mod") return 0 ;;
+                "$mod"::*) ;;
+                *) return 1 ;;
+            esac
+        fi
+        last="${f_target##*::}"
+        # The fn must be a real test: the first non-attribute line above it is
+        # #[test] (other attributes may sit between). Matched literally, never
+        # as a regex, so a metachar in the receipt cannot widen the match.
+        [ -n "$last" ] || return 1
+        git show "$pushed:$f_file" 2>/dev/null | awk -v want="$last" '
+            /^[[:space:]]*#\[test\]/ { armed = 1; next }
+            /^[[:space:]]*#\[/ { next }
+            /^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+/ {
+                line = $0
+                sub(/^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+/, "", line)
+                name = line; sub(/[^A-Za-z0-9_].*$/, "", name)
+                if (armed && name == want) found = 1
+            }
+            { armed = 0 }
+            END { exit(found ? 0 : 1) }'
+    }
+    if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$pushed")" ]; then
+        if [[ "$f_file" =~ ^src/(.*/)?tests[^/]*\.rs$ ]]; then
+            lib_filter_ok || die_hard "the lib filter '$f_target' does not name a test in $f_file
+  A free-rider could point it at any green test: the filter must equal or start
+  with test_file's module path (plus ::) and end in a #[test] fn defined there."
+            mode_args=(--lib "$f_target"); lib_mode=1
+        else
+            mode_args=(--test "$f_target"); lib_mode=0
+        fi
+        # SCRUB GIT_* BEFORE RUNNING TESTS. This gate runs inside the pre-push
+        # hook, where git has exported GIT_DIR for the repository being pushed. A
+        # test that spawns `git` in its own tempdir then inherits that GIT_DIR and
+        # operates on the developer's repository with the tempdir as work tree --
+        # measured on 2026-09-02: a falsification test's `git add -A && git commit`
+        # deleted 2,556 tracked files from the branch under review.
+        unset_args=()
+        while IFS= read -r v; do unset_args+=(-u "$v"); done < <(compgen -e | grep '^GIT_' || true)
+        test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet 2>&1)" \
+            || die_hard "the falsification test does NOT pass on this tree:
+$(printf '%s\n' "$test_out" | tail -n 15 | sed 's/^/     /')"
+        if [ "$lib_mode" = 1 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
+            die_hard "the lib filter '$f_target' ran no test (0 passed): it names nothing, so it proves nothing"
+        fi
+        if [ "$lib_mode" = 0 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
+            die_hard "cargo test ${mode_args[*]} reported no passed test: nothing was verified"
+        fi
+        echo "  falsification test passes with the fix (N passed, N > 0): cargo test ${mode_args[*]}"
+    fi
+fi
+
+# The success mark, printed only now that the test (if it ran) has passed.
+if [ "$receipt_kind" != "triage" ]; then
+    echo "✓ quorum receipt valid for $(jq -r '.issue' "$receipt_blob")"
+    echo "    lanes=$(jq '.quorum.lanes | length' "$receipt_blob") refuters=$(jq -r '.quorum.refuters_per_claim' "$receipt_blob") judges=$(jq -r '.quorum.judges' "$receipt_blob") confirmed=$(jq -r '.quorum.claims_confirmed' "$receipt_blob") refuted=$(jq -r '.quorum.claims_refuted' "$receipt_blob")"
+    echo "    falsification: $(jq -r '.falsification.test' "$receipt_blob")"
+    echo "      reverted: $(jq -r '.falsification.reverted' "$receipt_blob")"
+    echo "      observed: $(jq -r '.falsification.observed_failure' "$receipt_blob")"
+fi
 
 # EVIDENCE -- the owner's rule: intermediate results AND conclusion attached.
 #
