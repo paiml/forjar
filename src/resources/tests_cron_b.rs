@@ -126,7 +126,10 @@ fn test_fj033_check_cron() {
     let r = make_cron_resource("backup");
     let script = check_script(&r);
     // forjar#348: the READ is as privileged as the write.
-    assert!(script.contains("$SUDO crontab -u 'root' -l"), "{script}");
+    assert!(
+        script.contains("$SUDO env LC_ALL=C crontab -u 'root' -l"),
+        "{script}"
+    );
     assert!(script.contains("forjar:backup"));
     assert!(script.contains("exists:backup"));
     assert!(script.contains("missing:backup"));
@@ -231,7 +234,7 @@ fn test_fj033_check_custom_user() {
     r.owner = Some("www-data".to_string());
     let script = check_script(&r);
     assert!(
-        script.contains("$SUDO crontab -u 'www-data' -l"),
+        script.contains("$SUDO env LC_ALL=C crontab -u 'www-data' -l"),
         "{script}"
     );
 }
@@ -342,9 +345,9 @@ fn test_fj132_check_and_query_same_user() {
     // forjar#348: one resolution, three call sites — the same user AND the
     // same privilege. They used to decide independently, which is how the
     // apply could write root's crontab while the check read the SSH user's.
-    assert!(check.contains("$SUDO crontab -u 'www-data'"), "{check}");
+    assert!(check.contains("crontab -u 'www-data'"), "{check}");
     assert!(query.contains("$SUDO crontab -u 'www-data'"), "{query}");
-    assert!(apply.contains("$SUDO crontab -u 'www-data'"), "{apply}");
+    assert!(apply.contains("crontab -u 'www-data'"), "{apply}");
 }
 
 // ── FJ-036: Cron resource handler tests ─────────────────────

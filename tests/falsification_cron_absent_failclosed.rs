@@ -54,6 +54,8 @@ enum Read {
     NoCrontab,
     /// Exit 1, any other stderr (the dangerous case).
     Fails(&'static str),
+    /// Exit 1, `no crontab` in French unless the caller forces `LC_ALL=C`.
+    LocalizedNone,
 }
 
 fn host(tag: &str, read: &Read) -> PathBuf {
@@ -66,6 +68,7 @@ fn host(tag: &str, read: &Read) -> PathBuf {
         Read::Has(_) => format!("cat '{d}/store'; exit 0"),
         Read::NoCrontab => "echo 'no crontab for root' >&2; exit 1".to_string(),
         Read::Fails(msg) => format!("echo '{msg}' >&2; exit 1"),
+        Read::LocalizedNone => "[ \"$LC_ALL\" = C ] && echo 'no crontab for root' >&2 || echo 'aucun crontab pour root' >&2; exit 1".to_string(),
     };
     // argv is asserted: only `-u root -l` and `-u root -` are legal.
     stub(
@@ -232,5 +235,144 @@ fn a_crontab_without_the_block_is_not_rewritten() {
         installed(&dir).is_none(),
         "converged crontab must not be rewritten"
     );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+fn present() -> Resource {
+    Resource {
+        state: Some("present".to_string()),
+        schedule: Some("0 2 * * *".to_string()),
+        command: Some("run-backup".to_string()),
+        ..absent()
+    }
+}
+
+fn present_script() -> String {
+    forjar::core::codegen::apply_script(&present()).expect("cron apply script")
+}
+
+fn check_script() -> String {
+    forjar::core::codegen::check_script(&present()).expect("cron check script")
+}
+
+/// THE SAME DEFECT on `state: present`: `2>/dev/null | strip || true` turned a
+/// failed read into an empty string, then `crontab -` wrote only this entry
+/// over the user's real crontab, wiping every other line.
+#[test]
+fn present_with_a_failed_read_does_not_wipe_the_crontab() {
+    let dir = host(
+        "pfail",
+        &Read::Fails("crontab: must be privileged to use -u"),
+    );
+    let out = run(&present_script(), &dir);
+    assert!(
+        installed(&dir).is_none(),
+        "installed: {:?}",
+        installed(&dir)
+    );
+    assert_ne!(out.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("must be privileged"));
+    no_argv_violations(&dir);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// No crontab yet: present must still install the entry (a first apply).
+#[test]
+fn present_with_no_crontab_installs_the_entry() {
+    let dir = host("pnone", &Read::NoCrontab);
+    let out = run(&present_script(), &dir);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got = installed(&dir).expect("entry installed");
+    assert!(
+        got.contains("# forjar:backup") && got.contains("0 2 * * * run-backup"),
+        "{got:?}"
+    );
+    no_argv_violations(&dir);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// A readable crontab keeps its other lines and gains the entry.
+#[test]
+fn present_keeps_the_other_lines() {
+    let dir = host("pok", &Read::Has("MAILTO=x\n5 5 * * * keep-me\n"));
+    let out = run(&present_script(), &dir);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let got = installed(&dir).expect("installed");
+    assert!(
+        got.contains("MAILTO=x") && got.contains("keep-me") && got.contains("run-backup"),
+        "{got:?}"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// check and apply must agree: an unreadable crontab is an error for check
+/// too, not `missing:` (which would send apply to rewrite it).
+#[test]
+fn check_with_a_failed_read_is_an_error_not_missing() {
+    let dir = host(
+        "cfail",
+        &Read::Fails("crontab: must be privileged to use -u"),
+    );
+    let out = run(&check_script(), &dir);
+    let so = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !so.contains("missing:"),
+        "failed read reported as missing: {so}"
+    );
+    assert_ne!(out.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("must be privileged"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn check_with_no_crontab_is_missing() {
+    let dir = host("cnone", &Read::NoCrontab);
+    let out = run(&check_script(), &dir);
+    assert!(String::from_utf8_lossy(&out.stdout).contains("missing:backup"));
+    assert_ne!(out.status.code(), Some(0));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// A localized `no crontab` message must still converge `absent`: the read
+/// forces LC_ALL=C so the match is not English-by-accident.
+#[test]
+fn a_localized_no_crontab_message_still_converges_absent() {
+    let dir = host("loc", &Read::LocalizedNone);
+    let out = run(&script(), &dir);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(installed(&dir).is_none());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// A failed INSTALL (`crontab -`) must fail the apply.
+#[test]
+fn a_failed_install_fails_the_apply() {
+    let dir = host(
+        "ifail",
+        &Read::Has("5 5 * * * keep-me\n# forjar:backup\n# forjar-cmd:backup\n0 1 * * * x\n"),
+    );
+    let d = dir.display();
+    stub(
+        &dir,
+        "crontab",
+        &format!("case \"$3\" in -l) cat '{d}/store';; -) cat >/dev/null; exit 1;; esac"),
+    );
+    let out = run(&script(), &dir);
+    assert_ne!(out.status.code(), Some(0));
     let _ = fs::remove_dir_all(&dir);
 }

@@ -146,7 +146,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$mode" in
-  list) [ -f "$store" ] || exit 1; cat "$store" ;;
+  list) [ -f "$store" ] || { echo "no crontab for root" >&2; exit 1; }; cat "$store" ;;
   write) cat > "$store" ;;
 esac
 "#;
