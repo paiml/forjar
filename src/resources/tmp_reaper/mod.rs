@@ -163,7 +163,7 @@ pub fn state_query_script(r: &Resource) -> String {
         Err(e) => return broken(&format!("tmp_reaper: {e}")),
     };
     format!(
-        "{}\necho \"stale=$(find \"$P\" -xdev -mindepth 1 -mmin +{} \\( \\( -type f -o -type l \\){}{} \\) | wc -l)\"",
+        "{}\necho \"stale=$(find \"$P\" -xdev -mindepth 1 -mmin +{} \\( \\( -type f -o -type l \\){}{} \\) -print0 | tr -cd '\\0' | wc -c)\"",
         guard(&spec, "echo 'stale=absent'; exit 0"),
         spec.max_age_min,
         name_arg(&spec),

@@ -18,17 +18,39 @@ pub(crate) type Target = (String, Result<String, String>);
 pub(crate) struct Report {
     pub findings: Vec<(String, InodeFinding)>,
     pub warnings: Vec<String>,
+    /// Targets whose `df` could not be read (lenient mode only).
+    pub unmeasured: usize,
 }
 
-/// Judge every target. A target whose `df` could not be read is NOT MEASURED
-/// and fails the whole assessment, naming the machine; a `-` row is a warning.
-pub(crate) fn assess(cfg: &ForjarConfig, targets: &[Target]) -> Result<Report, String> {
+/// Marks a target the gate must not measure yet (its container is not
+/// created; `apply` creates it). A warning, never a refusal.
+const DEFERRED: &str = "deferred: ";
+
+/// Judge every target. In `strict` mode a target whose `df` could not be read
+/// is NOT MEASURED and fails the whole assessment, naming the machine; when
+/// not strict it is reported in `unmeasured` and the others are still judged.
+/// A `-` row is a warning; a deferred target is a warning.
+fn assess_with(cfg: &ForjarConfig, targets: &[Target], strict: bool) -> Result<Report, String> {
     let policy = cfg.inode_pressure.clone().unwrap_or_default();
     let mut report = Report::default();
     for (machine, df) in targets {
-        let text = df
-            .as_ref()
-            .map_err(|e| format!("not measured on {machine}: {e}"))?;
+        let text = match df {
+            Ok(t) => t,
+            Err(e) if e.starts_with(DEFERRED) => {
+                report.warnings.push(format!(
+                    "{machine}: inode check {e} (it is measured by `drift` once it exists)"
+                ));
+                continue;
+            }
+            Err(e) if strict => return Err(format!("not measured on {machine}: {e}")),
+            Err(e) => {
+                report.unmeasured += 1;
+                report
+                    .warnings
+                    .push(format!("not measured on {machine}: {e}"));
+                continue;
+            }
+        };
         let readings = parse_df_i(text);
         let found = evaluate(&policy, &readings).map_err(|e| format!("{machine}: {e}"))?;
         report
@@ -43,9 +65,36 @@ pub(crate) fn assess(cfg: &ForjarConfig, targets: &[Target]) -> Result<Report, S
     Ok(report)
 }
 
+pub(crate) fn assess(cfg: &ForjarConfig, targets: &[Target]) -> Result<Report, String> {
+    assess_with(cfg, targets, true)
+}
+
+fn container_running(machine: &Machine) -> bool {
+    let Some(c) = machine.container.as_ref() else {
+        return false;
+    };
+    std::process::Command::new(&c.runtime)
+        .args([
+            "inspect",
+            "-f",
+            "{{.State.Running}}",
+            &machine.container_name(),
+        ])
+        .output()
+        .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
+}
+
 /// `df -i -P -T` on a machine, through ITS transport (local, ssh, container,
 /// pepita) — the controller's own inodes say nothing about a remote target.
 fn measure(machine: &Machine) -> Result<String, String> {
+    // `apply` creates a container only after its pre-checks, so a container
+    // that is not running yet has nothing to measure: defer, do not refuse.
+    if machine.is_container_transport() && !container_running(machine) {
+        return Err(format!(
+            "{DEFERRED}container '{}' is not running yet",
+            machine.container_name()
+        ));
+    }
     let out = crate::transport::query(machine, "df -i -P -T")
         .map_err(|e| format!("not measured: cannot run df: {e}"))?;
     // GNU df exits 1 when it could not stat one mount but still prints the rest.
@@ -59,17 +108,21 @@ fn measure(machine: &Machine) -> Result<String, String> {
     Ok(out.stdout)
 }
 
-/// One target per machine in scope. `local_only` (validate, which is offline by
-/// nature) keeps only machines the controller itself answers for; a config
-/// with no machines at all is measured on the controller.
-pub(crate) fn collect(cfg: &ForjarConfig, scope: Option<&str>, local_only: bool) -> Vec<Target> {
+/// One target per machine in `scope` (`None` = all). `local_only` (validate,
+/// which is offline by nature) keeps only machines the controller itself
+/// answers for; a config with no machines at all is measured on the controller.
+pub(crate) fn collect(
+    cfg: &ForjarConfig,
+    scope: Option<&[String]>,
+    local_only: bool,
+) -> Vec<Target> {
     if cfg.machines.is_empty() {
         return vec![("localhost".to_string(), host_df())];
     }
     let mut names: Vec<&String> = cfg
         .machines
         .keys()
-        .filter(|m| scope.is_none_or(|s| s == m.as_str()))
+        .filter(|m| scope.is_none_or(|s| s.contains(m)))
         .collect();
     names.sort();
     names
@@ -80,20 +133,40 @@ pub(crate) fn collect(cfg: &ForjarConfig, scope: Option<&str>, local_only: bool)
         .collect()
 }
 
+/// The machines `validate` cannot measure (offline), one warning each.
+pub(crate) fn skipped_by_validate(cfg: &ForjarConfig) -> Vec<String> {
+    let mut names: Vec<&String> = cfg
+        .machines
+        .iter()
+        .filter(|(_, m)| !crate::transport::controller_answers_for(m))
+        .map(|(n, _)| n)
+        .collect();
+    names.sort();
+    names
+        .into_iter()
+        .map(|n| {
+            format!(
+                "not measured: {n} (validate is offline; `drift` and `apply` measure its inodes)"
+            )
+        })
+        .collect()
+}
+
 fn warn(report: &Report) {
     for w in &report.warnings {
         eprintln!("warning: {w}");
     }
 }
 
-/// drift: number of findings (printed). A machine whose `df` cannot be read
-/// is NOT MEASURED and fails closed.
+/// drift: `(findings, unmeasured machines)`. A machine whose `df` cannot be
+/// read is reported as not measured and the others are still judged; the
+/// caller counts it so the run is never a pass.
 pub(crate) fn drift_count(
     cfg: &ForjarConfig,
     targets: &[Target],
     json: bool,
-) -> Result<usize, String> {
-    let report = assess(cfg, targets)?;
+) -> Result<(usize, usize), String> {
+    let report = assess_with(cfg, targets, false)?;
     warn(&report);
     for (machine, f) in &report.findings {
         if json {
@@ -106,7 +179,7 @@ pub(crate) fn drift_count(
             println!("  DRIFT inode_pressure: {machine}: {f}");
         }
     }
-    Ok(report.findings.len())
+    Ok((report.findings.len(), report.unmeasured))
 }
 
 /// validate / apply pre-check: `Err` on any finding, or on a machine that
@@ -146,27 +219,36 @@ pub(crate) fn pre_check(
     ))
 }
 
-/// drift against the real machines in `scope`.
+/// drift against the real machines under `-m`: `(findings, unmeasured)`.
 pub(crate) fn machines_drift_count(
     cfg: &ForjarConfig,
-    scope: Option<&str>,
+    machine_filter: Option<&str>,
     json: bool,
-) -> Result<usize, String> {
-    drift_count(cfg, &collect(cfg, scope, false), json)
+) -> Result<(usize, usize), String> {
+    let scope = machine_filter.map(|m| vec![m.to_string()]);
+    drift_count(cfg, &collect(cfg, scope.as_deref(), false), json)
 }
 
-/// apply pre-check against the real machines in `scope`.
+/// apply pre-check against exactly the machines this run will reach.
 pub(crate) fn machines_pre_check(
     cfg: &ForjarConfig,
-    scope: Option<&str>,
+    machines: &[String],
     warn_only: bool,
 ) -> Result<(), String> {
-    pre_check(cfg, &collect(cfg, scope, false), "apply", warn_only)
+    pre_check(
+        cfg,
+        &collect(cfg, Some(machines), false),
+        "apply",
+        warn_only,
+    )
 }
 
 /// validate pre-check: only machines the controller answers for (validate is
-/// offline; remote machines are measured by drift and apply).
+/// offline); every other machine is named as not measured.
 pub(crate) fn local_pre_check(cfg: &ForjarConfig) -> Result<(), String> {
+    for w in skipped_by_validate(cfg) {
+        eprintln!("warning: {w}");
+    }
     pre_check(cfg, &collect(cfg, None, true), "validate", false)
 }
 
@@ -175,3 +257,5 @@ mod tests;
 
 #[cfg(test)]
 mod tests_machines;
+#[cfg(test)]
+mod tests_scope;

@@ -108,7 +108,7 @@ pub(super) fn run_plan_apply_gates(
         })
         .collect();
     // forjar#847: same inode pre-check an ordinary apply runs; a dry run warns.
-    super::inode_gate::machines_pre_check(config, req.selectors.machine.as_deref(), req.dry_run)?;
+    super::inode_gate::machines_pre_check(config, &machines, req.dry_run)?;
     super::apply_preflight::apply_state_gates(
         config,
         req.state_dir,

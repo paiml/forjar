@@ -258,3 +258,22 @@ fn with_a_pattern_check_looks_only_at_matching_files() {
     file(d.path(), "old.tmp", 10);
     assert_ne!(sh(&check_script(&r)).0, 0);
 }
+
+#[test]
+fn the_state_count_is_not_fooled_by_a_newline_in_a_filename() {
+    let d = tempfile::tempdir().unwrap();
+    file(d.path(), "two\nlines.tmp", 10);
+    file(d.path(), "plain.tmp", 10);
+    file(d.path(), "fresh.tmp", 0);
+    let (rc, out) = sh(&state_query_script(&res(
+        d.path().to_str().unwrap(),
+        "7d",
+        None,
+    )));
+    assert_eq!(rc, 0, "{out}");
+    assert_eq!(
+        out.trim(),
+        "stale=2",
+        "a newline in a name was counted twice"
+    );
+}

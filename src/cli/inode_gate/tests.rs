@@ -24,18 +24,18 @@ fn cfg() -> ForjarConfig {
 fn drift_counts_a_99_percent_tmpfs_and_not_the_same_mount_at_10() {
     assert_eq!(
         drift_count(&cfg(), &one(df("10%", "99%")), true).unwrap(),
-        1
+        (1, 0)
     );
     assert_eq!(
         drift_count(&cfg(), &one(df("10%", "10%")), true).unwrap(),
-        0
+        (0, 0)
     );
 }
 
 #[test]
-fn drift_that_cannot_measure_fails_closed() {
-    let e = drift_count(&cfg(), &one(Err("not measured: no df".into())), true).unwrap_err();
-    assert!(e.contains("not measured"), "{e}");
+fn drift_that_cannot_measure_is_counted_as_unmeasured_never_a_pass() {
+    let r = drift_count(&cfg(), &one(Err("not measured: no df".into())), true).unwrap();
+    assert_eq!(r, (0, 1));
 }
 
 #[test]

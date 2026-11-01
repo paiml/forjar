@@ -250,7 +250,15 @@ pub(super) fn apply_pre_validate(
 ) -> Result<Vec<super::apply_drift::DriftRepair>, String> {
     // forjar#847: refuse to apply onto a host that is out of inodes; a dry run
     // only warns.
-    super::inode_gate::machines_pre_check(config, machine_filter, dry_run)?;
+    // Only the machines this run reaches (-m/-r/-t/-g), as the drift gate does.
+    let reached = super::apply_drift::GateScope {
+        machine: machine_filter,
+        resource: resource_filter,
+        tag: tag_filter,
+        group: group_filter,
+    }
+    .machines_in_scope(config);
+    super::inode_gate::machines_pre_check(config, &reached, dry_run)?;
     apply_state_gates(
         config,
         state_dir,

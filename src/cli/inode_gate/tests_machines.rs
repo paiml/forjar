@@ -35,7 +35,7 @@ fn a_dash_is_a_warning_in_every_entry_point_never_red() {
     );
     assert!(pre_check(&cfg(), &targets, "validate", false).is_ok());
     assert!(pre_check(&cfg(), &targets, "apply", false).is_ok());
-    assert_eq!(drift_count(&cfg(), &targets, true), Ok(0));
+    assert_eq!(drift_count(&cfg(), &targets, true), Ok((0, 0)));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn each_machine_is_judged_and_named() {
         e.contains("web") && e.contains("99%") && !e.contains("db"),
         "{e}"
     );
-    assert_eq!(drift_count(&cfg(), &targets, true), Ok(1));
+    assert_eq!(drift_count(&cfg(), &targets, true), Ok((1, 0)));
     // The full machine is the SECOND one: a first-target-only reader misses it.
     let targets = [t("db", Ok(df_text("10%"))), t("web", Ok(df_text("99%")))];
     assert!(pre_check(&cfg(), &targets, "apply", false).is_err());
@@ -78,7 +78,7 @@ fn fake_runtime(dir: &Path, root_pct: &str) -> PathBuf {
     std::fs::write(
         &p,
         format!(
-            "#!/bin/sh\ncat >/dev/null\nprintf '%s\\n' 'Filesystem Type Inodes IUsed IFree IUse% Mounted on' \
+            "#!/bin/sh\ncase \"$1\" in inspect) echo true; exit 0;; esac\ncat >/dev/null\nprintf '%s\\n' 'Filesystem Type Inodes IUsed IFree IUse% Mounted on' \
              'overlay overlay 1000 990 10 {root_pct} /'\n"
         ),
     )
@@ -119,7 +119,7 @@ fn df_runs_through_the_machines_transport_not_on_the_controller() {
 fn a_machine_filter_limits_what_is_measured() {
     let d = tempfile::tempdir().unwrap();
     let c = container_cfg(&fake_runtime(d.path(), "99%"));
-    assert!(collect(&c, Some("other"), false).is_empty());
+    assert!(collect(&c, Some(&["other".to_string()]), false).is_empty());
 }
 
 #[test]

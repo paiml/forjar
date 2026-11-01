@@ -348,9 +348,9 @@ pub(crate) fn cmd_drift(
     )?;
     print_drift_summary(&scan, json)?;
     // forjar#847: inode pressure is drift too (the host, not a resource).
-    let inode_drift = match config.as_ref() {
+    let (inode_drift, inode_unmeasured) = match config.as_ref() {
         Some(cfg) => super::inode_gate::machines_drift_count(cfg, machine_filter, json)?,
-        None => 0,
+        None => (0, 0),
     };
     // PMAT-564: a run that inspected NONE of what it was asked about declines
     // before any verdict is drawn from it.
@@ -362,7 +362,10 @@ pub(crate) fn cmd_drift(
         total_unmeasured,
         ..
     } = scan;
-    let total_drift = total_drift + inode_drift;
+    let (total_drift, total_unmeasured) = (
+        total_drift + inode_drift,
+        total_unmeasured + inode_unmeasured,
+    );
 
     if total_drift > 0 {
         if let Some(cmd) = alert_cmd {
