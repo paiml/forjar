@@ -5105,3 +5105,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-838
+  github_issue: 838
+  item_type: task
+  title: 'Forjar-managed 24/7 watchdog: per-cop tick timer, sanctioned restart from brief, minimum live workers per tier-1 repo'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-31T09:46:41Z
+  updated: 2026-10-31T09:46:41Z
+  spec: null
+  acceptance_criteria:
+  - 'Operator (Noah via arbiter-cop): "the sovereign stack must work 24/7". Evidence: forjar-cop idle 36h with no tick; deadman alerts with no auto-action; rmedia-b3 55 MB session needed manual restart; aprender workers-alive=0 undetected. Five whys (to confirm by measurement): cycle is a session loop not a unit; nothing owns it; deadman only alerts; restart is ad-hoc ssh/tmux; no declared minimum worker count so zero is not a failure. Scope: (a) per-cop tick/publish timer declared in forjar; (b) restart a stalled or oversized session from its handoff brief via a sanctioned forjar path, no ad-hoc ssh; (c) minimum live workers per tier-1 repo (from flow-manifest.yaml) with an andon below it. Falsifiers first: stop a cop and assert a row still publishes and the session restarts from its brief; drop workers below the minimum and assert the andon. Scope review before any build.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 837
