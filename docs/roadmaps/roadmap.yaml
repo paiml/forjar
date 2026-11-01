@@ -5011,6 +5011,25 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-760
+  github_issue: 760
+  item_type: task
+  title: 'parse_config: a malformed document reports the schema-free parse''s error (forjar#720)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-22T13:54:47Z
+  updated: 2026-10-22T13:54:47Z
+  spec: null
+  acceptance_criteria:
+  - 'Ticket minted for PR #720 which carried no Pmat-Ticket trailer (EMG3-2).'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 670
 - id: PMAT-735
   github_issue: 735
   item_type: task
