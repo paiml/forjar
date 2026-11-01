@@ -31,7 +31,7 @@ fn apply(dir: &Path, extra: &[&str]) -> (bool, String) {
 }
 
 /// Four resources: `base` <- `app` (depends_on), `other` (group web, tag t1),
-/// `lone` (no group, no tag).
+/// `lone` (no group, no tag); only `app` is in group web.
 fn config_scoped(dir: &Path) -> std::path::PathBuf {
     let cfg = dir.join("forjar.yaml");
     let f = |n: &str, extra: &str| {
@@ -41,7 +41,7 @@ fn config_scoped(dir: &Path) -> std::path::PathBuf {
         )
     };
     let res = [
-        f("base", ", resource_group: web"),
+        f("base", ""),
         f("app", ", resource_group: web, depends_on: [base]"),
         f("other", ", tags: [t1]"),
         f("lone", ""),
