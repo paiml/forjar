@@ -4998,6 +4998,25 @@ roadmap:
   updated: 2026-10-29T08:25:22.948811660+00:00
   spec: null
   acceptance_criteria: []
+- id: PMAT-725
+  github_issue: 725
+  item_type: task
+  title: 'FLOW-009 RC-2: add .flow009/batcher.pub (batcher public key)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-24T15:24:49Z
+  updated: 2026-10-24T15:24:49Z
+  spec: null
+  acceptance_criteria:
+  - forjar#725
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  epic: 696
 - id: PMAT-840
   github_issue: 840
   item_type: task
