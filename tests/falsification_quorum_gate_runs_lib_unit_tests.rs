@@ -133,7 +133,7 @@ const TESTS_REL: &str = "src/tests_one.rs";
 const BASE_LIB: &str = "pub fn one() -> u32 {\n    1\n}\n\n#[cfg(test)]\nmod tests_one;\n";
 const FIXED_LIB: &str = "pub fn one() -> u32 {\n    2\n}\n\n#[cfg(test)]\nmod tests_one;\n";
 const BASE_TESTS: &str = "use super::*;\n\n#[test]\nfn always_green() {\n    assert!(true);\n}\n";
-const NEW_TESTS: &str = "use super::*;\n\n#[test]\nfn always_green() {\n    assert!(true);\n}\n\n#[test]\nfn one_is_two() {\n    assert_eq!(one(), 2);\n}\n";
+const NEW_TESTS: &str = "use super::*;\n\n#[test]\nfn always_green() {\n    assert!(true);\n}\n\n#[test]\nfn one_is_two() {\n    assert_eq!(one(), 2);\n}\n\n#[test]\n#[allow(clippy::eq_op)]\nfn attr_between() {\n    assert_eq!(1, 1);\n}\n\nfn helper_not_a_test() {}\n";
 
 struct Code {
     _dir: tempfile::TempDir,
@@ -346,4 +346,66 @@ fn a_missing_or_broken_jq_is_refused_not_defaulted() {
     let r = gate_without_jq(&c, Some("#!/bin/sh\nexit 3\n"));
     assert_ne!(r.code, 0, "{}", r.text);
     assert!(r.text.contains("cannot read .kind"), "{}", r.text);
+}
+
+fn tie_refused(filter: &str) -> bool {
+    let c = code_fixture(true, filter, TESTS_REL);
+    let r = gate_on(&c);
+    assert_ne!(r.code, 0, "{}", r.text);
+    r.text.contains("does not name a test in")
+}
+
+/// r2 fix (1): only a fn directly under #[test] (other attributes allowed in
+/// between) ties a filter to test_file; a same-named helper and a regex
+/// metachar name do not.
+#[test]
+fn the_fn_branch_requires_a_real_test_and_matches_literally() {
+    // Passes the tie (then cargo finds nothing under that module: a later refusal).
+    assert!(!tie_refused("other_module::one_is_two"));
+    assert!(!tie_refused("other_module::attr_between"));
+    // A helper without #[test] is not a test.
+    assert!(tie_refused("other_module::helper_not_a_test"));
+    // Regex metacharacters are literal: `.*` / `one_is_.wo` match nothing.
+    assert!(tie_refused("other_module::.*"));
+    assert!(tie_refused("other_module::one_is_.wo"));
+}
+
+/// r2 fix (3): the lanes/refuters line main printed is back, exactly.
+#[test]
+fn the_lanes_line_is_printed_as_main_prints_it() {
+    let c = code_fixture(true, "tests_one::one_is_two", TESTS_REL);
+    let r = gate_on(&c);
+    assert_eq!(r.code, 0, "{}", r.text);
+    assert!(
+        r.text
+            .contains("    lanes=3 refuters=3 judges=3 confirmed=3 refuted=1\n"),
+        "{}",
+        r.text
+    );
+}
+
+/// r2 fix (4): quorum.yml runs on the clean-room fleet (never hosted) and makes
+/// jq present before the gate step reads the receipt with it.
+#[test]
+fn the_quorum_workflow_gets_jq_before_the_gate_on_a_self_hosted_runner() {
+    let y = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/quorum.yml"),
+    )
+    .unwrap();
+    assert!(y.contains("runs-on: [self-hosted, clean-room, X64]"));
+    assert!(
+        !y.contains("ubuntu-"),
+        "a GitHub-hosted runner is forbidden"
+    );
+    let jq = y.find("name: Ensure jq").expect("an `Ensure jq` step");
+    let gate = y.find("name: Verify quorum receipt").unwrap();
+    assert!(jq < gate, "jq must be ensured before the gate runs");
+    assert!(
+        y[jq..gate].contains("command -v jq"),
+        "the step must show presence"
+    );
+    assert!(
+        y[jq..gate].contains("apt-get install"),
+        "the step must install when absent"
+    );
 }

@@ -747,7 +747,21 @@ if [ "$receipt_kind" != "triage" ]; then
         mod="${f_file#src/}"; mod="${mod%.rs}"; mod="${mod//\//::}"
         case "$f_target" in "$mod"|"$mod"::*) return 0 ;; esac
         last="${f_target##*::}"
-        git show "$pushed:$f_file" 2>/dev/null | grep -Eq "fn[[:space:]]+${last}[[:space:](<]"
+        # The fn must be a real test: the first non-attribute line above it is
+        # #[test] (other attributes may sit between). Matched literally, never
+        # as a regex, so a metachar in the receipt cannot widen the match.
+        [ -n "$last" ] || return 1
+        git show "$pushed:$f_file" 2>/dev/null | awk -v want="$last" '
+            /^[[:space:]]*#\[test\]/ { armed = 1; next }
+            /^[[:space:]]*#\[/ { next }
+            /^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+/ {
+                line = $0
+                sub(/^[[:space:]]*(pub[[:space:]]+)?(async[[:space:]]+)?fn[[:space:]]+/, "", line)
+                name = line; sub(/[^A-Za-z0-9_].*$/, "", name)
+                if (armed && name == want) found = 1
+            }
+            { armed = 0 }
+            END { exit(found ? 0 : 1) }'
     }
     if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$pushed")" ]; then
         if [[ "$f_file" =~ ^src/(.*/)?tests[^/]*\.rs$ ]]; then
@@ -782,6 +796,7 @@ fi
 # The success mark, printed only now that the test (if it ran) has passed.
 if [ "$receipt_kind" != "triage" ]; then
     echo "✓ quorum receipt valid for $(jq -r '.issue' "$receipt_blob")"
+    echo "    lanes=$(jq '.quorum.lanes | length' "$receipt_blob") refuters=$(jq -r '.quorum.refuters_per_claim' "$receipt_blob") judges=$(jq -r '.quorum.judges' "$receipt_blob") confirmed=$(jq -r '.quorum.claims_confirmed' "$receipt_blob") refuted=$(jq -r '.quorum.claims_refuted' "$receipt_blob")"
     echo "    falsification: $(jq -r '.falsification.test' "$receipt_blob")"
     echo "      reverted: $(jq -r '.falsification.reverted' "$receipt_blob")"
     echo "      observed: $(jq -r '.falsification.observed_failure' "$receipt_blob")"
