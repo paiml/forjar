@@ -32,13 +32,19 @@ pub(crate) fn cmd_show(
     resource_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_for_render(file)?;
 
     // Resolve templates in all resources
     for (_id, resource) in config.resources.iter_mut() {
-        *resource =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        *resource = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
     }
+    // Everything below is printed, not rendered: show a data value as written.
+    resolver::decode_literals(&mut config)?;
 
     if let Some(resource_id) = resource_filter {
         let resource = config
@@ -137,7 +143,7 @@ fn explain_json(
 
 /// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
 pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     let resource = config
         .resources
@@ -148,8 +154,12 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         types::MachineTarget::Single(m) => m.clone(),
         types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
     };
-    let resolved =
-        resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+    let resolved = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    )?;
 
     let transport_type = detect_transport_type(&machine_name, &config.machines);
 
@@ -229,8 +239,8 @@ fn print_explain_dependencies(resource: &types::Resource) {
 
 // FJ-363: Compare two config files
 pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
-    let config1 = parse_and_validate(file1)?;
-    let config2 = parse_and_validate(file2)?;
+    let config1 = parse_and_validate_for_render(file1)?;
+    let config2 = parse_and_validate_for_render(file2)?;
 
     let keys1: std::collections::HashSet<&String> = config1.resources.keys().collect();
     let keys2: std::collections::HashSet<&String> = config2.resources.keys().collect();
@@ -289,7 +299,7 @@ pub(crate) use super::template_cmd::cmd_template;
 
 // FJ-220 + FJ-3200: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool, sarif: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let result = parser::evaluate_policies_full(&config);
 
     if sarif {
@@ -362,9 +372,7 @@ fn print_all_outputs(
 }
 
 pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
-    use crate::core::state;
-
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     if config.outputs.is_empty() {
         if json {
@@ -375,7 +383,13 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
         return Ok(());
     }
 
-    let resolved = state::resolve_outputs(&config);
+    // The loader resolved `outputs:` exactly once (forjar#660). Resolving the
+    // already-resolved text again re-reads any `{{` a data value contained.
+    let resolved: indexmap::IndexMap<String, String> = config
+        .outputs
+        .iter()
+        .map(|(k, o)| (k.clone(), o.value.clone()))
+        .collect();
 
     if let Some(k) = key {
         match resolved.get(k) {

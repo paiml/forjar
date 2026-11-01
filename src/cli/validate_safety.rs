@@ -7,9 +7,7 @@ use std::path::Path;
 
 /// FJ-757: Detect circular dependency chains.
 pub(crate) fn cmd_validate_check_circular_deps(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let cycles = find_cycles(&config);
     if json {
         let items: Vec<String> = cycles.iter().map(|c| format!("{c:?}")).collect();
@@ -80,9 +78,7 @@ fn dfs_cycle<'a>(
 
 /// FJ-761: Verify all machine references in resources exist.
 pub(crate) fn cmd_validate_check_machine_refs(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bad = find_bad_machine_refs(&config);
     if json {
         let items: Vec<String> = bad
@@ -122,9 +118,7 @@ pub(crate) fn cmd_validate_check_provider_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let conflicts = find_provider_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
@@ -174,9 +168,7 @@ fn find_provider_conflicts(config: &types::ForjarConfig) -> Vec<(String, Vec<Str
 
 /// FJ-769: Verify state field values are valid for each resource type.
 pub(crate) fn cmd_validate_check_state_values(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bad = find_bad_states(&config);
     if json {
         let items: Vec<String> = bad
@@ -227,9 +219,7 @@ fn find_bad_states(config: &types::ForjarConfig) -> Vec<(String, String, String)
 
 /// FJ-773: Detect machines defined but not referenced by any resource.
 pub(crate) fn cmd_validate_check_unused_machines(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let unused = find_unused_machines(&config);
     if json {
         let items: Vec<String> = unused.iter().map(|m| format!("\"{m}\"")).collect();
@@ -265,9 +255,7 @@ fn find_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
 
 /// FJ-777: Verify resource tags follow naming conventions (kebab-case).
 pub(crate) fn cmd_validate_check_tag_consistency(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bad = find_bad_tags(&config);
     if json {
         let items: Vec<String> = bad
@@ -288,9 +276,7 @@ pub(crate) fn cmd_validate_check_tag_consistency(file: &Path, json: bool) -> Res
 
 /// FJ-781: Verify all depends_on targets reference existing resources.
 pub(crate) fn cmd_validate_check_dependency_exists(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bad = find_missing_deps(&config);
     if json {
         let items: Vec<String> = bad
@@ -330,9 +316,7 @@ pub(crate) fn cmd_validate_check_path_conflicts_strict(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let conflicts = find_strict_path_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
@@ -402,9 +386,7 @@ fn find_bad_tags(config: &types::ForjarConfig) -> Vec<(String, String)> {
 
 /// FJ-789: Detect duplicate resource names (same base name in different groups).
 pub(crate) fn cmd_validate_check_duplicate_names(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let dupes = find_duplicate_base_names(&config);
     if json {
         let items: Vec<String> = dupes
@@ -444,9 +426,7 @@ fn find_duplicate_base_names(config: &types::ForjarConfig) -> Vec<(String, Vec<S
 
 /// FJ-793: Verify resource groups are non-empty.
 pub(crate) fn cmd_validate_check_resource_groups(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let groups = collect_resource_groups(&config);
     let empty: Vec<&String> = groups
         .iter()

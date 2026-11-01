@@ -4850,6 +4850,25 @@ roadmap:
   notes: null
   epic: 696
   release: 1.33.0
+- id: PMAT-660
+  github_issue: 660
+  item_type: task
+  title: 'forjar show (and every manifest reader) resolves data: sources the way plan/apply do'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-05T13:54:45Z
+  updated: 2026-10-05T13:54:45Z
+  spec: null
+  acceptance_criteria:
+  - 'Route every manifest-reading subcommand through one load that resolves data: sources (load_resolved_config / parse_validate_resolve). Execution test tests/falsification_660_every_reader_resolves_data.rs asks the built binary which subcommands take --file and runs each on a {{data.x}} fixture; red 8/60 on the unfixed tree.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 670
 - id: PMAT-671
   github_issue: 671
   item_type: task

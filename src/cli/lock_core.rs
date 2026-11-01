@@ -79,12 +79,13 @@ pub(crate) fn cmd_lock(
 ) -> Result<(), String> {
     use crate::core::planner::hash_desired_state;
 
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    let mut config = resolver::load_resolved_config_with(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // FJ-2733: write apply's hash universe. `executor::record_success` hashes
     // the RESOLVED resource; hashing the raw one here made `lock --verify`,
@@ -93,6 +94,7 @@ pub(crate) fn cmd_lock(
     config.resources = resolver::resolve_all(
         &config.resources,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     );
@@ -316,7 +318,7 @@ fn print_prune_summary(pruned: usize, yes: bool) {
 
 // FJ-366: Lock prune — remove stale lock entries
 pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
 
     let entries =

@@ -97,7 +97,13 @@ const SCOPE_NOTE: &str = "no lock — assertions only";
 /// a DIFFERENT script than the one `apply` runs. That is a wrong answer, which
 /// is worse than the missing one this whole module exists to replace.
 fn resolve(cfg: &types::ForjarConfig) -> indexmap::IndexMap<String, types::Resource> {
-    crate::core::resolver::resolve_all(&cfg.resources, &cfg.params, &cfg.machines, &cfg.secrets)
+    crate::core::resolver::resolve_all(
+        &cfg.resources,
+        &cfg.params,
+        &cfg.data_values,
+        &cfg.machines,
+        &cfg.secrets,
+    )
 }
 
 /// NO LOCK AND NO CONFIG IS NOT A CLEAN BILL OF HEALTH.

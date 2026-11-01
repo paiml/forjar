@@ -158,7 +158,8 @@ fn main() {
         content: Some("listen {{params.port}}".into()),
         ..Default::default()
     };
-    let resolved_r = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved_r =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     println!(
         "  Resource path: {:?} -> {:?}",
         resource.path, resolved_r.path

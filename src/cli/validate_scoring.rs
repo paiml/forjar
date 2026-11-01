@@ -9,9 +9,7 @@ use std::path::Path;
 
 /// Parse a forjar config from a file path.
 fn load_config(file: &Path) -> Result<types::ForjarConfig, String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     Ok(config)
 }
 

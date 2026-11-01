@@ -15,7 +15,7 @@ mod tests {
         f
     }
 
-    const BASE: &str = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
+    const BASE: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
 
     // FJ-757: circular deps
     #[test]
@@ -132,14 +132,14 @@ mod tests {
 
     #[test]
     fn test_unused_machines_found() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_unused_machines(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_unused_machines_json() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_unused_machines(f.path(), true).is_ok());
     }

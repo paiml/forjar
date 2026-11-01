@@ -8,9 +8,7 @@ pub(crate) fn cmd_graph_resource_dependency_modularity_score(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let (score, communities) = compute_modularity(&config);
     if json {
         let items: Vec<String> = communities
@@ -110,9 +108,7 @@ pub(crate) fn cmd_graph_resource_dependency_diameter(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let (diameter, eccentricities) = compute_eccentricities(&config);
     if json {
         println!("{{\"diameter\":{diameter}}}");
@@ -133,9 +129,7 @@ pub(crate) fn cmd_graph_resource_dependency_eccentricity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let (_diameter, eccentricities) = compute_eccentricities(&config);
     if json {
         let items: Vec<String> = eccentricities
@@ -195,9 +189,7 @@ fn bfs_max_distance(start: usize, adj: &[HashSet<usize>], n: usize) -> usize {
 
 /// FJ-935: Edge density ratio in dependency graph.
 pub(crate) fn cmd_graph_resource_dependency_density(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let n = config.resources.len();
     let edges: usize = config.resources.values().map(|r| r.depends_on.len()).sum();
     let max_edges = if n > 1 { n * (n - 1) } else { 1 };
@@ -215,9 +207,7 @@ pub(crate) fn cmd_graph_resource_dependency_transitivity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let (total, redundant) = count_transitive_edges(&config);
     let ratio = if total > 0 {
         redundant as f64 / total as f64

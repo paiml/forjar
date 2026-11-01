@@ -69,6 +69,8 @@ fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mu
         // adds/removes/modifications rather than a whole-value comparison.
         // Collections with their own per-key diff fns above.
         params: _,
+        // forjar#660: runtime scope filled by the loader, not manifest content.
+        data_values: _,
         machines: _,
         resources: _,
         outputs: _,
@@ -95,6 +97,7 @@ fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mu
         policies: pol2,
         // Collections with their own per-key diff fns above.
         params: _,
+        data_values: _,
         machines: _,
         resources: _,
         outputs: _,

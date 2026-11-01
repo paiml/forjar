@@ -16,6 +16,7 @@ fn main() {
     let resolved = forjar::core::resolver::resolve_all(
         &cfg.resources,
         &cfg.params,
+        &cfg.data_values,
         &cfg.machines,
         &cfg.secrets,
     );

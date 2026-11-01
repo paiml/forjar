@@ -1,6 +1,6 @@
 //! Core status command.
 
-use crate::core::{parser, state, types};
+use crate::core::{state, types};
 use std::path::Path;
 
 /// Build a JSON resource entry, enriched with config if available.
@@ -240,7 +240,7 @@ pub(crate) fn cmd_status(
     let global = state::load_global_lock(state_dir)?;
 
     let config = if let Some(f) = config_file {
-        Some(parser::parse_and_validate(f)?)
+        Some(crate::core::resolver::load_resolved_config(f)?)
     } else {
         None
     };

@@ -15,7 +15,7 @@ mod tests {
         f
     }
 
-    const BASE: &str = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
+    const BASE: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
 
     // FJ-961: dependency refs
     #[test]
@@ -89,21 +89,21 @@ mod tests {
     // FJ-953: machine balance
     #[test]
     fn test_machine_balance_balanced() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n  b:\n    machine: m2\n    type: package\n    name: curl\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n  b:\n    machine: m2\n    type: package\n    name: curl\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_resource_machine_balance(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_machine_balance_imbalanced() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n  b:\n    machine: m1\n    type: package\n    name: curl\n  c:\n    machine: m1\n    type: package\n    name: vim\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n  m2:\n    hostname: m2\n    addr: 5.6.7.8\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n  b:\n    machine: m1\n    type: package\n    name: curl\n  c:\n    machine: m1\n    type: package\n    name: vim\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_resource_machine_balance(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_machine_balance_json() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  a:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_resource_machine_balance(f.path(), true).is_ok());
     }

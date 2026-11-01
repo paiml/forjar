@@ -99,7 +99,7 @@ fn resolve_with_workspace_flag() {
 
 #[test]
 fn inject_with_explicit_flag() {
-    let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n";
+    let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n";
     let mut config: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     inject_workspace_param(&mut config, Some("ci-staging"));
     assert_eq!(

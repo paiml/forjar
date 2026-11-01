@@ -27,19 +27,19 @@ mod tests {
     // FJ-901: validate --check-resource-cross-machine-consistency
     #[test]
     fn test_fj901_cross_machine_consistency_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_cross_machine_consistency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj901_cross_machine_consistency_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_cross_machine_consistency(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj901_cross_machine_consistency_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_cross_machine_consistency(f.path(), true).is_ok());
     }
 
@@ -66,19 +66,19 @@ mod tests {
     // FJ-903: graph --resource-dependency-critical-path-length
     #[test]
     fn test_fj903_critical_path_length_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_dependency_critical_path_length(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj903_critical_path_length_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_dependency_critical_path_length(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj903_critical_path_length_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_dependency_critical_path_length(f.path(), true).is_ok());
     }
 
@@ -214,19 +214,19 @@ mod tests {
     // FJ-905: validate --check-resource-version-pinning
     #[test]
     fn test_fj905_version_pinning_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    version: '1.24'\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    version: '1.24'\n");
         assert!(cmd_validate_check_resource_version_pinning(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj905_version_pinning_unpinned() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_validate_check_resource_version_pinning(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj905_version_pinning_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_validate_check_resource_version_pinning(f.path(), true).is_ok());
     }
 
@@ -253,19 +253,19 @@ mod tests {
     // FJ-907: graph --resource-dependency-redundancy-score
     #[test]
     fn test_fj907_redundancy_score_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
         assert!(cmd_graph_resource_dependency_redundancy_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj907_redundancy_score_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
         assert!(cmd_graph_resource_dependency_redundancy_score(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_fj907_redundancy_score_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        let f = write_temp_config("version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
         assert!(cmd_graph_resource_dependency_redundancy_score(f.path(), true).is_ok());
     }
 

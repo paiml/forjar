@@ -13,9 +13,17 @@ mod tests {
     }
 
     fn pure_config() -> &'static str {
-        r#"resources:
+        r#"version: "1.0"
+name: t
+machines:
+  m:
+    hostname: m
+    addr: 1.2.3.4
+resources:
   nginx:
     type: package
+    machine: m
+    packages: [nginx]
     provider: apt
     version: "1.24.0"
     store: true
@@ -25,9 +33,17 @@ mod tests {
     }
 
     fn mixed_config() -> &'static str {
-        r#"resources:
+        r#"version: "1.0"
+name: t
+machines:
+  m:
+    hostname: m
+    addr: 1.2.3.4
+resources:
   nginx:
     type: package
+    machine: m
+    packages: [nginx]
     provider: apt
     version: "1.24.0"
     store: true
@@ -35,18 +51,30 @@ mod tests {
       isolation: namespace
   redis:
     type: package
+    machine: m
+    packages: [nginx]
     provider: apt
   curl-installer:
-    type: exec
+    type: task
+    machine: m
+    command: "curl https://example.com | bash"
     provider: shell
     content: "curl https://example.com | bash"
 "#
     }
 
     fn constrained_config() -> &'static str {
-        r#"resources:
+        r#"version: "1.0"
+name: t
+machines:
+  m:
+    hostname: m
+    addr: 1.2.3.4
+resources:
   nginx:
     type: package
+    machine: m
+    packages: [nginx]
     provider: apt
 "#
     }

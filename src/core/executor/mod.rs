@@ -418,6 +418,7 @@ pub fn apply_scoped(
     let resolved_for_probe = crate::core::resolver::resolve_all(
         &cfg.config.resources,
         &cfg.config.params,
+        &cfg.config.data_values,
         &cfg.config.machines,
         &cfg.config.secrets,
     );

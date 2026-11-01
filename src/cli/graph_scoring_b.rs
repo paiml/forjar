@@ -6,9 +6,7 @@ pub(crate) fn cmd_graph_resource_impact_radius_analysis(
     file: &std::path::Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let radii = compute_impact_radii(&config);
     if json {
         let items: Vec<String> = radii
@@ -56,8 +54,7 @@ pub(crate) fn cmd_graph_resource_dependency_health_map(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut nodes: Vec<(String, Vec<String>)> = Vec::new();
     for (name, resource) in &config.resources {
         nodes.push((name.clone(), resource.depends_on.clone()));
@@ -93,8 +90,7 @@ pub(crate) fn cmd_graph_resource_dependency_health_map(
 
 /// FJ-883: Show how changes propagate through dependency chains.
 pub(crate) fn cmd_graph_resource_change_propagation(file: &Path, json: bool) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let propagation = compute_propagation_chains(&config);
     if json {
         let items: Vec<String> = propagation
@@ -130,8 +126,7 @@ pub(crate) fn cmd_graph_resource_dependency_depth_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let depths = compute_dependency_depths(&config);
     if json {
         let items: Vec<String> = depths
@@ -181,8 +176,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let analysis = compute_fan_analysis(&config);
     if json {
         let items: Vec<String> = analysis
@@ -221,9 +215,7 @@ pub(crate) fn cmd_graph_resource_dependency_isolation_score(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_isolation_scores(&config);
     if json {
         let items: Vec<String> = scores
@@ -280,9 +272,7 @@ pub(crate) fn cmd_graph_resource_dependency_stability_score(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_dep_stability_scores(&config);
     if json {
         let items: Vec<String> = scores

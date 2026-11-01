@@ -3,7 +3,7 @@
 use pforge_runtime::Handler;
 use std::path::PathBuf;
 
-use crate::core::{parser, planner, quality_gate, resolver, state};
+use crate::core::{planner, quality_gate, resolver, state};
 
 use super::types::*;
 
@@ -38,20 +38,28 @@ impl Handler for ValidateHandler {
 
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
-        match parser::parse_and_validate(&path) {
-            Ok(config) => Ok(ValidateOutput {
-                valid: true,
-                resource_count: config.resources.len(),
-                machine_count: config.machines.len(),
-                errors: vec![],
-            }),
-            Err(e) => Ok(ValidateOutput {
+        // A manifest that does not parse or validate is a RESULT of this tool
+        // (`valid: false` with the errors). A `data:` source that fails to
+        // resolve is not a statement about the manifest: it is a failure to
+        // evaluate it, and reporting it as `valid: false` inside an `Ok` (or, worse,
+        // `valid: true` without resolving) lets a caller read "checked" off a run
+        // that never rendered the templates. forjar#660.
+        if let Err(e) = crate::core::parser::parse_and_validate(&path) {
+            return Ok(ValidateOutput {
                 valid: false,
                 resource_count: 0,
                 machine_count: 0,
                 errors: e.lines().map(|l| l.to_string()).collect(),
-            }),
+            });
         }
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
+        Ok(ValidateOutput {
+            valid: true,
+            resource_count: config.resources.len(),
+            machine_count: config.machines.len(),
+            errors: vec![],
+        })
     }
 }
 
@@ -65,7 +73,8 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = super::paths::resolve_state_dir(&path, input.state_dir.as_deref());
 
-        let parsed = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let parsed = crate::core::resolver::load_resolved_config_for_render(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         // forjar#372: this verb is published with `readOnlyHint: true`, which
         // `src/verb/spec.rs` defines as "safe for an agent to call unattended".
@@ -188,7 +197,8 @@ impl Handler for LintHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         let mut warnings = Vec::new();
 
@@ -292,7 +302,8 @@ impl Handler for GraphHandler {
             }
         };
 
-        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let config = crate::core::resolver::load_resolved_config_for_render(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         let mut graph = String::new();
         match fmt {
@@ -338,8 +349,8 @@ impl Handler for ShowHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let mut config =
-            parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
+        let mut config = crate::core::resolver::load_resolved_config_for_render(&path)
+            .map_err(pforge_runtime::Error::Handler)?;
 
         // GH-212 (#208): resolve ONCE, before the fan-out. The whole-config
         // branch used to serialise the freshly parsed Config, so it answered
@@ -349,13 +360,17 @@ impl Handler for ShowHandler {
         // tool advertises itself as "Show fully resolved config with templates
         // expanded"; both branches must honour that. Mirrors `cli::show`.
         for (id, resource) in config.resources.iter_mut() {
-            *resource =
-                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                    .map_err(|e| {
-                        pforge_runtime::Error::Handler(format!(
-                            "cannot resolve templates for resource '{id}': {e}"
-                        ))
-                    })?;
+            *resource = resolver::resolve_resource_templates(
+                resource,
+                &config.params,
+                &config.data_values,
+                &config.machines,
+            )
+            .map_err(|e| {
+                pforge_runtime::Error::Handler(format!(
+                    "cannot resolve templates for resource '{id}': {e}"
+                ))
+            })?;
         }
 
         let config_value = if let Some(ref r) = input.resource {

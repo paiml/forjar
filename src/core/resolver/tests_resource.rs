@@ -134,7 +134,8 @@ fn test_fj003_resolve_all_fields() {
         ..Default::default()
     };
 
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert_eq!(resolved.path.as_deref(), Some("/data/config"));
     assert_eq!(resolved.content.as_deref(), Some("host=m1-box"));
     assert_eq!(resolved.source.as_deref(), Some("10.0.0.1:/src"));
@@ -307,7 +308,8 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         ..Default::default()
     };
 
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert_eq!(resolved.group.as_deref(), Some("www-data"));
     assert_eq!(resolved.mode.as_deref(), Some("0644"));
 }

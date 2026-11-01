@@ -79,9 +79,7 @@ pub(crate) fn cmd_validate_check_resource_circular_dependency_depth(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_circular_dependencies(&cfg);
 
@@ -177,9 +175,7 @@ pub(crate) fn cmd_validate_check_resource_orphan_detection_deep(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let orphans = find_orphan_resources(&cfg);
 
@@ -237,9 +233,7 @@ pub(crate) fn cmd_validate_check_resource_provider_diversity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let result = check_provider_diversity(&cfg);
 
