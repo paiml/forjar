@@ -137,9 +137,9 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub backup: bool,
 
-    /// FJ-345: Exclude resources matching glob pattern from apply — an excluded dependency is skipped and its dependents still run (#466)
-    #[arg(long)]
-    pub exclude: Option<String>,
+    /// FJ-345: Exclude resources matching glob pattern from apply — an excluded dependency is skipped and its dependents still run (#466). Repeatable; `*` anywhere and `{a,b}` alternation; a pattern matching no resource is an error (#622)
+    #[arg(long, action = clap::ArgAction::Append)]
+    pub exclude: Vec<String>,
 
     /// FJ-347: Force sequential execution (no parallel waves)
     #[arg(long)]
