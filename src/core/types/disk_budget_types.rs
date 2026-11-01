@@ -130,34 +130,36 @@ impl ReclaimRule {
     /// Returns `Err` naming the rule and root.
     pub fn validate_roots(&self) -> Result<(), String> {
         for root in &self.roots {
-            let prefix = Self::root_prefix(root);
-            if prefix == "/" {
+            if let Some(why) = self.root_problem(root) {
                 return Err(format!(
-                    "disk_budget rule '{}': root '{root}' has literal prefix '/', \
-                     so it could reach anything — declare a deeper root",
-                    self.name
-                ));
-            }
-            let is_glob = root.contains(['*', '?', '[']);
-            let depth = prefix.matches('/').count();
-            // Only a root whose glob is the LAST segment directly under the prefix
-            // yields depth-2 candidates; `/home/*/src/*/target` reaches deeper.
-            let single_segment = !root[prefix.len()..].trim_start_matches('/').contains('/');
-            if is_glob
-                && prefix.starts_with('/')
-                && depth == 1
-                && prefix != "/tmp"
-                && single_segment
-            {
-                return Err(format!(
-                    "disk_budget rule '{}': root '{root}' matches only depth-2 paths \
-                     outside /tmp, which the reaper always refuses — the rule \
-                     would reclaim nothing",
+                    "disk_budget rule '{}': root '{root}' {why}",
                     self.name
                 ));
             }
         }
         Ok(())
+    }
+
+    /// Why `root` can only yield candidates the guard refuses, if it can.
+    fn root_problem(&self, root: &str) -> Option<&'static str> {
+        let prefix = Self::root_prefix(root);
+        if prefix == "/" {
+            return Some(
+                "has literal prefix '/', so it could reach anything — declare a deeper root",
+            );
+        }
+        let is_glob = root.contains(['*', '?', '[']);
+        if self.kind == ReclaimKind::Glob && !is_glob {
+            return Some("(kind glob) has no glob character, so its only candidate is the root itself, which the reaper refuses (not a strict descendant of its own prefix) — add a glob or use a scanning kind");
+        }
+        // Only a root whose glob is the LAST segment directly under the prefix
+        // yields depth-2 candidates; `/home/*/src/*/target` reaches deeper.
+        let single_segment = !root[prefix.len()..].trim_matches('/').contains('/');
+        let top_level = prefix.starts_with('/') && prefix.matches('/').count() == 1;
+        if is_glob && top_level && prefix != "/tmp" && single_segment {
+            return Some("matches only depth-2 paths outside /tmp, which the reaper always refuses — the rule would reclaim nothing");
+        }
+        None
     }
 }
 

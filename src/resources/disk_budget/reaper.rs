@@ -267,7 +267,7 @@ mod tests {
     fn rule() -> ReclaimRule {
         ReclaimRule {
             name: "agent-targets".into(),
-            roots: vec!["/home/noah/src".into()],
+            roots: vec!["/home/noah/src/*".into()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
         }
