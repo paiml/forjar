@@ -91,6 +91,7 @@ mod drift_decline;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;
+mod drift_sources;
 mod drift_state;
 mod environments;
 mod exec;

@@ -187,11 +187,7 @@ fn load_drift_config(
     if let Some(path) = env_file {
         load_env_params(&mut cfg, path)?;
     }
-    // A failing source must not abort drift; the per-resource template warning
-    // names what it affects.
-    if let Err(e) = crate::core::resolver::resolve_data_sources(&mut cfg) {
-        eprintln!("warning: data sources: {e}");
-    }
+    super::drift_sources::resolve_sources_individually(&mut cfg);
     Ok(Some(cfg))
 }
 
