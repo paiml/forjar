@@ -5067,6 +5067,17 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-832
+  github_issue: 832
+  item_type: task
+  title: 'check and drift never resolve data: sources: healthy source reported as ''unknown data source'''
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-29T11:00:57Z
+  updated: 2026-10-29T11:00:57Z
+  spec: null
+  acceptance_criteria: []
 - id: PMAT-725
   github_issue: 725
   item_type: task
@@ -5104,4 +5115,5 @@ roadmap:
   labels:
   - kind:code
   notes: null
+  epic: 696
   epic: 763

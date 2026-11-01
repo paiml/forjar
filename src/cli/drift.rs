@@ -187,6 +187,7 @@ fn load_drift_config(
     if let Some(path) = env_file {
         load_env_params(&mut cfg, path)?;
     }
+    super::drift_sources::resolve_sources_individually(&mut cfg);
     Ok(Some(cfg))
 }
 

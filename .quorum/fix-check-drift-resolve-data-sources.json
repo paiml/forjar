@@ -1,0 +1,103 @@
+{
+  "kind": "code",
+  "issue": "PMAT-832 (forjar#834) \u2014 check and drift rendered templates without resolving data: sources, so a healthy source surfaced as unknown data source. Both now resolve first (check strict, drift warns).",
+  "branch": "fix/check-drift-resolve-data-sources",
+  "base": "493ccc36",
+  "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
+  "diff_sha256": "2c7328046027ad9d120b9db186fe880837742bec",
+  "recorded_at": "one round recorded in .quorum/evidence/PMAT-832-lanes.md; round 1 passed 3/3.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head ab68c5f1 \u2014 agy Gemini 4 Argon (High): PASS",
+      "round 1, head ab68c5f1 \u2014 agy Gemini 4 Argon (Medium): PASS",
+      "round 1, head ab68c5f1 \u2014 claude Opus 5.5: PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round 1; a Claude Opus lane stands in for the quota-exhausted agy Claude/gpt-oss models, never the author's id (Sonnet 5.5).",
+    "kill_rule": "every refuted item is recorded in the judges digest as a known gap; nothing was dismissed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "the tests assert on output text only and discard exit statuses (the apply result is dropped), and no test runs drift against a broken source to pin the warning path, so the positive tests could pass for the wrong reason.",
+      "the comment in drift.rs says the per-resource template warning names what the failed source affects, which the Opus lane found overstated: the per-resource text may still read unknown data source."
+    ]
+  },
+  "falsification": {
+    "test": "check_resolves_a_declared_data_source and drift_resolves_a_declared_data_source (fail on origin/main with unknown data source)",
+    "test_file": "tests/falsification_check_drift_resolve_data_sources.rs",
+    "cargo_test_target": "falsification_check_drift_resolve_data_sources",
+    "observed_failure": "see the test header: the named failure is what the test asserts absent on origin/main",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "A verb must resolve the same inputs the verbs it previews resolve; mature tools evaluate data sources/selection before computing a plan or check.",
+    "systems": [
+      "Terraform: plan and refresh evaluate data sources before rendering [X]",
+      "Ansible: --check mode gathers facts and lookups before evaluating tasks [X]",
+      "Puppet: noop mode compiles the full catalog with facts first [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes and one claude -p lane, diff pasted inline",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS."
+  },
+  "pmat": {
+    "ticket": "PMAT-832",
+    "tools": [
+      "analyze_vacuous_tests"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-832-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "d6934b13b3459d2e40fb69777f586836c84f33c0",
+        "sha256": "8d977de141d42a42a309f544c65cc0f3bac5f00ce81324595003dd4d7f3a7e0d",
+        "bytes": 284
+      },
+      {
+        "path": ".quorum/evidence/PMAT-832-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "48097b5ac87cde12e55b76749f1b508cb7e23d36",
+        "sha256": "fcdaf4ef2a156322cbb14e585ec08e10798b12fdf58731c2624b4737e2f52e17",
+        "bytes": 620
+      },
+      {
+        "path": ".quorum/evidence/PMAT-832-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "887cd957a74572e05f6a517e0efbe06a8f2f48b3",
+        "sha256": "ba5a65676f29159384122b86d00bbfd324286f52eb07347f6cda84bdd337e091",
+        "bytes": 2100
+      },
+      {
+        "path": ".quorum/evidence/PMAT-832-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "23b314ead07fddac50de9c227cea7ee5932727c3",
+        "sha256": "08544cb4a70b06a9e70321fff9fb9e95448c0dc11d392d40e07381de4b2698e0",
+        "bytes": 212
+      }
+    ],
+    "total_bytes": 3216,
+    "claims_digest": ".quorum/evidence/PMAT-832-judges.md"
+  }
+}
