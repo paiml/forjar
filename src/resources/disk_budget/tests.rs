@@ -251,9 +251,6 @@ fn tmp_globs_and_deep_roots_are_accepted() {
     for root in [
         "/tmp/*-target",
         "/tmp/.tmp*",
-        "/tmp/claude-1000",
-        "/home/x/src",
-        "/data",
         "/home/*/src/*/target",
         "/srv/*/build/*",
     ] {
@@ -419,3 +416,16 @@ fn systemctl_probes_emit_exactly_one_line_each() {
 #[cfg(unix)]
 mod execution;
 mod reaper_cost;
+
+#[test]
+fn a_literal_glob_root_is_rejected_and_a_trailing_slash_glob_too() {
+    // the only candidate of a glob-less `kind: glob` root is the root itself,
+    // which the guard refuses; `/home/*/` matches only depth-2 paths.
+    for root in ["/srv/cache/build", "/tmp/claude-1000", "/home/*/"] {
+        let e = budget_of(&with_root(root)).unwrap_err();
+        assert!(
+            e.contains("glob") || e.contains("reclaim nothing"),
+            "{root}: {e}"
+        );
+    }
+}
