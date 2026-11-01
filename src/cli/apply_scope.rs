@@ -55,6 +55,9 @@ pub(crate) struct ApplyScope<'a> {
     pub exclude_machine: Option<&'a str>,
     /// `--resource-filter <GLOB>` (FJ-666): keep only resources matching a glob.
     pub resource_filter: Option<&'a str>,
+    /// `--exclude <GLOB>`, repeatable (FJ-345, #622): drop every resource any
+    /// pattern matches. Carried here so `--check` and the apply read one list.
+    pub exclude: &'a [String],
 }
 
 // GH-208: `cmd_apply` is the default-scope entry point. It lived in apply.rs as

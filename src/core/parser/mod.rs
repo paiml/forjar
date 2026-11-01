@@ -28,6 +28,8 @@ mod tests_arch;
 #[cfg(test)]
 mod tests_core;
 #[cfg(test)]
+mod tests_docker_pulled;
+#[cfg(test)]
 mod tests_expansion;
 #[cfg(test)]
 mod tests_format_validation;
