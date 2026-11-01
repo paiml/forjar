@@ -176,4 +176,39 @@ data:
         assert!(err.contains("no plan file written"), "{err}");
         assert!(!out.exists(), "a plan apply --plan-file cannot apply must not be sealed");
     }
+
+    #[test]
+    fn plain_plan_exits_nonzero_when_a_data_source_failed() {
+        let yaml = r#"
+version: "1.0"
+name: iso
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  dependent:
+    type: file
+    machine: m1
+    path: /tmp/forjar-iso-dep
+    content: "v={{data.broken}}"
+  unrelated:
+    type: file
+    machine: m1
+    path: /tmp/forjar-iso-unrel
+    content: static
+data:
+  broken:
+    type: command
+    value: "exit 127"
+"#;
+        let f = write_temp_config(yaml);
+        let state_dir = tempfile::tempdir().unwrap();
+                let result = cmd_plan(
+            f.path(), state_dir.path(), None, None, None, false, false, None, None, None,
+            false, None, false, &[], None, false, None,
+        );
+        let err = result.unwrap_err();
+        assert!(err.contains("broken") && err.contains("127"), "{err}");
+    }
 }
