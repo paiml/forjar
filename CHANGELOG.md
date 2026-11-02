@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`mutation.yml` no longer runs on pull requests (C324 rule 5, forjar#598).** The mutation run is a LAB check: it cannot block a merge, so it does not belong inside a PR job. It keeps its `push` to main and `workflow_dispatch` triggers.
+
 **A multi-platform base resolves to the build target's manifest (PMAT-5881, #756, IMG-001).**
 When a base layout's top entry is an OCI image index (or docker manifest list),
 `extract_base_layers` follows it to the `linux` manifest of the architecture it
