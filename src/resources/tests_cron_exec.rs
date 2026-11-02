@@ -146,13 +146,20 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 case "$mode" in
-  list) [ -f "$store" ] || exit 1; cat "$store" ;;
+  list) [ -f "$store" ] || { echo "no crontab for root" >&2; exit 1; }; cat "$store" ;;
   write) cat > "$store" ;;
 esac
 "#;
 
 const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
+printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
+# A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
+# `true` is the check guard's `sudo -n true` probe.
+case "$1" in
+  crontab|/usr/bin/crontab|true) ;;
+  *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
+esac
 exec "$@"
 "#;
 
@@ -330,4 +337,53 @@ fn fj362_applying_a_job_spares_a_prefix_siblings_markers() {
     assert!(store.contains("# forjar:backup-db"), "{store:?}");
     assert!(store.contains("# forjar-cmd:backup-db"), "{store:?}");
     assert!(store.contains("/usr/local/bin/dump-db.sh"), "{store:?}");
+}
+
+// ── The sudo read form is EXECUTED, for every script that reads ──
+
+/// The fake `sudo` logs each invocation. Every script that reads the crontab
+/// (check, state_query, apply present, apply absent) must run the read as
+/// `LC_ALL=C sudo crontab -u <user> -l` and succeed, not merely contain it.
+#[test]
+fn the_sudo_locale_forced_read_form_is_executed_by_every_reading_script() {
+    let r = cron("backup", "0 3 * * *", CMD);
+    let scripts = [
+        ("check", check_script(&r)),
+        ("state_query", state_query_script(&r)),
+        ("apply present", apply_script(&r)),
+        ("apply absent", apply_script(&absent("backup"))),
+    ];
+    for (what, script) in scripts {
+        let fx = FakeCrontab::new("sudoform");
+        fx.seed("# forjar:backup\n# forjar-cmd:backup\n0 3 * * * /usr/local/bin/backup.sh\n");
+        let out = fx.run(&script);
+        let log = std::fs::read_to_string(format!("{}.sudolog", fx.store().display()))
+            .unwrap_or_default();
+        assert!(
+            log.contains("LC_ALL=C crontab -u root -l"),
+            "{what}: the sudo read form was not executed: {log:?} / {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            out.status.success(),
+            "{what}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+}
+
+/// The ERR temp file is removed on the benign no-crontab path too.
+#[test]
+fn the_err_trap_file_is_removed() {
+    let fx = FakeCrontab::new("errtrap");
+    let tmp = fx.dir.join("tmp");
+    std::fs::create_dir_all(&tmp).unwrap();
+    let script = format!(
+        "export TMPDIR='{}'\n{}",
+        tmp.display(),
+        check_script(&cron("backup", "0 3 * * *", CMD))
+    );
+    let _ = fx.run(&script);
+    let left = std::fs::read_dir(&tmp).unwrap().count();
+    assert_eq!(left, 0, "the ERR temp file leaked");
 }
