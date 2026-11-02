@@ -54,6 +54,8 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         // different set of paths — the invariant is the watermark it converges
         // to, never the specific deletions it performs to get there.
         ResourceType::DiskBudget => ProofObligation::Convergent,
+        // A second apply finds nothing older than max_age: idempotent.
+        ResourceType::TmpReaper => ProofObligation::Idempotent,
         // Convergent: repeated passes drive coverage toward the declared
         // threshold; the invariant is verified coverage, not a byte-identical
         // transfer set.
@@ -93,7 +95,8 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
-        | ResourceType::NasArchive => ProofObligation::Convergent,
+        | ResourceType::NasArchive
+        | ResourceType::TmpReaper => ProofObligation::Convergent,
     }
 }
 

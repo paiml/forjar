@@ -192,6 +192,10 @@ fn storage(field: &str) -> Option<Observability> {
         },
         "backup_remote_type" => Observability::Observed { alt: "s3" },
         "backup_schedule" => Observability::Observed { alt: "weekly" },
+        // tmp_reaper's state query counts entries past max_age (under pattern),
+        // so both values change what it reports.
+        "max_age" => Observability::Observed { alt: "14d" },
+        "pattern" => Observability::Observed { alt: "*.log" },
         // The token is written into rclone.conf, whose sha256 the query
         // reports. forjar compares the DIGEST, never the credential.
         "backup_token" => Observability::Observed {
