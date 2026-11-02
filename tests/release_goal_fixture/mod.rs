@@ -201,6 +201,8 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         "scripts/dogfood/tagged.sh",
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/lib/releases.sh",
+        "scripts/dogfood/lib/releases.awk",
+        "scripts/dogfood/lib/tags.sh",
         "scripts/release-goal.sh",
     ] {
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);

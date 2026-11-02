@@ -21,6 +21,7 @@ pub(crate) const CONFIG_FIELDS: &[&str] = &[
     "secrets",
     "environments",
     "dist",
+    "inode_pressure",
 ];
 
 pub(crate) const RESOURCE_FIELDS: &[&str] = &[
@@ -54,6 +55,8 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "ssh_authorized_keys",
     "system_user",
     "schedule",
+    "max_age",
+    "pattern",
     "command",
     "image",
     "ports",

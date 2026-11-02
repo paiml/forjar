@@ -39,6 +39,7 @@ const MULTI_WORD: &[(ResourceType, &str)] = &[
     (ResourceType::DiskBudget, "disk_budget"),
     (ResourceType::BackupSync, "backup_sync"),
     (ResourceType::NasArchive, "nas_archive"),
+    (ResourceType::TmpReaper, "tmp_reaper"),
 ];
 
 fn rule(rule_type: PolicyRuleType, scope: Option<&str>) -> PolicyRule {
@@ -148,6 +149,7 @@ fn display_is_the_serde_spelling_for_every_variant() {
         ResourceType::DiskBudget,
         ResourceType::BackupSync,
         ResourceType::NasArchive,
+        ResourceType::TmpReaper,
     ];
     for rt in &all {
         let wire = serde_json::to_value(rt).expect("a unit variant serialises");
