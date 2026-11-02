@@ -197,6 +197,7 @@ mod plan;
 mod plan_compute;
 mod plan_file;
 mod plan_json;
+mod plan_refresh;
 mod plan_selector;
 mod plan_version_pins;
 pub(crate) mod plugin;

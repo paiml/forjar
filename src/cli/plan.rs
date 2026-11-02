@@ -50,13 +50,16 @@ pub(crate) fn cmd_plan(
         plan_out,
         why,
         group_filter,
+        false,
         PlanVersionPins::Skip,
     )
 }
 
-/// `cmd_plan`, plus forjar#613: ask each versioned binary the plan covers
-/// for its live `--version` and print the pins that disagree. The `forjar
-/// plan` CLI always comes through here with `Check`.
+/// `cmd_plan`, plus forjar#415's `--refresh` (when `refresh` is set, the locks
+/// are checked against the host before the planner sees them; see
+/// `plan_refresh`) and forjar#613 (ask each versioned binary the plan covers
+/// for its live `--version` and print the pins that disagree). The `forjar
+/// plan` CLI always comes through here, with `Check` unless `--offline`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_plan_with_pins(
     file: &Path,
@@ -78,6 +81,7 @@ pub(crate) fn cmd_plan_with_pins(
     // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
+    refresh: bool,
     version_pins: PlanVersionPins,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
@@ -137,14 +141,30 @@ pub(crate) fn cmd_plan_with_pins(
             config.resources.len()
         );
     }
+    // forjar#415: a sealed plan is re-planned by `apply --plan-file` against
+    // the locks ON DISK, which `--refresh` never writes — so the diff leg of a
+    // refreshed plan could never verify. Refuse the pair by name.
+    if refresh && plan_out.is_some() {
+        return Err(
+            "plan --refresh --out: a sealed plan is re-checked against the locks on \
+             disk, which --refresh does not write, so it could never apply. Run \
+             `forjar apply --refresh` instead, or `forjar drift` and then `plan --out`."
+                .to_string(),
+        );
+    }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
-    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    let mut locks = load_machine_locks(&config, state_dir, machine_filter)?;
 
     // GH-273: say WHERE state came from, and when there was none.
     super::state_visibility::report(state_dir, &config, &locks);
     // FJ-2725: phony resources are goal-only; a bulk plan must not report them
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);
+    // forjar#415: consult the host. After the narrowing above, so `--target`
+    // and the phony strip narrow what is queried; before the planner, which
+    // stays a function of (config, locks) and simply receives refreshed locks.
+    let refreshed =
+        refresh.then(|| super::plan_refresh::refresh_locks_for_plan(&config, &mut locks));
     // Refs #358: the selector set is a value now, because a saved plan has to
     // RECORD it — `apply --plan-file` re-plans under a document's own filters
     // to check what it claims, and a filtered plan is otherwise indistinguishable
@@ -199,13 +219,20 @@ pub(crate) fn cmd_plan_with_pins(
 
     // forjar#342: ONE binding, so both arms range over the same count and the
     // TTY rendering and `--json` cannot disagree about the blind spot.
+    // forjar#415: under `--refresh` the blind spot is what the refresh did NOT
+    // measure, and the lock-relative sentence (printed for a nonzero count)
+    // would be false, so it gets 0 and the refreshed disclosure follows.
     let pin_rows = super::plan_version_pins::measure(&config, &plan, version_pins);
-    let unconsulted = super::print_helpers::unconsulted_observations(&locks);
+    let unconsulted = match &refreshed {
+        Some(r) => r.unconsulted,
+        None => super::print_helpers::unconsulted_observations(&locks),
+    };
     if json {
         super::plan_json::print_plan_json(
             &plan,
             &config,
             unconsulted,
+            refreshed.as_ref(),
             pin_rows.as_deref().map(super::plan_version_pins::to_json),
         )?;
     } else {
@@ -213,8 +240,20 @@ pub(crate) fn cmd_plan_with_pins(
             &plan,
             machine_filter,
             if no_diff { None } else { Some(&config) },
-            unconsulted,
+            if refreshed.is_some() { 0 } else { unconsulted },
         );
+        if let Some(msg) = refreshed
+            .as_ref()
+            .and_then(super::plan_refresh::refreshed_scope_disclosure)
+        {
+            println!("\n{msg}");
+        }
+        if let Some(r) = &refreshed {
+            println!(
+                "Refreshed {} machine(s): {} resource(s) measured as drifted.",
+                r.machines, r.drifted
+            );
+        }
         if let Some(rows) = &pin_rows {
             super::plan_version_pins::print_text(rows);
         }
