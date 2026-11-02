@@ -140,6 +140,11 @@ jobs:
       # as Rust at all. Cheap: a directory walk, no build of the crate needed.
       - name: No source file may be orphaned or duplicated
         run: cargo test --locked --test falsification_no_orphaned_source_files
+      # forjar#722: lint.yml and msrv.yml run on arch-neutral runners, so every
+      # actions/cache key must carry runner.arch. The test runs the shell guard on
+      # the real tree and on reverted copies.
+      - name: Cache keys on arch-neutral runners carry runner.arch
+        run: cargo test --locked --test falsification_722_cache_key_arch
       # #298: every citation in contracts/ must resolve to the exact item it
       # names, in the file it names, and every binding must name an equation
       # its contract defines. This replaces the Python resolver that used to
