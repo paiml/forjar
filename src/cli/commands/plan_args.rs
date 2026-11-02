@@ -74,6 +74,14 @@ pub struct PlanArgs {
     /// Writes no state.
     #[arg(long)]
     pub refresh: bool,
+
+    /// Do not compare version pins with the latest upstream release
+    ///
+    /// forjar#613: plan asks each `github_release` binary for its live
+    /// `--version` and compares it with the pin and with the repo's latest
+    /// release. This skips the network half; skipped pins are listed as NOT CHECKED.
+    #[arg(long)]
+    pub offline: bool,
 }
 
 /// CLI arguments for the `plan --compact` command.

@@ -61,9 +61,10 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             out,
             why,
             refresh,
+            offline,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
-            cmd_plan_refreshable(
+            cmd_plan_with_pins(
                 &file,
                 &sd,
                 machine.as_deref(),
@@ -82,6 +83,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 why,
                 group.as_deref(),
                 refresh,
+                PlanVersionPins::Check { upstream: !offline },
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),
@@ -105,9 +107,10 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             workspace,
             all_stacks,
             no_task_checks,
+            offline,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
-            cmd_drift(
+            cmd_drift_offline(
                 &file,
                 &sd,
                 machine.as_deref(),
@@ -120,6 +123,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 env_file.as_deref(),
                 all_stacks,
                 no_task_checks,
+                offline,
             )
         }
         Commands::Destroy(DestroyArgs {

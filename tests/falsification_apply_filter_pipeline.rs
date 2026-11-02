@@ -426,3 +426,53 @@ fn a_negative_that_empties_the_selection_is_refused() {
     );
     assert!(p.applied().is_empty());
 }
+
+// ── forjar#622: `--exclude` is repeatable, brace-aware, and never silent ────
+//
+// Measured against 1.32 with the fixture above: `--exclude a --exclude b` was
+// refused by clap ("cannot be used multiple times"), `--exclude '{a,b}'` and
+// `--exclude 'a*a'` matched NOTHING and applied everything at exit 0, and a
+// typo'd `--exclude` applied everything at exit 0. Each is a selection that
+// differs from the one the operator typed, with no signal — the #615 shape.
+
+#[test]
+fn a_repeated_exclude_drops_every_pattern() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    let out = p.run(&["--exclude", "alpha", "--exclude", "charlie"]);
+    assert!(out.status.success(), "{}", combined(&out));
+    assert_eq!(p.applied(), ["bravo"], "{}", combined(&out));
+}
+
+#[test]
+fn a_brace_exclude_expands_to_each_alternative() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    let out = p.run(&["--exclude", "{alpha,charlie}"]);
+    assert!(out.status.success(), "{}", combined(&out));
+    assert_eq!(p.applied(), ["bravo"], "{}", combined(&out));
+}
+
+#[test]
+fn an_inner_star_exclude_matches() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    // `a*a` matches alpha only; before #622 a star that was neither leading nor
+    // trailing made the pattern an exact-match literal.
+    let out = p.run(&["--exclude", "a*a"]);
+    assert!(out.status.success(), "{}", combined(&out));
+    assert_eq!(p.applied(), ["bravo", "charlie"], "{}", combined(&out));
+}
+
+#[test]
+fn an_exclude_that_matches_nothing_is_refused() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let p = Project::new(dir.path());
+    // One good pattern must not launder a typo beside it.
+    let out = p.run(&["--exclude", "charlie", "--exclude", "chralie"]);
+    assert!(!out.status.success(), "{}", combined(&out));
+    let text = combined(&out);
+    assert!(text.contains("--exclude 'chralie'"), "{text}");
+    assert!(text.contains("matches no resource"), "{text}");
+    assert!(p.applied().is_empty(), "nothing may run: {:?}", p.applied());
+}

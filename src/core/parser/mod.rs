@@ -28,6 +28,8 @@ mod tests_arch;
 #[cfg(test)]
 mod tests_core;
 #[cfg(test)]
+mod tests_docker_pulled;
+#[cfg(test)]
 mod tests_expansion;
 #[cfg(test)]
 mod tests_format_validation;
@@ -195,6 +197,15 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
 
     // FJ-2501: Format validation (mode, port, path, owner/group, addr)
     errors.extend(format_validation::validate_formats(config));
+
+    // forjar#847: the inode-pressure policy must be a usable one.
+    if let Some(ip) = &config.inode_pressure {
+        errors.extend(
+            crate::core::inode_pressure::validate_config(ip)
+                .into_iter()
+                .map(|message| ValidationError { message }),
+        );
+    }
 
     // FJ-154 (#23): Reject colliding / chained moved blocks before they can
     // silently overwrite lock state during planning.

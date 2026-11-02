@@ -26,6 +26,7 @@ pub(crate) fn print_plan_json(
     config: &types::ForjarConfig,
     unconsulted: usize,
     refreshed: Option<&super::plan_refresh::RefreshOutcome>,
+    version_pins: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let changes: Vec<serde_json::Value> = plan
         .changes
@@ -88,6 +89,10 @@ pub(crate) fn print_plan_json(
     // The prose disclosure is present iff there is a blind spot to declare —
     // the contract's biconditional, and the reason it is not an unconditional
     // banner: noise is how a warning stops being read.
+    // forjar#613: present iff the box was asked; `[]` means every pin matched.
+    if let Some(pins) = version_pins {
+        output["version_pins"] = pins;
+    }
     if let Some(r) = refreshed {
         output["refresh"] = serde_json::json!({ "machines": r.machines, "drifted": r.drifted });
     }
