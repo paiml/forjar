@@ -223,6 +223,8 @@ pub(crate) fn cmd_validate(
 ) -> Result<(), String> {
     let config = parse_for_validate(file, json)?;
     check_no_dependency_cycle(file, &config, json)?;
+    // forjar#847: a host out of inodes fails writes with blocks to spare.
+    super::inode_gate::local_pre_check(&config)?;
 
     if dry_expand {
         return print_expanded_config(&config);
