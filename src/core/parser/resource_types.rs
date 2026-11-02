@@ -32,6 +32,16 @@ pub(super) fn validate_resource_type(
         ResourceType::GithubRelease => validate_github_release(id, resource, errors),
         ResourceType::OverlayInterface => validate_overlay_interface(id, resource, errors),
         ResourceType::DiskBudget => validate_disk_budget(id, resource, errors),
+        ResourceType::TmpReaper => {
+            let templated = [&resource.path, &resource.max_age, &resource.pattern]
+                .iter()
+                .any(|f| f.as_deref().is_some_and(|v| v.contains("{{")));
+            if let (false, Err(e)) = (templated, crate::resources::tmp_reaper::spec_of(resource)) {
+                errors.push(ValidationError {
+                    message: format!("resource '{id}' (tmp_reaper): {e}"),
+                });
+            }
+        }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
     }
