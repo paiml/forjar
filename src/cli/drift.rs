@@ -5,10 +5,9 @@ use super::apply_helpers::*;
 use super::colors::{red, yellow};
 pub(crate) use super::drift_dry_run::cmd_drift_dry_run;
 pub(super) use super::drift_dry_run::print_dry_run_report;
+use super::drift_followup::{drift_verdict, DriftFollowUp};
 use super::drift_lockless::scan_lockless;
-use super::drift_report::{
-    census_json, print_drift_summary, render_finding, run_drift_alert, send_drift_notification,
-};
+use super::drift_report::{census_json, print_drift_summary, render_finding};
 use super::drift_state::collect_machine_locks;
 use super::helpers::*;
 use crate::core::types;
@@ -348,18 +347,7 @@ pub(crate) fn cmd_drift_offline(
     offline: bool,
 ) -> Result<(), String> {
     let config = load_drift_config(config_path, env_file)?;
-
-    // forjar#488: WHAT THIS RUN IS ABOUT.
-    //
-    // `Some(names)` is "the machines this config declares" and is the default
-    // whenever a config was loaded. `None` is the whole state dir, which is now
-    // reached only by asking for it (`--all-stacks`) or by having no config to
-    // scope with — never by pointing `-f` at one machine and being answered
-    // about thirty others.
-    let scope: Option<Vec<String>> = match (&config, all_stacks) {
-        (Some(cfg), false) => Some(cfg.machines.keys().cloned().collect()),
-        _ => None,
-    };
+    let scope = drift_scope(config.as_ref(), all_stacks);
     let scope_ref = scope.as_deref();
 
     if dry_run {
@@ -373,13 +361,7 @@ pub(crate) fn cmd_drift_offline(
         );
     }
 
-    if let Some(ref cfg) = config {
-        for (_, machine) in &cfg.machines {
-            if machine.is_container_transport() {
-                crate::transport::container::ensure_container(machine)?;
-            }
-        }
-    }
+    ensure_drift_containers(config.as_ref())?;
 
     let scan_opts = ScanOptions {
         json,
@@ -420,53 +402,43 @@ pub(crate) fn cmd_drift_offline(
     );
 
     if total_drift > 0 {
-        if let Some(cmd) = alert_cmd {
-            run_drift_alert(cmd, total_drift)?;
-        }
-        // forjar#613: remediation re-applies every resource, and for a live
-        // binary AHEAD of its pin that is a silent downgrade. The fix for a
-        // version finding is an edit to the pin, never an apply.
-        if auto_remediate && version_drift > 0 {
-            return Err(format!(
-                "refusing --auto-remediate: {version_drift} version-pin finding(s); \
-                 re-applying would move a live binary to its pin (possibly a downgrade). \
-                 Update the pin in the config instead"
-            ));
-        }
-        if auto_remediate {
-            run_drift_remediation(
-                config_path,
-                state_dir,
-                machine_filter,
-                total_drift,
-                json,
-                verbose,
-            )?;
-        }
-        if let Some(ref cfg) = config {
-            send_drift_notification(cfg, total_drift, machine_filter);
-        }
+        let follow = DriftFollowUp {
+            config_path,
+            state_dir,
+            machine_filter,
+            alert_cmd,
+            auto_remediate,
+            json,
+            verbose,
+        };
+        follow.run(config.as_ref(), total_drift, version_drift)?;
     }
 
-    // PMAT-562: the verdict IS the exit code, with no flag. `Drift detected:
-    // 2 resource(s)` followed by rc=0 was measured on yoga and gx10 (paiml/
-    // infra#605): the default was fail-open and `--tripwire` was the way to
-    // ask for the truth — the forjar#352 class, where the flag that makes the
-    // tool honest is opt-in. A drift finding is a reject (1); a remediated
-    // finding was still a finding.
-    if total_drift > 0 {
-        return Err(format!("{total_drift} drift finding(s)"));
-    }
-    // forjar#549: DRIFT WINS when both are present, because a definite finding
-    // is the stronger statement. Unmeasured alone is not a pass: it exits with
-    // the connection class (4), because the question was never answered.
-    if total_unmeasured > 0 {
-        return Err(crate::core::error::ForjarError::connection(format!(
-            "{}: {total_unmeasured} resource(s)",
-            crate::core::error::DRIFT_UNMEASURED_MARKER
-        ))
-        .into_untyped());
-    }
+    drift_verdict(total_drift, total_unmeasured)
+}
 
+/// forjar#488: WHAT THIS RUN IS ABOUT.
+///
+/// `Some(names)` is "the machines this config declares" and is the default
+/// whenever a config was loaded. `None` is the whole state dir, which is now
+/// reached only by asking for it (`--all-stacks`) or by having no config to
+/// scope with — never by pointing `-f` at one machine and being answered
+/// about thirty others.
+fn drift_scope(config: Option<&types::ForjarConfig>, all_stacks: bool) -> Option<Vec<String>> {
+    match (config, all_stacks) {
+        (Some(cfg), false) => Some(cfg.machines.keys().cloned().collect()),
+        _ => None,
+    }
+}
+
+/// Container-transport machines are started before anything is scanned.
+fn ensure_drift_containers(config: Option<&types::ForjarConfig>) -> Result<(), String> {
+    if let Some(cfg) = config {
+        for (_, machine) in &cfg.machines {
+            if machine.is_container_transport() {
+                crate::transport::container::ensure_container(machine)?;
+            }
+        }
+    }
     Ok(())
 }
