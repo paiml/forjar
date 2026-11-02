@@ -4728,6 +4728,38 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: null
+- id: PMAT-756
+  github_issue: null
+  item_type: task
+  title: 'bump tokio 1.53.1 -> 1.53.3 (RUSTSEC-2026-0386, AsyncFd::new I/O safety); no deny.toml ignore'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-11-02T00:00:00Z
+  updated: 2026-11-02T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'external: infra/pmat PMAT-756 (not a forjar-filed ticket; this row exists so gate T can resolve the id). Shipped by 493ccc36 (#794, tokio lock bump) and b9bc4d12 (#793, blake3-state total_obligations 4 -> 3, proofs.yml surfaces the validate error under bash -e), both carrying Pmat-Ticket: PMAT-756.'
+- id: PMAT-1835
+  github_issue: null
+  item_type: task
+  title: 'is_local_addr recognises addresses held by a local interface'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-11-02T00:00:00Z
+  updated: 2026-11-02T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: 'external: paiml/infra PMAT-1835 (not a forjar-filed ticket; this row exists so gate T can resolve the id). Shipped by 1ea4559d (#724, fix(transport): is_local_addr recognises addresses held by a local interface), whose body says Refs paiml/infra PMAT-1835.'
 - id: PMAT-614
   kind: code
   github_issue: 614
@@ -4759,7 +4791,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-26T19:50:00Z
-  updated: 2026-10-07T18:41:53Z
+  updated: 2026-11-02T10:53:08Z
   spec: null
   acceptance_criteria:
   - 'check_script is RED when the declared source is mounted but a declared uid/gid/file_mode/dir_mode/mode differs from the live findmnt OPTIONS (modes compared as numbers, group/user names resolved to ids, keys the kernel omits treated as default).'
@@ -4770,7 +4802,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.0
+  - release:v1.33.0
   notes: null
   epic: 696
   release: 1.33.0
@@ -4782,13 +4814,14 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-27T08:53:40Z
-  updated: 2026-09-27T08:53:40Z
+  updated: 2026-11-02T10:53:07Z
   spec: null
   acceptance_criteria: []
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.33.0
   notes: null
 - id: PMAT-633
   github_issue: 633
