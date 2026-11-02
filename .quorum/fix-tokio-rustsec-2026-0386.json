@@ -1,0 +1,119 @@
+{
+  "kind": "code",
+  "issue": "forjar#794 (PMAT-756): bump tokio 1.53.1 -> 1.53.3 in Cargo.lock for RUSTSEC-2026-0386 (AsyncFd::new unsound), cargo-deny red on ci / lint; no deny.toml ignore.",
+  "branch": "fix/tokio-rustsec-2026-0386",
+  "base": "main",
+  "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
+  "diff_sha256": "c941d530caa4ab1d8ec95621949f429e25da0b10",
+  "recorded_at": "round 1, after a planted round (3 claude-opus-5-5 claim lanes that also refuted, 3 claude-opus-5-5 judges, planted control C3 killed 3 of 3).",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "claude-opus-5-5 lane 1 (code): PASS",
+      "claude-opus-5-5 lane 2 (manifest side): PASS",
+      "claude-opus-5-5 lane 3 (adversary and waiver check): PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 2,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "C3 (planted control): the diff modifies src/ or deny.toml (false: Cargo.lock only, plus the new test and .quorum files)"
+    ]
+  },
+  "falsification": {
+    "test": "locked_tokio_is_a_patched_version",
+    "test_file": "tests/falsification_tokio_rustsec_2026_0386.rs",
+    "cargo_test_target": "falsification_tokio_rustsec_2026_0386",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Green on the fix: 1 passed. With Cargo.lock restored to origin/main: 1 failed, 'RUSTSEC-2026-0386: Cargo.lock pins tokio (1, 53, 1), unpatched'. Restored: 1 passed."
+  },
+  "crux": {
+    "systems": [
+      "cargo-audit/cargo-deny: advisory db checked against Cargo.lock; the fix is a lock bump",
+      "npm audit fix: lockfile entry moves to the first patched version",
+      "Dependabot security updates: lock-only PR to the minimal patched release",
+      "pip-audit with pinned requirements: pins move to the first fixed version"
+    ],
+    "verdict": "No crux row is owed: a minimal lock-only bump to the first patched release is common practice."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy out of scope; Claude Code claude-opus-5-5 lanes, read-only, never the author model (claude-sonnet-5-5)",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "SOUND: a two-line lock bump to a patched release, no waiver."
+  },
+  "pmat": {
+    "ticket": "PMAT-756",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 0 items in tests/falsification_tokio_rustsec_2026_0386.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/794-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "25aea9e90f095726c00f39e5f5fa6360f55e63c8",
+        "sha256": "bb54ae02b5724bb2cfc2618eb83d306055b78e8b04ac428cd9951ea979b7fc82",
+        "bytes": 306
+      },
+      {
+        "path": ".quorum/evidence/794-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "3527df822118231fc3151ac3f68cd1363e4b839c",
+        "sha256": "6949f08f9ade4fb774d40718cdae06275795716ccc4b8d098ca10f53e978d7c0",
+        "bytes": 306
+      },
+      {
+        "path": ".quorum/evidence/794-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "bfc5e42ed11b0a48e82e6924ca8eecb3fb761b70",
+        "sha256": "f4f40b4d9e4bdaae0967cbd1690b084c30bb59bde7661833cd01ea0f0bba9095",
+        "bytes": 622
+      },
+      {
+        "path": ".quorum/evidence/794-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "5177e25d2761346b29cf7d3cb31a0321197932c8",
+        "sha256": "e8a935bbe200029e272a065f2df3e48251b4ec2564e8894c6f7caf6dc7684118",
+        "bytes": 1571
+      },
+      {
+        "path": ".quorum/evidence/794-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "e6ea3fa5bd181fb4ba940fe5395840cae7eff563",
+        "sha256": "05fb80daf87c4d2e927bb956f2483ee77e1517fe98132d87663b56d89ba8af4e",
+        "bytes": 865
+      },
+      {
+        "path": ".quorum/evidence/794-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "542432b2c8ec4c81ceae8018952136c31f23d0a4",
+        "sha256": "fc060f51e4b76893e042f61c66081d1dfceaeb83750cfeb9da2ba1e35c39d232",
+        "bytes": 706
+      }
+    ],
+    "total_bytes": 4376,
+    "claims_digest": ".quorum/evidence/794-claims.md"
+  }
+}
