@@ -118,6 +118,7 @@ resources:
     #[test]
     fn test_fj312_plan_cost_flag_parse() {
         let cmd = Commands::Plan(PlanArgs {
+            offline: false,
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -134,6 +135,7 @@ resources:
             what_if: vec![],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { cost, .. }) => assert!(cost),
@@ -146,6 +148,7 @@ resources:
     #[test]
     fn test_fj333_plan_what_if_flag() {
         let cmd = Commands::Plan(PlanArgs {
+            offline: false,
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,
@@ -162,6 +165,7 @@ resources:
             what_if: vec!["port=8080".to_string()],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { what_if, .. }) => {
