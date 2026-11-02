@@ -156,6 +156,9 @@ fn resolve_build_and_overlay_fields(
     // silently reclaim nothing, which is the exact silent-inertness this
     // resource exists to prevent.
     r.budget_schedule = resolve_opt(&r.budget_schedule, params, data, machines, secrets)?;
+    // tmp_reaper: the age and glob decide what gets deleted.
+    r.max_age = resolve_opt(&r.max_age, params, data, machines, secrets)?;
+    r.pattern = resolve_opt(&r.pattern, params, data, machines, secrets)?;
     for rule in &mut r.budget_reclaim {
         rule.roots = resolve_list(&rule.roots, params, data, machines, secrets)?;
     }

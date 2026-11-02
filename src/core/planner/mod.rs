@@ -151,7 +151,7 @@ fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarCo
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.
-fn passes_machine_filters(
+pub(crate) fn passes_machine_filters(
     resource: &Resource,
     machine_name: &str,
     resource_id: &str,
@@ -208,7 +208,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
-        | ResourceType::NasArchive => "present",
+        | ResourceType::NasArchive
+        | ResourceType::TmpReaper => "present",
     }
 }
 
@@ -428,7 +429,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::OverlayInterface
             | ResourceType::DiskBudget
             | ResourceType::BackupSync
-            | ResourceType::NasArchive => format!("{resource_id}: create"),
+            | ResourceType::NasArchive
+            | ResourceType::TmpReaper => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

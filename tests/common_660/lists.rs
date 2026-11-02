@@ -104,5 +104,5 @@ pub const SWALLOW_ALLOWLIST: &[(&str, &str)] = &[
     ("src/core/resolver/resource.rs:resolve_or_fallback", "documented fallback: warns on stderr and keeps the raw resource for destroy/refresh scripts"),
     ("src/cli/print_helpers.rs:print_plan_change", "display only: falls back to the raw text for a resource the planner already reported as unresolvable"),
     ("src/core/executor/refresh.rs:refresh_check_fails", "an unresolvable resource counts as a failing check, i.e. it is re-applied, which then reports the error"),
-    ("src/core/executor/refresh_seed.rs:check_passes_on", "an unresolvable resource does not pass its check, which then reports the error on apply"),
+    ("src/core/executor/lockless_check.rs:host_check_passes", "an unresolvable resource does not pass its check, which then reports the error on apply"),
 ];

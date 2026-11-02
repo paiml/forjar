@@ -216,6 +216,7 @@ mod tests {
             checks: indexmap::IndexMap::new(),
             environments: indexmap::IndexMap::new(),
             dist: None,
+            inode_pressure: None,
         }
     }
 
