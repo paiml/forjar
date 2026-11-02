@@ -31,6 +31,9 @@ case "$verb" in
   is-enabled)
     if [ -f "$d/enabled" ]; then [ $quiet = 1 ] || echo enabled; exit 0; fi
     [ $quiet = 1 ] || echo disabled; exit 1 ;;
+  show)
+    # PMAT-708: `show -p ActiveState --value <unit>`; the unit is either up or down here.
+    if [ -f "$d/active" ]; then echo active; else echo inactive; fi; exit 0 ;;
   start|restart|reload-or-restart) : > "$d/active" ;;
   stop) rm -f "$d/active" ;;
   enable) : > "$d/enabled" ;;
