@@ -85,3 +85,22 @@ fn image_totals_count_the_base_layers_the_manifest_carries() {
     );
     assert!(img.total_size >= base_size + img.layers[0].compressed_size);
 }
+
+#[test]
+fn digest_reference_pins_by_digest_not_tag() {
+    let r = super::image_ref::parse_image_ref("ghcr.io/paiml/app:v1").unwrap();
+    assert_eq!(
+        r.to_digest_reference("sha256:abc"),
+        "ghcr.io/paiml/app@sha256:abc"
+    );
+}
+
+#[test]
+fn oci_config_null_collections_deserialize_as_empty() {
+    let c: crate::core::types::OciRuntimeConfig = serde_json::from_str(
+        r#"{"Entrypoint":null,"Cmd":null,"Env":null,"ExposedPorts":null,"Labels":null}"#,
+    )
+    .unwrap();
+    assert!(c.entrypoint.is_empty() && c.cmd.is_empty() && c.env.is_empty());
+    assert!(c.exposed_ports.is_empty() && c.labels.is_empty());
+}

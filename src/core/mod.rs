@@ -11,7 +11,6 @@ pub mod config_hash;
 pub mod cron_source;
 pub mod ephemeral;
 pub mod error;
-mod error_from;
 pub mod executor;
 pub mod gitenv;
 pub mod inode_pressure;
