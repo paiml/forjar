@@ -303,6 +303,10 @@ dogfood_roadmap_rows() {
   DOGFOOD_ROW_STATUSES="$(printf '%s\n' "$text" | awk '
     /^- id: /        { id = $3; next }
     /^  status: /    { if (id != "") { print id " " $2; id = "" } next }')"
+  # The GitHub issue each row declares, from the same single read: "<n> <id>".
+  DOGFOOD_ROW_ISSUES="$(printf '%s\n' "$text" | awk '
+    /^- id: /            { id = $3; next }
+    /^  github_issue: [0-9]+$/ { if (id != "") print $2 " " id }')"
   DOGFOOD_ROW_IDS_LOADED=1
 }
 
@@ -372,6 +376,7 @@ dogfood_ids_in() {
     fail "grep exited ${rc} scanning a PR for ticket ids — UNMEASURED"
   fi
   DOGFOOD_IDS="$(printf '%s\n' "$hits" | awk -F'[-/]' 'NF > 1 { for (i = 2; i <= NF; i++) print "PMAT-" $i }')"
+  dogfood_issue_ids_in "$1"
 }
 
 # The row $1 resolves to -> DOGFOOD_ROW: $1 itself when it is a row; the one
@@ -475,4 +480,27 @@ dogfood_window_tickets() {
   DOGFOOD_WINDOW_TICKETS="$(printf '%s\n' $all | awk 'NF' | sort -u -V | tr '\n' ' ' | sed 's/ *$//')"
   DOGFOOD_WINDOW_STRAYS="${strays# }"
   DOGFOOD_WINDOW_UNTICKETED="${none# }"
+}
+
+# `Fixes #N` / `Closes #N` / `Refs #N` in $1 -> appended to DOGFOOD_IDS, as the
+# PMAT id of the ONE roadmap row that declares `github_issue: N`. A real link,
+# not a waiver: a bare `#N` (a squash title's PR number), an `#N` no row
+# declares, and a `Fixes #N` where two rows declare N all resolve to nothing,
+# and a PR that names nothing else stays unticketed — red.
+dogfood_issue_ids_in() {
+  local rc=0 refs n hit
+  refs="$(printf '%s\n' "$1" | grep -o -i -E '(fixes|closes|resolves|refs) #[0-9]+')" || rc=$?
+  if [ "$rc" -gt 1 ]; then
+    fail "grep exited ${rc} scanning a PR for issue references — UNMEASURED"
+  fi
+  [ -n "$refs" ] || return 0
+  dogfood_roadmap_rows
+  for n in $(printf '%s\n' "$refs" | sed 's/.*#//'); do
+    hit="$(awk -v n="$n" '$1 == n { print $2 }' <<< "$DOGFOOD_ROW_ISSUES")"
+    case "$hit" in
+      "" | *$'\n'*) ;;
+      *) DOGFOOD_IDS="${DOGFOOD_IDS:+$DOGFOOD_IDS
+}${hit}" ;;
+    esac
+  done
 }
