@@ -5040,6 +5040,48 @@ roadmap:
   - kind:code
   notes: null
   epic: 668
+- id: PMAT-663
+  github_issue: 663
+  item_type: task
+  title: 'service: state enabled/disabled converge to what their check asserts (#663)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T14:30:00Z
+  updated: 2026-10-04T14:30:00Z
+  spec: docs/book/src/03-resources.md
+  acceptance_criteria:
+  - 'For each state (running, stopped, enabled, disabled) and each start (active/inactive x enabled/disabled), the generated apply_script run against a fake systemctl leaves the unit in the declared state, the generated check_script then exits 0, and a second apply makes no start/stop/enable/disable call (src/resources/tests_service_converge.rs).'
+  - 'state: enabled enables and state: disabled disables, with no start or stop, as docs/book/src/03-resources.md documents; their check asserts enablement only. running and stopped are unchanged.'
+  - 'state: enabled with enabled: false, and state: disabled with enabled: true, are validation errors; agreeing or absent enabled: validates.'
+  - 'With the service.rs fix reverted, test_663_enabled_converges and test_663_disabled_converges go red; with the validator reverted, test_663_contradictory_enabled_is_a_validation_error goes red.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
+  release: 1.34.0
+- id: PMAT-738
+  github_issue: 738
+  item_type: task
+  title: 'mount: fresh x-systemd.automount fstab entry never starts the .automount unit'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-21T11:47:15Z
+  updated: 2026-10-21T11:47:15Z
+  spec: null
+  acceptance_criteria:
+  - 'Start <systemd-escape --path>.automount after daemon-reload so a fresh entry mounts (Refs #738)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
 - id: PMAT-703
   github_issue: 703
   item_type: task
@@ -5063,25 +5105,24 @@ roadmap:
   notes: null
   epic: 696
   release: 1.34.0
-- id: PMAT-735
-  github_issue: 735
+- id: PMAT-704
+  github_issue: 704
   item_type: task
-  title: main advisories (webpki) + split disk_budget tests
-  status: planned
-  priority: critical
+  title: 'apply --dry-run plans from the gate''s drift findings: a drifted depends_on prerequisite the apply would repair previews as an update, not "no changes"'
+  status: inprogress
+  priority: high
   assigned_to: null
-  created: 2026-10-21T06:23:15Z
-  updated: 2026-10-21T06:23:15Z
+  created: 2026-10-13T12:20:00Z
+  updated: 2026-10-13T12:20:00Z
   spec: null
   acceptance_criteria:
-  - cargo update webpki crates; split tests.rs under 500 lines
+  - '`tests_dry_run_drift_repair::scoped_dry_run_lists_dependency_drift_that_apply_repairs`: after a converged apply and a tampered depends_on prerequisite, the `-r leaf` dry-run plan lists the prerequisite as Update, a second dry run plans the same (no lock write), and a real `apply -r leaf` restores it; the test is red with the `overlay_drift` call in `scoped_dry_run_plan` removed.'
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
   notes: null
-  epic: 696
 - id: PMAT-708
   github_issue: 708
   item_type: task
@@ -5094,25 +5135,6 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 'For type: service with state: stopped, the apply script stops the unit whenever its ActiveState is not inactive/failed (activating, active, reloading, deactivating), leaves an inactive or unloaded unit alone, and fails if the unit is still not stopped after systemctl stop; the check passes only for ActiveState inactive/failed. tests/falsification_service_stop_activating.rs executes both scripts against a fake systemctl with systemd''s real is-active exit codes: 4 of its 8 tests are red on origin/main 9a37a2ff and all 8 green with the fix, a second apply is a no-op success, and both rendered scripts pass forjar''s own bashrs gate. Fixes #708.'
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
-  epic: 696
-- id: PMAT-672
-  github_issue: 672
-  item_type: task
-  title: 'Release Audit: draft release reads as a release, API error reads as a skip'
-  status: planned
-  priority: high
-  assigned_to: null
-  created: 2026-10-17T18:02:42Z
-  updated: 2026-10-17T18:02:42Z
-  spec: null
-  acceptance_criteria:
-  - refs forjar#672; picks 2eb32922
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5139,24 +5161,44 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
-- id: PMAT-704
-  github_issue: 704
+- id: PMAT-735
+  github_issue: 735
   item_type: task
-  title: 'apply --dry-run plans from the gate''s drift findings: a drifted depends_on prerequisite the apply would repair previews as an update, not "no changes"'
-  status: inprogress
-  priority: high
+  title: main advisories (webpki) + split disk_budget tests
+  status: planned
+  priority: critical
   assigned_to: null
-  created: 2026-10-13T12:20:00Z
-  updated: 2026-10-13T12:20:00Z
+  created: 2026-10-21T06:23:15Z
+  updated: 2026-10-21T06:23:15Z
   spec: null
   acceptance_criteria:
-  - '`tests_dry_run_drift_repair::scoped_dry_run_lists_dependency_drift_that_apply_repairs`: after a converged apply and a tampered depends_on prerequisite, the `-r leaf` dry-run plan lists the prerequisite as Update, a second dry run plans the same (no lock write), and a real `apply -r leaf` restores it; the test is red with the `overlay_drift` call in `scoped_dry_run_plan` removed.'
+  - cargo update webpki crates; split tests.rs under 500 lines
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
   notes: null
+  epic: 696
+- id: PMAT-672
+  github_issue: 672
+  item_type: task
+  title: 'Release Audit: draft release reads as a release, API error reads as a skip'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-17T18:02:42Z
+  updated: 2026-10-17T18:02:42Z
+  spec: null
+  acceptance_criteria:
+  - refs forjar#672; picks 2eb32922
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
 - id: PMAT-773
   github_issue: 773
   item_type: task
