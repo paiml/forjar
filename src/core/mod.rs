@@ -14,6 +14,7 @@ pub mod error;
 mod error_from;
 pub mod executor;
 pub mod gitenv;
+pub mod inode_pressure;
 pub mod key_source;
 pub mod metric_collector;
 pub mod metric_source;

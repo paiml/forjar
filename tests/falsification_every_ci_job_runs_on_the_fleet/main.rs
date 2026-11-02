@@ -129,94 +129,87 @@ fn a_fleet_job_that_runs_cargo_keeps_its_registry_to_itself() {
     );
 }
 
-/// Self-hosted jobs that DELIBERATELY name no architecture (PMAT-756).
-///
-/// Operator ruling: drop `X64` from jobs that do not depend on the chip, so the
-/// gx10 ARM64 boxes can run them too. Each entry is `(workflow file, job id,
-/// reason)`. Every job here is chip-neutral: it lints, classifies, audits or
-/// tests without producing an architecture-specific artifact. Jobs that build
-/// or upload a release/artifact binary keep `X64` and are NOT listed.
-///
-/// The list is two-sided (see the test below): a listed job must exist and must
-/// carry no arch label, and an unlisted job without one fails.
-/// EMPTY since R1 (NOAH 16:08Z, forjar#791): every self-hosted job pins `X64` again, so no
-/// job is deliberately arch-silent. The list stays, and so does its two-sided check, so a
-/// future chip-neutral job can be listed here WITH a reason instead of a waiver.
-const ARCH_NEUTRAL: &[(&str, &str, &str)] = &[];
+/// Jobs that are deliberately architecture-neutral (forjar#722): they run rustup,
+/// cargo check/clippy/fmt, git and wc only, build no shipped artifact and name no
+/// target triple, so an aarch64 runner is as good as an x86_64 one and pinning
+/// `X64` only queues them behind the busiest runners. Naming a job here is a
+/// reviewed decision (it may sit on `ARM64` since forjar#826, the cache-key guard
+/// still applies), and a stale entry fails the test below.
+const ARCH_NEUTRAL_JOBS: [(&str, &str); 3] = [
+    ("lint.yml", "clippy"),
+    ("lint.yml", "file-health"),
+    ("msrv.yml", "msrv"),
+];
 
-/// Every self-hosted job that names no architecture and is not in [`ARCH_NEUTRAL`],
-/// plus every `(file, job, has_arch)` seen, for the staleness half of the check.
-fn arch_scan() -> (Vec<String>, Vec<(String, String, bool)>) {
-    let arches = ["X64", "ARM64"];
-    let mut unpinned = Vec::new();
-    let mut seen: Vec<(String, String, bool)> = Vec::new();
-    for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let labels = runner_labels(job);
-            let name = name.as_str().unwrap_or("?").to_string();
-            let has_arch = labels.iter().any(|l| arches.contains(&l.as_str()));
-            seen.push((file.clone(), name.clone(), has_arch));
-            let neutral = ARCH_NEUTRAL
-                .iter()
-                .any(|(f, j, _)| *f == file.as_str() && *j == name);
-            if labels.iter().any(|l| l == "self-hosted") && !has_arch && !neutral {
-                unpinned.push(format!("  {file}  job `{name}`  runs-on {labels:?}"));
-            }
-        }
-    }
-    unpinned.sort();
-    (unpinned, seen)
-}
-
-/// `ARCH_NEUTRAL` entries that name a job that is gone or that carries an arch label.
-fn stale_arch_neutral(seen: &[(String, String, bool)]) -> Vec<String> {
-    ARCH_NEUTRAL
-        .iter()
-        .filter_map(
-            |(f, j, _)| match seen.iter().find(|(sf, sj, _)| sf == f && sj == j) {
-                None => Some(format!("  {f}  job `{j}` does not exist")),
-                Some((_, _, true)) => Some(format!("  {f}  job `{j}` carries an arch label")),
-                Some(_) => None,
-            },
-        )
-        .collect()
-}
-
-/// A fleet job names the ARCHITECTURE it needs, or is listed in
-/// [`ARCH_NEUTRAL`] as chip-independent on purpose.
+/// A fleet job names the ARCHITECTURE it needs.
 ///
 /// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
 /// `clean-room` spans BOTH architectures. Group 1 "Default" holds sixteen
 /// `intel-clean-room-*`, every one `X64`; group 3 "gpu-nodes" holds four gx10
 /// boxes that also carry `clean-room` and are every one **ARM64**.
 ///
-/// A job that produces an architecture-specific artifact must pin `X64` or
-/// `ARM64`, or a runner-group checkbox could hand it the wrong chip and the
-/// uploaded artifact would be wrong rather than absent. A chip-neutral job may
-/// instead be listed in `ARCH_NEUTRAL` so gx10 can run it. The silence has to
-/// be written down: a job that merely LOSES its arch label is still caught.
+/// Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
+/// `[self-hosted, clean-room]` reaches only X64 boxes and nothing is currently
+/// wrong. That is an access-control accident, not a property of the label: the
+/// day forjar is added to `gpu-nodes` — one checkbox — a job building
+/// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
+/// it uploads would be wrong rather than absent.
+///
+/// Naming the architecture (`X64` or `ARM64`, deliberately) states the
+/// assumption instead of relying on someone not clicking the box.
+/// Scan every self-hosted job: the ones that name no architecture, and which
+/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job that exists.
+fn scan_architecture_pins() -> (Vec<String>, [bool; ARCH_NEUTRAL_JOBS.len()]) {
+    let arches = ["X64", "ARM64"];
+    let mut unpinned = Vec::new();
+    let mut neutral_seen = [false; ARCH_NEUTRAL_JOBS.len()];
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            let labels = runner_labels(job);
+            if !labels.iter().any(|l| l == "self-hosted") {
+                continue;
+            }
+            let job_name = name.as_str().unwrap_or("?");
+            let entry = ARCH_NEUTRAL_JOBS
+                .iter()
+                .position(|(f, j)| *f == file.as_str() && *j == job_name);
+            if let Some(i) = entry {
+                neutral_seen[i] = true;
+            }
+            let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
+            if !pinned && entry.is_none() {
+                unpinned.push(format!("  {file}  job `{job_name}`  runs-on {labels:?}"));
+            }
+        }
+    }
+    (unpinned, neutral_seen)
+}
+
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
-    let (unpinned, seen) = arch_scan();
-    assert!(
-        unpinned.is_empty(),
-        "these fleet jobs name no architecture and are not in ARCH_NEUTRAL, and \
-         `clean-room` spans X64 and ARM64:\n{}\n\nAdd `X64` (or `ARM64`, \
-         deliberately), or, if the job is chip-independent, add it to \
-         ARCH_NEUTRAL with a reason.",
-        unpinned.join("\n")
-    );
-
-    // The list cannot go stale: every entry exists and carries no arch label.
-    let stale = stale_arch_neutral(&seen);
+    let (mut unpinned, neutral_seen) = scan_architecture_pins();
+    let stale: Vec<_> = ARCH_NEUTRAL_JOBS
+        .iter()
+        .zip(neutral_seen)
+        .filter(|(_, seen)| !seen)
+        .map(|(e, _)| format!("{e:?}"))
+        .collect();
     assert!(
         stale.is_empty(),
-        "ARCH_NEUTRAL has stale entries (a listed job must exist and must NOT \
-         name an architecture):\n{}",
-        stale.join("\n")
+        "ARCH_NEUTRAL_JOBS names jobs that no longer exist, are not self-hosted, or are not self-hosted: {stale:?}"
+    );
+    unpinned.sort();
+    assert!(
+        unpinned.is_empty(),
+        "these fleet jobs name no architecture, and `clean-room` spans X64 and \
+         ARM64:\n{}\n\nAdd `X64` (or `ARM64`, deliberately). Every runner this \
+         repository can reach today is X64, so this costs nothing and removes \
+         the chance that a checkbox on a runner group turns an x86_64 release \
+         binary into an ARM one.",
+        unpinned.join("\n")
     );
 }
 
