@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**A multi-platform base resolves to the build target's manifest (PMAT-756, #756, IMG-001).**
+**A multi-platform base resolves to the build target's manifest (PMAT-5881, #756, IMG-001).**
 When a base layout's top entry is an OCI image index (or docker manifest list),
 `extract_base_layers` follows it to the `linux` manifest of the architecture it
 builds for: `amd64` on an x86_64 host, `arm64` on an aarch64 host, else the

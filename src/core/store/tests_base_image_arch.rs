@@ -1,4 +1,4 @@
-//! Architecture selection for multi-platform base images (PMAT-756, IMG-001).
+//! Architecture selection for multi-platform base images (PMAT-5881, IMG-001).
 //! Every test NAMES the architecture; none depends on the chip it runs on
 //! except the one that asserts the host mapping itself.
 

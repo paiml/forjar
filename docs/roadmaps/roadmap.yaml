@@ -5134,7 +5134,7 @@ roadmap:
   - kind:docs
   notes: null
   epic: 697
-- id: PMAT-756
+- id: PMAT-5881
   github_issue: 756
   item_type: task
   title: 'IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest'
