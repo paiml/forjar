@@ -1,0 +1,346 @@
+{
+  "ticket": "PMAT-773",
+  "base": "origin/main",
+  "base_resolved": "origin/main",
+  "base_note": "no origin/origin/main exists; judged against the local ref",
+  "head": "3a67841a99b4795bf45a9a0438f2907f84b23a1e",
+  "diff_sha256": "85513ff2a85f4865b404498bbb4d254d69f5b32b2c0e168feea08143536b786f",
+  "width": 3,
+  "executor": "agy",
+  "prompt_mode": "inline",
+  "prompt_bytes": 2423,
+  "prompt_sha256": "2debba1db3e8d66061fcf49eae7a15749c1a1f9738e30d49576df3a3a29ea1d1",
+  "author": {
+    "model": "claude-sonnet-5-5",
+    "family": "claude",
+    "source": "flag"
+  },
+  "agreed": true,
+  "lanes": [
+    {
+      "lane": 1,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "The diff precisely addresses ticket PMAT-773 ('audit red: yanked clipboard-win 5.4.1 in Cargo.lock') by updating clipboard-win from yanked 5.4.1 to 5.4.3 in Cargo.lock and adding the tracking row in docs/roadmaps/roadmap.yaml. No gates are weakened, no tests assert the opposite, no receipt claims are unbacked, and no extraneous changes were introduced.",
+      "findings": [
+        {
+          "claim": "clipboard-win version is bumped from yanked 5.4.1 (checksum bde03770d3df201d4fb868f2c9c59e66a3e4e2bd06692a0fe701e7103c7e84d4) to 5.4.3 (checksum 052af7878466feccda12ba7a6a67d019d712f296809559b47c12c8cc196d3a9a) in Cargo.lock, resolving the audit red on main without altering other packages or dependency edges.",
+          "file": "Cargo.lock",
+          "grounding": "cited",
+          "line": 583
+        },
+        {
+          "claim": "PMAT-773 task is recorded in docs/roadmaps/roadmap.yaml with title 'audit red: yanked clipboard-win 5.4.1 in Cargo.lock' under epic 763, satisfying the project mandate and dogfood gate T requirements.",
+          "file": "docs/roadmaps/roadmap.yaml",
+          "grounding": "cited",
+          "line": 5052
+        }
+      ],
+      "raw_bytes": 3234,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "grounding_check": "parity",
+      "role": "independent",
+      "model": "gemini-3.8-flash-high",
+      "model_measured": "gemini-3.8-flash-high",
+      "model_source": "measured",
+      "family": "gemini",
+      "executor": "agy",
+      "brief_sha256": "2debba1db3e8d66061fcf49eae7a15749c1a1f9738e30d49576df3a3a29ea1d1",
+      "trace": {
+        "input_sha256": "bc0d7ff3ad81b837e73d396e19c23dd98d6dd3f175db2fd294bcf9c1fd3563a2",
+        "output_sha256": "9c5e10864a40371b0c01dfa61ffb3966ca31d092a3914660cd9c8125f026ae83",
+        "store": null,
+        "store_why": "almacen not provisioned yet (infra-27): the blobs stay in the round's gitignored .lanes dir"
+      },
+      "fallback": {
+        "judged_by": "gemini-3.8-flash-high",
+        "exhausted": false,
+        "attempts": [
+          {
+            "model": "gemini-3.8-flash-high",
+            "family": "gemini",
+            "outcome": "answered"
+          }
+        ],
+        "skipped": []
+      }
+    },
+    {
+      "lane": 2,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "This diff does what PMAT-773 asks: Cargo.lock moves clipboard-win from the yanked 5.4.1 to 5.4.3, a patch release in the same 5.4 line, with a new checksum. The dependency list is unchanged (it still uses error-code), and the lock has only one clipboard-win entry, so nothing still points at 5.4.1. The other change adds one PMAT-773 entry to roadmap.yaml, and the ID appears there exactly once. The diff weakens no gate, adds no audit ignore or waiver, and changes no source code. Not checked: whether the new checksum matches what crates.io serves for 5.4.3, because I could not reach the network. Witness token: there is no paiml-lane-witness file in the worktree gitdir (/home/noah/src/forjar/.git/worktrees/forjar-yank/), and none anywhere under /home/noah/src/forjar/.git, so tree_witness is left empty.",
+      "findings": [
+        {
+          "file": "Cargo.lock",
+          "line": 583,
+          "claim": "The yanked clipboard-win 5.4.1 is replaced with 5.4.3, a patch bump in the same minor line. The dependency list is unchanged (it still uses error-code), and only one clipboard-win entry exists in the lock.",
+          "grounding": "measured"
+        },
+        {
+          "file": "Cargo.lock",
+          "line": 585,
+          "claim": "Not checked: whether the new checksum 052af787…3a9a matches what crates.io serves for clipboard-win 5.4.3, because this lane could not reach the network. The cargo audit / CI result is the evidence for it.",
+          "grounding": "asserted"
+        },
+        {
+          "file": "docs/roadmaps/roadmap.yaml",
+          "line": 5052,
+          "claim": "The diff adds one PMAT-773 entry (status planned, epic 763), and the ID appears exactly once in the file. This only registers the ticket and goes no further than what the ticket asks.",
+          "grounding": "measured"
+        },
+        {
+          "file": "docs/audits/impl-PMAT-773-receipt.md",
+          "claim": "This file does not exist at HEAD. Gate A of dogfood-release will need it before the next release, but the ticket itself does not require it, so it does not refute the diff.",
+          "grounding": "measured",
+          "fix": "Commit docs/audits/impl-PMAT-773-receipt.md, ending with IMPL-PMAT-773-RECEIPT-END and containing exactly one verdict: line, before the release cut."
+        }
+      ],
+      "raw_bytes": 5090,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "executor": "claude-code",
+      "grounding_check": "parity",
+      "role": "counted",
+      "model": "claude-opus-5-5",
+      "model_measured": "claude-opus-5-5",
+      "model_source": "flag",
+      "family": "claude",
+      "brief_sha256": "2debba1db3e8d66061fcf49eae7a15749c1a1f9738e30d49576df3a3a29ea1d1",
+      "trace": {
+        "input_sha256": "c760c92de6b274ada1bbdc2a6881cf27bd621266071676d6033638bdf7cbd701",
+        "output_sha256": "d8d240dbc0da6055a889540549cbf3b40e32b1ef0018d5cc7bca03d22b31b85b",
+        "store": null,
+        "store_why": "almacen not provisioned yet (infra-27): the blobs stay in the round's gitignored .lanes dir"
+      },
+      "fallback": {
+        "judged_by": "claude-opus-5-5",
+        "exhausted": false,
+        "attempts": [
+          {
+            "model": "claude-opus-5-5",
+            "family": "claude",
+            "outcome": "answered"
+          }
+        ],
+        "skipped": []
+      }
+    },
+    {
+      "lane": 3,
+      "status": "SUCCESS",
+      "verdict": "PASS",
+      "summary": "The diff correctly upgrades clipboard-win from yanked 5.4.1 to 5.4.3 in Cargo.lock, fixing the `cargo audit --deny yanked` failure as required by PMAT-773. The change is minimal and targeted: only the version and checksum are modified, dependencies remain unchanged. A roadmap entry documents the fix. No refuting evidence found.",
+      "findings": [],
+      "raw_bytes": 1628,
+      "err_bytes": 0,
+      "envelope_status": "SUCCESS",
+      "verdict_source": "structured_output",
+      "executor": "claude-code",
+      "grounding_check": "parity",
+      "role": "counted",
+      "model": "claude-haiku-4-5",
+      "model_measured": "claude-haiku-4-5",
+      "model_source": "flag",
+      "family": "claude",
+      "brief_sha256": "2debba1db3e8d66061fcf49eae7a15749c1a1f9738e30d49576df3a3a29ea1d1",
+      "trace": {
+        "input_sha256": "e60ae74e6a6da6cdb750b1ba300f7265f4095ac57b0831fd0f3d7b87a8d5e7de",
+        "output_sha256": "2b64c0e350a7af8b9caf6ff4b1ecf017f9faff23abb51ed5f7117d7b4444f32c",
+        "store": null,
+        "store_why": "almacen not provisioned yet (infra-27): the blobs stay in the round's gitignored .lanes dir"
+      },
+      "fallback": {
+        "judged_by": "claude-haiku-4-5",
+        "exhausted": false,
+        "attempts": [
+          {
+            "model": "claude-haiku-4-5",
+            "family": "claude",
+            "outcome": "answered"
+          }
+        ],
+        "skipped": []
+      }
+    }
+  ],
+  "dissent": [],
+  "dedup": [
+    {
+      "file": "Cargo.lock",
+      "line": 583,
+      "lanes_agreeing": [
+        1,
+        2
+      ],
+      "claims": [
+        "The yanked clipboard-win 5.4.1 is replaced with 5.4.3, a patch bump in the same minor line. The dependency list is unchanged (it still uses error-code), and only one clipboard-win entry exists in the lock.",
+        "clipboard-win version is bumped from yanked 5.4.1 (checksum bde03770d3df201d4fb868f2c9c59e66a3e4e2bd06692a0fe701e7103c7e84d4) to 5.4.3 (checksum 052af7878466feccda12ba7a6a67d019d712f296809559b47c12c8cc196d3a9a) in Cargo.lock, resolving the audit red on main without altering other packages or dependency edges."
+      ]
+    },
+    {
+      "file": "Cargo.lock",
+      "line": 585,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "Not checked: whether the new checksum 052af787…3a9a matches what crates.io serves for clipboard-win 5.4.3, because this lane could not reach the network. The cargo audit / CI result is the evidence for it."
+      ]
+    },
+    {
+      "file": "docs/audits/impl-PMAT-773-receipt.md",
+      "line": null,
+      "lanes_agreeing": [
+        2
+      ],
+      "claims": [
+        "This file does not exist at HEAD. Gate A of dogfood-release will need it before the next release, but the ticket itself does not require it, so it does not refute the diff."
+      ]
+    },
+    {
+      "file": "docs/roadmaps/roadmap.yaml",
+      "line": 5052,
+      "lanes_agreeing": [
+        1,
+        2
+      ],
+      "claims": [
+        "PMAT-773 task is recorded in docs/roadmaps/roadmap.yaml with title 'audit red: yanked clipboard-win 5.4.1 in Cargo.lock' under epic 763, satisfying the project mandate and dogfood gate T requirements.",
+        "The diff adds one PMAT-773 entry (status planned, epic 763), and the ID appears exactly once in the file. This only registers the ticket and goes no further than what the ticket asks."
+      ]
+    }
+  ],
+  "uncovered": [],
+  "coverage_source": "lanes",
+  "partial": false,
+  "partial_reasons": [],
+  "fallback": {
+    "same_family_width": 2,
+    "chain": [
+      {
+        "model": "gemini-3.8-flash-high",
+        "family": "gemini",
+        "disposition": "configured"
+      },
+      {
+        "model": "claude-opus-5-5",
+        "family": "claude",
+        "disposition": "claude-code",
+        "why": "run by Claude Code on its own budget: a configured seat runs every round, a fallback step only when every non-Claude family is measured out (PMAT-360, operator standing rule)"
+      },
+      {
+        "model": "claude-haiku-4-5",
+        "family": "claude",
+        "disposition": "claude-code",
+        "why": "run by Claude Code on its own budget: a configured seat runs every round, a fallback step only when every non-Claude family is measured out (PMAT-360, operator standing rule)"
+      },
+      {
+        "model": "claude-sonnet-5-5",
+        "family": "claude",
+        "disposition": "excluded-self-review",
+        "why": "the author's own model id (claude-sonnet-5-5) — a model never reviews its own diff, at any width (R-15a identity bar)"
+      },
+      {
+        "model": "qwen3.5",
+        "family": "qwen",
+        "disposition": "not-run",
+        "why": "no quorum.local_lane in the config — the aprender lane has no model to load"
+      }
+    ],
+    "precheck": [
+      {
+        "family": "gemini",
+        "model": "gemini-3.8-flash-high",
+        "probe": 1,
+        "outcome": "live"
+      }
+    ],
+    "degraded": null,
+    "prah": {
+      "source": "install-receipt",
+      "path": "/home/noah/.claude/skills/paiml-implement/bin/prah"
+    },
+    "bucket": {
+      "ledger": "/home/noah/.local/state/paiml-implement/agy-bucket.jsonl",
+      "window_s": 18000,
+      "pace": "off",
+      "buckets": {
+        "gemini": {
+          "bucket": "gemini",
+          "state": "unmeasured",
+          "reason": "agy-bucket.sh could not read the ledger; the bucket is not consulted this round"
+        }
+      },
+      "closed": []
+    }
+  },
+  "auto_merge": {
+    "checked": false,
+    "was_armed": false,
+    "disarmed": false,
+    "note": "no --pr given: nothing to disarm"
+  },
+  "cheap_seat": "claude-haiku-4-5",
+  "canary": {
+    "shape": "canary",
+    "max_brief_bytes": 24576,
+    "brief_bytes": 2423
+  },
+  "advisory_lane": {
+    "state": "unavailable",
+    "counts": false,
+    "row": {
+      "NotRun": "Busy"
+    },
+    "verdict": "unavailable",
+    "why": "no host answered inside the budget",
+    "served_by": null,
+    "gpu_proof": null,
+    "apr": null,
+    "apr_binary_sha256": null,
+    "apr_tag": null,
+    "apr_commit": null,
+    "apr_build_why": null,
+    "model": null,
+    "model_sha256": null,
+    "rc": 2,
+    "wall_s": 0,
+    "collected_s": 466,
+    "budget_s": 196,
+    "budget_basis": "ledger: 2 x p95 98 s over 126 gx10-cuda Verdict rows",
+    "brief": {
+      "bytes": 2423,
+      "sent_bytes": 2592,
+      "max_bytes": 196608
+    },
+    "trace": {
+      "input_sha256": "7cf426ab99b311731e99344a68bb4449fbbf3f3378da6638120e3cc8e75cd3d7",
+      "raw": "advisory.json"
+    },
+    "attempts": [
+      {
+        "host": "gx10",
+        "ok": false,
+        "wall_s": 0,
+        "error": "busy: executor yielded (unit inactive; last yield: 2026-10-03T00:47:22Z host=gx10-a5b5 event=stopped gpu-priority lock=/tmp/apr-gpu.priority)",
+        "ts": "2026-10-23T10:16:47.490Z",
+        "wall_ms": 450,
+        "request_id": "01a16843-5c7f-795f-a5b6-f68f52f32400",
+        "load1": 33.91,
+        "cold": null
+      }
+    ],
+    "ledger": "/home/noah/.local/state/paiml-implement/advisory-ledger.jsonl",
+    "raw": "advisory.json",
+    "agrees_with_counted": null,
+    "counted": "PASS"
+  },
+  "lint": {
+    "ok": true,
+    "output": "receipt complete: kind=artifact lanes=3 author=claude-sonnet-5-5/claude same_family=2/2"
+  }
+}

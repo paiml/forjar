@@ -52,7 +52,7 @@ mod tests {
             subset: None,
             confirm_destructive: false,
             backup: true,
-            exclude: None,
+            exclude: vec![],
             sequential: false,
             diff_only: false,
             notify_slack: None,
@@ -245,7 +245,7 @@ mod tests {
             subset: None,
             confirm_destructive: false,
             backup: false,
-            exclude: Some("test-*".to_string()),
+            exclude: vec!["test-*".to_string()],
             sequential: false,
             diff_only: false,
             notify_slack: None,
@@ -397,7 +397,7 @@ mod tests {
         });
         match cmd {
             Commands::Apply(ApplyArgs { exclude, .. }) => {
-                assert_eq!(exclude, Some("test-*".to_string()))
+                assert_eq!(exclude, vec!["test-*".to_string()])
             }
             _ => panic!("expected Apply"),
         }

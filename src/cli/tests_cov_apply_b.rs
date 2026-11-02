@@ -261,7 +261,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), false).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), false, true).is_ok());
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), true).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope::default(), true, true).is_ok());
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { machine: Some("m"), ..Default::default() }, true).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { machine: Some("m"), ..Default::default() }, true, true).is_ok());
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { tag: Some("web"), ..Default::default() }, false).is_ok());
+        assert!(apply_dry_run_output(&config, &state_dir, &GateScope { tag: Some("web"), ..Default::default() }, false, true).is_ok());
     }
 
     // ================================================================
