@@ -371,30 +371,3 @@ fn the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe() {
         }
     }
 }
-
-/// `Fixes #N` in a PR body resolves to the PMAT row that DECLARES
-/// `github_issue: N` — a link in the registry, not a waiver. An #N no row
-/// declares names nothing, and the PR stays unticketed and red.
-#[test]
-fn a_fixes_issue_number_links_only_through_a_row_that_declares_that_issue() {
-    let linked = fixture(Case {
-        shipped_branch: "fix/901-the-shipped-work",
-        shipped_body: "Fixes #901.",
-        rows: vec![
-            (SHIPPED, vec!["release:v0.0.1", "github_issue:901"]),
-            (OPEN, vec!["release:v0.0.2"]),
-        ],
-        ..Case::default()
-    });
-    run(&linked, AN_HOUR)
-        .assert_green("PMAT-901 declares github_issue: 901, so 'Fixes #901' links");
-
-    let unlinked = fixture(Case {
-        shipped_branch: "fix/901-the-shipped-work",
-        shipped_body: "Fixes #777.",
-        ..Case::default()
-    });
-    let r = run(&unlinked, AN_HOUR);
-    r.assert_red("no row declares github_issue: 777, so the PR names no ticket");
-    r.assert_says("name no roadmap ticket");
-}

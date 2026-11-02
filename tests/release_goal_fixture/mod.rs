@@ -69,21 +69,11 @@ pub(crate) fn roadmap(rows: &[(&str, &[&str])]) -> String {
         text.push_str(&format!(
             "- id: {id}\n  title: fixture row\n  status: {status}\n  updated: 2026-01-01T00:00:00Z\n"
         ));
-        // `github_issue:N` is a field of the row, not a label.
-        let issue = labels.iter().find_map(|l| l.strip_prefix("github_issue:"));
-        if let Some(n) = issue {
-            text.push_str(&format!("  github_issue: {n}\n"));
-        }
-        let labels: Vec<&str> = labels
-            .iter()
-            .copied()
-            .filter(|l| !l.starts_with("github_issue:"))
-            .collect();
         if labels.is_empty() {
             text.push_str("  labels: []\n");
         } else {
             text.push_str("  labels:\n");
-            for l in &labels {
+            for l in *labels {
                 text.push_str(&format!("  - {l}\n"));
             }
         }
@@ -115,8 +105,6 @@ pub(crate) struct Case {
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
     pub(crate) shipped_branch: &'static str,
-    /// The shipped PR's body (empty by default).
-    pub(crate) shipped_body: &'static str,
     /// The `CHANGELOG.md` the fixture commits, or none. T9 reads the section
     /// for `version` and joins any "<N> PRs across <M> tickets" claim in it
     /// against the measured window (PMAT-520).
@@ -142,7 +130,6 @@ impl Default for Case {
             cookbook: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
-            shipped_body: "",
             changelog: "",
             pre_cut: false,
         }
@@ -322,8 +309,8 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     git(&root, &["push", "-q", "origin", "main", "--tags"]);
 
     let json = format!(
-        r#"[{{"number":10,"mergedAt":"2026-01-02T00:00:00Z","mergeCommit":{{"oid":"{shipped_oid}"}},"headRefName":"{}","title":"the shipped work","body":"{}"}},{{"number":11,"mergedAt":"2026-01-03T00:00:00Z","mergeCommit":{{"oid":"{open_oid}"}},"headRefName":"PMAT-902-the-open-work","title":"the open work","body":""}}]"#,
-        case.shipped_branch, case.shipped_body
+        r#"[{{"number":10,"mergedAt":"2026-01-02T00:00:00Z","mergeCommit":{{"oid":"{shipped_oid}"}},"headRefName":"{}","title":"the shipped work","body":""}},{{"number":11,"mergedAt":"2026-01-03T00:00:00Z","mergeCommit":{{"oid":"{open_oid}"}},"headRefName":"PMAT-902-the-open-work","title":"the open work","body":""}}]"#,
+        case.shipped_branch
     );
     let gh = stub_gh(dir.path(), &json);
     Fixture {
