@@ -339,7 +339,7 @@ bindings:
     equation: disclosure_is_a_function_of_unconsulted_observations
     module_path: "forjar::cli::plan_json::print_plan_json"
     function: print_plan_json
-    signature: "fn print_plan_json(plan: &ExecutionPlan, config: &ForjarConfig, unconsulted: usize) -> Result<(), String>"
+    signature: "fn print_plan_json(plan: &ExecutionPlan, config: &ForjarConfig, unconsulted: usize, refreshed: Option<&RefreshOutcome>) -> Result<(), String>"
     status: implemented
     notes: "forjar#342 residual. The MACHINE-READABLE surface, and the one the
       issue's motivating incident actually ran through — a nightly lane parsing

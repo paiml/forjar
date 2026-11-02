@@ -66,6 +66,14 @@ pub struct BaseImageLayers {
 /// assert_eq!(layers.layers.len(), layers.diff_ids.len());
 /// ```
 pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String> {
+    extract_base_layers_for_arch(layout_dir, host_oci_arch())
+}
+
+/// [`extract_base_layers`] for an explicit OCI architecture (`amd64`, `arm64`).
+pub(crate) fn extract_base_layers_for_arch(
+    layout_dir: &Path,
+    arch: &str,
+) -> Result<BaseImageLayers, String> {
     // 1. Read and parse index.json
     let index_path = layout_dir.join("index.json");
     let index_data = std::fs::read(&index_path).map_err(|e| format!("read index.json: {e}"))?;
@@ -77,9 +85,8 @@ pub fn extract_base_layers(layout_dir: &Path) -> Result<BaseImageLayers, String>
     }
 
     // 2. Read the first manifest; if it is itself an index (multi-platform
-    //    image), resolve it to the linux/<host arch> manifest (or its first entry).
-    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, 0)
-        .map_err(crate::core::error::ForjarError::into_untyped)?;
+    //    image), resolve it to the linux manifest of `arch`, else fail.
+    let manifest_digest = resolve_manifest_digest(layout_dir, &index.manifests[0].digest, arch, 0)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
         serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;
@@ -122,17 +129,17 @@ fn host_oci_arch() -> &'static str {
 }
 
 /// Follow an OCI image index / docker manifest list down to a single image
-/// manifest digest. Prefers `linux/<host arch>`, else the first entry.
+/// manifest digest. Only ever picks a `linux/<arch>` entry; otherwise it is an error.
 fn resolve_manifest_digest(
     layout_dir: &Path,
     digest: &str,
+    arch: &str,
     depth: u8,
-) -> Result<String, crate::core::error::ForjarError> {
+) -> Result<String, String> {
     let data = read_blob(layout_dir, digest)?;
     let doc: serde_json::Value =
         serde_json::from_slice(&data).map_err(|e| format!("parse manifest {digest}: {e}"))?;
-    let is_index = doc.get("manifests").is_some_and(|m| m.is_array());
-    if !is_index {
+    if !doc.get("manifests").is_some_and(|m| m.is_array()) {
         return Ok(digest.to_string());
     }
     if depth >= 3 {
@@ -141,13 +148,10 @@ fn resolve_manifest_digest(
     let entries = doc["manifests"].as_array().cloned().unwrap_or_default();
     let pick = entries
         .iter()
-        .find(|m| {
-            m["platform"]["os"] == "linux" && m["platform"]["architecture"] == host_oci_arch()
-        })
-        .or_else(|| entries.first())
+        .find(|m| m["platform"]["os"] == "linux" && m["platform"]["architecture"] == arch)
         .and_then(|m| m["digest"].as_str())
-        .ok_or("image index has no manifests")?;
-    resolve_manifest_digest(layout_dir, pick, depth + 1)
+        .ok_or_else(|| format!("image index has no linux/{arch} manifest"))?;
+    resolve_manifest_digest(layout_dir, pick, arch, depth + 1)
 }
 
 /// Read a blob from the OCI layout's blobs directory.
@@ -219,11 +223,13 @@ mod tests {
     use super::*;
     use crate::core::types::{OciDescriptor, OciImageConfig, OciIndex, OciManifest};
 
-    const CONFIG_HEX: &str = "aabbccdd00112233445566778899aabbccddeeff00112233445566778899aabb";
+    pub(super) const CONFIG_HEX: &str =
+        "aabbccdd00112233445566778899aabbccddeeff00112233445566778899aabb";
     const LAYER_HEX: &str = "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff";
-    const MANIFEST_HEX: &str = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+    pub(super) const MANIFEST_HEX: &str =
+        "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
 
-    fn create_test_layout(dir: &Path) {
+    pub(super) fn create_test_layout(dir: &Path) {
         let blobs = dir.join("blobs/sha256");
         std::fs::create_dir_all(&blobs).unwrap();
 
@@ -428,50 +434,6 @@ mod tests {
     }
 
     #[test]
-    fn extract_base_layers_follows_image_index_to_the_host_arch_manifest() {
-        let dir = tempfile::tempdir().unwrap();
-        create_test_layout(dir.path());
-        let idx_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        let arm = "a".repeat(64);
-        let host = host_oci_arch();
-        let foreign = if host == "amd64" { "arm64" } else { "amd64" };
-        let inner = format!(
-            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{arm}","size":1,"platform":{{"os":"linux","architecture":"{foreign}"}}}},{{"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"{host}"}}}}]}}"#
-        );
-        std::fs::write(dir.path().join("blobs/sha256").join(idx_hex), inner).unwrap();
-        let top = format!(
-            r#"{{"schemaVersion":2,"manifests":[{{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"sha256:{idx_hex}","size":1}}]}}"#
-        );
-        std::fs::write(dir.path().join("index.json"), top).unwrap();
-        let r = extract_base_layers(dir.path()).unwrap();
-        assert_eq!(r.layers.len(), 1);
-        // The foreign-arch entry has no blob: a wrong pick would fail above.
-    }
-
-    #[test]
-    fn oci_arch_maps_rust_arch_names() {
-        assert_eq!(oci_arch_for("x86_64"), "amd64");
-        assert_eq!(oci_arch_for("aarch64"), "arm64");
-        assert_eq!(oci_arch_for("riscv64"), "riscv64");
-    }
-
-    #[test]
-    fn index_selection_prefers_the_host_architecture_entry() {
-        let dir = tempfile::tempdir().unwrap();
-        create_test_layout(dir.path());
-        let idx_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        let other = "a".repeat(64);
-        let host = host_oci_arch();
-        let foreign = if host == "amd64" { "arm64" } else { "amd64" };
-        let inner = format!(
-            r#"{{"schemaVersion":2,"manifests":[{{"digest":"sha256:{other}","size":1,"platform":{{"os":"linux","architecture":"{foreign}"}}}},{{"digest":"sha256:{MANIFEST_HEX}","size":1,"platform":{{"os":"linux","architecture":"{host}"}}}}]}}"#
-        );
-        std::fs::write(dir.path().join("blobs/sha256").join(idx_hex), inner).unwrap();
-        let got = resolve_manifest_digest(dir.path(), &format!("sha256:{idx_hex}"), 0).unwrap();
-        assert_eq!(got, format!("sha256:{MANIFEST_HEX}"));
-    }
-
-    #[test]
     fn extract_base_layers_empty_index() {
         let dir = tempfile::tempdir().unwrap();
         let index = OciIndex {
@@ -489,3 +451,7 @@ mod tests {
         assert!(result.unwrap_err().contains("no manifests"));
     }
 }
+
+#[cfg(test)]
+#[path = "tests_base_image_arch.rs"]
+mod tests_arch;
