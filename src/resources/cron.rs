@@ -70,6 +70,34 @@ fn crontab_user(resource: &Resource) -> String {
     sh_squote(resource.owner.as_deref().unwrap_or("root"))
 }
 
+/// Read the user's crontab into `$EXISTING`, failing CLOSED.
+///
+/// `crontab -l` exits 1 for both "no crontab for <user>" and every real error,
+/// so the message decides, and the read sets `LC_ALL=C` (as a prefix assignment,
+/// never `sudo env`, so a crontab-only sudoers rule still matches; sudo passes it
+/// when `env_keep` holds `LC_*`, else a localized message fails closed) so that message is
+/// not English-by-accident. `on_none` runs for the benign case (nothing
+/// installed); anything else prints the error and exits 1 with nothing
+/// written. apply (present and absent) and check all read through this, so
+/// they cannot disagree about an unreadable crontab.
+fn read_existing(u: &str, on_none: &str) -> String {
+    format!(
+        "ERR=$(mktemp)\n\
+         trap 'rm -f \"$ERR\"' EXIT\n\
+         RC=0\n\
+         EXISTING=$(LC_ALL=C $SUDO crontab -u {u} -l 2>\"$ERR\") || RC=$?\n\
+         if [ \"$RC\" -ne 0 ]; then\n  \
+           if [ \"$(grep -c '^no crontab' \"$ERR\")\" -ge 1 ]; then\n    \
+             {on_none}\n  \
+           else\n    \
+             cat \"$ERR\" >&2\n    \
+             printf '%s\\n' \"forjar: cannot read the crontab; refusing to rewrite it\" >&2\n    \
+             exit 1\n  \
+           fi\n\
+         fi"
+    )
+}
+
 /// Generate shell script to check if a cron job exists.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
@@ -78,11 +106,37 @@ pub fn check_script(resource: &Resource) -> String {
     // forjar#362: -x, not a bare -F. A substring match reported `exists:backup`
     // for a crontab holding only `# forjar:backup-db`.
     let verdict = verdict::single(
-        &format!("$SUDO crontab -u {u} -l 2>/dev/null | grep -qFx {marker}"),
+        &format!("printf '%s\\n' \"$EXISTING\" | grep -qFx {marker}"),
         &format!("exists:{name}"),
         &format!("missing:{name}"),
     );
-    format!("{CRONTAB_CHECK_GUARD}\n{SUDO_PREAMBLE}\n{verdict}")
+    let read = read_existing(&u, "EXISTING=''");
+    format!("{CRONTAB_CHECK_GUARD}\n{SUDO_PREAMBLE}\n{read}\n{verdict}")
+}
+
+/// The `state: absent` script. It fails CLOSED.
+///
+/// The read used to be `crontab -l 2>/dev/null || true`, so any failed read
+/// (EPERM, a broken sudo, a missing binary) became an empty string, the block
+/// filter turned it into an empty crontab, and `crontab -` installed it over
+/// the user's real one (found by the infra#2441 review).
+///
+/// `crontab -l` exits 1 for both "no crontab for <user>" and every real error,
+/// so the exit code alone cannot tell them apart: the message decides. Only
+/// `no crontab for` means there is nothing to remove. Anything else exits 1
+/// with the read error on stderr and installs nothing. The install happens
+/// only when the filter actually removed lines; a crontab without this
+/// resource's block is converged and is never rewritten.
+fn absent_script(u: &str, strip: &str) -> String {
+    let read = read_existing(u, "exit 0");
+    format!(
+        "set -euo pipefail\n\
+         {SUDO_PREAMBLE}\n\
+         {read}\n\
+         KEPT=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
+         [ \"$KEPT\" = \"$EXISTING\" ] && exit 0\n\
+         printf '%s\\n' \"$KEPT\" | $SUDO crontab -u {u} -"
+    )
 }
 
 /// Generate shell script to add/remove a cron entry.
@@ -96,12 +150,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let strip = delete_block(&marker, &cmd_marker);
 
     match state {
-        "absent" => format!(
-            "set -euo pipefail\n\
-             {SUDO_PREAMBLE}\n\
-             EXISTING=$($SUDO crontab -u {u} -l 2>/dev/null || true)\n\
-             echo \"$EXISTING\" | {strip} | $SUDO crontab -u {u} -"
-        ),
+        "absent" => absent_script(&u, &strip),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
             let command = resource.command.as_deref().unwrap_or("true");
@@ -109,10 +158,12 @@ pub fn apply_script(resource: &Resource) -> String {
             // crontab; escape the whole `schedule command` string as one word.
             let entry = sh_squote(&format!("{schedule} {command}"));
 
+            let read = read_existing(&u, "EXISTING=''");
             format!(
                 "set -euo pipefail\n\
                  {SUDO_PREAMBLE}\n\
-                 EXISTING=$($SUDO crontab -u {u} -l 2>/dev/null | {strip} || true)\n\
+                 {read}\n\
+                 EXISTING=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
                  {{\n\
                    echo \"$EXISTING\"\n\
                    echo {marker}\n\
@@ -145,9 +196,13 @@ pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let u = crontab_user(resource);
     let marker = sh_squote(&format!("# forjar:{name}"));
+    // An unreadable crontab is an error, not `cron=MISSING`: the lock would
+    // otherwise record "absent" for a job that may well exist.
+    let read = read_existing(&u, "EXISTING=''");
     format!(
         "{SUDO_PREAMBLE}\n\
-         $SUDO crontab -u {u} -l 2>/dev/null | grep -A2 -Fx {marker} || echo {}",
+         {read}\n\
+         printf '%s\\n' \"$EXISTING\" | grep -A2 -Fx {marker} || echo {}",
         sh_squote(&format!("cron=MISSING:{name}"))
     )
 }
