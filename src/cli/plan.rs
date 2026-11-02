@@ -3,6 +3,7 @@
 use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
+pub(crate) use super::plan_version_pins::PlanVersionPins;
 use super::print_helpers::*;
 use super::workspace::*;
 use crate::core::plan_selectors::PlanSelectors;
@@ -30,6 +31,58 @@ pub(crate) fn cmd_plan(
     // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
+) -> Result<(), String> {
+    cmd_plan_with_pins(
+        file,
+        state_dir,
+        machine_filter,
+        resource_filter,
+        tag_filter,
+        json,
+        verbose,
+        output_dir,
+        env_file,
+        workspace,
+        no_diff,
+        target,
+        cost,
+        what_if,
+        plan_out,
+        why,
+        group_filter,
+        false,
+        PlanVersionPins::Skip,
+    )
+}
+
+/// `cmd_plan`, plus forjar#415's `--refresh` (when `refresh` is set, the locks
+/// are checked against the host before the planner sees them; see
+/// `plan_refresh`) and forjar#613 (ask each versioned binary the plan covers
+/// for its live `--version` and print the pins that disagree). The `forjar
+/// plan` CLI always comes through here, with `Check` unless `--offline`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_plan_with_pins(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    json: bool,
+    verbose: bool,
+    output_dir: Option<&Path>,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+    no_diff: bool,
+    target: Option<&str>,
+    cost: bool,
+    what_if: &[String],
+    plan_out: Option<&Path>,
+    why: bool,
+    // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
+    // whole plan. It is a real filter now, so it has to reach the planner.
+    group_filter: Option<&str>,
+    refresh: bool,
+    version_pins: PlanVersionPins,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
 
@@ -88,14 +141,30 @@ pub(crate) fn cmd_plan(
             config.resources.len()
         );
     }
+    // forjar#415: a sealed plan is re-planned by `apply --plan-file` against
+    // the locks ON DISK, which `--refresh` never writes — so the diff leg of a
+    // refreshed plan could never verify. Refuse the pair by name.
+    if refresh && plan_out.is_some() {
+        return Err(
+            "plan --refresh --out: a sealed plan is re-checked against the locks on \
+             disk, which --refresh does not write, so it could never apply. Run \
+             `forjar apply --refresh` instead, or `forjar drift` and then `plan --out`."
+                .to_string(),
+        );
+    }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
-    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    let mut locks = load_machine_locks(&config, state_dir, machine_filter)?;
 
     // GH-273: say WHERE state came from, and when there was none.
     super::state_visibility::report(state_dir, &config, &locks);
     // FJ-2725: phony resources are goal-only; a bulk plan must not report them
     // as perpetual changes, or `plan` never reaches "0 to change" again.
     super::apply_selection::strip_unrequested_phony(&mut config, &[]);
+    // forjar#415: consult the host. After the narrowing above, so `--target`
+    // and the phony strip narrow what is queried; before the planner, which
+    // stays a function of (config, locks) and simply receives refreshed locks.
+    let refreshed =
+        refresh.then(|| super::plan_refresh::refresh_locks_for_plan(&config, &mut locks));
     // Refs #358: the selector set is a value now, because a saved plan has to
     // RECORD it — `apply --plan-file` re-plans under a document's own filters
     // to check what it claims, and a filtered plan is otherwise indistinguishable
@@ -148,23 +217,21 @@ pub(crate) fn cmd_plan(
         print_why_explanation(&config, &locks, &plan.execution_order, tag_filter);
     }
 
-    // forjar#342: ONE binding, so both arms range over the same count and the
-    // TTY rendering and `--json` cannot disagree about the blind spot.
-    let unconsulted = super::print_helpers::unconsulted_observations(&locks);
-    if json {
-        super::plan_json::print_plan_json(&plan, &config, unconsulted)?;
-    } else {
-        print_plan(
-            &plan,
+    // Refs forjar#853: the output half is a function of its own so this one
+    // stays under the complexity gate; no logic moved.
+    super::plan_render::render_plan(
+        &plan,
+        &config,
+        &locks,
+        &super::plan_render::PlanRender {
+            json,
+            no_diff,
+            cost,
             machine_filter,
-            if no_diff { None } else { Some(&config) },
-            unconsulted,
-        );
-    }
-
-    if cost && !plan.changes.is_empty() {
-        print_plan_cost(&plan);
-    }
+            version_pins,
+        },
+        refreshed.as_ref(),
+    )?;
 
     Ok(())
 }

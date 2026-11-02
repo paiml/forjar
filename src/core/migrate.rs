@@ -389,6 +389,7 @@ mod tests {
             secrets: Default::default(),
             environments: indexmap::IndexMap::new(),
             dist: None,
+            inode_pressure: None,
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -433,6 +434,7 @@ mod tests {
             secrets: Default::default(),
             environments: indexmap::IndexMap::new(),
             dist: None,
+            inode_pressure: None,
         };
 
         let (migrated, warnings) = migrate_config(&config);

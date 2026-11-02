@@ -34,8 +34,15 @@ pub(super) fn apply_dry_run_output(
     scope: &GateScope<'_>,
     observed: &[DriftRepair],
     json: bool,
+    seed_lockless: bool,
 ) -> Result<(), String> {
-    let plan = super::apply_dry_run::scoped_dry_run_plan(config, state_dir, scope, observed)?;
+    let plan = super::apply_dry_run::scoped_dry_run_plan(
+        config,
+        state_dir,
+        scope,
+        observed,
+        seed_lockless,
+    )?;
     if json {
         let output = super::apply_dry_run::render_dry_run_json(&plan);
         println!(
