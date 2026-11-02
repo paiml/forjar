@@ -5036,6 +5036,7 @@ roadmap:
   - 'A step guarded by endsWith(matrix.target, ''-apple-darwin'') sets RUSTUP_HOME under the runner tool cache and CARGO_TARGET_DIR to the workspace target dir; the job-level private CARGO_HOME is unchanged, and no non-darwin leg gets a new variable.'
   - 'falsification_every_ci_job_runs_on_the_fleet no longer counts nightly.yml:macos-latest, and fails with the old count restored.'
   - 'A workflow_dispatch of nightly.yml builds and uploads both forjar-*-apple-darwin.tar.gz assets on mini-m4.'
+  - 'The macos-latest legs of lint.yml (2) and release.yml (2) also run on [self-hosted, macOS, mini-builder]; no workflow asks GitHub for a macOS runner, and the falsification test no longer lists lint.yml or release.yml macos-latest.'
   phases: []
   subtasks: []
   estimated_effort: null

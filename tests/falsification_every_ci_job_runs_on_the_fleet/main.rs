@@ -41,9 +41,9 @@
 //! platforms, which is a decision, not a cleanup.
 //!
 //! Since then the org gained one macOS runner, `mini-m4` (labels `macOS`,
-//! `ARM64`, `mini`). nightly.yml's two darwin legs build there, which is safe
-//! because nightly.yml runs only on schedule and workflow_dispatch; the darwin
-//! legs of lint.yml and release.yml still run on GitHub's hosted macOS.
+//! `ARM64`, `mini`). every darwin leg of lint.yml, nightly.yml and
+//! release.yml builds there (labels `macOS`, `mini-builder`; nightly uses `mini`).
+//! Only nightly.yml's windows-latest leg is still GitHub-hosted.
 //!
 //! THIS TEST PARSES THE WORKFLOWS rather than grepping them, so a hosted label
 //! inside a comment is prose and a hosted label inside a matrix is a finding.
@@ -298,14 +298,10 @@ fn the_platforms_the_fleet_cannot_serve_are_exactly_these() {
         *found.entry(format!("{file}:{label}")).or_default() += 1;
     }
 
-    let expected: BTreeMap<String, usize> = [
-        ("lint.yml:macos-latest", 2),
-        ("nightly.yml:windows-latest", 1),
-        ("release.yml:macos-latest", 2),
-    ]
-    .into_iter()
-    .map(|(k, v)| (k.to_string(), v))
-    .collect();
+    let expected: BTreeMap<String, usize> = [("nightly.yml:windows-latest", 1)]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
 
     assert_eq!(
         found, expected,
@@ -332,6 +328,7 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         "cuda",
         // the self-hosted mac (mini-m4) that the nightly darwin legs build on
         "mini",
+        "mini-builder",
     ];
     let mut bare = Vec::new();
     for (file, doc) in workflows() {
