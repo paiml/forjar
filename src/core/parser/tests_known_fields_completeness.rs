@@ -60,7 +60,10 @@ fn resource_fields_has_no_stale_entries() {
     let real: Vec<&str> = map.iter().filter_map(|(k, _)| k.as_str()).collect();
 
     // Aliases accepted in YAML that do not correspond 1:1 to a struct field.
-    const ALIASES: &[&str] = &["type", "moved_from"];
+    // `max_age` / `pattern` (forjar#847) are real fields but skip serialising
+    // when unset, so a default `Resource` does not show them — and that skip is
+    // what keeps every existing resource's desired-state hash unchanged.
+    const ALIASES: &[&str] = &["type", "moved_from", "max_age", "pattern"];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS
         .iter()
