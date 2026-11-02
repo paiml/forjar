@@ -186,6 +186,7 @@ pub(crate) fn cmd_apply_scoped(
             &config,
             state_dir,
             &gate_scope,
+            &observed_drift,
             json,
             executor::lockless_check::seeds(force, force_tag.is_some()),
         );
