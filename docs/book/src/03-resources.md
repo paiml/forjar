@@ -171,8 +171,8 @@ resources:
     type: service
     machine: m1
     name: nginx
-    state: running         # running | stopped
-    enabled: true          # Enable on boot
+    state: running         # running | stopped | enabled | disabled
+    enabled: true          # Enable on boot (running/stopped; default true)
     restart_on: [config]   # Restart when these resources change
 ```
 
@@ -180,10 +180,17 @@ resources:
 
 | State | Action |
 |-------|--------|
-| `running` | `systemctl start` + optionally `systemctl enable` |
-| `stopped` | `systemctl stop` + optionally `systemctl disable` |
+| `running` | `systemctl start`, then `systemctl enable` or `disable` per `enabled:` (default `true`) |
+| `stopped` | `systemctl stop`, then `systemctl enable` or `disable` per `enabled:` (default `true`) |
 | `enabled` | `systemctl enable` (no start/stop) |
 | `disabled` | `systemctl disable` (no start/stop) |
+
+The check asserts exactly what the apply converges to: `running` and `stopped`
+assert activity and enablement, while `enabled` and `disabled` assert
+enablement only and accept the unit active or inactive. To keep a unit up and
+enabled, declare `state: running`. With `state: enabled` or `state: disabled`
+the state is the enablement, so an `enabled:` that contradicts it
+(`state: disabled` + `enabled: true`) is a validation error.
 
 ### Restart Triggers
 
