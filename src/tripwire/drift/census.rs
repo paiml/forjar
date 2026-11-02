@@ -18,8 +18,8 @@
 //! decisions actually taken. A skip that forgets to say so is then a missing
 //! resource in the total, which the `in_scope` figure makes visible.
 
-use crate::core::types::ResourceType;
-use std::collections::BTreeMap;
+use crate::core::types::{Resource, ResourceType, StateLock};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Why a resource that was in scope did not get inspected.
 ///
@@ -108,6 +108,11 @@ impl Entry {
 #[derive(Debug, Clone, Default)]
 pub struct DriftCensus {
     entries: BTreeMap<String, Entry>,
+    /// forjar#613: versioned binaries whose pin was NOT compared (offline, a
+    /// tag that names no version, a surface that does not execute binaries),
+    /// keyed by id, with why. Separate from `entries` because the live binary
+    /// may well have been inspected; only one question about it went unasked.
+    version_not_checked: BTreeMap<String, String>,
 }
 
 impl DriftCensus {
@@ -154,6 +159,19 @@ impl DriftCensus {
         });
         entry.skipped = None;
         entry.unmeasured = true;
+    }
+
+    /// forjar#613: record a version question this run did not ask, and why.
+    pub(super) fn version_not_checked(&mut self, id: &str, why: String) {
+        self.version_not_checked.insert(id.to_string(), why);
+    }
+
+    /// `(id, why)` for every versioned binary whose pin was not fully compared.
+    pub fn version_not_checked_ids(&self) -> Vec<(&str, &str)> {
+        self.version_not_checked
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect()
     }
 
     /// Resources this run had an opinion about — inspected, unmeasured or skipped.
@@ -223,6 +241,34 @@ impl DriftCensus {
             .collect()
     }
 
+    /// forjar#415: how many entries of `lock` a refreshed plan still plans
+    /// from the lock alone — every query the target did not answer, plus every
+    /// entry `declared` in scope that carries observed state and that no
+    /// detector inspected. A skip is an absence of evidence, not a pass, so it
+    /// is disclosed rather than read as consulted. Each resource counts once.
+    pub fn unconsulted_observations(
+        &self,
+        lock: &StateLock,
+        declared: &indexmap::IndexMap<String, Resource>,
+    ) -> usize {
+        let mut ids: BTreeSet<&str> = self.unmeasured_ids().into_iter().collect();
+        ids.extend(
+            lock.resources
+                .iter()
+                .filter(|(id, rl)| {
+                    rl.observed_state().is_some() && declared.contains_key(id.as_str())
+                })
+                .filter(|(id, _)| {
+                    !self
+                        .entries
+                        .get(id.as_str())
+                        .is_some_and(Entry::is_inspected)
+                })
+                .map(|(id, _)| id.as_str()),
+        );
+        ids.len()
+    }
+
     /// The lines every drift run prints, drift or no drift.
     ///
     /// The second line is omitted when nothing was skipped — that is the only
@@ -250,6 +296,18 @@ impl DriftCensus {
                 self.unmeasured_ids().join(", ")
             ));
         }
+        // forjar#613: a pin nobody compared must not read as an up-to-date one.
+        if !self.version_not_checked.is_empty() {
+            lines.push(format!(
+                "version pin NOT checked {}: {}",
+                self.version_not_checked.len(),
+                self.version_not_checked
+                    .iter()
+                    .map(|(id, why)| format!("{id} ({why})"))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
+        }
         lines
     }
 
@@ -264,6 +322,7 @@ impl DriftCensus {
             "unmeasured": self.unmeasured_total(),
             "inspected_by_type": self.inspected_by_type(),
             "skipped_by_reason": self.skipped_by_reason(),
+            "version_not_checked": self.version_not_checked,
         })
     }
 }

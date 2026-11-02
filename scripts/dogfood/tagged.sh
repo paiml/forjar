@@ -112,14 +112,16 @@ tag_on_origin() {
   esac
 }
 
-# The reachable v* tags at or above $FLOOR, ascending -> TAGS (space-separated).
+# The reachable release tags (lib/tags.sh) at or above $FLOOR, ascending ->
+# TAGS (space-separated).
 reachable_tags_from_floor() {
   local rc=0 all t keep=""
   all="$(git tag --list 'v*' --merged HEAD | sort -V)" || rc=$?
   if [ "$rc" -ne 0 ]; then
     fail "git tag --merged HEAD exited ${rc}: the set of tagged releases cannot be read — UNMEASURED"
   fi
-  for t in $all; do
+  dogfood_release_tags "$all"
+  for t in $DOGFOOD_RELEASE_TAGS; do
     if dogfood_semver_ge "$t" "$FLOOR"; then
       keep="${keep:+$keep }$t"
     fi
@@ -127,14 +129,15 @@ reachable_tags_from_floor() {
   TAGS="$keep"
 }
 
-# The tag just below $1 among the tags reachable from it -> LOWER.
+# The release tag just below $1 among those reachable from it -> LOWER.
 lower_tag_of() {
   local rc=0 t
   # PMAT-239: one capture and one awk, never a three-stage pipe whose last
   # two stages exit early and leave git holding a closed pipe.
   local all
   all="$(git tag --list 'v*' --sort=-v:refname --merged "$1")" || rc=$?
-  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$all")"
+  dogfood_release_tags "$all"
+  t="$(awk -v skip="$1" '$0 != skip { print; exit }' <<< "$DOGFOOD_RELEASE_TAGS")"
   if [ "$rc" -gt 1 ]; then
     fail "git tag --merged ${1} exited ${rc}: the lower bound of ${1}'s window cannot be read — UNMEASURED"
   fi
