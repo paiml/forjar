@@ -87,10 +87,12 @@ impl Host {
                 "systemctl",
                 format!(
                     "echo \"systemctl $*\" >> '{calls}'\n\
-                     [ \"$1\" = daemon-reload ] && awk '$2 == \"{TGT}\" {{ printf \"%s\", $4 }}' '{fs}' > '{un}'\nexit 0"
+                     [ \"$1\" = daemon-reload ] && awk '$2 == \"{TGT}\" {{ printf \"%s\", $4 }}' '{fs}' > '{un}'\n\
+                     if [ \"$1 $2\" = \"restart mnt-unas.automount\" ] && [ ! -s '{st}' ]; then echo 'autofs systemd-1 rw,direct' >> '{st}'; fi\nexit 0"
                 ),
             ),
             ("mountpoint", format!("[ -s '{st}' ]")),
+            ("systemd-escape", "echo mnt-unas".to_string()),
             ("mkdir", "exit 0".to_string()),
             ("getent", "exit 2".to_string()),
         ] {
@@ -235,4 +237,37 @@ fn a_plain_mount_still_uses_mount_and_never_systemctl() {
         "{calls}"
     );
     assert!(!calls.contains("systemctl"), "{calls}");
+}
+
+#[test]
+fn a_fresh_automount_entry_starts_the_automount_unit_and_mounts() {
+    // jetson 2026-10-21: no trigger exists yet (the unit was never started), so
+    // daemon-reload + `ls` alone mount nothing. The .automount unit must be started.
+    let h = Host::new(&[], OLD, OLD);
+    let rc = h.run("bash", &apply_script(&cifs(NEW)));
+    let calls = h.read("calls");
+    assert_eq!(rc, 0, "{calls}");
+    assert!(
+        calls.contains("systemctl restart mnt-unas.automount"),
+        "{calls}"
+    );
+    let (reload, restart, touch) = (
+        calls.find("systemctl daemon-reload"),
+        calls.find("systemctl restart mnt-unas.automount"),
+        calls.rfind("ls "),
+    );
+    assert!(reload < restart && restart < touch, "order: {calls}");
+    assert_eq!(h.fs_mounts(), vec![mounted(NEW)], "{calls}");
+    assert!(!calls.contains("mount -t"), "{calls}");
+    assert_eq!(h.run("sh", &check_script(&cifs(NEW))), 0, "{calls}");
+}
+
+#[test]
+fn a_fresh_plain_entry_is_still_mounted_by_forjar() {
+    let h = Host::new(&[], OLD, OLD);
+    let rc = h.run("bash", &apply_script(&cifs(OLD)));
+    let calls = h.read("calls");
+    assert_eq!(rc, 0, "{calls}");
+    assert!(calls.contains("mount -t cifs"), "{calls}");
+    assert!(!calls.contains(".automount"), "{calls}");
 }
