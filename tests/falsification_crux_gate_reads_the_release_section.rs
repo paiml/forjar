@@ -45,6 +45,13 @@ fn fixture(changelog: &str, crux: &str, version: &str) -> tempfile::TempDir {
     let rel = "scripts/dogfood/crux-reconcile.sh";
     let body = std::fs::read_to_string(repo().join(rel)).expect("the gate under test");
     write(root, rel, &body);
+    // crux-reconcile.sh takes its release tag through lib/tags.sh (PMAT-607).
+    let tags = "scripts/dogfood/lib/tags.sh";
+    write(
+        root,
+        tags,
+        &std::fs::read_to_string(repo().join(tags)).expect("the tag rule the gate sources"),
+    );
     write(
         root,
         "Cargo.toml",
