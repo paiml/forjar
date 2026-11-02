@@ -25,6 +25,7 @@ pub(crate) fn print_plan_json(
     plan: &types::ExecutionPlan,
     config: &types::ForjarConfig,
     unconsulted: usize,
+    refreshed: Option<&super::plan_refresh::RefreshOutcome>,
     version_pins: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let changes: Vec<serde_json::Value> = plan
@@ -76,7 +77,9 @@ pub(crate) fn print_plan_json(
         // function: `unconsulted_observations: 0` says "nothing observed",
         // while an absent key says "old binary", and a parser must be able to
         // tell those apart.
-        "lock_relative": true,
+        // forjar#415: false iff `--refresh` consulted the machines; the
+        // count below is then what the refresh did not measure.
+        "lock_relative": refreshed.is_none(),
         "unconsulted_observations": unconsulted,
         // forjar#497: the same argument again — `unprobed: []` says "everything
         // was measured", an absent key says "older binary", and only the plan
@@ -90,7 +93,17 @@ pub(crate) fn print_plan_json(
     if let Some(pins) = version_pins {
         output["version_pins"] = pins;
     }
-    if let Some(msg) = super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed) {
+    if let Some(r) = refreshed {
+        output["refresh"] = serde_json::json!({ "machines": r.machines, "drifted": r.drifted });
+    }
+    let disclosure = match refreshed {
+        Some(r) => super::print_helpers::fold_plan_disclosure(
+            super::plan_refresh::refreshed_scope_disclosure(r),
+            &plan.unprobed,
+        ),
+        None => super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed),
+    };
+    if let Some(msg) = disclosure {
         output["disclosure"] = serde_json::json!(msg);
     }
     println!(

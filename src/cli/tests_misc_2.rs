@@ -325,6 +325,7 @@ resources:
             what_if: vec![],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { target, .. }) => {
