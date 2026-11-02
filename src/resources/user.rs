@@ -46,19 +46,37 @@ pub fn check_script(resource: &Resource) -> String {
         field("home", format!("getent passwd {u} | cut -d: -f6"), home);
     }
     if let Some(ref group) = resource.group {
-        field("group", format!("id -gn {u} 2>/dev/null"), group);
+        // `--gid` accepts a numeric gid, so a numeric declaration is compared to `id -g`.
+        let flag = if group.bytes().all(|c| c.is_ascii_digit()) {
+            "-g"
+        } else {
+            "-gn"
+        };
+        field("group", format!("id {flag} {u} 2>/dev/null"), group);
     }
     if !resource.groups.is_empty() {
-        let mut want: Vec<&str> = resource.groups.iter().map(String::as_str).collect();
-        want.sort_unstable();
-        want.dedup();
-        // supplementary = `id -Gn` minus the primary group, sorted, comma-joined
-        let live = format!(
-            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,"
-        );
-        field("groups", live, &want.join(","));
+        a.push(groups_assertion(&u, &resource.groups));
     }
     verdict::check_script_from(&a)
+}
+
+/// The exact supplementary set. Both sides drop the primary group (`id -Gn`
+/// lists it, `usermod --groups` does not take it as supplementary) and sort in
+/// the C locale, so neither a declared primary nor the box's collation can make
+/// the check diverge forever.
+fn groups_assertion(u: &str, groups: &[String]) -> String {
+    let want: Vec<String> = groups.iter().map(|g| sh_squote(g)).collect();
+    let norm = "grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,";
+    let cond = format!(
+        "p=$(id -gn {u} 2>/dev/null); [ \"$(id -Gn {u} 2>/dev/null | tr ' ' '\\n' | {norm})\" = \"$(printf '%s\\n' {} | {norm})\" ]",
+        want.join(" ")
+    );
+    let label = groups.join(",");
+    verdict::assert_that(
+        &cond,
+        &format!("groups={label}"),
+        &format!("groups!={label}"),
+    )
 }
 
 /// Generate shell script to create/modify/remove a user.
