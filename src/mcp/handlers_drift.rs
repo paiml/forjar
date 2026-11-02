@@ -78,8 +78,14 @@ pub struct DriftHandler;
 /// The CLI is deliberately unchanged: `forjar drift` still runs every guard by
 /// default, because the operator who typed it chose their own config. That is
 /// the same split `core::unattended` already draws for `plan`.
+///
+/// forjar#613: the same reasoning covers a versioned binary's `--version`,
+/// which executes a path the config declares, and the upstream lookup,
+/// which reaches the network. The census names each pin it did not check.
 const UNATTENDED: drift::DriftOptions = drift::DriftOptions {
     run_task_checks: false,
+    check_version_pins: false,
+    check_upstream: false,
 };
 
 /// One tool answer under construction, accumulated across machines.
