@@ -152,6 +152,7 @@ proptest! {
             checks: indexmap::IndexMap::new(),
             environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
         };
         config.resources.insert(resource_id.to_string(), resource);
 
