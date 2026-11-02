@@ -13,7 +13,7 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
     use types::ResourceType as R;
     match rt {
         R::File | R::Cron | R::Recipe | R::WasmBundle | R::Image => 1,
-        R::Mount | R::User | R::Network => 2,
+        R::Mount | R::User | R::Network | R::TmpReaper => 2,
         // Archival installs a script + two units; the move itself is the timer's.
         R::Service
         | R::Pepita

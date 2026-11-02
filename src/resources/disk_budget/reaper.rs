@@ -59,6 +59,14 @@ fn rule_block(rule: &ReclaimRule) -> String {
     let idle = rule.min_idle_minutes;
     let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
     let roots = roots.join(" ");
+    let mut prefixes: Vec<String> = rule
+        .roots
+        .iter()
+        .map(|r| ReclaimRule::root_prefix(r))
+        .collect();
+    prefixes.dedup();
+    let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
+    let prefixes = prefixes.join(" ");
     let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
 
@@ -96,8 +104,8 @@ if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
     # SEC011: last line of defence for a script whose job is `rm -rf`. Every
     # candidate arrives from a glob or a find; if one ever resolves a level too
     # high, or to empty, abort on it rather than delete. `fb_sweepable` also
-    # re-checks it against the declared reclaim roots.
-    fb_sweepable "$cand" || continue
+    # requires it to sit strictly under the literal prefix of a declared root.
+    fb_sweepable "$cand" {prefixes} || continue
     sz=$(fb_bytes "$cand")
 {pre}    if [ "$FB_DRY" = "1" ]; then
       fb_log "  DRY-RUN would reclaim ${{sz:-0}} bytes: $cand"
@@ -259,7 +267,7 @@ mod tests {
     fn rule() -> ReclaimRule {
         ReclaimRule {
             name: "agent-targets".into(),
-            roots: vec!["/home/noah/src".into()],
+            roots: vec!["/home/noah/src/*".into()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
         }
