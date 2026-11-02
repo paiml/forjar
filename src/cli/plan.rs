@@ -217,51 +217,21 @@ pub(crate) fn cmd_plan_with_pins(
         print_why_explanation(&config, &locks, &plan.execution_order, tag_filter);
     }
 
-    // forjar#342: ONE binding, so both arms range over the same count and the
-    // TTY rendering and `--json` cannot disagree about the blind spot.
-    // forjar#415: under `--refresh` the blind spot is what the refresh did NOT
-    // measure, and the lock-relative sentence (printed for a nonzero count)
-    // would be false, so it gets 0 and the refreshed disclosure follows.
-    let pin_rows = super::plan_version_pins::measure(&config, &plan, version_pins);
-    let unconsulted = match &refreshed {
-        Some(r) => r.unconsulted,
-        None => super::print_helpers::unconsulted_observations(&locks),
-    };
-    if json {
-        super::plan_json::print_plan_json(
-            &plan,
-            &config,
-            unconsulted,
-            refreshed.as_ref(),
-            pin_rows.as_deref().map(super::plan_version_pins::to_json),
-        )?;
-    } else {
-        print_plan(
-            &plan,
+    // Refs forjar#853: the output half is a function of its own so this one
+    // stays under the complexity gate; no logic moved.
+    super::plan_render::render_plan(
+        &plan,
+        &config,
+        &locks,
+        &super::plan_render::PlanRender {
+            json,
+            no_diff,
+            cost,
             machine_filter,
-            if no_diff { None } else { Some(&config) },
-            if refreshed.is_some() { 0 } else { unconsulted },
-        );
-        if let Some(msg) = refreshed
-            .as_ref()
-            .and_then(super::plan_refresh::refreshed_scope_disclosure)
-        {
-            println!("\n{msg}");
-        }
-        if let Some(r) = &refreshed {
-            println!(
-                "Refreshed {} machine(s): {} resource(s) measured as drifted.",
-                r.machines, r.drifted
-            );
-        }
-        if let Some(rows) = &pin_rows {
-            super::plan_version_pins::print_text(rows);
-        }
-    }
-
-    if cost && !plan.changes.is_empty() {
-        print_plan_cost(&plan);
-    }
+            version_pins,
+        },
+        refreshed.as_ref(),
+    )?;
 
     Ok(())
 }
