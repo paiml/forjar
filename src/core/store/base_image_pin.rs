@@ -1,7 +1,7 @@
 //! IMG-001 C1: pinned base-image layer extraction (split out of `base_image.rs`
 //! to keep that file under the file-health line limit).
 
-use super::base_image::{read_blob, resolve_manifest_digest, BaseImageLayers};
+use super::base_image::{host_oci_arch, read_blob, resolve_manifest_digest, BaseImageLayers};
 use crate::core::types::{OciImageConfig, OciIndex, OciManifest};
 use std::path::Path;
 
@@ -12,6 +12,15 @@ use std::path::Path;
 pub(crate) fn extract_base_layers_pinned(
     layout_dir: &Path,
     pin: Option<&str>,
+) -> Result<BaseImageLayers, String> {
+    extract_base_layers_pinned_for_arch(layout_dir, pin, host_oci_arch())
+}
+
+/// [`extract_base_layers_pinned`] for an explicit OCI architecture.
+pub(crate) fn extract_base_layers_pinned_for_arch(
+    layout_dir: &Path,
+    pin: Option<&str>,
+    arch: &str,
 ) -> Result<BaseImageLayers, String> {
     // 1. Read and parse index.json
     let index_path = layout_dir.join("index.json");
@@ -28,9 +37,8 @@ pub(crate) fn extract_base_layers_pinned(
         .unwrap_or(&index.manifests[0]);
 
     // 2. Read the first manifest; if it is itself an index (multi-platform
-    //    image), resolve it to the linux/<host arch> manifest (or its first entry).
-    let manifest_digest = resolve_manifest_digest(layout_dir, &top.digest, 0)
-        .map_err(crate::core::error::ForjarError::into_untyped)?;
+    //    image), resolve it to the linux manifest of `arch`, else fail.
+    let manifest_digest = resolve_manifest_digest(layout_dir, &top.digest, arch, 0)?;
     let manifest_data = read_blob(layout_dir, &manifest_digest)?;
     let manifest: OciManifest =
         serde_json::from_slice(&manifest_data).map_err(|e| format!("parse manifest: {e}"))?;

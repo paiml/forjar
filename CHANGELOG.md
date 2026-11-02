@@ -18,6 +18,13 @@ the entrypoint); `index.json` carries `org.opencontainers.image.ref.name` so
 `pushed: registry/repo@sha256:...`. Registry configs with JSON `null` collections
 now parse. `path:` Files layers land on top of the packages/command diff (never dropped). The diff layer carries Added and Changed files and OCI whiteouts (`.wh.<name>`, opaque dirs for deleted-and-rebuilt dirs) for deleted base paths. A multi-platform base (OCI image index) resolves to the linux manifest of the host architecture (amd64 on x86_64, arm64 on aarch64; else its first entry); podman bases are saved as `oci-archive`; `--sandbox --json` is rejected again. Symlinks stay symlinks (target verbatim, never read from the host), empty directories and directory modes reach the diff layer, an image that declares no `image:` is no longer layered on the default debian base, the build container idles 3600 s instead of 300 s, and `--json` `layer_count`/`total_size` (and the human summary) count the base layers the manifest carries.
 
+**A multi-platform base resolves to the build target's manifest (PMAT-756, #756, IMG-001).**
+When a base layout's top entry is an OCI image index (or docker manifest list),
+`extract_base_layers` follows it to the `linux` manifest of the architecture it
+builds for: `amd64` on an x86_64 host, `arm64` on an aarch64 host, else the
+index's first entry. Tests name the architecture instead of reading the host, so
+they hold on both chips.
+
 **`drift` and `plan` compare a `github_release`'s live `--version` with its pin
 and with the latest upstream release (PMAT-613, #613).** Both commands trusted
 the lock and asked only whether the binary existed. paiml/infra pinned ollama to
