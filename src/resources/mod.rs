@@ -28,11 +28,14 @@ pub mod task;
 #[cfg(test)]
 mod tests_service;
 #[cfg(test)]
+mod tests_service_converge;
+#[cfg(test)]
 mod tests_service_exec;
 #[cfg(test)]
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;

@@ -158,6 +158,7 @@ fn test_fj132_build_dag_unknown_dependency() {
         secrets: Default::default(),
         environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     };
     let result = build_execution_order(&config);
     assert!(result.is_err());
@@ -201,6 +202,7 @@ fn test_fj132_kahn_sort_diamond_dependency() {
         secrets: Default::default(),
         environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     };
     let order = build_execution_order(&config).unwrap();
     assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -226,6 +228,7 @@ fn test_fj132_build_execution_order_empty() {
         secrets: Default::default(),
         environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     };
     let order = build_execution_order(&config).unwrap();
     assert!(order.is_empty());
