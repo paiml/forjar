@@ -112,6 +112,7 @@ pub(super) fn check_cost_limit(
         .changes
         .iter()
         .filter(|c| c.action != types::PlanAction::NoOp)
+        .filter(|c| machine.is_none_or(|m| c.machine == m))
         .count();
     if change_count > limit {
         return Err(format!(

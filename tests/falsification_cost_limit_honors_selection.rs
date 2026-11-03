@@ -135,3 +135,30 @@ fn cost_limit_counts_a_subset_selection_only() {
     assert!(dir.path().join("lone.txt").exists());
     assert!(!dir.path().join("other.txt").exists());
 }
+
+/// Two machines: `a1` on A, `b1..b3` on B. `-m A --cost-limit 1` acts on one
+/// change; B's three must not be counted against it.
+#[test]
+fn cost_limit_counts_only_the_named_machine() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = dir.path().join("forjar.yaml");
+    let f = |n: &str, m: &str| {
+        format!(
+            "  {n}: {{ type: file, machine: {m}, path: {}, content: \"{n}\\n\" }}\n",
+            dir.path().join(format!("{n}.txt")).display()
+        )
+    };
+    let res = [f("a1", "A"), f("b1", "B"), f("b2", "B"), f("b3", "B")].concat();
+    fs::write(
+        &cfg,
+        format!("version: \"1.0\"\nname: cl\nmachines: {{ A: {{ hostname: localhost, addr: 127.0.0.1 }}, B: {{ hostname: localhost, addr: 127.0.0.1 }} }}\nresources:\n{res}"),
+    )
+    .unwrap();
+    let (ok, out) = run(dir.path(), &cfg, 1, &["-m", "A"]);
+    assert!(ok, "-m A must count only A's 1 change: {out}");
+    let dir2 = tempfile::tempdir().unwrap();
+    let cfg2 = dir2.path().join("forjar.yaml");
+    fs::copy(&cfg, &cfg2).unwrap();
+    let (ok, out) = run(dir2.path(), &cfg2, 1, &[]);
+    assert!(!ok && out.contains("limit is 1"), "no -m counts all: {out}");
+}
