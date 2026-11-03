@@ -454,11 +454,10 @@ touched="$(git diff --name-only "$merge_base" "$pushed")"
 # THE TRIAGE RAIL (forjar#491, PMAT-226, forjar#846), enforced here in bash.
 # A `kind: triage` receipt is verified FROM THE DIFF, not trusted from the
 # receipt: the branch may touch docs/audits/**, the roadmap, the release ledger
-# docs/roadmaps/releases.yaml (named by file, not directory), the spec pages
-# docs/specifications/**.md, the flow ledger and its key files .flow009/*.pub|yaml|md|json, and its own receipt
-# under .quorum/. A `.rs` file anywhere is code and is refused first, even under
-# docs/specifications: declaring the kind would otherwise be the cheapest way to
-# skip the falsification below.
+# docs/roadmaps/releases.yaml (named by file, not directory), and its own receipt
+# under .quorum/. A `.rs` file anywhere is code and is refused first:
+# declaring the kind would otherwise be the cheapest way to skip the
+# falsification below.
 command -v jq >/dev/null 2>&1 \
     || die_hard "jq is required to read the receipt's kind and the falsification fields; install jq (no silent default to kind=code)"
 receipt_kind="$(jq -er '.kind // "code"' "$receipt_blob" 2>/dev/null)" \
@@ -470,16 +469,14 @@ if [ "$receipt_kind" = "triage" ]; then
         case "$p" in
             *.rs) off_rail="$off_rail $p" ;;
             docs/audits/*|docs/roadmaps/roadmap.yaml|docs/roadmaps/releases.yaml|.quorum/*) ;;
-            .flow009/*.pub|.flow009/*.yaml|.flow009/*.md|.flow009/*.json) ;;
-            docs/specifications/*.md) ;;
             *) off_rail="$off_rail $p" ;;
         esac
     done <<< "$touched"
     if [ -n "$off_rail" ]; then
         die_hard "a kind: triage receipt over a diff that touches$off_rail
   A triage branch is classify + link, no code: docs/audits/**, the roadmap,
-  the release ledger docs/roadmaps/releases.yaml, docs/specifications/**.md,
-  .flow009/*.pub|yaml|md|json and its own receipt under .quorum/. Any .rs file is code, and
+  the release ledger docs/roadmaps/releases.yaml and its own receipt under
+  .quorum/. Any .rs file is code, and
   anything else is code too: a code change is judged as code -- with a
   falsification test it wrote itself."
     fi
