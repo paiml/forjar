@@ -161,3 +161,59 @@ resources:\n  r: { type: file, machine: local, path: /tmp/forjar-780-never, cont
         "must name the failed source:\n{all}"
     );
 }
+
+/// Review round 3: `apply`'s policy gate reads the same form as `forjar policy`.
+#[test]
+fn apply_dry_run_policy_gate_compares_a_data_value_as_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let body = "version: \"1.0\"\nname: g780\n\
+machines: { local: { hostname: localhost, addr: 127.0.0.1 } }\n\
+params: { port: \"8080\" }\n\
+data:\n  lit: { type: command, value: \"printf '%s' '{{params.port}}'\" }\n\
+resources:\n  r: { type: file, machine: local, path: /tmp/forjar-780-never, content: x, owner: \"{{data.lit}}\" }\n\
+policies:\n  - type: assert\n    id: P1\n    message: owner is the literal\n    resource_type: file\n    condition_field: owner\n    condition_value: \"{{params.port}}\"\n";
+    let cfg = write_cfg(&dir, body);
+    let state = dir.path().join("state");
+    let (ok, so, se) = run(&[
+        "apply",
+        "-f",
+        cfg.to_str().unwrap(),
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--dry-run",
+    ]);
+    assert!(
+        ok,
+        "apply's policy gate denied a literal data value:\n{so}{se}"
+    );
+}
+
+/// Review round 3: an output that cannot resolve (`{{secrets.nope}}`) must not skip the
+/// post-actions of an apply that already converged (main falls back to the raw value).
+#[test]
+fn an_unresolvable_output_does_not_skip_the_post_actions() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("post-apply-ran");
+    let target = dir.path().join("t.txt");
+    let body = format!(
+        "version: \"1.0\"\nname: u780\n\
+machines: {{ local: {{ hostname: localhost, addr: 127.0.0.1 }} }}\n\
+outputs:\n\x20 bad: {{ value: \"{{{{secrets.nope}}}}\" }}\n\
+policy:\n\x20 post_apply: \"touch {}\"\n\
+resources:\n\x20 r: {{ type: file, machine: local, path: {}, content: \"x\\n\" }}\n",
+        marker.display(),
+        target.display()
+    );
+    let cfg = write_cfg(&dir, &body);
+    let state = dir.path().join("state");
+    let (_ok, so, se) = run(&[
+        "apply",
+        "-f",
+        cfg.to_str().unwrap(),
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--yes",
+    ]);
+    assert!(target.exists(), "resource converged:\n{so}{se}");
+    assert!(marker.exists(), "post_apply must still run:\n{so}{se}");
+}

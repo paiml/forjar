@@ -187,8 +187,14 @@ pub(super) fn apply_post_actions(
 
     // FJ-1260: Persist resolved outputs for cross-stack data flow
     if !config.outputs.is_empty() {
-        let resolved = state::resolve_outputs(config).map_err(|e| e.into_message())?;
-        state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
+        // An output that cannot resolve must not skip the post-actions of an apply that already
+        // converged (main fell back to the raw value): say so, persist nothing, carry on.
+        match state::resolve_outputs(config) {
+            Ok(resolved) => {
+                state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
+            }
+            Err(e) => eprintln!("Warning: outputs not persisted: {}", e.into_message()),
+        }
     }
 
     // FJ-1200: Run post-apply check blocks
