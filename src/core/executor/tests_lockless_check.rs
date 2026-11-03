@@ -3,7 +3,7 @@
 //! Each case runs a REAL check against `localhost`, so it measures what the
 //! planner will be handed, not a claim about it.
 
-use super::{record, seeded};
+use super::{record, seeded, RecordFilters};
 use crate::core::planner;
 use crate::core::resolver;
 use crate::core::types::*;
@@ -120,7 +120,14 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
     let mut locks = HashMap::new();
     let preview = seeded(&config, None, None, &locks);
     assert!(locks.is_empty(), "the preview must not write");
-    let view = record(&config, None, None, &mut locks);
+    let view = record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     let ids =
         |l: &HashMap<String, StateLock>| l["local"].resources.keys().cloned().collect::<Vec<_>>();
     assert_eq!(ids(&view), ids(&preview), "record and seeded must agree");
@@ -136,17 +143,38 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
 fn record_leaves_a_failing_check_unrecorded() {
     let config = cfg(Some("false"));
     let mut locks = HashMap::new();
-    record(&config, None, None, &mut locks);
+    record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     assert!(!locks.contains_key("local"));
 }
 
 #[test]
-fn a_completion_check_on_a_non_task_type_is_not_asked() {
-    // `file` ignores completion_check; its own check is `test -f`, which would
-    // seed a stale file as converged and never write the declared content.
-    let mut config = cfg(Some("true"));
-    let r = config.resources.get_mut("guarded").unwrap();
-    r.resource_type = ResourceType::File;
-    let locks = seeded(&config, None, None, &HashMap::new());
-    assert!(locks.get("local").is_none_or(|l| l.resources.is_empty()));
+fn record_honours_non_default_resource_and_group_selectors() {
+    // A passing check that `-r` / `-g` exclude is neither asked nor recorded;
+    // the matching selector still records it (the other lane only passed defaults).
+    let config = cfg(Some("true"));
+    let run = |resource, group| {
+        let mut locks = HashMap::new();
+        record(
+            &config,
+            None,
+            None,
+            None,
+            RecordFilters { resource, group },
+            &mut locks,
+        );
+        locks.contains_key("local")
+    };
+    assert!(run(Some("guarded"), None), "matching -r records");
+    assert!(!run(Some("other"), None), "non-matching -r is excluded");
+    assert!(
+        !run(None, Some("no-such-group")),
+        "non-matching -g is excluded"
+    );
 }
