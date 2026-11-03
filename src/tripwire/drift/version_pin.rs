@@ -303,10 +303,12 @@ fn check_one(
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let pin = declared_pin(resource);
     if !is_valid_repo(repo) {
-        v.findings.push(finding(
+        // Nothing was asked of the box, so this is UNMEASURED (a class every
+        // consumer already handles), never a drift verdict.
+        v.findings.push(DriftFinding::unmeasured(
             id,
-            "a valid repo",
-            "ERROR",
+            ResourceType::GithubRelease,
+            &pin_label(&pin),
             format!("invalid github repo slug: {repo}"),
         ));
         return;
