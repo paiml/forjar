@@ -217,3 +217,36 @@ resources:\n\x20 r: {{ type: file, machine: local, path: {}, content: \"x\\n\" }
     assert!(target.exists(), "resource converged:\n{so}{se}");
     assert!(marker.exists(), "post_apply must still run:\n{so}{se}");
 }
+
+/// Review round 4: one unresolvable output must not stop the good ones being saved.
+#[test]
+fn a_good_output_beside_a_bad_one_is_saved() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("t.txt");
+    let body = format!(
+        "version: \"1.0\"\nname: s780\n\
+machines: {{ local: {{ hostname: localhost, addr: 127.0.0.1 }} }}\n\
+outputs:\n\x20 good: {{ value: \"kept-780\" }}\n\x20 bad: {{ value: \"{{{{secrets.nope}}}}\" }}\n\
+resources:\n\x20 r: {{ type: file, machine: local, path: {}, content: \"x\\n\" }}\n",
+        target.display()
+    );
+    let cfg = write_cfg(&dir, &body);
+    let state = dir.path().join("state");
+    let (_ok, so, se) = run(&[
+        "apply",
+        "-f",
+        cfg.to_str().unwrap(),
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--yes",
+    ]);
+    let lock = fs::read_to_string(state.join("forjar.lock.yaml")).unwrap_or_default();
+    assert!(
+        lock.contains("kept-780"),
+        "good output not saved:\n{lock}\n{so}{se}"
+    );
+    assert!(
+        se.contains("bad"),
+        "the bad output must be named:\n{so}{se}"
+    );
+}

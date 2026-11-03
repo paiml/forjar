@@ -276,6 +276,30 @@ pub fn resolve_outputs(
     Ok(resolved)
 }
 
+/// [`resolve_outputs`] per output: the ones that resolve, and one message per output that
+/// does not. A bad output must not stop the good ones being saved (main saved every one).
+pub fn resolve_outputs_each(
+    config: &super::types::ForjarConfig,
+) -> (indexmap::IndexMap<String, String>, Vec<String>) {
+    let mut resolved = indexmap::IndexMap::new();
+    let mut failed = Vec::new();
+    for (k, output) in &config.outputs {
+        match super::resolver::resolve_template_with_data(
+            &output.value,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+            &config.secrets,
+        ) {
+            Ok(v) => {
+                resolved.insert(k.clone(), v);
+            }
+            Err(e) => failed.push(format!("output '{k}': {e}")),
+        }
+    }
+    (resolved, failed)
+}
+
 /// FJ-1260 + FJ-3300: Persist resolved outputs into the global lock file.
 ///
 /// When `ephemeral` is true, secret values are replaced with BLAKE3 hashes
