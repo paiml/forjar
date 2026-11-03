@@ -115,6 +115,11 @@ cmp -s "$d/scripts/hooks/pre-push" "$d/.git/hooks/pre-push" && r=y || r=n; expec
 # An older forjar hook may carry the operator's edits: replacing it must leave a backup of the exact old text.
 grep -q "an older tracked copy" "$d/.git/hooks/pre-push.pre-forjar-update" 2>/dev/null && r=y || r=n; expect "the replaced older hook is kept as pre-push.pre-forjar-update" y "$r"
 cmp -s "$d/.git/hooks/pre-push" "$d/scripts/hooks/pre-push" && ( cd "$d" && bash scripts/install-hooks.sh >/dev/null 2>&1 ); [ -f "$d/.git/hooks/pre-push.pre-forjar-update" ] && r=y || r=n; expect "re-installing an identical hook keeps the backup, adds none" y "$r"
+# A SECOND update must not destroy the first backup (it may hold the operator's only copy of their edits).
+printf '#!/usr/bin/env bash\n# forjar pre-push: quality gate + quorum gate.\necho a second older copy\n' > "$d/.git/hooks/pre-push"
+( cd "$d" && bash scripts/install-hooks.sh >/dev/null 2>&1 )
+grep -q "an older tracked copy" "$d"/.git/hooks/pre-push.pre-forjar-update* 2>/dev/null && r=y || r=n; expect "a second update keeps the first backup's text" y "$r"
+grep -q "a second older copy" "$d"/.git/hooks/pre-push.pre-forjar-update* 2>/dev/null && r=y || r=n; expect "a second update also keeps the second replaced hook" y "$r"
 printf '#!/bin/sh\necho foreign\n' > "$d/.git/hooks/pre-push"
 ( cd "$d" && bash scripts/install-hooks.sh >/dev/null 2>&1 ); expect "installer still refuses a foreign hook" 1 "$(tolow "$?")"
 total_fail=$((total_fail + fails))
