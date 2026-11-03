@@ -147,7 +147,7 @@ struct Code {
 /// A real one-crate repo. The branch adds a lib unit test and, when `fixed`, the
 /// src change it covers; `fixed == false` is the "src change reverted" tree.
 fn code_fixture(fixed: bool, filter: &str, test_file: &str) -> Code {
-    code_fixture_with(fixed, filter, test_file, NEW_TESTS, None)
+    code_fixture_with(fixed, filter, test_file, NEW_TESTS, "", &[])
 }
 
 /// `code_fixture` with the touched test module's body chosen, and optionally a
@@ -158,7 +158,8 @@ fn code_fixture_with(
     filter: &str,
     test_file: &str,
     tests_body: &str,
-    sibling: Option<(&str, &str)>,
+    decls: &str,
+    extra: &[(&str, &str)],
 ) -> Code {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = dir.path().to_path_buf();
@@ -194,14 +195,11 @@ fn code_fixture_with(
         write(&repo, "src/lib.rs", &format!("{BASE_LIB}// touched\n"));
     }
     write(&repo, TESTS_REL, tests_body);
-    if let Some((rel, body)) = sibling {
+    if !decls.is_empty() {
         let lib = std::fs::read_to_string(repo.join("src/lib.rs")).unwrap();
-        let name = rel.trim_start_matches("src/").trim_end_matches(".rs");
-        write(
-            &repo,
-            "src/lib.rs",
-            &format!("{lib}#[cfg(test)]\nmod {name};\n"),
-        );
+        write(&repo, "src/lib.rs", &format!("{lib}{decls}"));
+    }
+    for (rel, body) in extra {
         write(&repo, rel, body);
     }
     let d = digest(
@@ -279,21 +277,26 @@ fn gate_on(c: &Code) -> Run {
     )
 }
 
+const NO_TEST: &str = "use super::*;\n\n// no test lives in this module:\n// line 4\n// line 5\n";
+const GREEN: &str = "use super::*;\n\n#[test]\nfn one_is_two() {\n    assert_eq!(one(), 2);\n}\n";
+/// `zz::tests_one`: a module whose path ENDS in test_file's (`tests_one`).
+const NESTED_DECL: &str = "mod zz;\n";
+const NESTED_MOD: &str = "#[cfg(test)]\nmod tests_one;\n";
+
 /// forjar#850: a filter EQUAL to test_file's module path means "every test of
 /// that module", but `cargo test --lib tests_one` is a substring match and also
 /// ran `tests_one_1::*`. A receipt whose touched module holds no test, with a
 /// green test in a sibling `tests_one_1`, rode through on the sibling's pass.
 #[test]
 fn a_module_wide_filter_does_not_run_a_sibling_module_that_shares_its_prefix() {
+    let sib = [("src/tests_one_1.rs", GREEN)];
     let c = code_fixture_with(
         true,
         "tests_one",
         TESTS_REL,
-        "use super::*;\n\n// no test lives in this module:\n// line 4\n// line 5\n",
-        Some((
-            "src/tests_one_1.rs",
-            "use super::*;\n\n#[test]\nfn one_is_two() {\n    assert_eq!(one(), 2);\n}\n",
-        )),
+        NO_TEST,
+        "#[cfg(test)]\nmod tests_one_1;\n",
+        &sib,
     );
     let r = gate_on(&c);
     assert_ne!(
@@ -301,7 +304,52 @@ fn a_module_wide_filter_does_not_run_a_sibling_module_that_shares_its_prefix() {
         "a sibling's pass must not satisfy tests_one:\n{}",
         r.text
     );
-    assert!(r.text.contains("ran no test"), "{}", r.text);
+    assert!(r.text.contains("lists no test"), "{}", r.text);
+}
+
+/// The same free-ride through a module whose path ENDS in test_file's: the
+/// receipt's `tests_one` selects `zz::tests_one::*` too (`tests::` selects every
+/// `x::tests::*`). Every selected name must start with test_file's own module.
+#[test]
+fn a_module_wide_filter_does_not_run_a_module_whose_path_ends_in_its_own() {
+    let nested = [
+        ("src/zz.rs", NESTED_MOD),
+        (
+            "src/zz/tests_one.rs",
+            "#[test]\nfn one_is_two() {\n    assert_eq!(crate::one(), 2);\n}\n",
+        ),
+    ];
+    let c = code_fixture_with(true, "tests_one", TESTS_REL, NO_TEST, NESTED_DECL, &nested);
+    let r = gate_on(&c);
+    assert_ne!(
+        r.code, 0,
+        "zz::tests_one's pass must not satisfy tests_one:\n{}",
+        r.text
+    );
+    assert!(r.text.contains("outside"), "{}", r.text);
+}
+
+/// A fn-level filter is run `--exact`: a failing `zz::tests_one::one_is_two` must
+/// not fail an honest receipt for `tests_one::one_is_two`.
+#[test]
+fn a_fn_level_filter_runs_that_one_test_exactly() {
+    let nested = [
+        ("src/zz.rs", NESTED_MOD),
+        (
+            "src/zz/tests_one.rs",
+            "#[test]\nfn one_is_two() {\n    assert_eq!(crate::one(), 99);\n}\n",
+        ),
+    ];
+    let c = code_fixture_with(
+        true,
+        "tests_one::one_is_two",
+        TESTS_REL,
+        NEW_TESTS,
+        NESTED_DECL,
+        &nested,
+    );
+    let r = gate_on(&c);
+    assert_eq!(r.code, 0, "{}", r.text);
 }
 
 /// The honest module-wide filter still passes: every test it runs is its own.
