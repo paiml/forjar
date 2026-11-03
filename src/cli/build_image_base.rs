@@ -99,3 +99,47 @@ pub(super) fn write_build_cache(output_dir: &std::path::Path, input_hash: &str) 
     let cache_path = output_dir.join("build-cache.hash");
     let _ = std::fs::write(cache_path, input_hash);
 }
+
+/// #768 review: a build that does not go through the files-only path (the
+/// container sandbox) rewrites the layout, so any earlier `build-cache.hash`
+/// describes an image that is no longer there. Remove it so the next
+/// files-only build cannot report CACHED and ship the stale image.
+pub(super) fn invalidate_build_cache(output_dir: &std::path::Path) {
+    let _ = std::fs::remove_file(output_dir.join("build-cache.hash"));
+}
+
+/// #768 review: the base-export work dir. `forjar-base-<pid>-<resource>` was
+/// predictable and shared by two calls in one process; this one is created
+/// exclusively (create_dir fails on an existing path) with a per-call counter
+/// and the clock in its name.
+pub(super) fn unique_base_work(resource: &str) -> Result<std::path::PathBuf, String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    let safe: String = resource
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    for _ in 0..16 {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        let p = std::env::temp_dir().join(format!(
+            "forjar-base-{}-{}-{nanos}-{}",
+            std::process::id(),
+            safe,
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
+        match std::fs::create_dir(&p) {
+            Ok(()) => return Ok(p),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(format!("cannot create base work dir {}: {e}", p.display())),
+        }
+    }
+    Err("cannot create a unique base work dir".to_string())
+}

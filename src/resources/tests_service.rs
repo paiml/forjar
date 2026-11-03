@@ -213,11 +213,32 @@ fn test_fj008_apply_idempotent_start() {
 
 #[test]
 fn test_fj008_apply_idempotent_stop() {
-    // stop should check is-active first (conditional)
+    // PMAT-708: the stop is gated on ActiveState (inactive|failed), never on
+    // `is-active`, which is false for `activating` and skipped the stop of an
+    // auto-restarting unit. Behaviour: tests/falsification_service_stop_activating.rs.
     let r = make_service_resource("nginx", "stopped");
     let script = apply_script(&r);
-    assert!(script.contains("if systemctl is-active --quiet"));
+    assert!(
+        !script.contains("is-active"),
+        "stop must not be gated on is-active:\n{script}"
+    );
+    assert!(script.contains("show -p ActiveState --value 'nginx'"));
+    assert!(script.contains("inactive|failed) true"));
     assert!(script.contains("systemctl stop 'nginx'"));
+}
+
+#[test]
+fn test_pmat708_stopped_check_reads_active_state_not_is_active() {
+    // `! is-active` is true for `activating`, so it called an auto-restarting
+    // unit stopped and --refresh reported it unchanged.
+    let r = make_service_resource("nginx", "stopped");
+    let script = check_script(&r);
+    assert!(
+        !script.contains("is-active"),
+        "stopped check must not read is-active:\n{script}"
+    );
+    assert!(script.contains("show -p ActiveState --value 'nginx'"));
+    assert!(script.contains("inactive|failed) true ;; *) false"));
 }
 
 #[test]

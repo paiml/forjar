@@ -2,6 +2,7 @@
 mod tests_build_image;
 #[cfg(test)]
 mod tests_build_image_img001;
+mod tests_build_image_cache_tmp;
 #[cfg(test)]
 mod tests_destroy_b;
 #[cfg(test)]

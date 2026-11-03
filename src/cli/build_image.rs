@@ -63,8 +63,7 @@ pub(crate) fn cmd_build(
     // BEFORE the cache is consulted and keyed into the input hash, so a layout
     // first built as scratch is never served as the based image. A base that
     // cannot be produced (or fails its pinned digest) fails the build.
-    let base_work =
-        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
+    let base_work = build_image_base::unique_base_work(resource)?;
     let base = build_image_base::resolve_plan_base(
         &plan,
         std::path::Path::new("state/images"),
@@ -189,6 +188,9 @@ fn cmd_build_sandbox(
 
     let apply_scripts =
         super::build_image_exec::container_build_scripts(plan, res, config, explicit_sandbox)?;
+    // #768 review: this path rewrites the layout and never writes a cache hash,
+    // so drop any hash an earlier files-only build left for it.
+    super::build_image_base::invalidate_build_cache(output_dir);
 
     if !json {
         println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);
