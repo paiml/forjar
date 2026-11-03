@@ -156,6 +156,17 @@ fn cost_limit_counts_only_the_named_machine() {
     .unwrap();
     let (ok, out) = run(dir.path(), &cfg, 1, &["-m", "A"]);
     assert!(ok, "-m A must count only A's 1 change: {out}");
+    // The run acted on A and only A: its file exists, none of B's do.
+    assert!(
+        dir.path().join("a1.txt").exists(),
+        "-m A must apply a1: {out}"
+    );
+    for b in ["b1.txt", "b2.txt", "b3.txt"] {
+        assert!(
+            !dir.path().join(b).exists(),
+            "-m A must not touch B's {b}: {out}"
+        );
+    }
     let dir2 = tempfile::tempdir().unwrap();
     let cfg2 = dir2.path().join("forjar.yaml");
     fs::copy(&cfg, &cfg2).unwrap();
