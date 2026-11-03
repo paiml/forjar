@@ -810,7 +810,7 @@ if [ "$receipt_kind" != "triage" ]; then
             # The filter is a substring: list what it selects and hold every name
             # to test_file's module before running any of it (forjar#850).
             list_args=(-- --list); [ "$lib_exact" = 1 ] && list_args+=(--exact)
-            listed="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" "${list_args[@]}" 2>/dev/null \
+            listed="$(env ${unset_args[@]+"${unset_args[@]}"} cargo test "${mode_args[@]}" "${list_args[@]}" 2>/dev/null \
                 | sed -n 's/: test$//p')"
             [ -n "$listed" ] || die_hard "the lib filter '$f_target' lists no test: it names nothing, so it proves nothing"
             if [ -n "$lib_mod" ]; then
@@ -819,7 +819,7 @@ if [ "$receipt_kind" != "triage" ]; then
 $(printf '%s\n' "$bad" | sed 's/^/     /')"
             fi
         fi
-        test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet "${test_tail[@]}" 2>&1)" \
+        test_out="$(env ${unset_args[@]+"${unset_args[@]}"} cargo test "${mode_args[@]}" --quiet ${test_tail[@]+"${test_tail[@]}"} 2>&1)" \
             || die_hard "the falsification test does NOT pass on this tree:
 $(printf '%s\n' "$test_out" | tail -n 15 | sed 's/^/     /')"
         if [ "$lib_mode" = 1 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
