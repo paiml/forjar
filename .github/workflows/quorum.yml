@@ -86,5 +86,13 @@ jobs:
           # the gate would be enforced locally and toothless exactly where it is
           # the only thing standing between a PR and main.
           QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # C48 (C58-3): ONE non-author PASS bound to this head is green. Checked first.
+          if ./scripts/quorum-fleet-receipt.sh "${REPO}" "${PR_NUMBER}" "${HEAD_SHA}"; then
+            exit 0
+          fi
+          # No fleet receipt at this head: fall back to the legacy committed-receipt gate.
           ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"
