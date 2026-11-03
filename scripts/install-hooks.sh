@@ -45,6 +45,11 @@ for hook in "$src"/*; do
         echo "  Move or delete it, then re-run. Not overwriting it for you."
         exit 1
     fi
+    # An older forjar hook is replaced, but its exact text is kept beside it (mv, not cp: the operator may have edited it).
+    if [ -f "$target" ] && ! cmp -s "$hook" "$target"; then
+        mv "$target" "$target.pre-forjar-update"
+        echo "  kept the replaced hook as $name.pre-forjar-update"
+    fi
     cp "$hook" "$target"
     chmod +x "$target"
     echo "✓ installed $name"
