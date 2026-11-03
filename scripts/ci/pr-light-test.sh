@@ -5,7 +5,7 @@
 #   CONTRACT  a commit with no `Pmat-Ticket:` trailer makes pr-light RED; a clean branch is GREEN; a planted tree-guard
 #             violation is RED; no origin/main is RED; no `# pr-light` marker is RED; a marker that is not a plain
 #             `cargo test --locked --test NAME` is RED. The trailer leg judges the head sha it is given.
-#   HOOK      the pr-light block of scripts/hooks/pre-push (the real text, cut before the slow checks) exits 1 for a pushed
+#   HOOK      ADVISORY (C4): the pr-light block of scripts/hooks/pre-push (the real text, cut before the slow checks) prints RED and exits 0 for a pushed
 #             trailer-less sha, 0 for a clean one and for a deletion.
 #   INSTALL   scripts/install-hooks.sh replaces an older copy of the forjar hook and still refuses a foreign one.
 #   MUTANTS   pr-light.sh with (a) `exit 0` first, (b) the trailer leg removed, (c) the guard leg removed, and (d) a hook with no
@@ -86,9 +86,11 @@ hookcheck() {
   cm "$d" "$(printf 'feat: ok\n\nPmat-Ticket: PMAT-2')"; good=$(git -C "$d" rev-parse HEAD)
   cm "$d" "feat: no trailer"; bad=$(git -C "$d" rev-parse HEAD)
   ( cd "$d" && printf 'refs/heads/work %s refs/heads/work %s\n' "$bad" "$zero" | bash .hk.sh >"$d/.out" 2>&1 ); rc=$?
-  expect "hook refuses a pushed trailer-less sha" 1 "$(tolow "$rc")"
+  expect "hook does NOT block a pushed trailer-less sha (advisory)" 0 "$rc"
+  grep -q "pr-light RED (advisory)" "$d/.out" && r=y || r=n; expect "hook printed RED for it" y "$r"
   ( cd "$d" && printf 'refs/heads/work %s refs/heads/work %s\n' "$good" "$zero" | bash .hk.sh >"$d/.out" 2>&1 ); rc=$?
   expect "hook lets a clean sha through" 0 "$rc"
+  grep -q "pr-light RED" "$d/.out" && r=y || r=n; expect "hook prints no RED for a clean sha" n "$r"
   ( cd "$d" && printf '(delete) %s refs/heads/work %s\n' "$zero" "$good" | bash .hk.sh >"$d/.out" 2>&1 ); rc=$?
   expect "hook does not judge a branch deletion" 0 "$rc"
   git -C "$d" reset -q --hard "$good"

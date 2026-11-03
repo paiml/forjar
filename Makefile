@@ -15,8 +15,8 @@ quorum:
 	./scripts/quorum-gate.sh
 
 # PMAT-855 (operator C2 item 2): the PR's fast guards, before the push. ticket-cite-lint over origin/main..HEAD, then the
-# ci.yml steps marked `# pr-light`. Red = no push once `make install-hooks` has run (the tracked pre-push calls it).
-# No environment bypass.
+# ci.yml steps marked `# pr-light`. Advisory (C4): the tracked pre-push calls it after `make install-hooks`, prints the
+# result and never blocks on it.
 pr-light:
 	./scripts/pr-light.sh
 

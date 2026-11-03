@@ -6,7 +6,7 @@
 # nobody, which is why the quorum spec names "the gate is local" as a live
 # failure mode and why CI must mirror it -- see docs/specifications/quorum-spec.md.
 #
-# No bypass: pr-light red means the push is refused (PMAT-855). Fix the red.
+# pr-light (PMAT-855) is ADVISORY (operator C4): its result is printed and never blocks the push.
 set -euo pipefail
 
 [ -f Cargo.toml ] || exit 0
@@ -58,7 +58,7 @@ run_check() {
 
 # PMAT-855 (operator C2 item 2): pr-light FIRST, per pushed branch. ticket-cite-lint judges the pushed sha; the tree guards
 # judge the checkout. A deletion (all-zero sha) and a non-branch ref are not judged. With no refs on stdin (not run as a
-# hook) it judges HEAD via `make pr-light`. There is no bypass.
+# hook) it judges HEAD via `make pr-light`. ADVISORY (C4, 07:15Z): a red is printed and FAILED is reset, so it never blocks.
 if [ -n "${pushed_refs}" ]; then
     while read -r sha ref; do
         [ -n "${ref:-}" ] || continue
@@ -71,8 +71,8 @@ else
 fi
 if [ "$FAILED" -ne 0 ]; then
     echo ""
-    echo "❌ pr-light RED: push refused before the slow checks. No bypass: fix the red above."
-    exit 1
+    echo "❌ pr-light RED (advisory): the push continues; fix the red before review."
+    FAILED=0
 fi
 run_check "Format check"  cargo fmt --all -- --check
 run_check "Cargo check"   cargo check --all-targets
@@ -117,7 +117,7 @@ fi
 if [ "$FAILED" -ne 0 ]; then
     echo ""
     echo "❌ Pre-push gate FAILED"
-    echo "   No bypass: fix the red above."
+    echo "   Fix the red above."
     exit 1
 fi
 
