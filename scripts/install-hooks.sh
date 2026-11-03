@@ -40,7 +40,7 @@ for hook in "$src"/*; do
     # `.git/hooks` fills with stale copies nobody dares delete. (It also could
     # not lint clean -- bashrs SEC010 on the backup `cp` -- and in this repo an
     # unlintable script is one forjar's own I8 gate would refuse to run.)
-    if [ -f "$target" ] && ! cmp -s "$hook" "$target"; then
+    if [ -f "$target" ] && ! cmp -s "$hook" "$target" && ! grep -q "^# forjar pre-push:" "$target"; then
         echo "✗ $target exists and differs from the tracked hook."
         echo "  Move or delete it, then re-run. Not overwriting it for you."
         exit 1

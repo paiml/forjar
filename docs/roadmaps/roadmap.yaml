@@ -5539,3 +5539,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-855
+  github_issue: 855
+  item_type: task
+  title: 'pr-light: pre-push mirror of the fast tree guards + ticket-cite lint (C2 item 2)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-03T07:14:44Z
+  updated: 2026-11-03T07:14:44Z
+  spec: null
+  acceptance_criteria:
+  - 'Operator C2 item 2 (Noah 07:05Z): pre-push make pr-light, red = no push. Mirrors the fast tree guards and the Pmat-Ticket trailer lint over origin/main..HEAD.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 697
