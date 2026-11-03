@@ -366,3 +366,91 @@ resources: {}
     // No __data__ keys added
     assert!(!config.params.keys().any(|k| k.starts_with("__data__")));
 }
+
+// Fault isolation: one failing data source must not stop unrelated resources.
+const ISOLATION_YAML: &str = r#"
+version: "1.0"
+name: iso
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  dependent:
+    type: file
+    machine: m1
+    path: /etc/dep
+    content: "v={{ data.broken }}"
+  downstream:
+    type: file
+    machine: m1
+    path: /etc/down
+    content: static
+    depends_on: [dependent]
+  unrelated:
+    type: file
+    machine: m1
+    path: /etc/unrel
+    content: "static"
+data:
+  broken:
+    type: command
+    value: "exit 127"
+"#;
+
+#[test]
+fn test_isolated_records_failure_without_erroring() {
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(ISOLATION_YAML).unwrap();
+    let failures = super::data::resolve_data_sources_isolated(&mut config);
+    assert_eq!(failures.len(), 1);
+    assert_eq!(failures[0].key, "broken");
+    assert!(
+        failures[0].message.contains("exit 127"),
+        "{}",
+        failures[0].message
+    );
+    assert!(!config.params.contains_key("__data__broken"));
+}
+
+#[test]
+fn test_isolated_still_resolves_healthy_sources() {
+    let yaml = ISOLATION_YAML.replace(
+        "data:\n",
+        "data:\n  good:\n    type: command\n    value: \"echo ok\"\n",
+    );
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+    let failures = super::data::resolve_data_sources_isolated(&mut config);
+    assert_eq!(failures.len(), 1);
+    assert!(config.params.contains_key("__data__good"));
+}
+
+#[test]
+fn test_dependents_of_failed_sources_are_transitive_and_exact() {
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(ISOLATION_YAML).unwrap();
+    let failures = super::data::resolve_data_sources_isolated(&mut config);
+    let dep = super::data::dependents_of_failures(&config, &failures);
+    assert!(dep["dependent"].contains("data source 'broken'"));
+    assert!(dep["dependent"].contains("exit 127"));
+    assert!(dep.contains_key("downstream"), "depends_on cascade");
+    assert!(!dep.contains_key("unrelated"));
+}
+
+#[test]
+fn test_strict_resolver_still_errors() {
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(ISOLATION_YAML).unwrap();
+    let err = resolve_data_sources(&mut config).unwrap_err();
+    assert!(err.contains("command failed (exit 127)"));
+}
+
+#[test]
+fn test_reference_match_respects_hyphenated_keys() {
+    let yaml = "version: \"1.0\"\nname: h\nmachines: { m: { hostname: m, addr: 127.0.0.1 } }\ndata:\n  foo: { type: command, value: \"exit 1\" }\nresources:\n  uses_other: { type: file, machine: m, path: /tmp/h, content: \"{{data.foo-bar}}\" }\n  uses_foo: { type: file, machine: m, path: /tmp/h2, content: \"{{data.foo}}\" }\n";
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let failures = super::data::resolve_data_sources_isolated(&mut config);
+    let dep = super::data::dependents_of_failures(&config, &failures);
+    assert!(dep.contains_key("uses_foo"));
+    assert!(
+        !dep.contains_key("uses_other"),
+        "data.foo-bar is not data.foo"
+    );
+}

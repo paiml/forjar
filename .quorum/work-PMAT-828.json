@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-828 (forjar#828) \u2014 one failing `data:` source aborted the whole plan/apply (infra#2620: an unknown source took down unrelated resources). plan and apply now skip only the resources that reference the failed source and what depends_on them, process the rest, and still exit non-zero.",
+  "branch": "work/PMAT-828",
+  "base": "493ccc36",
+  "base_commit": "493ccc368d24930372cef47364e99210dd623c38",
+  "diff_sha256": "f0ee748e5a747d6721dbf85ff76e6cb51dee0d45",
+  "recorded_at": "two rounds recorded in .quorum/evidence/PMAT-828-lanes.md; round 2 passed 3/3.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head fbc084c8 \u2014 agy Gemini 4 Argon (High): PASS (round 1: PASS)",
+      "round 2, head fbc084c8 \u2014 agy Gemini 4 Argon (Medium): PASS (round 1: PASS)",
+      "round 2, head fbc084c8 \u2014 claude Opus 5.5: PASS (round 1: FAIL, three findings fixed)"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of round 2; a Claude Opus lane stands in for the quota-exhausted agy Claude/gpt-oss models, never the author's id (Sonnet 5.5).",
+    "kill_rule": "every Opus FAIL item was fixed or recorded as a known gap before round 2; nothing was dismissed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: the test header claimed every assertion was on files and exit status and that plan was covered by the in-crate test; both were false, corrected.",
+      "R2: the reference matcher treated '-' as a boundary, so data.foo would skip a resource using data.foo-bar; fixed and pinned."
+    ]
+  },
+  "falsification": {
+    "test": "apply_writes_unrelated_resources_when_one_data_source_fails \u2014 RED on origin/main; apply_writes_the_dependent_when_the_data_source_succeeds is the negative control, green on both",
+    "test_file": "tests/falsification_data_source_fault_isolation.rs",
+    "cargo_test_target": "falsification_data_source_fault_isolation",
+    "observed_failure": "on a detached worktree of origin/main 493ccc36 with the test file copied in: 1 passed; 1 failed \u2014 `unrelated resource must be applied` (the unrelated file was never written because the failed source aborted the run). With the fix: 3 passed.",
+    "reverted": true,
+    "still_green_when_reverted": false
+  },
+  "crux": {
+    "verdict": "Shipped behaviour change: a failed data source skips its dependents instead of aborting. Mature config tools treat a failed lookup as a failure of the resources that use it, not of the whole run.",
+    "systems": [
+      "Terraform: a failing data source errors only the graph nodes that depend on it, and independent resources are still planned in the same walk [X]",
+      "Ansible: a failed lookup or fact task fails the host for that task, and tasks that never referenced it are unaffected unless any_errors_fatal is set [X]",
+      "Puppet: a failed catalog resource marks its dependents as skipped (dependency failed) while independent resources are still applied [X]"
+    ]
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes and one claude -p lane, diff pasted inline; per-round table in .quorum/evidence/PMAT-828-lanes.md",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS."
+  },
+  "pmat": {
+    "ticket": "PMAT-828",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo test --test falsification_data_source_fault_isolation: RED on origin/main, GREEN with the fix (3 of 3)",
+      "cargo test --lib resolver: 200 passed"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-828-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "881e6a296cbba848c2d49b04a0e0a6c9d1e1b741",
+        "sha256": "1cdc813bc5b1dc6bbdd4ef9d4b232d6db549522e2bfd7bab957e8a51d0147ef7",
+        "bytes": 923
+      },
+      {
+        "path": ".quorum/evidence/PMAT-828-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "ccc60c896885eaad30d5c2cec92c6693049bff5f",
+        "sha256": "ab8bba576a6781b28c8f09a6b124c91845782548a2fed4fed3ca2ce5bc72a5c7",
+        "bytes": 1203
+      },
+      {
+        "path": ".quorum/evidence/PMAT-828-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3ae84becb9484a21ce893fbc15417009b98ee5fc",
+        "sha256": "f4dc8e90369ac84afbf6d3704db21f0fdbcb008041869f59248fd95a5149af55",
+        "bytes": 3694
+      },
+      {
+        "path": ".quorum/evidence/PMAT-828-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "bebd93b58eec757c8e31c7ef6a1e2c819673ada2",
+        "sha256": "65a2004d6c427aac504a8441dd2536b02c5b8012bed938bb6612abcc66726eca",
+        "bytes": 276
+      }
+    ],
+    "total_bytes": 6096,
+    "claims_digest": ".quorum/evidence/PMAT-828-judges.md"
+  }
+}
