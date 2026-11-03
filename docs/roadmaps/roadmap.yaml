@@ -5571,3 +5571,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-667
+  github_issue: 667
+  item_type: task
+  title: disk_budget cargo_target must refuse trees with a running exe/mapped file
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-03T21:33:59Z
+  updated: 2026-11-03T21:33:59Z
+  spec: null
+  acceptance_criteria:
+  - reaper deleted a tree a running binary executed from (lambda-labs 2026-11-03); cargo_target never asked fb_in_use; scan lacked exe+maps
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 668

@@ -136,3 +136,60 @@ fn reclaims_only_the_provably_dead_and_fails_safe_on_timeout() {
     holder.kill().ok();
     holder.wait().ok();
 }
+
+/// A binary RUNNING from inside a cargo target tree writes nothing, holds no
+/// fd and has its cwd elsewhere, so only its exe link and mappings tie it to
+/// the tree. The cargo_target rule must still refuse that tree (lambda-labs
+/// 2026-11-03: a 34 GB tree was reaped under a running binary).
+#[test]
+fn cargo_target_keeps_a_tree_whose_binary_is_running_from_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("src");
+    let dead = mk_target(&root, "dead");
+    let running = mk_target(&root, "running");
+    let rel = running.join("release");
+    std::fs::create_dir_all(&rel).unwrap();
+    let bin = rel.join("fixture-bin");
+    let sleep = String::from_utf8(
+        Command::new("sh")
+            .args(["-c", "command -v sleep"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    std::fs::copy(sleep.trim(), &bin).unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // Age the whole tree so the idle floor alone would not protect it.
+    for f in [&bin, &rel] {
+        assert!(Command::new("touch")
+            .args(["-d", "2 days ago"])
+            .arg(f)
+            .status()
+            .unwrap()
+            .success());
+    }
+    let mut proc = Command::new(&bin)
+        .arg("60")
+        .current_dir("/")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let script = tmp.path().join("cargo-reaper.sh");
+    std::fs::write(
+        &script,
+        script_for(&root.to_string_lossy(), ReclaimKind::CargoTarget),
+    )
+    .unwrap();
+    let status = tmp.path().join("status.json");
+    let log = run(&script, &status, &std::env::var("PATH").unwrap());
+    let kept = running.exists();
+    let reaped = !dead.exists();
+    proc.kill().ok();
+    proc.wait().ok();
+    assert!(reaped, "control: the dead tree must be reclaimed: {log}");
+    assert!(kept, "a tree a process runs from must be kept: {log}");
+}
