@@ -303,7 +303,8 @@ pub(crate) use super::template_cmd::cmd_template;
 
 // FJ-220 + FJ-3200: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool, sarif: bool) -> Result<(), String> {
-    let config = parse_and_validate_for_render(file)?;
+    // Inspected, not rendered: rules compare a data value as written.
+    let config = crate::core::resolver::load_resolved_config(file)?;
     let result = parser::evaluate_policies_full(&config);
 
     if sarif {

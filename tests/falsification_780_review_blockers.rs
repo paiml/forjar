@@ -118,3 +118,46 @@ fn explain_prints_no_stand_in_characters() {
         assert!(so.contains(want), "value as written (json={json}):\n{so}");
     }
 }
+
+/// Review round 2 (a): `policy` inspects the config, it does not render it. A data value
+/// holding braces is compared as written, so an `assert` over it is not a false violation.
+#[test]
+fn policy_compares_a_data_value_as_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let body = "version: \"1.0\"\nname: p780\n\
+machines: { local: { hostname: localhost, addr: 127.0.0.1 } }\n\
+params: { port: \"8080\" }\n\
+data:\n  lit: { type: command, value: \"printf '%s' '{{params.port}}'\" }\n\
+resources:\n  r: { type: file, machine: local, path: /tmp/forjar-780-never, content: x, owner: \"{{data.lit}}\" }\n\
+policies:\n  - type: assert\n    id: P1\n    message: owner is the literal\n    resource_type: file\n    condition_field: owner\n    condition_value: \"{{params.port}}\"\n";
+    let cfg = write_cfg(&dir, body);
+    let (ok, so, se) = run(&["policy", "-f", cfg.to_str().unwrap()]);
+    assert!(ok, "false policy violation on a data value:\n{so}{se}");
+}
+
+/// Review round 2 (b): `--abort-on-drift` must name a failed data source, not call it drift.
+#[test]
+fn abort_on_drift_names_a_failed_data_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let body = "version: \"1.0\"\nname: d780\n\
+machines: { local: { hostname: localhost, addr: 127.0.0.1 } }\n\
+data:\n  broken: { type: command, value: \"exit 127\" }\n\
+resources:\n  r: { type: file, machine: local, path: /tmp/forjar-780-never, content: \"v={{data.broken}}\\n\" }\n";
+    let cfg = write_cfg(&dir, body);
+    let state = dir.path().join("state");
+    let (ok, so, se) = run(&[
+        "apply",
+        "-f",
+        cfg.to_str().unwrap(),
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--yes",
+        "--abort-on-drift",
+    ]);
+    let all = format!("{so}{se}");
+    assert!(!ok, "must fail:\n{all}");
+    assert!(
+        all.contains("data source") && all.contains("broken"),
+        "must name the failed source:\n{all}"
+    );
+}

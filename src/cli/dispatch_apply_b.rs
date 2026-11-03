@@ -223,7 +223,14 @@ fn apply_pre_checks(args: &ApplyArgs) -> Result<(), String> {
             // that follows would run them anyway.
             false,
         );
-        if drift_result.is_err() {
+        if let Err(e) = drift_result {
+            // Only a drift verdict is "drift detected". A check that could not run (a failed
+            // data source, an unreadable manifest) says why, rather than posing as drift.
+            if !is_drift_verdict(&e) {
+                return Err(format!(
+                    "Aborting apply: the drift check could not run: {e}"
+                ));
+            }
             return Err(
                 "Aborting apply: drift detected. Resolve drift before applying.".to_string(),
             );
@@ -493,3 +500,9 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
 #[cfg(test)]
 #[path = "tests_dispatch_apply_b.rs"]
 mod tests_dispatch_apply_b;
+
+/// True for the two verdicts `drift_verdict` returns (findings, or hosts never measured);
+/// any other `cmd_drift` error is a failure to run the check.
+fn is_drift_verdict(e: &str) -> bool {
+    e.contains("drift finding(s)") || e.contains(crate::core::error::DRIFT_UNMEASURED_MARKER)
+}
