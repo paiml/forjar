@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
+The apply gated `systemctl stop` on `is-active`, which is false for a
+`Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
+and for `deactivating`. The stop was skipped, the disable ran, the resource was
+recorded converged, and the unit was running again ten seconds later. The check
+asked the same question, so `--refresh` reported it unchanged. Apply and check
+now read `ActiveState`: stopped means `inactive` or `failed`. Apply stops a unit
+in any other state, leaves an inactive or unloaded one alone (a second apply is
+a no-op), and fails if the unit is still not stopped after the stop.
+
+**A multi-platform base resolves to the build target's manifest (PMAT-756, #756, IMG-001).**
+When a base layout's top entry is an OCI image index (or docker manifest list),
+`extract_base_layers` follows it to the `linux` manifest of the architecture it
+builds for: `amd64` on an x86_64 host, `arm64` on an aarch64 host, else the
+index's first entry. Tests name the architecture instead of reading the host, so
+they hold on both chips.
+
+**`drift` and `plan` compare a `github_release`'s live `--version` with its pin
+and with the latest upstream release (PMAT-613, #613).** Both commands trusted
+the lock and asked only whether the binary existed. paiml/infra pinned ollama to
+`v0.33.2` on a box running `0.34.2`: `plan` said Create, `drift` said nothing,
+and an apply would have downgraded it. The new detector works from the
+declaration, so it also covers a pin missing from the lock. It reports DRIFT
+when the live version is not the pin (and says the apply would DOWNGRADE), and
+when the pin is behind the repo's latest release. Output with no version is
+UNMEASURED, never clean. `--offline` skips the upstream check and says so. `plan`
+adds a "Version pins" section and a `version_pins` JSON field, and changes no
+plan action. The apply gate, the pull agent and MCP's unattended drift never act
+on these findings, and `drift --auto-remediate` refuses when any exist.
+And `apply` itself never downgrades: a `github_release` whose pin names a version
+refuses, on the box and before the download, when the live binary is newer,
+whichever path reached it (a lockless create, the drift gate, `--force`, the
+pull agent). The message says to update the pin, or remove the binary to roll
+back on purpose.
+
 **`plan -r` and `apply -r` compute the same set, and a lockless create asks
 its `completion_check` first (PMAT-615, #615).** Measured on paiml/infra's
 lambda-labs with no lambda-labs lock: `plan -r ollama-model-qwen35-4b` said
@@ -20,9 +55,7 @@ declared `completion_check` passes as unchanged. The apply records it
 `converged` (with no `applied_at`: nothing ran), as the converge it replaces
 did, so `drift` still inspects the guard; the previews write nothing. A check
 that fails or cannot run still plans `create`.
-Plain `forjar plan` keeps its actions lock-relative, but it does contact hosts: it
-asks each versioned `github_release` binary for its live `--version` (and, unless
-`--offline`, the latest upstream release) and prints the verdicts beside the plan.
+Plain `forjar plan` keeps its actions lock-relative, but it does contact hosts: it asks each versioned `github_release` binary for its live `--version` (and, unless `--offline`, the latest upstream release) and prints the verdicts beside the plan.
 `tests/falsification_lockless_check_before_create.rs` runs a real apply on
 localhost; `src/cli/tests_plan_apply_same_set.rs` asserts the two sets are equal.
 

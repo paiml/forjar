@@ -354,5 +354,4 @@ pub(super) const fn post_delete(kind: ReclaimKind) -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "detect_tests.rs"]
 mod tests;

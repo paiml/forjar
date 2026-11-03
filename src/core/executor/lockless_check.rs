@@ -28,7 +28,6 @@ use super::super::codegen;
 use super::super::resolver;
 use super::super::state;
 use super::super::types::*;
-use super::plan_scope::PlanScope;
 use crate::transport;
 use std::collections::HashMap;
 
@@ -57,18 +56,24 @@ pub(crate) fn host_check_passes(
         .is_some_and(|out| out.success())
 }
 
-/// The operator's `-r` / `-g` selectors, as the executor applies them.
-#[derive(Clone, Copy, Default)]
-pub(crate) struct RecordFilters<'a> {
-    pub resource: Option<&'a str>,
-    pub group: Option<&'a str>,
+/// Do this type's own check scripts read `completion_check`?
+fn consults_completion_check(t: &ResourceType) -> bool {
+    matches!(t, ResourceType::Task | ResourceType::Build)
 }
 
 /// Is this resource one the lockless check applies to at all?
 fn declares_a_check(resource: &Resource, tag_filter: Option<&str>) -> bool {
-    resource.completion_check.is_some()
-        && !resource.phony
-        && tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
+    // Only types whose own check_script consults `completion_check`: on any other
+    // type the field is ignored and the type's check (e.g. `test -f`) would seed
+    // a stale resource as converged.
+    if resource.completion_check.is_none() || resource.phony {
+        return false;
+    }
+    consults_completion_check(&resource.resource_type) && has_tag(resource, tag_filter)
+}
+
+fn has_tag(resource: &Resource, tag_filter: Option<&str>) -> bool {
+    tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
 }
 
 /// Add a converged entry to `locks` for every `(machine, resource)` that has no
@@ -83,52 +88,52 @@ fn add_passing(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
-    scope: Option<&PlanScope>,
-    selectors: RecordFilters<'_>,
     locks: &mut HashMap<String, StateLock>,
 ) {
     for (id, resource) in &config.resources {
         if !declares_a_check(resource, tag_filter) {
             continue;
         }
-        // `-r` / `-g` narrow what the executor runs; the host check and the
-        // record must follow the same predicate (PMAT-721 quorum blocker).
-        if super::machine_b::excluded_by_resource_filter(selectors.resource, id)
-            || super::machine_b::excluded_by_group_filter(selectors.group, resource)
-        {
-            continue;
-        }
         for machine in resource.machine.iter() {
-            if machine_filter.is_some_and(|f| machine != f)
-                // The planner skips an arch mismatch or a false `when:`; asking
-                // (and recording) a resource it will not plan is a false record.
-                || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
-                // `apply --plan-file`: a pair the reviewed plan did not name is
-                // neither checked on the host nor recorded (PMAT-721 review F2).
-                || scope.is_some_and(|s| !s.covers(machine, id))
-            {
-                continue;
-            }
-            let has_entry = locks
-                .get(machine)
-                .is_some_and(|l| l.resources.contains_key(id));
-            if has_entry || !host_check_passes(config, resource, machine) {
-                continue;
-            }
-            let hostname = config
-                .machines
-                .get(machine)
-                .map_or(machine, |m| m.hostname.as_str());
-            locks
-                .entry(machine.to_string())
-                .or_insert_with(|| state::new_lock(machine, hostname))
-                .resources
-                .insert(
-                    id.clone(),
-                    super::refresh_seed::converged_entry(config, id, resource),
-                );
+            seed_one(config, machine_filter, locks, id, resource, machine);
         }
     }
+}
+
+/// One `(machine, resource)` pair of [`add_passing`].
+fn seed_one(
+    config: &ForjarConfig,
+    machine_filter: Option<&str>,
+    locks: &mut HashMap<String, StateLock>,
+    id: &str,
+    resource: &Resource,
+    machine: &str,
+) {
+    if machine_filter.is_some_and(|f| machine != f)
+        // The planner skips an arch mismatch or a false `when:`; asking
+        // (and recording) a resource it will not plan is a false record.
+        || !crate::core::planner::passes_machine_filters(resource, machine, id, config)
+    {
+        return;
+    }
+    let has_entry = locks
+        .get(machine)
+        .is_some_and(|l| l.resources.contains_key(id));
+    if has_entry || !host_check_passes(config, resource, machine) {
+        return;
+    }
+    let hostname = config
+        .machines
+        .get(machine)
+        .map_or(machine, |m| m.hostname.as_str());
+    locks
+        .entry(machine.to_string())
+        .or_insert_with(|| state::new_lock(machine, hostname))
+        .resources
+        .insert(
+            id.to_string(),
+            super::refresh_seed::converged_entry(config, id, resource),
+        );
 }
 
 /// PREVIEW: the locks the planner will read, without touching `locks`. For the
@@ -150,14 +155,7 @@ pub(crate) fn seeded(
     locks: &HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
     let mut out = locks.clone();
-    add_passing(
-        config,
-        machine_filter,
-        tag_filter,
-        None,
-        RecordFilters::default(),
-        &mut out,
-    );
+    add_passing(config, machine_filter, tag_filter, &mut out);
     out
 }
 
@@ -176,34 +174,10 @@ pub(crate) fn record(
     config: &ForjarConfig,
     machine_filter: Option<&str>,
     tag_filter: Option<&str>,
-    scope: Option<&PlanScope>,
-    selectors: RecordFilters<'_>,
     locks: &mut HashMap<String, StateLock>,
 ) -> HashMap<String, StateLock> {
-    add_passing(config, machine_filter, tag_filter, scope, selectors, locks);
+    add_passing(config, machine_filter, tag_filter, locks);
     locks.clone()
-}
-
-/// APPLY entry point: `record` with the selectors read off the apply's own
-/// `ApplyConfig` (`-r` / `-g`). Lives here, not in `executor/mod.rs`, so that
-/// file stays under the 500-line file-health ceiling.
-pub(crate) fn record_for_apply(
-    cfg: &super::ApplyConfig<'_>,
-    scope: Option<&PlanScope>,
-    locks: &mut HashMap<String, StateLock>,
-) -> HashMap<String, StateLock> {
-    let selectors = RecordFilters {
-        resource: cfg.resource_filter,
-        group: cfg.group_filter,
-    };
-    record(
-        cfg.config,
-        cfg.machine_filter,
-        cfg.tag_filter,
-        scope,
-        selectors,
-        locks,
-    )
 }
 
 #[cfg(test)]

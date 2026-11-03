@@ -66,6 +66,8 @@ mod tests_localhost2;
 #[cfg(test)]
 mod tests_parallel;
 #[cfg(test)]
+mod tests_resource_timeout;
+#[cfg(test)]
 mod tests_rolling;
 #[cfg(test)]
 mod tests_run_capture;
@@ -92,8 +94,7 @@ pub use helpers::collect_machines;
 pub use plan_scope::PlanScope;
 
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
-pub(crate) use helpers::copia_apply_file;
-pub(crate) use helpers::{build_resource_details, compute_resource_waves};
+pub(crate) use helpers::{build_resource_details, compute_resource_waves, copia_apply_file};
 pub(crate) use machine::apply_machine;
 pub(crate) use resource_meta::{check_task_input_cache, settle_cached_row, update_run_meta};
 pub(crate) use resource_ops::{record_failure, record_success, RecordCtx, ResourceOutcome};
@@ -403,7 +404,7 @@ pub fn apply_scoped(
     } else if cfg.dry_run {
         locks.clone()
     } else {
-        lockless_check::record_for_apply(cfg, scope, &mut locks)
+        lockless_check::record(cfg.config, cfg.machine_filter, cfg.tag_filter, &mut locks)
     };
     // FJ-2710 (PMAT-197): probe declared build I/O BEFORE planning, so a task
     // whose sources changed on disk plans as Update rather than NoOp.

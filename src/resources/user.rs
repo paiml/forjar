@@ -54,13 +54,13 @@ pub fn check_script(resource: &Resource) -> String {
         want.dedup();
         // supplementary = `id -Gn` minus the primary group, sorted, comma-joined
         let live = format!(
-            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,"
+            "p=$(id -gn {u} 2>/dev/null); id -Gn {u} 2>/dev/null | tr ' ' '\\n' | grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,"
         );
         let want = want.join(",");
         // the primary may be implicit, so it is dropped from the declared list
         // in the shell against the same $p, exactly as from the live set
         let want_sh = format!(
-            "p=$(id -gn {u} 2>/dev/null); printf '%s' {} | tr ',' '\\n' | grep -vxF \"$p\" | sort -u | paste -sd,",
+            "p=$(id -gn {u} 2>/dev/null); printf '%s' {} | tr ',' '\\n' | grep -vxF \"$p\" | LC_ALL=C sort -u | paste -sd,",
             sh_squote(&want)
         );
         a.push(verdict::assert_that(

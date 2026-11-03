@@ -172,6 +172,16 @@ fn absent_is_judged_the_right_way_round() {
 }
 
 #[test]
+fn live_groups_are_sorted_in_the_c_locale_like_the_declared_side() {
+    // declared side sorts by byte order; a locale-collated live side would
+    // read `adm,Admins` against `Admins,adm` and diverge forever.
+    let mut r = user("course");
+    r.groups = vec!["adm".to_string(), "Admins".to_string()];
+    let s = check_script(&r);
+    assert!(s.contains("LC_ALL=C sort -u"), "{s}");
+}
+
+#[test]
 fn a_declared_primary_group_in_groups_still_converges() {
     // PMAT-721 / forjar#759: `groups` lists the primary group (group: course,
     // groups: [course, ...]). Live `id -Gn` minus the primary can never contain

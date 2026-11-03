@@ -88,6 +88,8 @@ mod doctor;
 mod doctor_machine;
 mod drift;
 mod drift_decline;
+mod drift_dry_run;
+mod drift_followup;
 mod drift_lockless;
 mod drift_predict;
 mod drift_report;
@@ -106,6 +108,9 @@ mod graph_analysis;
 mod graph_analytics;
 mod graph_analytics_ext;
 mod graph_compliance;
+mod inode_gate;
+#[cfg(test)]
+mod tests_tmp_reaper_apply;
 mod verify;
 // GH-212: `graph_core::parse_graph_format` is the single format parser shared
 // with the MCP `forjar_graph` tool, so the two surfaces cannot drift.
@@ -192,7 +197,10 @@ mod plan;
 mod plan_compute;
 mod plan_file;
 mod plan_json;
+mod plan_refresh;
+mod plan_render;
 mod plan_selector;
+mod plan_version_pins;
 pub(crate) mod plugin;
 mod plugin_run;
 mod policy_coverage;

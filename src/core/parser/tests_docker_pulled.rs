@@ -1,4 +1,4 @@
-//! IMG-001: `type: docker` `state: pulled` digest validation.
+//! docker `state: pulled` digest-pin validation tests (PMAT-740).
 
 use super::*;
 
