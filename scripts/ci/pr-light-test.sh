@@ -8,6 +8,7 @@
 #   HOOK      ADVISORY (C4): the pr-light block of scripts/hooks/pre-push (the real text, cut before the slow checks) prints RED and exits 0 for a pushed
 #             trailer-less sha, 0 for a clean one and for a deletion.
 #   INSTALL   scripts/install-hooks.sh replaces an older copy of the forjar hook and still refuses a foreign one.
+#   OLDER     fmt, clippy and the quorum gate still BLOCK; red pr-light alone does not (stubbed cargo, real hook text).
 #   MUTANTS   pr-light.sh with (a) `exit 0` first, (b) the trailer leg removed, (c) the guard leg removed, and (d) a hook with no
 #             pr-light block: the contract/hook checks must FAIL against each.
 set -uo pipefail
@@ -115,6 +116,26 @@ printf '#!/bin/sh\necho foreign\n' > "$d/.git/hooks/pre-push"
 ( cd "$d" && bash scripts/install-hooks.sh >/dev/null 2>&1 ); expect "installer still refuses a foreign hook" 1 "$(tolow "$?")"
 total_fail=$((total_fail + fails))
 
+# oldchecks <hook>: the pre-existing checks (fmt, clippy, quorum) must still BLOCK; only pr-light is advisory.
+# A stub `cargo` on PATH and stub scripts make each check's verdict a variable; the hook text is the real one.
+oldchecks() {
+  local hk=$1 d rc
+  d=$(mktemp -d -p "$work"); mkdir -p "$d/scripts" "$d/bin"
+  : > "$d/Cargo.toml"
+  printf '#!/bin/sh\n[ "$1 $2" = "fmt --all" ] && [ -n "${FAIL_FMT:-}" ] && exit 1\n[ "$1" = clippy ] && [ -n "${FAIL_CLIPPY:-}" ] && exit 1\nexit 0\n' > "$d/bin/cargo"
+  printf '#!/bin/sh\n[ -n "${FAIL_QUORUM:-}" ] && exit 1\nexit 0\n' > "$d/scripts/quorum-gate.sh"
+  printf '#!/bin/sh\nexit 1\n' > "$d/scripts/pr-light.sh"   # pr-light is always RED here
+  chmod +x "$d/bin/cargo" "$d"/scripts/*.sh
+  runh() { ( cd "$d" && env PATH="$d/bin:$PATH" "$@" bash "$hk" <<<"refs/heads/work abc123 refs/heads/work 0" >/dev/null 2>&1 ); }
+  runh X=1; rc=$?;            expect "red pr-light alone does not block (advisory)" 0 "$rc"
+  runh FAIL_FMT=1; rc=$?;     expect "cargo fmt failure still blocks" 1 "$rc"
+  runh FAIL_CLIPPY=1; rc=$?;  expect "clippy failure still blocks" 1 "$rc"
+  runh FAIL_QUORUM=1; rc=$?;  expect "quorum gate failure still blocks" 1 "$rc"
+}
+
+echo "-- older checks still block (pr-light is the only advisory one)"
+fails=0; oldchecks "$repo/scripts/hooks/pre-push"; total_fail=$((total_fail + fails))
+
 echo "-- mutants (each must be CAUGHT)"
 sed '/^set -uo pipefail$/a exit 0' "$repo/scripts/pr-light.sh" > "$work/mut-a.sh"
 grep -v 'scripts/ticket-cite-lint.sh origin/main' "$repo/scripts/pr-light.sh" > "$work/mut-b.sh"
@@ -132,6 +153,13 @@ mkfx "$work/mut-d" "$repo/scripts/pr-light.sh"
 fails=0; hookcheck "$work/mut-d" "$work/hook-d" >/dev/null 2>&1
 if [ "$fails" -gt 0 ]; then echo "ok   mutant (d: hook without pr-light) caught ($fails failure(s))"
 else echo "FAIL mutant (d) SURVIVED"; total_fail=$((total_fail + 1)); fi
+
+# mutant (e): the final gate swallows every failure (the older checks become advisory too)
+sed 's/^    exit 1$/    exit 0/' "$repo/scripts/hooks/pre-push" > "$work/hook-e"
+cmp -s "$work/hook-e" "$repo/scripts/hooks/pre-push" && { echo "FAIL mutant (e) was not applied"; total_fail=$((total_fail + 1)); }
+fails=0; oldchecks "$work/hook-e" >/dev/null 2>&1
+if [ "$fails" -gt 0 ]; then echo "ok   mutant (e: older checks advisory) caught ($fails failure(s))"
+else echo "FAIL mutant (e) SURVIVED"; total_fail=$((total_fail + 1)); fi
 
 if [ "$total_fail" -ne 0 ]; then echo "pr-light-test: $total_fail FAILED"; exit 1; fi
 echo "pr-light-test: all ok"
