@@ -92,7 +92,7 @@ pub(crate) fn cmd_plan_with_pins(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
+    let data_faults = super::data_isolation::resolve_isolated(&mut config);
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
@@ -198,6 +198,14 @@ pub(crate) fn cmd_plan_with_pins(
     // that IS load-bearing is at execution, and it now runs there —
     // `cmd_apply_from_plan` checks before it reads the plan file at all.
     if let Some(out_path) = plan_out {
+        // A sealed plan is applied by `apply --plan-file`, which re-resolves
+        // data sources strictly and would fail on the same source. Sealing a
+        // partial plan would hand out a file nothing can apply, so refuse.
+        if !data_faults.is_empty() {
+            return super::data_isolation::fail_if_any(&data_faults).map_err(|e| {
+                format!("{e} (no plan file written: `apply --plan-file` cannot apply a plan with a failed data source)")
+            });
+        }
         // Refs #363: `seal_config`, not `config` — see the snapshot above.
         super::plan_file::save_plan_file(
             &plan,
@@ -208,7 +216,7 @@ pub(crate) fn cmd_plan_with_pins(
             out_path,
         )?;
         println!("Plan saved to {}", out_path.display());
-        return Ok(());
+        return super::data_isolation::fail_if_any(&data_faults);
     }
 
     if why {
@@ -233,7 +241,7 @@ pub(crate) fn cmd_plan_with_pins(
         refreshed.as_ref(),
     )?;
 
-    Ok(())
+    super::data_isolation::fail_if_any(&data_faults)
 }
 
 /// FJ-333: Decides what the hypothetical params are for this run — parses each
