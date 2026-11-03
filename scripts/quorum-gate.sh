@@ -753,6 +753,9 @@ if [ "$receipt_kind" != "triage" ]; then
         # path (src/a/tests_x.rs -> a::tests_x) equals or prefixes the filter AND
         # the filter's last segment is a #[test] fn in test_file at the pushed commit.
         local mod last
+        # What `cargo test --lib` is given. It is a SUBSTRING match, so the bare
+        # module path `a::tests_x` also runs `a::tests_x_1::*` (forjar#850).
+        lib_run_filter="$f_target"
         mod="${f_file#src/}"; mod="${mod%.rs}"; mod="${mod//\//::}"
         # src/a/mod.rs -> a ; src/lib.rs, src/main.rs, src/mod.rs -> crate root
         case "$mod" in mod|lib|main) mod="" ;; *::mod) mod="${mod%::mod}" ;; esac
@@ -761,7 +764,7 @@ if [ "$receipt_kind" != "triage" ]; then
         # in the module. A same-named fn in another module is not this file's.
         if [ -n "$mod" ]; then
             case "$f_target" in
-                "$mod") return 0 ;;
+                "$mod") lib_run_filter="$mod::"; return 0 ;;
                 "$mod"::*) ;;
                 *) return 1 ;;
             esac
@@ -788,7 +791,7 @@ if [ "$receipt_kind" != "triage" ]; then
             lib_filter_ok || die_hard "the lib filter '$f_target' does not name a test in $f_file
   A free-rider could point it at any green test: the filter must equal or start
   with test_file's module path (plus ::) and end in a #[test] fn defined there."
-            mode_args=(--lib "$f_target"); lib_mode=1
+            mode_args=(--lib "$lib_run_filter"); lib_mode=1
         else
             mode_args=(--test "$f_target"); lib_mode=0
         fi
