@@ -3,7 +3,7 @@
 //! Each case runs a REAL check against `localhost`, so it measures what the
 //! planner will be handed, not a claim about it.
 
-use super::{record, seeded};
+use super::{record, seeded, RecordFilters};
 use crate::core::planner;
 use crate::core::resolver;
 use crate::core::types::*;
@@ -120,7 +120,14 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
     let mut locks = HashMap::new();
     let preview = seeded(&config, None, None, &locks);
     assert!(locks.is_empty(), "the preview must not write");
-    let view = record(&config, None, None, &mut locks);
+    let view = record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     let ids =
         |l: &HashMap<String, StateLock>| l["local"].resources.keys().cloned().collect::<Vec<_>>();
     assert_eq!(ids(&view), ids(&preview), "record and seeded must agree");
@@ -136,7 +143,14 @@ fn record_writes_what_seeded_previews_into_the_locks_the_apply_saves() {
 fn record_leaves_a_failing_check_unrecorded() {
     let config = cfg(Some("false"));
     let mut locks = HashMap::new();
-    record(&config, None, None, &mut locks);
+    record(
+        &config,
+        None,
+        None,
+        None,
+        RecordFilters::default(),
+        &mut locks,
+    );
     assert!(!locks.contains_key("local"));
 }
 
@@ -149,4 +163,54 @@ fn a_completion_check_on_a_non_task_type_is_not_asked() {
     r.resource_type = ResourceType::File;
     let locks = seeded(&config, None, None, &HashMap::new());
     assert!(locks.get("local").is_none_or(|l| l.resources.is_empty()));
+}
+
+fn run_record(
+    config: &ForjarConfig,
+    scope: Option<&crate::core::executor::PlanScope>,
+    selectors: RecordFilters<'_>,
+) -> bool {
+    let mut locks = HashMap::new();
+    record(config, None, None, scope, selectors, &mut locks);
+    locks.contains_key("local")
+}
+
+#[test]
+fn record_honours_non_default_resource_and_group_selectors() {
+    // A passing check that `-r` / `-g` exclude is neither asked nor recorded;
+    // the matching selector still records it.
+    let config = cfg(Some("true"));
+    let sel = |resource, group| RecordFilters { resource, group };
+    assert!(run_record(&config, None, sel(Some("guarded"), None)));
+    assert!(!run_record(&config, None, sel(Some("other"), None)));
+    assert!(!run_record(&config, None, sel(None, Some("no-such-group"))));
+}
+
+#[test]
+fn out_of_plan_locks_stay_unrecorded() {
+    // `apply --plan-file`: a lockless resource the reviewed plan did not name is
+    // neither checked on the host nor recorded; one it did name is.
+    use crate::core::executor::PlanScope;
+    let config = cfg(Some("true"));
+    let plan_naming = |id: &str| {
+        PlanScope::from_plan(&ExecutionPlan {
+            name: "t".to_string(),
+            changes: vec![PlannedChange {
+                resource_id: id.to_string(),
+                machine: "local".to_string(),
+                resource_type: ResourceType::Task,
+                action: PlanAction::Create,
+                description: String::new(),
+            }],
+            execution_order: vec![id.to_string()],
+            to_create: 1,
+            to_update: 0,
+            to_destroy: 0,
+            unchanged: 0,
+            unprobed: Vec::new(),
+        })
+    };
+    let none = RecordFilters::default();
+    assert!(run_record(&config, Some(&plan_naming("guarded")), none));
+    assert!(!run_record(&config, Some(&plan_naming("other")), none));
 }
