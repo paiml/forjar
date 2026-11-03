@@ -1,6 +1,7 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
 use super::backup_sync_types::BackupSpec;
+use super::cloud_instance_types::CloudSpec;
 use super::disk_budget_types::ReclaimRule;
 use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
@@ -494,4 +495,8 @@ pub struct Resource {
     /// FJ-038: `nas_archive` declaration fields.
     #[serde(flatten)]
     pub archive: ArchiveSpec,
+
+    /// FJ-861: `cloud_instance` declaration fields.
+    #[serde(flatten)]
+    pub cloud: CloudSpec,
 }

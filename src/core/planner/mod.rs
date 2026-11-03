@@ -208,7 +208,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
-        | ResourceType::TmpReaper => "present",
+        | ResourceType::TmpReaper
+        | ResourceType::CloudInstance => "present",
     }
 }
 
@@ -429,7 +430,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::DiskBudget
             | ResourceType::BackupSync
             | ResourceType::NasArchive
-            | ResourceType::TmpReaper => format!("{resource_id}: create"),
+            | ResourceType::TmpReaper
+            | ResourceType::CloudInstance => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

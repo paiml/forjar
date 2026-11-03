@@ -101,6 +101,9 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
         ResourceType::Build => Coverage::NotApplicable("cross-compiles to another machine"),
         ResourceType::Task => Coverage::NotApplicable("runs arbitrary user commands"),
         ResourceType::Recipe => Coverage::NotApplicable("expanded before codegen; not a leaf type"),
+        ResourceType::CloudInstance => {
+            Coverage::NotApplicable("talks to a cloud provider; apply is gated")
+        }
     }
 }
 
@@ -128,6 +131,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::BackupSync,
     ResourceType::NasArchive,
     ResourceType::TmpReaper,
+    ResourceType::CloudInstance,
 ];
 
 /// Run every exercised resource type against reality.

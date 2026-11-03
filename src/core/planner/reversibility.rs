@@ -71,6 +71,9 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         // Destroying the resource removes the script and units, not the archived
         // data — the NAS copy outlives the declaration.
         ResourceType::NasArchive => Reversibility::Reversible,
+        // Destroying terminates a stateless, lifetime-bounded spot instance; it
+        // is re-creatable from the declaration and holds no data of its own.
+        ResourceType::CloudInstance => Reversibility::Reversible,
     }
 }
 
