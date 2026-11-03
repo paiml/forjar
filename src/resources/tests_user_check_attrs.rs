@@ -186,6 +186,7 @@ fn a_declared_primary_group_in_groups_still_converges() {
     // `groups: [course, courses, cop-inbox]` where `course` is the primary: the
     // live side drops the primary, so the declared side must too.
     let mut r = declared();
+    r.group = Some("course".to_string());
     r.groups.push("course".to_string());
     let (rc, out) = run(&r, "");
     assert_eq!(rc, 0, "{out}");
