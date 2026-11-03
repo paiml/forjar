@@ -69,6 +69,12 @@ pub struct PlanArgs {
     #[arg(long)]
     pub why: bool,
 
+    /// forjar#415: Consult the host before diffing — run the drift detectors
+    /// against every machine in scope and plan what they measured as drifted.
+    /// Writes no state.
+    #[arg(long)]
+    pub refresh: bool,
+
     /// Do not compare version pins with the latest upstream release
     ///
     /// forjar#613: plan asks each `github_release` binary for its live

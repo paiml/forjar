@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
+The apply gated `systemctl stop` on `is-active`, which is false for a
+`Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
+and for `deactivating`. The stop was skipped, the disable ran, the resource was
+recorded converged, and the unit was running again ten seconds later. The check
+asked the same question, so `--refresh` reported it unchanged. Apply and check
+now read `ActiveState`: stopped means `inactive` or `failed`. Apply stops a unit
+in any other state, leaves an inactive or unloaded one alone (a second apply is
+a no-op), and fails if the unit is still not stopped after the stop.
+
+**A multi-platform base resolves to the build target's manifest (PMAT-756, #756, IMG-001).**
+When a base layout's top entry is an OCI image index (or docker manifest list),
+`extract_base_layers` follows it to the `linux` manifest of the architecture it
+builds for: `amd64` on an x86_64 host, `arm64` on an aarch64 host, else the
+index's first entry. Tests name the architecture instead of reading the host, so
+they hold on both chips.
+
 **`drift` and `plan` compare a `github_release`'s live `--version` with its pin
 and with the latest upstream release (PMAT-613, #613).** Both commands trusted
 the lock and asked only whether the binary existed. paiml/infra pinned ollama to
