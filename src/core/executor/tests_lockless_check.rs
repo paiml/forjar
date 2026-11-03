@@ -178,3 +178,18 @@ fn record_honours_non_default_resource_and_group_selectors() {
         "non-matching -g is excluded"
     );
 }
+
+#[test]
+fn a_completion_check_on_a_non_task_type_is_not_asked() {
+    // `file` ignores completion_check; its own check is `test -f`, which would
+    // seed a stale file as converged and never write the declared content.
+    let mut config = cfg(Some("true"));
+    let r = config.resources.get_mut("guarded").unwrap();
+    r.resource_type = ResourceType::File;
+    // An existing directory makes the type's own `test -d` PASS, so only the
+    // type guard keeps it out (a missing path would fail the check anyway).
+    r.state = Some("directory".to_string());
+    r.path = Some("/".to_string());
+    let locks = seeded(&config, None, None, &HashMap::new());
+    assert!(locks.get("local").is_none_or(|l| l.resources.is_empty()));
+}

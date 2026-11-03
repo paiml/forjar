@@ -64,10 +64,20 @@ pub(crate) struct RecordFilters<'a> {
     pub group: Option<&'a str>,
 }
 
+/// Do this type's own check scripts read `completion_check`?
+fn consults_completion_check(t: &ResourceType) -> bool {
+    matches!(t, ResourceType::Task | ResourceType::Build)
+}
+
 /// Is this resource one the lockless check applies to at all?
+///
+/// Only types whose own check_script consults `completion_check`: on any other
+/// type the field is ignored and the type's check (e.g. `test -f`) would seed
+/// a stale resource as converged.
 fn declares_a_check(resource: &Resource, tag_filter: Option<&str>) -> bool {
     resource.completion_check.is_some()
         && !resource.phony
+        && consults_completion_check(&resource.resource_type)
         && tag_filter.is_none_or(|t| resource.tags.iter().any(|x| x == t))
 }
 
