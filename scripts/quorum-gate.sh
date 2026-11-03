@@ -753,18 +753,22 @@ if [ "$receipt_kind" != "triage" ]; then
         # path (src/a/tests_x.rs -> a::tests_x) equals or prefixes the filter AND
         # the filter's last segment is a #[test] fn in test_file at the pushed commit.
         local mod last
-        # What `cargo test --lib` is given. It is a SUBSTRING match, so the bare
-        # module path `a::tests_x` also runs `a::tests_x_1::*` (forjar#850).
-        lib_run_filter="$f_target"
+        # What `cargo test --lib` is given. A filter is a SUBSTRING match, so the
+        # bare module path `a::tests_x` also runs `a::tests_x_1::*`, and `tests::`
+        # runs every `x::tests::*` (forjar#850). A module-wide filter is therefore
+        # `$mod::` AND checked below against `-- --list`; a fn-level filter is
+        # run `--exact`, so `f` cannot also run `f_2` or `z::f`.
+        lib_run_filter="$f_target"; lib_exact=1
         mod="${f_file#src/}"; mod="${mod%.rs}"; mod="${mod//\//::}"
         # src/a/mod.rs -> a ; src/lib.rs, src/main.rs, src/mod.rs -> crate root
         case "$mod" in mod|lib|main) mod="" ;; *::mod) mod="${mod%::mod}" ;; esac
+        lib_mod="$mod"
         # The filter must sit in test_file's module: equal to it (every test of
         # that module) or start with it plus `::`. At the crate root any path is
         # in the module. A same-named fn in another module is not this file's.
         if [ -n "$mod" ]; then
             case "$f_target" in
-                "$mod") lib_run_filter="$mod::"; return 0 ;;
+                "$mod") lib_run_filter="$mod::"; lib_exact=0; return 0 ;;
                 "$mod"::*) ;;
                 *) return 1 ;;
             esac
@@ -803,7 +807,22 @@ if [ "$receipt_kind" != "triage" ]; then
         # deleted 2,556 tracked files from the branch under review.
         unset_args=()
         while IFS= read -r v; do unset_args+=(-u "$v"); done < <(compgen -e | grep '^GIT_' || true)
-        test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet 2>&1)" \
+        test_tail=()
+        if [ "$lib_mode" = 1 ]; then
+            [ "$lib_exact" = 1 ] && test_tail=(-- --exact)
+            # The filter is a substring: list what it selects and hold every name
+            # to test_file's module before running any of it (forjar#850).
+            list_args=(-- --list); [ "$lib_exact" = 1 ] && list_args+=(--exact)
+            listed="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" "${list_args[@]}" 2>/dev/null \
+                | sed -n 's/: test$//p')"
+            [ -n "$listed" ] || die_hard "the lib filter '$f_target' lists no test: it names nothing, so it proves nothing"
+            if [ -n "$lib_mod" ]; then
+                bad="$(printf '%s\n' "$listed" | awk -v p="$lib_mod::" 'index($0, p) != 1' | head -n 3)"
+                [ -z "$bad" ] || die_hard "the lib filter '$f_target' also selects tests outside $f_file's module $lib_mod:
+$(printf '%s\n' "$bad" | sed 's/^/     /')"
+            fi
+        fi
+        test_out="$(env "${unset_args[@]}" cargo test "${mode_args[@]}" --quiet "${test_tail[@]}" 2>&1)" \
             || die_hard "the falsification test does NOT pass on this tree:
 $(printf '%s\n' "$test_out" | tail -n 15 | sed 's/^/     /')"
         if [ "$lib_mode" = 1 ] && ! printf '%s\n' "$test_out" | grep -Eq '[1-9][0-9]* passed'; then
