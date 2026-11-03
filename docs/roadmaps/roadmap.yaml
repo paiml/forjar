@@ -5308,6 +5308,14 @@ roadmap:
   spec: null
   acceptance_criteria:
   - forjar#777
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
+  epic: 764
 - id: PMAT-789
   github_issue: 789
   item_type: task
@@ -5368,9 +5376,6 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.0
-  notes: null
-  epic: 764
   notes: null
   epic: 670
 - id: PMAT-5880
