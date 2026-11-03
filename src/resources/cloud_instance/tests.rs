@@ -207,7 +207,7 @@ fn apply_creates_one_bounded_spot_instance_when_every_gate_passes() {
         "terminate",
         "shutdown -h +60",
         DIGEST,
-        "pool=spot-rmedia-pr",
+        "Key=pool,Value=spot-rmedia-pr",
     ] {
         assert!(log.contains(want), "missing {want:?} in:\n{log}");
     }
