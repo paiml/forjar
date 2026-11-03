@@ -154,6 +154,10 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         types::MachineTarget::Single(m) => m.clone(),
         types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
     };
+    // Printed, not rendered: show the resource and its data values as written.
+    let mut shown = config.clone();
+    resolver::decode_literals(&mut shown)?;
+    let raw_resource = shown.resources.get(resource_id).unwrap_or(resource);
     let resolved = resolver::resolve_resource_templates(
         resource,
         &config.params,
@@ -169,7 +173,7 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
     if json {
         return explain_json(
             resource_id,
-            resource,
+            raw_resource,
             &machine_name,
             transport_type,
             &apply_script,
@@ -179,7 +183,7 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
     }
 
     // Text output — strip null/false/empty defaults for clean YAML
-    let raw_yaml = explain_yaml(resource)?;
+    let raw_yaml = explain_yaml(raw_resource)?;
     println!("{}", bold("1. Raw Resource Definition"));
     println!("{}", dim("─────────────────────────────"));
     println!("{raw_yaml}");

@@ -17,7 +17,8 @@ pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::{
     dependents_of_failures, load_resolved_config, load_resolved_config_for_render,
     load_resolved_config_isolated, load_resolved_config_lenient, load_resolved_config_with,
-    manifest_dir, resolve_data_sources_isolated, resolve_data_sources_with_base, DataSourceFailure,
+    manifest_dir, outputs_of_failures, resolve_data_sources_isolated,
+    resolve_data_sources_with_base, DataSourceFailure,
 };
 pub use data_subst::decode_literals;
 pub(crate) use data_subst::require_known_data_refs;

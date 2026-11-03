@@ -28,6 +28,9 @@ pub(crate) fn load_tolerant(file: &std::path::Path) -> Result<types::ForjarConfi
             for id in resolver::dependents_of_failures(config, failures).keys() {
                 config.resources.shift_remove(id);
             }
+            for name in resolver::outputs_of_failures(config, failures).keys() {
+                config.outputs.shift_remove(name);
+            }
             Vec::new()
         },
     )
@@ -45,6 +48,10 @@ fn drop_dependents(
     for (id, why) in &skipped {
         eprintln!("FAILED  {id}: {why} (resource skipped)");
         config.resources.shift_remove(id);
+    }
+    for (name, why) in &resolver::outputs_of_failures(config, failures) {
+        eprintln!("FAILED  output {name}: {why} (output skipped)");
+        config.outputs.shift_remove(name);
     }
     for f in failures {
         eprintln!("data source '{}' failed: {}", f.key, f.message);

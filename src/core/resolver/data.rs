@@ -446,3 +446,25 @@ pub fn dependents_of_failures(
         hit.extend(next);
     }
 }
+
+/// `outputs:` entries that cannot be resolved because a failed data source feeds them.
+/// Maps output name -> message naming the source. They are skipped with the resources, so a
+/// failed source never aborts the apply's post-actions at `resolve_outputs`.
+pub fn outputs_of_failures(
+    config: &ForjarConfig,
+    failures: &[DataSourceFailure],
+) -> std::collections::BTreeMap<String, String> {
+    config
+        .outputs
+        .iter()
+        .filter_map(|(name, out)| {
+            let f = failures
+                .iter()
+                .find(|f| references_data_key(&out.value, &f.key))?;
+            Some((
+                name.clone(),
+                format!("data source '{}' failed: {}", f.key, f.message),
+            ))
+        })
+        .collect()
+}
