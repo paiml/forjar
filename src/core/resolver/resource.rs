@@ -153,6 +153,14 @@ fn resolve_build_and_overlay_fields(
     r.budget_schedule = resolve_opt(&r.budget_schedule, params, machines, secrets)?;
     // tmp_reaper: the age and glob decide what gets deleted.
     r.max_age = resolve_opt(&r.max_age, params, machines, secrets)?;
+    // FJ-861: cloud_instance fields feed the provider call and the gates.
+    r.cloud.region = resolve_opt(&r.cloud.region, params, machines, secrets)?;
+    r.cloud.instance_type = resolve_opt(&r.cloud.instance_type, params, machines, secrets)?;
+    r.cloud.max_price = resolve_opt(&r.cloud.max_price, params, machines, secrets)?;
+    r.cloud.budget_cap_usd_day =
+        resolve_opt(&r.cloud.budget_cap_usd_day, params, machines, secrets)?;
+    r.cloud.kill_switch = resolve_opt(&r.cloud.kill_switch, params, machines, secrets)?;
+    r.cloud.parity_gate = resolve_opt(&r.cloud.parity_gate, params, machines, secrets)?;
     r.pattern = resolve_opt(&r.pattern, params, machines, secrets)?;
     for rule in &mut r.budget_reclaim {
         rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
