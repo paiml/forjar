@@ -2,6 +2,18 @@ roadmap_version: '1.0'
 github_enabled: true
 github_repo: paiml/forjar
 roadmap:
+- id: PMAT-828
+  github_issue: 828
+  item_type: task
+  title: 'data source fault isolation: failing source skips only dependents'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-29T08:11:51Z
+  updated: 2026-10-29T08:11:51Z
+  spec: null
+  acceptance_criteria:
+  - Operator 08:05Z. infra#2620.
 - id: PMAT-001
   github_issue: null
   item_type: task

@@ -184,6 +184,16 @@ pub fn manifest_dir(file: &Path) -> &Path {
         .unwrap_or_else(|| Path::new("."))
 }
 
+/// Resolve one source by type, reading relative `file`/`forjar-state` paths from `base`.
+fn resolve_one_source(key: &str, source: &DataSource, base: &Path) -> Result<String, String> {
+    match source.source_type {
+        DataSourceType::File => resolve_file_source(key, source, base),
+        DataSourceType::Command => resolve_command_source(key, source),
+        DataSourceType::Dns => resolve_dns_source(key, source),
+        DataSourceType::ForjarState => resolve_forjar_state_source(key, source, base),
+    }
+}
+
 /// FJ-223: Resolve all data sources into `config.data_values`, reading relative
 /// `file`/`forjar-state` paths from `base` (the manifest's directory).
 ///
@@ -191,6 +201,7 @@ pub fn manifest_dir(file: &Path) -> &Path {
 /// deliberately NO variant without a base: the one that existed let `plan`,
 /// `apply` and `lock` resolve against the working directory while `show`
 /// resolved against the manifest, so one manifest meant two things.
+/// Strict: the first failing source aborts. See [`resolve_data_sources_isolated`].
 pub fn resolve_data_sources_with_base(
     config: &mut ForjarConfig,
     base: &Path,
@@ -200,14 +211,7 @@ pub fn resolve_data_sources_with_base(
     super::data_subst::require_known_data_refs(config)?;
     let mut resolved = DataValues::new();
     for (key, source) in &config.data {
-        let value = match source.source_type {
-            DataSourceType::File => resolve_file_source(key, source, base),
-            DataSourceType::Command => resolve_command_source(key, source),
-            DataSourceType::Dns => resolve_dns_source(key, source),
-            DataSourceType::ForjarState => resolve_forjar_state_source(key, source, base),
-        }?;
-
-        resolved.insert(key.clone(), value);
+        resolved.insert(key.clone(), resolve_one_source(key, source, base)?);
     }
     config.data_values = resolved;
     Ok(())
@@ -301,6 +305,16 @@ pub(crate) fn finish_resolving(
 ) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     resolve_data_sources_with_base(&mut config, base)
         .map_err(crate::core::error::ForjarError::validation)?;
+    finish_substituting(config, outputs, form)
+}
+
+/// Everything in [`finish_resolving`] after the `data:` sources have run: write their
+/// values into the config's strings and, with `outputs`, resolve `outputs:` once.
+fn finish_substituting(
+    mut config: ForjarConfig,
+    outputs: bool,
+    form: Form,
+) -> Result<ForjarConfig, crate::core::error::ForjarError> {
     super::data_subst::substitute_data_refs(&mut config, form == Form::Render || outputs)
         .map_err(crate::core::error::ForjarError::validation)?;
     if outputs {
@@ -322,4 +336,113 @@ pub(crate) fn finish_resolving(
         }
     }
     Ok(config)
+}
+
+/// A data source that failed to resolve (recorded, not fatal).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataSourceFailure {
+    pub key: String,
+    pub message: String,
+}
+
+/// Fault-isolating variant of [`resolve_data_sources_with_base`]: every source is tried,
+/// failures are returned instead of aborting, and healthy sources land in
+/// `config.data_values`.
+pub fn resolve_data_sources_isolated(
+    config: &mut ForjarConfig,
+    base: &Path,
+) -> Vec<DataSourceFailure> {
+    let mut failures = Vec::new();
+    let mut resolved = DataValues::new();
+    for (key, source) in &config.data {
+        match resolve_one_source(key, source, base) {
+            Ok(v) => {
+                resolved.insert(key.clone(), v);
+            }
+            Err(message) => failures.push(DataSourceFailure {
+                key: key.clone(),
+                message,
+            }),
+        }
+    }
+    config.data_values = resolved;
+    failures
+}
+
+/// [`load_resolved_config_with`] for `plan` and `apply`, which isolate data-source
+/// faults (PMAT-828): a failing source no longer aborts the load. `drop_dependents`
+/// receives the config and the failures BEFORE any `{{data.x}}` is written in, removes
+/// the resources a failed source feeds, and returns the messages to report. Dropping
+/// them first is what lets substitution run over the rest: a failed key has no value.
+/// An undeclared `{{data.KEY}}` is still a hard error, checked before any source runs.
+pub fn load_resolved_config_isolated(
+    path: &Path,
+    prepare: impl FnOnce(&mut ForjarConfig) -> Result<(), String>,
+    drop_dependents: impl FnOnce(&mut ForjarConfig, &[DataSourceFailure]) -> Vec<String>,
+) -> Result<(ForjarConfig, Vec<String>), String> {
+    let mut config = crate::core::parser::parse_and_validate(path)?;
+    prepare(&mut config)?;
+    super::data_subst::require_known_data_refs(&config)?;
+    let failures = resolve_data_sources_isolated(&mut config, manifest_dir(path));
+    let messages = if failures.is_empty() {
+        Vec::new()
+    } else {
+        drop_dependents(&mut config, &failures)
+    };
+    let config = finish_substituting(config, false, Form::Render)
+        .map_err(crate::core::error::ForjarError::into_message)?;
+    Ok((config, messages))
+}
+
+/// True when `text` holds a `{{ ... data.<key> ... }}` template reference.
+fn references_data_key(text: &str, key: &str) -> bool {
+    let needle = format!("data.{key}");
+    text.split("{{").skip(1).any(|rest| {
+        let inner = rest.split("}}").next().unwrap_or("");
+        inner.match_indices(&needle).any(|(i, _)| {
+            let before_ok = inner[..i]
+                .chars()
+                .next_back()
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-' || c == '.'));
+            let after_ok = inner[i + needle.len()..]
+                .chars()
+                .next()
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-'));
+            before_ok && after_ok
+        })
+    })
+}
+
+/// Resources that cannot be planned because a failed data source feeds them:
+/// those whose templates reference it, plus (transitively) anything that
+/// `depends_on` one of them. Maps resource id -> message naming the source.
+pub fn dependents_of_failures(
+    config: &ForjarConfig,
+    failures: &[DataSourceFailure],
+) -> std::collections::BTreeMap<String, String> {
+    let mut hit = std::collections::BTreeMap::new();
+    for (id, res) in &config.resources {
+        let text = serde_yaml_ng::to_string(res).unwrap_or_default();
+        if let Some(f) = failures.iter().find(|f| references_data_key(&text, &f.key)) {
+            hit.insert(
+                id.clone(),
+                format!("data source '{}' failed: {}", f.key, f.message),
+            );
+        }
+    }
+    loop {
+        let next: Vec<(String, String)> = config
+            .resources
+            .iter()
+            .filter(|(id, _)| !hit.contains_key(*id))
+            .filter_map(|(id, res)| {
+                let dep = res.depends_on.iter().find(|d| hit.contains_key(*d))?;
+                Some((id.clone(), format!("depends on skipped resource '{dep}'")))
+            })
+            .collect();
+        if next.is_empty() {
+            return hit;
+        }
+        hit.extend(next);
+    }
 }

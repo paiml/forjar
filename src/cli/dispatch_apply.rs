@@ -1,6 +1,5 @@
 //! Apply command dispatch — pre-checks, execution, and post-processing.
 
-use super::helpers::*;
 use super::helpers_state::*;
 #[allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
@@ -101,7 +100,7 @@ pub(super) fn check_cost_limit(
     tag: Option<&str>,
     limit: usize,
 ) -> Result<(), String> {
-    let config = parse_and_validate_for_render(file)?;
+    let config = super::data_isolation::load_tolerant(file)?;
     let order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, sd, machine)?;
     let plan = planner::plan(&config, &order, &locks, tag);
@@ -130,7 +129,7 @@ pub(super) fn check_operator_auth(
     operator: Option<&str>,
     machine: Option<&str>,
 ) -> Result<(), String> {
-    let config = super::helpers::parse_and_validate_for_render(file)?;
+    let config = super::data_isolation::load_tolerant(file)?;
     let identity = types::OperatorIdentity::resolve(operator);
     let in_scope = |name: &str| machine.is_none_or(|m| m == name);
     let scoped = config.machines.iter().filter(|(name, _)| in_scope(name));
