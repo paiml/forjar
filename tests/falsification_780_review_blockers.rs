@@ -250,3 +250,71 @@ resources:\n\x20 r: {{ type: file, machine: local, path: {}, content: \"x\\n\" }
         "the bad output must be named:\n{so}{se}"
     );
 }
+
+/// Apply `body` (named `r780`) into `state`; returns the lock text.
+fn apply_lock(dir: &tempfile::TempDir, state: &std::path::Path, outputs: &str) -> String {
+    let target = dir.path().join("t.txt");
+    let body = format!(
+        "version: \"1.0\"\nname: r780\n\
+machines: {{ local: {{ hostname: localhost, addr: 127.0.0.1 }} }}\n\
+outputs:\n{outputs}\
+resources:\n\x20 r: {{ type: file, machine: local, path: {}, content: \"x\\n\" }}\n",
+        target.display()
+    );
+    let cfg = write_cfg(dir, &body);
+    let (_ok, so, se) = run(&[
+        "apply",
+        "-f",
+        cfg.to_str().unwrap(),
+        "--state-dir",
+        state.to_str().unwrap(),
+        "--yes",
+    ]);
+    let lock = fs::read_to_string(state.join("forjar.lock.yaml")).unwrap_or_default();
+    assert!(!lock.is_empty(), "no lock written:\n{so}{se}");
+    lock
+}
+
+/// Review round 5: when EVERY output fails to resolve this run, the previously persisted
+/// values stay in the lock (they are not withdrawn).
+#[test]
+fn all_outputs_failing_keeps_the_previous_lock_values() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    let first = apply_lock(
+        &dir,
+        &state,
+        "\x20 a: { value: \"old-a-780\" }\n\x20 b: { value: \"old-b-780\" }\n",
+    );
+    assert!(first.contains("old-a-780") && first.contains("old-b-780"));
+    let second = apply_lock(
+        &dir,
+        &state,
+        "\x20 a: { value: \"{{secrets.nope}}\" }\n\x20 b: { value: \"{{secrets.nope}}\" }\n",
+    );
+    assert!(second.contains("old-a-780"), "a withdrawn:\n{second}");
+    assert!(second.contains("old-b-780"), "b withdrawn:\n{second}");
+}
+
+/// Review round 5: one good, one bad: the good output is updated, the bad keeps its old value.
+#[test]
+fn mixed_outputs_update_the_good_and_keep_the_bad() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    apply_lock(
+        &dir,
+        &state,
+        "\x20 a: { value: \"old-a-780\" }\n\x20 b: { value: \"old-b-780\" }\n",
+    );
+    let second = apply_lock(
+        &dir,
+        &state,
+        "\x20 a: { value: \"new-a-780\" }\n\x20 b: { value: \"{{secrets.nope}}\" }\n",
+    );
+    assert!(second.contains("new-a-780"), "a not updated:\n{second}");
+    assert!(!second.contains("old-a-780"), "a stale:\n{second}");
+    assert!(
+        second.contains("old-b-780"),
+        "b lost its old value:\n{second}"
+    );
+}

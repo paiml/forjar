@@ -193,7 +193,20 @@ pub(super) fn apply_post_actions(
         for msg in &failed {
             eprintln!("Warning: {msg}; not persisted");
         }
-        state::persist_outputs(state_dir, &stack, &resolved, config.secrets.ephemeral)?;
+        // A failed output keeps the value it had in the lock; it is not withdrawn.
+        let unresolved: Vec<String> = config
+            .outputs
+            .keys()
+            .filter(|k| !resolved.contains_key(*k))
+            .cloned()
+            .collect();
+        state::persist_outputs_keeping(
+            state_dir,
+            &stack,
+            &resolved,
+            config.secrets.ephemeral,
+            &unresolved,
+        )?;
     }
 
     // FJ-1200: Run post-apply check blocks

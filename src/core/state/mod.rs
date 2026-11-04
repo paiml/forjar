@@ -311,6 +311,18 @@ pub fn persist_outputs(
     outputs: &indexmap::IndexMap<String, String>,
     ephemeral: bool,
 ) -> Result<(), String> {
+    persist_outputs_keeping(state_dir, config_name, outputs, ephemeral, &[])
+}
+
+/// [`persist_outputs`], where the outputs named in `unresolved` failed to resolve this run
+/// and keep the value already in the lock instead of being withdrawn.
+pub fn persist_outputs_keeping(
+    state_dir: &Path,
+    config_name: &str,
+    outputs: &indexmap::IndexMap<String, String>,
+    ephemeral: bool,
+    unresolved: &[String],
+) -> Result<(), String> {
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
     let values = if ephemeral {
         ephemeral::redact_outputs(outputs, true)
@@ -320,7 +332,7 @@ pub fn persist_outputs(
     // forjar#469: MERGE, do not replace. Assigning `lock.outputs` deleted every
     // other stack's outputs in a shared state dir — and with them every
     // `{{stack.*}}` reference that resolved through them.
-    stamp::merge_outputs(&mut lock, config_name, &values);
+    stamp::merge_outputs_keeping(&mut lock, config_name, &values, unresolved);
     save_global_lock(state_dir, &lock)
 }
 
