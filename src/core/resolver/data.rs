@@ -171,21 +171,109 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     outputs_as_json(key, outputs)
 }
 
+/// Resolve one source by type.
+fn resolve_one_source(key: &str, source: &DataSource) -> Result<String, String> {
+    match source.source_type {
+        DataSourceType::File => resolve_file_source(key, source),
+        DataSourceType::Command => resolve_command_source(key, source),
+        DataSourceType::Dns => resolve_dns_source(key, source),
+        DataSourceType::ForjarState => resolve_forjar_state_source(key, source),
+    }
+}
+
 /// FJ-223: Resolve all data sources and inject values into config params.
 /// Data sources are stored with `__data__` prefix to avoid conflicts.
+/// Strict: the first failing source aborts. See [`resolve_data_sources_isolated`].
 pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
     for (key, source) in &config.data {
-        let value = match source.source_type {
-            DataSourceType::File => resolve_file_source(key, source),
-            DataSourceType::Command => resolve_command_source(key, source),
-            DataSourceType::Dns => resolve_dns_source(key, source),
-            DataSourceType::ForjarState => resolve_forjar_state_source(key, source),
-        }?;
-
+        let value = resolve_one_source(key, source)?;
         config.params.insert(
             format!("__data__{key}"),
             serde_yaml_ng::Value::String(value),
         );
     }
     Ok(())
+}
+
+/// A data source that failed to resolve (recorded, not fatal).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataSourceFailure {
+    pub key: String,
+    pub message: String,
+}
+
+/// Fault-isolating variant of [`resolve_data_sources`]: every source is tried,
+/// failures are returned instead of aborting, and healthy sources are injected.
+pub fn resolve_data_sources_isolated(config: &mut ForjarConfig) -> Vec<DataSourceFailure> {
+    let mut failures = Vec::new();
+    let mut resolved = Vec::new();
+    for (key, source) in &config.data {
+        match resolve_one_source(key, source) {
+            Ok(v) => resolved.push((key.clone(), v)),
+            Err(message) => failures.push(DataSourceFailure {
+                key: key.clone(),
+                message,
+            }),
+        }
+    }
+    for (key, value) in resolved {
+        config.params.insert(
+            format!("__data__{key}"),
+            serde_yaml_ng::Value::String(value),
+        );
+    }
+    failures
+}
+
+/// True when `text` holds a `{{ ... data.<key> ... }}` template reference.
+fn references_data_key(text: &str, key: &str) -> bool {
+    let needle = format!("data.{key}");
+    text.split("{{").skip(1).any(|rest| {
+        let inner = rest.split("}}").next().unwrap_or("");
+        inner.match_indices(&needle).any(|(i, _)| {
+            let before_ok = inner[..i]
+                .chars()
+                .next_back()
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-' || c == '.'));
+            let after_ok = inner[i + needle.len()..]
+                .chars()
+                .next()
+                .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '-'));
+            before_ok && after_ok
+        })
+    })
+}
+
+/// Resources that cannot be planned because a failed data source feeds them:
+/// those whose templates reference it, plus (transitively) anything that
+/// `depends_on` one of them. Maps resource id -> message naming the source.
+pub fn dependents_of_failures(
+    config: &ForjarConfig,
+    failures: &[DataSourceFailure],
+) -> std::collections::BTreeMap<String, String> {
+    let mut hit = std::collections::BTreeMap::new();
+    for (id, res) in &config.resources {
+        let text = serde_yaml_ng::to_string(res).unwrap_or_default();
+        if let Some(f) = failures.iter().find(|f| references_data_key(&text, &f.key)) {
+            hit.insert(
+                id.clone(),
+                format!("data source '{}' failed: {}", f.key, f.message),
+            );
+        }
+    }
+    loop {
+        let next: Vec<(String, String)> = config
+            .resources
+            .iter()
+            .filter(|(id, _)| !hit.contains_key(*id))
+            .filter_map(|(id, res)| {
+                let dep = res.depends_on.iter().find(|d| hit.contains_key(*d))?;
+                Some((id.clone(), format!("depends on skipped resource '{dep}'")))
+            })
+            .collect();
+        if next.is_empty() {
+            return hit;
+        }
+        hit.extend(next);
+    }
 }
