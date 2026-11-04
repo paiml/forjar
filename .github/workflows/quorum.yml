@@ -76,15 +76,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Verify quorum receipt
+        # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
+        # not a committed .quorum/<branch>.json: a receipt binds to the head
+        # sha, and committing it would move the head (loop). Fails closed on a
+        # missing store or file.
         env:
-          # The gate resolves the branch from the ref being pushed; in CI the PR
-          # head ref is the equivalent.
-          PR_HEAD: ${{ github.head_ref }}
-          # WHO is being gated. Locally this falls back to `git config user.email`;
-          # in CI there is no such identity, so the PR AUTHOR is passed explicitly.
-          # Without it every CI run would resolve to "" and fall to advisory --
-          # the gate would be enforced locally and toothless exactly where it is
-          # the only thing standing between a PR and main.
-          QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          QUORUM_REPO: ${{ github.repository }}
         run: |
-          ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"
+          ./scripts/quorum-store-gate.sh
