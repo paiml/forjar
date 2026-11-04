@@ -75,6 +75,25 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Fetch gate from the PR base commit
+        # JUDGE FROM BASE: the gate and its allowlist come from the PR BASE commit, never
+        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
+        # the base lacks either file.
+        # BOOTSTRAP: the very first merge of this gate (PR #874) has no base copy, so this
+        # step fails there by design; that one merge cannot be judged from base and is a
+        # one-off for the repo owner. The test-only author override is deliberately NOT set anywhere
+        # here; the gate ignores it in CI.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          d="$RUNNER_TEMP/quorum-base-gate"
+          rm -rf "${d:?}"; mkdir -p "$d/scripts"
+          git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
+            || { echo "FAIL: scripts/quorum-store-gate.sh absent on PR base (bootstrap case)" >&2; exit 1; }
+          git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
+            || { echo "FAIL: scripts/quorum-models.json absent on PR base (bootstrap case)" >&2; exit 1; }
+          echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
+
       - name: Verify quorum receipt
         # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
         # not a committed .quorum/<branch>.json: a receipt binds to the head
@@ -83,8 +102,8 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # author model ids come from the PR commits' Co-Authored-By trailers
+          # author model ids come from the PR commits' Co-Authored-By trailers (per commit)
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           QUORUM_REPO: ${{ github.repository }}
         run: |
-          ./scripts/quorum-store-gate.sh
+          bash "$QUORUM_BASE_GATE"

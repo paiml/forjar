@@ -50,7 +50,12 @@ fn run(body: Option<String>, file_sha: &str, head: &str) -> Output {
         .env("QUORUM_STORE", &store)
         .env("QUORUM_REPO", "paiml/forjar")
         .env("PR_NUMBER", "798")
-        .env("PR_AUTHOR_MODELS", "Claude Sonnet 5.5")
+        .env(
+            "PR_AUTHOR_MODELS",
+            "Claude Sonnet 5.5 <noreply@anthropic.com>",
+        )
+        .env("QUORUM_TEST_MODE", "1")
+        .env_remove("GITHUB_ACTIONS")
         .env("PR_HEAD_SHA", head)
         .output()
         .unwrap()

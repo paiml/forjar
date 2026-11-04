@@ -46,6 +46,7 @@ fn run_cfg(
     std::fs::write(d.join(format!("{SHA}.json")), body).unwrap();
     let mut c = Command::new("bash");
     c.arg(gate())
+        .env_remove("GITHUB_ACTIONS")
         .env_remove("PR_AUTHOR_MODELS")
         .env_remove("PR_BASE_SHA")
         .env("QUORUM_STORE", &store)
@@ -53,7 +54,7 @@ fn run_cfg(
         .env("PR_NUMBER", "798")
         .env("PR_HEAD_SHA", SHA);
     if let Some(a) = authors {
-        c.env("PR_AUTHOR_MODELS", a);
+        c.env("PR_AUTHOR_MODELS", a).env("QUORUM_TEST_MODE", "1");
     }
     for (k, v) in extra_env {
         c.env(k, v);
@@ -65,9 +66,14 @@ fn run_cfg(
 }
 
 fn sonnet_passes(body: &str) -> bool {
-    run_cfg(body.as_bytes(), Some("Claude Sonnet 5.5"), &[], None)
-        .status
-        .success()
+    run_cfg(
+        body.as_bytes(),
+        Some("Claude Sonnet 5.5 <noreply@anthropic.com>"),
+        &[],
+        None,
+    )
+    .status
+    .success()
 }
 
 fn rec3(lanes: &[String]) -> String {
@@ -170,7 +176,7 @@ fn receipt_author_must_match_a_commit_trailer() {
     // trailer says Opus authored; receipt claims Sonnet authored, so the Opus lane
     // would wrongly count if the receipt were believed. It must FAIL (mismatch).
     let body = rec3(&three_good());
-    let o = run_cfg(body.as_bytes(), Some("Claude Opus 5.5"), &[], None);
+    let o = run_cfg(body.as_bytes(), Some("Claude Opus 5.5 <a@b.c>"), &[], None);
     assert!(!o.status.success());
 }
 
@@ -182,7 +188,7 @@ fn trailer_author_lane_is_excluded_even_if_receipt_is_honest() {
         lane("c", "gemini-3", "PASS"),
     ];
     let body = receipt("claude-opus-5-5", &l, "");
-    let o = run_cfg(body.as_bytes(), Some("Claude Opus 5.5"), &[], None);
+    let o = run_cfg(body.as_bytes(), Some("Claude Opus 5.5 <a@b.c>"), &[], None);
     assert!(!o.status.success(), "opus author + opus lane leaves 2");
     // control: Opus author with three non-opus lanes passes
     let l = vec![
@@ -191,9 +197,11 @@ fn trailer_author_lane_is_excluded_even_if_receipt_is_honest() {
         lane("c", "gemini-3", "PASS"),
     ];
     let body = receipt("claude-opus-5-5", &l, "");
-    assert!(run_cfg(body.as_bytes(), Some("Claude Opus 5.5"), &[], None)
-        .status
-        .success());
+    assert!(
+        run_cfg(body.as_bytes(), Some("Claude Opus 5.5 <a@b.c>"), &[], None)
+            .status
+            .success()
+    );
 }
 
 #[test]
@@ -201,7 +209,7 @@ fn two_trailer_authors_exclude_both_ids() {
     let body = rec3(&three_good());
     let o = run_cfg(
         body.as_bytes(),
-        Some("Claude Sonnet 5.5\nClaude Opus 5.5"),
+        Some("Claude Sonnet 5.5 <a@b.c>\nClaude Opus 5.5 <a@b.c>"),
         &[],
         None,
     );
@@ -215,8 +223,8 @@ fn no_or_unmapped_trailer_fails() {
         None,
         Some(""),
         Some("\n"),
-        Some("Some Human"),
-        Some("Claude Sonnet 5.5\nSome Human"),
+        Some("Some Human <a@b.c>"),
+        Some("Claude Sonnet 5.5 <a@b.c>\nSome Human <a@b.c>"),
     ] {
         assert!(
             !run_cfg(body.as_bytes(), a, &[], None).status.success(),
