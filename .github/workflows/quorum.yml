@@ -83,6 +83,8 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # author model ids come from the PR commits' Co-Authored-By trailers
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           QUORUM_REPO: ${{ github.repository }}
         run: |
           ./scripts/quorum-store-gate.sh

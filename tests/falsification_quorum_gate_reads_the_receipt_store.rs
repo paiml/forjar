@@ -50,6 +50,7 @@ fn run(body: Option<String>, file_sha: &str, head: &str) -> Output {
         .env("QUORUM_STORE", &store)
         .env("QUORUM_REPO", "paiml/forjar")
         .env("PR_NUMBER", "798")
+        .env("PR_AUTHOR_MODELS", "Claude Sonnet 5.5")
         .env("PR_HEAD_SHA", head)
         .output()
         .unwrap()
@@ -87,7 +88,7 @@ fn missing_store_dir_fails() {
 fn missing_file_for_head_fails() {
     let other = "acff20f1b5eb1991ab26fb03eb8076d1417d4d2c";
     let o = run(
-        Some(receipt(other, 798, "x", &three_good(), "")),
+        Some(receipt(other, 798, "claude-sonnet-5-5", &three_good(), "")),
         other,
         SHA,
     );
@@ -98,13 +99,21 @@ fn missing_file_for_head_fails() {
 fn sha_inside_file_must_equal_head() {
     let other = "acff20f1b5eb1991ab26fb03eb8076d1417d4d2c";
     // file is named for head but its body claims another sha
-    let o = run(Some(receipt(other, 798, "x", &three_good(), "")), SHA, SHA);
+    let o = run(
+        Some(receipt(other, 798, "claude-sonnet-5-5", &three_good(), "")),
+        SHA,
+        SHA,
+    );
     assert!(!ok(&o), "{}", text(&o));
 }
 
 #[test]
 fn pr_mismatch_fails() {
-    let o = run(Some(receipt(SHA, 799, "x", &three_good(), "")), SHA, SHA);
+    let o = run(
+        Some(receipt(SHA, 799, "claude-sonnet-5-5", &three_good(), "")),
+        SHA,
+        SHA,
+    );
     assert!(!ok(&o), "{}", text(&o));
 }
 
@@ -114,7 +123,11 @@ fn fewer_than_three_pass_lanes_fails() {
         lane("a", "claude-opus-5-5", "PASS"),
         lane("b", "claude-haiku-5-5", "PASS"),
     ];
-    let o = run(Some(receipt(SHA, 798, "x", &l, "")), SHA, SHA);
+    let o = run(
+        Some(receipt(SHA, 798, "claude-sonnet-5-5", &l, "")),
+        SHA,
+        SHA,
+    );
     assert!(!ok(&o), "{}", text(&o));
 }
 
@@ -122,7 +135,11 @@ fn fewer_than_three_pass_lanes_fails() {
 fn non_pass_verdict_does_not_count() {
     let mut l = three_good();
     l[2] = lane("c", "gemini-3", "FAIL");
-    let o = run(Some(receipt(SHA, 798, "x", &l, "")), SHA, SHA);
+    let o = run(
+        Some(receipt(SHA, 798, "claude-sonnet-5-5", &l, "")),
+        SHA,
+        SHA,
+    );
     assert!(!ok(&o), "{}", text(&o));
 }
 
@@ -133,15 +150,24 @@ fn duplicate_lane_names_count_once() {
         lane("a", "claude-haiku-5-5", "PASS"),
         lane("a", "gemini-3", "PASS"),
     ];
-    let o = run(Some(receipt(SHA, 798, "x", &l, "")), SHA, SHA);
+    let o = run(
+        Some(receipt(SHA, 798, "claude-sonnet-5-5", &l, "")),
+        SHA,
+        SHA,
+    );
     assert!(!ok(&o), "{}", text(&o));
 }
 
 #[test]
 fn author_model_lane_is_excluded() {
-    // 3 PASS lanes but one is the author's own model: only 2 count.
+    // 3 PASS lanes but one is the author's own model id: only 2 count.
+    let l = vec![
+        lane("a", "claude-opus-5-5", "PASS"),
+        lane("b", "claude-haiku-5-5", "PASS"),
+        lane("c", "claude-sonnet-5-5", "PASS"),
+    ];
     let o = run(
-        Some(receipt(SHA, 798, "gemini-3", &three_good(), "")),
+        Some(receipt(SHA, 798, "claude-sonnet-5-5", &l, "")),
         SHA,
         SHA,
     );
@@ -151,13 +177,17 @@ fn author_model_lane_is_excluded() {
 #[test]
 fn waiver_key_anywhere_fails() {
     for extra in [r#","waived":{"reason":"x"}"#, r#","override":true"#] {
-        let o = run(Some(receipt(SHA, 798, "x", &three_good(), extra)), SHA, SHA);
+        let o = run(
+            Some(receipt(SHA, 798, "claude-sonnet-5-5", &three_good(), extra)),
+            SHA,
+            SHA,
+        );
         assert!(!ok(&o), "{extra}: {}", text(&o));
     }
     let nested = receipt(
         SHA,
         798,
-        "x",
+        "claude-sonnet-5-5",
         &three_good(),
         r#","meta":{"deep":{"waived":false}}"#,
     );

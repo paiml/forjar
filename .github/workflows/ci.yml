@@ -210,6 +210,11 @@ jobs:
       # Drives the real scripts/quorum-gate.sh against synthetic repos.
       - name: The quorum gate must judge the pushed commit
         run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
+
+      # PMAT-554: the receipt-store gate (scripts/quorum-store-gate.sh) judges
+      # untrusted receipts by exact allowlisted ids and commit-trailer authors.
+      - name: The quorum store gate must reject forged receipts
+        run: cargo test --locked --test falsification_quorum_gate_reads_the_receipt_store --test falsification_quorum_gate_bypasses --test falsification_quorum_gate_exact_identity
       # #629: nightly.yml rebuilt only when a commit landed in the last 24h, so a
       # commit followed by a quiet day, or a failed nightly, was never built and
       # the nightly sat 12 days behind main. Executes the gate script from the

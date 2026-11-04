@@ -1,0 +1,21 @@
+{
+  "models": {
+    "claude-opus-5-5": "claude",
+    "claude-sonnet-5-5": "claude",
+    "claude-haiku-5-5": "claude",
+    "claude-fable-5-1": "claude",
+    "gemini-3": "gemini",
+    "gemini-4-argon-high": "gemini",
+    "gpt-5": "openai",
+    "gpt-4o": "openai"
+  },
+  "authors": {
+    "Claude Opus 5.5": "claude-opus-5-5",
+    "Claude Sonnet 5.5": "claude-sonnet-5-5",
+    "Claude Haiku 5.5": "claude-haiku-5-5",
+    "Claude Fable 5.1": "claude-fable-5-1",
+    "Gemini 3": "gemini-3",
+    "GPT-5": "gpt-5",
+    "GPT-4o": "gpt-4o"
+  }
+}
