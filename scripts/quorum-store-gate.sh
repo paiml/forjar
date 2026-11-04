@@ -8,12 +8,22 @@
 #   schema: {repo, pr, sha, author_model, verdicts:[{lane, model, verdict, blockers}]}
 #
 # PASS needs ALL of:
-#   - the file for exactly this head sha exists and parses (missing store,
-#     dir or file is a FAIL: UNMEASURED is failing, there is no skip path)
+#   - QUORUM_REPO is owner/name ([A-Za-z0-9_.-] only, no "..")
+#   - the file for exactly this head sha exists, is a regular file (symlinks
+#     are refused) and holds EXACTLY ONE JSON document (missing store, dir or
+#     file is a FAIL: UNMEASURED is failing, there is no skip path)
 #   - body .sha == head sha, .repo == repo, .pr == PR number
-#   - author_model is a real model id (not empty / "unknown")
-#   - >= 3 DISTINCT lanes with verdict exactly "PASS", whose model != author_model
-#   - no key named like waived/waiver/override anywhere in the document
+#   - author_model is a real model id (not empty / "unknown", case-insens.)
+#   - >= 3 distinct NORMALIZED models (lowercase, trimmed, provider prefix such
+#     as "anthropic/" stripped) AND >= 3 distinct normalized lane names, each
+#     backed by a qualifying lane: lane and model non-empty strings, verdict
+#     exactly "PASS", no blockers, model not in the author's family, and no
+#     other verdict by the same normalized lane name anywhere in the receipt
+#   - author family rule: a lane model is the author's family if, normalized,
+#     it equals the author, shares the author's first 3 dash tokens
+#     (claude-opus-5-5 ~ claude-opus-5-5-2026...), or either string contains
+#     the other (claude-opus-5, opus). Same-family lanes do not count.
+#   - no waiver/override in any key or any string VALUE (case-insensitive)
 #
 # Inputs (env): PR_NUMBER, PR_HEAD_SHA (required), QUORUM_REPO (default
 # paiml/forjar), QUORUM_STORE.
@@ -35,31 +45,51 @@ head="${PR_HEAD_SHA:-}"
 [[ "$pr" =~ ^[0-9]+$ ]] || fail "PR_NUMBER '$pr' is not a number"
 [[ "$head" =~ ^[0-9a-f]{40}$ ]] || fail "PR_HEAD_SHA '$head' is not a full 40-hex sha"
 command -v jq >/dev/null || fail "jq not installed (UNMEASURED)"
+[[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail "QUORUM_REPO '$repo' is not owner/name"
+[[ "$repo" != *..* ]] || fail "QUORUM_REPO '$repo' contains '..'"
 
 [ -d "$store" ] || fail "receipt store $store is missing (UNMEASURED)"
 file="$store/quorum/$repo/$pr/$head.json"
+[ ! -L "$file" ] || fail "$file is a symlink (refused)"
 [ -f "$file" ] || fail "no receipt at $file for head $head"
 
-jq -e . "$file" >/dev/null 2>&1 || fail "$file does not parse as JSON"
+jq -s -e 'length == 1 and (.[0] | type == "object")' "$file" >/dev/null 2>&1 \
+  || fail "$file is not exactly one JSON object document"
 
-verdict="$(jq -r --arg repo "$repo" --argjson pr "$pr" --arg head "$head" '
+verdict="$(jq -s -r --arg repo "$repo" --argjson pr "$pr" --arg head "$head" '
+  def trim: gsub("^\\s+|\\s+$"; "");
+  def nmodel: ascii_downcase | trim | sub("^[^/]*/"; "") | trim;
+  def nlane: ascii_downcase | trim | gsub("\\s+"; " ");
+  def fam: split("-")[:3] | join("-");
+  def fam_eq($a; $b): ($a | fam) == ($b | fam);
+  def same($a; $b): $a == $b or fam_eq($a; $b) or ($a | contains($b)) or ($b | contains($a));
+  def nes: type == "string" and (trim != "");
   def bad: if (.sha // "") != $head then "sha \(.sha // "null") != head \($head)"
     elif (.repo // "") != $repo then "repo \(.repo // "null") != \($repo)"
     elif (.pr // null) != $pr then "pr \(.pr // "null") != \($pr)"
-    elif ((.author_model // "") | (type != "string" or . == "" or . == "unknown")) then "author_model missing or unknown, independence unprovable"
+    elif ((.author_model // "") | (type != "string" or ((nmodel) | . == "" or . == "unknown"))) then "author_model missing or unknown, independence unprovable"
     elif ([.. | objects | keys[] | select(test("waiv|overrid"; "i"))] | length) > 0 then "waiver/override key present"
+    elif ([.. | strings | select(test("waiv|overrid"; "i"))] | length) > 0 then "waiver/override text in a value"
     elif ((.verdicts // null) | type) != "array" then "verdicts is not an array"
     else null end;
-  . as $r
-  | (bad) as $b
+  .[0] as $r
+  | ($r | bad) as $b
   | if $b != null then "BAD \($b)" else
-      ([ $r.verdicts[] | select(.verdict == "PASS" and (.model // "") != "" and .model != $r.author_model) | .lane ] | unique) as $lanes
-      | if ($lanes | length) >= 3 then "OK \($lanes | length) independent PASS lanes: \($lanes | join(","))"
-        else "BAD only \($lanes | length) distinct PASS lanes with a non-author model (need >= 3)" end
+      ($r.author_model | nmodel) as $au
+      | ([ $r.verdicts[] | select(type == "object" and (.lane | nes) and .verdict != "PASS") | .lane | nlane ] | unique) as $dq
+      | [ $r.verdicts[]
+          | select(type == "object" and (.lane | nes) and (.model | nes) and .verdict == "PASS"
+                   and (.blockers == null or .blockers == [])
+                   and ((.lane | nlane) as $l | ($dq | index($l)) == null)
+                   and (same(($au); (.model | nmodel)) | not))
+          | {l: (.lane | nlane), m: (.model | nmodel)} ] as $q
+      | ($q | map(.m) | unique) as $ms | ($q | map(.l) | unique) as $ls
+      | if ($ms | length) >= 3 and ($ls | length) >= 3 then "OK \($ms | length) independent models over \($ls | length) lanes: \($ms | join(","))"
+        else "BAD only \($ms | length) distinct models / \($ls | length) lanes qualify (need >= 3 each)" end
     end' "$file")" || fail "could not evaluate $file"
 
 case "$verdict" in
   OK*) echo "PASS quorum receipt: $verdict ($file)" ;;
   *) fail "${verdict#BAD } ($file)" ;;
 esac
-# mutation: change `>= 3` to `>= 0` (or drop the `.model != $r.author_model` clause) and the lane-floor and author-model tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs go red
+# mutation: change `>= 3` to `>= 0`, drop the `same(...) | not` author clause, loosen the `.repo != $repo` check, or drop the author_model `unknown` test and the lane-floor, author-family, repo-mismatch and unknown-author tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs and tests/falsification_quorum_gate_bypasses.rs go red
