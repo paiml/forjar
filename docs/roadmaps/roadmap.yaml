@@ -2,6 +2,18 @@ roadmap_version: '1.0'
 github_enabled: true
 github_repo: paiml/forjar
 roadmap:
+- id: PMAT-828
+  github_issue: 828
+  item_type: task
+  title: 'data source fault isolation: failing source skips only dependents'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-29T08:11:51Z
+  updated: 2026-10-29T08:11:51Z
+  spec: null
+  acceptance_criteria:
+  - Operator 08:05Z. infra#2620.
 - id: PMAT-001
   github_issue: null
   item_type: task
@@ -5021,6 +5033,29 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-664
+  github_issue: 664
+  item_type: task
+  title: 'nightly: build the darwin legs on the self-hosted mac'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-04T14:41:22Z
+  updated: 2026-10-04T14:41:22Z
+  spec: null
+  acceptance_criteria:
+  - 'nightly.yml x86_64-apple-darwin and aarch64-apple-darwin legs run on [self-hosted, macOS, ARM64, mini]; every other leg keeps its runner, and nightly.yml still triggers only on schedule and workflow_dispatch.'
+  - 'A step guarded by endsWith(matrix.target, ''-apple-darwin'') sets RUSTUP_HOME under the runner tool cache and CARGO_TARGET_DIR to the workspace target dir; the job-level private CARGO_HOME is unchanged, and no non-darwin leg gets a new variable.'
+  - 'falsification_every_ci_job_runs_on_the_fleet no longer counts nightly.yml:macos-latest, and fails with the old count restored.'
+  - 'A workflow_dispatch of nightly.yml builds and uploads both forjar-*-apple-darwin.tar.gz assets on mini-m4.'
+  - 'The macos-latest legs of lint.yml (2) and release.yml (2) also run on [self-hosted, macOS, mini-builder]; no workflow asks GitHub for a macOS runner, and the falsification test no longer lists lint.yml or release.yml macos-latest.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
 - id: PMAT-727
   github_issue: 727
   item_type: task
@@ -5273,6 +5308,26 @@ roadmap:
   - kind:code
   notes: null
   epic: 763
+- id: PMAT-777
+  github_issue: 777
+  item_type: task
+  title: resource-timeout bounds wave apply script
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-23T18:10:27Z
+  updated: 2026-10-23T18:49:33Z
+  spec: null
+  acceptance_criteria:
+  - forjar#777
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
+  epic: 764
 - id: PMAT-789
   github_issue: 789
   item_type: task
