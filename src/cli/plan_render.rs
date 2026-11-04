@@ -44,16 +44,14 @@ pub(super) fn render_plan(
             pin_rows.as_deref().map(super::plan_version_pins::to_json),
         )?;
     } else {
-        print_plan(
+        print_plan_text(
             plan,
-            opts.machine_filter,
-            if opts.no_diff { None } else { Some(config) },
-            if refreshed.is_some() { 0 } else { unconsulted },
+            config,
+            opts,
+            refreshed,
+            unconsulted,
+            pin_rows.as_deref(),
         );
-        print_refresh_footer(refreshed);
-        if let Some(rows) = &pin_rows {
-            super::plan_version_pins::print_text(rows);
-        }
     }
 
     if opts.cost && !plan.changes.is_empty() {
@@ -61,6 +59,26 @@ pub(super) fn render_plan(
     }
 
     Ok(())
+}
+
+fn print_plan_text(
+    plan: &types::ExecutionPlan,
+    config: &types::ForjarConfig,
+    opts: &PlanRender<'_>,
+    refreshed: Option<&super::plan_refresh::RefreshOutcome>,
+    unconsulted: usize,
+    pin_rows: Option<&[super::plan_version_pins::PinRow]>,
+) {
+    print_plan(
+        plan,
+        opts.machine_filter,
+        if opts.no_diff { None } else { Some(config) },
+        if refreshed.is_some() { 0 } else { unconsulted },
+    );
+    print_refresh_footer(refreshed);
+    if let Some(rows) = pin_rows {
+        super::plan_version_pins::print_text(rows);
+    }
 }
 
 /// The two `--refresh` lines that follow the text plan.

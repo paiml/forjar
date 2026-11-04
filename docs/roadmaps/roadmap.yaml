@@ -2,6 +2,18 @@ roadmap_version: '1.0'
 github_enabled: true
 github_repo: paiml/forjar
 roadmap:
+- id: PMAT-869
+  github_issue: 869
+  item_type: task
+  title: 'release cut v1.34: unblock dogfood gate B (bashrs clean-lint, CB-200 regression)'
+  status: in_progress
+  priority: high
+  assigned_to: null
+  created: 2026-11-04T13:30:00Z
+  updated: 2026-11-04T13:30:00Z
+  spec: null
+  acceptance_criteria:
+  - scripts/dogfood/comply.sh counts a clean bashrs lint as 0 errors; CB-200 under its ceiling.
 - id: PMAT-828
   github_issue: 828
   item_type: task

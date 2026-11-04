@@ -6,6 +6,43 @@
 
 use crate::core::types;
 
+/// One change as a JSON object, with the declared grouping when the resource has it.
+fn change_entry(c: &types::PlannedChange, config: &types::ForjarConfig) -> serde_json::Value {
+    let mut entry = serde_json::json!({
+        "resource_id": c.resource_id,
+        "machine": c.machine,
+        "resource_type": c.resource_type,
+        "action": c.action,
+        "description": c.description,
+    });
+    if let Some(res) = config.resources.get(&c.resource_id) {
+        if let Some(ref rg) = res.resource_group {
+            entry["resource_group"] = serde_json::json!(rg);
+        }
+        if !res.tags.is_empty() {
+            entry["tags"] = serde_json::json!(res.tags);
+        }
+        if !res.depends_on.is_empty() {
+            entry["depends_on"] = serde_json::json!(res.depends_on);
+        }
+    }
+    entry
+}
+
+fn disclosure_for(
+    plan: &types::ExecutionPlan,
+    unconsulted: usize,
+    refreshed: Option<&super::plan_refresh::RefreshOutcome>,
+) -> Option<String> {
+    match refreshed {
+        Some(r) => super::print_helpers::fold_plan_disclosure(
+            super::plan_refresh::refreshed_scope_disclosure(r),
+            &plan.unprobed,
+        ),
+        None => super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed),
+    }
+}
+
 /// FJ-301: Serialize plan as enriched JSON with resource metadata.
 ///
 /// forjar#342 landed the scope disclosure on the TTY rendering only, because
@@ -31,27 +68,7 @@ pub(crate) fn print_plan_json(
     let changes: Vec<serde_json::Value> = plan
         .changes
         .iter()
-        .map(|c| {
-            let mut entry = serde_json::json!({
-                "resource_id": c.resource_id,
-                "machine": c.machine,
-                "resource_type": c.resource_type,
-                "action": c.action,
-                "description": c.description,
-            });
-            if let Some(res) = config.resources.get(&c.resource_id) {
-                if let Some(ref rg) = res.resource_group {
-                    entry["resource_group"] = serde_json::json!(rg);
-                }
-                if !res.tags.is_empty() {
-                    entry["tags"] = serde_json::json!(res.tags);
-                }
-                if !res.depends_on.is_empty() {
-                    entry["depends_on"] = serde_json::json!(res.depends_on);
-                }
-            }
-            entry
-        })
+        .map(|c| change_entry(c, config))
         .collect();
     let change_ids: std::collections::HashSet<&str> = plan
         .changes
@@ -96,13 +113,7 @@ pub(crate) fn print_plan_json(
     if let Some(r) = refreshed {
         output["refresh"] = serde_json::json!({ "machines": r.machines, "drifted": r.drifted });
     }
-    let disclosure = match refreshed {
-        Some(r) => super::print_helpers::fold_plan_disclosure(
-            super::plan_refresh::refreshed_scope_disclosure(r),
-            &plan.unprobed,
-        ),
-        None => super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed),
-    };
+    let disclosure = disclosure_for(plan, unconsulted, refreshed);
     if let Some(msg) = disclosure {
         output["disclosure"] = serde_json::json!(msg);
     }

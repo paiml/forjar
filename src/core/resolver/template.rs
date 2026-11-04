@@ -33,6 +33,13 @@ pub fn resolve_secret_with_provider(
         "file" => resolve_secret_file(key, path_prefix),
         "sops" => resolve_secret_sops(key, sops_file),
         "op" => resolve_secret_op(key, path_prefix),
+        other => resolve_secret_builtin(key, other),
+    }
+}
+
+/// The providers that run no subprocess and read no configured path.
+fn resolve_secret_builtin(key: &str, provider: &str) -> Result<String, String> {
+    match provider {
         // forjar#372: the unattended verb surface substitutes this for any
         // provider implemented as a subprocess. It must have its own arm: the
         // `_` fallthrough reads `FORJAR_SECRET_<KEY>`, which would resolve a
