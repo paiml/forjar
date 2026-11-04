@@ -4767,7 +4767,7 @@ roadmap:
   github_issue: 642
   item_type: task
   title: 'mount resource: ownership options (uid/gid/file_mode/dir_mode/mode) are part of the checked state'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-26T19:50:00Z
@@ -4782,7 +4782,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.0
+  - release:v1.33.0
   notes: null
   epic: 696
   release: 1.33.0
@@ -4790,7 +4790,7 @@ roadmap:
   github_issue: 624
   item_type: task
   title: nightly publishes static musl linux assets (forjar#624)
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-27T08:53:40Z
@@ -4800,8 +4800,11 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - kind:code
+  - release:v1.33.0
   notes: null
+  release: 1.33.0
 - id: PMAT-633
   github_issue: 633
   item_type: task

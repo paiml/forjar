@@ -1,3 +1,8 @@
+---
+epic: 697
+status: active
+---
+
 # FJ-METAL-001 — forjar Bare Metal: Netboot, USB Parity, Failover, Self-Repairing Boot OS
 
 ## ELI5
