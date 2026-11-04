@@ -1,0 +1,109 @@
+{
+  "kind": "code",
+  "issue": "forjar#703 — main's Security Audit job was red on cargo audit: 3 vulnerabilities, all quinn-proto 0.11.17 (RUSTSEC-2026-0338, -0340, -0343). Lock-only bump to 0.11.18 plus tests/lock_quinn_proto_advisories.rs, which fails on any quinn-proto below 0.11.18, a pre-release, an unparseable version or no entry at all. The cargo-deny unmaintained advisory on unsafe-libyaml (RUSTSEC-2024-0449) is not reachable by any bump; the PR says Refs and the ticket stays open.",
+  "branch": "fix/quinn-proto-0.11.18",
+  "base": "9a37a2ff",
+  "base_commit": "9a37a2ffe10cfc6b2ccb3b9bc3d3eabdd4b17d6e",
+  "diff_sha256": "ca435ae12334b13a81e9090203ae55a39ce2f42c",
+  "recorded_at": "after the planted control at 4a57e71e (never pushed) and the round at c98fb5c6, and the red / green probes at those two heads. The commits after c98fb5c6 add only .quorum evidence and this receipt; they change no test, source or lock. Earlier local rounds r1-r3 ran on an unpushed branch and are superseded by this round.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "planted control 4a57e71e — claude-sonnet-5-5 FAIL, named Cargo.lock:2746 pinning the vulnerable 0.11.17 and the guard failing on it",
+      "planted control 4a57e71e — claude-haiku-4-5 FAIL, no Cargo.lock change so criterion 1 is unmet",
+      "planted control 4a57e71e — gemini-3.8-flash-high (agy) FAIL, named the reverted lock entry and the guard asserting the opposite of the lock",
+      "round at head c98fb5c6 — claude-sonnet-5-5 PASS, one corroborating note on the checksum, no defect",
+      "round at head c98fb5c6 — claude-haiku-4-5 PASS, no findings",
+      "round at head c98fb5c6 — gemini-3.8-flash-high (agy) PASS, no findings"
+    ],
+    "planted_control": {
+      "head": "4a57e71e",
+      "mutation": "Cargo.lock checked back out from main 9a37a2ff, so quinn-proto is 0.11.17 again while the guard test stays",
+      "verdict": "NOT AGREED, 3/3 FAIL, every lane naming the reverted lock entry",
+      "pushed": false
+    },
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of the round at c98fb5c6 (two Claude seats and the agy seat, three distinct model ids over two families). The Claude round's own artifact records lane 3 as an empty seat; the agy lane ran separately and is the third lane counted. The FR-4 slot round for this PR is marked degraded: same-family; this review round is not.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "R1: the ticket asks for a lock bump with no other change, so the new test file is out of scope and unreviewed (earlier local round r2) — corrected: criterion 1 bounds Cargo.lock lines, not files; the guard is what keeps a lock refresh from bringing 0.11.17 back, and all three lanes of the round at c98fb5c6 reviewed it"
+    ]
+  },
+  "falsification": {
+    "test": "committed_lock_has_patched_quinn_proto (with guard_refuses_vulnerable_absent_and_prerelease, which asserts the vulnerable, pre-release, unparseable and absent cases fail)",
+    "test_file": "tests/lock_quinn_proto_advisories.rs",
+    "cargo_test_target": "lock_quinn_proto_advisories",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host (cargo 1.99.0) with cargo test --locked --test lock_quinn_proto_advisories. At 4a57e71e (c98fb5c6 with main's Cargo.lock, quinn-proto 0.11.17): rc=101, 1 passed, 1 failed; committed_lock_has_patched_quinn_proto panicked at tests/lock_quinn_proto_advisories.rs:80 with Cargo.lock pins quinn-proto [\"0.11.17\"]; versions below 0.11.18 are affected by RUSTSEC-2026-0338, RUSTSEC-2026-0340, RUSTSEC-2026-0343. At c98fb5c6 (0.11.18): rc=0, 2 passed."
+  },
+  "crux": {
+    "systems": [
+      "cargo-audit 0.22.1 over the RustSec advisory database at 64a0302d (measured, --no-fetch on each committed lock): main's lock reports 3 vulnerabilities, all quinn-proto 0.11.17; the branch's lock reports none, with the same 3 allowed warnings main already had",
+      "OSV.dev v1/query for crates.io quinn-proto (measured): 0.11.17 returns RUSTSEC-2026-0338, -0340 and -0343; 0.11.18 returns none",
+      "cargo-deny 0.19.0, check advisories --locked --offline at c98fb5c6 (measured): no quinn-proto row; still FAILED on one error, RUSTSEC-2024-0449 unsafe-libyaml unmaintained, which the ticket row records as not cleared"
+    ],
+    "verdict": "No crux row is owed: two advisory tools and an independent advisory source agree that 0.11.18 carries the fixes and 0.11.17 does not, and the advisories' own patched range is >= 0.11.18, which is exactly the floor the guard enforces. The one advisory error left is the unsafe-libyaml row the PR does not claim to clear."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "model": "gemini-3.8-flash-high",
+    "mode": "agy-lane.sh --mode plan (sandboxed, read-only), one lane at c98fb5c6 and one at the planted control 4a57e71e, both against main 9a37a2ff",
+    "verdict": "PASS",
+    "findings": [],
+    "conversation_id": "497f7bf9-4088-4ee6-9d7a-5609befd493c",
+    "control": {
+      "head": "4a57e71e",
+      "verdict": "FAIL",
+      "findings": 3,
+      "conversation_id": "d6d89305-9f79-41c0-b99e-bab228ab0384"
+    },
+    "evidence": ".quorum/evidence/703-agy.md",
+    "note": "per-round exception to the quorum policy that withholds the agy seat from this repo's diffs, ruling aprender-b4 2026-10-13"
+  },
+  "pmat": {
+    "ticket": "forjar#703",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json at c98fb5c6 (pmat 3.42.0): 377 files parsed, 4930 tests examined, 84 cannot fail, 0 of them in tests/lock_quinn_proto_advisories.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/703-agy.md",
+        "roles": ["agy"],
+        "blob": "d8fb4200bdf24af118ea22af3ec8cef2265e4491",
+        "sha256": "4ac7793f9fcc46ab9fb6654527d9c4ceaa9ea679378a44f6786574d5c8b19825",
+        "bytes": 1695
+      },
+      {
+        "path": ".quorum/evidence/703-claims.md",
+        "roles": ["claims"],
+        "blob": "3706b2f65b16e12230a9a080babed46960048187",
+        "sha256": "6027cb2ec936c5c5c17f6cce852bae02a8ce5ba316a87fa6e1dcbd71bb7474dc",
+        "bytes": 1178
+      },
+      {
+        "path": ".quorum/evidence/703-judges.md",
+        "roles": ["judges"],
+        "blob": "f055a8ed6c485f887413970ab875f72b40dbbe57",
+        "sha256": "3460c9774a9b290763e0af9f0233b1f874d57c0fe210bc175cbc962782fc28b2",
+        "bytes": 4190
+      },
+      {
+        "path": ".quorum/evidence/703-lanes.md",
+        "roles": ["lanes"],
+        "blob": "d2859ebf211ee0b245e861b7dec055abaa9fac29",
+        "sha256": "608885513a47e3d49f164bc4d3c875e1ab8cb3af03331896e554354e5a3a026c",
+        "bytes": 2128
+      }
+    ],
+    "total_bytes": 9191,
+    "claims_digest": ".quorum/evidence/703-judges.md"
+  }
+}
