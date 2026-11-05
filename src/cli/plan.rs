@@ -175,11 +175,7 @@ pub(crate) fn cmd_plan_with_pins(
     let plan = super::plan_compute::plan_filtered(&config, &locks, &selectors)?;
 
     if let Some(dir) = output_dir {
-        // forjar#674: the scripts of the resources this plan selected, not of
-        // the whole config — `plan -r R` failed on an unrelated resource's secret.
-        let selected: Option<std::collections::BTreeSet<String>> = (!selectors.is_unfiltered())
-            .then(|| plan.changes.iter().map(|c| c.resource_id.clone()).collect());
-        export_scripts(&config, dir, selected.as_ref())?;
+        export_selected_scripts(&config, dir, &selectors, &plan)?;
     }
 
     // FJ-1250: Write plan to file for later execution
@@ -242,6 +238,19 @@ pub(crate) fn cmd_plan_with_pins(
     )?;
 
     super::data_isolation::fail_if_any(&data_faults)
+}
+
+/// forjar#674: the scripts of the resources this plan selected, not of the
+/// whole config — `plan -r R` failed on an unrelated resource's secret.
+fn export_selected_scripts(
+    config: &types::ForjarConfig,
+    dir: &Path,
+    selectors: &PlanSelectors,
+    plan: &types::ExecutionPlan,
+) -> Result<(), String> {
+    let selected: Option<std::collections::BTreeSet<String>> = (!selectors.is_unfiltered())
+        .then(|| plan.changes.iter().map(|c| c.resource_id.clone()).collect());
+    export_scripts(config, dir, selected.as_ref())
 }
 
 /// FJ-333: Decides what the hypothetical params are for this run — parses each
