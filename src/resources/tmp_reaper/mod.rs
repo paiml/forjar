@@ -23,13 +23,7 @@ pub struct Spec {
 pub fn parse_age(s: &str) -> Result<u64, String> {
     let bad = || format!("max_age {s:?} must be a whole number plus m, h, d or w (e.g. 7d)");
     let unit = s.chars().last().ok_or_else(bad)?;
-    let mult: u64 = match unit {
-        'm' => 1,
-        'h' => 60,
-        'd' => 1_440,
-        'w' => 10_080,
-        _ => return Err(bad()),
-    };
+    let mult = unit_minutes(unit).ok_or_else(bad)?;
     let digits = &s[..s.len() - 1];
     if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
         return Err(bad());
@@ -41,6 +35,16 @@ pub fn parse_age(s: &str) -> Result<u64, String> {
     n.checked_mul(mult).ok_or_else(bad)
 }
 
+fn unit_minutes(unit: char) -> Option<u64> {
+    match unit {
+        'm' => Some(1),
+        'h' => Some(60),
+        'd' => Some(1_440),
+        'w' => Some(10_080),
+        _ => None,
+    }
+}
+
 /// Validate a resource's declaration.
 ///
 /// # Errors
@@ -49,6 +53,17 @@ pub fn parse_age(s: &str) -> Result<u64, String> {
 /// relative path, and any `..` segment are refused.
 pub fn spec_of(r: &Resource) -> Result<Spec, String> {
     let raw = r.path.as_deref().ok_or("path is required")?;
+    let path = clean_path(raw)?;
+    let age = r.max_age.as_deref().ok_or("max_age is required")?;
+    let pattern = clean_pattern(r.pattern.as_deref())?;
+    Ok(Spec {
+        path,
+        max_age_min: parse_age(age)?,
+        pattern,
+    })
+}
+
+fn clean_path(raw: &str) -> Result<String, String> {
     if raw.trim().is_empty() {
         return Err("path must not be empty".into());
     }
@@ -62,20 +77,16 @@ pub fn spec_of(r: &Resource) -> Result<Spec, String> {
     if path.split('/').any(|seg| seg == "..") {
         return Err(format!("path {raw:?} must not contain .."));
     }
-    let age = r.max_age.as_deref().ok_or("max_age is required")?;
-    let pattern = match r.pattern.as_deref() {
-        None => None,
-        Some("") => return Err("pattern must not be empty".into()),
-        Some(p) if p.contains(['/', '\0']) => {
-            return Err(format!("pattern {p:?} must not contain /"));
-        }
-        Some(p) => Some(p.to_string()),
-    };
-    Ok(Spec {
-        path,
-        max_age_min: parse_age(age)?,
-        pattern,
-    })
+    Ok(path)
+}
+
+fn clean_pattern(pattern: Option<&str>) -> Result<Option<String>, String> {
+    match pattern {
+        None => Ok(None),
+        Some("") => Err("pattern must not be empty".into()),
+        Some(p) if p.contains(['/', '\0']) => Err(format!("pattern {p:?} must not contain /")),
+        Some(p) => Ok(Some(p.to_string())),
+    }
 }
 
 /// Shell that refuses a root, a symlinked path, and exits 0 quietly when the
