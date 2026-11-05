@@ -178,3 +178,31 @@ resources:
     assert_eq!(r[0].resources_converged, 0);
     assert!(!dir.path().join("h1.txt").exists(), "apply never ran");
 }
+
+/// forjar#777: `--resource-timeout` must bound the apply script and the
+/// `pre_apply` gate on the wave path, not only the verify RecordCtx.
+#[test]
+fn test_resource_timeout_bounds_wave_apply_script() {
+    for body in [
+        "command: \"sleep 30\"",
+        "command: \"true\"\n    pre_apply: \"sleep 30\"",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = format!(
+            "version: \"1.0\"\nname: rt\nmachines:\n  local:\n    hostname: local\n    addr: 127.0.0.1\nresources:\n  slow:\n    type: task\n    machine: local\n    {body}\npolicy:\n  parallel_resources: true\n"
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let state_dir = dir.path().join("state");
+        let mut cfg = parallel_apply_cfg(&config, &state_dir);
+        cfg.resource_timeout = Some(2);
+        let start = std::time::Instant::now();
+        let results = apply(&cfg).unwrap();
+        let elapsed = start.elapsed().as_secs();
+        assert!(
+            elapsed < 6,
+            "ran {elapsed}s; timeout 2 did not bound: {body}"
+        );
+        assert_eq!(results[0].resources_failed, 1);
+        assert_eq!(results[0].resources_converged, 0);
+    }
+}
