@@ -2,10 +2,11 @@
 
 use crate::core::shell_escape::{sh_squote, sh_write_file};
 use crate::core::types::Resource;
+use crate::resources::file_assert;
 use crate::resources::verdict;
 
 /// Read a local file, or describe why it could not be read.
-fn read_source_file(path: &str) -> Result<Vec<u8>, String> {
+pub(super) fn read_source_file(path: &str) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| format!("{path}: {e}"))
 }
 
@@ -67,30 +68,8 @@ fn file_assertions(resource: &Resource, p: &str) -> Vec<String> {
         "exists:file",
         "missing:file",
     )];
-    match declared_bytes(resource) {
-        Some(Ok(bytes)) => {
-            let want = sha256_hex(&bytes);
-            out.push(verdict::assert_that(
-                &format!(
-                    "forjar_sha=$( {{ sha256sum {p} 2>/dev/null || shasum -a 256 {p} 2>/dev/null; }} | cut -d' ' -f1)\n  [ \"$forjar_sha\" = '{want}' ]"
-                ),
-                "content:declared",
-                "stale:content",
-            ));
-        }
-        Some(Err(e)) => out.push(verdict::always_diverged(&format!("unreadable source: {e}"))),
-        None => {}
-    }
-    if let Some(mode) = resource.mode.as_deref().and_then(octal_mode) {
-        out.push(verdict::assert_that(
-            &format!(
-                "forjar_mode=$(stat -c %a {p} 2>/dev/null || stat -f %Lp {p} 2>/dev/null)\n  [ \"$forjar_mode\" = {} ]",
-                sh_squote(&mode)
-            ),
-            "mode:declared",
-            "stale:mode",
-        ));
-    }
+    out.extend(file_assert::content(resource, p));
+    out.extend(file_assert::mode(resource, p, octal_mode));
     for (who, name, id, marker) in [
         (
             resource.owner.as_deref(),
@@ -122,21 +101,6 @@ fn file_assertions(resource: &Resource, p: &str) -> Vec<String> {
         }
     }
     out
-}
-
-/// The bytes the apply script would write, or `None` when the resource
-/// declares no content (existence is then the whole declaration).
-fn declared_bytes(resource: &Resource) -> Option<Result<Vec<u8>, String>> {
-    if let Some(ref source) = resource.source {
-        Some(read_source_file(source))
-    } else {
-        resource.content.as_ref().map(|c| Ok(c.as_bytes().to_vec()))
-    }
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 /// `0644` and `644` are both `644` to `stat %a`; a symbolic mode has no
@@ -257,6 +221,50 @@ fn push_atomic_replace_lines(lines: &mut Vec<String>, path: &str, resource: &Res
     lines.push(format!("mv -f {s} {p}"));
 }
 
+/// `state: file`: converge a regular file, replacing any symlink at the path.
+fn push_regular_file_lines(lines: &mut Vec<String>, path: &str, p: &str, resource: &Resource) {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        if parent != std::path::Path::new("/") {
+            lines.push(format!(
+                "mkdir -p {}",
+                sh_squote(&parent.display().to_string())
+            ));
+        }
+    }
+    // A SYMLINK AT A MANAGED PATH IS DRIFT, NOT A WRITE TARGET.
+    //
+    // Without this, `>` and `chmod`/`chown` FOLLOW the link, so forjar
+    // writes the declared content and mode onto whatever the link points
+    // at — an arbitrary path, with forjar's privileges, which on this
+    // fleet is root. Measured: a managed path swapped for a symlink to
+    // `victim/important.conf` left that file reading
+    // `SECRET=managed-payload` with its mode changed 664 -> 600, while
+    // apply printed `1 converged`. `policy.deny_paths` does not stop it,
+    // because the path forjar was asked to write really is allowed.
+    //
+    // The dangling-symlink variant is worse: `>` CREATES the target, so
+    // it is a write primitive at any path the link names.
+    //
+    // Pre-#307 this could not be reached in the converged case — the old
+    // drift gate refused the apply outright, which protected the victim
+    // BY ACCIDENT. #307 removed that refusal and the latent defect became
+    // reachable. It is pre-existing either way. (forjar#310.)
+    //
+    // `state: file` DECLARES a regular file at this path. So converging
+    // means REPLACING the link, not following it. `state: symlink` is a
+    // separate arm above and is unaffected.
+    //
+    // `if` rather than `[ -L p ] && rm -f p` on purpose: under
+    // `set -euo pipefail` the `&&` form exits 1 for every non-symlink,
+    // i.e. the normal case, aborting the whole apply.
+    lines.push(format!("if [ -L {p} ]; then rm -f {p}; fi"));
+    if resource.source.is_some() || resource.content.is_some() {
+        push_atomic_replace_lines(lines, path, resource);
+    } else {
+        push_ownership_lines(lines, path, resource);
+    }
+}
+
 /// Generate shell to converge file to desired state.
 pub fn apply_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
@@ -277,48 +285,7 @@ pub fn apply_script(resource: &Resource) -> String {
             let target = resource.target.as_deref().unwrap_or("/dev/null");
             lines.push(format!("ln -sfn {} {p}", sh_squote(target)));
         }
-        "file" => {
-            if let Some(parent) = std::path::Path::new(path).parent() {
-                if parent != std::path::Path::new("/") {
-                    lines.push(format!(
-                        "mkdir -p {}",
-                        sh_squote(&parent.display().to_string())
-                    ));
-                }
-            }
-            // A SYMLINK AT A MANAGED PATH IS DRIFT, NOT A WRITE TARGET.
-            //
-            // Without this, `>` and `chmod`/`chown` FOLLOW the link, so forjar
-            // writes the declared content and mode onto whatever the link points
-            // at — an arbitrary path, with forjar's privileges, which on this
-            // fleet is root. Measured: a managed path swapped for a symlink to
-            // `victim/important.conf` left that file reading
-            // `SECRET=managed-payload` with its mode changed 664 -> 600, while
-            // apply printed `1 converged`. `policy.deny_paths` does not stop it,
-            // because the path forjar was asked to write really is allowed.
-            //
-            // The dangling-symlink variant is worse: `>` CREATES the target, so
-            // it is a write primitive at any path the link names.
-            //
-            // Pre-#307 this could not be reached in the converged case — the old
-            // drift gate refused the apply outright, which protected the victim
-            // BY ACCIDENT. #307 removed that refusal and the latent defect became
-            // reachable. It is pre-existing either way. (forjar#310.)
-            //
-            // `state: file` DECLARES a regular file at this path. So converging
-            // means REPLACING the link, not following it. `state: symlink` is a
-            // separate arm above and is unaffected.
-            //
-            // `if` rather than `[ -L p ] && rm -f p` on purpose: under
-            // `set -euo pipefail` the `&&` form exits 1 for every non-symlink,
-            // i.e. the normal case, aborting the whole apply.
-            lines.push(format!("if [ -L {p} ]; then rm -f {p}; fi"));
-            if resource.source.is_some() || resource.content.is_some() {
-                push_atomic_replace_lines(&mut lines, path, resource);
-            } else {
-                push_ownership_lines(&mut lines, path, resource);
-            }
-        }
+        "file" => push_regular_file_lines(&mut lines, path, &p, resource),
         other => {
             // `other` is the config-derived state string; escape the label.
             lines.push(format!(
