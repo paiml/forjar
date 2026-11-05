@@ -4,7 +4,7 @@
 # WHY: a receipt binds to the PR head sha. Committing `.quorum/<branch>.json`
 # moves the head, so the committed receipt can never match the head it was
 # written for (a loop). The receipt therefore lives outside the tree:
-#   ${QUORUM_STORE:-/mnt/nvme-raid0/cop-inbox/promote-state}/quorum/<repo>/<pr>/<headsha>.json
+#   <root>/quorum/<repo>/<pr>/<headsha>.json
 #   schema: {repo, pr, sha, author_model, verdicts:[{lane, model, verdict, blockers}]}
 #
 # DESIGN (PMAT-554 round 3): the receipt is UNTRUSTED. No string normalization
@@ -41,7 +41,7 @@
 # (omit or replace one's own trailer) needs a harness-stamped attestation.
 #
 # Inputs (env): PR_NUMBER, PR_HEAD_SHA, PR_BASE_SHA (required); QUORUM_REPO
-# (default paiml/forjar); QUORUM_STORE.
+# (default paiml/forjar); QUORUM_STORE (tests only, colon-separated roots).
 #
 # NOT TOUCHED: scripts/quorum-gate.sh (local pre-push hook) and
 # scripts/dogfood/{quorum,release-check}.sh (gates E / R).
@@ -50,7 +50,13 @@ set -euo pipefail
 fail() { echo "FAIL quorum receipt: $*" >&2; exit 1; }
 
 repo="${QUORUM_REPO:-paiml/forjar}"
-store="${QUORUM_STORE:-/mnt/nvme-raid0/cop-inbox/promote-state}"
+# Receipt roots, in order: the first root holding the file wins, but if a second root
+# also holds it the bytes must be identical (disagreement = FAIL, never the favourable one).
+# QUORUM_STORE (colon-separated) overrides ONLY under QUORUM_TEST_MODE=1 outside GITHUB_ACTIONS.
+roots=(/mnt/nvme-raid0/cop-inbox/promote-state /mnt/nvme-raid0/promote-state)
+if [ "${QUORUM_TEST_MODE:-}" = "1" ] && [ -z "${GITHUB_ACTIONS:-}" ] && [ -n "${QUORUM_STORE:-}" ]; then
+  IFS=: read -r -a roots <<<"$QUORUM_STORE"
+fi
 pr="${PR_NUMBER:-}"
 head="${PR_HEAD_SHA:-}"
 allow="$(dirname "${BASH_SOURCE[0]}")/quorum-models.json"
@@ -101,10 +107,18 @@ else
 fi
 authors="$(printf '%s' "$ids" | jq -R . | jq -s -c 'unique')" || fail "could not build author list"
 
-[ -d "$store" ] || fail "receipt store $store is missing (UNMEASURED)"
-file="$store/quorum/$repo/$pr/$head.json"
-[ ! -L "$file" ] || fail "$file is a symlink (refused)"
-[ -f "$file" ] || fail "no receipt at $file for head $head"
+file=""
+for root in "${roots[@]}"; do
+  cand="$root/quorum/$repo/$pr/$head.json"
+  [ ! -L "$cand" ] || fail "$cand is a symlink (refused)"
+  [ -f "$cand" ] || continue
+  if [ -z "$file" ]; then
+    file="$cand"
+  else
+    cmp -s "$file" "$cand" || fail "receipt roots disagree: $file differs from $cand"
+  fi
+done
+[ -n "$file" ] || fail "no receipt for head $head in any root (${roots[*]}) (UNMEASURED)"
 
 # ---- raw-text checks ----
 if LC_ALL=C grep -qP '[^\x00-\x7F]' "$file"; then fail "non-ASCII byte in $file"; fi
@@ -170,4 +184,4 @@ case "$verdict" in
   OK*) echo "PASS quorum receipt: $verdict ($file)" ;;
   *) fail "${verdict#BAD } ($file)" ;;
 esac
-# mutation: change `>= 3` to `>= 0`, drop the `isin($authors)` lane clause, drop the `has(.model)` allowlist clause, or loosen the `.repo != $repo` check and the tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs and tests/falsification_quorum_gate_bypasses.rs go red
+# mutation: make `roots` hold only the first root (second-root test goes red), change `>= 3` to `>= 0`, drop the `isin($authors)` lane clause, drop the `has(.model)` allowlist clause, or loosen the `.repo != $repo` check and the tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs and tests/falsification_quorum_gate_bypasses.rs go red

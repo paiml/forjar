@@ -87,7 +87,7 @@ impl Repo {
         let mut c = Command::new("bash");
         c.arg(gate())
             .env_remove("PR_AUTHOR_MODELS")
-            .env_remove("QUORUM_TEST_MODE")
+            .env("QUORUM_TEST_MODE", "1")
             .env_remove("GITHUB_ACTIONS")
             .env("PR_BASE_SHA", &self.base)
             .env("QUORUM_STORE", &store)
@@ -149,8 +149,17 @@ fn author_env_is_ignored_in_ci_and_without_test_mode() {
     let r = Repo::new();
     r.commit("no trailer here");
     let a = "Claude Sonnet 5.5 <noreply@anthropic.com>";
-    // no QUORUM_TEST_MODE: env var is not an author source
-    assert!(!r.run(&good(), &[("PR_AUTHOR_MODELS", a)]).status.success());
+    // no QUORUM_TEST_MODE: env var is not an author source. NOTE (PMAT-5882): the store
+    // override is itself test-mode only now, so this also fails for want of a receipt root;
+    // the author-source half is still pinned by the GITHUB_ACTIONS case below and by the
+    // gate's own `QUORUM_TEST_MODE = 1` guard on PR_AUTHOR_MODELS.
+    assert!(!r
+        .run(
+            &good(),
+            &[("PR_AUTHOR_MODELS", a), ("QUORUM_TEST_MODE", "0")]
+        )
+        .status
+        .success());
     // GITHUB_ACTIONS set: ignored even with test mode
     assert!(!r
         .run(
