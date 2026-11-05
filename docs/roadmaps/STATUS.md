@@ -57,3 +57,19 @@ v1.6.x line with a clean tracker. Candidate future work (not yet scheduled):
 
 New work is tracked as `PMAT-###` entries in `roadmap.yaml` and as GitHub
 issues.
+
+## Adding a roadmap row (HF-001, PMAT-5881)
+
+`roadmap.yaml` is the **generated aggregate** of itself plus the fragments in
+[`entries/`](./entries/) (`pmat roadmap aggregate`). It was the one file every
+PR edited, so every PR conflicted with every other.
+
+- **New rows** go in `docs/roadmaps/entries/<id>.yaml` (a one-row list, same
+  fields as a `roadmap.yaml` row). A fragment supersedes a row with its id.
+- **Never edit `roadmap.yaml` in a pull request.** Regenerate it with
+  `pmat roadmap aggregate --write` (the default-branch `pmat roadmap sync`
+  does this); `pmat roadmap aggregate --check` exits 1 on a hand edit or a
+  deleted fragment.
+- Scripts that read the registry (`scripts/dogfood/*`, `release-goal.sh`)
+  still read `roadmap.yaml`; the aggregate keeps every row they resolve.
+- Falsifier: `tests/falsification_hf001_roadmap_fragments.rs`.

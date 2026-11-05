@@ -5571,3 +5571,23 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-5881
+  github_issue: null
+  item_type: task
+  title: 'HF-001: roadmap.yaml hot-file fragment layout (new rows go in docs/roadmaps/entries/<id>.yaml)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-05T00:00:00Z
+  updated: 2026-11-05T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - docs/roadmaps/entries/ is tracked and roadmap.yaml is the pmat roadmap aggregate output, byte-identical for every pre-existing row
+  - a hand edit of the aggregate or a deleted fragment turns pmat roadmap aggregate --check red
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'KZ-001 item e. Intake stopped (RAX-INTERIM): no GitHub issue.'
+  epic: null
