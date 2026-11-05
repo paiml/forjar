@@ -11,8 +11,10 @@ use std::process::{Command, Output};
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
+#[path = "common/quorum_sign.rs"]
+mod quorum_sign;
 fn gate() -> PathBuf {
-    root().join("scripts/quorum-store-gate.sh")
+    quorum_sign::trusted_gate()
 }
 const SON: &str = "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
 
@@ -76,21 +78,20 @@ impl Repo {
     /// Run the gate on the current head with the given receipt body (sha substituted).
     fn run(&self, receipt: &str, envs: &[(&str, &str)]) -> Output {
         let head = self.git(&["rev-parse", "HEAD"]);
-        let store = self.dir.path().join("store");
-        let d = store.join("quorum/paiml/forjar/874");
-        std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(
-            d.join(format!("{head}.json")),
-            receipt.replace("HEAD", &head),
-        )
-        .unwrap();
+        let body = receipt.replace("HEAD", &head);
+        quorum_sign::publish_ref(
+            self.dir.path(),
+            874,
+            &head,
+            body.as_bytes(),
+            &quorum_sign::sign(body.as_bytes()),
+        );
         let mut c = Command::new("bash");
         c.arg(gate())
             .env_remove("PR_AUTHOR_MODELS")
             .env_remove("QUORUM_TEST_MODE")
             .env_remove("GITHUB_ACTIONS")
             .env("PR_BASE_SHA", &self.base)
-            .env("QUORUM_STORE", &store)
             .env("QUORUM_REPO", "paiml/forjar")
             .env("PR_NUMBER", "874")
             .env("PR_HEAD_SHA", &head)

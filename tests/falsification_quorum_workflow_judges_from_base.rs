@@ -68,12 +68,22 @@ fn fixture(tag: &str, base_gate: Option<&str>, pr_gate: &str) -> (PathBuf, Strin
             "{\"from\":\"base\"}",
         )
         .unwrap();
+        std::fs::write(
+            repo.join("scripts/quorum-allowed-signers"),
+            "# base signers\n",
+        )
+        .unwrap();
     }
     git(&repo, &["add", "-A"]);
     git(&repo, &["commit", "-qm", "base"]);
     let base = git(&repo, &["rev-parse", "HEAD"]);
     std::fs::write(repo.join("scripts/quorum-store-gate.sh"), pr_gate).unwrap();
     std::fs::write(repo.join("scripts/quorum-models.json"), "{\"from\":\"pr\"}").unwrap();
+    std::fs::write(
+        repo.join("scripts/quorum-allowed-signers"),
+        "# PR-ADDED-SIGNER\n",
+    )
+    .unwrap();
     (repo, base, d)
 }
 
@@ -136,6 +146,35 @@ fn a_base_with_the_script_but_no_allowlist_is_red_not_a_fallback() {
     assert!(
         !ok,
         "missing allowlist on a base that has the gate must fail: {out}"
+    );
+}
+
+#[test]
+fn signers_come_from_the_base_never_the_pr() {
+    let (repo, base, d) = fixture("sig", Some("echo BASE-GATE\n"), "echo PR\n");
+    let (ok, out, _) = run_step(&repo, &base, &d);
+    assert!(ok, "{out}");
+    let signers =
+        std::fs::read_to_string(d.join("quorum-base-gate/scripts/quorum-allowed-signers")).unwrap();
+    assert!(
+        signers.contains("base signers") && !signers.contains("PR-ADDED-SIGNER"),
+        "a PR must not add its own signer: {signers}"
+    );
+}
+
+#[test]
+fn a_base_with_the_gate_but_no_signers_file_is_red() {
+    let (repo, _b, d) = fixture("nosig", Some("echo BASE-GATE\n"), "echo PR\n");
+    git(
+        &repo,
+        &["rm", "-q", "--cached", "scripts/quorum-allowed-signers"],
+    );
+    git(&repo, &["commit", "-qm", "drop signers from base"]);
+    let base2 = git(&repo, &["rev-parse", "HEAD"]);
+    let (ok, out, _) = run_step(&repo, &base2, &d);
+    assert!(
+        !ok,
+        "missing signers on a base that has the gate must fail: {out}"
     );
 }
 

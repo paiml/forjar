@@ -6,10 +6,13 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+#[path = "common/quorum_sign.rs"]
+mod quorum_sign;
+
 const SHA: &str = "141132a621af2843efe9d6689b2b469ef34f7ce4";
 
 fn gate() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/quorum-store-gate.sh")
+    quorum_sign::trusted_gate()
 }
 
 fn lane(name: &str, model: &str, verdict: &str) -> String {
@@ -45,8 +48,13 @@ fn run_with(body: &str, repo_env: &str, symlink: bool) -> Output {
         let real = dir.path().join("real.json");
         std::fs::write(&real, body).unwrap();
         std::os::unix::fs::symlink(&real, &f).unwrap();
+        std::fs::write(
+            d.join(format!("{SHA}.json.sig")),
+            quorum_sign::sign(body.as_bytes()),
+        )
+        .unwrap();
     } else {
-        std::fs::write(&f, body).unwrap();
+        quorum_sign::write_signed(&d, SHA, body.as_bytes());
     }
     Command::new("bash")
         .arg(gate())

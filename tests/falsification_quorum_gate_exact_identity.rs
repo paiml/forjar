@@ -5,10 +5,13 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+#[path = "common/quorum_sign.rs"]
+mod quorum_sign;
+
 const SHA: &str = "141132a621af2843efe9d6689b2b469ef34f7ce4";
 
 fn gate() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/quorum-store-gate.sh")
+    quorum_sign::trusted_gate()
 }
 
 fn lane(name: &str, model: &str, verdict: &str) -> String {
@@ -42,8 +45,7 @@ fn run_cfg(
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("store");
     let d = store.join("quorum/paiml/forjar/798");
-    std::fs::create_dir_all(&d).unwrap();
-    std::fs::write(d.join(format!("{SHA}.json")), body).unwrap();
+    quorum_sign::write_signed(&d, SHA, body);
     let mut c = Command::new("bash");
     c.arg(gate())
         .env_remove("GITHUB_ACTIONS")
@@ -53,8 +55,9 @@ fn run_cfg(
         .env("QUORUM_REPO", "paiml/forjar")
         .env("PR_NUMBER", "798")
         .env("PR_HEAD_SHA", SHA);
+    c.env("QUORUM_TEST_MODE", "1");
     if let Some(a) = authors {
-        c.env("PR_AUTHOR_MODELS", a).env("QUORUM_TEST_MODE", "1");
+        c.env("PR_AUTHOR_MODELS", a);
     }
     for (k, v) in extra_env {
         c.env(k, v);
@@ -240,98 +243,6 @@ fn no_or_unmapped_trailer_fails() {
     )
     .status
     .success());
-}
-
-#[test]
-fn author_is_computed_from_git_log_when_env_is_unset() {
-    let dir = tempfile::tempdir().unwrap();
-    let g = |args: &[&str]| {
-        let o = Command::new("git")
-            .args(args)
-            .current_dir(dir.path())
-            .output()
-            .unwrap();
-        assert!(o.status.success(), "{args:?}");
-        String::from_utf8_lossy(&o.stdout).trim().to_string()
-    };
-    g(&["init", "-q"]);
-    g(&[
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@t",
-        "commit",
-        "-q",
-        "--allow-empty",
-        "-m",
-        "base",
-    ]);
-    let base = g(&["rev-parse", "HEAD"]);
-    let msg = "work\n\nPmat-Ticket: PMAT-554\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>\n";
-    g(&[
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@t",
-        "commit",
-        "-q",
-        "--allow-empty",
-        "-m",
-        msg,
-    ]);
-    let head = g(&["rev-parse", "HEAD"]);
-    let body = rec3(&three_good()).replace(SHA, &head);
-    let go = |base: &str| {
-        let store = dir.path().join("store");
-        let d = store.join("quorum/paiml/forjar/798");
-        std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join(format!("{head}.json")), &body).unwrap();
-        Command::new("bash")
-            .arg(gate())
-            .env_remove("PR_AUTHOR_MODELS")
-            .env("PR_BASE_SHA", base)
-            .env("QUORUM_STORE", &store)
-            .env("QUORUM_REPO", "paiml/forjar")
-            .env("PR_NUMBER", "798")
-            .env("PR_HEAD_SHA", &head)
-            .current_dir(dir.path())
-            .output()
-            .unwrap()
-    };
-    let ok = go(&base);
-    assert!(
-        ok.status.success(),
-        "{}",
-        String::from_utf8_lossy(&ok.stderr)
-    );
-    // a range with no trailer fails (UNMEASURED)
-    g(&[
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@t",
-        "commit",
-        "-q",
-        "--amend",
-        "--allow-empty",
-        "-m",
-        "no trailer",
-    ]);
-    let head2 = g(&["rev-parse", "HEAD"]);
-    let d = dir.path().join("store/quorum/paiml/forjar/798");
-    std::fs::write(d.join(format!("{head2}.json")), body.replace(&head, &head2)).unwrap();
-    let no = Command::new("bash")
-        .arg(gate())
-        .env_remove("PR_AUTHOR_MODELS")
-        .env("PR_BASE_SHA", &base)
-        .env("QUORUM_STORE", dir.path().join("store"))
-        .env("QUORUM_REPO", "paiml/forjar")
-        .env("PR_NUMBER", "798")
-        .env("PR_HEAD_SHA", &head2)
-        .current_dir(dir.path())
-        .output()
-        .unwrap();
-    assert!(!no.status.success());
 }
 
 #[test]

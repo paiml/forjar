@@ -76,7 +76,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Fetch gate from the PR base commit
-        # JUDGE FROM BASE: the gate and its allowlist come from the PR BASE commit, never
+        # JUDGE FROM BASE: the gate, its allowlist and its allowed signers come from the PR BASE commit, never
         # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
         # the base lacks either file.
         # BOOTSTRAP (PMAT-5882): while the PR base has no gate, the one PR that introduces it
@@ -94,17 +94,20 @@ jobs:
               || { echo "FAIL: cannot read scripts/quorum-store-gate.sh from PR base" >&2; exit 1; }
             git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
               || { echo "FAIL: scripts/quorum-models.json absent on PR base" >&2; exit 1; }
+            git show "$PR_BASE_SHA:scripts/quorum-allowed-signers" > "$d/scripts/quorum-allowed-signers" \
+              || { echo "FAIL: scripts/quorum-allowed-signers absent on PR base" >&2; exit 1; }
           else
             echo "BOOTSTRAP: base $PR_BASE_SHA has no quorum-store-gate.sh; judging with this PR's copy"
-            cp scripts/quorum-store-gate.sh scripts/quorum-models.json "$d/scripts/"
+            cp scripts/quorum-store-gate.sh scripts/quorum-models.json scripts/quorum-allowed-signers "$d/scripts/"
           fi
           echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
 
       - name: Verify quorum receipt
-        # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
-        # not a committed .quorum/<branch>.json: a receipt binds to the head
-        # sha, and committing it would move the head (loop). Fails closed on a
-        # missing store or file.
+        # Reads a SIGNED receipt from the git ref refs/quorum/pr-<N> (<pr>/<headsha>.json
+        # + .sig), not a committed .quorum/<branch>.json (a receipt binds to the head sha;
+        # committing it would move the head) and not a store a runner can write (R34-3).
+        # The signature is verified against scripts/quorum-allowed-signers from the PR BASE.
+        # Fails closed on a missing ref, missing/invalid signature or unprovisioned signer.
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}

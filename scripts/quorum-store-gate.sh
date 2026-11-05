@@ -4,7 +4,7 @@
 # WHY: a receipt binds to the PR head sha. Committing `.quorum/<branch>.json`
 # moves the head, so the committed receipt can never match the head it was
 # written for (a loop). The receipt therefore lives outside the tree:
-#   ${QUORUM_STORE:-/mnt/nvme-raid0/cop-inbox/promote-state}/quorum/<repo>/<pr>/<headsha>.json
+#   refs/quorum/pr-<N>:<pr>/<headsha>.json (+ .sig), signed; see "fetch" below
 #   schema: {repo, pr, sha, author_model, verdicts:[{lane, model, verdict, blockers}]}
 #
 # DESIGN (PMAT-554 round 3): the receipt is UNTRUSTED. No string normalization
@@ -41,7 +41,7 @@
 # (omit or replace one's own trailer) needs a harness-stamped attestation.
 #
 # Inputs (env): PR_NUMBER, PR_HEAD_SHA, PR_BASE_SHA (required); QUORUM_REPO
-# (default paiml/forjar); QUORUM_STORE.
+# (default paiml/forjar); QUORUM_STORE (tests only, with QUORUM_TEST_MODE=1).
 #
 # NOT TOUCHED: scripts/quorum-gate.sh (local pre-push hook) and
 # scripts/dogfood/{quorum,release-check}.sh (gates E / R).
@@ -101,10 +101,48 @@ else
 fi
 authors="$(printf '%s' "$ids" | jq -R . | jq -s -c 'unique')" || fail "could not build author list"
 
-[ -d "$store" ] || fail "receipt store $store is missing (UNMEASURED)"
-file="$store/quorum/$repo/$pr/$head.json"
-[ ! -L "$file" ] || fail "$file is a symlink (refused)"
-[ -f "$file" ] || fail "no receipt at $file for head $head"
+# ---- fetch the receipt and its detached signature (R34-3) ----
+# NOTHING a runner can write is trusted. The receipt must carry a detached ssh signature
+# (`ssh-keygen -Y sign -n quorum-receipt`) made by the receipt writer's private key, which
+# lives only with the writer. The gate verifies it against quorum-allowed-signers, read from
+# the SAME dir as this script (the PR BASE copy in CI), so a PR cannot add its own signer.
+# Delivery (no store mount on the runner): `git fetch origin refs/quorum/pr-<N>`; that ref's
+# tree holds <pr>/<headsha>.json and <pr>/<headsha>.json.sig. The writer needs push access
+# to refs/quorum/*; PR code needs none, and a forged ref is useless without the key.
+# The store path is a TEST fallback only (QUORUM_TEST_MODE=1 and no GITHUB_ACTIONS).
+signers="$(dirname "${BASH_SOURCE[0]}")/quorum-allowed-signers"
+[ -f "$signers" ] || fail "allowed signers $signers missing (UNMEASURED)"
+grep -Eq '^quorum-writer[[:space:]]' "$signers" \
+  || fail "no signer provisioned in $signers (receipt writer key not installed)"
+command -v ssh-keygen >/dev/null || fail "ssh-keygen not installed (UNMEASURED)"
+work="$(mktemp -d)" || fail "mktemp failed"
+trap 'rm -rf "$work"' EXIT
+file="$work/$head.json"
+sig="$file.sig"
+if [ "${QUORUM_TEST_MODE:-}" = "1" ] && [ -z "${GITHUB_ACTIONS:-}" ] && [ -n "${QUORUM_STORE:-}" ]; then
+  [ -d "$store" ] || fail "receipt store $store is missing (UNMEASURED)"
+  src="$store/quorum/$repo/$pr/$head.json"
+  [ ! -L "$src" ] || fail "$src is a symlink (refused)"
+  [ ! -L "$src.sig" ] || fail "$src.sig is a symlink (refused)"
+  [ -f "$src" ] || fail "no receipt at $src for head $head"
+  [ -f "$src.sig" ] || fail "no signature at $src.sig for head $head (unsigned receipt refused)"
+  cp "$src" "$file"; cp "$src.sig" "$sig"
+else
+  ref="refs/quorum/pr-$pr"
+  git fetch --quiet --no-tags --depth=1 origin "+$ref:refs/quorum-fetched/pr-$pr" 2>/dev/null \
+    || fail "cannot fetch $ref from origin: no receipt published for PR $pr (UNMEASURED)"
+  for f in "$pr/$head.json" "$pr/$head.json.sig"; do
+    mode="$(git ls-tree "refs/quorum-fetched/pr-$pr" -- "$f" | cut -d' ' -f1)"
+    [ "$mode" = "100644" ] || fail "$ref has no regular file $f (mode '${mode:-none}')"
+  done
+  git show "refs/quorum-fetched/pr-$pr:$pr/$head.json" > "$file" || fail "cannot read receipt from $ref"
+  git show "refs/quorum-fetched/pr-$pr:$pr/$head.json.sig" > "$sig" || fail "cannot read signature from $ref"
+fi
+# the signature covers the canonical form (jq -S -c): repo, pr, sha, author_model, verdicts
+# and every other key. Any changed byte that changes the parsed document breaks it.
+jq -S -c . < "$file" > "$work/canon" 2>/dev/null || fail "$file is not parseable JSON"
+ssh-keygen -Y verify -f "$signers" -I quorum-writer -n quorum-receipt -s "$sig" < "$work/canon" >/dev/null 2>&1 \
+  || fail "signature verification failed for head $head (unsigned, wrong signer, or altered receipt)"
 
 # ---- raw-text checks ----
 if LC_ALL=C grep -qP '[^\x00-\x7F]' "$file"; then fail "non-ASCII byte in $file"; fi
@@ -170,4 +208,4 @@ case "$verdict" in
   OK*) echo "PASS quorum receipt: $verdict ($file)" ;;
   *) fail "${verdict#BAD } ($file)" ;;
 esac
-# mutation: change `>= 3` to `>= 0`, drop the `isin($authors)` lane clause, drop the `has(.model)` allowlist clause, or loosen the `.repo != $repo` check and the tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs and tests/falsification_quorum_gate_bypasses.rs go red
+# mutation: delete the `ssh-keygen -Y verify` line, or change `>= 3` to `>= 0`, drop the `isin($authors)` lane clause, drop the `has(.model)` allowlist clause, or loosen the `.repo != $repo` check and the tests in tests/falsification_quorum_gate_reads_the_receipt_store.rs and tests/falsification_quorum_gate_bypasses.rs go red

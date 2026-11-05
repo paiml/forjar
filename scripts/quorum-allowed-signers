@@ -1,0 +1,4 @@
+# PLACEHOLDER: no signer provisioned. This file verifies nothing; the quorum gate is RED
+# ("no signer provisioned") until the receipt writer (infra / arbiter-cop) lands a line:
+#   quorum-writer namespaces="quorum-receipt" ssh-ed25519 AAAA...<public key>
+# Public key only. The private key never enters this repo. Read from the PR BASE commit.

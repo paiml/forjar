@@ -9,10 +9,13 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+#[path = "common/quorum_sign.rs"]
+mod quorum_sign;
+
 const SHA: &str = "141132a621af2843efe9d6689b2b469ef34f7ce4";
 
 fn gate() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/quorum-store-gate.sh")
+    quorum_sign::trusted_gate()
 }
 
 fn lane(name: &str, model: &str, verdict: &str) -> String {
@@ -40,8 +43,7 @@ fn run(body: Option<String>, file_sha: &str, head: &str) -> Output {
     let store = dir.path().join("store");
     if let Some(b) = body {
         let d = store.join("quorum/paiml/forjar/798");
-        std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join(format!("{file_sha}.json")), b).unwrap();
+        quorum_sign::write_signed(&d, file_sha, b.as_bytes());
         // seat files must be ignored
         std::fs::write(d.join("seat-1.txt"), "noise").unwrap();
     }
