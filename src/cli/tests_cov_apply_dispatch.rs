@@ -101,7 +101,7 @@ mod tests {
         )
         .unwrap();
         // High limit: should pass
-        let result = check_cost_limit(&file, &state_dir, None, None, 100);
+        let result = check_cost_limit(&file, &state_dir, None, None, &Default::default(), 100);
         assert!(result.is_ok());
     }
 
@@ -117,7 +117,7 @@ mod tests {
         )
         .unwrap();
         // Limit 0: should fail (at least 2 changes planned)
-        let result = check_cost_limit(&file, &state_dir, None, None, 0);
+        let result = check_cost_limit(&file, &state_dir, None, None, &Default::default(), 0);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Cost limit exceeded"));
     }

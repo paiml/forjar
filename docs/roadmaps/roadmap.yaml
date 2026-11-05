@@ -5343,6 +5343,17 @@ roadmap:
   - release:v1.34.0
   notes: null
   epic: 764
+- id: PMAT-829
+  github_issue: 829
+  item_type: task
+  title: 'apply: --cost-limit ignores resource selectors (-r, -g, --subset, --exclude, --skip)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-29T11:17:24Z
+  updated: 2026-10-29T11:17:24Z
+  spec: null
+  acceptance_criteria: []
 - id: PMAT-789
   github_issue: 789
   item_type: task
