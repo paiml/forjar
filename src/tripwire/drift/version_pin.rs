@@ -123,58 +123,76 @@ pub fn evaluate(
     live: &Live,
     upstream: &Upstream,
 ) -> Vec<Outcome> {
+    if let Pin::Unversioned(tag) = pin {
+        return vec![Outcome::NotChecked(format!(
+            "tag '{tag}' names no version, so the live {binary} was not compared with it"
+        ))];
+    }
     let mut out = Vec::new();
-    let expected = match pin {
-        Pin::Unversioned(tag) => {
-            out.push(Outcome::NotChecked(format!(
-                "tag '{tag}' names no version, so the live {binary} was not compared with it"
-            )));
-            return out;
-        }
-        Pin::Version(p) => Some(*p),
-        Pin::Latest => match upstream {
-            Upstream::Version(u) => Some(*u),
-            _ => None,
-        },
-    };
-    match (live, expected) {
-        (Live::Unparseable(raw), _) => out.push(Outcome::Unmeasured(format!(
+    out.extend(compare_live(binary, pin, live, upstream));
+    out.extend(compare_upstream(repo, pin, upstream));
+    out
+}
+
+/// The version `live` is held against: the pin itself, or upstream for `latest`.
+fn expected_version(pin: &Pin, upstream: &Upstream) -> Option<Semver> {
+    match (pin, upstream) {
+        (Pin::Version(p), _) => Some(*p),
+        (Pin::Latest, Upstream::Version(u)) => Some(*u),
+        _ => None,
+    }
+}
+
+fn compare_live(binary: &str, pin: &Pin, live: &Live, upstream: &Upstream) -> Option<Outcome> {
+    match (live, expected_version(pin, upstream)) {
+        (Live::Unparseable(raw), _) => Some(Outcome::Unmeasured(format!(
             "cannot measure: `{binary} --version` printed no version (\"{raw}\")"
         ))),
-        (Live::Version(l), Some(e)) if *l != e => out.push(Outcome::Drift {
-            expected: format!("version {e}"),
-            actual: format!("version {l}"),
-            detail: format!(
-                "live {binary} is {l}, declared {} is {e}; apply would {} it",
-                if matches!(pin, Pin::Latest) {
-                    "latest"
-                } else {
-                    "pin"
-                },
-                if *l > e { "DOWNGRADE" } else { "upgrade" }
-            ),
-        }),
-        _ => {}
+        (Live::Version(l), Some(e)) if *l != e => Some(version_drift(binary, pin, *l, e)),
+        _ => None,
     }
+}
+
+fn version_drift(binary: &str, pin: &Pin, l: Semver, e: Semver) -> Outcome {
+    let what = if matches!(pin, Pin::Latest) {
+        "latest"
+    } else {
+        "pin"
+    };
+    let verb = if l > e { "DOWNGRADE" } else { "upgrade" };
+    Outcome::Drift {
+        expected: format!("version {e}"),
+        actual: format!("version {l}"),
+        detail: format!("live {binary} is {l}, declared {what} is {e}; apply would {verb} it"),
+    }
+}
+
+fn compare_upstream(repo: &str, pin: &Pin, upstream: &Upstream) -> Option<Outcome> {
     match (pin, upstream) {
-        (Pin::Version(p), Upstream::Version(u)) if p < u => out.push(Outcome::Drift {
+        (Pin::Version(p), Upstream::Version(u)) if p < u => Some(Outcome::Drift {
             expected: format!("latest {u}"),
             actual: format!("pin {p}"),
             detail: format!("pin {p} is behind the latest {repo} release {u}"),
         }),
-        (_, Upstream::Unmeasured(why)) => out.push(Outcome::Unmeasured(format!(
+        (_, Upstream::Unmeasured(why)) => Some(Outcome::Unmeasured(format!(
             "latest {repo} release not measured: {why}"
         ))),
-        (Pin::Version(p), Upstream::NotChecked) => out.push(Outcome::NotChecked(format!(
+        (_, Upstream::NotChecked) => offline_note(repo, pin),
+        _ => None,
+    }
+}
+
+fn offline_note(repo: &str, pin: &Pin) -> Option<Outcome> {
+    match pin {
+        Pin::Version(p) => Some(Outcome::NotChecked(format!(
             "upstream not checked (offline): pin {p} was not compared with the latest {repo} release"
         ))),
-        (Pin::Latest, Upstream::NotChecked) => out.push(Outcome::NotChecked(
+        Pin::Latest => Some(Outcome::NotChecked(
             "upstream not checked (offline): tag 'latest' cannot be compared without it"
                 .to_string(),
         )),
-        _ => {}
+        Pin::Unversioned(_) => None,
     }
-    out
 }
 
 const LIVE: &str = "@@forjar-live";
@@ -217,34 +235,37 @@ pub fn parse_probe(stdout: &str, check_upstream: bool) -> (Live, Upstream) {
         Some((h, t)) => (h, Some(t)),
         None => (stdout, None),
     };
-    let live = if head.contains(MISSING) {
-        Live::Missing
-    } else {
-        let text = head.split_once(LIVE).map_or(head, |(_, t)| t);
-        match parse_semver(text) {
-            Some(v) => Live::Version(v),
-            None => Live::Unparseable(first_line(text)),
-        }
+    (parse_live(head), parse_upstream(check_upstream, tail))
+}
+
+fn parse_live(head: &str) -> Live {
+    if head.contains(MISSING) {
+        return Live::Missing;
+    }
+    let text = head.split_once(LIVE).map_or(head, |(_, t)| t);
+    match parse_semver(text) {
+        Some(v) => Live::Version(v),
+        None => Live::Unparseable(first_line(text)),
+    }
+}
+
+fn parse_upstream(check_upstream: bool, tail: Option<&str>) -> Upstream {
+    if !check_upstream {
+        return Upstream::NotChecked;
+    }
+    let Some(t) = tail.map(str::trim) else {
+        return Upstream::Unmeasured("the probe printed no upstream answer".into());
     };
-    let upstream = match (check_upstream, tail) {
-        (false, _) => Upstream::NotChecked,
-        (true, None) => Upstream::Unmeasured("the probe printed no upstream answer".into()),
-        (true, Some(t)) => {
-            let t = t.trim();
-            if let Some(err) = t.strip_prefix("error:") {
-                Upstream::Unmeasured(format!("curl: {}", err.trim()))
-            } else {
-                match parse_semver(t) {
-                    Some(v) => Upstream::Version(v),
-                    None => Upstream::Unmeasured(format!(
-                        "no semver tag_name in the release API answer (\"{}\")",
-                        first_line(t)
-                    )),
-                }
-            }
-        }
-    };
-    (live, upstream)
+    if let Some(err) = t.strip_prefix("error:") {
+        return Upstream::Unmeasured(format!("curl: {}", err.trim()));
+    }
+    match parse_semver(t) {
+        Some(v) => Upstream::Version(v),
+        None => Upstream::Unmeasured(format!(
+            "no semver tag_name in the release API answer (\"{}\")",
+            first_line(t)
+        )),
+    }
 }
 
 fn first_line(text: &str) -> String {
@@ -300,7 +321,6 @@ fn check_one(
     v: &mut VersionPinVerdicts,
 ) {
     let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
-    let binary = resource.binary.as_deref().unwrap_or("unknown");
     let pin = declared_pin(resource);
     if !is_valid_repo(repo) {
         // Nothing was asked of the box, so this is UNMEASURED (a class every
@@ -315,28 +335,18 @@ fn check_one(
     }
     // A tag with no version needs no probe: there is nothing to compare.
     if let Pin::Unversioned(_) = pin {
-        for o in evaluate(binary, repo, &pin, &Live::Missing, &Upstream::NotChecked) {
-            push_outcome(id, o, v);
-        }
+        evaluate_into(
+            id,
+            resource,
+            &pin,
+            (&Live::Missing, &Upstream::NotChecked),
+            v,
+        );
         return;
     }
-    let script = probe_script(resource, check_upstream);
-    let out = match unmeasured::read(machine, &script) {
-        Reading::Answered(out) if out.success() => out,
-        Reading::Answered(out) => {
-            v.findings.push(DriftFinding::unmeasured(
-                id,
-                ResourceType::GithubRelease,
-                &pin_label(&pin),
-                format!(
-                    "version probe failed (exit {}): {}",
-                    out.exit_code,
-                    first_line(&out.stderr)
-                ),
-            ));
-            return;
-        }
-        Reading::Unmeasured(why) => {
+    let out = match run_probe(resource, machine, check_upstream) {
+        Ok(out) => out,
+        Err(why) => {
             v.findings.push(DriftFinding::unmeasured(
                 id,
                 ResourceType::GithubRelease,
@@ -350,8 +360,38 @@ fn check_one(
     if live != Live::Missing {
         v.inspected.push(id.to_string());
     }
-    for o in evaluate(binary, repo, &pin, &live, &upstream) {
+    evaluate_into(id, resource, &pin, (&live, &upstream), v);
+}
+
+fn evaluate_into(
+    id: &str,
+    resource: &Resource,
+    pin: &Pin,
+    (live, upstream): (&Live, &Upstream),
+    v: &mut VersionPinVerdicts,
+) {
+    let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
+    let binary = resource.binary.as_deref().unwrap_or("unknown");
+    for o in evaluate(binary, repo, pin, live, upstream) {
         push_outcome(id, o, v);
+    }
+}
+
+/// Run the read-only probe. `Err` is the UNMEASURED reason.
+fn run_probe(
+    resource: &Resource,
+    machine: &Machine,
+    check_upstream: bool,
+) -> Result<crate::transport::ExecOutput, String> {
+    let script = probe_script(resource, check_upstream);
+    match unmeasured::read(machine, &script) {
+        Reading::Answered(out) if out.success() => Ok(out),
+        Reading::Answered(out) => Err(format!(
+            "version probe failed (exit {}): {}",
+            out.exit_code,
+            first_line(&out.stderr)
+        )),
+        Reading::Unmeasured(why) => Err(why),
     }
 }
 
