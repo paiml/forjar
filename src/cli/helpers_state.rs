@@ -128,37 +128,41 @@ fn expand_braces(pattern: &str) -> Vec<String> {
 /// Byte offsets of the first `{` that has a matching `}`.
 fn first_brace_group(pattern: &str) -> Option<(usize, usize)> {
     let bytes = pattern.as_bytes();
-    for open in (0..bytes.len()).filter(|&i| bytes[i] == b'{') {
-        let mut depth = 0usize;
-        for (i, b) in bytes.iter().enumerate().skip(open) {
-            match b {
-                b'{' => depth += 1,
-                b'}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Some((open, i));
-                    }
-                }
-                _ => {}
-            }
+    (0..bytes.len())
+        .filter(|&i| bytes[i] == b'{')
+        .find_map(|open| matching_close(bytes, open).map(|close| (open, close)))
+}
+
+/// Offset of the `}` that closes the `{` at `open`, if there is one.
+fn matching_close(bytes: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, b) in bytes.iter().enumerate().skip(open) {
+        depth = nest_depth(depth, *b);
+        if depth == 0 {
+            return Some(i);
         }
     }
     None
+}
+
+/// The brace depth after reading `b`.
+fn nest_depth(depth: usize, b: u8) -> usize {
+    match b {
+        b'{' => depth + 1,
+        b'}' => depth.saturating_sub(1),
+        _ => depth,
+    }
 }
 
 /// Split a brace body on the commas that are not inside a nested group.
 fn split_top_level(body: &str) -> Vec<&str> {
     let (mut parts, mut depth, mut start) = (Vec::new(), 0usize, 0usize);
     for (i, b) in body.bytes().enumerate() {
-        match b {
-            b'{' => depth += 1,
-            b'}' => depth = depth.saturating_sub(1),
-            b',' if depth == 0 => {
-                parts.push(&body[start..i]);
-                start = i + 1;
-            }
-            _ => {}
+        if b == b',' && depth == 0 {
+            parts.push(&body[start..i]);
+            start = i + 1;
         }
+        depth = nest_depth(depth, b);
     }
     parts.push(&body[start..]);
     parts
