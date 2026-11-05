@@ -301,18 +301,17 @@ pub(super) fn record_machine_drift(
     // planner already honours and nothing ever set. Persisting it also
     // makes the lock honest between runs: forjar observed drift, and
     // the lock now says so until an apply reconciles it.
-    let mut updated = lock.clone();
-    let mut observed = Vec::with_capacity(findings.len());
-    for f in &findings {
-        if let Some(rl) = updated.resources.get_mut(&f.resource_id) {
-            rl.status = types::ResourceStatus::Drifted;
-        }
-        observed.push(DriftRepair {
+    let observed: Vec<DriftRepair> = findings
+        .iter()
+        .map(|f| DriftRepair {
             machine: machine_name.to_string(),
             resource_id: f.resource_id.clone(),
             detail: f.detail.clone(),
-        });
-    }
+        })
+        .collect();
+    // The SAME function the dry run plans through — see `overlay_drift`.
+    let mut updated = lock.clone();
+    mark_drifted(&mut updated, machine_name, &observed);
     // A DRY RUN MUST NOT WRITE THE LOCK. #307 persisted here
     // unconditionally, so `apply --dry-run` — documented as making no
     // changes — mutated state, and that write was itself what silenced
@@ -334,6 +333,41 @@ pub(super) fn record_machine_drift(
                 })?;
     }
     Ok(observed)
+}
+
+/// Mark every finding observed on `machine` as `Drifted` in `lock`.
+///
+/// The ONE place a drift finding becomes planner input: the planner turns any
+/// non-`Converged` status into `PlanAction::Update`. A real apply persists the
+/// result (`record_machine_drift`); a dry run only plans with it
+/// (`overlay_drift`). Two spellings of this loop is how the preview and the
+/// apply came to disagree.
+fn mark_drifted(lock: &mut types::StateLock, machine: &str, observed: &[DriftRepair]) {
+    for d in observed.iter().filter(|d| d.machine == machine) {
+        if let Some(rl) = lock.resources.get_mut(&d.resource_id) {
+            rl.status = types::ResourceStatus::Drifted;
+        }
+    }
+}
+
+/// Plan-time overlay of the gate's findings onto in-memory locks.
+///
+/// `apply --dry-run` runs the same drift gate the real apply runs, and must not
+/// write the lock (forjar#310). Before this it then planned from the lock ON
+/// DISK, which still said `Converged`, so every drifted resource previewed as
+/// `= no changes` — and the real apply, planning from the lock the gate had
+/// just written, repaired it. Measured on 1.33.0: `apply -r <leaf> --dry-run`
+/// showed the leaf's `depends_on` chain unchanged, and `apply -r <leaf> --yes`
+/// then reported `2 repaired drift` and ran a dependency's package upgrade.
+/// The dry run now plans from exactly the status the real apply would plan
+/// from, without persisting it.
+pub(super) fn overlay_drift(
+    locks: &mut std::collections::HashMap<String, types::StateLock>,
+    observed: &[DriftRepair],
+) {
+    for (machine, lock) in locks.iter_mut() {
+        mark_drifted(lock, machine, observed);
+    }
 }
 
 /// The RESOURCES this run actually repaired.

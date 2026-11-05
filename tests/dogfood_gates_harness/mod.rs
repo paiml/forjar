@@ -350,6 +350,7 @@ pub(crate) fn fixture_msg(
         "scripts/dogfood/quorum.sh",
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/lib/receipt.sh",
+        "scripts/dogfood/lib/tags.sh",
     ] {
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
         let body = std::fs::read_to_string(&src)

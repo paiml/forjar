@@ -233,6 +233,7 @@ fn selectors_compose_as_an_intersection() {
             skip: Some("b-file"),
             only_machine: Some("local"),
             exclude_machine: None,
+            exclude: &[],
         },
     )
     .unwrap();

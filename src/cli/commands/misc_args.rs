@@ -81,6 +81,14 @@ pub struct DriftArgs {
     /// silences is counted in the census line, never dropped in silence.
     #[arg(long)]
     pub no_task_checks: bool,
+
+    /// Do not compare version pins with the latest upstream release
+    ///
+    /// forjar#613: every `github_release` pin is compared with the live
+    /// `--version` AND with the repo's latest GitHub release. This skips the
+    /// network half; the census names every pin it did not compare.
+    #[arg(long)]
+    pub offline: bool,
 }
 
 /// CLI arguments for the `history` command.

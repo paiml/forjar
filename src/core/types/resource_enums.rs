@@ -58,6 +58,8 @@ pub enum ResourceType {
     /// FJ-38: NAS archival — declared directories moved and originals deleted
     /// only after the copy is proven identical.
     NasArchive,
+    /// forjar#847: delete files older than `max_age` under a declared path.
+    TmpReaper,
 }
 
 impl fmt::Display for ResourceType {
@@ -84,6 +86,7 @@ impl fmt::Display for ResourceType {
             Self::DiskBudget => write!(f, "disk_budget"),
             Self::BackupSync => write!(f, "backup_sync"),
             Self::NasArchive => write!(f, "nas_archive"),
+            Self::TmpReaper => write!(f, "tmp_reaper"),
         }
     }
 }
@@ -213,6 +216,7 @@ mod tests {
             (ResourceType::DiskBudget, "disk_budget"),
             (ResourceType::NasArchive, "nas_archive"),
             (ResourceType::BackupSync, "backup_sync"),
+            (ResourceType::TmpReaper, "tmp_reaper"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

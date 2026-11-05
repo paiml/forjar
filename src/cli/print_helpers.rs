@@ -178,10 +178,18 @@ pub(crate) fn plan_disclosure(
     unconsulted: usize,
     unprobed: &[types::UnprobedResource],
 ) -> Option<String> {
-    crate::core::unattended::merge_disclosures(
-        scope_disclosure(unconsulted),
-        unprobed_disclosure(unprobed),
-    )
+    fold_plan_disclosure(scope_disclosure(unconsulted), unprobed)
+}
+
+/// THE fold, with the scope sentence supplied: `plan_disclosure` hands it the
+/// lock-relative one, and forjar#415's `plan --refresh` hands it the refreshed
+/// one (the lock-relative sentence would be false there). Both surfaces fold
+/// through here, so the two cannot drift apart.
+pub(crate) fn fold_plan_disclosure(
+    scope: Option<String>,
+    unprobed: &[types::UnprobedResource],
+) -> Option<String> {
+    crate::core::unattended::merge_disclosures(scope, unprobed_disclosure(unprobed))
 }
 
 /// Print the plan summary line.

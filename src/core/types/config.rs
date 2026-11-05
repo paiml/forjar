@@ -104,6 +104,11 @@ pub struct ForjarConfig {
     /// FJ-3600: Distribution artifact generation config.
     #[serde(default)]
     pub dist: Option<super::dist_config_types::DistConfig>,
+
+    /// forjar#847: inode-pressure policy for drift, validate and apply
+    /// pre-checks. Absent means the defaults: `/` and every tmpfs, red at 90%.
+    #[serde(default)]
+    pub inode_pressure: Option<crate::core::inode_pressure::InodePressure>,
 }
 
 /// FJ-2300 + FJ-3300: Secret provider configuration.

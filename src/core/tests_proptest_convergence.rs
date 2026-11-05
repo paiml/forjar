@@ -70,6 +70,7 @@ fn make_config(resources: Vec<(String, Resource)>) -> ForjarConfig {
         checks: indexmap::IndexMap::new(),
         environments: indexmap::IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     };
     for (id, r) in resources {
         config.resources.insert(id, r);

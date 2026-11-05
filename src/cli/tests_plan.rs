@@ -182,6 +182,7 @@ resources:
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
             Commands::Plan(PlanArgs {
+                offline: false,
                 file: config,
                 machine: None,
                 resource: None,
@@ -198,6 +199,7 @@ resources:
                 what_if: vec![],
                 out: None,
             why: false,
+            refresh: false,
             }),
             0,
             true,

@@ -308,6 +308,7 @@ resources:
     #[test]
     fn test_fj285_target_flag_parse() {
         let cmd = Commands::Plan(PlanArgs {
+            offline: false,
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -324,6 +325,7 @@ resources:
             what_if: vec![],
             out: None,
             why: false,
+            refresh: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { target, .. }) => {

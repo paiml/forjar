@@ -81,6 +81,7 @@ fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mu
         secrets: secrets1,
         environments: envs1,
         dist: dist1,
+        inode_pressure: inode1,
         // Provenance of the merge, not a property of the stack: two configs
         // assembled from different include paths can describe the same stack,
         // and reporting the paths as a difference would be noise.
@@ -107,6 +108,7 @@ fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mu
         secrets: secrets2,
         environments: envs2,
         dist: dist2,
+        inode_pressure: inode2,
         // Provenance of the merge, not a property of the stack: two configs
         // assembled from different include paths can describe the same stack,
         // and reporting the paths as a difference would be noise.
@@ -175,6 +177,11 @@ fn diff_top_level(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mu
         "dist",
         format!("{}", dist1.is_some()),
         format!("{}", dist2.is_some()),
+    );
+    note(
+        "inode_pressure",
+        format!("{inode1:?}"),
+        format!("{inode2:?}"),
     );
 }
 

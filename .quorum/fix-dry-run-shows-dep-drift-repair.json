@@ -1,0 +1,123 @@
+{
+  "kind": "code",
+  "issue": "forjar#704 — apply --dry-run plans from its own drift gate's findings, so a drifted depends_on prerequisite the apply would repair previews as an update, not \"no changes\". One mark_drifted for both paths; the dry run overlays in memory and writes no lock (#310). Tests: src/cli/tests_dry_run_drift_repair.rs (the acceptance test), src/cli/tests_dry_run_case_table.rs (seven rows) and tests/falsification_704_dry_run_shows_drift_repair.rs (five rows over the built binary's stdout and state dir).",
+  "branch": "fix/dry-run-shows-dep-drift-repair",
+  "base": "9a37a2ff",
+  "base_commit": "9a37a2ffe10cfc6b2ccb3b9bc3d3eabdd4b17d6e",
+  "diff_sha256": "e5caffca0edc73ba53d343e4e88a2d883bed52e7",
+  "recorded_at": "after the planted control at 192344f0 (never pushed) and the round at 302123a9, and the green / overlay-removed-red / restored probes at that head. The commit after 302123a9 adds only .quorum evidence, and the one after it this receipt; they change no test, source or roadmap file. Rounds on the earlier unpushed branch fix/plan-shows-dep-drift-repair are superseded by this round.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "planted control 192344f0 — claude-sonnet-5-5 FAIL, named the unused _observed parameter at src/cli/apply_dry_run.rs:45 and the dead-code overlay_drift at src/cli/apply_drift.rs:364",
+      "planted control 192344f0 — claude-haiku-4-5 FAIL, named the unused _observed parameter at src/cli/apply_dry_run.rs:43 and overlay_drift marked dead_code",
+      "planted control 192344f0 — gemini-3.8-flash-high (agy) FAIL, named the commit that removed the overlay_drift call and the acceptance criterion it then fails",
+      "round at head 302123a9 — claude-sonnet-5-5 PASS, no findings",
+      "round at head 302123a9 — claude-haiku-4-5 PASS, no findings",
+      "round at head 302123a9 — gemini-3.8-flash-high (agy) PASS, no defects"
+    ],
+    "planted_control": {
+      "head": "192344f0",
+      "mutation": "the overlay_drift call removed from scoped_dry_run_plan, its parameter renamed _observed and overlay_drift marked #[allow(dead_code)], so the dry run plans from the on-disk lock again",
+      "verdict": "NOT AGREED, 3/3 FAIL, every lane naming the missing overlay_drift call",
+      "pushed": false
+    },
+    "judges": 3,
+    "judges_note": "judges=3 counts the three lanes of the round at 302123a9 (two Claude seats and the agy seat, three distinct model ids over two families, none the author id claude-opus-5-5). The Claude round's own artifact records lane 3 as an empty seat with no measured model; the agy lane ran separately and is the third lane counted. The FR-4 slot round for this PR is marked degraded: same-family; this review round is not.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 6,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: a docs/audits/impl-PMAT-704-receipt.md must exist before merge (superseded local round, over a source tree identical to this branch's second commit) — forjar has no such convention; its merge evidence is this .quorum receipt",
+      "R2: the roadmap row's missing epic/release fields block this diff (same superseded round) — refuted as a blocker: the release-window check reads the roadmap at the tag, and the lane filed it non-blocking and PASSed"
+    ]
+  },
+  "falsification": {
+    "test": "falsify_704_a_drifted_file_dependency_is_listed, falsify_704_b_task_dependency_with_failing_check_is_listed, falsify_704_d_drift_outside_selection_is_not_listed and falsify_704_e_repeated_dry_runs_write_no_lock (control row falsify_704_c_converged_lists_no_change); also the lib tests cli::tests_dry_run_drift_repair and cli::tests_dry_run_case_table",
+    "test_file": "tests/falsification_704_dry_run_shows_drift_repair.rs",
+    "cargo_test_target": "falsification_704_dry_run_shows_drift_repair",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on a build host (cargo 1.93.0) at 302123a9: cargo test --locked --test falsification_704_dry_run_shows_drift_repair 5 passed; cargo test --locked --lib -- cli::tests_dry_run 3 passed. With the overlay_drift call at src/cli/apply_dry_run.rs:49 deleted, the --test target exits 101: rows a, b, d and e failed and row c passed. After git checkout the tree is clean and the rerun gives 5 passed."
+  },
+  "crux": {
+    "systems": [
+      "Terraform (documented behaviour, not measured here): terraform plan refreshes state in memory, plans from the refreshed state and does not persist it, so drift the apply would correct appears in the plan",
+      "Ansible (documented behaviour, not measured here): --check runs each module in check mode against the live host and reports changed for a drifted item the real run would fix",
+      "Puppet (documented behaviour, not measured here): puppet agent --noop evaluates the catalog against the live system and reports would-have-changed events for drifted resources, without changing them"
+    ],
+    "verdict": "No crux row is owed: the three systems preview from observed state rather than from a recorded one, which is what this diff makes forjar do while keeping the dry run write-free."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "model": "gemini-3.8-flash-high",
+    "mode": "agy-lane.sh --mode plan (sandboxed, read-only), one lane at 302123a9 and one at the planted control 192344f0, both against main 9a37a2ff",
+    "verdict": "PASS",
+    "findings": [],
+    "conversation_id": "730af94f-82c9-47a7-9df3-f4f5fc59df22",
+    "control": {
+      "head": "192344f0",
+      "verdict": "FAIL",
+      "findings": 3,
+      "conversation_id": "b0a7c423-7be1-42fa-b38a-adf87d3d47f8"
+    },
+    "evidence": ".quorum/evidence/704-agy.md",
+    "note": "per-round exception to the quorum policy that withholds the agy seat from this repo's diffs, ruling aprender-b4 2026-10-13. The lane log shows the requested model id propagated as the backend override; it does not otherwise prove which backend served the request."
+  },
+  "pmat": {
+    "ticket": "forjar#704",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -f json at 302123a9 (pmat 3.42.0): -p src/cli 850 files parsed, 8336 tests examined, 317 cannot fail, 0 in tests_dry_run_case_table.rs or tests_dry_run_drift_repair.rs, 4 in tests_cov_apply_b.rs (pre-existing, accepted below); -p tests 377 files parsed, 4933 tests examined, 84 cannot fail, 0 in falsification_704_dry_run_shows_drift_repair.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 4,
+    "accepted": [
+      "tests_cov_apply_b.rs:341 test_print_resource_report_empty — pre-existing; this diff touches only that file's four apply_dry_run_output call sites (lines 264-291)",
+      "tests_cov_apply_b.rs:347 test_print_resource_report_mixed — pre-existing, untouched by this diff",
+      "tests_cov_apply_b.rs:362 test_print_timing_basic — pre-existing, untouched by this diff",
+      "tests_cov_apply_b.rs:371 test_print_timing_zero_durations — pre-existing, untouched by this diff"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/704-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "8a754d24b99a5b9ef1fd6281e8ba85bda003bdfe",
+        "sha256": "154c31e329797161a2f61084b21e8bb5b3fb2e199a17a773efd4379410eee230",
+        "bytes": 1729
+      },
+      {
+        "path": ".quorum/evidence/704-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "f00761549bc4c94737edac6f72859f92f9771b92",
+        "sha256": "f9e464b72bf24d3055350a1e98ffef68b2d1efacbc42640b24b9e7180147f419",
+        "bytes": 1221
+      },
+      {
+        "path": ".quorum/evidence/704-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "27454790c638035e51bf407055dfba169aafd2ce",
+        "sha256": "82d5c21d0906cd885129758fad1bb1897d9772bdbea3a01e919f602cbf3082e4",
+        "bytes": 5028
+      },
+      {
+        "path": ".quorum/evidence/704-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "b4145ec3887459e26a4d1d9da0ed724bab736da5",
+        "sha256": "d9c47ca12d3164592fb2ec6fb7209b84a895c84d9a151cffc67ac4d0ec05b3d0",
+        "bytes": 2464
+      }
+    ],
+    "total_bytes": 10442,
+    "claims_digest": ".quorum/evidence/704-judges.md"
+  }
+}

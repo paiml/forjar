@@ -32,6 +32,16 @@ pub(super) fn validate_resource_type(
         ResourceType::GithubRelease => validate_github_release(id, resource, errors),
         ResourceType::OverlayInterface => validate_overlay_interface(id, resource, errors),
         ResourceType::DiskBudget => validate_disk_budget(id, resource, errors),
+        ResourceType::TmpReaper => {
+            let templated = [&resource.path, &resource.max_age, &resource.pattern]
+                .iter()
+                .any(|f| f.as_deref().is_some_and(|v| v.contains("{{")));
+            if let (false, Err(e)) = (templated, crate::resources::tmp_reaper::spec_of(resource)) {
+                errors.push(ValidationError {
+                    message: format!("resource '{id}' (tmp_reaper): {e}"),
+                });
+            }
+        }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
     }
@@ -123,6 +133,30 @@ fn validate_service(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
             });
         }
     }
+    validate_service_enablement(id, resource, errors);
+}
+
+/// #663: `state: enabled|disabled` IS the boot enablement, so an explicit
+/// `enabled:` saying the opposite leaves one declaration with two answers.
+/// Refused here rather than resolved silently in favour of either field.
+fn validate_service_enablement(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    let implied = match resource.state.as_deref() {
+        Some("enabled") => true,
+        Some("disabled") => false,
+        _ => return,
+    };
+    if let Some(explicit) = resource.enabled {
+        if explicit != implied {
+            let state = resource.state.as_deref().unwrap_or_default();
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (service): enabled: {explicit} contradicts state: {state} \
+                     — drop `enabled:`, or use state: running|stopped to set activity with \
+                     enabled: {explicit}"
+                ),
+            });
+        }
+    }
 }
 
 fn validate_mount(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
@@ -170,30 +204,41 @@ fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
             message: format!("resource '{id}' (docker) has no image"),
         });
     }
-    if let Some(ref state) = resource.state {
-        let valid = ["running", "stopped", "absent", "pulled"];
-        if !valid.contains(&state.as_str()) {
-            errors.push(ValidationError {
-                message: format!(
-                    "resource '{}' (docker) has invalid state '{}' (expected: {})",
-                    id,
-                    state,
-                    valid.join(", ")
-                ),
-            });
-        }
+    validate_docker_state(id, resource, errors);
+    validate_docker_pulled(id, resource, errors);
+}
+
+fn validate_docker_state(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    let Some(ref state) = resource.state else {
+        return;
+    };
+    let valid = ["running", "stopped", "absent", "pulled"];
+    if !valid.contains(&state.as_str()) {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{}' (docker) has invalid state '{}' (expected: {})",
+                id,
+                state,
+                valid.join(", ")
+            ),
+        });
     }
-    // IMG-001: a pulled image is pinned by content, so a tag alone is rejected.
-    if resource.state.as_deref() == Some("pulled") {
-        if let Some(ref image) = resource.image {
-            if crate::resources::docker::image_digest(image).is_none() {
-                errors.push(ValidationError {
-                    message: format!(
-                        "resource '{id}' (docker) state pulled requires image@sha256:<64 hex digest>, got '{image}'"
-                    ),
-                });
-            }
-        }
+}
+
+/// IMG-001: a pulled image is pinned by content, so a tag alone is rejected.
+fn validate_docker_pulled(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    if resource.state.as_deref() != Some("pulled") {
+        return;
+    }
+    let Some(ref image) = resource.image else {
+        return;
+    };
+    if crate::resources::docker::image_digest(image).is_none() {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{id}' (docker) state pulled requires image@sha256:<64 hex digest>, got '{image}'"
+            ),
+        });
     }
 }
 

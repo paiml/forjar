@@ -345,3 +345,25 @@ fn fj354_a_partial_config_is_a_schema_failure_not_a_syntax_one() {
     let err = super::parse_config("version: \"1.0\"\n").expect_err("no name, no resources");
     assert!(err.starts_with("not a forjar config:"), "{err}");
 }
+
+/// A malformed document must be reported by the error of the SCHEMA-FREE parse.
+///
+/// paiml/infra 2026-10-18: a line merge left `docs/roadmaps/roadmap.yaml` with a
+/// duplicate `epic:` key. forjar classified it correctly (malformed) but printed
+/// the typed parse's error, `YAML parse error: missing field `version``, which
+/// names a schema field the document was never meant to have and hides the
+/// duplicate key that actually broke it.
+#[test]
+fn fj354_a_malformed_non_config_names_its_syntax_error_not_a_schema_field() {
+    let err = super::parse_config("a: 1\nb:\n- id: X\n  k: 1\n  k: 2\n")
+        .expect_err("duplicate key must not parse");
+    assert!(err.starts_with("YAML parse error:"), "{err}");
+    assert!(
+        err.contains("duplicate"),
+        "must name the duplicate key: {err}"
+    );
+    assert!(
+        !err.contains("missing field"),
+        "must not name a schema field: {err}"
+    );
+}

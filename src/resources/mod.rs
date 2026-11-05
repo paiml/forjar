@@ -11,6 +11,7 @@ pub mod cron;
 pub mod disk_budget;
 pub mod docker;
 pub mod file;
+mod file_assert;
 pub mod github_release;
 pub mod gpu;
 pub mod model;
@@ -28,11 +29,14 @@ pub mod task;
 #[cfg(test)]
 mod tests_service;
 #[cfg(test)]
+mod tests_service_converge;
+#[cfg(test)]
 mod tests_service_exec;
 #[cfg(test)]
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;
 pub mod wasm_bundle;
@@ -57,6 +61,8 @@ mod tests_file_b;
 #[cfg(test)]
 mod tests_file_content_escape;
 #[cfg(test)]
+mod tests_github_release_downgrade;
+#[cfg(test)]
 mod tests_gpu;
 #[cfg(test)]
 mod tests_mount;
@@ -78,3 +84,5 @@ mod tests_user;
 mod tests_user_authkeys_escape;
 #[cfg(test)]
 mod tests_user_b;
+#[cfg(test)]
+mod tests_user_check_attrs;

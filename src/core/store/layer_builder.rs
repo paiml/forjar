@@ -24,6 +24,8 @@ pub struct LayerEntry {
     pub mode: u32,
     /// Whether this is a directory.
     pub is_dir: bool,
+    /// Symlink target (verbatim, never resolved): the entry is a symbolic link.
+    pub link_target: Option<String>,
 }
 
 impl LayerEntry {
@@ -34,6 +36,19 @@ impl LayerEntry {
             content: content.to_vec(),
             mode,
             is_dir: false,
+            link_target: None,
+        }
+    }
+
+    /// Create a symlink entry. `target` is stored verbatim: it is resolved by the
+    /// image's own filesystem, never against the host.
+    pub fn symlink(path: &str, target: &str, mode: u32) -> Self {
+        Self {
+            path: normalize_tar_path(path),
+            content: Vec::new(),
+            mode,
+            is_dir: false,
+            link_target: Some(target.to_string()),
         }
     }
 
@@ -48,6 +63,7 @@ impl LayerEntry {
             content: Vec::new(),
             mode,
             is_dir: true,
+            link_target: None,
         }
     }
 }
@@ -213,7 +229,12 @@ fn build_tar(entries: &[&LayerEntry], config: &OciLayerConfig) -> Result<Vec<u8>
             .set_groupname("root")
             .map_err(|e| format!("set groupname: {e}"))?;
 
-        if entry.is_dir {
+        if let Some(target) = &entry.link_target {
+            header.set_entry_type(tar::EntryType::Symlink);
+            header.set_size(0);
+            tar.append_link(&mut header, &entry.path, target)
+                .map_err(|e| format!("append symlink {}: {e}", entry.path))?;
+        } else if entry.is_dir {
             header.set_entry_type(tar::EntryType::Directory);
             header.set_size(0);
             tar.append_data(&mut header, &entry.path, &[] as &[u8])

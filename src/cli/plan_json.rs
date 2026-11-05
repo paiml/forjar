@@ -6,6 +6,43 @@
 
 use crate::core::types;
 
+/// One change as a JSON object, with the declared grouping when the resource has it.
+fn change_entry(c: &types::PlannedChange, config: &types::ForjarConfig) -> serde_json::Value {
+    let mut entry = serde_json::json!({
+        "resource_id": c.resource_id,
+        "machine": c.machine,
+        "resource_type": c.resource_type,
+        "action": c.action,
+        "description": c.description,
+    });
+    if let Some(res) = config.resources.get(&c.resource_id) {
+        if let Some(ref rg) = res.resource_group {
+            entry["resource_group"] = serde_json::json!(rg);
+        }
+        if !res.tags.is_empty() {
+            entry["tags"] = serde_json::json!(res.tags);
+        }
+        if !res.depends_on.is_empty() {
+            entry["depends_on"] = serde_json::json!(res.depends_on);
+        }
+    }
+    entry
+}
+
+fn disclosure_for(
+    plan: &types::ExecutionPlan,
+    unconsulted: usize,
+    refreshed: Option<&super::plan_refresh::RefreshOutcome>,
+) -> Option<String> {
+    match refreshed {
+        Some(r) => super::print_helpers::fold_plan_disclosure(
+            super::plan_refresh::refreshed_scope_disclosure(r),
+            &plan.unprobed,
+        ),
+        None => super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed),
+    }
+}
+
 /// FJ-301: Serialize plan as enriched JSON with resource metadata.
 ///
 /// forjar#342 landed the scope disclosure on the TTY rendering only, because
@@ -25,31 +62,13 @@ pub(crate) fn print_plan_json(
     plan: &types::ExecutionPlan,
     config: &types::ForjarConfig,
     unconsulted: usize,
+    refreshed: Option<&super::plan_refresh::RefreshOutcome>,
+    version_pins: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let changes: Vec<serde_json::Value> = plan
         .changes
         .iter()
-        .map(|c| {
-            let mut entry = serde_json::json!({
-                "resource_id": c.resource_id,
-                "machine": c.machine,
-                "resource_type": c.resource_type,
-                "action": c.action,
-                "description": c.description,
-            });
-            if let Some(res) = config.resources.get(&c.resource_id) {
-                if let Some(ref rg) = res.resource_group {
-                    entry["resource_group"] = serde_json::json!(rg);
-                }
-                if !res.tags.is_empty() {
-                    entry["tags"] = serde_json::json!(res.tags);
-                }
-                if !res.depends_on.is_empty() {
-                    entry["depends_on"] = serde_json::json!(res.depends_on);
-                }
-            }
-            entry
-        })
+        .map(|c| change_entry(c, config))
         .collect();
     let change_ids: std::collections::HashSet<&str> = plan
         .changes
@@ -75,7 +94,9 @@ pub(crate) fn print_plan_json(
         // function: `unconsulted_observations: 0` says "nothing observed",
         // while an absent key says "old binary", and a parser must be able to
         // tell those apart.
-        "lock_relative": true,
+        // forjar#415: false iff `--refresh` consulted the machines; the
+        // count below is then what the refresh did not measure.
+        "lock_relative": refreshed.is_none(),
         "unconsulted_observations": unconsulted,
         // forjar#497: the same argument again — `unprobed: []` says "everything
         // was measured", an absent key says "older binary", and only the plan
@@ -85,7 +106,15 @@ pub(crate) fn print_plan_json(
     // The prose disclosure is present iff there is a blind spot to declare —
     // the contract's biconditional, and the reason it is not an unconditional
     // banner: noise is how a warning stops being read.
-    if let Some(msg) = super::print_helpers::plan_disclosure(unconsulted, &plan.unprobed) {
+    // forjar#613: present iff the box was asked; `[]` means every pin matched.
+    if let Some(pins) = version_pins {
+        output["version_pins"] = pins;
+    }
+    if let Some(r) = refreshed {
+        output["refresh"] = serde_json::json!({ "machines": r.machines, "drifted": r.drifted });
+    }
+    let disclosure = disclosure_for(plan, unconsulted, refreshed);
+    if let Some(msg) = disclosure {
         output["disclosure"] = serde_json::json!(msg);
     }
     println!(

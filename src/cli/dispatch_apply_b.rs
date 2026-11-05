@@ -414,12 +414,18 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         base_sd
     };
 
+    // GH-211: the four scope selectors that were declared and never read.
+    // PMAT-160: read through the same function `--check` reads them with.
+    let scope = super::dispatch_apply_check::scope_of(args);
+
     if let Some(limit) = args.cost_limit {
+        let sel = super::dispatch_apply_check::selectors_of(args, &scope);
         check_cost_limit(
             &args.file,
             &sd,
             args.machine.as_deref(),
             args.tag.as_deref(),
+            &sel,
             limit,
         )?;
     }
@@ -428,10 +434,6 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     if args.policy_check {
         super::apply_quality_gate::check_quality_gate(&args.file, &args.policy_dir, verbose)?;
     }
-
-    // GH-211: the four scope selectors that were declared and never read.
-    // PMAT-160: read through the same function `--check` reads them with.
-    let scope = super::dispatch_apply_check::scope_of(args);
 
     let result = cmd_apply_scoped(
         &args.file,
@@ -464,7 +466,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.notify.as_deref(),
         args.subset.as_deref(),
         args.confirm_destructive,
-        args.exclude.as_deref(),
+        // #622: the repeatable `--exclude` list rides in `scope`.
+        None,
         args.sequential,
         args.telemetry_endpoint.as_deref(),
         args.refresh,

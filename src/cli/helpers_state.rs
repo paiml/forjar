@@ -96,23 +96,99 @@ pub(crate) fn collect_transitive_deps(
     Ok(visited)
 }
 
-/// Simple glob matching — supports `*` wildcard at start/end/both.
+/// Glob matching for resource ids: `*` matches any run of characters anywhere
+/// in the pattern, and `{a,b}` matches either alternative (nested and repeated
+/// groups expand as their cartesian product). An unbalanced brace is literal.
+///
+/// forjar#622: this used to honour a `*` only at the start and/or end, so
+/// `a*a` and `{a,b}-dir` were exact-match literals that matched nothing — and a
+/// selector that matches nothing silently selects the wrong set.
 pub(crate) fn simple_glob_match(pattern: &str, text: &str) -> bool {
-    if pattern == "*" {
-        return true;
-    }
-    let starts_with_star = pattern.starts_with('*');
-    let ends_with_star = pattern.ends_with('*');
-    let core = pattern.trim_matches('*');
+    expand_braces(pattern)
+        .iter()
+        .any(|alt| star_match(alt.as_bytes(), text.as_bytes()))
+}
 
-    match (starts_with_star, ends_with_star) {
-        (true, true) => text.contains(core),
-        (true, false) => text.ends_with(core),
-        (false, true) => text.starts_with(core),
-        (false, false) => text == pattern,
+/// `a{b,c}d{e,f}` → `abde abdf acde acdf`. No balanced group → the pattern.
+fn expand_braces(pattern: &str) -> Vec<String> {
+    let Some((open, close)) = first_brace_group(pattern) else {
+        return vec![pattern.to_string()];
+    };
+    let (head, body, tail) = (
+        &pattern[..open],
+        &pattern[open + 1..close],
+        &pattern[close + 1..],
+    );
+    split_top_level(body)
+        .into_iter()
+        .flat_map(|alt| expand_braces(&format!("{head}{alt}{tail}")))
+        .collect()
+}
+
+/// Byte offsets of the first `{` that has a matching `}`.
+fn first_brace_group(pattern: &str) -> Option<(usize, usize)> {
+    let bytes = pattern.as_bytes();
+    (0..bytes.len())
+        .filter(|&i| bytes[i] == b'{')
+        .find_map(|open| matching_close(bytes, open).map(|close| (open, close)))
+}
+
+/// Offset of the `}` that closes the `{` at `open`, if there is one.
+fn matching_close(bytes: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, b) in bytes.iter().enumerate().skip(open) {
+        depth = nest_depth(depth, *b);
+        if depth == 0 {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// The brace depth after reading `b`.
+fn nest_depth(depth: usize, b: u8) -> usize {
+    match b {
+        b'{' => depth + 1,
+        b'}' => depth.saturating_sub(1),
+        _ => depth,
     }
 }
 
+/// Split a brace body on the commas that are not inside a nested group.
+fn split_top_level(body: &str) -> Vec<&str> {
+    let (mut parts, mut depth, mut start) = (Vec::new(), 0usize, 0usize);
+    for (i, b) in body.bytes().enumerate() {
+        if b == b',' && depth == 0 {
+            parts.push(&body[start..i]);
+            start = i + 1;
+        }
+        depth = nest_depth(depth, b);
+    }
+    parts.push(&body[start..]);
+    parts
+}
+
+/// `*`-only wildcard match with single-star backtracking (linear in practice).
+fn star_match(p: &[u8], t: &[u8]) -> bool {
+    let (mut pi, mut ti) = (0, 0);
+    let mut resume: Option<(usize, usize)> = None;
+    while ti < t.len() {
+        if pi < p.len() && p[pi] == b'*' {
+            resume = Some((pi, ti));
+            pi += 1;
+        } else if pi < p.len() && p[pi] == t[ti] {
+            pi += 1;
+            ti += 1;
+        } else if let Some((sp, st)) = resume {
+            pi = sp + 1;
+            ti = st + 1;
+            resume = Some((sp, st + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&b| b == b'*')
+}
 /// Load lock files from a generation directory, optionally filtered by machine.
 pub(super) fn load_generation_locks(
     gen_dir: &std::path::Path,

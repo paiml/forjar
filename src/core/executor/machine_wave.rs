@@ -120,9 +120,11 @@ fn should_retry(cfg: &ApplyConfig, attempt: &Attempt, done: u32) -> bool {
 /// pre_apply gate, then the resource's own script.
 fn attempt_prepared(cfg: &ApplyConfig, prep: &PreparedResource, machine: &Machine) -> Attempt {
     if let Some(ref pre_hook) = prep.resolved.pre_apply {
-        if let Some(err) =
-            super::output_verify::run_pre_apply_hook(machine, pre_hook, cfg.timeout_secs)
-        {
+        if let Some(err) = super::output_verify::run_pre_apply_hook(
+            machine,
+            pre_hook,
+            cfg.resource_timeout.or(cfg.timeout_secs),
+        ) {
             // A pre_apply gate failure never reached the transport, so there
             // is no script and no transcript -- the empty string is the
             // honest value, and `capture_exec_output` is not called for
@@ -151,7 +153,11 @@ fn exec_prepared(
 ) -> (Result<transport::ExecOutput, String>, String) {
     if prep.use_copia {
         return (
-            copia_apply_file(machine, &prep.resolved, cfg.timeout_secs),
+            copia_apply_file(
+                machine,
+                &prep.resolved,
+                cfg.resource_timeout.or(cfg.timeout_secs),
+            ),
             String::new(),
         );
     }
@@ -166,7 +172,7 @@ fn exec_prepared(
     let out = transport::exec_script_retry(
         machine,
         &script,
-        cfg.timeout_secs,
+        cfg.resource_timeout.or(cfg.timeout_secs),
         cfg.config.policy.ssh_retries,
     );
     (out, script)

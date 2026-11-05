@@ -1,0 +1,119 @@
+{
+  "kind": "code",
+  "issue": "S1 of the forjar-img-001 epic re-cut onto main (PMAT-756 epic slice 1): blake3-state-v1 verification_summary.total_obligations 4 -> 3 (pv VS-COUNT-001) and proofs.yml surfaces the validate error under bash -e; adds a falsifier for summary counts.",
+  "branch": "fix/s1-contract-count-proofs-bash-e",
+  "base": "1a2fef64",
+  "base_commit": "1a2fef64ec90bdc7f1def3e237f20e3b3896476e",
+  "diff_sha256": "844b499f7ea806615132147e6bbf9be979feb0b9",
+  "recorded_at": "round 1, after a planted round (3 claude-opus-5-5 claim lanes that also refuted, 3 claude-opus-5-5 judges, planted control C3 killed 3 of 3), at head ef18358d.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "claude-opus-5-5 lane 1 (code): PASS",
+      "claude-opus-5-5 lane 2 (contract and gate): PASS",
+      "claude-opus-5-5 lane 3 (adversary): PASS"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 2,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "C3 (planted control): the diff changes Rust source or a workflow other than proofs.yml (false: proofs.yml, blake3-state-v1.yaml and one new test file only)"
+    ]
+  },
+  "falsification": {
+    "test": "every_summary_total_equals_the_obligation_list",
+    "test_file": "tests/falsification_contract_summary_counts_match.rs",
+    "cargo_test_target": "falsification_contract_summary_counts_match",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Green with the fix: 1 passed. With contracts/blake3-state-v1.yaml restored to origin/main: 1 failed, 'blake3-state-v1.yaml: total_obligations 4, proof_obligations 3'. Restored: 1 passed."
+  },
+  "crux": {
+    "systems": [
+      "OpenAPI linters (Spectral): declared fields checked against structure",
+      "Cargo --locked: lock rejected when it disagrees with the manifest",
+      "Kubernetes CRD schema validation: declared counts checked against objects",
+      "Protobuf: length prefix that disagrees with payload is a parse error"
+    ],
+    "verdict": "No crux row is owed: checking a summary against the list it summarises is common practice and VS-COUNT-001 already does it; the test makes cargo test do the same without pv."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy out of scope for this round; Claude Code claude-opus-5-5 lanes, read-only tools, no writes, never the author model (claude-sonnet-5-5)",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "SOUND: a count correction and an exit-code capture that survives bash -e; nothing else changes."
+  },
+  "pmat": {
+    "ticket": "PMAT-756",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p tests -f json: 0 items in tests/falsification_contract_summary_counts_match.rs"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/s1-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "2b40513d5451be6291485e26dd12542494c3e895",
+        "sha256": "fc21f7ef88d52dd8193dcd1421e20a356ea5fb79951bcf49e9df5eff63d928a6",
+        "bytes": 391
+      },
+      {
+        "path": ".quorum/evidence/s1-pmat.md",
+        "roles": [
+          "pmat"
+        ],
+        "blob": "69be24d881cd36ee2fb9e2d8763cfc472362e65d",
+        "sha256": "effd61f43686c4ed6ea13be0f499f27d2382cbac6204051bc3368f6aab269f82",
+        "bytes": 420
+      },
+      {
+        "path": ".quorum/evidence/s1-crux.md",
+        "roles": [
+          "crux"
+        ],
+        "blob": "9bf7fed7ee1b9e248a26958cefca0f7956a68d37",
+        "sha256": "5b7a77ace5b2847c3fe3823a7a03ab0fcceef1288f8c62f7b2f7be18eb2d1be0",
+        "bytes": 800
+      },
+      {
+        "path": ".quorum/evidence/s1-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "8f07f92d4ca07d4bd70e036b1dd4e403fdd8bee4",
+        "sha256": "8f96ace5da62a1d89b1fc6d1838bc57051688046523c09581417a5f435ab8c0f",
+        "bytes": 1945
+      },
+      {
+        "path": ".quorum/evidence/s1-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "6c0b96da10ac578a7b0c6e848f9c4eb8d29939f9",
+        "sha256": "647dd3fffa32f7281b017232c15a23fde8ec79742a8e151c0df90b1a56f7577a",
+        "bytes": 1159
+      },
+      {
+        "path": ".quorum/evidence/s1-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "41e3809da308e1c2f63bdf01aca62fed9a5afc68",
+        "sha256": "1e69f76ebb359d52a3ea061265ceb30446e8eb05373bfae85fee283a49b76b25",
+        "bytes": 703
+      }
+    ],
+    "total_bytes": 5418,
+    "claims_digest": ".quorum/evidence/s1-claims.md"
+  }
+}

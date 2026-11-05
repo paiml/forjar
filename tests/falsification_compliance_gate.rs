@@ -40,6 +40,7 @@ fn make_config(resources: Vec<(&str, Resource)>) -> ForjarConfig {
         secrets: Default::default(),
         environments: Default::default(),
         dist: None,
+        inode_pressure: None,
     }
 }
 

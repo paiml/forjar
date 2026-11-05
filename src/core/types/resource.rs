@@ -135,6 +135,16 @@ pub struct Resource {
     #[serde(default)]
     pub system_user: bool,
 
+    // -- tmp_reaper fields (forjar#847) --
+    /// Age beyond which an entry is reaped (`30m`, `12h`, `7d`, `2w`). Skipped when unset so no
+    /// existing resource's desired-state hash moves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<String>,
+
+    /// Optional `find -name` glob limiting what is reaped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+
     // -- Cron fields --
     /// Cron schedule expression (e.g., "0 * * * *")
     #[serde(default)]

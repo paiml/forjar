@@ -35,7 +35,7 @@ jobs:
   # heavy job below gates on it. The release gate (`make dogfood-release`) is
   # untouched and still runs everything.
   classify:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     outputs:
       code: ${{ steps.class.outputs.code }}
       gate_c: ${{ steps.class.outputs.gate_c }}
@@ -54,6 +54,10 @@ jobs:
     uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
     with:
       repo: ${{ github.event.repository.name }}
+      # ARM64 gate move (operator via arbiter-cop, 2026-10-27): the reusable workflow's
+      # default is the arch-less `[self-hosted, clean-room]`. Falsifier: green on X64 and
+      # red on ARM64 reverts this input to the default and files a ticket.
+      runs_on: '["self-hosted","clean-room","ARM64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
       # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
@@ -71,7 +75,7 @@ jobs:
   # then dirties the tree and skips release creation entirely.
   lockfile:
     name: lockfile-preflight
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -111,7 +115,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -206,6 +210,11 @@ jobs:
       # Drives the real scripts/quorum-gate.sh against synthetic repos.
       - name: The quorum gate must judge the pushed commit
         run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
+
+      # PMAT-554: the receipt-store gate (scripts/quorum-store-gate.sh) judges
+      # untrusted receipts by exact allowlisted ids and commit-trailer authors.
+      - name: The quorum store gate must reject forged receipts
+        run: cargo test --locked --test falsification_quorum_gate_reads_the_receipt_store --test falsification_quorum_gate_bypasses --test falsification_quorum_gate_exact_identity
       # #629: nightly.yml rebuilt only when a commit landed in the last 24h, so a
       # commit followed by a quiet day, or a failed nightly, was never built and
       # the nightly sat 12 days behind main. Executes the gate script from the
@@ -280,7 +289,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: no-default-features
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -315,7 +324,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: doctests
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -357,7 +366,7 @@ jobs:
   dogfood-surface:
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -396,7 +405,7 @@ jobs:
   dogfood-guards:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -416,7 +425,7 @@ jobs:
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
   gate:
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, clean-room, ARM64]
     needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:

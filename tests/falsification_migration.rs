@@ -30,6 +30,7 @@ fn empty_config() -> ForjarConfig {
         secrets: Default::default(),
         environments: IndexMap::new(),
         dist: None,
+        inode_pressure: None,
     }
 }
 

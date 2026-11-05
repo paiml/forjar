@@ -1,0 +1,115 @@
+{
+  "kind": "code",
+  "issue": "forjar#722 (PMAT-721) — the clippy, file-health and msrv jobs named X64 though nothing in them is x86-only, which kept them off aarch64 runners, and their target caches were keyed without runner.arch, so a mixed fleet would share one target dir across architectures. X64 is dropped from those three jobs' runs-on, every cache key now carries runner.arch, and a guard plus a Rust falsifier (run by ci.yml) keep it so.",
+  "branch": "ci/arch-neutral-lint",
+  "base": "b2918946",
+  "base_commit": "b2918946f0cedcb351c4c1e6095c696d040362c9",
+  "diff_sha256": "6ea5ca281a4aa61a2eb14be0e582f47a7bfd39ab",
+  "recorded_at": "after round 7 at e642d9d8. The one commit after it adds only the PMAT-721 evidence files for rounds 5 to 7; the hash covers them.",
+  "quorum": {
+    "rounds": 7,
+    "lanes": [
+      "head 8a52e0e2 — claude-sonnet-5 FAIL (answered by 1cb0e5ea and later)",
+      "head 8a52e0e2 — agy Gemini 4 Argon (High) FAIL, sandboxed",
+      "head 8a52e0e2 — agy Gemini 3.8 Flash (High) FAIL, sandboxed",
+      "head 1cb0e5ea — claude-sonnet-5 FAIL (answered by fcf9b307)",
+      "head 1cb0e5ea — agy Gemini 4 Argon (High) FAIL, sandboxed",
+      "head 1cb0e5ea — agy Gemini 3.8 Flash (High) FAIL, sandboxed",
+      "head fcf9b307 — claude-sonnet-5 PASS, one latent extra (flow-sequence restore-keys)",
+      "head fcf9b307 — agy Gemini 3.8 Flash (High) PASS, sandboxed",
+      "head fcf9b307 — agy Gemini 4 Argon (High) FAIL on C7, sandboxed: stale re-pinned entry fixed in 37955c80, matrix flatten predates the PR",
+      "head 37955c80 — claude-sonnet-5 PASS, no defects",
+      "head 37955c80 — agy Gemini 4 Argon (High) PASS, sandboxed, three non-blocking extras",
+      "head 37955c80 — agy Gemini 3.8 Flash (High) PASS, sandboxed",
+      "head f31e59e9 — claude-sonnet-5-5 PASS, minor extras",
+      "head f31e59e9 — agy Gemini 4 Argon (High) FAIL, sandboxed: exit status unasserted, substring match (fixed e5c0a224)",
+      "head f31e59e9 — agy Gemini 3.8 Flash (High) FAIL, sandboxed: brittle parser (fixed e5c0a224)",
+      "head e5c0a224 — claude-sonnet-5-5 FAIL: empty list passes vacuously (fixed e642d9d8)",
+      "head e5c0a224 — agy Gemini 4 Argon (High) no output, timed out",
+      "head e5c0a224 — agy Gemini 3.8 Flash (High) FAIL, sandboxed: empty list, inline comment (fixed e642d9d8)",
+      "head e642d9d8 — claude-sonnet-5-5 PASS",
+      "head e642d9d8 — agy Gemini 4 Argon (High) PASS, sandboxed",
+      "head e642d9d8 — agy Gemini 3.8 Flash (High) PASS, sandboxed"
+    ],
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 9,
+    "claims_refuted": 5,
+    "refuted_claims": [
+      "R1: round 3 Argon on C7 — an exempted job re-pinned to X64 was not reported stale; true, fixed in 37955c80.",
+      "R2: round 3 Argon on C7 — matrix legs are flattened before the arch check; pre-existing in scan.rs, untouched by this PR.",
+      "R3: round 2 Sonnet — quorum.yml does not run the new test; quorum.yml runs quorum-gate.sh, which runs the receipt's cargo target, and ci.yml runs it too.",
+      "R4: round 5 Argon and Flash — exit status unasserted, substring ok match, parser dropped lines; true, fixed in e5c0a224.",
+      "R5: round 6 — empty list and inline comment passed vacuously; true, fixed in e642d9d8."
+    ]
+  },
+  "falsification": {
+    "test": "every_cache_key_carries_runner_arch, the_pre_722_cache_keys_are_caught, an_unmodified_copy_passes, a_key_without_arch_is_caught_even_if_restore_keys_has_it, a_block_scalar_restore_keys_is_refused, a_sequence_restore_keys_is_refused, an_arch_only_in_a_comment_does_not_count, a_missing_workflow_is_a_failure_not_a_pass, every_arch_neutral_workflow_is_in_the_guarded_set",
+    "test_file": "tests/falsification_722_cache_key_arch.rs",
+    "cargo_test_target": "falsification_722_cache_key_arch",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured locally. With lint.yml and msrv.yml reverted to b2918946 in a scratch copy the guard failed on a key-count mismatch and the_pre_722_cache_keys_are_caught passed by catching it; with the guard weakened (no comment strip, no restore-keys check) the comment and sequence cases failed. Restored, 8 passed. The existing falsification_every_ci_job_runs_on_the_fleet gave 13 passed on 37955c80."
+  },
+  "crux": {
+    "systems": [
+      "Swatinem/rust-cache: OS and arch are separate explicit key segments, plus a rustc -vV hash and the lockfile hash",
+      "actions/cache official examples: the Cargo recipe keys on runner.os and the lockfile hash only; no example keys on architecture",
+      "sccache: content-addressed per compilation unit; arch enters through rustc -vV host and the target in the args hash"
+    ],
+    "verdict": "No crux row is owed: adding runner.arch beside runner.os and the Cargo.lock hash matches the purpose-built Rust cache tool and is consistent with sccache keying on arch-sensitive data; the bare actions/cache example is the outlier."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two sandboxed agy lanes (Gemini 4 Argon (High), Gemini 3.8 Flash (High)) per round, brief inline plus the diff file, no build, no writes",
+    "rounds": 7,
+    "lanes_per_round": 2,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "FAIL in rounds 1 and 2 (real defects, fixed), round 3 Flash PASS and Argon FAIL on C7 (fixed in 37955c80), round 4 both PASS, rounds 5 and 6 FAIL on real gaps in the new test (fixed), round 7 both PASS. C1-C11 confirmed at e642d9d8."
+  },
+  "pmat": {
+    "ticket": "PMAT-721",
+    "tools": [
+      "analyze_vacuous_tests",
+      "pmat analyze vacuous-tests -p . -f json: 0 vacuous tests in tests/falsification_722_cache_key_arch.rs and none in the touched fleet-arch test",
+      "cargo test --locked --test falsification_722_cache_key_arch: 8 passed; cargo test --test falsification_every_ci_job_runs_on_the_fleet: 13 passed"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-721-agy.md",
+        "roles": ["agy"],
+        "blob": "9547f749ad6d9500ee891a6cf4e5d13845baca27",
+        "sha256": "9143c1255df43cdb741b52b2ecaf76501810169c2147c60d992949fd083b05dd",
+        "bytes": 800
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-claims.md",
+        "roles": ["claims"],
+        "blob": "c8b8968248e0825a9a2237ab4b8d04131228a489",
+        "sha256": "331a5adab765c1bae7b2b3439c86f96fa18b70f3a8dfa71f3d464ae81e6ad37a",
+        "bytes": 1855
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-judges.md",
+        "roles": ["judges"],
+        "blob": "30eefa4a6e6d4c64cdad4806a04928586064200d",
+        "sha256": "48c9f01d99b6efd4d2821c9183de0c99f1b28462a2dc5ce5213e931268f1021c",
+        "bytes": 6113
+      },
+      {
+        "path": ".quorum/evidence/PMAT-721-lanes.md",
+        "roles": ["lanes"],
+        "blob": "d3700daee9af7448fc2fbb9522a324d339727188",
+        "sha256": "524130637e653b61ef0bee245584bf9abc0f038d12cbf1b9fd40acdb843e7312",
+        "bytes": 2454
+      }
+    ],
+    "total_bytes": 11222,
+    "claims_digest": ".quorum/evidence/PMAT-721-judges.md"
+  }
+}

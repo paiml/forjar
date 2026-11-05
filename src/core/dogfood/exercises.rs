@@ -50,6 +50,7 @@ pub(super) fn run_for(t: &ResourceType) -> Outcome {
         ResourceType::NasArchive => nas_archive(t),
         ResourceType::File => file(t),
         ResourceType::Cron => cron(t),
+        ResourceType::TmpReaper => super::exercise_tmp_reaper::run(t),
         other => bad(
             other,
             "declared Exercised but has no exercise — add one or mark NotApplicable",

@@ -156,10 +156,12 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 /// ```
 pub fn parse_config(yaml: &str) -> Result<ForjarConfig, String> {
     serde_yaml_ng::from_str(yaml).map_err(|e| {
-        if serde_yaml_ng::from_str::<serde_yaml_ng::Value>(yaml).is_ok() {
-            format!("not a forjar config: {e}")
-        } else {
-            format!("YAML parse error: {e}")
+        // Malformed: report the schema-free parse's error. The typed parse can
+        // fail first on a schema field (`missing field `version``) and would
+        // hide the syntax fault (a duplicate key) that actually broke the file.
+        match serde_yaml_ng::from_str::<serde_yaml_ng::Value>(yaml) {
+            Ok(_) => format!("not a forjar config: {e}"),
+            Err(syntax) => format!("YAML parse error: {syntax}"),
         }
     })
 }
@@ -197,6 +199,15 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
 
     // FJ-2501: Format validation (mode, port, path, owner/group, addr)
     errors.extend(format_validation::validate_formats(config));
+
+    // forjar#847: the inode-pressure policy must be a usable one.
+    if let Some(ip) = &config.inode_pressure {
+        errors.extend(
+            crate::core::inode_pressure::validate_config(ip)
+                .into_iter()
+                .map(|message| ValidationError { message }),
+        );
+    }
 
     // FJ-154 (#23): Reject colliding / chained moved blocks before they can
     // silently overwrite lock state during planning.

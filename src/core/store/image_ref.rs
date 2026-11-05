@@ -46,6 +46,11 @@ impl ImageRef {
     pub fn to_reference(&self) -> String {
         format!("{}/{}:{}", self.registry, self.repository, self.tag)
     }
+
+    /// IMG-001: the immutable `registry/repository@sha256:...` form a runner pulls by.
+    pub fn to_digest_reference(&self, digest: &str) -> String {
+        format!("{}/{}@{digest}", self.registry, self.repository)
+    }
 }
 
 /// True when a reference's first path component names a registry host.

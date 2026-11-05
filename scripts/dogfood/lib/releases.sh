@@ -10,20 +10,13 @@
 # the status line wants (the PMAT-225 plan grill: a status that ignores the
 # row you are editing is not a status).
 #
-# Timestamps stay STRINGS. PyYAML would otherwise turn `2026-09-08T22:10:01Z`
-# into a datetime and json.dumps would refuse it (or `default=str` would
-# rewrite it in another format, and the gate's equality against git's date
-# would fail for a reason that is not a disagreement).
-DOGFOOD_RELEASES_PY='
-import json, sys, yaml
-class Loader(yaml.SafeLoader):
-    pass
-Loader.yaml_implicit_resolvers = {
-    k: [(t, r) for (t, r) in v if t != "tag:yaml.org,2002:timestamp"]
-    for k, v in Loader.yaml_implicit_resolvers.items()
-}
-print(json.dumps(yaml.load(sys.stdin, Loader=Loader)))
-'
+# The loader is lib/releases.awk (PMAT-607): the ledger's subset of YAML and
+# nothing else, failing by line number on any other shape. Timestamps stay
+# STRINGS: the gate compares `cut:` to git's date as text, and a loader that
+# turned it into a date and back would fail that equality for a reason that
+# is not a disagreement. It replaced a python3 + PyYAML one-liner, which put
+# an interpreter and a third-party module on the release path.
+DOGFOOD_RELEASES_AWK="${BASH_SOURCE[0]%/*}/releases.awk"
 
 # The shape every reader relies on. jq -e exits 1 when the expression is false.
 DOGFOOD_RELEASES_SHAPE='
@@ -56,9 +49,11 @@ dogfood_load_releases() {
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/releases.yaml cannot be read at ${ref} (exit ${rc}): there is no declared release goal to measure against — UNMEASURED"
   fi
-  json="$(printf '%s\n' "$text" | python3 -c "$DOGFOOD_RELEASES_PY" 2>&1)" || rc=$?
+  # A here-string, not a pipe: the loader exits at the first line it cannot
+  # read, and a writer still holding the pipe would take SIGPIPE (PMAT-240).
+  json="$(awk -f "$DOGFOOD_RELEASES_AWK" 2>&1 <<<"$text")" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "docs/roadmaps/releases.yaml at ${ref} does not parse (python exit ${rc}: ${json}) — a ledger that cannot be read declares nothing, UNMEASURED"
+    fail "docs/roadmaps/releases.yaml at ${ref} does not parse (awk exit ${rc}: ${json}) — a ledger that cannot be read declares nothing, UNMEASURED"
   fi
   rc=0
   # PMAT-240: a here-string, not a pipe. `jq -e` can exit before reading all of
