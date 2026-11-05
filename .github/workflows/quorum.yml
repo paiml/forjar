@@ -75,16 +75,35 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Verify quorum receipt
+      - name: Fetch gate from the PR base commit
+        # JUDGE FROM BASE: the gate and its allowlist come from the PR BASE commit, never
+        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
+        # the base lacks either file.
+        # BOOTSTRAP: the very first merge of this gate (PR #874) has no base copy, so this
+        # step fails there by design; that one merge cannot be judged from base and is a
+        # one-off for the repo owner. The test-only author override is deliberately NOT set anywhere
+        # here; the gate ignores it in CI.
         env:
-          # The gate resolves the branch from the ref being pushed; in CI the PR
-          # head ref is the equivalent.
-          PR_HEAD: ${{ github.head_ref }}
-          # WHO is being gated. Locally this falls back to `git config user.email`;
-          # in CI there is no such identity, so the PR AUTHOR is passed explicitly.
-          # Without it every CI run would resolve to "" and fall to advisory --
-          # the gate would be enforced locally and toothless exactly where it is
-          # the only thing standing between a PR and main.
-          QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"
+          d="$RUNNER_TEMP/quorum-base-gate"
+          rm -rf "${d:?}"; mkdir -p "$d/scripts"
+          git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
+            || { echo "FAIL: scripts/quorum-store-gate.sh absent on PR base (bootstrap case)" >&2; exit 1; }
+          git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
+            || { echo "FAIL: scripts/quorum-models.json absent on PR base (bootstrap case)" >&2; exit 1; }
+          echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
+
+      - name: Verify quorum receipt
+        # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
+        # not a committed .quorum/<branch>.json: a receipt binds to the head
+        # sha, and committing it would move the head (loop). Fails closed on a
+        # missing store or file.
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # author model ids come from the PR commits' Co-Authored-By trailers (per commit)
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          QUORUM_REPO: ${{ github.repository }}
+        run: |
+          bash "$QUORUM_BASE_GATE"
