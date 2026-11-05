@@ -204,30 +204,41 @@ fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
             message: format!("resource '{id}' (docker) has no image"),
         });
     }
-    if let Some(ref state) = resource.state {
-        let valid = ["running", "stopped", "absent", "pulled"];
-        if !valid.contains(&state.as_str()) {
-            errors.push(ValidationError {
-                message: format!(
-                    "resource '{}' (docker) has invalid state '{}' (expected: {})",
-                    id,
-                    state,
-                    valid.join(", ")
-                ),
-            });
-        }
+    validate_docker_state(id, resource, errors);
+    validate_docker_pulled(id, resource, errors);
+}
+
+fn validate_docker_state(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    let Some(ref state) = resource.state else {
+        return;
+    };
+    let valid = ["running", "stopped", "absent", "pulled"];
+    if !valid.contains(&state.as_str()) {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{}' (docker) has invalid state '{}' (expected: {})",
+                id,
+                state,
+                valid.join(", ")
+            ),
+        });
     }
-    // IMG-001: a pulled image is pinned by content, so a tag alone is rejected.
-    if resource.state.as_deref() == Some("pulled") {
-        if let Some(ref image) = resource.image {
-            if crate::resources::docker::image_digest(image).is_none() {
-                errors.push(ValidationError {
-                    message: format!(
-                        "resource '{id}' (docker) state pulled requires image@sha256:<64 hex digest>, got '{image}'"
-                    ),
-                });
-            }
-        }
+}
+
+/// IMG-001: a pulled image is pinned by content, so a tag alone is rejected.
+fn validate_docker_pulled(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    if resource.state.as_deref() != Some("pulled") {
+        return;
+    }
+    let Some(ref image) = resource.image else {
+        return;
+    };
+    if crate::resources::docker::image_digest(image).is_none() {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{id}' (docker) state pulled requires image@sha256:<64 hex digest>, got '{image}'"
+            ),
+        });
     }
 }
 

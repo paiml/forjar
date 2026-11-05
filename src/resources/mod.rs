@@ -11,6 +11,7 @@ pub mod cron;
 pub mod disk_budget;
 pub mod docker;
 pub mod file;
+mod file_assert;
 pub mod github_release;
 pub mod gpu;
 pub mod model;

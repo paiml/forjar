@@ -24,14 +24,17 @@ fn sed_escape(s: &str) -> String {
 /// mount while apply reported converged.
 const OWNERSHIP_KEYS: [&str; 5] = ["uid", "gid", "file_mode", "dir_mode", "mode"];
 
+fn is_numeric(value: &str) -> bool {
+    !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit())
+}
+
 /// Shell that prints `value` in a form comparable with the kernel's: a name for
 /// `uid=`/`gid=` becomes its number (cifs echoes `uid=1000` for `uid=noah`), and a
 /// mode loses its leading zeros (tmpfs echoes `mode=755` for `mode=0755`).
 fn declared_value(key: &str, value: &str) -> String {
-    let numeric = !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit());
     let v = sh_squote(value);
     match key {
-        "uid" | "gid" if numeric => v,
+        "uid" | "gid" if is_numeric(value) => v,
         "uid" => format!("\"$(id -u {v} 2>/dev/null)\""),
         "gid" => format!("\"$(getent group {v} 2>/dev/null | cut -d: -f3)\""),
         _ => format!("\"$(printf '%s' {v} | sed 's/^0*\\(.\\)/\\1/')\""),
@@ -169,99 +172,104 @@ pub fn check_script(resource: &Resource) -> String {
     )
 }
 
-/// Generate shell to converge mount to desired state.
-pub fn apply_script(resource: &Resource) -> String {
+/// `state: mounted`: make the fstab line, the live mount and its options match.
+fn push_mounted_lines(lines: &mut Vec<String>, resource: &Resource) {
     let source = resource.source.as_deref().unwrap_or("none");
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
     let fstype = resource.fs_type.as_deref().unwrap_or("auto");
     let options = resource.options.as_deref().unwrap_or("defaults");
-    let state = resource.state.as_deref().unwrap_or("mounted");
-
     let s = sh_squote(source);
     let t = sh_squote(target);
     let ft = sh_squote(fstype);
     let o = sh_squote(options);
+    // APPLY MUST BE CORRECTIVE, NOT MERELY CREATIVE.
+    //
+    // Both guards here used to test the TARGET PATH and never the
+    // source: `mountpoint -q <target>` for the mount, and
+    // `grep -q <target> /etc/fstab` for the declaration. On a bare host
+    // that works. On a host that is PRESENT BUT WRONG, both
+    // short-circuit, apply exits 0, and forjar reports converged over a
+    // host it never touched.
+    //
+    // Measured on paiml/infra 2026-08-19: `source` changed from
+    // //192.168.1.179/Personal-Drive to //192.168.1.179/media, applied
+    // to intel and lambda-labs, both reported `1 converged` — and both
+    // kept the old share mounted AND the old fstab line. The fstab half
+    // is the worse one: it is written once at first apply and never
+    // corrected, so every later change to source/fs_type/options is
+    // discarded permanently while forjar keeps reporting success.
+    //
+    // So: compare against the DECLARED state, not the path's existence.
+    lines.push(format!("mkdir -p {t}"));
+
+    // Rewrite the fstab line whenever it differs from the declared one.
+    // FIRST (#648): an automount entry is re-mounted by systemd from the
+    // unit it generates out of fstab, so fstab must be declared before
+    // anything is detached, or systemd re-mounts the OLD options.
+    // Matching on the MOUNTPOINT FIELD (second whitespace-separated
+    // column) rather than a substring: a bare `grep <target>` also hits
+    // /mnt/unas-backup and any comment mentioning the path.
+    let fstab_line = format!("{source} {target} {fstype} {options} 0 0");
+    let q_line = sh_squote(&fstab_line);
+    // The target must be a STRING literal in awk, not a bare word:
+    // `$2 != /mnt/unas` makes awk parse /mnt/unas/ as a REGEX and
+    // compare $2 against the match result, silently dropping every
+    // line. Quote it.
+    let awk_drop = sh_squote(&format!("$2 != \"{target}\""));
+    lines.push(format!(
+        "if ! grep -qxF {q_line} /etc/fstab 2>/dev/null; then\n  \
+         _fj_tmp=$(mktemp)\n  \
+         awk {awk_drop} /etc/fstab > \"$_fj_tmp\" 2>/dev/null || true\n  \
+         printf '%s\\n' {q_line} >> \"$_fj_tmp\"\n  \
+         cat \"$_fj_tmp\" > /etc/fstab\n  \
+         rm -f \"$_fj_tmp\"\n\
+         fi"
+    ));
+
+    let automount = is_automount(options);
+
+    // Remount when the mounted source differs from the declared one.
+    // `findmnt` answers what is ACTUALLY mounted; `mountpoint -q` only
+    // answers whether something is. The lazy fallback is for a plain
+    // mount only: under an automount, `umount -l` on a busy stack would
+    // detach live writers and let systemd re-mount underneath (#648).
+    lines.push(format!(
+        "_fj_cur=$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\n\
+         if [ \"$_fj_cur\" != {s} ]; then\n  \
+         {}\n\
+         fi",
+        remount(&t, &ft, &o, &s, automount, !automount)
+    ));
+
+    // #642: the right share mounted with the wrong owner or modes, and
+    // #648: a stale mount stacked under the right one. Remount, with a
+    // plain `umount` and NO lazy fallback: `umount -l` would detach a
+    // mount that live jobs are writing into. Busy is a loud failure that
+    // names the path, never a silent convergence.
+    let stacked = format!("[ \"{}\" -gt 1 ]", fs_count(&t));
+    let drift = match options_condition(target, resource.options.as_deref()) {
+        Some(opts) => format!("! {{ {opts}; }} || {stacked}"),
+        None => stacked,
+    };
+    lines.push(format!(
+        "if [ \"$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\" = {s} ] && {{ {drift}; }}; then\n  \
+         {}\n\
+         fi",
+        remount(&t, &ft, &o, &s, automount, false)
+    ));
+}
+
+/// Generate shell to converge mount to desired state.
+pub fn apply_script(resource: &Resource) -> String {
+    let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
+    let state = resource.state.as_deref().unwrap_or("mounted");
+
+    let t = sh_squote(target);
 
     let mut lines = vec!["set -euo pipefail".to_string()];
 
     match state {
-        "mounted" => {
-            // APPLY MUST BE CORRECTIVE, NOT MERELY CREATIVE.
-            //
-            // Both guards here used to test the TARGET PATH and never the
-            // source: `mountpoint -q <target>` for the mount, and
-            // `grep -q <target> /etc/fstab` for the declaration. On a bare host
-            // that works. On a host that is PRESENT BUT WRONG, both
-            // short-circuit, apply exits 0, and forjar reports converged over a
-            // host it never touched.
-            //
-            // Measured on paiml/infra 2026-08-19: `source` changed from
-            // //192.168.1.179/Personal-Drive to //192.168.1.179/media, applied
-            // to intel and lambda-labs, both reported `1 converged` — and both
-            // kept the old share mounted AND the old fstab line. The fstab half
-            // is the worse one: it is written once at first apply and never
-            // corrected, so every later change to source/fs_type/options is
-            // discarded permanently while forjar keeps reporting success.
-            //
-            // So: compare against the DECLARED state, not the path's existence.
-            lines.push(format!("mkdir -p {t}"));
-
-            // Rewrite the fstab line whenever it differs from the declared one.
-            // FIRST (#648): an automount entry is re-mounted by systemd from the
-            // unit it generates out of fstab, so fstab must be declared before
-            // anything is detached, or systemd re-mounts the OLD options.
-            // Matching on the MOUNTPOINT FIELD (second whitespace-separated
-            // column) rather than a substring: a bare `grep <target>` also hits
-            // /mnt/unas-backup and any comment mentioning the path.
-            let fstab_line = format!("{source} {target} {fstype} {options} 0 0");
-            let q_line = sh_squote(&fstab_line);
-            // The target must be a STRING literal in awk, not a bare word:
-            // `$2 != /mnt/unas` makes awk parse /mnt/unas/ as a REGEX and
-            // compare $2 against the match result, silently dropping every
-            // line. Quote it.
-            let awk_drop = sh_squote(&format!("$2 != \"{target}\""));
-            lines.push(format!(
-                "if ! grep -qxF {q_line} /etc/fstab 2>/dev/null; then\n  \
-                 _fj_tmp=$(mktemp)\n  \
-                 awk {awk_drop} /etc/fstab > \"$_fj_tmp\" 2>/dev/null || true\n  \
-                 printf '%s\\n' {q_line} >> \"$_fj_tmp\"\n  \
-                 cat \"$_fj_tmp\" > /etc/fstab\n  \
-                 rm -f \"$_fj_tmp\"\n\
-                 fi"
-            ));
-
-            let automount = is_automount(options);
-
-            // Remount when the mounted source differs from the declared one.
-            // `findmnt` answers what is ACTUALLY mounted; `mountpoint -q` only
-            // answers whether something is. The lazy fallback is for a plain
-            // mount only: under an automount, `umount -l` on a busy stack would
-            // detach live writers and let systemd re-mount underneath (#648).
-            lines.push(format!(
-                "_fj_cur=$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\n\
-                 if [ \"$_fj_cur\" != {s} ]; then\n  \
-                 {}\n\
-                 fi",
-                remount(&t, &ft, &o, &s, automount, !automount)
-            ));
-
-            // #642: the right share mounted with the wrong owner or modes, and
-            // #648: a stale mount stacked under the right one. Remount, with a
-            // plain `umount` and NO lazy fallback: `umount -l` would detach a
-            // mount that live jobs are writing into. Busy is a loud failure that
-            // names the path, never a silent convergence.
-            let stacked = format!("[ \"{}\" -gt 1 ]", fs_count(&t));
-            let drift = match options_condition(target, resource.options.as_deref()) {
-                Some(opts) => format!("! {{ {opts}; }} || {stacked}"),
-                None => stacked,
-            };
-            lines.push(format!(
-                "if [ \"$(findmnt -n -o SOURCE {t} 2>/dev/null | tail -1 || true)\" = {s} ] && {{ {drift}; }}; then\n  \
-                 {}\n\
-                 fi",
-                remount(&t, &ft, &o, &s, automount, false)
-            ));
-        }
+        "mounted" => push_mounted_lines(&mut lines, resource),
         "unmounted" => {
             lines.push(format!("if mountpoint -q {t}; then\n  umount {t}\nfi"));
         }
