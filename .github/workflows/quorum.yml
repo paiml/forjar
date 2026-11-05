@@ -75,16 +75,44 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Verify quorum receipt
+      - name: Fetch gate from the PR base commit
+        # JUDGE FROM BASE: the gate, its allowlist and its allowed signers come from the PR BASE commit, never
+        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
+        # the base lacks either file.
+        # BOOTSTRAP (PMAT-5882): while the PR base has no gate, the one PR that introduces it
+        # is judged by its own copy, loudly, so the merge that lands the gate can be green.
+        # That is self-limiting: once the gate is on main every later PR has a base copy and
+        # takes the first branch. A base that HAS the gate never falls back, and a base copy
+        # that fails is a RED, not a fallback.
         env:
-          # The gate resolves the branch from the ref being pushed; in CI the PR
-          # head ref is the equivalent.
-          PR_HEAD: ${{ github.head_ref }}
-          # WHO is being gated. Locally this falls back to `git config user.email`;
-          # in CI there is no such identity, so the PR AUTHOR is passed explicitly.
-          # Without it every CI run would resolve to "" and fall to advisory --
-          # the gate would be enforced locally and toothless exactly where it is
-          # the only thing standing between a PR and main.
-          QUORUM_ACTOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          ./scripts/quorum-gate.sh --remote-ref "refs/heads/${PR_HEAD}"
+          d="$RUNNER_TEMP/quorum-base-gate"
+          rm -rf "${d:?}"; mkdir -p "$d/scripts"
+          if git cat-file -e "$PR_BASE_SHA:scripts/quorum-store-gate.sh" 2>/dev/null; then
+            git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
+              || { echo "FAIL: cannot read scripts/quorum-store-gate.sh from PR base" >&2; exit 1; }
+            git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
+              || { echo "FAIL: scripts/quorum-models.json absent on PR base" >&2; exit 1; }
+            git show "$PR_BASE_SHA:scripts/quorum-allowed-signers" > "$d/scripts/quorum-allowed-signers" \
+              || { echo "FAIL: scripts/quorum-allowed-signers absent on PR base" >&2; exit 1; }
+          else
+            echo "BOOTSTRAP: base $PR_BASE_SHA has no quorum-store-gate.sh; judging with this PR's copy"
+            cp scripts/quorum-store-gate.sh scripts/quorum-models.json scripts/quorum-allowed-signers "$d/scripts/"
+          fi
+          echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
+
+      - name: Verify quorum receipt
+        # Reads a SIGNED receipt from the git ref refs/quorum/pr-<N> (<pr>/<headsha>.json
+        # + .sig), not a committed .quorum/<branch>.json (a receipt binds to the head sha;
+        # committing it would move the head) and not a store a runner can write (R34-3).
+        # The signature is verified against scripts/quorum-allowed-signers from the PR BASE.
+        # Fails closed on a missing ref, missing/invalid signature or unprovisioned signer.
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # author model ids come from the PR commits' Co-Authored-By trailers (per commit)
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          QUORUM_REPO: ${{ github.repository }}
+        run: |
+          bash "$QUORUM_BASE_GATE"
