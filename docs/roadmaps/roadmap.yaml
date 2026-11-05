@@ -5586,3 +5586,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-5882
+  github_issue: 876
+  item_type: task
+  title: 'quorum receipt check red on every PR: judge the receipt store from the PR base, not a committed .quorum file'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-05T00:00:00Z
+  updated: 2026-11-05T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - the quorum receipt check goes green on a PR with 3 valid non-author PASS receipts at its head and stays red otherwise
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Epic T134. Lands the PMAT-554 store gate (PR 874) with a bootstrap-safe base-judge step.'
