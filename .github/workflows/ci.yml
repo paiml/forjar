@@ -24,6 +24,9 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main, master]
+  # FLOW-010 F4 (PMAT-3151): merge queue runs the same `gate` on the queue ref.
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
