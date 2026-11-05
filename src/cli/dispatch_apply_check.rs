@@ -69,6 +69,9 @@ pub(super) fn cmd_apply_check(
     verbose: bool,
 ) -> Result<(), String> {
     let mut config = super::helpers::parse_and_validate(&args.file)?;
+    // Templates are rendered below; resolve `data:` sources first, as `check`,
+    // `plan` and `apply` do (otherwise: "unknown data source: <key>").
+    crate::core::resolver::resolve_data_sources(&mut config)?;
     let scope = scope_of(args);
     resolve_selection(&mut config, &selectors_of(args, &scope), verbose)?;
     super::check::cmd_check_selected(
