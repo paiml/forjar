@@ -6,26 +6,32 @@ roadmap:
   github_issue: 869
   item_type: task
   title: 'release cut v1.34: unblock dogfood gate B (bashrs clean-lint, CB-200 regression)'
-  status: in_progress
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-04T13:30:00Z
-  updated: 2026-11-04T13:30:00Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - scripts/dogfood/comply.sh counts a clean bashrs lint as 0 errors; CB-200 under its ceiling.
+  labels:
+  - release:v1.34.0
 - id: PMAT-828
   github_issue: 828
   item_type: task
   title: 'data source fault isolation: failing source skips only dependents'
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-29T08:11:51Z
-  updated: 2026-10-29T08:11:51Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - Operator 08:05Z. infra#2620.
+  labels:
+  - release:v1.34.0
 - id: PMAT-001
   github_issue: null
   item_type: task
@@ -1903,7 +1909,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-05T17:53:20Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'Measured 2026-09-05 on forjar 1.24.0 -> 1.25.2 (paiml/forjar#469, found by paiml/infra#442): paiml/infra keeps ONE state/ dir for six machine manifests (machines/<m>/forjar.yaml, each with its own name:), and every machines/*/Makefile applies with --state-dir state. Two correct applies in a row of different configs each printed the #377 warning ("state dir ... was last applied by stack ''forjar-clean-room''; this apply re-stamps it as ''lambda-labs'' ... forjar undo refuses this combination") although each touched only its own lock section. The lock file is already keyed by config name; the stamp is a single value, so for this layout the warning is a false positive on every apply and undo refuses a layout apply supports.'
@@ -1920,6 +1926,7 @@ roadmap:
   - state
   - undo
   - release:v1.26.0
+  - release:v1.34.0
   notes: 'Completed in 1.26.0 by #473. state stamp keyed by config name; shipped narrowed to shared --state-dir for apply/status/stack_conflict, undo refused in a multi-stack dir'
 - id: PMAT-162
   github_issue: null
@@ -2711,6 +2718,7 @@ roadmap:
   item_type: task
   title: 'apply --refresh-only ignores -r / -g / --subset: a scoped refresh refreshes the whole lock'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2729,6 +2737,7 @@ roadmap:
   item_type: task
   title: 'apply --only-machine X -m Y runs nothing and exits 0: the two machine selectors disagree silently'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2747,6 +2756,7 @@ roadmap:
   item_type: task
   title: 'forjar-contracts (vendored in-tree, #436): its unit tests fail in the workspace and no CI lane runs them'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2765,6 +2775,7 @@ roadmap:
   item_type: task
   title: 'build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — a reused build-script binary reads another checkout''s contracts/ and panics'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2783,6 +2794,7 @@ roadmap:
   item_type: task
   title: 'cron: a hand-edited entry under a forjar marker is left in place and a fresh block is appended (found by the #362 quorum)'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2801,6 +2813,7 @@ roadmap:
   item_type: task
   title: 'apply --canary-machine skips apply_pre_checks: --pre-script, --webhook-before and --abort-on-drift are silently ignored on the canary path (found by the #374 quorum)'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2818,11 +2831,11 @@ roadmap:
   github_issue: 434
   item_type: task
   title: 'Policy rules should declare an explicit, unique id — generated ids are order-dependent and collide (found by the #369 quorum)'
-  status: planned
+  status: cancelled
   priority: low
   assigned_to: null
   created: 2026-09-07T12:00:00Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2830,13 +2843,14 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: 'Found by the #369 quorum. Registered under the title "Policy rules declare an explicit, unique id; generated ids are order-dependent and collide (GH #434, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
+  notes: 'Found by the #369 quorum. Registered under the title "Policy rules declare an explicit, unique id; generated ids are order-dependent and collide (GH #434, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync. folded into #879 (GHC-001); restore = reopen #434'
 - id: PMAT-198
   kind: code
   github_issue: 433
   item_type: task
   title: 'ResourceType is still printed in its Debug spelling at ~50 CLI sites (found by the #366 quorum)'
   status: planned
+  release: backlog
   priority: low
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2855,6 +2869,7 @@ roadmap:
   item_type: task
   title: 'apply --plan-file runs no live-drift probe, and the summary does not say so'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2890,11 +2905,11 @@ roadmap:
   github_issue: 462
   item_type: task
   title: 'Homebrew formula publishing is deprioritized: the homebrew job needs a HOMEBREW_TAP_TOKEN secret (not defined)'
-  status: planned
+  status: cancelled
   priority: low
   assigned_to: null
   created: 2026-09-07T12:00:00Z
-  updated: 2026-09-07T12:00:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2902,7 +2917,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token. SUPERSEDES PMAT-233 (2026-09-11): the mechanism is now measured, not inferred. On run 34530301814 the homebrew job reached `Cloning into /tmp/tap` for the first time -- PMAT-230''s fixes carried it past two earlier failures -- and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step declares `GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}` and its log shows `GH_TOKEN:` with an empty value, while the one sibling step that declares a token takes it from `secrets.GITHUB_TOKEN` and logs `GH_TOKEN: ***`. That is this ticket''s missing secret seen from the inside: the name resolves to nothing, so the clone URL authenticates as nobody. The homebrew job is not on publish-release''s needs, so it has never blocked a release; it has simply never worked. Registered under the title "Homebrew formula publishing needs a HOMEBREW_TAP_TOKEN secret the operator has not provisioned — an operator decision, no secret is added by the release program (GH #462, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
+  notes: '§3 of the 1.26.0 release brief forbids adding registry or publish secrets; the job stays deprioritized until the operator provisions the token. SUPERSEDES PMAT-233 (2026-09-11): the mechanism is now measured, not inferred. On run 34530301814 the homebrew job reached `Cloning into /tmp/tap` for the first time -- PMAT-230''s fixes carried it past two earlier failures -- and died on `remote: Invalid username or token. Password authentication is not supported for Git operations.` The step declares `GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}` and its log shows `GH_TOKEN:` with an empty value, while the one sibling step that declares a token takes it from `secrets.GITHUB_TOKEN` and logs `GH_TOKEN: ***`. That is this ticket''s missing secret seen from the inside: the name resolves to nothing, so the clone URL authenticates as nobody. The homebrew job is not on publish-release''s needs, so it has never blocked a release; it has simply never worked. Registered under the title "Homebrew formula publishing needs a HOMEBREW_TAP_TOKEN secret the operator has not provisioned — an operator decision, no secret is added by the release program (GH #462, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync. folded into #879 (GHC-001); restore = reopen #462'
 - id: PMAT-205
   kind: code
   github_issue: null
@@ -3740,11 +3755,11 @@ roadmap:
   item_type: task
   title: 'gate D''s version arm does not catch the case its own comment names: a README pinning a minor the crate has moved past'
   release: 1.30.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-10-07T18:41:53Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions'
@@ -3758,7 +3773,7 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.34.0
-  notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
+  notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one. folded into #879 (GHC-001); restore = reopen #526'
 - id: PMAT-528
   kind: code
   github_issue: 528
@@ -3790,11 +3805,11 @@ roadmap:
   item_type: task
   title: 'release-goal.sh moves a CANCELLED ticket''s release label into the next window, forever'
   release: 1.30.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-10-07T18:41:53Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output'
@@ -3807,7 +3822,7 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.34.0
-  notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
+  notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it. folded into #879 (GHC-001); restore = reopen #529'
 - id: PMAT-531
   kind: triage
   github_issue: 531
@@ -4030,7 +4045,7 @@ roadmap:
   item_type: task
   title: 'PVL-F1: proofs.yml aggregate not required; dogfood/contracts.sh invoked by no workflow; lean job lacks `if:` while its caller is label-gated'
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:39Z
@@ -4048,7 +4063,7 @@ roadmap:
   item_type: task
   title: drift reports DRIFTED and no apply converges it — --force and --refresh both plan '0 to change' on a resource drift just flagged
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:40Z
@@ -4084,7 +4099,7 @@ roadmap:
   item_type: task
   title: remote_path_digest turns an unanswered query into None, outside the unmeasured reader
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:41Z
@@ -4101,12 +4116,12 @@ roadmap:
   github_issue: 554
   item_type: task
   title: the quorum gate's hash covers a file the quorum itself writes, so every verdict invalidates its own receipt
-  release: 1.31.0
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:41Z
-  updated: 2026-09-13T19:04:41Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -4114,6 +4129,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
 - id: PMAT-547
   github_issue: 547
@@ -4186,7 +4202,7 @@ roadmap:
   item_type: task
   title: CLAUDE.md does not say which model orchestrates a ticket here, so it is chosen by habit (ORCH-001)
   release: 1.32.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:37Z
@@ -4205,11 +4221,11 @@ roadmap:
   item_type: task
   title: '`forjar validate` says OK to a manifest `apply` refuses: template resolution is not part of validation, so `{{.Names}}` (a docker --format) passes validate and dies at apply'
   release: 1.32.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:37Z
-  updated: 2026-09-15T17:55:37Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - Booked by PMAT-557 so the issue has a roadmap row (CB-2115 ORPHAN-GITHUB). See forjar#559.
@@ -4218,13 +4234,13 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  notes: 'folded into #879 (GHC-001); restore = reopen #559'
 - id: PMAT-561
   github_issue: 561
   item_type: task
   title: lock keyed by (machine, stack), host-resident; apply refuses a manifest-sha mismatch without --adopt; generator field records the real writer
   release: 1.32.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:37Z
@@ -4680,7 +4696,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-25T03:07:48Z
-  updated: 2026-10-07T18:41:53Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - Refs infra PMAT-1055
@@ -4690,6 +4706,7 @@ roadmap:
   labels:
   - alias:PMAT-1055
   - release:v1.33.0
+  - release:v1.34.0
   notes: null
 - id: PMAT-631
   github_issue: 631
@@ -4733,11 +4750,11 @@ roadmap:
   github_issue: 607
   item_type: task
   title: 'release goal: book v1.33.0 with the tool gate T names, and run the cut path without python3; a pre-release is not a release'
-  status: inprogress
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-07T19:00:00Z
-  updated: 2026-10-07T19:00:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'scripts/release-goal.sh (label_row, unlabel_row, cut) and scripts/dogfood/lib/releases.sh (the ledger loader) run no python3: the loader is scripts/dogfood/lib/releases.awk, which reads the ledger''s subset of YAML and fails by line number on any other line shape, and the row and ledger edits are awk over the file text with the same messages and exit codes as before'
@@ -4751,7 +4768,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'folded into #879 (GHC-001); restore = reopen #607'
 - id: PMAT-614
   kind: code
   github_issue: 614
@@ -4825,7 +4842,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-25T10:12:56Z
-  updated: 2026-09-25T10:12:56Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -4833,6 +4850,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 696
   release: 1.34.0
@@ -4914,7 +4932,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-05T20:40:00Z
-  updated: 2026-10-05T20:40:00Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'nightly.yml "Install cross (aarch64 legs only)" writes "$CARGO_HOME/bin" to "$GITHUB_PATH", so on a runner without cross the next step resolves it.'
@@ -4924,6 +4942,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 696
   release: 1.34.0
@@ -4935,7 +4954,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-06T19:01:00Z
-  updated: 2026-10-06T19:01:00Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'Every job that runs cross build (nightly.yml:build, release.yml:build-binaries, binary-release.yml:build) sets RUSTUP_HOME to ${{ github.workspace }}/../rustup-home-${{ github.job }} beside its CARGO_HOME.'
@@ -4947,6 +4966,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 696
   release: 1.34.0
@@ -4978,7 +4998,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-10-05T19:11:07Z
-  updated: 2026-10-05T19:11:07.804147271+00:00
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -4986,6 +5006,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   release: 1.34.0
   epic: 670
@@ -4993,11 +5014,11 @@ roadmap:
   github_issue: 698
   item_type: task
   title: 'bump bashrs to 7.4.2: I8 gate must lint infra''s fw16-wired-10g-nm-owner completion_check with 0 errors (SC2075 FP, bashrs#441)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-10T13:40:00Z
-  updated: 2026-10-10T13:40:00Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - '`cargo tree -i bashrs --depth 0` prints `bashrs v7.4.2` and a committed fixture copy of the fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test; the same test is red on bashrs 7.4.1. Blocked until bashrs 7.4.2 is on crates.io.'
@@ -5007,6 +5028,7 @@ roadmap:
   labels:
   - kind:code
   - must-carry
+  - release:v1.34.0
   notes: null
   epic: 696
   release: 1.34.0
@@ -5033,11 +5055,11 @@ roadmap:
   github_issue: 714
   item_type: task
   title: 'RUSTSEC-2024-0449: unsafe-libyaml (unmaintained) reds cargo deny check advisories on main (red-main fix, rides #711)'
-  status: planned
+  status: cancelled
   priority: critical
   assigned_to: null
   created: 2026-10-14T18:29:13Z
-  updated: 2026-10-14T18:29:13Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'cargo deny check advisories exits 1 on the #711 head (error[unmaintained] unsafe-libyaml, RUSTSEC-2024-0449) and 0 after this change. deny.toml and .cargo/audit.toml each carry one RUSTSEC-2024-0449 ignore naming #714 as its removal ticket. tests/falsification_714_unsafe_libyaml_ignore_is_bounded.rs (run by ci.yml examples-validate) fails when the ignore is absent while unsafe-libyaml is in Cargo.lock, when the ignore outlives the crate, when a crate outside {serde_yaml, serde_yaml_ng} links it or a crate outside {bashrs, forjar, forjar-contracts, pforge-config} reaches it, or when the two exemption lists disagree.'
@@ -5046,7 +5068,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  notes: 'folded into #879 (GHC-001); restore = reopen #714'
   epic: 696
 - id: PMAT-664
   github_issue: 664
@@ -5075,11 +5097,12 @@ roadmap:
   github_issue: 727
   item_type: task
   title: 'disk_budget reaper: bounded scan cost'
+  release: 1.34.0
   status: completed
   priority: critical
   assigned_to: null
   created: 2026-10-20T14:58:48Z
-  updated: 2026-10-20T14:58:48Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - one /proc pass, time/IO limits, longer interval, cost test red on old shape
@@ -5088,17 +5111,18 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 668
 - id: PMAT-663
   github_issue: 663
   item_type: task
-  title: 'service: state enabled/disabled converge to what their check asserts (#663)'
+  title: 'service: state: enabled never starts the unit but its check requires it active, and state: disabled enables it'
   status: inprogress
   priority: high
   assigned_to: null
   created: 2026-10-04T14:30:00Z
-  updated: 2026-10-04T14:30:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: docs/book/src/03-resources.md
   acceptance_criteria:
   - 'For each state (running, stopped, enabled, disabled) and each start (active/inactive x enabled/disabled), the generated apply_script run against a fake systemctl leaves the unit in the declared state, the generated check_script then exits 0, and a second apply makes no start/stop/enable/disable call (src/resources/tests_service_converge.rs).'
@@ -5110,18 +5134,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.0
-  notes: null
-  release: 1.34.0
+  - release:v1.35.0
+  notes: 'title was: service: state enabled/disabled converge to what their check asserts (#663)'
+  release: 1.35.0
 - id: PMAT-738
   github_issue: 738
   item_type: task
-  title: 'mount: fresh x-systemd.automount fstab entry never starts the .automount unit'
+  title: 'mount: fresh x-systemd.automount fstab entry never starts the .automount unit, so nothing mounts'
   status: planned
+  release: backlog
   priority: high
   assigned_to: null
   created: 2026-10-21T11:47:15Z
-  updated: 2026-10-21T11:47:15Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'Start <systemd-escape --path>.automount after daemon-reload so a fresh entry mounts (Refs #738)'
@@ -5130,17 +5155,18 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  notes: 'title was: mount: fresh x-systemd.automount fstab entry never starts the .automount unit'
   epic: 696
 - id: PMAT-717
   github_issue: 717
   item_type: task
   title: 'FJ-METAL-001: bare-metal netboot / USB parity spec'
+  release: 1.34.0
   status: completed
   priority: medium
   assigned_to: null
   created: 2026-10-17T16:39:53Z
-  updated: 2026-10-17T16:39:53Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'Spec for taking forjar below the OS: one signed boot image (UKI) over network boot, USB and rescue partition, parity by hash. Spec file docs/specifications/FJ-METAL-001-bare-metal.md.'
@@ -5149,17 +5175,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:docs
+  - release:v1.34.0
   notes: null
   epic: 697
 - id: PMAT-756
   github_issue: 756
   item_type: task
   title: 'IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest'
-  status: planned
+  release: 1.34.0
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-21T20:16:56Z
-  updated: 2026-10-21T20:16:56Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'paiml/infra#2074 IMG-001 gaps 1-4: empty scratch image from forjar build'
@@ -5168,7 +5196,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  - release:v1.34.0
+  notes: 'folded into #879 (GHC-001); restore = reopen #756'
   epic: 765
 - id: PMAT-703
   github_issue: 703
@@ -5234,11 +5263,11 @@ roadmap:
   github_issue: 753
   item_type: task
   title: 'refresh: -r X --refresh must evaluate X''s depends_on closure (forjar#753)'
-  status: inprogress
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-21T18:20:11Z
-  updated: 2026-10-21T18:20:16.389822325+00:00
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - refresh_in_scope returns false for all ids but the -r filter, so satisfied dependencies with no lock entry plan as create. Scope = X + goal_closure.
@@ -5247,17 +5276,18 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  notes: 'folded into #879 (GHC-001); restore = reopen #753'
   epic: 696
 - id: PMAT-775
   github_issue: 775
   item_type: task
   title: 'audit red on main: tokio 1.53.1 unsound (RUSTSEC-2026-0386), lock to 1.54.1'
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-10-24T12:00:00Z
-  updated: 2026-10-24T12:00:00Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -5265,17 +5295,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 763
 - id: PMAT-735
   github_issue: 735
   item_type: task
   title: main advisories (webpki) + split disk_budget tests
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-10-21T06:23:15Z
-  updated: 2026-10-21T06:23:15Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - cargo update webpki crates; split tests.rs under 500 lines
@@ -5284,17 +5316,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 696
 - id: PMAT-672
   github_issue: 672
   item_type: task
   title: 'Release Audit: draft release reads as a release, API error reads as a skip'
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-17T18:02:42Z
-  updated: 2026-10-17T18:02:42Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - refs forjar#672; picks 2eb32922
@@ -5309,11 +5343,12 @@ roadmap:
   github_issue: 773
   item_type: task
   title: 'audit red: yanked clipboard-win 5.4.1 in Cargo.lock'
+  release: 1.34.0
   status: completed
   priority: critical
   assigned_to: null
   created: 2026-10-23T10:15:28Z
-  updated: 2026-10-23T10:15:28Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -5321,6 +5356,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 763
 - id: PMAT-777
@@ -5347,46 +5383,56 @@ roadmap:
   github_issue: 829
   item_type: task
   title: 'apply: --cost-limit ignores resource selectors (-r, -g, --subset, --exclude, --skip)'
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-29T11:17:24Z
-  updated: 2026-10-29T11:17:24Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria: []
+  labels:
+  - release:v1.34.0
 - id: PMAT-789
   github_issue: 789
   item_type: task
   title: 'cron: state absent fails closed when crontab -l fails'
+  release: 1.34.0
   status: completed
   priority: high
   assigned_to: null
   created: 2026-10-25T05:46:47Z
-  updated: 2026-10-25T05:46:47Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - 'forjar#789: cron.rs:99 crontab -l || true can wipe a crontab'
+  labels:
+  - release:v1.34.0
 - id: PMAT-826
   github_issue: 826
   item_type: task
   title: CI/gate jobs to [self-hosted, clean-room, ARM64]; X64 release/tool jobs stay
-  status: planned
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-27T15:24:25Z
-  updated: 2026-10-27T15:24:25Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - 'Operator via arbiter-cop 2026-10-27; forjar#826. runs-on only. Falsifier: green X64/red ARM64 -> revert that job + ticket.'
+  labels:
+  - release:v1.34.0
 - id: PMAT-725
   github_issue: 725
   item_type: task
   title: 'FLOW-009 RC-2: add .flow009/batcher.pub (batcher public key)'
+  release: 1.34.0
   status: completed
   priority: medium
   assigned_to: null
   created: 2026-10-24T15:24:49Z
-  updated: 2026-10-24T15:24:49Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - forjar#725
@@ -5395,17 +5441,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:docs
+  - release:v1.34.0
   notes: null
   epic: 696
 - id: PMAT-760
   github_issue: 760
   item_type: task
   title: 'parse_config: a malformed document reports the schema-free parse''s error (forjar#720)'
-  status: planned
+  release: 1.34.0
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-10-22T13:54:47Z
-  updated: 2026-10-22T13:54:47Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'Ticket minted for PR #720 which carried no Pmat-Ticket trailer (EMG3-2).'
@@ -5414,7 +5462,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  - release:v1.34.0
+  notes: 'folded into #879 (GHC-001); restore = reopen #760'
   epic: 670
 - id: PMAT-5880
   github_issue: null
@@ -5438,11 +5487,12 @@ roadmap:
   github_issue: 840
   item_type: task
   title: 'main red: bound zstd 0.13/basic-toml advisory ignores (deny.toml + audit.toml in sync) and fix blake3-state contract count'
+  release: 1.34.0
   status: planned
   priority: critical
   assigned_to: null
   created: 2026-10-31T11:44:45Z
-  updated: 2026-10-31T11:44:45Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - 'forjar main is red on cargo-deny/cargo-audit advisories (N27 andon). forjar bumps its own zstd to 0.14; zstd 0.13.3/zstd-safe 7.2.4 remain only via bashrs 7.4.2 -> batuta-common (fix: bashrs#466), basic-toml 0.1.10 only via age -> i18n-embed-fl -> i18n-config (#836). Acceptance: 14 audited ignores with reasons identical in deny.toml and .cargo/audit.toml; falsification test parses Cargo.lock and fails if any ignored crate gains another dependent or an ignore line is added/removed; contracts/blake3-state-v1.yaml total_obligations matches proof_obligations (3). PR #835. Replaces the mis-cited PMAT-735 (webpki + disk_budget).'
@@ -5451,17 +5501,18 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 763
 - id: PMAT-838
   github_issue: 838
   item_type: task
   title: 'Forjar-managed 24/7 watchdog: per-cop tick timer, sanctioned restart from brief, minimum live workers per tier-1 repo'
-  status: planned
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-31T09:46:41Z
-  updated: 2026-10-31T09:46:41Z
+  updated: 2026-11-06T00:11:30Z
   spec: null
   acceptance_criteria:
   - 'Operator (Noah via arbiter-cop): "the sovereign stack must work 24/7". Evidence: forjar-cop idle 36h with no tick; deadman alerts with no auto-action; rmedia-b3 55 MB session needed manual restart; aprender workers-alive=0 undetected. Five whys (to confirm by measurement): cycle is a session loop not a unit; nothing owns it; deadman only alerts; restart is ad-hoc ssh/tmux; no declared minimum worker count so zero is not a failure. Scope: (a) per-cop tick/publish timer declared in forjar; (b) restart a stalled or oversized session from its handoff brief via a sanctioned forjar path, no ad-hoc ssh; (c) minimum live workers per tier-1 repo (from flow-manifest.yaml) with an andon below it. Falsifiers first: stop a cop and assert a row still publishes and the session restarts from its brief; drop workers below the minimum and assert the andon. Scope review before any build.'
@@ -5470,7 +5521,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  - release:v1.34.0
+  notes: 'folded into #879 (GHC-001); restore = reopen #838'
   epic: 837
 - id: PMAT-721
   github_issue: 721
@@ -5480,7 +5532,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-18T16:08:00Z
-  updated: 2026-10-18T16:08:10Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - Remove X64 from runs-on of arch-neutral jobs; cache keys carry runner.arch
@@ -5489,17 +5541,19 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
   epic: 696
 - id: PMAT-613
   github_issue: 613
   item_type: task
-  title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
+  title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest (ollama 0.34.2 live vs v0.33.2 pinned → silent downgrade)'
   status: inprogress
+  release: 1.34.0
   priority: high
   assigned_to: null
   created: 2026-09-24T00:00:00Z
-  updated: 2026-09-24T00:00:00Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'src/tripwire/drift/tests_version_pin.rs fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees: a github_release pinned v0.33.2 whose binary prints "ollama version is 0.34.2", under a lock baselined after the install, yields one DRIFT finding (expected "version 0.33.2", actual "version 0.34.2", detail names the DOWNGRADE) and the census names the offline upstream skip; it fails with "got []" when the two version_pin::detect call sites are reverse-applied'
@@ -5509,16 +5563,18 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  - release:v1.34.0
+  notes: 'title was: drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
 - id: PMAT-622
   github_issue: 622
   item_type: task
   title: '--exclude is not repeatable and brace globs silently match nothing; a zero-match exclude is not an error'
   status: inprogress
+  release: 1.34.0
   priority: high
   assigned_to: null
   created: 2026-09-24T12:00:00Z
-  updated: 2026-09-24T12:00:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'tests/falsification_apply_filter_pipeline.rs: --exclude alpha --exclude charlie applies only bravo; --exclude {alpha,charlie} applies only bravo; --exclude a*a spares bravo and charlie; --exclude charlie --exclude chralie exits non-zero naming the typo and applies nothing. All four fail on origin/main aa04385e'
@@ -5533,11 +5589,12 @@ roadmap:
   github_issue: 615
   item_type: task
   title: 'forjar#615: plan -r and apply -r compute the same set; a lockless create asks its completion_check first'
-  status: inprogress
+  release: 1.34.0
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-24T08:56:17Z
-  updated: 2026-09-24T08:56:17Z
+  updated: 2026-11-06T00:11:14Z
   spec: null
   acceptance_criteria:
   - 'plan -r/-g select the positive set closed over depends_on exactly as apply resolve_selection does; src/cli/tests_plan_apply_same_set.rs asserts plan and apply return the same id set for every selector shape over a depends_on chain and goes RED with the closure reverted.'
@@ -5547,27 +5604,30 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: 'Measured on paiml/infra lambda-labs, forjar 1.32.0, no lambda-labs lock: plan -r ollama-model-qwen35-4b said 1 to add, apply -r prompted 2 create, and the pulled-in ollama-binary command rm -rf /usr/local/lib/ollama while its check exited 0.'
 - id: PMAT-618
   github_issue: 618
   item_type: task
-  title: user check asks declared attrs, not presence
+  title: 'user resource check is presence-only: declared uid/shell/home/group/groups never re-asked; state:absent judged backwards'
+  notes: 'title was: user check asks declared attrs, not presence'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-24T10:02:51Z
-  updated: 2026-09-24T10:02:51Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria: []
 - id: PMAT-627
   github_issue: 627
   item_type: task
   title: 'disk_budget SEC011 guard refused every /tmp child, so /tmp rules validated, ran and reclaimed nothing; the guard now checks declared roots'
-  status: inprogress
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-09-24T19:12:46Z
-  updated: 2026-09-24T19:12:46Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - 'fb_sweepable accepts a depth-2 /tmp child under a declared /tmp prefix and refuses /tmp itself, $HOME, and any candidate outside its rule''s declared root prefixes; the tests execute the real emitted shell helper and go RED when the fix is reverted.'
@@ -5577,16 +5637,16 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2).'
+  notes: 'Found via paiml/infra#987: lambda-labs root reaper, 1179 candidates all REFUSE too shallow (depth 2). folded into #879 (GHC-001); restore = reopen #627'
 - id: PMAT-740
   github_issue: 740
   item_type: task
   title: 'forjar type: docker gains state: pulled (IMG-001 spike, task 2a)'
-  status: inprogress
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-19T00:00:00Z
-  updated: 2026-10-19T00:00:00Z
+  updated: 2026-11-06T00:11:06Z
   spec: null
   acceptance_criteria:
   - type docker accepts state pulled; pulls the image and reports converged when present
@@ -5595,5 +5655,547 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: null
+  notes: 'folded into #879 (GHC-001); restore = reopen #740'
   epic: 696
+- id: PMAT-414
+  github_issue: 414
+  item_type: task
+  title: 'E11: no facts model — when:, templates and providers cannot see the target host'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-02T10:27:56Z
+  updated: 2026-09-02T10:27:56Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-492
+  github_issue: 492
+  item_type: task
+  title: 'Release build-binaries fails on apt lock contention: 16 clean-room runners share one machine and the apt step has no lock timeout'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-08T22:42:47Z
+  updated: 2026-09-08T22:42:47Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-503
+  github_issue: 503
+  item_type: task
+  title: 'cmd_build_with_load_flag_no_runtime asserts on the host: with docker on PATH and `docker load` failing, the workspace suite stops at the lib binary'
+  release: backlog
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-10T07:15:27Z
+  updated: 2026-09-10T07:15:27Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-585
+  github_issue: 585
+  item_type: task
+  title: 'a drift/check/apply verdict never names the lock it read — three locks for one machine gave three answers and the output could not tell them apart'
+  release: 1.32.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-16T11:22:51Z
+  updated: 2026-09-16T11:22:51Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-608
+  github_issue: 608
+  item_type: task
+  title: 'github_release: ''no asset matching'' is unreachable under pipefail — a missing asset exits 1 with empty stderr'
+  release: 1.33.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-21T11:10:18Z
+  updated: 2026-09-21T11:10:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-620
+  github_issue: 620
+  item_type: task
+  title: 'Adopt sovereign-update: `update` subcommand + daily update check (forjar) — EPIC aprender#4232'
+  release: 1.33.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-24T10:08:06Z
+  updated: 2026-09-24T10:08:06Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-638
+  github_issue: 638
+  item_type: task
+  title: 'file arm: fixed staging name .forjar-new can be raced from the same directory; I8 corpus never exercises state: file (follow-up to #637)'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-25T13:12:59Z
+  updated: 2026-09-25T13:12:59Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-639
+  github_issue: 639
+  item_type: task
+  title: 'forjar --version names no commit, so a fleet host cannot tell which build it runs'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-25T14:04:21Z
+  updated: 2026-09-25T14:04:21Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-649
+  github_issue: 649
+  item_type: task
+  title: 'I8 gate links bashrs 6.68.0, whose SEC005 reads ''disk-watch'' as an OpenAI key — ci-disk-watch-timer-enable cannot converge on any host'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-09-27T10:54:36Z
+  updated: 2026-09-27T10:54:36Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-655
+  github_issue: 655
+  item_type: task
+  title: 'Epic: manage sh-only appliances (FreeBSD / pfSense): a machine `shell:` field'
+  release: backlog
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-09-30T07:41:10Z
+  updated: 2026-09-30T07:41:10Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-659
+  github_issue: 659
+  item_type: task
+  title: 'check / apply --check: an unreachable host counts as a FAIL (ssh exit 255) and exits 1, like drift; the documented exit 2 and exit 4 never happen'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T02:38:22Z
+  updated: 2026-10-04T02:38:22Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-660
+  github_issue: 660
+  item_type: task
+  title: 'forjar show does not resolve data: command sources (plan/apply do): ''unknown data source'''
+  release: backlog
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-10-04T09:22:18Z
+  updated: 2026-10-04T09:22:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-661
+  github_issue: 661
+  item_type: task
+  title: 'lock-prune -f <config> prunes every machine in --state-dir: another stack''s lock entries are deleted, including machines the config never declares'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T13:04:49Z
+  updated: 2026-10-04T13:04:49Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-662
+  github_issue: 662
+  item_type: task
+  title: 'cargo package check runs every binary the crate installed with `--version`: a helper wrote docs/report.md into the working directory, and a helper without `--version` fails an installed crate''s check'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T13:39:47Z
+  updated: 2026-10-04T13:39:47Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-667
+  github_issue: 667
+  item_type: task
+  title: 'disk_budget reaper deletes in-use dirs: cargo_target finder skips the in-use check; open-path scan ignores exe/maps'
+  release: backlog
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-10-05T12:40:12Z
+  updated: 2026-10-05T12:40:12Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-668
+  github_issue: 668
+  item_type: task
+  title: 'Epic: disk-budget never deletes what it cannot prove dead'
+  release: backlog
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T12:54:19Z
+  updated: 2026-10-05T12:54:19Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-669
+  github_issue: 669
+  item_type: task
+  title: 'disk_budget: an unreachable target turns the reaper into a TTL sweep of every idle candidate'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-05T12:54:21Z
+  updated: 2026-10-05T12:54:21Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-670
+  github_issue: 670
+  item_type: task
+  title: 'Epic: Every subcommand loads a manifest the same way'
+  release: backlog
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T13:54:31Z
+  updated: 2026-10-05T13:54:31Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests cannot pass: 10 single-threaded passes per leg never fit its 30-minute timeout'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-05T15:39:13Z
+  updated: 2026-10-05T15:39:13Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-685
+  github_issue: 685
+  item_type: task
+  title: 'forjar lint and the quality gate silently skip the apply script of a resource that carries a secret reference'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-06T20:02:46Z
+  updated: 2026-10-06T20:02:46Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-688
+  github_issue: 688
+  item_type: task
+  title: 'A failed resource is recorded as `action: converged` in the run''s meta.yaml (ResourceRunStatus has no failure variant)'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-06T20:08:59Z
+  updated: 2026-10-06T20:08:59Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-689
+  github_issue: 689
+  item_type: task
+  title: 'Two stacks on one machine in one state dir: undo refuses both, and the re-stamp remedy it prints cannot help'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-06T20:09:00Z
+  updated: 2026-10-06T20:09:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-694
+  github_issue: 694
+  item_type: task
+  title: 'completion_check on a package resource is accepted and never run: the box is graded by dpkg/cargo --list instead'
+  release: 1.35.0
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-07T16:37:08Z
+  updated: 2026-10-07T16:37:08Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-696
+  github_issue: 696
+  item_type: task
+  title: 'Epic: forjar v1.34.0 — ship the window + bashrs 7.4.2, books current'
+  release: 1.34.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-10T11:25:24Z
+  updated: 2026-10-10T11:25:24Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-697
+  github_issue: 697
+  item_type: task
+  title: 'Epic: forjar v1.35.0 (look-ahead) — secret/I8 cluster, gate B ratchet, Windows nightly'
+  release: 1.35.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-10T11:25:26Z
+  updated: 2026-10-10T11:25:26Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-731
+  github_issue: 731
+  item_type: task
+  title: 'forjar image: autoinstall ISO cannot install — seed staged outside the ISO, disk pin dropped by subiquity, no autoinstall cmdline, unreachable box'
+  release: backlog
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-10-20T16:42:40Z
+  updated: 2026-10-20T16:42:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+- id: PMAT-763
+  github_issue: 763
+  item_type: task
+  title: 'epic: main red — advisories and release audit (BATCH-forjar-main-red)'
+  release: 1.34.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-22T14:01:41Z
+  updated: 2026-10-22T14:01:41Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-764
+  github_issue: 764
+  item_type: task
+  title: 'epic: resources converge to what their check asserts (BATCH-forjar-resource-converge)'
+  release: 1.35.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-22T14:02:03Z
+  updated: 2026-10-22T14:02:03Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-765
+  github_issue: 765
+  item_type: task
+  title: 'epic: IMG-001 image build (BATCH-forjar-img-001)'
+  release: 1.35.0
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-10-22T14:02:23Z
+  updated: 2026-10-22T14:02:23Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - epic
+  notes: null
+- id: PMAT-884
+  github_issue: 884
+  item_type: task
+  title: 'Roadmap cleanup: CB-2112/2114/2115 ratchet (gate B Arm 7)'
+  release: 1.34.0
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-06T00:20:00Z
+  updated: 2026-11-06T00:20:00Z
+  spec: null
+  acceptance_criteria:
+  - 'CB-2112, CB-2114 and CB-2115 findings fall to the null-issue rows and the three open-issue milestone gaps only; no ceiling or baseline change.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.0
+  notes: null
