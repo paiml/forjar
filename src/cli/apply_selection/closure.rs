@@ -25,8 +25,9 @@ use std::collections::HashSet;
 /// Every resource-set selector `apply` accepts, resolved once.
 ///
 /// `-m`/`--machine` is deliberately absent: it selects the executor and the
-/// lock, not the resource set. `-t` is present but only existence-checked —
-/// tags stay a plan-level filter downstream.
+/// lock, not the resource set. `-t` is a positive selector: the tagged
+/// resources are closed over `depends_on` like `-r`, so a tagged deploy never
+/// runs against a prerequisite that carries no tag.
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Selectors<'a> {
     /// `-r` / `--resource`: exact id (positive).
@@ -49,7 +50,7 @@ pub(crate) struct Selectors<'a> {
     pub only_machine: Option<&'a str>,
     /// `--exclude-machine` (machine narrowing).
     pub exclude_machine: Option<&'a str>,
-    /// `-t`: existence-checked here, never pruned here.
+    /// `-t` (positive): tagged resources plus their `depends_on` closure.
     pub tag: Option<&'a str>,
 }
 
@@ -250,6 +251,7 @@ impl Selectors<'_> {
     /// True when at least one positive selector was supplied.
     fn has_positive(&self) -> bool {
         self.resource.is_some()
+            || self.tag.is_some()
             || self.group.is_some()
             || self.subset.is_some()
             || self.resource_filter.is_some()
@@ -261,6 +263,7 @@ impl Selectors<'_> {
     fn describe_positive(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
         push_flag(&mut parts, "--resource", self.resource);
+        push_flag(&mut parts, "--tag", self.tag);
         push_flag(&mut parts, "--group", self.group);
         push_flag(&mut parts, "--subset", self.subset);
         push_flag(&mut parts, "--resource-filter", self.resource_filter);
@@ -302,6 +305,7 @@ fn positive_ids(config: &types::ForjarConfig, sel: &Selectors<'_>) -> Result<Vec
 
 fn matches_ids(id: &str, r: &types::Resource, sel: &Selectors<'_>) -> bool {
     sel.resource.is_none_or(|want| want == id)
+        && sel.tag.is_none_or(|t| r.tags.iter().any(|x| x == t))
         && sel
             .group
             .is_none_or(|g| r.resource_group.as_deref() == Some(g))
