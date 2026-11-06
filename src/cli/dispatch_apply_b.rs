@@ -424,7 +424,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
             &args.file,
             &sd,
             args.machine.as_deref(),
-            args.tag.as_deref(),
+            None, // the tag + its closure is already in `sel`
             &sel,
             limit,
         )?;
