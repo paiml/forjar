@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-11-06
+
+Version bump: v1.33.0 is already tagged, so this release carries everything
+merged since. The entries below were listed under Unreleased.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
