@@ -183,6 +183,7 @@ resources:
         dispatch(
             Commands::Plan(PlanArgs {
                 offline: false,
+                params: vec![],
                 file: config,
                 machine: None,
                 resource: None,
