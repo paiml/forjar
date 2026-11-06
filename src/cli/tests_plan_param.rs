@@ -39,7 +39,27 @@ fn plan_scripts(params: &[String]) -> Result<String, String> {
         false,
         PlanVersionPins::Skip,
     )?;
-    Ok(read_all(&out))
+    Ok(decode_b64_blobs(&read_all(&out)))
+}
+
+/// File content is exported as `echo '<base64>' | base64 -d`; append the decoded
+/// text of every such blob so assertions can read the rendered content.
+fn decode_b64_blobs(scripts: &str) -> String {
+    use base64::Engine as _;
+    let mut out = scripts.to_string();
+    for line in scripts.lines() {
+        if let Some(rest) = line.strip_prefix("echo '") {
+            if let Some((blob, tail)) = rest.split_once('\'') {
+                if tail.contains("base64 -d") {
+                    if let Ok(b) = base64::engine::general_purpose::STANDARD.decode(blob) {
+                        out.push('\n');
+                        out.push_str(&String::from_utf8_lossy(&b));
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 fn read_all(dir: &Path) -> String {
