@@ -355,6 +355,7 @@ include!("mod_test_decl_c.rs");
 mod tests_apply_selection_closure;
 #[cfg(test)]
 mod tests_apply_selection_tag;
+#[cfg(test)]
 mod tests_plan_param;
 
 /// forjar#615: plan and apply compute the same set for -r / -g.
