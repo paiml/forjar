@@ -26,6 +26,8 @@ mod bootstrap_cmd;
 mod build_distribution;
 mod build_image;
 mod build_image_base;
+mod build_image_exec;
+mod build_image_report;
 mod bundle;
 mod cbom;
 mod check;
