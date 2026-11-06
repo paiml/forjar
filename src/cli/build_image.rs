@@ -3,12 +3,11 @@
 //! Wires `assemble_image()` into the `forjar build` CLI command,
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
+use super::build_image_base;
+use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
 use crate::core::store::layer_builder::LayerEntry;
 use crate::core::store::overlay_export;
-use crate::core::types::{
-    ForjarConfig, ImageBuildMetrics, ImageBuildPlan, LayerMetric, LayerStrategy, OciLayerConfig,
-    Resource,
-};
+use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerConfig, Resource};
 
 /// FJ-2104: Build container image from a resource definition.
 #[allow(clippy::too_many_arguments)]
@@ -42,15 +41,48 @@ pub(crate) fn cmd_build(
     let output_dir = std::path::Path::new("state/images").join(resource);
     std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
 
-    if sandbox {
-        return cmd_build_sandbox(resource, &plan, &config, &output_dir, load, push, far);
+    // IMG-001: packages and a build command can only be honoured by running them.
+    if sandbox || super::build_image_exec::plan_needs_execution(&plan) {
+        return cmd_build_sandbox(
+            resource,
+            sandbox,
+            res,
+            &plan,
+            &config,
+            &output_dir,
+            load,
+            push,
+            far,
+            json,
+        );
     }
 
     let layer_entries = collect_layer_entries(&plan, &config)?;
 
+    // IMG-001: the declared base sits under the built layers. It is resolved
+    // BEFORE the cache is consulted and keyed into the input hash, so a layout
+    // first built as scratch is never served as the based image. A base that
+    // cannot be produced (or fails its pinned digest) fails the build.
+    let base_work =
+        std::env::temp_dir().join(format!("forjar-base-{}-{}", std::process::id(), resource));
+    let base = build_image_base::resolve_plan_base(
+        &plan,
+        std::path::Path::new("state/images"),
+        &base_work,
+        build_image_base::detect_runtime(),
+    );
+    let base = match base {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&base_work);
+            return Err(e);
+        }
+    };
+
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
-    let input_hash = compute_layer_input_hash(&layer_entries);
-    if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
+    let input_hash = build_image_base::compute_layer_input_hash(&layer_entries, base.as_ref());
+    if let Some(cached) = build_image_base::check_build_cache(&output_dir, &input_hash) {
+        let _ = std::fs::remove_dir_all(&base_work);
         if json {
             print_build_json(&plan.tag, &output_dir, None, true);
             return Ok(());
@@ -63,13 +95,16 @@ pub(crate) fn cmd_build(
     }
 
     let start = std::time::Instant::now();
-    let result = crate::core::store::image_assembler::assemble_image(
+    let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
         &output_dir,
         &OciLayerConfig::default(),
         None, // E12: default to host architecture
-    )?;
+        base.as_ref(),
+    );
+    let _ = std::fs::remove_dir_all(&base_work);
+    let result = result?;
     let duration = start.elapsed();
 
     if !json {
@@ -78,7 +113,7 @@ pub(crate) fn cmd_build(
 
     // FJ-2403/E17: Collect and persist image build metrics.
     record_build_metrics(&plan.tag, &result, duration, &output_dir);
-    write_build_cache(&output_dir, &input_hash);
+    build_image_base::write_build_cache(&output_dir, &input_hash);
 
     if json {
         print_build_json(&plan.tag, &output_dir, Some(&result), false);
@@ -86,66 +121,6 @@ pub(crate) fn cmd_build(
     }
 
     run_distribution(resource, &plan.tag, &output_dir, load, push, far)
-}
-
-/// The human build log: one line per layer, then the image summary.
-fn print_build_report(
-    resource: &str,
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    output_dir: &std::path::Path,
-    duration: std::time::Duration,
-) {
-    println!("\nBuilding {resource} ({tag})");
-    for (i, layer) in result.layers.iter().enumerate() {
-        println!(
-            "  Layer {}/{}: {} files, {} -> {} bytes",
-            i + 1,
-            result.layers.len(),
-            layer.file_count,
-            layer.uncompressed_size,
-            layer.compressed_size
-        );
-    }
-    println!(
-        "\n  Image: {} ({} layers, {} bytes)",
-        tag,
-        result.layers.len(),
-        result.total_size
-    );
-    println!("  Layout: {}", output_dir.display());
-    println!("  Built in {:.1}s", duration.as_secs_f64());
-}
-
-/// FJ-2403/E17: Collect and persist image build metrics. A write failure warns
-/// on stderr and is otherwise ignored, as it was inline.
-fn record_build_metrics(
-    tag: &str,
-    result: &crate::core::store::image_assembler::AssembledImage,
-    duration: std::time::Duration,
-    output_dir: &std::path::Path,
-) {
-    let metrics = ImageBuildMetrics {
-        tag: tag.to_string(),
-        layer_count: result.layers.len(),
-        total_size: result.total_size,
-        layers: result
-            .layers
-            .iter()
-            .map(|l| LayerMetric {
-                file_count: l.file_count,
-                uncompressed_size: l.uncompressed_size,
-                compressed_size: l.compressed_size,
-            })
-            .collect(),
-        duration_secs: duration.as_secs_f64(),
-        built_at: crate::tripwire::eventlog::now_iso8601(),
-        forjar_version: env!("CARGO_PKG_VERSION").to_string(),
-        target_arch: std::env::consts::ARCH.to_string(),
-    };
-    if let Err(e) = metrics.write_to(output_dir) {
-        eprintln!("  warning: {e}");
-    }
 }
 
 /// Refs #212: the flags `--json` cannot share stdout with.
@@ -196,86 +171,57 @@ fn run_distribution(
     Ok(())
 }
 
-/// Refs #212: the machine-readable form of a build.
-///
-/// Reports the layout that is on disk, not a synthesised description of one:
-/// `layout_exists` is a stat of `index.json`, so a consumer can tell a real
-/// build from a claim. On a cache hit there is no fresh `AssembledImage`, and
-/// the manifest is read back from the layout the earlier build wrote.
-fn print_build_json(
-    tag: &str,
-    output_dir: &std::path::Path,
-    result: Option<&crate::core::store::image_assembler::AssembledImage>,
-    cached: bool,
-) {
-    let layers: Vec<serde_json::Value> = result
-        .map(|r| {
-            r.layers
-                .iter()
-                .map(|l| {
-                    serde_json::json!({
-                        "file_count": l.file_count,
-                        "uncompressed_size": l.uncompressed_size,
-                        "compressed_size": l.compressed_size,
-                        "digest": l.digest,
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let doc = serde_json::json!({
-        "tag": tag,
-        "layout": output_dir.display().to_string(),
-        "layout_exists": output_dir.join("index.json").exists(),
-        "cached": cached,
-        "layers": layers,
-        "layer_count": result.map(|r| r.layers.len()),
-        "total_size": result.map(|r| r.total_size),
-    });
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&doc).unwrap_or_else(|_| "{}".to_string())
-    );
-}
-
 /// FJ-2103: Build image inside container sandbox (Docker/Podman).
 #[allow(clippy::too_many_arguments)]
 fn cmd_build_sandbox(
     resource: &str,
+    explicit_sandbox: bool,
+    res: &Resource,
     plan: &ImageBuildPlan,
     config: &ForjarConfig,
     output_dir: &std::path::Path,
     load: bool,
     push: bool,
     far: bool,
+    json: bool,
 ) -> Result<(), String> {
     use crate::core::store::container_build;
 
-    // Generate apply scripts from non-image resources in the config
-    let apply_scripts: Vec<String> = config
-        .resources
-        .iter()
-        .filter(|(_, r)| !matches!(r.resource_type, crate::core::types::ResourceType::Image))
-        .filter_map(|(_, r)| {
-            let resolved = crate::core::resolver::resolve_resource_templates(
-                r,
-                &config.params,
-                &config.machines,
-            )
-            .ok()?;
-            crate::core::codegen::apply_script(&resolved).ok()
-        })
-        .collect();
+    let apply_scripts =
+        super::build_image_exec::container_build_scripts(plan, res, config, explicit_sandbox)?;
 
-    println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);
-    println!("  Scripts: {}", apply_scripts.len());
+    if !json {
+        println!("\nBuilding {resource} ({}) via container sandbox", plan.tag);
+        println!("  Scripts: {}", apply_scripts.len());
+    }
 
-    let result = container_build::build_image_in_container(plan, &apply_scripts, output_dir)?;
+    let file_layers = sandbox_file_layers(plan, config)?;
+    let result = container_build::build_image_in_container_with_files(
+        plan,
+        &apply_scripts,
+        &file_layers,
+        output_dir,
+    )?;
 
+    if json {
+        print_build_json(&plan.tag, output_dir, Some(&result.image), false);
+        return Ok(());
+    }
     println!("  {}", container_build::format_container_build(&result));
     println!("  Layout: {}", output_dir.display());
 
     run_distribution(resource, &plan.tag, output_dir, load, push, far)
+}
+
+/// IMG-001: the resource's `path:` Files layers, to sit on top of the container
+/// diff. `image_build_scripts` covers only packages and command, and image
+/// resources are filtered out of the apply scripts, so without these the file
+/// the spec declares never lands in the image.
+pub(crate) fn sandbox_file_layers(
+    plan: &ImageBuildPlan,
+    config: &ForjarConfig,
+) -> Result<Vec<Vec<LayerEntry>>, String> {
+    collect_layer_entries(&super::build_image_exec::files_only_plan(plan), config)
 }
 
 /// Refs #210: the one place an image resource's reference is decided.
@@ -310,20 +256,28 @@ fn build_plan_from_resource(
     let _ = config;
     let image_reference = resource_image_reference(name, res);
 
-    // Check for base image layers
+    // IMG-001: `packages` (tier 0) and a build `command` (tier 1) are layers of
+    // their own; the command is then NOT an entrypoint. A resource without
+    // `packages` keeps the legacy reading of `command` as the entrypoint.
     let mut layers = Vec::new();
-    if let Some(ref base) = res.image {
-        let base_dir = std::path::Path::new("state/images").join(base.replace([':', '/'], "_"));
-        if base_dir.exists() {
-            if let Ok(base_layers) = crate::core::store::base_image::extract_base_layers(&base_dir)
-            {
-                println!(
-                    "  {}",
-                    crate::core::store::base_image::format_base_info(base, &base_layers)
-                );
-            }
-        }
+    let has_packages = !res.packages.is_empty();
+    if has_packages {
+        layers.push(LayerStrategy::Packages {
+            names: res.packages.clone(),
+        });
     }
+    let command = res.command.clone().filter(|c| !c.trim().is_empty());
+    if let (true, Some(cmd)) = (has_packages, command.as_ref()) {
+        layers.push(LayerStrategy::Build {
+            command: cmd.clone(),
+            workdir: None,
+        });
+    }
+    let entrypoint = if has_packages {
+        None
+    } else {
+        command.map(|e| vec![e])
+    };
 
     // E13: Automatic layer splitting by file type.
     // Config files go to a separate layer for better cache reuse.
@@ -345,7 +299,7 @@ fn build_plan_from_resource(
         base_image: res.image.clone(),
         layers,
         labels: vec![],
-        entrypoint: res.command.clone().map(|e| vec![e]),
+        entrypoint,
     })
 }
 
@@ -459,42 +413,6 @@ fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
         }
     }
     (config_paths, app_paths)
-}
-
-/// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
-fn compute_layer_input_hash(layer_entries: &[Vec<LayerEntry>]) -> String {
-    let mut hasher = blake3::Hasher::new();
-    for entries in layer_entries {
-        for entry in entries {
-            hasher.update(entry.path.as_bytes());
-            hasher.update(&entry.content);
-            hasher.update(&entry.mode.to_le_bytes());
-        }
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
-/// FJ-2403/E16: Check if a cached build with the same input hash exists.
-/// Returns a cache-hit message if found, None otherwise.
-fn check_build_cache(output_dir: &std::path::Path, input_hash: &str) -> Option<String> {
-    let cache_path = output_dir.join("build-cache.hash");
-    let cached_hash = std::fs::read_to_string(&cache_path).ok()?;
-    if cached_hash.trim() == input_hash {
-        let metrics_path = output_dir.join("build-metrics.json");
-        if metrics_path.exists() {
-            return Some(format!(
-                "Layer inputs unchanged (hash: {:.16}…), skipping rebuild",
-                input_hash
-            ));
-        }
-    }
-    None
-}
-
-/// FJ-2403/E16: Write the input hash for cache checking on next build.
-fn write_build_cache(output_dir: &std::path::Path, input_hash: &str) {
-    let cache_path = output_dir.join("build-cache.hash");
-    let _ = std::fs::write(cache_path, input_hash);
 }
 
 /// Exposed for testing.
