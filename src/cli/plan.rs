@@ -50,6 +50,7 @@ pub(crate) fn cmd_plan(
         plan_out,
         why,
         group_filter,
+        &[],
         false,
         PlanVersionPins::Skip,
     )
@@ -81,6 +82,8 @@ pub(crate) fn cmd_plan_with_pins(
     // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
+    // fleetops-2: `apply --param KEY=VALUE`, same handler, same precedence.
+    param_overrides: &[String],
     refresh: bool,
     version_pins: PlanVersionPins,
 ) -> Result<(), String> {
@@ -93,6 +96,9 @@ pub(crate) fn cmd_plan_with_pins(
     }
     inject_workspace_param(&mut config, workspace);
     let data_faults = super::data_isolation::resolve_isolated(&mut config);
+    // fleetops-2: after env-file/workspace/data sources, exactly where `apply`
+    // applies them, so `--param` wins and plan describes the apply.
+    apply_param_overrides(&mut config, param_overrides)?;
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
