@@ -6,7 +6,7 @@ roadmap:
   github_issue: 869
   item_type: task
   title: 'release cut v1.34: unblock dogfood gate B (bashrs clean-lint, CB-200 regression)'
-  status: in_progress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-04T13:30:00Z
@@ -18,7 +18,7 @@ roadmap:
   github_issue: 828
   item_type: task
   title: 'data source fault isolation: failing source skips only dependents'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-29T08:11:51Z
@@ -2711,6 +2711,7 @@ roadmap:
   item_type: task
   title: 'apply --refresh-only ignores -r / -g / --subset: a scoped refresh refreshes the whole lock'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2729,6 +2730,7 @@ roadmap:
   item_type: task
   title: 'apply --only-machine X -m Y runs nothing and exits 0: the two machine selectors disagree silently'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2747,6 +2749,7 @@ roadmap:
   item_type: task
   title: 'forjar-contracts (vendored in-tree, #436): its unit tests fail in the workspace and no CI lane runs them'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2765,6 +2768,7 @@ roadmap:
   item_type: task
   title: 'build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — a reused build-script binary reads another checkout''s contracts/ and panics'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2783,6 +2787,7 @@ roadmap:
   item_type: task
   title: 'cron: a hand-edited entry under a forjar marker is left in place and a fresh block is appended (found by the #362 quorum)'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2801,6 +2806,7 @@ roadmap:
   item_type: task
   title: 'apply --canary-machine skips apply_pre_checks: --pre-script, --webhook-before and --abort-on-drift are silently ignored on the canary path (found by the #374 quorum)'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2837,6 +2843,7 @@ roadmap:
   item_type: task
   title: 'ResourceType is still printed in its Debug spelling at ~50 CLI sites (found by the #366 quorum)'
   status: planned
+  release: backlog
   priority: low
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -2855,6 +2862,7 @@ roadmap:
   item_type: task
   title: 'apply --plan-file runs no live-drift probe, and the summary does not say so'
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
@@ -4030,7 +4038,7 @@ roadmap:
   item_type: task
   title: 'PVL-F1: proofs.yml aggregate not required; dogfood/contracts.sh invoked by no workflow; lean job lacks `if:` while its caller is label-gated'
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:39Z
@@ -4048,7 +4056,7 @@ roadmap:
   item_type: task
   title: drift reports DRIFTED and no apply converges it — --force and --refresh both plan '0 to change' on a resource drift just flagged
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:40Z
@@ -4084,7 +4092,7 @@ roadmap:
   item_type: task
   title: remote_path_digest turns an unanswered query into None, outside the unmeasured reader
   release: 1.31.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:41Z
@@ -4102,7 +4110,7 @@ roadmap:
   item_type: task
   title: the quorum gate's hash covers a file the quorum itself writes, so every verdict invalidates its own receipt
   release: 1.31.0
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-13T19:04:41Z
@@ -4186,7 +4194,7 @@ roadmap:
   item_type: task
   title: CLAUDE.md does not say which model orchestrates a ticket here, so it is chosen by habit (ORCH-001)
   release: 1.32.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:37Z
@@ -4224,7 +4232,7 @@ roadmap:
   item_type: task
   title: lock keyed by (machine, stack), host-resident; apply refuses a manifest-sha mismatch without --adopt; generator field records the real writer
   release: 1.32.0
-  status: planned
+  status: cancelled
   priority: medium
   assigned_to: null
   created: 2026-09-15T17:55:37Z
@@ -5112,12 +5120,13 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: null
-  release: 1.34.0
+  release: 1.35.0
 - id: PMAT-738
   github_issue: 738
   item_type: task
   title: 'mount: fresh x-systemd.automount fstab entry never starts the .automount unit'
   status: planned
+  release: backlog
   priority: high
   assigned_to: null
   created: 2026-10-21T11:47:15Z
@@ -5347,7 +5356,7 @@ roadmap:
   github_issue: 829
   item_type: task
   title: 'apply: --cost-limit ignores resource selectors (-r, -g, --subset, --exclude, --skip)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-29T11:17:24Z
@@ -5370,7 +5379,7 @@ roadmap:
   github_issue: 826
   item_type: task
   title: CI/gate jobs to [self-hosted, clean-room, ARM64]; X64 release/tool jobs stay
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-27T15:24:25Z
@@ -5496,6 +5505,7 @@ roadmap:
   item_type: task
   title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
   status: inprogress
+  release: backlog
   priority: high
   assigned_to: null
   created: 2026-09-24T00:00:00Z
@@ -5515,6 +5525,7 @@ roadmap:
   item_type: task
   title: '--exclude is not repeatable and brace globs silently match nothing; a zero-match exclude is not an error'
   status: inprogress
+  release: backlog
   priority: high
   assigned_to: null
   created: 2026-09-24T12:00:00Z
@@ -5533,7 +5544,7 @@ roadmap:
   github_issue: 615
   item_type: task
   title: 'forjar#615: plan -r and apply -r compute the same set; a lockless create asks its completion_check first'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-24T08:56:17Z
@@ -5553,6 +5564,7 @@ roadmap:
   item_type: task
   title: user check asks declared attrs, not presence
   status: planned
+  release: backlog
   priority: medium
   assigned_to: null
   created: 2026-09-24T10:02:51Z
