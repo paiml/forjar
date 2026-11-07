@@ -5597,3 +5597,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-862
+  github_issue: 862
+  item_type: task
+  title: 'quorum receipt check: stop running it on pull_request (red on every PR, cannot block)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-07T08:13:26Z
+  updated: 2026-11-07T08:13:31.860973027+00:00
+  spec: null
+  acceptance_criteria:
+  - 'Tracks paiml/forjar#862 (https://github.com/paiml/forjar/issues/862). Move the quorum receipt check to LAB: it cannot block, so it must not run on pull_request.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 879
