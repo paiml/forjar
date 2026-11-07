@@ -80,7 +80,7 @@ fb_scan_open_paths() {
   : >"$FB_PROCRAW"
   FB_OPEN_OK=0
   fb_live_slugs=""
-  fb_bounded find /proc/*/cwd /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
+  fb_bounded find /proc/*/cwd /proc/*/exe /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
   fb_rc=$?
   if fb_timed_out "$fb_rc"; then
     FB_UNMEASURED=1
@@ -93,6 +93,17 @@ fb_scan_open_paths() {
     return 0
   fi
   awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW" | sort -u >"$FB_OPEN"
+  # Files MAPPED by a process (a running binary and its libraries). A binary
+  # that is merely running writes nothing and holds no fd or cwd, so a tree it
+  # runs from looks idle; /proc/<pid>/exe above and the maps here protect it.
+  fb_bounded cat /proc/[0-9]*/maps >"$FB_MARKERS" 2>/dev/null
+  fb_rc=$?
+  if fb_timed_out "$fb_rc"; then
+    FB_UNMEASURED=1
+    fb_log "  /proc maps scan timed out after ${FB_FIND_TIMEOUT}s: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  awk '$6 ~ /^\//{print $6}' "$FB_MARKERS" | sort -u >>"$FB_OPEN"
   FB_OPEN_OK=1
   # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
   # comm is read with the `read` builtin; only a matching pid costs a launch.
@@ -221,6 +232,7 @@ fb_find_cargo_target() {
     fi
     sed -e 's|/[^/]*$||' "$FB_MARKERS" | sort -u |
     while IFS= read -r d; do
+      fb_in_use "$d" && continue
       if [ -f "$d/.rustc_info.json" ]; then
         fb_stamp "$d"
       elif [ -f "$d/CACHEDIR.TAG" ] && { [ -d "$d/debug" ] || [ -d "$d/release" ]; }; then
