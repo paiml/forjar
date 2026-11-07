@@ -118,6 +118,27 @@ fn validates_pr_number(w: &str) -> bool {
     w.contains("=~ ^[0-9]+$") && w.contains(r#"for n in "${prs[@]}""#)
 }
 
+/// The pre-loop check on the untrusted `INPUT_PR` itself (the in-loop regex on `$n` is separate).
+fn validates_input_before_loop(w: &str) -> bool {
+    let (Some(v), Some(l)) = (
+        w.find(r#"[[ "$INPUT_PR" =~ ^[0-9]+$ ]]"#),
+        w.find(r#"for n in "${prs[@]}""#),
+    ) else {
+        return false;
+    };
+    v < l
+}
+
+/// Fail-closed listing: gh output is captured with an explicit exit, never fed through a process
+/// substitution (whose failure is invisible to `||`).
+fn lists_prs_fail_closed(w: &str) -> bool {
+    !w.contains("< <(gh pr list")
+        && w.contains("$(gh pr list")
+        && w.contains("--limit 1000")
+        && w.contains("(UNMEASURED)'; exit 1; }")
+        && w.contains("no open PRs; nothing checked")
+}
+
 #[test]
 fn quorum_judges_from_base_and_propagates_failure() {
     let w = workflow();
@@ -159,4 +180,28 @@ fn base_and_failure_mutants_are_flagged() {
     );
     let split = w.replace(r#"for n in "${prs[@]}""#, "for n in $prs");
     assert!(!validates_pr_number(&split), "word-split iteration missed");
+}
+
+#[test]
+fn input_validation_precedes_loop_and_listing_fails_closed() {
+    let w = workflow();
+    assert!(
+        validates_input_before_loop(&w),
+        "INPUT_PR must be validated before the loop"
+    );
+    assert!(lists_prs_fail_closed(&w), "gh pr list must fail closed");
+    // mutant: delete the pre-loop INPUT_PR check (in-loop regex remains)
+    let no_pre = w.replace(r#"[[ "$INPUT_PR" =~ ^[0-9]+$ ]]"#, "true");
+    assert!(
+        !validates_input_before_loop(&no_pre),
+        "deleted pre-loop validation missed"
+    );
+    // mutant: fail-open process substitution feeding mapfile
+    let open = w.replace("out=$(gh pr list", "mapfile -t prs < <(gh pr list");
+    assert!(!lists_prs_fail_closed(&open), "fail-open shape missed");
+    // mutant: capture without the explicit exit
+    let no_exit = w.replace("(UNMEASURED)'; exit 1; }", "(UNMEASURED)'; }");
+    assert!(!lists_prs_fail_closed(&no_exit), "missing exit 1 missed");
+    let no_limit = w.replace("--limit 1000", "");
+    assert!(!lists_prs_fail_closed(&no_limit), "missing --limit missed");
 }

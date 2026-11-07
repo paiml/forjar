@@ -69,7 +69,15 @@ jobs:
             fi
             prs=("$INPUT_PR")
           else
-            mapfile -t prs < <(gh pr list --repo "$QUORUM_REPO" --state open --json number --jq '.[].number') || exit 1
+            # capture first so a gh failure cannot look like "no PRs" (fail closed, UNMEASURED)
+            out=$(gh pr list --repo "$QUORUM_REPO" --state open --limit 1000 --json number --jq '.[].number') \
+              || { echo '::error::gh pr list failed (UNMEASURED)'; exit 1; }
+            prs=()
+            while IFS= read -r line; do [ -n "$line" ] && prs+=("$line"); done <<<"$out"
+            if [ "${#prs[@]}" -eq 0 ]; then
+              echo "no open PRs; nothing checked"
+              exit 0
+            fi
           fi
           rc=0
           for n in "${prs[@]}"; do
