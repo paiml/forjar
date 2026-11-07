@@ -120,7 +120,7 @@ mod tests {
     }
     #[test]
     fn test_secrets_keygen() {
-        let _ = cmd_secrets_keygen();
+        let _ = cmd_secrets_keygen(None);
     }
     #[test]
     fn test_secrets_encrypt() {

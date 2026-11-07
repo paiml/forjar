@@ -348,14 +348,15 @@ mod tests {
 
     #[test]
     fn test_cov_commands_secrets_keygen() {
-        let cmd = Commands::Secrets(SecretsCmd::Keygen);
+        let cmd = Commands::Secrets(SecretsCmd::Keygen { output: None });
         let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_secrets_encrypt() {
         let cmd = Commands::Secrets(SecretsCmd::Encrypt {
-            value: "secret".to_string(),
+            value: Some("secret".to_string()),
+            stdin: false,
             recipient: vec!["age1key".to_string()],
         });
         let _ = format!("{cmd:?}");

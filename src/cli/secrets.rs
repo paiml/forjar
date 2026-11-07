@@ -51,19 +51,74 @@ pub(crate) fn cmd_secrets_decrypt(
 }
 
 #[cfg(feature = "encryption")]
-pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
+pub(crate) fn cmd_secrets_keygen(output: Option<&Path>) -> Result<(), String> {
     use age::secrecy::ExposeSecret;
     let identity = secrets::generate_identity();
     let recipient = secrets::identity_to_recipient(&identity);
     let key_str = identity.to_string();
-    eprintln!("# created: {}", chrono_date());
-    eprintln!("# public key: {recipient}");
-    println!("{}", key_str.expose_secret());
+    let created = chrono_date();
+    match output {
+        None => {
+            eprintln!("# created: {created}");
+            eprintln!("# public key: {recipient}");
+            println!("{}", key_str.expose_secret());
+        }
+        Some(path) => {
+            let body = format!(
+                "# created: {created}\n# public key: {recipient}\n{}\n",
+                key_str.expose_secret()
+            );
+            write_identity_0600(path, &body)?;
+            eprintln!("# public key: {recipient}");
+            eprintln!("# identity written to {} (mode 0600)", path.display());
+        }
+    }
     Ok(())
 }
 
+/// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
+/// secret is never readable by anyone else, even briefly. Refuses to overwrite.
+#[cfg(feature = "encryption")]
+fn write_identity_0600(path: &Path, body: &str) -> Result<(), String> {
+    use std::io::Write;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts
+        .open(path)
+        .map_err(|e| format!("cannot create '{}': {}", path.display(), e))?;
+    f.write_all(body.as_bytes())
+        .map_err(|e| format!("cannot write '{}': {}", path.display(), e))
+}
+
+/// Resolve the plaintext for `secrets encrypt`: `--stdin` or a `-` value reads
+/// stdin (one trailing newline removed); otherwise the argv value.
+pub(crate) fn resolve_encrypt_input(value: Option<String>, stdin: bool) -> Result<String, String> {
+    if stdin || value.as_deref() == Some("-") {
+        use std::io::Read;
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buf)
+            .map_err(|e| format!("cannot read stdin: {e}"))?;
+        if buf.ends_with('\n') {
+            buf.pop();
+            if buf.ends_with('\r') {
+                buf.pop();
+            }
+        }
+        return Ok(buf);
+    }
+    value.ok_or_else(|| {
+        "no plaintext given: pass --stdin (or `-`) to read it from stdin".to_string()
+    })
+}
+
 #[cfg(not(feature = "encryption"))]
-pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
+pub(crate) fn cmd_secrets_keygen(_output: Option<&Path>) -> Result<(), String> {
     no_encryption_error()
 }
 

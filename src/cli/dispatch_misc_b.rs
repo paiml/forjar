@@ -159,9 +159,16 @@ pub(super) fn dispatch_workspace(sub: WorkspaceCmd) -> Result<(), String> {
 
 pub(super) fn dispatch_secrets(sub: SecretsCmd) -> Result<(), String> {
     match sub {
-        SecretsCmd::Encrypt { value, recipient } => cmd_secrets_encrypt(&value, &recipient),
+        SecretsCmd::Encrypt {
+            value,
+            stdin,
+            recipient,
+        } => {
+            let plaintext = resolve_encrypt_input(value, stdin)?;
+            cmd_secrets_encrypt(&plaintext, &recipient)
+        }
         SecretsCmd::Decrypt { value, identity } => cmd_secrets_decrypt(&value, identity.as_deref()),
-        SecretsCmd::Keygen => cmd_secrets_keygen(),
+        SecretsCmd::Keygen { output } => cmd_secrets_keygen(output.as_deref()),
         SecretsCmd::View { file, identity } => cmd_secrets_view(&file, identity.as_deref()),
         SecretsCmd::Rekey {
             file,

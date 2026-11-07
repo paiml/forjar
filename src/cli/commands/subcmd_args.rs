@@ -400,8 +400,12 @@ pub struct StateRekeyArgs {
 pub enum SecretsCmd {
     /// Encrypt a value with age recipients
     Encrypt {
-        /// Plaintext value to encrypt
-        value: String,
+        /// Plaintext value to encrypt. Prefer --stdin (or `-`): argv is visible
+        /// to every user via `ps` and /proc/<pid>/cmdline.
+        value: Option<String>,
+        /// Read the plaintext from stdin (one trailing newline is removed)
+        #[arg(long)]
+        stdin: bool,
         /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
@@ -415,7 +419,11 @@ pub enum SecretsCmd {
         identity: Option<PathBuf>,
     },
     /// Generate a new age identity (keypair)
-    Keygen,
+    Keygen {
+        /// Write the identity to this file, created 0600 (refuses to overwrite)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// Decrypt and display all secrets in a forjar.yaml
     View {
         /// Path to forjar.yaml
