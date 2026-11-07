@@ -319,10 +319,8 @@ fn classify_resource(
     machine: &Machine,
     converged_resources: &HashSet<String>,
 ) -> Option<ResourceOutcome> {
-    if let Some(filter) = cfg.resource_filter {
-        if change.resource_id != filter {
-            return Some(ResourceOutcome::Skipped);
-        }
+    if excluded_by_resource_filter(cfg.resource_filter, &change.resource_id) {
+        return Some(ResourceOutcome::Skipped);
     }
     let resource = cfg.config.resources.get(&change.resource_id)?;
 
@@ -340,6 +338,18 @@ fn classify_resource(
     None
 }
 
+/// `-r`: does this resource id fall outside the operator's resource filter?
+/// Shared with `lockless_check`, so the host check and the lock record follow
+/// the executor's own selection (PMAT-721).
+pub(super) fn excluded_by_resource_filter(filter: Option<&str>, resource_id: &str) -> bool {
+    filter.is_some_and(|f| resource_id != f)
+}
+
+/// `-g`: does this resource fall outside the operator's group filter?
+pub(super) fn excluded_by_group_filter(filter: Option<&str>, resource: &Resource) -> bool {
+    filter.is_some_and(|g| resource.resource_group.as_deref() != Some(g))
+}
+
 /// Check filter/arch/tag/group/when conditions that skip a resource.
 fn should_skip_resource(cfg: &ApplyConfig, resource: &Resource, machine: &Machine) -> bool {
     if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
@@ -350,10 +360,8 @@ fn should_skip_resource(cfg: &ApplyConfig, resource: &Resource, machine: &Machin
             return true;
         }
     }
-    if let Some(group) = cfg.group_filter {
-        if resource.resource_group.as_deref() != Some(group) {
-            return true;
-        }
+    if excluded_by_group_filter(cfg.group_filter, resource) {
+        return true;
     }
     if let Some(ref when_expr) = resource.when {
         return !conditions::evaluate_when(when_expr, &cfg.config.params, machine).unwrap_or(false);
