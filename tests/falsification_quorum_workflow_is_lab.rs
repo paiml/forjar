@@ -104,3 +104,59 @@ fn quorum_job_sets_pr_number_for_the_gate() {
         "no pull_request event context may remain"
     );
 }
+
+fn reads_gate_from_base(w: &str) -> bool {
+    w.contains(r#"git show "$base:scripts/quorum-store-gate.sh""#)
+        && !w.contains(r#"git show "$head:"#)
+}
+
+fn propagates_failure(w: &str) -> bool {
+    w.contains("|| rc=1") && w.contains(r#"exit "$rc""#)
+}
+
+fn validates_pr_number(w: &str) -> bool {
+    w.contains("=~ ^[0-9]+$") && w.contains(r#"for n in "${prs[@]}""#)
+}
+
+#[test]
+fn quorum_judges_from_base_and_propagates_failure() {
+    let w = workflow();
+    assert!(
+        reads_gate_from_base(&w),
+        "gate must come from the base commit"
+    );
+    assert!(propagates_failure(&w), "a failing PR must fail the run");
+    assert!(
+        validates_pr_number(&w),
+        "pr_number must be validated and iterated as an array"
+    );
+    assert!(
+        !w.contains("rust-toolchain") && !w.contains("rust-cache"),
+        "bash-only job"
+    );
+    assert!(
+        w.contains("quorum-lab-${{ github.event_name }}"),
+        "nightly and dispatch need distinct concurrency groups"
+    );
+}
+
+#[test]
+fn base_and_failure_mutants_are_flagged() {
+    let w = workflow();
+    let head = w.replace(r#"git show "$base:"#, r#"git show "$head:"#);
+    assert!(!reads_gate_from_base(&head), "head-read mutant missed");
+    let no_rc = w.replace("|| rc=1", "|| true");
+    assert!(!propagates_failure(&no_rc), "removed `|| rc=1` missed");
+    let no_exit = w.replace(r#"exit "$rc""#, "exit 0");
+    assert!(
+        !propagates_failure(&no_exit),
+        "removed `exit \"$rc\"` missed"
+    );
+    let unvalidated = w.replace("=~ ^[0-9]+$", "=~ .");
+    assert!(
+        !validates_pr_number(&unvalidated),
+        "dropped validation missed"
+    );
+    let split = w.replace(r#"for n in "${prs[@]}""#, "for n in $prs");
+    assert!(!validates_pr_number(&split), "word-split iteration missed");
+}

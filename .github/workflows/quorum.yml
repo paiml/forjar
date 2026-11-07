@@ -1,10 +1,12 @@
-# Quorum gate — mirrors the pre-push check on every PR.
+# Quorum gate -- LAB check, nightly + manual (rule C324).
 #
-# The local hook is FAST FEEDBACK, not enforcement: `.git/hooks/` is untracked,
-# `git push --no-verify` always works, and a contributor who never ran
-# `make install-hooks` is never gated. This job is the half that can actually
-# enforce, and it only does so once `main` has branch protection requiring it —
-# see docs/specifications/quorum-spec.md, "A local hook enforces nothing on its own".
+# This workflow cannot block a merge (the required ruleset context is only `gate`), so it
+# is LAB: it never runs inside a PR job. It runs nightly on idle machines and by hand via
+# workflow_dispatch (optionally for one PR), and verifies each open PR's receipt in the
+# receipt STORE (#874). It is not a PR check; the local hook is fast feedback only.
+# See docs/specifications/quorum-spec.md, "A local hook enforces nothing on its own".
+# A red run is reported by its owner, who files the one ticket manually under C324.
+# TODO(infra-cop): automate that ticket filing; no step in this workflow does it today.
 name: Quorum
 
 on:
@@ -21,15 +23,10 @@ on:
         required: false
         type: string
 
-# Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
-#
-# Without this, every push to a PR leaves the previous quorum job running against
-# a diff that no longer exists -- and because the gate's whole job is to reject a
-# receipt whose diff moved, those stale runs fail LOUDLY and correctly. A red X
-# from a run that was already obsolete is exactly how a gate gets reclassified as
-# noise and then ignored.
+# Nightly and manual runs get distinct groups so one never cancels the other; a repeat
+# dispatch for the same PR supersedes the earlier one.
 concurrency:
-  group: quorum-${{ github.event.inputs.pr_number || github.ref }}
+  group: quorum-lab-${{ github.event_name }}-${{ inputs.pr_number || 'all' }}
   cancel-in-progress: true
 
 permissions:
@@ -40,27 +37,9 @@ jobs:
   receipt:
     name: quorum receipt
     runs-on: [self-hosted, clean-room, ARM64]
-    # A CARGO_HOME private to this job, matching behavior.yml, convergence.yml,
-    # mutation.yml and binary-release.yml. This was the one self-hosted workflow
-    # in the repo still on the SHARED /home/noah/.cargo, and the rust-cache step
-    # below is what makes that matter: its save step runs `cleanRegistry`
-    # unconditionally and deletes ${CARGO_HOME}/registry/src -- the extracted
-    # crate sources every OTHER job on the box is compiling from at that moment.
-    # `cache-bin: "false"`, the paiml/infra#208 mitigation, does not prevent it;
-    # it skips `cleanBin` alone. Measured on intel 2026-09-19 (paiml/infra#775):
-    # eight save steps in 100 minutes, every crate directory's birth time pinned
-    # to the second one of them finished, and an infra `cargo kani` build killed
-    # mid-crate with `could not parse/generate dep info ... No such file or
-    # directory`.
-    #
-    # A private CARGO_HOME is the ONLY exoneration, because it is the only thing
-    # that moves the SOURCES: `--target-dir`, `cargo install --root` and a fresh
-    # $HOME leave cargo reading from the shared registry whatever else the job
-    # owns. The path is outside the workspace, so it survives the checkout clean
-    # and is a cache rather than a cold download -- the same reasoning the
-    # sibling workflows already record.
-    env:
-      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    # Bash-only job: no cargo runs here, so no toolchain/cache steps and no CARGO_HOME.
+    # The receipt store must be reachable from this runner (the runner/mount choice is
+    # owned by infra; do not change runs-on here).
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,26 +49,31 @@ jobs:
           # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
       - name: Verify quorum receipt for each PR
         # JUDGE FROM BASE: per PR, the gate and its allowlist come from the PR BASE commit, never
         # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if the
-        # base lacks either file. The test-only author override is deliberately NOT set; the gate
-        # ignores it in CI. A red here opens/updates one ticket; it never blocks a PR.
+        # base lacks either file. BOOTSTRAP: the first merge of the gate has no base copy and
+        # fails closed (a one-off for the repo owner). The test-only author override is
+        # deliberately NOT set; the gate ignores it in CI. A red here never blocks a PR.
         env:
           GH_TOKEN: ${{ github.token }}
           QUORUM_REPO: ${{ github.repository }}
-          INPUT_PR: ${{ github.event.inputs.pr_number }}
+          INPUT_PR: ${{ inputs.pr_number }}
         run: |
           set -uo pipefail
-          if [ -n "$INPUT_PR" ]; then prs="$INPUT_PR"
-          else prs="$(gh pr list --repo "$QUORUM_REPO" --state open --json number --jq '.[].number')" || exit 1
+          if [ -n "$INPUT_PR" ]; then
+            # untrusted input: digits only, before any use
+            if ! [[ "$INPUT_PR" =~ ^[0-9]+$ ]]; then
+              echo "FAIL: pr_number must match ^[0-9]+\$ (got a non-numeric value)" >&2
+              exit 1
+            fi
+            prs=("$INPUT_PR")
+          else
+            mapfile -t prs < <(gh pr list --repo "$QUORUM_REPO" --state open --json number --jq '.[].number') || exit 1
           fi
           rc=0
-          for n in $prs; do
+          for n in "${prs[@]}"; do
+            [[ "$n" =~ ^[0-9]+$ ]] || { echo "FAIL: bad PR number" >&2; rc=1; continue; }
             read -r head base < <(gh pr view "$n" --repo "$QUORUM_REPO" --json headRefOid,baseRefOid --jq '"\(.headRefOid) \(.baseRefOid)"') \
               || { echo "FAIL: gh pr view $n (UNMEASURED)" >&2; rc=1; continue; }
             git fetch -q origin "pull/$n/head" "$base" || { echo "FAIL: fetch PR $n" >&2; rc=1; continue; }

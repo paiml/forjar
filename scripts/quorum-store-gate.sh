@@ -27,14 +27,13 @@
 #     lowercase hex. A lane name seen twice is disqualified; a model on two entries
 #     is disqualified. PASS needs >= 3 qualifying lanes over >= 3 distinct model ids.
 #
-# JUDGED FROM BASE: .github/workflows/quorum.yml runs THIS script and
-# quorum-models.json as read from the PR BASE commit (git show $PR_BASE_SHA:...),
-# never the PR's copy, so a PR cannot weaken its own judge. BOOTSTRAP: the very
-# first merge of this gate has no base copy (the job fails closed), so the gate on
-# the PR that introduces it cannot be judged from base; that merge is a one-off
-# that needs the repo owner's decision. The workflow file itself on a
-# pull_request event is also the PR's copy; pinning it needs a ruleset
-# required-workflow, outside this script.
+# JUDGED FROM BASE: .github/workflows/quorum.yml (a LAB nightly/manual run, not a PR check)
+# runs THIS script and quorum-models.json as read from the PR BASE commit
+# (git show $base:...), never the PR's copy, so a PR cannot weaken its own judge.
+# BOOTSTRAP: the very first merge of this gate has no base copy (the job fails closed), so
+# the gate on the PR that introduces it cannot be judged from base; that merge is a one-off
+# that needs the repo owner's decision. The workflow file itself is read from the default
+# branch on schedule/dispatch.
 #
 # IRREDUCIBLE RESIDUAL (NOT closed by this gate): Co-Authored-By trailers and
 # receipt contents are written by the author/seat, so author-identity spoofing

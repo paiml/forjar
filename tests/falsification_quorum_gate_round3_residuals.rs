@@ -247,8 +247,14 @@ fn pr_is_the_exact_top_level_integer_token() {
 #[test]
 fn workflow_judges_from_the_pr_base_not_the_pr_copy() {
     let wf = std::fs::read_to_string(root().join(".github/workflows/quorum.yml")).unwrap();
-    assert!(wf.contains(r#"git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh""#));
-    assert!(wf.contains(r#"git show "$PR_BASE_SHA:scripts/quorum-models.json""#));
+    // gate script and models are read from the BASE commit (`$base` = baseRefOid), never the head
+    assert!(wf.contains(r#"git show "$base:scripts/quorum-store-gate.sh""#));
+    assert!(wf.contains(r#"git show "$base:scripts/quorum-models.json""#));
+    assert!(
+        !wf.contains(r#"git show "$head:"#) && !wf.contains(r#"git show "$PR_HEAD_SHA:"#),
+        "gate/models must never be read from the PR head"
+    );
+    assert!(wf.contains(r#"PR_BASE_SHA="$base""#));
     assert!(!wf.contains("run: |\n          ./scripts/quorum-store-gate.sh"));
     assert!(
         !wf.contains("PR_AUTHOR_MODELS"),
