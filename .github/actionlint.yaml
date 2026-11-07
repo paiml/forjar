@@ -5,10 +5,11 @@
 # `label "clean-room" is unknown` and the real findings are lost in the noise.
 #
 # Measured from `gh api orgs/paiml/actions/runners` on 2026-09-12: 25 runners,
-# every one Linux, carrying these labels. There is no macOS and no Windows
-# runner on the fleet, which is why the seven macOS/Windows legs in lint.yml,
-# nightly.yml and release.yml still name GitHub's own labels -- see
-# tests/falsification_every_ci_job_runs_on_the_fleet.rs, which counts them.
+# every one Linux, carrying these labels. The org has since gained one macOS
+# runner, mini-m4 (labels mini, mini-builder), which now serves every darwin
+# leg of lint.yml, nightly.yml and release.yml. Only nightly.yml's
+# windows-latest leg still names a GitHub label -- see
+# tests/falsification_every_ci_job_runs_on_the_fleet.rs, which counts it.
 self-hosted-runner:
   labels:
     - clean-room   # 20 — the CI pool sovereign-ci and this repo's jobs use
@@ -24,3 +25,5 @@ self-hosted-runner:
     - ephemeral    # 7
     - docker       # 7
     - perf-solo    # 1
+    - mini         # 1  — mini-m4, the self-hosted mac (macOS, ARM64)
+    - mini-builder # 1  — mini-m4: lint.yml and release.yml darwin legs

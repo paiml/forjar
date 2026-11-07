@@ -100,12 +100,13 @@ releases:
   - tag: v1.33.0
     cut: 2026-09-28T13:45:50Z
     prs: [589, 606, 610, 630, 632, 637, 640, 643, 646, 650, 654]
-    tickets: [PMAT-588, PMAT-600, PMAT-604, PMAT-614, PMAT-631, PMAT-634, PMAT-651, PMAT-652]
+    tickets: [PMAT-588, PMAT-600, PMAT-604, PMAT-614, PMAT-624, PMAT-631, PMAT-634, PMAT-642, PMAT-651, PMAT-652]
     dogfood: docs/audits/dogfood-1.33.0-receipt.md
     crux: docs/audits/crux-1.33.0.md
     cookbook: fa292885a124b26ec89dce21725cb95081f7838f
+    # #646 is PMAT-624 and #643 is PMAT-642 (named by github_issue)
     # stray ids (no row, no alias): #630:PMAT-1055
-    # PRs naming no roadmap ticket: #646 #643 #630
+    # PRs naming no roadmap ticket: #630
 next:
   tag: v1.34.0
   due: 2026-09-30T13:45:50Z

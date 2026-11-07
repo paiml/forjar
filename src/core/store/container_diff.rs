@@ -71,10 +71,7 @@ pub(crate) fn plan_diff(entries: &[(DiffKind, String)]) -> DiffPlan {
 }
 
 /// Write the whiteout / opaque marker files of `plan` under `extract_dir`.
-pub(crate) fn write_markers(
-    plan: &DiffPlan,
-    extract_dir: &Path,
-) -> Result<(), crate::core::error::ForjarError> {
+pub(crate) fn write_markers(plan: &DiffPlan, extract_dir: &Path) -> Result<(), String> {
     for path in &plan.whiteouts {
         let rel = Path::new(path.trim_start_matches('/'));
         let name = rel.file_name().ok_or_else(|| format!("bad path {path}"))?;
@@ -171,7 +168,7 @@ pub(crate) fn extract_changes(
             Err(e) => eprintln!("forjar: warning: {runtime} cp {src}: {e}"),
         }
     }
-    write_markers(&plan, extract_dir).map_err(crate::core::error::ForjarError::into_untyped)?;
+    write_markers(&plan, extract_dir)?;
     for (local, mode) in dirs.iter().rev() {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(local, std::fs::Permissions::from_mode(*mode));

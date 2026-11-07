@@ -217,13 +217,13 @@ jobs:
           - target: aarch64-unknown-linux-musl
             runner: [self-hosted, clean-room, X64]
           - target: x86_64-apple-darwin
-            runner: macos-latest
+            runner: [self-hosted, macOS, mini-builder]
           - target: aarch64-apple-darwin
-            runner: macos-latest
+            runner: [self-hosted, macOS, mini-builder]
     runs-on: ${{ matrix.runner }}
     # infra#430, as on the fleet jobs above: the clean-room runners share one
     # ~/.cargo and an hourly reaper deletes registry/src under live builds. The
-    # macOS legs get a private registry too, which costs them nothing.
+    # macOS legs get a private registry too: the mac is one persistent host.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
       # #683: cross mounts the toolchain sysroot through the DOCKER HOST's
@@ -236,13 +236,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # The mac's runner environment may point CARGO_TARGET_DIR at a shared
+      # directory; put the build back in ./target (RUSTUP_HOME is already private).
+      - name: Keep the build in the workspace (macOS)
+        if: contains(matrix.target, 'darwin')
+        run: echo "CARGO_TARGET_DIR=${{ github.workspace }}/target" >> "$GITHUB_ENV"
+
       - name: Install Rust toolchain (macOS)
         if: contains(matrix.target, 'darwin')
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           # ADD THE TARGET. The Linux branch below already does this; macOS did
-          # not, and it only mattered once `macos-latest` became ARM: with an
+          # not, and it only mattered once the macOS runner became ARM: with an
           # aarch64 host, aarch64-apple-darwin is NATIVE and builds fine, while
           # x86_64-apple-darwin has no std and dies with
           #   error[E0463]: can't find crate for `core`
