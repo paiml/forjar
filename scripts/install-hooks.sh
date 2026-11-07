@@ -34,16 +34,25 @@ for hook in "$src"/*; do
     esac
 
     target="$dst/$name"
-    # NEVER CLOBBER A DIFFERING LOCAL HOOK. Refuse and let the operator decide,
+    # NEVER CLOBBER A DIFFERING FOREIGN HOOK. Refuse and let the operator decide
+    # (an older forjar hook is the exception, replaced below with a backup kept),
     # rather than quietly copying their file to a .bak the way an earlier draft
     # did: a script that silently duplicates a developer's customisations is how
     # `.git/hooks` fills with stale copies nobody dares delete. (It also could
     # not lint clean -- bashrs SEC010 on the backup `cp` -- and in this repo an
     # unlintable script is one forjar's own I8 gate would refuse to run.)
-    if [ -f "$target" ] && ! cmp -s "$hook" "$target"; then
+    if [ -f "$target" ] && ! cmp -s "$hook" "$target" && ! grep -q "^# forjar pre-push:" "$target"; then
         echo "✗ $target exists and differs from the tracked hook."
         echo "  Move or delete it, then re-run. Not overwriting it for you."
         exit 1
+    fi
+    # An older forjar hook is replaced, but its exact text is kept beside it (mv, not cp: the operator may have edited it).
+    if [ -f "$target" ] && ! cmp -s "$hook" "$target"; then
+        # Never overwrite an earlier backup: it may hold the operator's only copy of their edits.
+        bak="$target.pre-forjar-update"; n=1
+        while [ -e "$bak" ]; do bak="$target.pre-forjar-update.$n"; n=$((n + 1)); done
+        mv "$target" "$bak"
+        echo "  kept the replaced hook as $(basename "$bak")"
     fi
     cp "$hook" "$target"
     chmod +x "$target"

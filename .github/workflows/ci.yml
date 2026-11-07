@@ -139,11 +139,13 @@ jobs:
       # tests do not run. Three were in that state, one of which did not parse
       # as Rust at all. Cheap: a directory walk, no build of the crate needed.
       - name: No source file may be orphaned or duplicated
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_no_orphaned_source_files
       # forjar#722: lint.yml and msrv.yml run on arch-neutral runners, so every
       # actions/cache key must carry runner.arch. The test runs the shell guard on
       # the real tree and on reverted copies.
       - name: Cache keys on arch-neutral runners carry runner.arch
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_722_cache_key_arch
       # #298: every citation in contracts/ must resolve to the exact item it
       # names, in the file it names, and every binding must name an equation
@@ -152,11 +154,13 @@ jobs:
       # "every resolvable falsifier citation resolves" over seven dangling
       # ones. One resolver, in one dialect, in a place that runs it.
       - name: Every contract citation must resolve
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_contract_citations_resolve
       # #714: deny.toml ignores RUSTSEC-2024-0449 (unsafe-libyaml, no fix).
       # The ignore must leave with the crate, cover no unreviewed consumer,
       # and match .cargo/audit.toml. Reads files only.
       - name: The unsafe-libyaml advisory ignore stays bounded
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_714_unsafe_libyaml_ignore_is_bounded
       # forjar#549: a drift query the target never answered is UNMEASURED, not
       # drift. Asks 203.0.113.9 (TEST-NET-3) over ssh, so it waits out the
@@ -189,6 +193,7 @@ jobs:
       # the runner's Worker process, taking the job's logs with it. Parses the
       # workflows and prints its denominator; self-hosted jobs are exempt.
       - name: No hosted job may cache a Rust build directory
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_hosted_jobs_do_not_cache_target
       # #401: fourteen paths were BOTH tracked and matched by .gitignore
       # (3,759,246 bytes). Nothing visibly broke — gitignore does not un-track a
@@ -200,6 +205,7 @@ jobs:
       # WITHOUT `-v` (which prints negation matches and exits 0, making the
       # assertion unsatisfiable while any file is deliberately re-included).
       - name: No tracked file may be gitignored
+        # pr-light  (local pre-push mirror: scripts/pr-light.sh reads this marker)
         run: cargo test --locked --test falsification_no_tracked_file_is_gitignored
       # #400: the quorum gate took the branch NAME from the pushed ref and
       # everything else — diff, receipt, falsification test — from the local
