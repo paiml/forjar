@@ -55,10 +55,28 @@ run_check() {
     return 0
 }
 
+# C52 item 3 (operator): a hook BLOCKS only if it is fast (<5 s), deterministic,
+# auto-fixable AND mirrors a required CI check. Format is the only one that is;
+# everything else WARNS here and CI (`gate`) stays the enforcer.
+run_warn() {
+    local label="$1"; shift
+    local log; log="$(mktemp)"
+    trap 'rm -f "$log"' RETURN
+    printf '  %s... ' "$label"
+    if "$@" > "$log" 2>&1 < /dev/null; then
+        echo "✅"; rm -f "$log"; return 0
+    fi
+    echo "⚠️  (warning only; CI enforces)"
+    echo "   \$ $*"
+    sed 's/^/   | /' "$log" | tail -30
+    rm -f "$log"
+    return 0
+}
+
 run_check "Format check"  cargo fmt --all -- --check
-run_check "Cargo check"   cargo check --all-targets
-run_check "Clippy"        cargo clippy --all-targets -- -D warnings
-run_check "Unit tests"    cargo test --lib --quiet
+run_warn  "Cargo check"   cargo check --all-targets
+run_warn  "Clippy"        cargo clippy --all-targets -- -D warnings
+run_warn  "Unit tests"    cargo test --lib --quiet
 
 # THE QUORUM GATE.
 #
@@ -79,9 +97,8 @@ if [ -n "${pushed_refs}" ]; then
         if out="$(./scripts/quorum-gate.sh --remote-ref "$ref" --local-sha "$sha" 2>&1 < /dev/null)"; then
             echo "✅"
         else
-            echo "❌"
+            echo "⚠️  (warning only)"
             printf '%s\n' "$out" | sed 's/^/   | /'
-            FAILED=1
         fi
     done <<< "${pushed_refs}"
 else
@@ -91,7 +108,7 @@ else
     if out="$(./scripts/quorum-gate.sh 2>&1 < /dev/null)"; then
         echo "✅"
     else
-        echo "❌"; printf '%s\n' "$out" | sed 's/^/   | /'; FAILED=1
+        echo "⚠️  (warning only)"; printf '%s\n' "$out" | sed 's/^/   | /'
     fi
 fi
 
