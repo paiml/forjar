@@ -214,7 +214,7 @@ jobs:
       # PMAT-554: the receipt-store gate (scripts/quorum-store-gate.sh) judges
       # untrusted receipts by exact allowlisted ids and commit-trailer authors.
       - name: The quorum store gate must reject forged receipts
-        run: cargo test --locked --test falsification_quorum_gate_reads_the_receipt_store --test falsification_quorum_gate_bypasses --test falsification_quorum_gate_exact_identity
+        run: cargo test --locked --test falsification_quorum_gate_reads_the_receipt_store --test falsification_quorum_gate_bypasses --test falsification_quorum_gate_exact_identity --test falsification_quorum_workflow_is_lab --test falsification_quorum_gate_round3_residuals --test falsification_rust_cache_needs_a_private_cargo_home
       # #629: nightly.yml rebuilt only when a commit landed in the last 24h, so a
       # commit followed by a quiet day, or a failed nightly, was never built and
       # the nightly sat 12 days behind main. Executes the gate script from the

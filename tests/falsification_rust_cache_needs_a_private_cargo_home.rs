@@ -105,12 +105,12 @@ fn a_self_hosted_job_caching_cargo_must_own_its_cargo_home() {
     );
     assert!(
         uses >= 1,
-        "no cache use found at all — quorum.yml's is expected, so the matcher is blind:\n{text}"
+        "no cache use found at all — the matcher is blind:\n{text}"
     );
 }
 
 /// The negative control, on the REAL workflow rather than a fixture: copy
-/// every workflow, delete `quorum.yml`'s private CARGO_HOME, and the lint must
+/// every workflow, plant a rust-cache step in bash-only `quorum.yml`, and the lint must
 /// refuse exactly that job by name. Without this the green test above could
 /// be green for a reason other than the fix (a matcher that stopped seeing
 /// quorum.yml, say) — a control has to fail for the reason it names.
@@ -130,17 +130,16 @@ fn quorum_without_its_private_cargo_home_is_refused_by_name() {
         let name = path.file_name().expect("file name").to_owned();
         let mut text = std::fs::read_to_string(&path).expect("read workflow");
         if name == "quorum.yml" {
-            let kept: Vec<&str> = text
-                .lines()
-                .filter(|l| {
-                    let drop = l.trim_start().starts_with("CARGO_HOME:");
-                    if drop {
-                        removed += 1;
-                    }
-                    !drop
-                })
-                .collect();
-            text = kept.join("\n") + "\n";
+            // quorum.yml is bash-only now (no cargo), so it must carry NO cache/toolchain
+            // step. Plant a shared-CARGO_HOME rust-cache use in its job: the lint must refuse.
+            assert!(
+                !text.contains("rust-cache") && !text.contains("rust-toolchain"),
+                "quorum.yml must stay bash-only: no rust-cache / rust-toolchain step"
+            );
+            let marker = "    steps:\n";
+            assert_eq!(text.matches(marker).count(), 1, "quorum.yml shape drifted");
+            text = text.replace(marker, "    steps:\n      - uses: Swatinem/rust-cache@v2\n");
+            removed += 1;
         }
         std::fs::write(wf.join(&name), text).expect("write workflow copy");
     }
@@ -158,12 +157,12 @@ fn quorum_without_its_private_cargo_home_is_refused_by_name() {
     );
     assert_eq!(
         removed, 1,
-        "expected exactly one CARGO_HOME declaration in quorum.yml to remove"
+        "expected exactly one planted rust-cache step in quorum.yml"
     );
     assert_ne!(
         out.status.code(),
         Some(0),
-        "with quorum.yml's private CARGO_HOME removed the lint still passed:\n{text}"
+        "with a rust-cache step planted in quorum.yml (no private CARGO_HOME) the lint still passed:\n{text}"
     );
     assert!(
         text.contains("quorum.yml") && text.contains("(job `receipt`)"),

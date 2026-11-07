@@ -466,10 +466,17 @@ Named rather than hidden, per house discipline:
    unprotected a contributor can bypass the PR entirely. The tracked hook plus
    `make install-hooks` buys *fast local feedback*, not enforcement.
 
-   **Enforcement requires both halves**, and shipping only the first is the mistake:
-   (a) CI runs `scripts/quorum-gate.sh` on every PR, and (b) `main` gets branch
-   protection with that check required. Until (b) exists, this gate is a good habit
-   with a receipt, and this document should not claim otherwise.
+   **Current setup (rule C324, LAB).** The `Quorum` workflow
+   (`.github/workflows/quorum.yml`) cannot block a merge: the only required
+   ruleset context on `main` is `gate` (there is no classic branch protection), and
+   `Quorum` is not it. It has no PR-path trigger (`pull_request`, `push`, `merge_group` are
+   absent). It runs nightly (`schedule`) over every open PR, and by hand
+   (`workflow_dispatch` with an optional `pr_number`). For each PR it runs
+   `scripts/quorum-store-gate.sh` and its allowlist read from the PR's base commit,
+   so a PR cannot weaken the judge that reads it. A red does not block anything; its
+   owner files or updates the one C324 ticket by hand (not yet automated); if `gh pr list` fails the run fails (UNMEASURED),
+   never green. Making the quorum receipt a merge-blocking check would need it to
+   become a required GATE under C324, which needs the operator's yes.
 
 ## Open questions
 
