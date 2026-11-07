@@ -156,6 +156,11 @@ mod tests {
     fn infra_image_user_data_ok() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_cfg(dir.path());
+        // #731: image refuses a keyless machine; give m a readable key.
+        let key = dir.path().join("id_m");
+        std::fs::write(key.with_extension("pub"), "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey op@example\n").unwrap();
+        let cfg = std::fs::read_to_string(&file).unwrap().replace("    addr: 127.0.0.1\n", &format!("    addr: 127.0.0.1\n    ssh_key: {}\n", key.display()));
+        std::fs::write(&file, cfg).unwrap();
         let args = image_args(file, dir.path());
         let r = dispatch_data_cmd(Commands::Image(args));
         assert!(r.is_ok(), "user-data image: {r:?}");

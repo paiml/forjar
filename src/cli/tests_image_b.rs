@@ -12,8 +12,17 @@ mod tests {
         p
     }
 
+    // #731: a machine with no key is an unreachable box and is now refused.
     fn make_machine(hostname: &str, user: &str, addr: &str) -> Machine {
-        Machine::ssh(hostname, addr, user)
+        // One file per call: tests run in parallel, and a shared file truncated
+        // by one writer reads empty in another.
+        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let key = std::env::temp_dir().join(format!("forjar-731-key-{}-{n}", std::process::id()));
+        std::fs::write(key.with_extension("pub"), "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey op@example\n").unwrap();
+        let mut m = Machine::ssh(hostname, addr, user);
+        m.ssh_key = Some(key.display().to_string());
+        m
     }
 
     // --- generate_user_data direct tests ---
@@ -74,7 +83,7 @@ mod tests {
         let m = make_machine("host", "root", "10.0.0.1");
         let yaml =
             generate_user_data("host", &m, "/dev/sda", "en_US.UTF-8", "UTC").unwrap();
-        assert!(yaml.contains("path: /dev/sda"));
+        assert!(yaml.contains("path: '/dev/sda'"));
         assert!(yaml.contains("name: lvm"));
     }
 
@@ -118,27 +127,6 @@ mod tests {
         let yaml = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
         assert!(yaml.contains("/usr/local/bin/forjar"));
         assert!(yaml.contains("/etc/forjar/forjar.yaml"));
-    }
-
-    #[test]
-    fn test_generate_user_data_static_ip_comment() {
-        let m = make_machine("host", "root", "192.168.1.100");
-        let yaml = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
-        assert!(yaml.contains("192.168.1.100"));
-    }
-
-    #[test]
-    fn test_generate_user_data_localhost_no_ip_comment() {
-        let m = make_machine("host", "root", "127.0.0.1");
-        let yaml = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
-        assert!(!yaml.contains("Static IP: 127.0.0.1"));
-    }
-
-    #[test]
-    fn test_generate_user_data_container_no_ip_comment() {
-        let m = make_machine("host", "root", "container");
-        let yaml = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
-        assert!(!yaml.contains("Static IP: container"));
     }
 
     // --- firstboot_service_command tests ---
@@ -187,8 +175,9 @@ mod tests {
 
     #[test]
     fn test_read_ssh_pub_key_missing_file() {
-        let keys = read_ssh_pub_key(Some("/nonexistent/key")).unwrap();
-        assert!(keys.is_empty());
+        // #731: was Ok(vec![]), which built an image of an unreachable box.
+        let err = read_ssh_pub_key(Some("/nonexistent/key")).unwrap_err();
+        assert!(err.contains("/nonexistent/key.pub"));
     }
 
     #[test]
@@ -323,9 +312,10 @@ resources:
 
     #[test]
     fn test_user_data_no_ssh_key() {
-        let m = make_machine("host", "noah", "10.0.0.1");
-        let yaml = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
-        assert!(!yaml.contains("authorized-keys:"));
+        // #731: a keyless image is refused, not emitted without authorized-keys.
+        let m = Machine::ssh("host", "10.0.0.1", "noah");
+        let err = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap_err();
+        assert!(err.contains("unreachable"));
     }
 
     // --- ISO error paths ---

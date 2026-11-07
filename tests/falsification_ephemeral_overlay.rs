@@ -305,7 +305,7 @@ fn merge_combines_entries_and_whiteouts() {
     assert_eq!(scan.entries.len(), 1);
     assert_eq!(scan.whiteouts.len(), 1);
     let merged = merge_overlay_entries(&scan);
-    assert_eq!(merged.len(), 2);
+    assert_eq!(merged.len(), 3); // dir + file + whiteout
 }
 
 // ============================================================================
@@ -316,6 +316,7 @@ fn merge_combines_entries_and_whiteouts() {
 fn format_scan_output() {
     let scan = OverlayScan {
         entries: vec![],
+        dirs: vec![],
         whiteouts: vec![WhiteoutEntry::FileDelete { path: "x".into() }],
         total_bytes: 2048,
         file_count: 5,
@@ -330,6 +331,7 @@ fn format_scan_output() {
 fn format_scan_zero() {
     let scan = OverlayScan {
         entries: vec![],
+        dirs: vec![],
         whiteouts: vec![],
         total_bytes: 0,
         file_count: 0,

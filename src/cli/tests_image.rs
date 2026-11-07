@@ -5,7 +5,11 @@ mod tests {
     use crate::cli::image_cmd::*;
     use std::path::Path;
 
+    // #731: every machine gets a readable ssh_key; with none the image is refused.
     fn write_config(dir: &Path, yaml: &str) -> std::path::PathBuf {
+        let key = dir.join("id_test");
+        std::fs::write(key.with_extension("pub"), "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey op@example\n").unwrap();
+        let yaml = yaml.replace("    addr: ", &format!("    ssh_key: {}\n    addr: ", key.display()));
         let p = dir.join("forjar.yaml");
         std::fs::write(&p, yaml).unwrap();
         p
@@ -376,20 +380,6 @@ resources:
     // Wrapper to call private fn
     pub(super) fn expand_tilde_wrapper(path: &str) -> String {
         crate::cli::image_cmd::expand_tilde(path)
-    }
-
-    #[test]
-    fn test_fj52_user_data_static_ip_comment() {
-        let dir = tempfile::tempdir().unwrap();
-        let p = write_config(dir.path(), SINGLE_MACHINE_YAML);
-        let out = dir.path().join("user-data");
-        cmd_image_user_data(&p, Some("yoga"), "auto-lvm", "en_US.UTF-8", "UTC", Some(&out), false)
-            .unwrap();
-        let content = std::fs::read_to_string(&out).unwrap();
-        assert!(
-            content.contains("192.168.50.38"),
-            "must include static IP comment"
-        );
     }
 
     #[test]

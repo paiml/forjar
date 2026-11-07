@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`type: image` builds a real image (PMAT-756, #756, IMG-001).**
+A spec with `image:`, `packages` and `command` used to build an empty 508-byte
+scratch image. Now: the declared base is exported from the runtime and layered
+under the build (a `name@sha256:` base must resolve to exactly that digest, or
+the build fails); `packages` then `command` run against it and their filesystem
+diff is the top layer (with `packages` present `command` is a build command, not
+the entrypoint); `index.json` carries `org.opencontainers.image.ref.name` so
+`--load` keeps the tag; `--json` prints `manifest_digest`; `--push` prints
+`pushed: registry/repo@sha256:...`. Registry configs with JSON `null` collections
+now parse. `path:` Files layers land on top of the packages/command diff (never dropped). The diff layer carries Added and Changed files and OCI whiteouts (`.wh.<name>`, opaque dirs for deleted-and-rebuilt dirs) for deleted base paths. A multi-platform base (OCI image index) resolves to the linux manifest of the host architecture (amd64 on x86_64, arm64 on aarch64; else its first entry); podman bases are saved as `oci-archive`; `--sandbox --json` is rejected again. Symlinks stay symlinks (target verbatim, never read from the host), empty directories and directory modes reach the diff layer, an image that declares no `image:` is no longer layered on the default debian base, the build container idles 3600 s instead of 300 s, and `--json` `layer_count`/`total_size` (and the human summary) count the base layers the manifest carries.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
