@@ -3,7 +3,6 @@ use crate::common::*;
 // ---- C58-3 round 4: planted mutants for the remaining workflow invariants ----
 
 /// Workflow lines with comments and blanks removed.
-
 pub(crate) fn yaml_lines(w: &str) -> Vec<String> {
     w.lines()
         .map(strip_comment)
@@ -77,7 +76,7 @@ pub(crate) fn pr_code_never_checked_out(w: &str) -> bool {
         let t = l.trim();
         let ref_input = t.starts_with("ref:");
         !(names_pr_code(t) && (changes_tree(t) || ref_input))
-            && !(ref_input && !t.contains("default_branch"))
+            && (!ref_input || t.contains("default_branch"))
     })
 }
 
