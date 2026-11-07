@@ -473,8 +473,8 @@ Named rather than hidden, per house discipline:
    absent). It runs nightly (`schedule`) over every open PR, and by hand
    (`workflow_dispatch` with an optional `pr_number`). For each PR it runs
    `scripts/quorum-store-gate.sh` and its allowlist read from the PR's base commit,
-   so a PR cannot weaken the judge that reads it. A red opens or updates one ticket
-   and does not block anything; if `gh pr list` fails the run fails (UNMEASURED),
+   so a PR cannot weaken the judge that reads it. A red does not block anything; its
+   owner files or updates the one C324 ticket by hand (not yet automated); if `gh pr list` fails the run fails (UNMEASURED),
    never green. Making the quorum receipt a merge-blocking check would need it to
    become a required GATE under C324, which needs the operator's yes.
 
