@@ -8,11 +8,18 @@
 name: Quorum
 
 on:
-  # C58-3 (Noah ruling C58 item 3): NEUTRAL. This check demands a committed .quorum/<branch>.json
-  # that the fleet review flow never writes, and the only receipt the fleet does write lives on a
-  # host the ARM64 clean-room seats cannot read. It is not a required check, so it must not show
-  # red on PRs. Run it by hand with workflow_dispatch; forjar#862.
+  # Rule C324: this check cannot block a merge (the required ruleset context is only `gate`),
+  # so it is LAB: it never runs inside a PR job. It runs nightly on idle machines, and by hand
+  # with workflow_dispatch (optionally for one PR). It reads the receipt STORE since #874, not a
+  # committed .quorum/<branch>.json. forjar#862.
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "One PR number to check (empty = every open PR)"
+        required: false
+        type: string
 
 # Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
 #
@@ -22,11 +29,12 @@ on:
 # from a run that was already obsolete is exactly how a gate gets reclassified as
 # noise and then ignored.
 concurrency:
-  group: quorum-${{ github.event.pull_request.number || github.ref }}
+  group: quorum-${{ github.event.inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   receipt:
@@ -56,57 +64,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # THE PUSHED HEAD, NOT THE PR MERGE COMMIT.
-          #
-          # `actions/checkout` defaults on `pull_request` to a synthetic merge of
-          # (PR head + base tip). Its merge-base with main is therefore the MAIN
-          # TIP, not the commit the branch actually forked from -- so the gate
-          # read base_commit=<main tip> and rejected an honest receipt that said
-          # <fork point>. Observed: local merge-base 20398b99, CI ebd44028, on a
-          # receipt that was correct. Checking out the real head makes CI verify
-          # exactly the bytes the developer pushed, which is the whole point.
-          ref: ${{ github.event.pull_request.head.sha }}
+          # Default branch with full history; each PR head is fetched by number below.
           # The gate diffs against the merge-base with origin/main, so it needs
           # real history. A shallow clone makes `git merge-base` fail, which the
           # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
           fetch-depth: 0
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
-
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Fetch gate from the PR base commit
-        # JUDGE FROM BASE: the gate and its allowlist come from the PR BASE commit, never
-        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
-        # the base lacks either file.
-        # BOOTSTRAP: the very first merge of this gate (PR #874) has no base copy, so this
-        # step fails there by design; that one merge cannot be judged from base and is a
-        # one-off for the repo owner. The test-only author override is deliberately NOT set anywhere
-        # here; the gate ignores it in CI.
+      - name: Verify quorum receipt for each PR
+        # JUDGE FROM BASE: per PR, the gate and its allowlist come from the PR BASE commit, never
+        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if the
+        # base lacks either file. The test-only author override is deliberately NOT set; the gate
+        # ignores it in CI. A red here opens/updates one ticket; it never blocks a PR.
         env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          d="$RUNNER_TEMP/quorum-base-gate"
-          rm -rf "${d:?}"; mkdir -p "$d/scripts"
-          git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
-            || { echo "FAIL: scripts/quorum-store-gate.sh absent on PR base (bootstrap case)" >&2; exit 1; }
-          git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
-            || { echo "FAIL: scripts/quorum-models.json absent on PR base (bootstrap case)" >&2; exit 1; }
-          echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
-
-      - name: Verify quorum receipt
-        # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
-        # not a committed .quorum/<branch>.json: a receipt binds to the head
-        # sha, and committing it would move the head (loop). Fails closed on a
-        # missing store or file.
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # author model ids come from the PR commits' Co-Authored-By trailers (per commit)
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GH_TOKEN: ${{ github.token }}
           QUORUM_REPO: ${{ github.repository }}
+          INPUT_PR: ${{ github.event.inputs.pr_number }}
         run: |
-          bash "$QUORUM_BASE_GATE"
+          set -uo pipefail
+          if [ -n "$INPUT_PR" ]; then prs="$INPUT_PR"
+          else prs="$(gh pr list --repo "$QUORUM_REPO" --state open --json number --jq '.[].number')" || exit 1
+          fi
+          rc=0
+          for n in $prs; do
+            read -r head base < <(gh pr view "$n" --repo "$QUORUM_REPO" --json headRefOid,baseRefOid --jq '"\(.headRefOid) \(.baseRefOid)"') \
+              || { echo "FAIL: gh pr view $n (UNMEASURED)" >&2; rc=1; continue; }
+            git fetch -q origin "pull/$n/head" "$base" || { echo "FAIL: fetch PR $n" >&2; rc=1; continue; }
+            d="$RUNNER_TEMP/quorum-base-gate-$n"
+            rm -rf "${d:?}"; mkdir -p "$d/scripts"
+            git show "$base:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
+              && git show "$base:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
+              || { echo "FAIL: PR $n base lacks the gate or allowlist" >&2; rc=1; continue; }
+            echo "== PR #$n head $head"
+            PR_NUMBER="$n" PR_HEAD_SHA="$head" PR_BASE_SHA="$base" bash "$d/scripts/quorum-store-gate.sh" || rc=1
+          done
+          exit "$rc"
