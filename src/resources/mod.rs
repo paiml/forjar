@@ -7,6 +7,7 @@
 
 pub mod backup_sync;
 pub mod build;
+pub mod cloud_instance;
 pub mod cron;
 pub mod disk_budget;
 pub mod docker;

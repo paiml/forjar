@@ -44,6 +44,13 @@ pub(super) fn validate_resource_type(
         }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
+        ResourceType::CloudInstance => {
+            if let Err(e) = crate::resources::cloud_instance::spec_of(resource) {
+                errors.push(ValidationError {
+                    message: format!("resource '{id}' (cloud_instance): {e}"),
+                });
+            }
+        }
     }
 }
 
