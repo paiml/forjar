@@ -183,15 +183,22 @@ fn live_groups_are_sorted_in_the_c_locale_like_the_declared_side() {
 
 #[test]
 fn a_declared_primary_group_in_groups_still_converges() {
-    // PMAT-721 / forjar#759: `groups` lists the primary group (group: course,
-    // groups: [course, ...]). Live `id -Gn` minus the primary can never contain
-    // it, so the declared list must drop it too or the check never converges.
+    // `groups: [course, courses, cop-inbox]` where `course` is the primary: the
+    // live side drops the primary, so the declared side must too.
     let mut r = declared();
     r.group = Some("course".to_string());
     r.groups.push("course".to_string());
     let (rc, out) = run(&r, "");
-    assert_eq!(
-        rc, 0,
-        "primary group listed in groups: must not read as drift: {out}"
-    );
+    assert_eq!(rc, 0, "{out}");
+}
+
+#[test]
+fn a_numeric_gid_declaration_is_compared_to_the_gid() {
+    let mut r = declared();
+    r.group = Some("1100".to_string());
+    let (rc, out) = run(&r, "");
+    assert_eq!(rc, 0, "{out}");
+    r.group = Some("1101".to_string());
+    let (rc, _) = run(&r, "");
+    assert_eq!(rc, 1, "a different gid must diverge");
 }
