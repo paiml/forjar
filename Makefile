@@ -209,6 +209,15 @@ publish-from-tag:
 	@test -n "$(TAG)" || { echo "usage: make publish-from-tag TAG=vX.Y.Z"; exit 2; }
 	DRY_RUN=$(DRY_RUN) bash scripts/publish-from-tag.sh "$(TAG)"
 
+# forjar#893: the ONLY supported way to install the control-plane binary.
+# Clean origin/main tip or exact tag, --locked, cli+encryption, sha verified.
+.PHONY: install-lambda install-lambda-check
+install-lambda:
+	bash scripts/install-lambda.sh
+
+install-lambda-check:
+	bash scripts/install-lambda.sh --check
+
 .PHONY: cb200-ratchet
 cb200-ratchet:
 	@# CB-200 (TDG Grade Gate) is a dated ratchet, not a suppression. The gate

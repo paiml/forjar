@@ -141,7 +141,54 @@ fn verify_binding_equations(binding_path: &std::path::Path) {
     );
 }
 
+fn git_out(args: &[&str]) -> Option<String> {
+    let o = std::process::Command::new("git")
+        .args(args)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .ok()?;
+    o.status
+        .success()
+        .then(|| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// forjar#893: record the commit this binary was built from. Only trusted when
+/// the git toplevel IS this crate's directory, so a crates.io build unpacked
+/// inside some unrelated checkout reports `unknown` rather than that checkout.
+fn emit_build_provenance() {
+    println!("cargo::rerun-if-changed=.git/HEAD");
+    println!("cargo::rerun-if-changed=.git/refs");
+    let manifest = std::fs::canonicalize(env!("CARGO_MANIFEST_DIR")).ok();
+    let top =
+        git_out(&["rev-parse", "--show-toplevel"]).and_then(|t| std::fs::canonicalize(t).ok());
+    let own = manifest.is_some() && manifest == top;
+    let sha = if own {
+        git_out(&["rev-parse", "HEAD"])
+    } else {
+        None
+    };
+    let tag = if own {
+        git_out(&["describe", "--tags", "--exact-match"])
+    } else {
+        None
+    };
+    let dirty = own && git_out(&["status", "--porcelain"]).is_some();
+    let mut s = match sha {
+        Some(h) => format!("sha {}", &h[..h.len().min(8)]),
+        None => "sha unknown".to_string(),
+    };
+    if let Some(t) = tag {
+        s.push_str(&format!(", tag {t}"));
+    }
+    if dirty {
+        s.push_str(", dirty");
+    }
+    println!("cargo::rustc-env=FORJAR_BUILD_INFO={s}");
+}
+
 fn main() {
+    emit_build_provenance();
     emit_contract_assertions();
 
     let binding_path = "contracts/binding.yaml";

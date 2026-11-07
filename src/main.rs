@@ -9,7 +9,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(
     name = "forjar",
-    version,
+    version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("FORJAR_BUILD_INFO"), ")"),
     about = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 )]
 struct Cli {

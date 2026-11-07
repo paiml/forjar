@@ -185,7 +185,7 @@ required-features = ["cli"]
 # `copia`, `resources`, `transport` and `tripwire` with none of clap, pforge,
 # tokio, rusqlite or openssl. Before GH-237 there was no `default` key at all,
 # so `default-features = false` subtracted the empty set and removed nothing.
-default = ["cli"]
+default = ["cli", "encryption"]
 
 # The binary and both server surfaces. ONE feature, not three: src/mcp/handlers.rs
 # calls crate::cli at three sites (strip_unrequested_phony_for_mcp, and
