@@ -44,9 +44,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # Default branch with full history; each PR head is fetched by number below.
-          # The gate diffs against the merge-base with origin/main, so it needs
-          # real history. A shallow clone makes `git merge-base` fail, which the
-          # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
+          # The gate diffs PR_BASE_SHA..head (the PR's base commit, fetched by sha
+          # below), so it needs real history. A shallow clone makes that range
+          # unresolvable, which the gate treats as UNMEASURED -> exit 1, not a pass.
           fetch-depth: 0
 
       - name: Verify quorum receipt for each PR

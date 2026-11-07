@@ -467,9 +467,9 @@ Named rather than hidden, per house discipline:
    `make install-hooks` buys *fast local feedback*, not enforcement.
 
    **Current setup (rule C324, LAB).** The `Quorum` workflow
-   (`.github/workflows/quorum.yml`) cannot block a merge: the required status
-   contexts on `main` are `ci / gate` and `workspace-test`, and `Quorum` is not one
-   of them. It has no PR-path trigger (`pull_request`, `push`, `merge_group` are
+   (`.github/workflows/quorum.yml`) cannot block a merge: the only required
+   ruleset context on `main` is `gate` (there is no classic branch protection), and
+   `Quorum` is not it. It has no PR-path trigger (`pull_request`, `push`, `merge_group` are
    absent). It runs nightly (`schedule`) over every open PR, and by hand
    (`workflow_dispatch` with an optional `pr_number`). For each PR it runs
    `scripts/quorum-store-gate.sh` and its allowlist read from the PR's base commit,
