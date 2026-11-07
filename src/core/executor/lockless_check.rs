@@ -42,9 +42,12 @@ pub(crate) fn host_check_passes(
     resource: &Resource,
     machine_name: &str,
 ) -> bool {
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-    else {
+    let Ok(resolved) = resolver::resolve_resource_templates(
+        resource,
+        &config.params,
+        &config.data_values,
+        &config.machines,
+    ) else {
         return false;
     };
     let Ok(script) = codegen::check_script(&resolved) else {

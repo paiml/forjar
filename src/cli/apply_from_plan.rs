@@ -17,7 +17,6 @@
 
 use super::apply_from_plan_checks::*;
 use super::apply_helpers::*;
-use super::helpers::*;
 use super::helpers_state::load_machine_locks;
 use super::plan_file::load_plan_file;
 use super::workspace::*;
@@ -107,13 +106,13 @@ fn prepare_config(
     env_file: Option<&Path>,
     workspace: Option<&str>,
 ) -> Result<types::ForjarConfig, String> {
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    resolver::resolve_data_sources(&mut config)?;
-    Ok(config)
+    resolver::load_resolved_config_with(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })
 }
 
 /// Recompute the plan from live inputs, under `selectors`.

@@ -77,7 +77,7 @@ fn try_validate_advanced(
 fn validate_preflight(file: &Path, json: bool, schema_version_given: bool) -> Result<(), String> {
     super::inert_flags::reject_inert_flag("--schema-version", schema_version_given)?;
 
-    if let Err(e) = crate::core::parser::parse_and_validate(file) {
+    if let Err(e) = crate::core::resolver::load_resolved_config(file) {
         if json {
             println!(
                 "{}",

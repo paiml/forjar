@@ -152,5 +152,7 @@ mod tests_flag_surface;
 mod tests_gh_dogfood_p1;
 #[cfg(test)]
 mod tests_plan_file_v1;
+#[cfg(test)]
 mod tests_dogfood_observ;
+#[cfg(test)]
 mod tests_dogfood_p4;

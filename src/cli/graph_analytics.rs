@@ -242,9 +242,7 @@ pub(crate) fn cmd_graph_resource_apply_order_simulation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"apply_order_simulation\":{{\"total_levels\":0,\"levels\":[]}}}}");
@@ -266,9 +264,7 @@ pub(crate) fn cmd_graph_resource_apply_order_simulation(
 /// FJ-1042: Provenance summary — group resources by type and machine,
 /// reporting count and average dependency depth per group.
 pub(crate) fn cmd_graph_resource_provenance_summary(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"provenance_summary\":{{\"group_count\":0,\"groups\":[]}}}}");

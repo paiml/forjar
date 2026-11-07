@@ -173,6 +173,7 @@ resources:
     let executor_resolved = resolve_resource_templates_with_secrets(
         resource,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )
@@ -183,6 +184,7 @@ resources:
     let refresh_resolved = resolve_resource_templates_with_secrets(
         resource,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     )
@@ -200,7 +202,7 @@ resources:
     // Regression guard: the OLD refresh path (env-default, falling back to the
     // literal on error) produced a DIFFERENT script — the spurious-drift bug.
     let old_resolved =
-        resolve_resource_templates(resource, &config.params, &config.machines)
+        resolve_resource_templates(resource, &config.params, &config.data_values, &config.machines)
             .unwrap_or_else(|_| resource.clone());
     let old_query = state_query_script(&old_resolved).unwrap();
     assert_ne!(

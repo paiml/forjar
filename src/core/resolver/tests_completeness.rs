@@ -162,8 +162,9 @@ fn every_string_field_on_resource_is_template_resolved() {
 
     let mut unresolved = Vec::new();
     for (name, resource) in &fields {
-        let resolved = resolve_resource_templates(resource, &params(), &machines)
-            .unwrap_or_else(|e| panic!("{name}: resolve failed: {e}"));
+        let resolved =
+            resolve_resource_templates(resource, &params(), &Default::default(), &machines)
+                .unwrap_or_else(|e| panic!("{name}: resolve failed: {e}"));
         let out = serde_yaml_ng::to_value(&resolved).expect("serialises");
         if let Some(v) = out.get(name.as_str()) {
             if yaml_contains(v, MARK) {
@@ -195,8 +196,13 @@ fn task_inputs_resolves() {
         ..Default::default()
     };
 
-    let resolved =
-        resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");
+    let resolved = resolve_resource_templates(
+        &r,
+        &params(),
+        &Default::default(),
+        &indexmap::IndexMap::new(),
+    )
+    .expect("resolves");
 
     assert_eq!(
         resolved.task_inputs,
@@ -228,8 +234,13 @@ fn pipeline_stage_fields_resolve() {
         ..Default::default()
     };
 
-    let resolved =
-        resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");
+    let resolved = resolve_resource_templates(
+        &r,
+        &params(),
+        &Default::default(),
+        &indexmap::IndexMap::new(),
+    )
+    .expect("resolves");
     let s = &resolved.stages[0];
 
     assert!(
@@ -255,8 +266,13 @@ fn structural_fields_are_deliberately_left_literal() {
         ..Default::default()
     };
 
-    let resolved =
-        resolve_resource_templates(&r, &params(), &indexmap::IndexMap::new()).expect("resolves");
+    let resolved = resolve_resource_templates(
+        &r,
+        &params(),
+        &Default::default(),
+        &indexmap::IndexMap::new(),
+    )
+    .expect("resolves");
     assert_eq!(
         resolved.depends_on,
         vec![MARK.to_string()],

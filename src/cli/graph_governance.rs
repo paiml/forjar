@@ -93,9 +93,7 @@ pub(crate) fn cmd_graph_resource_dependency_change_impact_radius(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
     if cfg.resources.is_empty() {
         if json {
             println!("{{\"impact_radius\":[]}}");
@@ -199,9 +197,7 @@ pub(crate) fn cmd_graph_resource_dependency_sibling_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
     if cfg.resources.is_empty() {
         if json {
             println!("{{\"sibling_groups\":[],\"count\":0}}");

@@ -44,7 +44,7 @@ fn check_template_var(
             .nth(1)
             .is_some_and(|m| !config.machines.contains_key(m))
     } else if let Some(k) = var.strip_prefix("data.") {
-        !config.data.contains_key(k) && !config.params.contains_key(&format!("__data__{k}"))
+        !config.data.contains_key(k) && !config.data_values.contains_key(k)
     } else {
         false // secrets.* and func() are runtime-resolved
     };

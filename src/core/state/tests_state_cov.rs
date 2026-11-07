@@ -301,7 +301,7 @@ fn persist_outputs_creates_lock() {
 fn resolve_outputs_empty() {
     let yaml = "version: '1.0'\nname: test\nmachines: {}\nresources: {}\n";
     let config: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-    let resolved = resolve_outputs(&config);
+    let resolved = resolve_outputs(&config).unwrap();
     assert!(resolved.is_empty());
 }
 

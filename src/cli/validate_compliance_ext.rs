@@ -66,9 +66,7 @@ pub(crate) fn cmd_validate_check_resource_compliance_tags(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let missing = find_resources_missing_compliance_tags(&config);
 
@@ -150,9 +148,7 @@ pub(crate) fn cmd_validate_check_resource_rollback_coverage(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_resources_missing_rollback(&config);
 
@@ -277,9 +273,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_balance(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_imbalanced_resources(&config);
 

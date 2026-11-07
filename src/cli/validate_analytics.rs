@@ -15,9 +15,7 @@ pub(crate) fn cmd_validate_check_resource_health_correlation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let hubs = find_dependency_hubs(&config);
     let correlated = find_correlated_groups(&config, &hubs);
@@ -149,9 +147,7 @@ pub(crate) fn cmd_validate_check_dependency_optimization(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let redundant = find_redundant_edges(&config);
 
@@ -264,9 +260,7 @@ pub(crate) fn cmd_validate_check_resource_consolidation_opportunities(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let opportunities = find_consolidation_opportunities(&config);
 

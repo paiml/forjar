@@ -297,6 +297,7 @@ fn make_config(resources: Vec<(&str, Resource)>) -> ForjarConfig {
         data: Default::default(),
         includes: Default::default(),
         include_provenance: Default::default(),
+        data_values: Default::default(),
         checks: Default::default(),
         moved: Default::default(),
         secrets: Default::default(),

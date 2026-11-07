@@ -35,6 +35,9 @@ use super::{default_true, PolicyRule, Resource};
 /// assert_eq!(config.machines.len(), 1);
 /// assert_eq!(config.resources.len(), 1);
 /// ```
+/// forjar#660: resolved `data:` values (key -> value), the scope `{{data.x}}` reads.
+pub type DataValues = IndexMap<String, String>;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ForjarConfig {
     /// Schema version (must be "1.0")
@@ -83,6 +86,13 @@ pub struct ForjarConfig {
     /// to the include file that contributed it. Not serialized to YAML.
     #[serde(skip)]
     pub include_provenance: HashMap<String, String>,
+
+    /// forjar#660: resolved `data:` source values, keyed by data key. Filled by
+    /// `resolver::resolve_data_sources_with_base`; read by the template resolver for
+    /// `{{data.x}}`. Not a param (a param is user-declared and validated as
+    /// one) and never serialized.
+    #[serde(skip)]
+    pub data_values: DataValues,
 
     /// FJ-1200: Post-apply health check blocks (OpenTofu-style check blocks)
     #[serde(default)]

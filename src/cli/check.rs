@@ -363,7 +363,7 @@ pub(crate) fn cmd_check(
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
+    let mut config = parse_and_validate_for_render(file)?;
     let selectors = super::apply_selection::Selectors {
         resource: resource_filter,
         tag: tag_filter,
@@ -435,8 +435,12 @@ pub(crate) fn cmd_check_selected(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )?;
 
         let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
         else {

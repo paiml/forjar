@@ -6,9 +6,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_refs(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let resource_names: std::collections::HashSet<&String> = config.resources.keys().collect();
     let mut missing = Vec::new();
     for (name, res) in &config.resources {
@@ -46,9 +44,7 @@ pub(crate) fn cmd_validate_check_resource_trigger_refs(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let resource_names: std::collections::HashSet<&String> = config.resources.keys().collect();
     let mut invalid = Vec::new();
     for (name, res) in &config.resources {
@@ -113,9 +109,7 @@ pub(crate) fn cmd_validate_check_resource_param_type_safety(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut warnings = Vec::new();
     for (name, value) in &config.params {
         warnings.extend(param_type_safety_warnings(name, value));
@@ -142,9 +136,7 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for res in config.resources.values() {
         *counts.entry(res.machine.to_string()).or_insert(0) += 1;
@@ -225,9 +217,7 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let declared_params: std::collections::HashSet<String> =
         config.params.keys().cloned().collect();
     let warnings = undeclared_param_warnings(&config, &declared_params);
@@ -253,9 +243,7 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut warnings: Vec<String> = Vec::new();
     for (name, res) in &config.resources {
         let is_secret = name.contains("secret")
@@ -285,9 +273,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_completeness(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut warnings: Vec<String> = Vec::new();
     for (name, res) in &config.resources {
         if res.content.is_none() && res.depends_on.is_empty() && res.tags.is_empty() {
@@ -312,9 +298,7 @@ pub(crate) fn cmd_validate_check_resource_provider_compatibility(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let valid_types = [
         "file",
         "package",

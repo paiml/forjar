@@ -8,9 +8,7 @@ pub(crate) fn cmd_validate_check_resource_naming_convention_strict(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_naming_violations(&config);
     print_naming_violations(&violations, json);
     Ok(())
@@ -51,9 +49,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency_annotations(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     print_idempotency_warnings(&names, json);
     Ok(())
@@ -82,9 +78,7 @@ pub(crate) fn cmd_validate_check_resource_content_size_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let threshold = 10240_usize; // 10KB default
     let warnings = find_oversized_resources(&config, threshold);
     print_size_warnings(&warnings, threshold, json);
@@ -127,9 +121,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_fan_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let max_fan = 10_usize;
     let warnings = find_fan_violations(&config, max_fan);
     print_fan_warnings(&warnings, max_fan, json);
@@ -183,9 +175,7 @@ pub(crate) fn cmd_validate_check_resource_gpu_backend_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut backends: Vec<(String, String)> = Vec::new();
     for (name, res) in &config.resources {
         if let Some(ref backend) = res.gpu_backend {
@@ -226,9 +216,7 @@ pub(crate) fn cmd_validate_check_resource_when_condition_syntax(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut issues: Vec<(String, String)> = Vec::new();
     for (name, res) in &config.resources {
         if let Some(ref when_expr) = res.when {

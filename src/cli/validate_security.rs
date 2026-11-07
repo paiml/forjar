@@ -85,9 +85,7 @@ pub(crate) fn cmd_validate_check_resource_secret_scope(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_secret_scope_warnings(&config);
 
@@ -149,9 +147,7 @@ pub(crate) fn cmd_validate_check_resource_deprecation_usage(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_deprecation_usage_warnings(&config);
 
@@ -244,9 +240,7 @@ pub(crate) fn cmd_validate_check_resource_when_condition_coverage(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_when_condition_coverage_warnings(&config);
 

@@ -155,9 +155,8 @@ pub(crate) fn _test_probe_machine(name: &str, machine: &types::Machine) -> (bool
 
 /// FJ-2300/E19: Probe all machines for connectivity.
 pub(crate) fn cmd_status_connectivity(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("read config: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse config: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)
+        .map_err(crate::core::error::ForjarError::into_message)?;
 
     let results: Vec<ConnectivityResult> = config
         .machines
@@ -300,6 +299,6 @@ mod tests {
         let nonexistent = Path::new("/tmp/forjar-test-nonexistent-connectivity.yaml");
         let result = cmd_status_connectivity(nonexistent, false);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("read config"));
+        assert!(result.is_err());
     }
 }

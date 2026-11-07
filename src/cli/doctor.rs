@@ -1,7 +1,7 @@
 //! Doctor diagnostics.
 
 use super::helpers::*;
-use crate::core::{gitenv, parser, secrets, types};
+use crate::core::{gitenv, secrets, types};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -357,7 +357,7 @@ fn doctor_load_config(
     checks: &mut Vec<DoctorCheck>,
 ) -> Option<types::ForjarConfig> {
     let f = file?;
-    match parser::parse_and_validate(f) {
+    match crate::core::resolver::load_resolved_config(f) {
         Ok(c) => Some(c),
         Err(e) => {
             checks.push(DoctorCheck {

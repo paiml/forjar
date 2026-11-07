@@ -43,9 +43,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_version_drift(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_version_drift_warnings(&cfg);
 
@@ -121,9 +119,7 @@ pub(crate) fn cmd_validate_check_resource_naming_length_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_naming_length_warnings(&cfg, MAX_NAME_LENGTH);
 
@@ -218,9 +214,7 @@ pub(crate) fn cmd_validate_check_resource_type_coverage_per_machine(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let entries = compute_type_coverage(&cfg);
 

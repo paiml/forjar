@@ -180,7 +180,8 @@ fn resource_template_resolves_content() {
         content: Some("msg={{params.greeting}}".into()),
         ..Default::default()
     };
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert_eq!(resolved.content.as_deref(), Some("msg=hello"));
 }
 
@@ -195,7 +196,8 @@ fn resource_template_resolves_path() {
         path: Some("/etc/{{params.app}}/config.yaml".into()),
         ..Default::default()
     };
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert_eq!(resolved.path.as_deref(), Some("/etc/myapp/config.yaml"));
 }
 
@@ -210,7 +212,8 @@ fn resource_template_resolves_packages() {
         packages: vec!["{{params.pkg}}".into()],
         ..Default::default()
     };
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert_eq!(resolved.packages, vec!["nginx"]);
 }
 
@@ -222,7 +225,8 @@ fn resource_template_none_fields_stay_none() {
         resource_type: ResourceType::File,
         ..Default::default()
     };
-    let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+    let resolved =
+        resolve_resource_templates(&resource, &params, &Default::default(), &machines).unwrap();
     assert!(resolved.content.is_none());
     assert!(resolved.path.is_none());
 }

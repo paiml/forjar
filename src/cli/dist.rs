@@ -106,10 +106,7 @@ fn emit_artifacts(
 /// Entry point for `forjar dist`.
 pub(crate) fn cmd_dist(args: &super::commands::DistArgs) -> Result<(), String> {
     let file = &args.file;
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("YAML parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let dist = config
         .dist

@@ -6,9 +6,7 @@ pub(crate) fn cmd_graph_resource_dependency_topological_depth(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut depths: Vec<(String, usize)> = config
         .resources
         .keys()
@@ -72,9 +70,7 @@ pub(crate) fn cmd_graph_resource_dependency_weak_links(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let mut in_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for res in config.resources.values() {
         for dep in &res.depends_on {
@@ -115,9 +111,7 @@ pub(crate) fn cmd_graph_resource_dependency_minimum_cut(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<&str> = config.resources.keys().map(|s| s.as_str()).collect();
     let idx: std::collections::HashMap<&str, usize> =
         names.iter().enumerate().map(|(i, n)| (*n, i)).collect();
@@ -235,9 +229,7 @@ pub(crate) fn cmd_graph_resource_dependency_dominator_tree(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let names: Vec<String> = config.resources.keys().cloned().collect();
     let idx: std::collections::HashMap<&str, usize> = names
         .iter()

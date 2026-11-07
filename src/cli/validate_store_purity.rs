@@ -149,10 +149,7 @@ pub(crate) fn cmd_validate_check_reproducibility_score(
 
 /// Extract purity classification for all resources in a config.
 fn extract_purity(file: &Path) -> Result<PurityExtract, String> {
-    let content =
-        std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
-    let doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {}: {e}", file.display()))?;
+    let doc = super::helpers::load_resolved_value(file)?;
 
     let resources = doc
         .get("resources")
@@ -217,10 +214,7 @@ fn extract_purity(file: &Path) -> Result<PurityExtract, String> {
 
 /// Extract reproducibility scoring inputs from a config.
 fn extract_repro_inputs(file: &Path) -> Result<Vec<ReproInput>, String> {
-    let content =
-        std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
-    let doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {}: {e}", file.display()))?;
+    let doc = super::helpers::load_resolved_value(file)?;
 
     let resources = doc
         .get("resources")

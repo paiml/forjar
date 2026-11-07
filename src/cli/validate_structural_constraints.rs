@@ -226,9 +226,7 @@ fn has_circular_dep(name: &str, config: &types::ForjarConfig) -> bool {
 
 /// FJ-641: Validate naming conventions across resources
 pub(crate) fn cmd_validate_check_naming_conventions(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let mut violations = Vec::new();
     for (name, _resource) in &config.resources {

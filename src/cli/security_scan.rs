@@ -1,6 +1,5 @@
 //! FJ-1390: CLI command for static IaC security scanning.
 
-use crate::core::parser;
 use crate::core::security_scanner::{self, Severity};
 use std::path::Path;
 
@@ -9,7 +8,7 @@ pub(crate) fn cmd_security_scan(
     json: bool,
     fail_on: Option<&str>,
 ) -> Result<(), String> {
-    let config = parser::parse_and_validate(file)?;
+    let config = crate::core::resolver::load_resolved_config(file)?;
     let findings = security_scanner::scan(&config);
 
     if findings.is_empty() {

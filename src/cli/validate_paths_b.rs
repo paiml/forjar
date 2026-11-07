@@ -43,9 +43,7 @@ fn validate_cron_field(field: &str, min: u32, max: u32) -> bool {
 
 /// FJ-731: Validate cron schedule expressions in resources.
 pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let mut issues: Vec<(String, String)> = Vec::new();
     for (name, resource) in &config.resources {
@@ -133,9 +131,7 @@ pub(crate) fn cmd_validate_check_resource_names(
     json: bool,
     pattern: &str,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_naming_violations(&config, pattern);
     if json {
         let items: Vec<String> = violations.iter().map(|n| format!("\"{n}\"")).collect();
@@ -175,9 +171,7 @@ pub(crate) fn cmd_validate_check_resource_count(
     json: bool,
     limit: usize,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let counts = count_resources_per_machine(&config);
     let over: Vec<(&String, &usize)> = counts.iter().filter(|(_, c)| **c > limit).collect();
     if json {
@@ -210,9 +204,7 @@ fn count_resources_per_machine(config: &types::ForjarConfig) -> HashMap<String, 
 
 /// FJ-753: Detect duplicate file paths across resources on same machine.
 pub(crate) fn cmd_validate_check_duplicate_paths(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let dupes = find_duplicate_paths(&config);
     if json {
         let items: Vec<String> = dupes

@@ -182,7 +182,7 @@ pub(crate) fn cmd_watch(
 
 /// Handle a detected config change during watch: re-plan and optionally auto-apply.
 pub(crate) fn handle_watch_change(file: &Path, state_dir: &Path, auto_apply: bool) {
-    let config = match parse_and_validate(file) {
+    let config = match parse_and_validate_for_render(file) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("watch: parse error: {e}");

@@ -28,8 +28,8 @@
 //! Anything else is refused by name instead of echoed.
 
 use crate::core::recipe::{expand_recipe, parse_recipe};
-use crate::core::resolver::resolve_template;
-use crate::core::types::{ForjarConfig, MachineTarget};
+use crate::core::resolver::resolve_template_with_data;
+use crate::core::types::MachineTarget;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -41,7 +41,7 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
 
     let expanded = match classify(&content) {
         Kind::Recipe => expand_recipe_file(&content, &var_map)?,
-        Kind::Config => expand_config_file(&content, &var_map)?,
+        Kind::Config => expand_config_file(recipe, &content, &var_map)?,
         Kind::Unknown => {
             return Err(format!(
                 "{} is neither a recipe (needs a top-level `recipe:` block) nor a \
@@ -149,14 +149,25 @@ fn expand_recipe_file(content: &str, vars: &HashMap<String, String>) -> Result<S
 
 /// Expand a config: `{{params.X}}` / `{{machine.X.field}}` / functions, with
 /// `-V` merged over the config's own `params:`.
-fn expand_config_file(content: &str, vars: &HashMap<String, String>) -> Result<String, String> {
-    let config: ForjarConfig =
-        serde_yaml_ng::from_str(content).map_err(|e| format!("YAML parse error: {e}"))?;
+fn expand_config_file(
+    path: &Path,
+    content: &str,
+    vars: &HashMap<String, String>,
+) -> Result<String, String> {
+    // forjar#660: the shared loader, so `{{data.x}}` resolves and a failing
+    // `data:` source fails the command.
+    let config = crate::core::resolver::load_resolved_config_for_render(path)?;
     let mut params = config.params.clone();
     for (k, v) in vars {
         params.insert(k.clone(), yaml_scalar(v));
     }
-    resolve_template(content, &params, &config.machines)
+    resolve_template_with_data(
+        content,
+        &params,
+        &config.data_values,
+        &config.machines,
+        &config.secrets,
+    )
 }
 
 /// Parse a `-V` value the way YAML would, so `-V port=8080` is an int and

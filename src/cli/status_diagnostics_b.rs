@@ -4,9 +4,7 @@ use std::path::Path;
 
 /// FJ-780: Show resource type breakdown across fleet.
 pub(crate) fn cmd_status_resource_type_distribution(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let dist = count_resource_types(&config);
     if json {
         let items: Vec<String> = dist

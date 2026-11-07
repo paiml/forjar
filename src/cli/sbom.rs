@@ -14,7 +14,7 @@ use std::path::Path;
 /// FJ-1399: Recipes are expanded before component collection so that
 /// recipe-defined packages, containers, and models appear in the SBOM.
 pub(crate) fn cmd_sbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
-    let mut config = parser::parse_and_validate(file)?;
+    let mut config = crate::core::resolver::load_resolved_config(file)?;
     // FJ-1399: Expand recipes so their inner resources appear in the SBOM.
     let config_dir = file.parent();
     let _ = parser::expand_recipes(&mut config, config_dir);

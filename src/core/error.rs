@@ -9,13 +9,10 @@
 //! transport error: I8 violation — script failed bashrs validation: bashrs lint errors: ...
 //! ```
 //!
-//! That message contains `"transport"`, so the old classifier returned 4 — the
-//! connection code, which every CI script treats as RETRYABLE — for a
-//! deterministic bashrs rejection that fails identically on every retry. The
-//! text was never a taxonomy: any failure whose prose happens to name a
-//! transport was classified as a transport failure, and the classifier could
-//! not tell "the SSH connection dropped" from "the script we were about to send
-//! over SSH is invalid".
+//! That message contains `"transport"`, so the old classifier returned 4 — the connection code, which every CI
+//! script treats as RETRYABLE — for a deterministic bashrs rejection that fails identically on every retry. The
+//! text was never a taxonomy: prose that merely names a transport was classified as a transport failure, and the
+//! classifier could not tell "the SSH connection dropped" from "the script we were about to send over SSH is invalid".
 //!
 //! # What changed, and what did NOT
 //!
@@ -248,6 +245,13 @@ impl fmt::Display for ForjarError {
 }
 
 impl std::error::Error for ForjarError {}
+
+/// Lets a `Result<_, String>` command `?` a typed loader (forjar#417 migration).
+impl From<ForjarError> for String {
+    fn from(e: ForjarError) -> Self {
+        e.into_message()
+    }
+}
 
 /// TEMPORARY. Classify an error that arrived as a bare `String`.
 ///

@@ -6,9 +6,7 @@ use std::path::Path;
 
 /// FJ-671: Detect overlapping file paths across resources
 pub(crate) fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let mut path_owners: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();

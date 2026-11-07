@@ -9,9 +9,7 @@ pub(crate) fn cmd_validate_check_resource_naming_convention(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_naming_convention_violations(&config);
     if json {
         let items: Vec<String> = violations
@@ -54,9 +52,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let warnings = find_idempotency_concerns(&config);
     if json {
         let items: Vec<String> = warnings
@@ -101,8 +97,7 @@ pub(crate) fn cmd_validate_check_resource_documentation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let undocumented = find_undocumented_resources(&config);
     if json {
         let items: Vec<String> = undocumented.iter().map(|n| format!("\"{n}\"")).collect();
@@ -134,8 +129,7 @@ pub(super) fn find_undocumented_resources(config: &types::ForjarConfig) -> Vec<S
 
 /// FJ-881: Check resource ownership — ensure resources have owner tags or group assignment.
 pub(crate) fn cmd_validate_check_resource_ownership(file: &Path, json: bool) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let unowned = find_unowned_resources(&config);
     if json {
         let items: Vec<String> = unowned.iter().map(|n| format!("\"{n}\"")).collect();
@@ -170,8 +164,7 @@ pub(crate) fn cmd_validate_check_resource_secret_exposure(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let exposures = find_secret_exposures(&config);
     if json {
         let items: Vec<String> = exposures
@@ -220,8 +213,7 @@ pub(crate) fn cmd_validate_check_resource_tag_standards(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let violations = find_tag_standard_violations(&config);
     if json {
         let items: Vec<String> = violations
@@ -264,8 +256,7 @@ pub(crate) fn cmd_validate_check_resource_privilege_escalation(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
     let risks = find_privilege_escalation_risks(&cfg);
     if json {
         let items: Vec<String> = risks

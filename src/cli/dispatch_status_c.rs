@@ -6,6 +6,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(args) = cmd else {
         unreachable!()
     };
+    // Most status reports read only the state dir; an explicit -f must still
+    // load (and resolve) the manifest, so a bad data source fails every report.
+    if let Some(file) = args.file.as_deref() {
+        super::helpers::parse_and_validate(file)?;
+    }
     let m = args.machine.as_deref();
     if let Some(r) = try_status_phase59a(
         &args.state_dir,

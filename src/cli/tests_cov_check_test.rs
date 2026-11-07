@@ -137,7 +137,7 @@ fn test_collect_artifacts_with_data() {
 fn test_behavior_mode_no_specs() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     let r = cmd_test_behavior(&config_path);
     assert!(r.is_ok());
 }
@@ -146,7 +146,7 @@ fn test_behavior_mode_no_specs() {
 fn test_behavior_mode_with_spec_file() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(dir.path().join("nginx.spec.yaml"), "name: nginx\nconfig: forjar.yaml\nbehaviors:\n  - name: installed\n    state: present\n").unwrap();
     let r = cmd_test_behavior(&config_path);
     assert!(r.is_ok());
@@ -187,7 +187,7 @@ fn test_row_clone() {
 fn test_behavior_mode_with_verify_command() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("check.spec.yaml"),
         "name: verify-test\nconfig: forjar.yaml\nbehaviors:\n  - name: echo works\n    verify:\n      command: echo hello\n      stdout: hello\n  - name: true exits 0\n    verify:\n      command: \"true\"\n      exit_code: 0\n",
@@ -201,7 +201,7 @@ fn test_behavior_mode_with_verify_command() {
 fn test_behavior_mode_verify_failure() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("fail.spec.yaml"),
         "name: fail-test\nconfig: forjar.yaml\nbehaviors:\n  - name: bad exit\n    verify:\n      command: \"false\"\n      exit_code: 0\n",
@@ -215,7 +215,7 @@ fn test_behavior_mode_verify_failure() {
 fn test_behavior_mode_verify_stdout_mismatch() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("mismatch.spec.yaml"),
         "name: mismatch-test\nconfig: forjar.yaml\nbehaviors:\n  - name: wrong output\n    verify:\n      command: echo wrong\n      stdout: expected\n",
@@ -229,7 +229,7 @@ fn test_behavior_mode_verify_stdout_mismatch() {
 fn test_behavior_mode_no_assertion() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("empty.spec.yaml"),
         "name: no-assert\nconfig: forjar.yaml\nbehaviors:\n  - name: nothing defined\n",
@@ -243,7 +243,7 @@ fn test_behavior_mode_no_assertion() {
 fn test_behavior_mode_verify_stderr_contains() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("stderr.spec.yaml"),
         "name: stderr-test\nconfig: forjar.yaml\nbehaviors:\n  - name: stderr check\n    verify:\n      command: echo warning >&2\n      stderr_contains: warning\n",
@@ -257,7 +257,7 @@ fn test_behavior_mode_verify_stderr_contains() {
 fn test_behavior_mode_verify_file_exists() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     let target = dir.path().join("exists.txt");
     std::fs::write(&target, "data").unwrap();
     std::fs::write(
@@ -273,7 +273,7 @@ fn test_behavior_mode_verify_file_exists() {
 fn test_behavior_mode_verify_file_missing() {
     let dir = tempfile::tempdir().unwrap();
     let config_path = dir.path().join("forjar.yaml");
-    std::fs::write(&config_path, "").unwrap();
+    std::fs::write(&config_path, "version: \"1.0\"\nname: t\nresources: {}\n").unwrap();
     std::fs::write(
         dir.path().join("missing.spec.yaml"),
         "name: missing-test\nconfig: forjar.yaml\nbehaviors:\n  - name: file missing\n    verify:\n      command: \"true\"\n      file_exists: /nonexistent/path/file.txt\n",

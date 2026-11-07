@@ -3,7 +3,7 @@
 use super::validate_ownership_b::*;
 use std::io::Write;
 
-const BASE: &str = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
+const BASE: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
 
 fn write_cfg(yaml: &str) -> tempfile::NamedTempFile {
     let mut f = tempfile::NamedTempFile::new().unwrap();

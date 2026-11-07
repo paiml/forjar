@@ -84,15 +84,15 @@ pub(crate) fn cmd_plan_with_pins(
     refresh: bool,
     version_pins: PlanVersionPins,
 ) -> Result<(), String> {
-    let mut config = parse_and_validate(file)?;
-
-    // FJ-333: Apply hypothetical param overrides
-    apply_what_if_overrides(&mut config, what_if)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    let data_faults = super::data_isolation::resolve_isolated(&mut config);
+    let (mut config, data_faults) = super::data_isolation::load_isolated(file, |config| {
+        // FJ-333: Apply hypothetical param overrides
+        apply_what_if_overrides(config, what_if)?;
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })?;
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
@@ -101,7 +101,7 @@ pub(crate) fn cmd_plan_with_pins(
     // line the config is NARROWED twice — `--target` retains one resource plus
     // its transitive deps, and `strip_unrequested_phony` removes every
     // unrequested phony resource. `apply --plan-file` rebuilds the config from
-    // the file and stops after `resolve_data_sources`
+    // the file and stops after `resolve_data_sources_with_base`
     // (`apply_from_plan::prepare_config`), so it recomputes the leg over the
     // UNNARROWED config and the two can never agree. Measured: a config with
     // one `phony: true` resource planned and applied back-to-back, nothing
@@ -334,7 +334,7 @@ pub(crate) fn cmd_plan_compact(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let execution_order = resolver::build_execution_order(&config)?;
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks, None);
@@ -421,6 +421,7 @@ fn collect_why_reasons(
             resource_id,
             resource,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         );

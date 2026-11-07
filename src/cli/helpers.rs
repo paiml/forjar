@@ -8,9 +8,63 @@ use std::path::Path;
 #[allow(unused_imports)]
 pub(crate) use super::colors::{bold, color_enabled, dim, green, red, yellow, NO_COLOR};
 
-/// Parse, validate, and expand recipes in a forjar config file.
+/// Parse, validate, expand recipes AND resolve `data:` sources (forjar#660).
+///
+/// THE loader for every command that reads `--file`. `{{data.x}}` only resolves
+/// after `resolve_data_sources_with_base` has run, and a reader that loaded the file by
+/// hand skipped it (show, explain, check, output, apply --check, ...). Resolving
+/// by default makes the correct path the short one; a failing `data:` source is
+/// an `Err` here, never a config with the reference left in it.
 pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
+    crate::core::resolver::load_resolved_config(file)
+}
+
+/// [`parse_and_validate`] for a command that renders resources from the config
+/// (`resolve_resource_templates`, the planner, codegen). A data value is written
+/// with its braces held back so the template resolver cannot expand it again; a
+/// command that prints config text it did not render calls
+/// `resolver::decode_literals` first.
+pub(crate) fn parse_and_validate_for_render(file: &Path) -> Result<types::ForjarConfig, String> {
+    crate::core::resolver::load_resolved_config_for_render(file)
+}
+
+/// The resolved manifest as a generic YAML document, for the readers that walk
+/// `resources:` as a mapping (store pin / convert / purity). It goes through the
+/// resolving loader like every other reader (forjar#660); it is never a raw parse
+/// of the file.
+pub(crate) fn load_resolved_value(
+    file: &Path,
+) -> Result<serde_yaml_ng::Value, crate::core::error::ForjarError> {
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
+    serde_yaml_ng::to_value(&config).map_err(|e| {
+        crate::core::error::ForjarError::validation(format!("serialize {}: {e}", file.display()))
+    })
+}
+
+/// Parse, validate and expand recipes WITHOUT resolving `data:` sources.
+///
+/// Only for a command that must not execute `data:` commands or that has to
+/// tell a parse failure apart from a resolve failure. Every caller is listed,
+/// with its reason, in `tests/falsification_660_every_reader_resolves_data.rs`
+/// (`UNRESOLVED_LOADER_ALLOWLIST`); a new caller fails that test.
+pub(crate) fn parse_and_validate_unresolved(file: &Path) -> Result<types::ForjarConfig, String> {
     parser::parse_and_validate(file)
+}
+
+/// For the readers that must keep the manifest UNRESOLVED (they emit, merge or
+/// time it, and resolving would bake `data:` output into what they write) but
+/// still must not succeed on a manifest whose `data:` source fails: resolve a
+/// COPY and throw the values away (forjar#660).
+pub(crate) fn require_data_sources(
+    config: &types::ForjarConfig,
+    file: &Path,
+) -> Result<(), String> {
+    crate::core::resolver::require_known_data_refs(config)?;
+    let mut probe = config.clone();
+    crate::core::resolver::resolve_data_sources_with_base(
+        &mut probe,
+        crate::core::resolver::manifest_dir(file),
+    )
 }
 
 /// Refuse to report on a state directory that is not there.

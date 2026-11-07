@@ -83,9 +83,13 @@ resources:
     // Show generated scripts for each user resource
     println!("\n=== Generated Scripts ===\n");
     for (name, resource) in &config.resources {
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                .expect("resolve failed");
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )
+        .expect("resolve failed");
 
         println!(
             "--- {} ({}) ---",

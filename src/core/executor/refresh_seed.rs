@@ -106,6 +106,7 @@ pub(super) fn converged_entry(config: &ForjarConfig, id: &str, raw: &Resource) -
         id,
         raw,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     );

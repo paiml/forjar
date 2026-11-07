@@ -7,9 +7,7 @@ use std::path::Path;
 
 /// FJ-847: Impact score based on dependents + depth.
 pub(crate) fn cmd_graph_resource_impact_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_impact_scores(&config);
     if json {
         let items: Vec<String> = scores
@@ -50,9 +48,7 @@ pub(super) fn compute_impact_scores(config: &types::ForjarConfig) -> Vec<(String
 
 /// FJ-851: Stability score based on status history (simulated from resource config).
 pub(crate) fn cmd_graph_resource_stability_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_stability_scores(&config);
     if json {
         let items: Vec<String> = scores
@@ -94,9 +90,7 @@ pub(super) fn compute_stability_scores(config: &types::ForjarConfig) -> Vec<(Str
 
 /// FJ-855: Fan-out count per resource.
 pub(crate) fn cmd_graph_resource_dependency_fanout(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let fanouts = compute_fanouts(&config);
     if json {
         let items: Vec<String> = fanouts
@@ -136,9 +130,7 @@ pub(super) fn compute_fanouts(config: &types::ForjarConfig) -> Vec<(String, usiz
 
 /// FJ-859: Weighted edges based on resource coupling.
 pub(crate) fn cmd_graph_resource_dependency_weight(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let weights = compute_dependency_weights(&config);
     if json {
         let items: Vec<String> = weights
@@ -183,9 +175,7 @@ pub(crate) fn cmd_graph_resource_dependency_bottleneck(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bottlenecks = find_dependency_bottlenecks(&config);
     if json {
         let items: Vec<String> = bottlenecks
@@ -233,9 +223,7 @@ pub(super) fn find_dependency_bottlenecks(
 
 /// FJ-867: Cluster resources by type and show interconnections.
 pub(crate) fn cmd_graph_resource_type_clustering(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let clusters = build_type_clusters(&config);
     if json {
         let items: Vec<String> = clusters
@@ -276,9 +264,7 @@ pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
     file: &std::path::Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let risks = find_cycle_risks(&config);
     if json {
         let items: Vec<String> = risks

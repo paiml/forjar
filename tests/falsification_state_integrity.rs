@@ -347,7 +347,7 @@ fn resolve_outputs_empty() {
         name: "test".into(),
         ..Default::default()
     };
-    let resolved = state::resolve_outputs(&config);
+    let resolved = state::resolve_outputs(&config).unwrap();
     assert!(resolved.is_empty());
 }
 
@@ -365,7 +365,7 @@ fn resolve_outputs_with_literal() {
             description: None,
         },
     );
-    let resolved = state::resolve_outputs(&config);
+    let resolved = state::resolve_outputs(&config).unwrap();
     assert_eq!(resolved["url"], "https://example.com");
 }
 

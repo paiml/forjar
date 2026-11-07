@@ -12,6 +12,32 @@ use crate::core::types::SandboxBackend;
 use crate::core::{codegen, resolver};
 use std::path::Path;
 
+/// Every resource in `order` with its templates resolved, or the first error.
+///
+/// A resource whose template does not resolve (an unknown `{{data.x}}`, a
+/// missing param) fails the run. These runners used to drop it with `.ok()?`
+/// and report a 100% score over the resources that were left (forjar#660).
+fn resolve_every_resource(
+    config: &crate::core::types::ForjarConfig,
+    order: &[String],
+) -> Result<std::collections::HashMap<String, crate::core::types::Resource>, String> {
+    let mut out = std::collections::HashMap::new();
+    for rid in order {
+        let Some(r) = config.resources.get(rid) else {
+            continue;
+        };
+        let resolved = resolver::resolve_resource_templates(
+            r,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )
+        .map_err(|e| format!("resource '{rid}': {e}"))?;
+        out.insert(rid.clone(), resolved);
+    }
+    Ok(out)
+}
+
 /// Options passed from CLI to test runners.
 pub(crate) struct RunnerOpts {
     pub sandbox: SandboxBackend,
@@ -51,7 +77,7 @@ impl RunnerOpts {
 pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), String> {
     use crate::core::store::mutation_runner::{self, MutationRunConfig, MutationTarget};
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let t0 = std::time::Instant::now();
     let run_config = MutationRunConfig {
         backend: opts.sandbox,
@@ -70,13 +96,13 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
     );
 
     let execution_order = resolver::build_execution_order(&config)?;
+    let resolved_all = resolve_every_resource(&config, &execution_order)?;
     let targets: Vec<MutationTarget> = execution_order
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved =
-                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
-            let script = codegen::apply_script(&resolved).ok()?;
+            let resolved = resolved_all.get(rid)?;
+            let script = codegen::apply_script(resolved).ok()?;
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
             let refs = [script.as_str()];
             let hash = crate::tripwire::hasher::composite_hash(&refs);
@@ -84,7 +110,7 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
                 resource_id: rid.clone(),
                 resource_type: rtype,
                 apply_script: script,
-                drift_script: codegen::check_script(&resolved).unwrap_or_default(),
+                drift_script: codegen::check_script(resolved).unwrap_or_default(),
                 expected_hash: hash,
             })
         })
@@ -102,7 +128,7 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
     // PMAT-088: Persist L4 results so `test coverage` can promote resources.
-    persist_mutation_coverage(file, &config, &report);
+    persist_mutation_coverage(file, &config, &report)?;
 
     // Grade F with errors = scripts require real infra (expected in local mode).
     // Grade F with zero errors = mutations genuinely undetected (real failure).
@@ -122,7 +148,7 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
         self, ConvergenceSummary, ConvergenceTarget, ConvergenceTestConfig,
     };
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let t0 = std::time::Instant::now();
     let test_config = ConvergenceTestConfig {
         parallelism: opts.parallel,
@@ -141,14 +167,14 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
     );
 
     let execution_order = resolver::build_execution_order(&config)?;
+    let resolved_all = resolve_every_resource(&config, &execution_order)?;
     let targets: Vec<ConvergenceTarget> = execution_order
         .iter()
         .filter_map(|rid| {
             let r = config.resources.get(rid)?;
-            let resolved =
-                resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
-            let apply = codegen::apply_script(&resolved).ok()?;
-            let check = codegen::check_script(&resolved).unwrap_or_default();
+            let resolved = resolved_all.get(rid)?;
+            let apply = codegen::apply_script(resolved).ok()?;
+            let check = codegen::check_script(resolved).unwrap_or_default();
             let rtype = format!("{:?}", r.resource_type).to_lowercase();
             // Empty expected_hash: convergence verified by idempotency
             // (state-after-first == state-after-second), not by comparing
@@ -181,7 +207,7 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
     println!("Completed in {:.1}s", elapsed.as_secs_f64());
 
     // PMAT-088: Persist L3/L5 results so `test coverage` can promote resources.
-    persist_convergence_coverage(file, &config, &results, test_config.test_pairs);
+    persist_convergence_coverage(file, &config, &results, test_config.test_pairs)?;
 
     // Distinguish real failures (scripts ran but state diverged) from
     // environment errors (scripts can't run locally — need real machines).
@@ -227,25 +253,24 @@ fn discover_spec_resources(spec_dir: &Path) -> std::collections::HashSet<String>
 pub(crate) fn cmd_test_coverage(file: &Path) -> Result<(), String> {
     use crate::core::types::{CoverageReport, ResourceCoverage};
 
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
     let spec_dir = file.parent().unwrap_or(Path::new("."));
     let spec_resources = discover_spec_resources(spec_dir);
     let records = crate::core::store::coverage_persist::load_records(&coverage_state_dir(file));
 
     let execution_order = resolver::build_execution_order(&config)?;
-    let entries: Vec<ResourceCoverage> = execution_order
-        .iter()
-        .filter_map(|rid| {
-            let resource = config.resources.get(rid)?;
-            Some(coverage_entry(
+    let mut entries: Vec<ResourceCoverage> = Vec::new();
+    for rid in &execution_order {
+        if let Some(resource) = config.resources.get(rid) {
+            entries.push(coverage_entry(
                 rid,
                 resource,
                 &config,
                 &spec_resources,
                 &records,
-            ))
-        })
-        .collect();
+            )?);
+        }
+    }
 
     let report = CoverageReport::from_entries(entries);
     println!("Resource Coverage Report");
@@ -320,6 +345,11 @@ fn execute_behavior(b: &crate::core::types::BehaviorEntry) -> crate::core::types
 
 pub(crate) fn cmd_test_behavior(file: &Path) -> Result<(), String> {
     use crate::core::types::{BehaviorReport, BehaviorResult, BehaviorSpec};
+
+    // Behavior specs are read from the manifest's directory, but the manifest
+    // itself is still the thing `-f` names: a manifest that does not load (or
+    // whose `data:` source fails) is an error, not "no specs found" (forjar#660).
+    let _manifest = parse_and_validate_for_render(file)?;
 
     let spec_dir = file.parent().unwrap_or(Path::new("."));
     let t0 = std::time::Instant::now();

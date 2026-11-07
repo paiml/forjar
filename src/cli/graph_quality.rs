@@ -87,9 +87,7 @@ pub(crate) fn cmd_graph_resource_dependency_critical_path_highlight(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
     if cfg.resources.is_empty() {
         if json {
             println!("{{\"critical_path\":[],\"length\":0}}");
@@ -184,9 +182,7 @@ pub(crate) fn cmd_graph_resource_dependency_bottleneck_detection(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
     if cfg.resources.is_empty() {
         if json {
             println!("{{\"bottlenecks\":[]}}");
@@ -230,9 +226,7 @@ pub(crate) fn cmd_graph_resource_dependency_critical_path(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let path = find_critical_path(&config);
     if json {
         print_critical_path_p107_json(&path);

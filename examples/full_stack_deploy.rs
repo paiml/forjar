@@ -140,8 +140,13 @@ fn resolve_templates(config: &types::ForjarConfig) -> types::ForjarConfig {
     println!("\nTemplate resolution:");
     let mut resolved = config.clone();
     for (id, resource) in &config.resources {
-        let r = resolver::resolve_resource_templates(resource, &params, &config.machines)
-            .expect("resolution failed");
+        let r = resolver::resolve_resource_templates(
+            resource,
+            &params,
+            &config.data_values,
+            &config.machines,
+        )
+        .expect("resolution failed");
         if r.content
             .as_ref()
             .is_some_and(|c| c.contains("staging") || c.contains("8080"))

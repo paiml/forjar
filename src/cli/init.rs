@@ -1,7 +1,6 @@
 //! Init, format, completion, schema.
 
 use super::commands::*;
-use crate::core::types;
 use std::path::Path;
 
 pub(crate) fn cmd_init(path: &Path) -> Result<(), String> {
@@ -107,9 +106,12 @@ pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
     let original = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
 
-    // Parse into ForjarConfig to validate + normalize
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {e}"))?;
+    // Parse (the parser module, not a hand-rolled serde call) to validate +
+    // normalize. `fmt` rewrites the file, so the text it writes back is the
+    // UNRESOLVED manifest; but a `data:` source that fails still fails `fmt`
+    // (forjar#660), as it fails every other command that names `-f`.
+    let config = crate::core::parser::parse_config(&original)?;
+    super::helpers::require_data_sources(&config, file)?;
 
     // Re-serialize to canonical YAML
     let formatted =

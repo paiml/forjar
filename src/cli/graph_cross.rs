@@ -147,9 +147,7 @@ fn compute_change_impact(
 
 /// FJ-664: Visualize dependencies across machines
 pub(crate) fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let resource_machine = build_resource_machine_map(&config);
     let cross_deps = find_cross_machine_deps(&config, &resource_machine);
@@ -164,9 +162,7 @@ pub(crate) fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<()
 
 /// FJ-674: Group resources by machine in graph output
 pub(crate) fn cmd_graph_machine_groups(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let mut groups: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();

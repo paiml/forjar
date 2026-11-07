@@ -254,19 +254,50 @@ fn warn_on_stack_conflict(
 }
 
 /// FJ-1260: Resolve all output values from a config into a flat map.
-pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMap<String, String> {
+///
+/// forjar#660: a template that does not resolve is an ERROR. This used to fall
+/// back to the raw `{{...}}` text, so `forjar output` printed an unresolved
+/// reference with exit 0 and `apply` persisted it as the stack's output.
+pub fn resolve_outputs(
+    config: &super::types::ForjarConfig,
+) -> Result<indexmap::IndexMap<String, String>, super::error::ForjarError> {
     let mut resolved = indexmap::IndexMap::new();
     for (k, output) in &config.outputs {
-        let value = super::resolver::resolve_template_with_secrets(
+        let value = super::resolver::resolve_template_with_data(
             &output.value,
             &config.params,
+            &config.data_values,
             &config.machines,
             &config.secrets,
         )
-        .unwrap_or_else(|_| output.value.clone());
+        .map_err(|e| super::error::ForjarError::validation(format!("output '{k}': {e}")))?;
         resolved.insert(k.clone(), value);
     }
-    resolved
+    Ok(resolved)
+}
+
+/// [`resolve_outputs`] per output: the ones that resolve, and one message per output that
+/// does not. A bad output must not stop the good ones being saved (main saved every one).
+pub fn resolve_outputs_each(
+    config: &super::types::ForjarConfig,
+) -> (indexmap::IndexMap<String, String>, Vec<String>) {
+    let mut resolved = indexmap::IndexMap::new();
+    let mut failed = Vec::new();
+    for (k, output) in &config.outputs {
+        match super::resolver::resolve_template_with_data(
+            &output.value,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+            &config.secrets,
+        ) {
+            Ok(v) => {
+                resolved.insert(k.clone(), v);
+            }
+            Err(e) => failed.push(format!("output '{k}': {e}")),
+        }
+    }
+    (resolved, failed)
 }
 
 /// FJ-1260 + FJ-3300: Persist resolved outputs into the global lock file.
@@ -280,6 +311,18 @@ pub fn persist_outputs(
     outputs: &indexmap::IndexMap<String, String>,
     ephemeral: bool,
 ) -> Result<(), String> {
+    persist_outputs_keeping(state_dir, config_name, outputs, ephemeral, &[])
+}
+
+/// [`persist_outputs`], where the outputs named in `unresolved` failed to resolve this run
+/// and keep the value already in the lock instead of being withdrawn.
+pub fn persist_outputs_keeping(
+    state_dir: &Path,
+    config_name: &str,
+    outputs: &indexmap::IndexMap<String, String>,
+    ephemeral: bool,
+    unresolved: &[String],
+) -> Result<(), String> {
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
     let values = if ephemeral {
         ephemeral::redact_outputs(outputs, true)
@@ -289,7 +332,7 @@ pub fn persist_outputs(
     // forjar#469: MERGE, do not replace. Assigning `lock.outputs` deleted every
     // other stack's outputs in a shared state dir — and with them every
     // `{{stack.*}}` reference that resolved through them.
-    stamp::merge_outputs(&mut lock, config_name, &values);
+    stamp::merge_outputs_keeping(&mut lock, config_name, &values, unresolved);
     save_global_lock(state_dir, &lock)
 }
 

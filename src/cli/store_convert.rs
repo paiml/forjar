@@ -83,14 +83,12 @@ pub(crate) fn cmd_convert(
 
 /// Extract conversion signals from a forjar.yaml config.
 fn extract_signals(file: &Path) -> Result<Vec<ConversionSignals>, String> {
-    let content =
-        std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
-    let doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {}: {e}", file.display()))?;
+    let doc = super::helpers::load_resolved_value(file)?;
 
     let resources = doc
         .get("resources")
         .and_then(|r| r.as_mapping())
+        .filter(|m| !m.is_empty())
         .ok_or_else(|| "no resources section found".to_string())?;
 
     let mut signals = Vec::new();

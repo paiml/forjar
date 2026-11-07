@@ -7,12 +7,12 @@
 //! - SSH key types in machine definitions
 //! - Docker image digest algorithms
 
-use crate::core::{parser, state, types};
+use crate::core::{state, types};
 use std::path::Path;
 
 /// Generate CBOM from config and state.
 pub(crate) fn cmd_cbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
-    let config = parser::parse_and_validate(file)?;
+    let config = crate::core::resolver::load_resolved_config(file)?;
     let entries = collect_crypto_entries(&config, state_dir);
 
     if json {

@@ -12,7 +12,7 @@ use crate::core::remediate::{self, Report};
 pub(crate) fn cmd_remediate(args: &RemediateArgs) -> Result<(), String> {
     let source = std::fs::read_to_string(&args.file)
         .map_err(|e| format!("cannot read {}: {}", args.file.display(), e))?;
-    let config = crate::core::parser::parse_and_validate(&args.file)?;
+    let config = crate::cli::helpers::parse_and_validate(&args.file)?;
     let report = remediate::remediate(&source, &config, Some(&args.policy_id))?;
     if args.json {
         println!("{}", to_json(&report)?);

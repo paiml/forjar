@@ -180,13 +180,11 @@ fn lock_file_path(state_dir: &Path) -> std::path::PathBuf {
 
 /// Resolve resources from config to (name, provider, version) tuples.
 fn resolve_resources(file: &Path) -> Result<Vec<(String, String, Option<String>)>, String> {
-    let content =
-        std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
-    let doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {}: {e}", file.display()))?;
+    let doc = super::helpers::load_resolved_value(file)?;
     let resources = doc
         .get("resources")
         .and_then(|r| r.as_mapping())
+        .filter(|m| !m.is_empty())
         .ok_or_else(|| "no resources section found".to_string())?;
 
     let mut result = Vec::new();

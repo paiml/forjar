@@ -18,7 +18,7 @@ pub fn cmd_promote(
         eprintln!("Warning: --yes is not yet implemented for promote. Flag ignored.");
     }
 
-    let config = crate::core::parser::parse_and_validate(file)?;
+    let config = crate::core::resolver::load_resolved_config(file)?;
 
     // Find the target environment's promotion config
     if config.environments.is_empty() {

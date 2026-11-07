@@ -208,8 +208,12 @@ fn ambient_inputs_are_template_resolved() {
         ambient_inputs: vec!["{{params.fp}} | sha256sum".to_string()],
         ..Default::default()
     };
-    let resolved =
-        forjar::core::resolver::resolve_resource_templates(&r, &params, &indexmap::IndexMap::new())
-            .expect("resolves");
+    let resolved = forjar::core::resolver::resolve_resource_templates(
+        &r,
+        &params,
+        &Default::default(),
+        &indexmap::IndexMap::new(),
+    )
+    .expect("resolves");
     assert_eq!(resolved.ambient_inputs, vec!["fc-list | sha256sum"]);
 }

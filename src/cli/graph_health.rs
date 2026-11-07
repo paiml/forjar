@@ -128,9 +128,7 @@ pub(crate) fn cmd_graph_resource_dependency_health_overlay(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"health_overlay\":{{\"nodes\":[],\"edges\":[]}}}}");
@@ -273,9 +271,7 @@ pub(crate) fn cmd_graph_resource_dependency_width_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if config.resources.is_empty() {
         if json {
             println!("{{\"width_analysis\":{{\"levels\":[],\"max_width\":0}}}}");

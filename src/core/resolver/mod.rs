@@ -6,6 +6,7 @@
 
 mod dag;
 mod data;
+mod data_subst;
 pub(crate) mod functions;
 mod redaction;
 mod resource;
@@ -14,18 +15,23 @@ pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves, goal_closure};
 pub use data::{
-    dependents_of_failures, resolve_data_sources, resolve_data_sources_isolated, DataSourceFailure,
+    dependents_of_failures, load_resolved_config, load_resolved_config_for_render,
+    load_resolved_config_isolated, load_resolved_config_lenient, load_resolved_config_with,
+    manifest_dir, outputs_of_failures, resolve_data_sources_isolated,
+    resolve_data_sources_with_base, DataSourceFailure,
 };
+pub use data_subst::decode_literals;
+pub(crate) use data_subst::require_known_data_refs;
 pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{
     has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,
     resolve_resource_templates_with_secrets, unresolved_secret_resources,
 };
-pub use template::resolve_template;
 pub use template::{
     redact_secrets, resolve_secret_with_provider, resolve_template_with_secrets,
     EXPORT_REDACTED_SECRET_PROVIDER,
 };
+pub use template::{resolve_template, resolve_template_with_data};
 
 #[cfg(test)]
 pub(super) use crate::core::types::*;

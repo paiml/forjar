@@ -373,18 +373,35 @@ pub fn apply_stamp(
 /// records the keys it owns: those are withdrawn, this apply's keys inserted,
 /// and every other stack's keys left alone.
 pub fn merge_outputs(lock: &mut GlobalLock, config_name: &str, outputs: &IndexMap<String, String>) {
+    merge_outputs_keeping(lock, config_name, outputs, &[]);
+}
+
+/// Like [`merge_outputs`], but an output named in `unresolved` (it failed to resolve this
+/// run) keeps the value this stack previously persisted: it is neither withdrawn nor blanked.
+pub fn merge_outputs_keeping(
+    lock: &mut GlobalLock,
+    config_name: &str,
+    outputs: &IndexMap<String, String>,
+    unresolved: &[String],
+) {
     // PMAT-172: the same resolution `apply_stamp` makes. Outputs persisted
     // under the replayed config's name would put back the very second stamp
     // the stamp itself no longer writes.
     let owner = replay::stamping_name(config_name);
     let config_name = owner.as_str();
+    let mut kept: IndexMap<String, String> = IndexMap::new();
     for key in owned_output_keys(lock, config_name) {
-        lock.outputs.shift_remove(&key);
+        let old = lock.outputs.shift_remove(&key);
+        if let (Some(v), true) = (old, unresolved.contains(&key)) {
+            if !outputs.contains_key(&key) {
+                kept.insert(key, v);
+            }
+        }
     }
-    for (key, value) in outputs {
+    for (key, value) in outputs.iter().chain(kept.iter()) {
         lock.outputs.insert(key.clone(), value.clone());
     }
-    let owned: Vec<String> = outputs.keys().cloned().collect();
+    let owned: Vec<String> = outputs.keys().chain(kept.keys()).cloned().collect();
     match lock.stacks.get_mut(config_name) {
         Some(stamp) => stamp.outputs = owned,
         None => {

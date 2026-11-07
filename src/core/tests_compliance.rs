@@ -21,6 +21,7 @@ mod tests {
             secrets: Default::default(),
             includes: vec![],
             include_provenance: HashMap::new(),
+            data_values: Default::default(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
             environments: indexmap::IndexMap::new(),

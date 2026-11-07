@@ -192,7 +192,7 @@ fn reconcile_once(config: &PullAgentConfig, iteration: u64) -> Result<ReconcileR
 /// drift` uses, so the agent and the drift command cannot diverge on what drift
 /// means.
 pub fn detect_drift(config_file: &Path, state_dir: &Path) -> Result<Vec<String>, String> {
-    let config = crate::core::parser::parse_and_validate(config_file)?;
+    let config = crate::core::resolver::load_resolved_config(config_file)?;
     let mut drifted = Vec::new();
 
     for (machine_name, machine) in &config.machines {

@@ -57,8 +57,13 @@ resources:
     let params = config.params.clone();
 
     for (id, resource) in &config.resources {
-        let resolved = resolver::resolve_resource_templates(resource, &params, &config.machines)
-            .expect("resolution failed");
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &params,
+            &config.data_values,
+            &config.machines,
+        )
+        .expect("resolution failed");
 
         println!("Resource: {id}");
         if let Some(ref path) = resolved.path {

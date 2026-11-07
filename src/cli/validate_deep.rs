@@ -187,8 +187,13 @@ fn check_drift_coverage_silent(config: &types::ForjarConfig) -> Result<(), Strin
     let mut total = 0usize;
     for res in config.resources.values() {
         total += 1;
-        let resolved = resolver::resolve_resource_templates(res, &config.params, &config.machines)
-            .unwrap_or_else(|_| res.clone());
+        let resolved = resolver::resolve_resource_templates(
+            res,
+            &config.params,
+            &config.data_values,
+            &config.machines,
+        )
+        .map_err(|e| format!("template resolution failed: {e}"))?;
         if codegen::check_script(&resolved).is_err() {
             uncovered += 1;
         }
@@ -278,7 +283,7 @@ pub(super) fn emit_deep_json(results: &[(&str, Result<(), String>)]) -> Result<(
 
 /// Run all deep validation checks and aggregate results.
 pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate_for_render(file)?;
 
     // JSON mode: run checks silently to avoid stdout contamination
     if json {

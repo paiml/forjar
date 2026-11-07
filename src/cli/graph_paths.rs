@@ -11,9 +11,7 @@ pub(crate) fn cmd_graph_resource_dependency_chain(
     target: &str,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     if !config.resources.contains_key(target) {
         return Err(format!("Resource '{target}' not found"));
     }
@@ -58,9 +56,7 @@ fn collect_dep_chain(config: &types::ForjarConfig, target: &str) -> Vec<String> 
 
 /// FJ-827: Resources with highest fan-in AND fan-out (bottlenecks).
 pub(crate) fn cmd_graph_bottleneck_resources(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let bottlenecks = find_bottlenecks(&config);
     if json {
         let items: Vec<String> = bottlenecks
@@ -107,9 +103,7 @@ fn find_bottlenecks(config: &types::ForjarConfig) -> Vec<(String, usize, usize)>
 
 /// FJ-831: Longest weighted path through the DAG (critical dependency path).
 pub(crate) fn cmd_graph_critical_dependency_path(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let path = find_critical_dep_path(&config);
     if json {
         let items: Vec<String> = path.iter().map(|s| format!("\"{s}\"")).collect();
@@ -171,9 +165,7 @@ fn longest_path_from(start: usize, adj: &[Vec<usize>], visited: &mut [bool]) -> 
 
 /// FJ-835: Histogram of dependency depths across all resources.
 pub(crate) fn cmd_graph_resource_depth_histogram(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let histogram = build_depth_histogram(&config);
     if json {
         let items: Vec<String> = histogram
@@ -234,9 +226,7 @@ fn compute_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>]) -
 
 /// FJ-839: Coupling score between resource pairs.
 pub(crate) fn cmd_graph_resource_coupling_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let scores = compute_coupling_scores(&config);
     if json {
         let items: Vec<String> = scores
@@ -287,9 +277,7 @@ fn compute_coupling_scores(config: &types::ForjarConfig) -> Vec<(String, String,
 
 /// FJ-843: Overlay change frequency on dependency graph (simulated from deps count).
 pub(crate) fn cmd_graph_resource_change_frequency(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
-    let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
+    let config = crate::core::resolver::load_resolved_config_lenient(file)?;
     let freqs = estimate_change_frequency(&config);
     if json {
         let items: Vec<String> = freqs

@@ -5,7 +5,6 @@ use super::apply_output::*;
 use super::apply_scope::ApplyScope;
 use super::apply_selection::*;
 use super::apply_summary::print_apply_summary;
-use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
 use crate::core::{executor, state, types};
@@ -363,13 +362,13 @@ fn load_apply_config(
     env_file: Option<&Path>,
     workspace: Option<&str>,
 ) -> Result<(types::ForjarConfig, Vec<String>), String> {
-    let mut config = parse_and_validate(file)?;
-    if let Some(path) = env_file {
-        load_env_params(&mut config, path)?;
-    }
-    inject_workspace_param(&mut config, workspace);
-    let data_faults = super::data_isolation::resolve_isolated(&mut config);
-    Ok((config, data_faults))
+    super::data_isolation::load_isolated(file, |config| {
+        if let Some(path) = env_file {
+            load_env_params(config, path)?;
+        }
+        inject_workspace_param(config, workspace);
+        Ok(())
+    })
 }
 
 /// GH-210 (FJ-129): which already-converged resources `--force` will re-apply.

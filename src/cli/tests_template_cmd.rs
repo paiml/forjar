@@ -138,7 +138,7 @@ fn expand_for_test(path: &std::path::Path, vars: &[String]) -> Result<String, St
     let map = parse_vars(vars)?;
     match classify(&content) {
         Kind::Recipe => expand_recipe_file(&content, &map),
-        Kind::Config => expand_config_file(&content, &map),
+        Kind::Config => expand_config_file(path, &content, &map),
         Kind::Unknown => Err("unknown".to_string()),
     }
 }

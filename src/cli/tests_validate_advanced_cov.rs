@@ -15,7 +15,7 @@ mod tests {
         f
     }
 
-    const BASE: &str = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
+    const BASE: &str = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n";
 
     // FJ-797: orphan resources
     #[test]
@@ -39,21 +39,21 @@ mod tests {
     // FJ-801: machine architecture
     #[test]
     fn test_machine_arch_valid() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: x86_64\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: x86_64\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_arch(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_machine_arch_invalid() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: mips\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: mips\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_arch(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_machine_arch_json() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: mips\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\n    arch: mips\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_arch(f.path(), true).is_ok());
     }
@@ -210,21 +210,21 @@ mod tests {
 
     #[test]
     fn test_connectivity_bad_addr() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: badaddr\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: badaddr\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_connectivity(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_connectivity_localhost() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: localhost\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: localhost\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_connectivity(f.path(), false).is_ok());
     }
 
     #[test]
     fn test_connectivity_json() {
-        let yaml = "version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: badaddr\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
+        let yaml = "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: badaddr\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n";
         let f = write_cfg(yaml);
         assert!(cmd_validate_check_machine_connectivity(f.path(), true).is_ok());
     }

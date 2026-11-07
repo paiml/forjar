@@ -51,9 +51,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_fan_out_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_fan_out_warnings(&cfg, DEFAULT_FAN_OUT_THRESHOLD);
 
@@ -136,9 +134,7 @@ pub(crate) fn cmd_validate_check_resource_tag_required_keys(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let warnings = find_tag_required_keys_warnings(&cfg);
 
@@ -240,9 +236,7 @@ pub(crate) fn cmd_validate_check_resource_content_drift_risk(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let entries = compute_drift_risk(&cfg);
 

@@ -383,7 +383,11 @@ fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
     if config.policies.is_empty() {
         return Ok(());
     }
-    let result = parser::evaluate_policies_full(config);
+    // The same form `forjar policy` reads: rules compare a data value as written, not the
+    // render-form stand-ins.
+    let mut shown = config.clone();
+    crate::core::resolver::decode_literals(&mut shown)?;
+    let result = parser::evaluate_policies_full(&shown);
     if !result.has_blocking_violations() {
         // Print warnings if any
         for v in &result.violations {

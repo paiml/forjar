@@ -3,10 +3,7 @@
 use crate::core::types;
 use std::path::Path;
 
-fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())
-}
+use super::helpers::parse_and_validate;
 
 fn build_undirected_adj(
     cfg: &types::ForjarConfig,

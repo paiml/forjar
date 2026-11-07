@@ -25,6 +25,7 @@ fn empty_config() -> ForjarConfig {
         data: IndexMap::new(),
         includes: vec![],
         include_provenance: HashMap::new(),
+        data_values: Default::default(),
         checks: IndexMap::new(),
         moved: vec![],
         secrets: Default::default(),

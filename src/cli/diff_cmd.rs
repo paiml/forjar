@@ -313,7 +313,10 @@ pub(crate) fn cmd_env_diff(
 /// FJ-277: Show resolved environment info.
 pub(crate) fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
     let parsed_config = if file.exists() {
-        parse_and_validate(file).ok()
+        // The config is optional context (no file is fine), but a file that is
+        // there and does not load, or whose `data:` source fails, is an error:
+        // `.ok()` here reported "project: x" for a manifest that cannot be read.
+        Some(parse_and_validate(file)?)
     } else {
         None
     };

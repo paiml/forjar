@@ -85,9 +85,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_depth_variance(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let stats = compute_depth_stats(&cfg);
 
@@ -189,9 +187,7 @@ pub(crate) fn cmd_validate_check_resource_tag_key_naming(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let violations = find_tag_key_violations(&cfg);
 
@@ -270,9 +266,7 @@ pub(crate) fn cmd_validate_check_resource_content_length_limit(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    let cfg: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())?;
+    let cfg = crate::core::resolver::load_resolved_config_lenient(file)?;
 
     let violations = find_content_length_violations(&cfg, CONTENT_LENGTH_LIMIT);
 

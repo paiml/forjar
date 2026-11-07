@@ -213,6 +213,7 @@ resources:
     let resolved = crate::core::resolver::resolve_all(
         &config.resources,
         &config.params,
+        &config.data_values,
         &config.machines,
         &config.secrets,
     );
