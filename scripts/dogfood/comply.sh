@@ -78,14 +78,18 @@ fail() {
 # The exit code cannot be the predicate: `bashrs lint` exits 1 on warnings and 2
 # both for "this file has errors" and for "this file does not exist", so a typo
 # in a path would read as a finding and a missing file as a clean one. The
-# `Summary:` line proves the linter actually ran; anything else is UNMEASURED
-# and fails, because a file nobody linted is not a file that passed.
+# `Summary:` line proves the linter actually ran. A CLEAN file prints no Summary
+# at all, only `No issues found in <file>`; that sentinel is bashrs's own
+# statement that it linted the file and found nothing, so it is a measurement of
+# zero errors. Anything else is UNMEASURED and fails, because a file nobody
+# linted is not a file that passed.
 BASHRS_ERR_COUNT=0
 bashrs_count() {
   local out rc=0 n=0 line
   out="$(bashrs lint "$1" 2>&1)" || rc=$?
   case "$out" in
     *"Summary:"*) : ;;
+    *"No issues found in "*) : ;;
     *) fail "bashrs did not lint $1 (exit ${rc}) — unmeasured is not clean" ;;
   esac
   while IFS= read -r line; do
