@@ -14,6 +14,18 @@ use crate::core::types::ProvenanceEvent;
 #[cfg(feature = "encryption")]
 use crate::tripwire::eventlog;
 
+/// Write one line to stdout without `println!`: that panics when stdout fails
+/// (ENOSPC, EPIPE), and with panic=abort the core dump holds the plaintext.
+#[cfg(feature = "encryption")]
+fn emit_line(line: &str) -> Result<(), String> {
+    use std::io::Write;
+    let mut out = std::io::stdout().lock();
+    out.write_all(line.as_bytes())
+        .and_then(|()| out.write_all(b"\n"))
+        .and_then(|()| out.flush())
+        .map_err(|_| "cannot write to stdout".to_string())
+}
+
 #[cfg(not(feature = "encryption"))]
 fn no_encryption_error() -> Result<(), String> {
     Err(
@@ -26,8 +38,7 @@ fn no_encryption_error() -> Result<(), String> {
 pub(crate) fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<(), String> {
     let recipient_refs: Vec<&str> = recipients.iter().map(|r| r.as_str()).collect();
     let encrypted = secrets::encrypt(value, &recipient_refs)?;
-    println!("{encrypted}");
-    Ok(())
+    emit_line(&encrypted)
 }
 
 #[cfg(not(feature = "encryption"))]
@@ -39,8 +50,7 @@ pub(crate) fn cmd_secrets_encrypt(_value: &str, _recipients: &[String]) -> Resul
 pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> Result<(), String> {
     let identities = secrets::load_identities(identity_path)?;
     let plaintext = secrets::decrypt_marker(value, &identities)?;
-    println!("{plaintext}");
-    Ok(())
+    emit_line(&plaintext)
 }
 
 #[cfg(not(feature = "encryption"))]
@@ -62,7 +72,7 @@ pub(crate) fn cmd_secrets_keygen(output: Option<&Path>) -> Result<(), String> {
         None => {
             eprintln!("# created: {created}");
             eprintln!("# public key: {recipient}");
-            println!("{}", key_str.expose_secret());
+            emit_line(key_str.expose_secret())?;
         }
         Some(path) => {
             let body = format!(
@@ -85,6 +95,15 @@ pub fn argv_is_secrets_encrypt<S: AsRef<str>>(argv: &[S]) -> bool {
     argv.iter()
         .position(|a| a.as_ref() == "secrets")
         .is_some_and(|i| argv[i + 1..].iter().any(|a| a.as_ref() == "encrypt"))
+}
+
+/// True when any argv word is `secrets` or starts with it (a secret can be
+/// glued onto the word, `secrets=S`, `secretsS`), so every clap usage error
+/// for the family is replaced by a fixed message (see `main.rs`).
+pub fn argv_mentions_secrets<S: AsRef<str>>(argv: &[S]) -> bool {
+    argv.iter()
+        .skip(1)
+        .any(|a| a.as_ref().starts_with("secrets"))
 }
 
 /// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
@@ -133,7 +152,10 @@ pub(crate) fn resolve_encrypt_input(
     }
     let mut buf = match from_file {
         Some(p) => {
-            std::fs::read_to_string(p).map_err(|e| format!("cannot read '{}': {e}", p.display()))?
+            std::fs::read_to_string(p).map_err(|e| {
+                // The path is not echoed: a secret can land in this slot.
+                format!("cannot read the --from-file path: {:?}", e.kind())
+            })?
         }
         None => {
             use std::io::Read;
@@ -166,13 +188,11 @@ pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Res
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("{content}");
-        return Ok(());
+        return emit_line(&content);
     }
     let identities = secrets::load_identities(identity_path)?;
     let decrypted = secrets::decrypt_all(&content, &identities)?;
-    println!("{decrypted}");
-    Ok(())
+    emit_line(&decrypted)
 }
 
 #[cfg(not(feature = "encryption"))]

@@ -74,7 +74,8 @@ fn resolve_rejects_empty_plaintext_and_missing_file() {
     let err = resolve_encrypt_input(Some(&f), &[]).unwrap_err();
     assert!(err.contains("no plaintext given"), "{err}");
     let err = resolve_encrypt_input(Some(&d.path().join("nope")), &[]).unwrap_err();
-    assert!(err.contains("cannot read"), "{err}");
+    assert!(err.contains("cannot read the --from-file path"), "{err}");
+    assert!(!err.contains("nope"), "{err}");
 }
 
 #[cfg(all(feature = "encryption", unix))]
@@ -83,10 +84,26 @@ fn identity_is_written_0600_and_never_overwritten() {
     use std::os::unix::fs::PermissionsExt;
     let d = tempfile::tempdir().unwrap();
     let f = d.path().join("id.txt");
+    // Only discriminating under a umask that leaves group/other bits (022);
+    // the integration test pins umask 022 in the child, this one cannot (no
+    // unsafe/libc), so it is a plain check under whatever umask the harness has.
     write_identity_0600(&f, "AGE-SECRET-KEY-1\n").unwrap();
     let mode = std::fs::metadata(&f).unwrap().permissions().mode() & 0o777;
     assert_eq!(mode, 0o600);
     let err = write_identity_0600(&f, "other").unwrap_err();
     assert!(err.contains("cannot create"), "{err}");
     assert_eq!(std::fs::read_to_string(&f).unwrap(), "AGE-SECRET-KEY-1\n");
+}
+
+#[test]
+fn mentions_predicate_catches_glued_words() {
+    assert!(argv_mentions_secrets(&args(&[
+        "forjar",
+        "secrets=S",
+        "encrypt"
+    ])));
+    assert!(argv_mentions_secrets(&args(&["forjar", "secretsS"])));
+    assert!(argv_mentions_secrets(&args(&["forjar", "secrets", "encX"])));
+    assert!(!argv_mentions_secrets(&args(&["forjar", "apply"])));
+    assert!(!argv_mentions_secrets::<&str>(&[]));
 }

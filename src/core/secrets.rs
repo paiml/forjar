@@ -64,10 +64,18 @@ pub fn encrypt(plaintext: &str, recipient_strs: &[&str]) -> Result<String, Strin
     }
     let recipients: Vec<Box<dyn age::Recipient + Send>> = recipient_strs
         .iter()
-        .map(|r| {
+        .enumerate()
+        .map(|(i, r)| {
+            // Never echo the value or the parser's text: an unset shell
+            // variable can slide the secret into the recipient slot.
             r.parse::<age::x25519::Recipient>()
                 .map(|r| Box::new(r) as Box<dyn age::Recipient + Send>)
-                .map_err(|e| format!("invalid recipient '{r}': {e}"))
+                .map_err(|_| {
+                    format!(
+                        "invalid recipient #{}: not an age X25519 public key (value not shown)",
+                        i + 1
+                    )
+                })
         })
         .collect::<Result<Vec<_>, _>>()?;
 

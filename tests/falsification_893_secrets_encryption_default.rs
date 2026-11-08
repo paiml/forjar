@@ -9,8 +9,13 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+/// The binary runs under umask 022 whatever the harness umask is: under 077 a
+/// dropped `mode(0o600)` would still yield 0600 and go undetected.
 fn forjar() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_forjar"))
+    let mut c = Command::new("sh");
+    c.args(["-c", "umask 022; exec \"$0\" \"$@\""])
+        .arg(env!("CARGO_BIN_EXE_forjar"));
+    c
 }
 
 /// The gate: the built binary carries encryption. Fails with
@@ -63,6 +68,11 @@ fn keygen_output_refuses_to_overwrite_existing_file() {
         .output()
         .unwrap();
     assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("cannot create"),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "keep me");
 }
 
@@ -79,7 +89,7 @@ fn recipient_of(identity_file: &std::path::Path) -> String {
 /// does not contain it, and it round-trips through decrypt.
 #[cfg(target_os = "linux")]
 #[test]
-fn encrypt_reads_plaintext_from_stdin_never_argv() {
+fn encrypt_stdin_round_trips_and_marker_hides_plaintext() {
     use std::io::Read;
     let dir = tempfile::tempdir().unwrap();
     let id = dir.path().join("id.txt");

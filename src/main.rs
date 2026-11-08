@@ -67,5 +67,10 @@ fn exit_redacted(e: clap::Error) -> Cli {
         );
         std::process::exit(2);
     }
+    if e.use_stderr() && forjar::cli::argv_mentions_secrets(&argv) {
+        // A secret can be glued onto a subcommand word, which clap then quotes.
+        eprintln!("error: invalid arguments for `forjar secrets` (not shown: it may hold a secret). See `forjar secrets --help`");
+        std::process::exit(2);
+    }
     e.exit()
 }
