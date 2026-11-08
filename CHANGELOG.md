@@ -14,16 +14,14 @@ creates the identity file 0600 from the first syscall and refuses to overwrite.
 `default-features = false` still drops age.
 
 **BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
-The positional `VALUE` is removed (an argv secret is visible in `ps` and
-`/proc/<pid>/cmdline`); scripts that ran `forjar secrets encrypt -r R VALUE` must pipe the
-plaintext on stdin or use `--from-file`.
-
-**`forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
-A value beginning with `-----BEGIN` (a PEM key) made clap print the whole key twice
-in its "unexpected argument" error and tip. The plaintext now comes from stdin
-(`forjar secrets encrypt -r R < key.pem`) or `--from-file PATH`; a positional value
-is refused with a message that does not contain it, and usage errors for this
-subcommand print a fixed message that echoes no argument.
+The positional `VALUE` is removed: an argv secret is visible in `ps` and
+`/proc/<pid>/cmdline`, and a value beginning with `-----BEGIN` (a PEM key) made clap print
+the whole key twice in its "unexpected argument" error and tip. The plaintext now comes
+from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is accepted for
+compatibility, stdin is the default) or `--from-file PATH`. A positional value, or `-` as
+an argv secret, is refused with a fixed message that does not contain it; usage errors
+for this subcommand echo no argument, and a non-UTF-8 argument no longer panics or prints.
+Scripts that ran `forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
 
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a

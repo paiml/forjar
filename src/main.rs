@@ -55,7 +55,10 @@ fn main() {
 /// and "tip" line; for `secrets encrypt` that argument can be the secret
 /// itself, so this subcommand gets a fixed message that echoes nothing.
 fn exit_redacted(e: clap::Error) -> Cli {
-    let argv: Vec<String> = std::env::args().collect();
+    // args_os + lossy: `args()` panics on a non-UTF-8 value and prints it.
+    let argv: Vec<String> = std::env::args_os()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
     if e.use_stderr() && forjar::cli::argv_is_secrets_encrypt(&argv) {
         eprintln!(
             "error: invalid arguments for `forjar secrets encrypt` (not shown: it may hold a \

@@ -331,3 +331,37 @@ fn clap_errors_on_secrets_encrypt_never_echo_value() {
         assert_no_echo(&out, &["sentinelq", "BEGIN", "SEKRIT"]);
     }
 }
+
+/// A non-UTF-8 argv value must never panic (std::env::args() panics and prints
+/// the whole value, exit 134) and must never be echoed.
+#[cfg(unix)]
+#[test]
+fn non_utf8_secret_argv_is_never_echoed_or_panics() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let kg = forjar().args(["secrets", "keygen"]).output().unwrap();
+    // `keygen` prints the identity on stdout and the public key on stderr.
+    let recipient = String::from_utf8_lossy(&kg.stderr)
+        .split_whitespace()
+        .find(|w| w.starts_with("age1"))
+        .unwrap_or("age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
+        .to_string();
+    let bad = OsStr::from_bytes(b"SEKRIT\xff");
+    let out = forjar()
+        .args(["secrets", "encrypt", "-r", &recipient])
+        .arg(bad)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let all = [out.stdout.clone(), out.stderr.clone()].concat();
+    assert!(
+        !String::from_utf8_lossy(&all).contains("SEKRIT"),
+        "secret leaked: {}",
+        String::from_utf8_lossy(&all)
+    );
+    let code = out.status.code();
+    assert!(
+        code != Some(134) && code != Some(101) && code.is_some(),
+        "panicked/aborted: {code:?}"
+    );
+}
