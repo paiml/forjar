@@ -128,6 +128,8 @@ resources:
     content: "password=ENC[age,YWdlLWVuY3J5cHRpb24...]"
 ```
 
+Run `forjar secrets encrypt` under `ulimit -c 0` so a crash cannot dump the plaintext to a core file.
+
 Age-encrypted values are decrypted AFTER template resolution, so you can combine both:
 
 ```yaml

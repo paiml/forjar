@@ -91,17 +91,11 @@ pub(crate) fn cmd_secrets_keygen(output: Option<&Path>) -> Result<(), String> {
     Ok(())
 }
 
-/// The binary's global flags (`-v`, `-vv`, `--verbose`, `--no-color`).
-fn is_global_flag(a: &str) -> bool {
-    a == "--verbose"
-        || a == "--no-color"
-        || (a.len() > 1 && a.starts_with('-') && a[1..].bytes().all(|b| b == b'v'))
-}
-
 /// Index of the subcommand word: the first argv word after the program name
-/// that is not a global flag.
+/// that does not start with `-`. Every earlier word is a global flag or an
+/// unknown flag clap would quote (`--verbose=S`, `--S`), so none counts.
 fn subcommand_index<S: AsRef<str>>(argv: &[S]) -> Option<usize> {
-    (1..argv.len()).find(|&i| !is_global_flag(argv[i].as_ref()))
+    (1..argv.len()).find(|&i| !argv[i].as_ref().starts_with('-'))
 }
 
 /// True when this argv is a `secrets ... encrypt` invocation, wherever global
@@ -121,7 +115,11 @@ pub fn argv_is_secrets_encrypt<S: AsRef<str>>(argv: &[S]) -> bool {
 /// `main.rs`). A `secrets*.yaml` argument to another command does not count,
 /// so `apply -f secrets.yaml --bogus` keeps clap's real error.
 pub fn argv_mentions_secrets<S: AsRef<str>>(argv: &[S]) -> bool {
-    subcommand_index(argv).is_some_and(|i| argv[i].as_ref().starts_with("secret"))
+    subcommand_index(argv).is_some_and(|i| {
+        let w = argv[i].as_ref().to_ascii_lowercase();
+        // clap's built-in `help` quotes whatever follows it.
+        w.starts_with("secret") || w == "help"
+    })
 }
 
 /// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
@@ -244,7 +242,7 @@ pub(crate) fn cmd_secrets_rekey(
 ) -> Result<(), String> {
     let content = read_secrets_file(file)?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("no ENC[age,...] markers found");
+        emit_line("no ENC[age,...] markers found")?;
         return Ok(());
     }
 
@@ -263,7 +261,7 @@ pub(crate) fn cmd_secrets_rekey(
     std::fs::write(file, &result)
         .map_err(|e| format!("cannot write the secrets file: {:?}", e.kind()))?;
     let count = find_enc_markers(&result).len();
-    println!("re-encrypted {count} secret(s)");
+    emit_line(&format!("re-encrypted {count} secret(s)"))?;
     Ok(())
 }
 
@@ -292,7 +290,7 @@ pub(crate) fn cmd_secrets_rotate(
 
     let content = read_secrets_file(file)?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("no ENC[age,...] markers found");
+        emit_line("no ENC[age,...] markers found")?;
         return Ok(());
     }
 
@@ -320,11 +318,11 @@ pub(crate) fn cmd_secrets_rotate(
     };
     let _ = eventlog::append_event(state_dir, "__secrets__", event);
 
-    println!(
+    emit_line(&format!(
         "rotated {} secret(s) to {} recipient(s)",
         marker_count,
         new_recipients.len()
-    );
+    ))?;
     Ok(())
 }
 

@@ -5451,6 +5451,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.0
   notes: null
 - id: PMAT-840
   github_issue: 840

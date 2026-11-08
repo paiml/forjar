@@ -406,7 +406,7 @@ pub enum SecretsCmd {
         #[arg(long, value_name = "PATH")]
         from_file: Option<PathBuf>,
         /// Accepted for compatibility; stdin is already the default
-        #[arg(long)]
+        #[arg(long, conflicts_with = "from_file")]
         stdin: bool,
         /// Refused if given (a secret on argv); never printed
         #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
