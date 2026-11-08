@@ -207,17 +207,26 @@ fn push_atomic_replace_lines(lines: &mut Vec<String>, path: &str, resource: &Res
     }
     let staged = format!("{path}.forjar-new");
     let p = sh_squote(path);
-    let s = sh_squote(&staged);
+    // forjar#638: the staging name is per-run (`$$`), not fixed, so a writer in
+    // the same directory cannot pre-create or swap a predictable name between
+    // the `rm -f` and the `mv -f`. The helpers below quote `staged` themselves;
+    // their lines are rewritten to the per-run form once, here.
+    let s = format!("{}$$", sh_squote(&format!("{staged}.")));
+    let fixed = sh_squote(&staged);
+    let start = lines.len();
     lines.push(format!(
         "if [ -d {p} ]; then echo {}; exit 1; fi",
         sh_squote(&format!(
             "ERROR: {path} is a directory; state: file will not replace it"
         ))
     ));
-    lines.push(format!("rm -f {s}"));
-    lines.push(format!("if [ -f {p} ]; then cp -p {p} {s}; fi"));
+    lines.push(format!("rm -f {fixed}"));
+    lines.push(format!("if [ -f {p} ]; then cp -p {p} {fixed}; fi"));
     push_file_content_lines(lines, &staged, resource);
     push_ownership_lines(lines, &staged, resource);
+    for line in &mut lines[start..] {
+        *line = line.replace(&fixed, &s);
+    }
     lines.push(format!("mv -f {s} {p}"));
 }
 
@@ -402,7 +411,7 @@ mod tests {
         r.content = Some("hello".to_string());
         let script = apply_script(&r);
         // The destination path is one quoted shell word...
-        assert!(script.contains("| base64 -d > '/etc/conf.forjar-new'"));
+        assert!(script.contains("| base64 -d > '/etc/conf.forjar-new.'$$"));
         // ...and the declared content is what the script deploys there.
         // C8 (GH #296): assert on the decoded payload, not on the script text — the
         // old `script.contains("hello")` was equally true of a script whose
