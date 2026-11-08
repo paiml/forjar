@@ -105,6 +105,8 @@ fn mentions_predicate_catches_glued_words() {
     assert!(argv_mentions_secrets(&args(&["forjar", "secretsS"])));
     assert!(argv_mentions_secrets(&args(&["forjar", "secrets", "encX"])));
     assert!(argv_mentions_secrets(&args(&["forjar", "secret=S"])));
+    assert!(argv_mentions_secrets(&args(&["forjar", "SECRETS=S"])));
+    assert!(argv_mentions_secrets(&args(&["forjar", "Secret=S"])));
     assert!(argv_mentions_secrets(&args(&[
         "forjar",
         "-vv",

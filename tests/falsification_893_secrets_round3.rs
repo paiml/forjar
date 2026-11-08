@@ -125,6 +125,8 @@ fn glued_subcommand_word_is_never_echoed() {
         vec!["secrets", "encXhunter2SECRET"],
         vec!["secretshunter2SECRET", "encrypt"],
         vec!["secrets=hunter2SECRET", "encrypt"],
+        vec!["SECRETS=hunter2SECRET", "encrypt"],
+        vec!["Secret=S", "encrypt"],
         vec!["secrets", "encrypt", "--bogushunter2SECRET"],
     ] {
         let out = forjar().args(&args).stdin(Stdio::null()).output().unwrap();

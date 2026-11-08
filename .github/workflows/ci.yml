@@ -283,7 +283,7 @@ jobs:
       # error echoes it. Spawns the built binary; not covered by `--lib`.
       - name: Secrets encryption is in the default build and never echoes a secret
         run: cargo test --locked --test falsification_893_secrets_encryption_default
-      - name: Secrets redaction, path and size policy (rounds 3 to 5)
+      - name: Secrets redaction, path and size policy (rounds 3 to 6)
         run: cargo test --locked --test falsification_893_secrets_round3 --test falsification_893_secrets_round4 --test falsification_893_secrets_round5 --test falsification_default_features_trim
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that

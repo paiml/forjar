@@ -52,8 +52,10 @@ fn main() {
 }
 
 /// Exit on a usage error. clap quotes the offending argument in its message
-/// and "tip" line; for `secrets encrypt` that argument can be the secret
-/// itself, so this subcommand gets a fixed message that echoes nothing.
+/// and "tip" line; a secret can be that argument. So the whole secrets family
+/// (subcommand word `secret*`), clap's built-in `help`, and an
+/// InvalidSubcommand error with a later secrets word get a fixed message that
+/// echoes nothing. Every other command keeps clap's own error.
 fn exit_redacted(e: clap::Error) -> Cli {
     // args_os + lossy: `args()` panics on a non-UTF-8 value and prints it.
     let argv: Vec<String> = std::env::args_os()

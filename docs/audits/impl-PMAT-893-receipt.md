@@ -11,7 +11,7 @@ verdict: pending-quorum
 
 - `encryption` (age) is in the default features; `default-features = false` still drops it.
 - `secrets keygen -o` creates the identity file 0600 from the first syscall (O_CREAT|O_EXCL) and refuses to overwrite.
-- `secrets encrypt`: positional `VALUE` removed (BREAKING). Plaintext comes from stdin (default; `--stdin` accepted for compatibility) or `--from-file`. A positional value, or `-` as an argv secret, is refused with a message that does not contain it. Usage errors for this subcommand print a fixed message echoing no argument.
+- `secrets encrypt`: positional `VALUE` removed (BREAKING). Plaintext comes from stdin (default; `--stdin` is an explicit form of the default, new in this PR) or `--from-file`. A positional value, or `-` as an argv secret, is refused with a message that does not contain it. Usage errors for the whole secrets family (subcommand word `secret*`, case-insensitive), clap's `help`, and an invalid subcommand followed by a later secrets word print a fixed message echoing no argument.
 - Leak fix: `exit_redacted` in `src/main.rs` used `std::env::args()`, which panics (printing the whole value, exit 134) on a non-UTF-8 argument. It now uses `args_os()` with `to_string_lossy()`. No other `std::env::args()` call remains in `src/`.
 - CI runs the secrets-encryption test per PR; lint keeps the non-encryption leg.
 
@@ -28,6 +28,7 @@ verdict: pending-quorum
   6. CHANGELOG BREAKING entry reworded to the real scope.
 - Round 5 findings and fixes: clap's built-in `help` subcommand (`help secrets encrypt S`, `help S`) and glued/unknown leading flags (`--verbose=S`, `--no-color=S`, `--S`) quoted the value. The subcommand word is now the first word not starting with `-`; a `help` subcommand word or a `secret*` one (case-insensitive) redacts every usage error. `rekey`/`rotate` success lines go through `emit_line`. `--stdin` conflicts with `--from-file`. Tests: `tests/falsification_893_secrets_round5.rs` (incl. a 16 MiB + 1 `--from-file`); CI runs it and the default-features trim test. Book notes `ulimit -c 0`.
 - Round 6 findings and fixes: (1) leak: `--verbose S secrets encrypt`, `-v S ...`, `-vv S ... -r x`, `--no-color S ...` put the secret in the subcommand slot (clap `unrecognized subcommand 'S'`); `exit_redacted` now also redacts an InvalidSubcommand error when a later word is `secrets`/`secret*` (`argv_has_later_secrets_word`), without over-redacting `apply -f secrets.yaml --bogus` or `apply --bogus`. (2) `forjar help bogus` has its own fixed message (`invalid arguments for \`forjar help\``, `argv_is_help`), still redacted, exit 2. (3) surviving mutants: `/dev/full` tests for `secrets view` (marker and no-marker), `rekey`, `rotate --re-encrypt` (marker and no-marker) assert exit 1 and "cannot write to stdout". (4) CHANGELOG redaction scope and `--stdin` wording corrected.
+- Round 7 findings and fixes: tests lane FAIL: a mutant making `argv_mentions_secrets` case-sensitive (dropping `to_ascii_lowercase`) survived. Added `SECRETS=S` and `Secret=S` asserts to `mentions_predicate_catches_glued_words` and `SECRETS=hunter2SECRET`, `Secret=S` shapes to `glued_subcommand_word_is_never_echoed` (round3). Leak lane PASS; release lane PASS. Wording fixes: roadmap falsifier line, `exit_redacted` doc comment.
 
 ## Evidence
 
@@ -40,6 +41,7 @@ verdict: pending-quorum
 - Mutation checks: reverting `argv_mentions_secrets` to the any-word match turns `mentions_predicate_ignores_secrets_words_outside_subcommand_position` and `non_secrets_commands_keep_clap_errors` red; disabling the over-cap refusal turns `read_capped_refuses_over_the_cap_and_stops_reading` and `oversized_stdin_is_refused` red. Both reverted.
 
 - Round 5/6 RED first, `falsification_893_secrets_round5`: `flag_then_secret_then_secrets_does_not_leak` and `help_bogus_has_its_own_message` red (2 failed, 7 passed) before the `main.rs` change; GREEN after: 9 passed, 0 failed. Restoring `println!` at each of the view, view-no-marker, rekey, rotate and no-marker sites turns `full_stdout::view_rekey_rotate_full_stdout_exit_one` red (1 failed each); all reverted.
+- Round 7 RED/GREEN: with the case-sensitive mutant applied, `mentions_predicate_catches_glued_words` and `glued_subcommand_word_is_never_echoed` fail (1 failed each); reverted, both pass.
 
 ## Owed before merge
 
