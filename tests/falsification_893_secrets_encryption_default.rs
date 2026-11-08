@@ -6,7 +6,7 @@
 //! not an in-process function: the defect was a binary built without the
 //! feature, which no in-process unit test under `--features encryption` sees.
 
-use std::io::{Read, Write};
+use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn forjar() -> Command {
@@ -81,6 +81,7 @@ fn recipient_of(identity_file: &std::path::Path) -> String {
 #[cfg(target_os = "linux")]
 #[test]
 fn encrypt_reads_plaintext_from_stdin_never_argv() {
+    use std::io::Read;
     let dir = tempfile::tempdir().unwrap();
     let id = dir.path().join("id.txt");
     assert!(forjar()

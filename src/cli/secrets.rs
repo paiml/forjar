@@ -1,5 +1,6 @@
 //! Secrets management.
 
+use super::commands::SecretsCmd;
 #[cfg(feature = "encryption")]
 use crate::core::secrets;
 use std::path::Path;
@@ -93,6 +94,16 @@ fn write_identity_0600(path: &Path, body: &str) -> Result<(), String> {
         .map_err(|e| format!("cannot create '{}': {}", path.display(), e))?;
     f.write_all(body.as_bytes())
         .map_err(|e| format!("cannot write '{}': {}", path.display(), e))
+}
+
+/// `secrets encrypt` entry point: resolve the plaintext (file or stdin), then encrypt.
+pub(crate) fn cmd_secrets_encrypt_input(
+    from_file: Option<&Path>,
+    rest: &[String],
+    recipients: &[String],
+) -> Result<(), String> {
+    let plaintext = resolve_encrypt_input(from_file, rest)?;
+    cmd_secrets_encrypt(&plaintext, recipients)
 }
 
 /// Resolve the plaintext for `secrets encrypt`: `--from-file PATH`, else stdin
@@ -283,4 +294,37 @@ pub(crate) fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
         }
     }
     markers
+}
+
+/// Dispatch `forjar secrets <sub>`.
+pub(crate) fn dispatch_secrets(sub: SecretsCmd) -> Result<(), String> {
+    match sub {
+        SecretsCmd::Encrypt {
+            from_file,
+            rest,
+            recipient,
+            ..
+        } => cmd_secrets_encrypt_input(from_file.as_deref(), &rest, &recipient),
+        SecretsCmd::Decrypt { value, identity } => cmd_secrets_decrypt(&value, identity.as_deref()),
+        SecretsCmd::Keygen { output } => cmd_secrets_keygen(output.as_deref()),
+        SecretsCmd::View { file, identity } => cmd_secrets_view(&file, identity.as_deref()),
+        SecretsCmd::Rekey {
+            file,
+            identity,
+            recipient,
+        } => cmd_secrets_rekey(&file, identity.as_deref(), &recipient),
+        SecretsCmd::Rotate {
+            file,
+            identity,
+            recipient,
+            re_encrypt,
+            state_dir,
+        } => cmd_secrets_rotate(
+            &file,
+            identity.as_deref(),
+            &recipient,
+            re_encrypt,
+            &state_dir,
+        ),
+    }
 }

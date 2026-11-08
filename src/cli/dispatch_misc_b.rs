@@ -1,7 +1,6 @@
 //! Misc command dispatch part B — data pipeline, infra, and sub-command dispatch.
 
 use super::commands::*;
-use super::secrets::*;
 use super::snapshot::*;
 use super::workspace::*;
 
@@ -154,41 +153,6 @@ pub(super) fn dispatch_workspace(sub: WorkspaceCmd) -> Result<(), String> {
         WorkspaceCmd::Select { name } => cmd_workspace_select(&name),
         WorkspaceCmd::Delete { name, yes } => cmd_workspace_delete(&name, yes),
         WorkspaceCmd::Current => cmd_workspace_current(),
-    }
-}
-
-pub(super) fn dispatch_secrets(sub: SecretsCmd) -> Result<(), String> {
-    match sub {
-        SecretsCmd::Encrypt {
-            from_file,
-            stdin: _,
-            rest,
-            recipient,
-        } => {
-            let plaintext = resolve_encrypt_input(from_file.as_deref(), &rest)?;
-            cmd_secrets_encrypt(&plaintext, &recipient)
-        }
-        SecretsCmd::Decrypt { value, identity } => cmd_secrets_decrypt(&value, identity.as_deref()),
-        SecretsCmd::Keygen { output } => cmd_secrets_keygen(output.as_deref()),
-        SecretsCmd::View { file, identity } => cmd_secrets_view(&file, identity.as_deref()),
-        SecretsCmd::Rekey {
-            file,
-            identity,
-            recipient,
-        } => cmd_secrets_rekey(&file, identity.as_deref(), &recipient),
-        SecretsCmd::Rotate {
-            file,
-            identity,
-            recipient,
-            re_encrypt,
-            state_dir,
-        } => cmd_secrets_rotate(
-            &file,
-            identity.as_deref(),
-            &recipient,
-            re_encrypt,
-            &state_dir,
-        ),
     }
 }
 
