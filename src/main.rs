@@ -56,10 +56,7 @@ fn main() {
 /// itself, so this subcommand gets a fixed message that echoes nothing.
 fn exit_redacted(e: clap::Error) -> Cli {
     let argv: Vec<String> = std::env::args().collect();
-    let is_encrypt = argv
-        .windows(2)
-        .any(|w| w[0] == "secrets" && w[1] == "encrypt");
-    if e.use_stderr() && is_encrypt {
+    if e.use_stderr() && forjar::cli::argv_is_secrets_encrypt(&argv) {
         eprintln!(
             "error: invalid arguments for `forjar secrets encrypt` (not shown: it may hold a \
              secret). Usage: forjar secrets encrypt -r <RECIPIENT> [--from-file PATH]  \

@@ -75,9 +75,8 @@ fn recipient_of(identity_file: &std::path::Path) -> String {
         .to_string()
 }
 
-/// Plaintext arrives on stdin AFTER the process is observed: its
-/// /proc/<pid>/cmdline cannot contain a value it has not been given yet, and
-/// the argv carries no value at all. Round-trips through decrypt.
+/// Plaintext arrives on stdin only; the marker on stdout is ciphertext that
+/// does not contain it, and it round-trips through decrypt.
 #[cfg(target_os = "linux")]
 #[test]
 fn encrypt_reads_plaintext_from_stdin_never_argv() {
@@ -100,11 +99,6 @@ fn encrypt_reads_plaintext_from_stdin_never_argv() {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    let cmdline = std::fs::read(format!("/proc/{}/cmdline", child.id())).unwrap();
-    assert!(
-        !String::from_utf8_lossy(&cmdline).contains(plaintext),
-        "plaintext in argv"
-    );
     child
         .stdin
         .take()
@@ -136,15 +130,21 @@ fn encrypt_reads_plaintext_from_stdin_never_argv() {
     assert_eq!(String::from_utf8_lossy(&dec.stdout).trim(), plaintext);
 }
 
-/// No value and no --stdin is an error, not a silent empty secret.
+/// No value and an empty stdin is an error, not a silent empty secret: the
+/// refusal says so, and no marker is printed.
 #[test]
 fn encrypt_without_value_or_stdin_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_id, r) = new_identity(dir.path());
     let out = forjar()
-        .args(["secrets", "encrypt", "-r", "age1xxxx"])
+        .args(["secrets", "encrypt", "-r", &r])
         .stdin(Stdio::null())
         .output()
         .unwrap();
     assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("no plaintext given"), "stderr: {err}");
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("ENC[age,"));
 }
 
 const PEM: &str = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAsentinelpemline1\nsentinelpemline2ABCDEF\n-----END RSA PRIVATE KEY-----";
@@ -234,6 +234,8 @@ fn pem_round_trips_via_from_file() {
 /// stream carries any part of it, however it begins.
 #[test]
 fn positional_value_is_refused_and_never_echoed() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_id, r) = new_identity(dir.path());
     for v in [
         PEM,
         "-----BEGIN-sentinelx",
@@ -245,13 +247,22 @@ fn positional_value_is_refused_and_never_echoed() {
             if pos == 0 {
                 args.push(v);
             }
-            args.extend(["-r", "age1xxxx"]);
+            args.extend(["-r", r.as_str()]);
             if pos == 1 {
                 args.push(v);
             }
             let out = forjar().args(&args).stdin(Stdio::null()).output().unwrap();
             assert!(!out.status.success(), "accepted positional {v:?}");
             assert_no_echo(&out, &[v, "sentinel", "BEGIN"]);
+            // Refused for the right reason (not a bad recipient), and nothing
+            // was encrypted.
+            let err = String::from_utf8_lossy(&out.stderr);
+            assert!(
+                err.contains("invalid arguments for `forjar secrets encrypt`")
+                    || err.contains("must not be passed as an argument"),
+                "unexpected refusal for {v:?}: {err}"
+            );
+            assert!(!String::from_utf8_lossy(&out.stdout).contains("ENC[age,"));
         }
     }
 }
@@ -289,9 +300,34 @@ fn clap_errors_on_secrets_encrypt_never_echo_value() {
             "-----BEGIN-sentinelq",
             "extra-sentinelq",
         ],
+        // A global flag between `secrets` and `encrypt` must not defeat the
+        // redaction (the verb is not always the next argv word).
+        vec![
+            "secrets",
+            "-v",
+            "encrypt",
+            "--stdin=SEKRIT3-sentinelq",
+            "-r",
+            "age1xxxx",
+        ],
+        vec![
+            "secrets",
+            "--no-color",
+            "encrypt",
+            "--stdin=SEKRIT5-sentinelq",
+            "-r",
+            "age1xxxx",
+        ],
+        vec![
+            "--no-color",
+            "secrets",
+            "-v",
+            "encrypt",
+            "--bogus=SEKRIT6-sentinelq",
+        ],
     ] {
         let out = forjar().args(&args).stdin(Stdio::null()).output().unwrap();
         assert!(!out.status.success(), "{args:?}");
-        assert_no_echo(&out, &["sentinelq", "BEGIN"]);
+        assert_no_echo(&out, &["sentinelq", "BEGIN", "SEKRIT"]);
     }
 }

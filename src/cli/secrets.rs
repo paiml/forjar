@@ -77,6 +77,16 @@ pub(crate) fn cmd_secrets_keygen(output: Option<&Path>) -> Result<(), String> {
     Ok(())
 }
 
+/// True when this argv is a `secrets ... encrypt` invocation, wherever global
+/// flags sit between the two words. clap quotes the offending argument in its
+/// usage errors, and for `secrets encrypt` that argument can be the secret, so
+/// the binary prints a fixed message instead (see `main.rs`).
+pub fn argv_is_secrets_encrypt<S: AsRef<str>>(argv: &[S]) -> bool {
+    argv.iter()
+        .position(|a| a.as_ref() == "secrets")
+        .is_some_and(|i| argv[i + 1..].iter().any(|a| a.as_ref() == "encrypt"))
+}
+
 /// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
 /// secret is never readable by anyone else, even briefly. Refuses to overwrite.
 #[cfg(feature = "encryption")]
@@ -328,3 +338,7 @@ pub(crate) fn dispatch_secrets(sub: SecretsCmd) -> Result<(), String> {
         ),
     }
 }
+
+#[cfg(test)]
+#[path = "secrets_input_tests.rs"]
+mod input_tests;

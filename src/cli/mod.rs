@@ -344,6 +344,7 @@ mod webhook_post;
 pub(crate) mod workspace;
 pub use commands::Commands;
 pub use dispatch::{dispatch, dispatch_classified};
+pub use secrets::argv_is_secrets_encrypt;
 
 // Test module declarations (split across include files for file size).
 include!("mod_test_decl.rs");
