@@ -105,11 +105,16 @@ pub fn apply_script(resource: &Resource) -> String {
              \n\
              # Download release asset via GitHub API (no gh CLI required)\n\
              RELEASE_URL={release_url}\n\
-             DOWNLOAD_URL=$(curl -fsSL \"$RELEASE_URL\" | \\\n\
-             \x20 grep -F {grep_pattern} | \\\n\
+             RELEASE_JSON=\"$TMPDIR/release.json\"\n\
+             HTTP_CODE=$(curl -sSL -o \"$RELEASE_JSON\" -w '%{{http_code}}' \"$RELEASE_URL\") || HTTP_CODE=curl-failed\n\
+             if [ \"$HTTP_CODE\" != 200 ]; then\n\
+             \x20 echo \"ERROR: GET $RELEASE_URL failed (HTTP $HTTP_CODE)\" >&2\n\
+             \x20 exit 1\n\
+             fi\n\
+             DOWNLOAD_URL=$(grep -F {grep_pattern} \"$RELEASE_JSON\" | \\\n\
              \x20 grep -o '\"browser_download_url\": *\"[^\"]*\"' | \\\n\
              \x20 head -1 | \\\n\
-             \x20 grep -o 'https://[^\"]*')\n\
+             \x20 grep -o 'https://[^\"]*' || true)\n\
              \n\
              if [ -z \"$DOWNLOAD_URL\" ]; then\n\
              \x20 echo {no_asset_msg} >&2\n\
@@ -404,5 +409,69 @@ mod tests {
             "{script}"
         );
         assert!(script.contains("/home/user/.cargo/bin/apr"), "{script}");
+    }
+}
+
+#[cfg(test)]
+mod tests_forjar_608 {
+    use super::*;
+    use crate::core::types::{MachineTarget, Resource, ResourceType};
+
+    fn run_with_release_json(body: &str, http: &str) -> (i32, String) {
+        let dir = std::env::temp_dir().join(format!("fj608-{}-{}", std::process::id(), http));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Fake curl: writes the fixture to the -o file and prints the HTTP code.
+        let fake = format!(
+            "#!/bin/sh\nwhile [ $# -gt 0 ]; do [ \"$1\" = -o ] && {{ shift; out=$1; }}; shift; done\nprintf '%s' '{body}' > \"$out\"\nprintf '{http}'\n"
+        );
+        let curl = dir.join("curl");
+        std::fs::write(&curl, fake).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&curl, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let r = Resource {
+            resource_type: ResourceType::GithubRelease,
+            machine: MachineTarget::Single("m".to_string()),
+            repo: Some("paiml/aprender".to_string()),
+            tag: Some("nightly".to_string()),
+            asset_pattern: Some("*aarch64-apple-darwin*".to_string()),
+            binary: Some("apr".to_string()),
+            install_dir: Some(dir.join("bin").display().to_string()),
+            ..Default::default()
+        };
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(apply_script(&r))
+            .env(
+                "PATH",
+                format!("{}:{}", dir.display(), std::env::var("PATH").unwrap()),
+            )
+            .output()
+            .unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        (
+            out.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    }
+
+    #[test]
+    fn no_matching_asset_names_the_pattern_on_stderr() {
+        let body = r#"{"assets":[{"browser_download_url": "https://x/apr-x86_64-unknown-linux-gnu.tar.gz"}]}"#;
+        let (rc, err) = run_with_release_json(body, "200");
+        assert_eq!(rc, 1, "{err}");
+        assert!(
+            err.contains("no asset matching *aarch64-apple-darwin* in paiml/aprender@nightly"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn http_failure_names_url_and_status() {
+        let (rc, err) = run_with_release_json("{}", "403");
+        assert_eq!(rc, 1, "{err}");
+        assert!(
+            err.contains("releases/tags/nightly") && err.contains("HTTP 403"),
+            "{err}"
+        );
     }
 }
