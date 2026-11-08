@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Encryption is now a default feature (PMAT-893, #893).** `cargo install forjar` includes
+age: `forjar secrets keygen`, `secrets encrypt/decrypt` and state encryption work out of
+the box instead of failing with "compiled without encryption support". `secrets keygen -o`
+creates the identity file 0600 from the first syscall and refuses to overwrite.
+`default-features = false` still drops age.
+
+**BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
+The positional `VALUE` is removed (an argv secret is visible in `ps` and
+`/proc/<pid>/cmdline`); scripts that ran `forjar secrets encrypt -r R VALUE` must pipe the
+plaintext on stdin or use `--from-file`.
+
 **`forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
 A value beginning with `-----BEGIN` (a PEM key) made clap print the whole key twice
 in its "unexpected argument" error and tip. The plaintext now comes from stdin
