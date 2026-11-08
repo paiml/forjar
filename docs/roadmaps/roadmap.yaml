@@ -5445,7 +5445,7 @@ roadmap:
   updated: 2026-11-08T00:00:00Z
   spec: null
   acceptance_criteria:
-  - 'cargo install forjar carries age (keygen, encrypt/decrypt, state encryption work out of the box); keygen -o creates the identity 0600 from the first syscall and refuses to overwrite; secrets encrypt has no positional VALUE, reads stdin or --from-file, and no usage error echoes an argument (including a non-UTF-8 one, which must not panic). Falsifier: tests/falsification_893_secrets_encryption_default.rs spawns the built binary. PR #895.'
+  - 'cargo install forjar carries age (keygen, encrypt/decrypt, state encryption work out of the box); keygen -o creates the identity 0600 from the first syscall and refuses to overwrite; secrets encrypt has no positional VALUE, reads stdin or --from-file, and no secrets-family usage error echoes an argument (subcommand-position redaction only; a non-UTF-8 argument must not panic); bad-recipient, --from-file, keygen, decrypt, view, rekey and rotate errors echo no value or path; a failing stdout is exit 1, not a panic; stdin/--from-file plaintext is capped at 16 MiB; core-dump hardening is a documented residual (ulimit -c 0) with a follow-up. Falsifiers: tests/falsification_893_secrets_encryption_default.rs, falsification_893_secrets_round3.rs, falsification_893_secrets_round4.rs spawn the built binary. PR #895.'
   phases: []
   subtasks: []
   estimated_effort: null

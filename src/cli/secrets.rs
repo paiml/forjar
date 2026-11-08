@@ -18,8 +18,12 @@ use crate::tripwire::eventlog;
 /// (ENOSPC, EPIPE), and with panic=abort the core dump holds the plaintext.
 #[cfg(feature = "encryption")]
 fn emit_line(line: &str) -> Result<(), String> {
-    use std::io::Write;
-    let mut out = std::io::stdout().lock();
+    emit_to(&mut std::io::stdout().lock(), line)
+}
+
+/// `emit_line` over any writer, so a failing sink is testable.
+#[cfg(feature = "encryption")]
+fn emit_to<W: std::io::Write>(out: &mut W, line: &str) -> Result<(), String> {
     out.write_all(line.as_bytes())
         .and_then(|()| out.write_all(b"\n"))
         .and_then(|()| out.flush())
@@ -81,29 +85,43 @@ pub(crate) fn cmd_secrets_keygen(output: Option<&Path>) -> Result<(), String> {
             );
             write_identity_0600(path, &body)?;
             eprintln!("# public key: {recipient}");
-            eprintln!("# identity written to {} (mode 0600)", path.display());
+            eprintln!("# identity written (mode 0600)");
         }
     }
     Ok(())
 }
 
+/// The binary's global flags (`-v`, `-vv`, `--verbose`, `--no-color`).
+fn is_global_flag(a: &str) -> bool {
+    a == "--verbose"
+        || a == "--no-color"
+        || (a.len() > 1 && a.starts_with('-') && a[1..].bytes().all(|b| b == b'v'))
+}
+
+/// Index of the subcommand word: the first argv word after the program name
+/// that is not a global flag.
+fn subcommand_index<S: AsRef<str>>(argv: &[S]) -> Option<usize> {
+    (1..argv.len()).find(|&i| !is_global_flag(argv[i].as_ref()))
+}
+
 /// True when this argv is a `secrets ... encrypt` invocation, wherever global
 /// flags sit between the two words. clap quotes the offending argument in its
 /// usage errors, and for `secrets encrypt` that argument can be the secret, so
-/// the binary prints a fixed message instead (see `main.rs`).
+/// the binary prints a fixed message instead (see `main.rs`). Only the
+/// subcommand position counts: `apply -f secrets encrypt` is not this.
 pub fn argv_is_secrets_encrypt<S: AsRef<str>>(argv: &[S]) -> bool {
-    argv.iter()
-        .position(|a| a.as_ref() == "secrets")
-        .is_some_and(|i| argv[i + 1..].iter().any(|a| a.as_ref() == "encrypt"))
+    subcommand_index(argv).is_some_and(|i| {
+        argv[i].as_ref() == "secrets" && argv[i + 1..].iter().any(|a| a.as_ref() == "encrypt")
+    })
 }
 
-/// True when any argv word is `secrets` or starts with it (a secret can be
-/// glued onto the word, `secrets=S`, `secretsS`), so every clap usage error
-/// for the family is replaced by a fixed message (see `main.rs`).
+/// True when the SUBCOMMAND word is `secrets` or starts with `secret` (a
+/// secret can be glued onto it: `secrets=S`, `secretsS`, `secret=S`), so every
+/// clap usage error for the family is replaced by a fixed message (see
+/// `main.rs`). A `secrets*.yaml` argument to another command does not count,
+/// so `apply -f secrets.yaml --bogus` keeps clap's real error.
 pub fn argv_mentions_secrets<S: AsRef<str>>(argv: &[S]) -> bool {
-    argv.iter()
-        .skip(1)
-        .any(|a| a.as_ref().starts_with("secrets"))
+    subcommand_index(argv).is_some_and(|i| argv[i].as_ref().starts_with("secret"))
 }
 
 /// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
@@ -120,9 +138,9 @@ fn write_identity_0600(path: &Path, body: &str) -> Result<(), String> {
     }
     let mut f = opts
         .open(path)
-        .map_err(|e| format!("cannot create '{}': {}", path.display(), e))?;
+        .map_err(|e| format!("cannot create the identity output path: {:?}", e.kind()))?;
     f.write_all(body.as_bytes())
-        .map_err(|e| format!("cannot write '{}': {}", path.display(), e))
+        .map_err(|e| format!("cannot write the identity output path: {:?}", e.kind()))
 }
 
 /// `secrets encrypt` entry point: resolve the plaintext (file or stdin), then encrypt.
@@ -133,6 +151,25 @@ pub(crate) fn cmd_secrets_encrypt_input(
 ) -> Result<(), String> {
     let plaintext = resolve_encrypt_input(from_file, rest)?;
     cmd_secrets_encrypt(&plaintext, recipients)
+}
+
+/// Largest plaintext `secrets encrypt` accepts (stdin or `--from-file`).
+/// Reading is bounded so input size alone cannot reach an OOM abort, whose
+/// core dump would hold the plaintext.
+pub(crate) const MAX_PLAINTEXT_BYTES: usize = 16 * 1024 * 1024;
+
+/// Read at most `cap` bytes of UTF-8 text; one byte more is refused with a
+/// fixed message (nothing of the input is echoed).
+pub(crate) fn read_capped<R: std::io::Read>(r: R, cap: usize) -> Result<String, String> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    r.take(cap as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("cannot read the plaintext: {:?}", e.kind()))?;
+    if bytes.len() > cap {
+        return Err("plaintext exceeds the 16 MiB limit".to_string());
+    }
+    String::from_utf8(bytes).map_err(|_| "plaintext is not valid UTF-8".to_string())
 }
 
 /// Resolve the plaintext for `secrets encrypt`: `--from-file PATH`, else stdin
@@ -152,19 +189,12 @@ pub(crate) fn resolve_encrypt_input(
     }
     let mut buf = match from_file {
         Some(p) => {
-            std::fs::read_to_string(p).map_err(|e| {
-                // The path is not echoed: a secret can land in this slot.
-                format!("cannot read the --from-file path: {:?}", e.kind())
-            })?
+            // The path is not echoed: a secret can land in this slot.
+            let f = std::fs::File::open(p)
+                .map_err(|e| format!("cannot read the --from-file path: {:?}", e.kind()))?;
+            read_capped(f, MAX_PLAINTEXT_BYTES)?
         }
-        None => {
-            use std::io::Read;
-            let mut s = String::new();
-            std::io::stdin()
-                .read_to_string(&mut s)
-                .map_err(|e| format!("cannot read stdin: {e}"))?;
-            s
-        }
+        None => read_capped(std::io::stdin().lock(), MAX_PLAINTEXT_BYTES)?,
     };
     if buf.ends_with('\n') {
         buf.pop();
@@ -183,10 +213,16 @@ pub(crate) fn cmd_secrets_keygen(_output: Option<&Path>) -> Result<(), String> {
     no_encryption_error()
 }
 
+/// Read a secrets file; the path is not echoed (only the io error kind).
+#[cfg(feature = "encryption")]
+fn read_secrets_file(file: &Path) -> Result<String, String> {
+    std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read the secrets file: {:?}", e.kind()))
+}
+
 #[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Result<(), String> {
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    let content = read_secrets_file(file)?;
     if !secrets::has_encrypted_markers(&content) {
         return emit_line(&content);
     }
@@ -206,10 +242,9 @@ pub(crate) fn cmd_secrets_rekey(
     identity_path: Option<&Path>,
     new_recipients: &[String],
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    let content = read_secrets_file(file)?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("no ENC[age,...] markers found in {}", file.display());
+        println!("no ENC[age,...] markers found");
         return Ok(());
     }
 
@@ -226,9 +261,9 @@ pub(crate) fn cmd_secrets_rekey(
     }
 
     std::fs::write(file, &result)
-        .map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
+        .map_err(|e| format!("cannot write the secrets file: {:?}", e.kind()))?;
     let count = find_enc_markers(&result).len();
-    println!("re-encrypted {} secret(s) in {}", count, file.display());
+    println!("re-encrypted {count} secret(s)");
     Ok(())
 }
 
@@ -255,10 +290,9 @@ pub(crate) fn cmd_secrets_rotate(
         );
     }
 
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    let content = read_secrets_file(file)?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("no ENC[age,...] markers found in {}", file.display());
+        println!("no ENC[age,...] markers found");
         return Ok(());
     }
 
@@ -277,7 +311,7 @@ pub(crate) fn cmd_secrets_rotate(
     }
 
     std::fs::write(file, &result)
-        .map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
+        .map_err(|e| format!("cannot write the secrets file: {:?}", e.kind()))?;
 
     let event = ProvenanceEvent::SecretRotated {
         file: file.display().to_string(),
@@ -287,9 +321,8 @@ pub(crate) fn cmd_secrets_rotate(
     let _ = eventlog::append_event(state_dir, "__secrets__", event);
 
     println!(
-        "rotated {} secret(s) in {} to {} recipient(s)",
+        "rotated {} secret(s) to {} recipient(s)",
         marker_count,
-        file.display(),
         new_recipients.len()
     );
     Ok(())

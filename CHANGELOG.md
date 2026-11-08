@@ -13,15 +13,31 @@ the box instead of failing with "compiled without encryption support". `secrets 
 creates the identity file 0600 from the first syscall and refuses to overwrite.
 `default-features = false` still drops age.
 
-**BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
+**BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument; the `secrets` family never echoes one (PMAT-893, #895).**
 The positional `VALUE` is removed: an argv secret is visible in `ps` and
 `/proc/<pid>/cmdline`, and a value beginning with `-----BEGIN` (a PEM key) made clap print
 the whole key twice in its "unexpected argument" error and tip. The plaintext now comes
 from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is accepted for
 compatibility, stdin is the default) or `--from-file PATH`. A positional value, or `-` as
-an argv secret, is refused with a fixed message that does not contain it; usage errors
-for this subcommand echo no argument, and a non-UTF-8 argument no longer panics or prints.
-Scripts that ran `forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
+an argv secret, is refused with a fixed message that does not contain it. Scripts that ran
+`forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
+Redaction scope: clap usage errors are replaced by a fixed message only when the subcommand
+word is `secrets` (or a `secret...` word glued to a secret, `secrets=S`, `secretsS`,
+`secret=S`); `forjar apply -f secrets.yaml --bogus` keeps clap's real error. A non-UTF-8
+argument no longer panics or prints. Also changed in this family:
+- a bad recipient reads `invalid recipient #N: not an age X25519 public key (value not shown)`
+  (an unset shell variable can slide the secret into the `-r` slot);
+- no path is echoed by `--from-file`, `keygen -o`, `decrypt -i`, `view -f`, `rekey` or
+  `rotate` errors or success lines, only the io error kind (`NotFound`, ...);
+- a failing stdout (full disk, closed pipe) is `cannot write to stdout` with exit 1, not a
+  panic;
+- stdin and `--from-file` plaintext is capped at 16 MiB (`plaintext exceeds the 16 MiB
+  limit`, exit 1), so input size alone cannot reach an out-of-memory abort.
+Known residual risk: forjar builds with `panic = "abort"` and does not disable core dumps or
+zero plaintext buffers, so a SIGABRT or OOM kill while a secret is in memory can write it to
+a core file. Run secrets commands under `ulimit -c 0`; `PR_SET_DUMPABLE`/`RLIMIT_CORE`
+hardening and zeroizing are tracked as a follow-up (no safe wrapper is a direct dependency,
+and `unsafe` is forbidden in this crate).
 
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a

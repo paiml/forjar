@@ -166,14 +166,14 @@ pub fn load_identity_from_env() -> Result<age::x25519::Identity, String> {
 #[cfg(feature = "encryption")]
 pub fn load_identity_file(path: &std::path::Path) -> Result<age::x25519::Identity, String> {
     let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read identity file '{}': {}", path.display(), e))?;
+        .map_err(|e| format!("cannot read identity file: {:?}", e.kind()))?;
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("AGE-SECRET-KEY-") {
             return parse_identity(trimmed);
         }
     }
-    Err(format!("no AGE-SECRET-KEY found in '{}'", path.display()))
+    Err("no AGE-SECRET-KEY found in the identity file".to_string())
 }
 
 /// Parse an age X25519 identity from a key string.
