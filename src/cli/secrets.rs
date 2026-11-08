@@ -122,6 +122,22 @@ pub fn argv_mentions_secrets<S: AsRef<str>>(argv: &[S]) -> bool {
     })
 }
 
+/// True when the subcommand word is clap's built-in `help` (case-insensitive).
+pub fn argv_is_help<S: AsRef<str>>(argv: &[S]) -> bool {
+    subcommand_index(argv).is_some_and(|i| argv[i].as_ref().eq_ignore_ascii_case("help"))
+}
+
+/// True when a LATER word is `secrets` or starts with `secret`. Used for an
+/// InvalidSubcommand error: `--verbose S secrets encrypt` makes the secret
+/// take the subcommand slot, and clap then quotes it.
+pub fn argv_has_later_secrets_word<S: AsRef<str>>(argv: &[S]) -> bool {
+    subcommand_index(argv).is_some_and(|i| {
+        argv[i + 1..]
+            .iter()
+            .any(|a| a.as_ref().to_ascii_lowercase().starts_with("secret"))
+    })
+}
+
 /// Create `path` with mode 0600 from the first syscall (O_CREAT|O_EXCL), so the
 /// secret is never readable by anyone else, even briefly. Refuses to overwrite.
 #[cfg(feature = "encryption")]

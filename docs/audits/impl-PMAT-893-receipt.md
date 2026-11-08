@@ -5,7 +5,7 @@ verdict: pending-quorum
 ## Identity
 
 - ticket PMAT-893 (forjar#893); kind: code; PR #895, branch `fix/secrets-encryption-default`
-- files: `Cargo.toml` defaults, `src/cli/secrets.rs`, `src/cli/secrets_input_tests.rs`, `src/cli/mod.rs`, `src/cli/commands/subcmd_args.rs`, `src/cli/dispatch_misc.rs`, `src/cli/dispatch_misc_b.rs`, `src/main.rs`, `src/core/secrets.rs`, `src/core/tests_secrets.rs`, `tests/falsification_893_secrets_encryption_default.rs`, `tests/falsification_893_secrets_round3.rs`, `tests/falsification_893_secrets_round4.rs`, `tests/falsification_893_secrets_round5.rs`, `tests/falsification_default_features_trim.rs`, `.github/workflows/{ci,lint}.yml`, `CHANGELOG.md`, `README.md`, `docs/roadmaps/roadmap.yaml`, `docs/book/*`, `docs/cli-defects.json`, `docs/specifications/forjar-cookbook.md`, `examples/dogfood-age-secrets.yaml`
+- files: `Cargo.toml` defaults, `src/cli/secrets.rs`, `src/cli/secrets_input_tests.rs`, `src/cli/mod.rs`, `src/cli/commands/subcmd_args.rs`, `src/cli/dispatch_misc.rs`, `src/cli/dispatch_misc_b.rs`, `src/main.rs`, `src/core/secrets.rs`, `src/core/tests_secrets.rs`, `tests/falsification_893_secrets_encryption_default.rs`, `tests/falsification_893_secrets_round3.rs`, `tests/falsification_893_secrets_round4.rs`, `tests/falsification_893_secrets_round5.rs`, `tests/falsification_default_features_trim.rs`, `src/cli/tests_cov_args_extra_b.rs`, `src/cli/tests_cov_bundle2.rs`, `src/cli/tests_cov_notify_3.rs`, `src/cli/tests_cov_notify_c.rs`, `.github/workflows/{ci,lint}.yml`, `CHANGELOG.md`, `README.md`, `docs/roadmaps/roadmap.yaml`, `docs/book/*`, `docs/cli-defects.json`, `docs/specifications/forjar-cookbook.md`, `examples/dogfood-age-secrets.yaml`
 
 ## Changes
 
@@ -27,6 +27,7 @@ verdict: pending-quorum
   5. Core dumps: not fixed in code. `libc`, `nix` and `rustix` appear only as transitive entries in `Cargo.lock`, none is a direct dependency, and `unsafe` is forbidden here, so no `prctl(PR_SET_DUMPABLE, 0)` / `setrlimit(RLIMIT_CORE, 0)` call was added and no dependency was added. Residual risk documented in CHANGELOG ("run under `ulimit -c 0`"); a follow-up ticket for dumpable hardening and zeroizing is owed.
   6. CHANGELOG BREAKING entry reworded to the real scope.
 - Round 5 findings and fixes: clap's built-in `help` subcommand (`help secrets encrypt S`, `help S`) and glued/unknown leading flags (`--verbose=S`, `--no-color=S`, `--S`) quoted the value. The subcommand word is now the first word not starting with `-`; a `help` subcommand word or a `secret*` one (case-insensitive) redacts every usage error. `rekey`/`rotate` success lines go through `emit_line`. `--stdin` conflicts with `--from-file`. Tests: `tests/falsification_893_secrets_round5.rs` (incl. a 16 MiB + 1 `--from-file`); CI runs it and the default-features trim test. Book notes `ulimit -c 0`.
+- Round 6 findings and fixes: (1) leak: `--verbose S secrets encrypt`, `-v S ...`, `-vv S ... -r x`, `--no-color S ...` put the secret in the subcommand slot (clap `unrecognized subcommand 'S'`); `exit_redacted` now also redacts an InvalidSubcommand error when a later word is `secrets`/`secret*` (`argv_has_later_secrets_word`), without over-redacting `apply -f secrets.yaml --bogus` or `apply --bogus`. (2) `forjar help bogus` has its own fixed message (`invalid arguments for \`forjar help\``, `argv_is_help`), still redacted, exit 2. (3) surviving mutants: `/dev/full` tests for `secrets view` (marker and no-marker), `rekey`, `rotate --re-encrypt` (marker and no-marker) assert exit 1 and "cannot write to stdout". (4) CHANGELOG redaction scope and `--stdin` wording corrected.
 
 ## Evidence
 
@@ -37,6 +38,8 @@ verdict: pending-quorum
 - Round 4 RED first: new lib tests failed to compile (`emit_to`, `read_capped` absent) and `non_secrets_commands_keep_clap_errors`, `oversized_stdin_is_refused` were red against the round-3 code.
 - Round 4 GREEN: `cargo test --lib secrets` 125 passed; `falsification_893_secrets_round3` 5 passed; `falsification_893_secrets_round4` 4 passed; `falsification_893_secrets_encryption_default` 10 passed.
 - Mutation checks: reverting `argv_mentions_secrets` to the any-word match turns `mentions_predicate_ignores_secrets_words_outside_subcommand_position` and `non_secrets_commands_keep_clap_errors` red; disabling the over-cap refusal turns `read_capped_refuses_over_the_cap_and_stops_reading` and `oversized_stdin_is_refused` red. Both reverted.
+
+- Round 5/6 RED first, `falsification_893_secrets_round5`: `flag_then_secret_then_secrets_does_not_leak` and `help_bogus_has_its_own_message` red (2 failed, 7 passed) before the `main.rs` change; GREEN after: 9 passed, 0 failed. Restoring `println!` at each of the view, view-no-marker, rekey, rotate and no-marker sites turns `full_stdout::view_rekey_rotate_full_stdout_exit_one` red (1 failed each); all reverted.
 
 ## Owed before merge
 

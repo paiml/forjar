@@ -17,14 +17,16 @@ creates the identity file 0600 from the first syscall and refuses to overwrite.
 The positional `VALUE` is removed: an argv secret is visible in `ps` and
 `/proc/<pid>/cmdline`, and a value beginning with `-----BEGIN` (a PEM key) made clap print
 the whole key twice in its "unexpected argument" error and tip. The plaintext now comes
-from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is accepted for
-compatibility, stdin is the default) or `--from-file PATH`. A positional value, or `-` as
+from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is an
+explicit form of the default, and conflicts with `--from-file`) or `--from-file PATH`. A positional value, or `-` as
 an argv secret, is refused with a fixed message that does not contain it. Scripts that ran
 `forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
-Redaction scope: clap usage errors are replaced by a fixed message only when the subcommand
-word is `secrets` (or a `secret...` word glued to a secret, `secrets=S`, `secretsS`,
-`secret=S`); `forjar apply -f secrets.yaml --bogus` keeps clap's real error. A non-UTF-8
-argument no longer panics or prints. Also changed in this family:
+Redaction scope: clap usage errors are replaced by a fixed message when the subcommand
+word is `secrets`, a case-insensitive `secret*` word (glued secrets: `secrets=S`, `secretsS`,
+`secret=S`) or `help`, and for an InvalidSubcommand error when a later word is a secrets
+word (`--verbose S secrets encrypt`). Leading flags with glued values (`--verbose=S`) are
+skipped when locating the subcommand word. `forjar apply -f secrets.yaml --bogus` keeps
+clap's real error. A non-UTF-8 argument no longer panics or prints. Also changed in this family:
 - a bad recipient reads `invalid recipient #N: not an age X25519 public key (value not shown)`
   (an unset shell variable can slide the secret into the `-r` slot);
 - no path is echoed by `--from-file`, `keygen -o`, `decrypt -i`, `view -f`, `rekey` or
