@@ -400,12 +400,17 @@ pub struct StateRekeyArgs {
 pub enum SecretsCmd {
     /// Encrypt a value with age recipients
     Encrypt {
-        /// Plaintext value to encrypt. Prefer --stdin (or `-`): argv is visible
-        /// to every user via `ps` and /proc/<pid>/cmdline.
-        value: Option<String>,
-        /// Read the plaintext from stdin (one trailing newline is removed)
+        /// Read the plaintext from this file (one trailing newline is removed).
+        /// Default: read it from stdin. The secret is never a positional
+        /// argument: argv is visible via `ps` and echoed by usage errors.
+        #[arg(long, value_name = "PATH")]
+        from_file: Option<PathBuf>,
+        /// Accepted for compatibility; stdin is already the default
         #[arg(long)]
         stdin: bool,
+        /// Refused if given (a secret on argv); never printed
+        #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
+        rest: Vec<String>,
         /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,

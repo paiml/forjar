@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`forjar secrets encrypt` no longer takes the secret as an argument (PMAT-893, #895).**
+A value beginning with `-----BEGIN` (a PEM key) made clap print the whole key twice
+in its "unexpected argument" error and tip. The plaintext now comes from stdin
+(`forjar secrets encrypt -r R < key.pem`) or `--from-file PATH`; a positional value
+is refused with a message that does not contain it, and usage errors for this
+subcommand print a fixed message that echoes no argument.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)

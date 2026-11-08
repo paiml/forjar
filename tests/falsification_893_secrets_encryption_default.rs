@@ -135,30 +135,6 @@ fn encrypt_reads_plaintext_from_stdin_never_argv() {
     assert_eq!(String::from_utf8_lossy(&dec.stdout).trim(), plaintext);
 }
 
-/// `-` as the value means stdin too.
-#[test]
-fn encrypt_dash_value_means_stdin() {
-    let dir = tempfile::tempdir().unwrap();
-    let id = dir.path().join("id.txt");
-    assert!(forjar()
-        .args(["secrets", "keygen", "-o"])
-        .arg(&id)
-        .status()
-        .unwrap()
-        .success());
-    let recipient = recipient_of(&id);
-    let mut child = forjar()
-        .args(["secrets", "encrypt", "-", "-r", &recipient])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child.stdin.take().unwrap().write_all(b"abc").unwrap();
-    let out = child.wait_with_output().unwrap();
-    assert!(out.status.success());
-    assert!(String::from_utf8_lossy(&out.stdout).starts_with("ENC[age,"));
-}
-
 /// No value and no --stdin is an error, not a silent empty secret.
 #[test]
 fn encrypt_without_value_or_stdin_is_refused() {
@@ -168,4 +144,153 @@ fn encrypt_without_value_or_stdin_is_refused() {
         .output()
         .unwrap();
     assert!(!out.status.success());
+}
+
+const PEM: &str = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAsentinelpemline1\nsentinelpemline2ABCDEF\n-----END RSA PRIVATE KEY-----";
+
+fn new_identity(dir: &std::path::Path) -> (std::path::PathBuf, String) {
+    let id = dir.join("id.txt");
+    assert!(forjar()
+        .args(["secrets", "keygen", "-o"])
+        .arg(&id)
+        .status()
+        .unwrap()
+        .success());
+    let r = recipient_of(&id);
+    (id, r)
+}
+
+fn decrypt(id: &std::path::Path, marker: &str) -> String {
+    let dec = forjar()
+        .args(["secrets", "decrypt", marker, "-i"])
+        .arg(id)
+        .output()
+        .unwrap();
+    assert!(
+        dec.status.success(),
+        "{}",
+        String::from_utf8_lossy(&dec.stderr)
+    );
+    String::from_utf8_lossy(&dec.stdout).trim_end().to_string()
+}
+
+fn assert_no_echo(out: &std::process::Output, needles: &[&str]) {
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    for n in needles {
+        assert!(!all.contains(n), "value echoed ({n}) in: {all}");
+    }
+}
+
+#[test]
+fn pem_round_trips_via_stdin() {
+    let dir = tempfile::tempdir().unwrap();
+    let (id, r) = new_identity(dir.path());
+    let mut child = forjar()
+        .args(["secrets", "encrypt", "-r", &r])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(format!("{PEM}\n").as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    let marker = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(decrypt(&id, &marker), PEM);
+}
+
+#[test]
+fn pem_round_trips_via_from_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (id, r) = new_identity(dir.path());
+    let f = dir.path().join("key.pem");
+    std::fs::write(&f, format!("{PEM}\n")).unwrap();
+    let out = forjar()
+        .args(["secrets", "encrypt", "-r", &r, "--from-file"])
+        .arg(&f)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let marker = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(decrypt(&id, &marker), PEM);
+}
+
+/// A secret passed positionally (the old form) is refused, and no output
+/// stream carries any part of it, however it begins.
+#[test]
+fn positional_value_is_refused_and_never_echoed() {
+    for v in [
+        PEM,
+        "-----BEGIN-sentinelx",
+        "-sentinel-dash",
+        "plain-sentinel-zz",
+    ] {
+        for pos in 0..2 {
+            let mut args = vec!["secrets", "encrypt"];
+            if pos == 0 {
+                args.push(v);
+            }
+            args.extend(["-r", "age1xxxx"]);
+            if pos == 1 {
+                args.push(v);
+            }
+            let out = forjar().args(&args).stdin(Stdio::null()).output().unwrap();
+            assert!(!out.status.success(), "accepted positional {v:?}");
+            assert_no_echo(&out, &[v, "sentinel", "BEGIN"]);
+        }
+    }
+}
+
+/// Stray flags and `--flag=value` forms are clap errors; its rendering must
+/// not carry the value either.
+#[test]
+fn clap_errors_on_secrets_encrypt_never_echo_value() {
+    for args in [
+        vec![
+            "secrets",
+            "encrypt",
+            "-r",
+            "age1xxxx",
+            "--bogus=-----BEGIN-sentinelq",
+        ],
+        vec![
+            "secrets",
+            "encrypt",
+            "-r",
+            "age1xxxx",
+            "--",
+            "-----BEGIN-sentinelq",
+        ],
+        vec![
+            "secrets",
+            "encrypt",
+            "--stdin=-----BEGIN-sentinelq",
+            "-r",
+            "age1xxxx",
+        ],
+        vec![
+            "secrets",
+            "encrypt",
+            "-----BEGIN-sentinelq",
+            "extra-sentinelq",
+        ],
+    ] {
+        let out = forjar().args(&args).stdin(Stdio::null()).output().unwrap();
+        assert!(!out.status.success(), "{args:?}");
+        assert_no_echo(&out, &["sentinelq", "BEGIN"]);
+    }
 }

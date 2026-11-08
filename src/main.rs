@@ -43,10 +43,29 @@ fn main() {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(exit_redacted);
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
     if let Err(e) = forjar::cli::dispatch_classified(cli.command, cli.verbose, no_color) {
         eprintln!("error: {e}");
         std::process::exit(e.exit_code());
     }
+}
+
+/// Exit on a usage error. clap quotes the offending argument in its message
+/// and "tip" line; for `secrets encrypt` that argument can be the secret
+/// itself, so this subcommand gets a fixed message that echoes nothing.
+fn exit_redacted(e: clap::Error) -> Cli {
+    let argv: Vec<String> = std::env::args().collect();
+    let is_encrypt = argv
+        .windows(2)
+        .any(|w| w[0] == "secrets" && w[1] == "encrypt");
+    if e.use_stderr() && is_encrypt {
+        eprintln!(
+            "error: invalid arguments for `forjar secrets encrypt` (not shown: it may hold a \
+             secret). Usage: forjar secrets encrypt -r <RECIPIENT> [--from-file PATH]  \
+             (plaintext is read from stdin)"
+        );
+        std::process::exit(2);
+    }
+    e.exit()
 }

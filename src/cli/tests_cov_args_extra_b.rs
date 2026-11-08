@@ -355,8 +355,9 @@ mod tests {
     #[test]
     fn test_cov_commands_secrets_encrypt() {
         let cmd = Commands::Secrets(SecretsCmd::Encrypt {
-            value: Some("secret".to_string()),
+            from_file: None,
             stdin: false,
+            rest: vec![],
             recipient: vec!["age1key".to_string()],
         });
         let _ = format!("{cmd:?}");

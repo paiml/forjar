@@ -95,26 +95,44 @@ fn write_identity_0600(path: &Path, body: &str) -> Result<(), String> {
         .map_err(|e| format!("cannot write '{}': {}", path.display(), e))
 }
 
-/// Resolve the plaintext for `secrets encrypt`: `--stdin` or a `-` value reads
-/// stdin (one trailing newline removed); otherwise the argv value.
-pub(crate) fn resolve_encrypt_input(value: Option<String>, stdin: bool) -> Result<String, String> {
-    if stdin || value.as_deref() == Some("-") {
-        use std::io::Read;
-        let mut buf = String::new();
-        std::io::stdin()
-            .read_to_string(&mut buf)
-            .map_err(|e| format!("cannot read stdin: {e}"))?;
-        if buf.ends_with('\n') {
-            buf.pop();
-            if buf.ends_with('\r') {
-                buf.pop();
-            }
-        }
-        return Ok(buf);
+/// Resolve the plaintext for `secrets encrypt`: `--from-file PATH`, else stdin
+/// (one trailing newline removed). A positional value is refused WITHOUT
+/// echoing it: argv leaks via `ps` and /proc/<pid>/cmdline.
+pub(crate) fn resolve_encrypt_input(
+    from_file: Option<&Path>,
+    rest: &[String],
+) -> Result<String, String> {
+    if !rest.is_empty() {
+        return Err(
+            "a secret must not be passed as an argument (it would be visible in \
+             `ps`); pipe it on stdin (`forjar secrets encrypt -r R < file`) or use \
+             --from-file PATH"
+                .to_string(),
+        );
     }
-    value.ok_or_else(|| {
-        "no plaintext given: pass --stdin (or `-`) to read it from stdin".to_string()
-    })
+    let mut buf = match from_file {
+        Some(p) => {
+            std::fs::read_to_string(p).map_err(|e| format!("cannot read '{}': {e}", p.display()))?
+        }
+        None => {
+            use std::io::Read;
+            let mut s = String::new();
+            std::io::stdin()
+                .read_to_string(&mut s)
+                .map_err(|e| format!("cannot read stdin: {e}"))?;
+            s
+        }
+    };
+    if buf.ends_with('\n') {
+        buf.pop();
+        if buf.ends_with('\r') {
+            buf.pop();
+        }
+    }
+    if buf.is_empty() {
+        return Err("no plaintext given: pipe it on stdin or use --from-file PATH".to_string());
+    }
+    Ok(buf)
 }
 
 #[cfg(not(feature = "encryption"))]

@@ -119,7 +119,7 @@ Separately from secret providers, forjar supports inline age encryption with `EN
 forjar secrets keygen
 
 # Encrypt a value
-forjar secrets encrypt --recipient age1... "my-secret-value"
+printf %s "my-secret-value" | forjar secrets encrypt --recipient age1...
 
 # Use in config
 resources:
