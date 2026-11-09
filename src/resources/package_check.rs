@@ -140,7 +140,12 @@ pub fn check_script(resource: &Resource) -> String {
                     let condition = format!(
                         "_fj_bins=\"$(cargo install --list 2>/dev/null \
                          | awk -v p={} {})\"; \
+                         _fj_c={}; _fj_prim=\"\"; \
+                         for _fj_b in $_fj_bins; do case \"$_fj_b\" in \
+                         \"$_fj_c\"|\"cargo-$_fj_c\") _fj_prim=\"$_fj_b\";; esac; done; \
+                         [ -n \"$_fj_prim\" ] && _fj_bins=\"$_fj_prim\"; \
                          [ -n \"$_fj_bins\" ] && ( \
+                         cd \"${{TMPDIR:-/tmp}}\" 2>/dev/null; \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
                          _fj_want={}; _fj_seen=0; \
                          for _fj_b in $_fj_bins; do \
@@ -156,6 +161,7 @@ pub fn check_script(resource: &Resource) -> String {
                          [ \"$_fj_seen\" = 1 ] )",
                         sh_squote(&needle),
                         sh_squote(BINS_UNDER_HEADER),
+                        sh_squote(&crate_name),
                         sh_squote(version.unwrap_or("")),
                     );
                     verdict::assert_that(
