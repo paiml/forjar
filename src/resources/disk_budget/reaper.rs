@@ -71,6 +71,7 @@ if [ "$FB_OPEN_OK" = "1" ]; then
   {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
   while IFS= read -r cand; do
     [ -n "$cand" ] || continue
+    fb_in_use "$cand" && continue
     fb_is_idle "$cand" {idle} || continue
     fb_sweepable "$cand" {prefixes} || continue
     sz=$(fb_bytes "$cand")
@@ -133,6 +134,9 @@ if [ "$FB_MET" != "1" ] && [ "$FB_UNREACH" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; 
       FB_MET=1
       break
     fi
+    # forjar#667: ONE in-use check for every kind, before the idle check and the rm
+    # (a finder that forgets its own copy used to delete a running build's dir).
+    fb_in_use "$cand" && {{ fb_log "  keep (in use): $cand"; continue; }}
     fb_is_idle "$cand" {idle} || {{ fb_log "  keep (active <{idle}m): $cand"; continue; }}
     # SEC011: last line of defence for a script whose job is `rm -rf`. Every
     # candidate arrives from a glob or a find; if one ever resolves a level too
@@ -211,13 +215,14 @@ FB_WOULD=$(mktemp) || exit 1
 FB_CANDS=$(mktemp) || exit 1
 FB_OPEN=$(mktemp) || exit 1
 FB_PROCRAW=$(mktemp) || exit 1
+FB_MAPS=$(mktemp) || exit 1
 FB_MARKERS=$(mktemp) || exit 1
 FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
 FB_UNREACH=0
 FB_REACH_UNM=0
 FB_REACH=$(mktemp) || exit 1
-trap 'rm -f "$FB_REACH" "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
+trap 'rm -f "$FB_REACH" "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MAPS" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
 # as a test expression (SC1140) and rejects the script.

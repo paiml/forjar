@@ -39,6 +39,22 @@ fn mk_target(root: &std::path::Path, name: &str) -> std::path::PathBuf {
 /// fixtures demand 99% free of a real filesystem, which no fixture tree can
 /// reach, so a 4 KiB `df` stub sits first on PATH and keeps the target reachable;
 /// what they exercise is liveness and the timeout fail-safe, not reachability.
+/// Poll /proc until the child is really inside `dir` (cwd or exe): a fixed sleep raced
+/// the exec on a loaded box (intel runs at load 500+).
+fn wait_until_inside(child: &std::process::Child, dir: &std::path::Path) {
+    for _ in 0..200 {
+        for l in ["cwd", "exe"] {
+            if let Ok(t) = std::fs::read_link(format!("/proc/{}/{l}", child.id())) {
+                if t.starts_with(dir) {
+                    return;
+                }
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("child never entered {}", dir.display());
+}
+
 fn run(script: &std::path::Path, status: &std::path::Path, path: &str) -> String {
     let dfdir = script.parent().unwrap().join("dfstub");
     std::fs::create_dir_all(&dfdir).unwrap();
@@ -88,7 +104,7 @@ fn reclaims_only_the_provably_dead_and_fails_safe_on_timeout() {
         .stdout(Stdio::null())
         .spawn()
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(300));
+    wait_until_inside(&holder, &live);
 
     // 1. timeout(1) that always times out: nothing may be deleted.
     let stub = tmp.path().join("stub");
@@ -149,4 +165,70 @@ fn reclaims_only_the_provably_dead_and_fails_safe_on_timeout() {
 
     holder.kill().ok();
     holder.wait().ok();
+}
+
+/// forjar#667: a `cargo_target` dir whose BINARY is running (exe inside the dir,
+/// cwd elsewhere, nothing held open by cwd/fd) is in use and must survive; a
+/// dormant sibling is still reclaimed.
+#[test]
+fn a_cargo_target_whose_binary_is_running_survives() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("src");
+    let live = mk_target(&root, "live");
+    let dead = mk_target(&root, "dead");
+    let exe = live.join("served");
+    std::fs::copy("/bin/sleep", &exe).unwrap();
+    let script = tmp.path().join("cargo-reaper.sh");
+    std::fs::write(
+        &script,
+        script_for(&root.to_string_lossy(), ReclaimKind::CargoTarget),
+    )
+    .unwrap();
+    // cwd is NOT inside the dir: only /proc/<pid>/exe points into it.
+    let mut holder = Command::new(&exe)
+        .arg("60")
+        .current_dir(tmp.path())
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    wait_until_inside(&holder, &live);
+    let log = run(
+        &script,
+        &tmp.path().join("status.json"),
+        &std::env::var("PATH").unwrap(),
+    );
+    holder.kill().ok();
+    holder.wait().ok();
+    assert!(
+        live.exists(),
+        "a running binary's target must be kept: {log}"
+    );
+    assert!(!dead.exists(), "the dormant sibling must go: {log}");
+}
+
+/// forjar#667: the in-use check is part of the LOOP, so every `ReclaimKind`
+/// gets it. The exhaustive match makes a new kind fail to compile here.
+#[test]
+fn every_reclaim_kind_runs_the_in_use_check_in_the_loop() {
+    for kind in [
+        ReclaimKind::Glob,
+        ReclaimKind::CargoTarget,
+        ReclaimKind::AbandonedWorktree,
+        ReclaimKind::ClaudeScratchpad,
+    ] {
+        match kind {
+            ReclaimKind::Glob
+            | ReclaimKind::CargoTarget
+            | ReclaimKind::AbandonedWorktree
+            | ReclaimKind::ClaudeScratchpad => {}
+        }
+        let s = script_for("/tmp/x/*", kind);
+        let loop_at = s.find("while IFS= read -r cand").expect("loop");
+        let rm_at = s.find("rm -rf -- \"$cand\"").expect("rm");
+        let body = &s[loop_at..rm_at];
+        assert!(
+            body.contains(r#"fb_in_use "$cand""#),
+            "{kind:?}: no loop-level in-use check"
+        );
+    }
 }

@@ -67,7 +67,8 @@ fn proc_scan_launches_no_process_per_pid_or_fd() {
     assert!(!s.contains("tr '\\0'"), "no per-pid tr over cmdline");
     // One pass, one tool.
     assert_eq!(
-        body.matches("find /proc/*/cwd /proc/*/fd").count(),
+        body.matches("find /proc/*/cwd /proc/*/exe /proc/*/fd")
+            .count(),
         1,
         "the whole scan is ONE find over /proc: {body}"
     );

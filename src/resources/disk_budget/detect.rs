@@ -80,7 +80,7 @@ fb_scan_open_paths() {
   : >"$FB_PROCRAW"
   FB_OPEN_OK=0
   fb_live_slugs=""
-  fb_bounded find /proc/*/cwd /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
+  fb_bounded find /proc/*/cwd /proc/*/exe /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
   fb_rc=$?
   if fb_timed_out "$fb_rc"; then
     FB_UNMEASURED=1
@@ -92,7 +92,16 @@ fb_scan_open_paths() {
     fb_log "  /proc scan saw no processes: NOT MEASURED, nothing proven dead"
     return 0
   fi
-  awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW" | sort -u >"$FB_OPEN"
+  # forjar#667: a mapped shared object or the running binary also pins its dir.
+  # cat, not awk: awk aborts at the first unreadable maps file (other users' pids).
+  fb_bounded cat /proc/[0-9]*/maps >"$FB_MAPS" 2>/dev/null
+  fb_rc=$?
+  if fb_timed_out "$fb_rc"; then
+    FB_UNMEASURED=1
+    fb_log "  /proc maps scan timed out after ${FB_FIND_TIMEOUT}s: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  { awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW"; awk '$6 ~ /^\// {print $6}' "$FB_MAPS"; } | sort -u >"$FB_OPEN"
   FB_OPEN_OK=1
   # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
   # comm is read with the `read` builtin; only a matching pid costs a launch.
