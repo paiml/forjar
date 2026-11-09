@@ -191,8 +191,8 @@ jobs:
           if command -v musl-gcc >/dev/null 2>&1; then
             echo "musl-gcc already present: $(command -v musl-gcc)"
           elif command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends musl-tools
+            sudo apt-get -o DPkg::Lock::Timeout=600 update -qq
+            sudo apt-get -o DPkg::Lock::Timeout=600 install -y --no-install-recommends musl-tools
           else
             echo "::warning::musl-gcc is absent and apt-get is not available on this runner. The build will reach the link step and fail there naming the missing linker. Install musl-tools on the fleet image, or give this leg a runner that has it." >&2
           fi
