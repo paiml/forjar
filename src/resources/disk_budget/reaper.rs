@@ -100,6 +100,8 @@ if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
       FB_MET=1
       break
     fi
+    # forjar#667: ONE in-use check for every kind, before the idle check and the rm.
+    fb_in_use "$cand" && {{ fb_log "  keep (in use): $cand"; continue; }}
     fb_is_idle "$cand" {idle} || {{ fb_log "  keep (active <{idle}m): $cand"; continue; }}
     # SEC011: last line of defence for a script whose job is `rm -rf`. Every
     # candidate arrives from a glob or a find; if one ever resolves a level too
@@ -313,6 +315,43 @@ mod tests {
         r.min_idle_minutes = 45;
         let s = script(&budget(vec![r]), "/run/x.json", "budget");
         assert!(s.contains("fb_is_idle \"$cand\" 45"));
+    }
+
+    /// forjar#667: ONE in-use check guards every kind, before the idle check and the rm.
+    /// The match is exhaustive, so a new `ReclaimKind` fails to compile here until added.
+    #[test]
+    fn every_kind_is_checked_for_use_before_idle_and_rm() {
+        for kind in [
+            ReclaimKind::CargoTarget,
+            ReclaimKind::ClaudeScratchpad,
+            ReclaimKind::AbandonedWorktree,
+            ReclaimKind::Glob,
+        ] {
+            match kind {
+                ReclaimKind::CargoTarget
+                | ReclaimKind::ClaudeScratchpad
+                | ReclaimKind::AbandonedWorktree
+                | ReclaimKind::Glob => {}
+            }
+            let mut r = rule();
+            r.kind = kind;
+            let s = script(&budget(vec![r]), "/run/x.json", "budget");
+            let in_use = s.find("fb_in_use \"$cand\"").expect("central in-use check");
+            let idle = s.find("fb_is_idle \"$cand\"").expect("idle check");
+            let rm = s.find("rm -rf -- \"$cand\"").expect("delete branch");
+            assert!(
+                in_use < idle && idle < rm,
+                "{kind:?}: in-use must precede idle and rm"
+            );
+        }
+    }
+
+    /// forjar#667: exe and mapped files count as holding a dir.
+    #[test]
+    fn open_path_scan_reads_exe_and_maps() {
+        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+        assert!(s.contains("/proc/*/exe"), "exe link not scanned");
+        assert!(s.contains("/proc/*/maps"), "maps not scanned");
     }
 
     /// #334: a reaper reached by hand — or by a `sudo`/`ssh` hop that scrubbed

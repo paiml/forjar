@@ -136,3 +136,55 @@ fn reclaims_only_the_provably_dead_and_fails_safe_on_timeout() {
     holder.kill().ok();
     holder.wait().ok();
 }
+
+/// forjar#667: the cargo_target finder used to skip the in-use check, and the
+/// scan ignored a process whose executable lives inside the dir. Both are
+/// falsified here by running the generated reaper: a dir held by a cwd, and a
+/// dir holding a running binary, survive; a dormant sibling is deleted.
+#[test]
+fn cargo_target_in_use_by_cwd_or_exe_survives_and_dormant_is_reclaimed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("src");
+    let dormant = mk_target(&root, "dormant");
+    let by_cwd = mk_target(&root, "by-cwd");
+    let by_exe = mk_target(&root, "by-exe");
+    let script = tmp.path().join("reaper.sh");
+    std::fs::write(
+        &script,
+        script_for(&root.to_string_lossy(), ReclaimKind::CargoTarget),
+    )
+    .unwrap();
+    let status = tmp.path().join("status.json");
+    let sys_path = std::env::var("PATH").unwrap();
+
+    let mut cwd_holder = Command::new("sh")
+        .args(["-c", "cd \"$1\" && exec sleep 60", "sh"])
+        .arg(&by_cwd)
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    // A running executable that lives inside the dir (its cwd is elsewhere).
+    let bin = by_exe.join("held-bin");
+    std::fs::copy("/bin/sleep", &bin).unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut exe_holder = Command::new(&bin)
+        .arg("60")
+        .current_dir("/")
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+
+    let log = run(&script, &status, &sys_path);
+    let _ = cwd_holder.kill();
+    let _ = exe_holder.kill();
+    let _ = cwd_holder.wait();
+    let _ = exe_holder.wait();
+
+    assert!(by_cwd.exists(), "a dir held by a cwd must survive: {log}");
+    assert!(
+        by_exe.exists(),
+        "a dir holding a running exe must survive: {log}"
+    );
+    assert!(!dormant.exists(), "a dormant dir must be reclaimed: {log}");
+}

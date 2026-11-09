@@ -67,9 +67,16 @@ fn proc_scan_launches_no_process_per_pid_or_fd() {
     assert!(!s.contains("tr '\\0'"), "no per-pid tr over cmdline");
     // One pass, one tool.
     assert_eq!(
-        body.matches("find /proc/*/cwd /proc/*/fd").count(),
+        body.matches("find /proc/*/cwd /proc/*/exe /proc/*/fd")
+            .count(),
         1,
         "the whole scan is ONE find over /proc: {body}"
+    );
+    // forjar#667: mapped files need one more constant-cost pass (not per pid): ONE awk.
+    assert_eq!(
+        body.matches("awk '$6").count(),
+        1,
+        "maps are read by ONE awk over /proc/*/maps: {body}"
     );
     assert!(body.contains("-printf '%p\\t%l\\n'"));
 }

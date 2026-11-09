@@ -80,8 +80,14 @@ fb_scan_open_paths() {
   : >"$FB_PROCRAW"
   FB_OPEN_OK=0
   fb_live_slugs=""
-  fb_bounded find /proc/*/cwd /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
+  fb_bounded find /proc/*/cwd /proc/*/exe /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
   fb_rc=$?
+  # forjar#667: a mapped shared object or an mmap'd file inside a dir also holds it in use.
+  # The file path is column 6 of /proc/<pid>/maps; unreadable maps are skipped.
+  if [ "$fb_rc" -eq 0 ]; then
+    fb_bounded awk '$6 ~ /^\// {print "maps\t" $6}' /proc/*/maps >>"$FB_PROCRAW" 2>/dev/null
+    fb_rc=$?
+  fi
   if fb_timed_out "$fb_rc"; then
     FB_UNMEASURED=1
     fb_log "  /proc scan timed out after ${FB_FIND_TIMEOUT}s: NOT MEASURED, nothing proven dead"
