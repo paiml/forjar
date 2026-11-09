@@ -335,6 +335,7 @@ fn refresh_machine_lock(
 /// ordinary `apply --operator alice` converged. That is forjar#358's defect —
 /// a mode that drops what the operator actually typed — reappearing one flag
 /// over, which is precisely the shape this change exists to close.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_refresh_only(
     file: &Path,
