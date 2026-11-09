@@ -141,7 +141,29 @@ fn verify_binding_equations(binding_path: &std::path::Path) {
     );
 }
 
+/// #639: embed the build commit so `forjar --version` names it. CI may pass
+/// FORJAR_GIT_SHA (release tag's commit); else ask git; else "unknown".
+fn emit_git_sha() {
+    println!("cargo::rerun-if-env-changed=FORJAR_GIT_SHA");
+    println!("cargo::rerun-if-changed=.git/HEAD");
+    let from_env = std::env::var("FORJAR_GIT_SHA").ok();
+    let sha = from_env
+        .or_else(|| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--short=7", "HEAD"])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        })
+        .map(|s| s.chars().take(7).collect::<String>())
+        .filter(|s| s.len() == 7 && s.chars().all(|c| c.is_ascii_hexdigit()))
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo::rustc-env=FORJAR_GIT_SHA={sha}");
+}
+
 fn main() {
+    emit_git_sha();
     emit_contract_assertions();
 
     let binding_path = "contracts/binding.yaml";
