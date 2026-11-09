@@ -109,7 +109,7 @@ pub fn apply_script(resource: &Resource) -> String {
              \x20 grep -F {grep_pattern} | \\\n\
              \x20 grep -o '\"browser_download_url\": *\"[^\"]*\"' | \\\n\
              \x20 head -1 | \\\n\
-             \x20 grep -o 'https://[^\"]*')\n\
+             \x20 grep -o 'https://[^\"]*' || true)\n\
              \n\
              if [ -z \"$DOWNLOAD_URL\" ]; then\n\
              \x20 echo {no_asset_msg} >&2\n\
@@ -404,5 +404,29 @@ mod tests {
             "{script}"
         );
         assert!(script.contains("/home/user/.cargo/bin/apr"), "{script}");
+    }
+
+    /// forjar#608: under `set -o pipefail` a missing asset made the pipeline's
+    /// `grep` exit 1 and `set -e` killed the script before the "no asset" message.
+    #[test]
+    fn fj608_missing_asset_prints_its_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let curl = dir.path().join("curl");
+        std::fs::write(&curl, "#!/bin/sh\necho '{\"assets\": []}'\n").unwrap();
+        let mut perm = std::fs::metadata(&curl).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o755);
+        std::fs::set_permissions(&curl, perm).unwrap();
+        let mut r = make_github_release_resource("paiml/aprender", "apr");
+        r.asset_pattern = Some("*aarch64-apple-darwin*".to_string());
+        let path = format!("{}:/usr/bin:/bin", dir.path().display());
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(apply_script(&r))
+            .env("PATH", path)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("aarch64-apple-darwin"), "stderr was: {err:?}");
     }
 }
