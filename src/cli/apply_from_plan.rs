@@ -344,6 +344,15 @@ pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> 
     // only caller of `apply_pre_validate`, so every gate below `check_operator_auth`
     // was unreachable through a plan file — including the BLAKE3 state-integrity
     // gate whose own refusal says "No apply flag overrides this check".
+    // FJ-LOCK-001 C2: those gates write state; hold the lock from here on.
+    let _state_lock = if req.dry_run {
+        None
+    } else {
+        Some(crate::core::state::hold_process_lock(
+            req.state_dir,
+            req.knobs.force_unlock,
+        )?)
+    };
     super::apply_from_plan_gates::run_plan_apply_gates(&config, req, &loaded.plan, &scope)?;
 
     if req.dry_run {

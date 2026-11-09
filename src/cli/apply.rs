@@ -122,6 +122,13 @@ pub(crate) fn cmd_apply_scoped(
     let _ssh_mux =
         super::apply_mux::open_control_masters(&config, &gate_scope, force, dry_run, verbose);
 
+    // FJ-LOCK-001 C2: the drift gate, the generation, outputs and the global
+    // lock are all written below; hold the state lock across all of them.
+    let _state_lock = if dry_run {
+        None
+    } else {
+        Some(state::hold_process_lock(state_dir, force_unlock)?)
+    };
     let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,
         state_dir,

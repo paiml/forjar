@@ -293,6 +293,52 @@ pub fn release_process_lock(state_dir: &Path) {
     let _ = std::fs::remove_file(&lock_path);
 }
 
+/// FJ-LOCK-001 C2 (#922): the apply's hold on a state dir, released on Drop.
+///
+/// The lock used to be taken in the executor, after the drift gate had already
+/// written state, released before the generation and outputs were recorded,
+/// and leaked on every `?` and panic between acquire and release. A guard ties
+/// release to scope: the CLI takes it before `apply_pre_validate` and holds it
+/// through `apply_post_actions`; `Drop` runs on return, `?` and unwind alike.
+///
+/// Re-entrant on the SAME thread only: the executor's own take under a CLI
+/// hold is a no-op guard. Another thread or process still meets the lock file
+/// and is refused, exactly as before.
+#[must_use = "the lock is released when the guard drops"]
+pub struct ProcessLockGuard {
+    state_dir: Option<PathBuf>,
+}
+
+thread_local! {
+    static HELD: std::cell::RefCell<Vec<PathBuf>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Take (or, when this thread already holds it, join) the apply lock for
+/// `state_dir`. `force_unlock` clears a stale lock first, never our own hold.
+pub fn hold_process_lock(state_dir: &Path, force_unlock: bool) -> Result<ProcessLockGuard, String> {
+    if HELD.with(|h| h.borrow().iter().any(|p| p == state_dir)) {
+        return Ok(ProcessLockGuard { state_dir: None });
+    }
+    if force_unlock {
+        self::force_unlock(state_dir)?;
+    }
+    acquire_process_lock(state_dir)?;
+    HELD.with(|h| h.borrow_mut().push(state_dir.to_path_buf()));
+    Ok(ProcessLockGuard {
+        state_dir: Some(state_dir.to_path_buf()),
+    })
+}
+
+impl Drop for ProcessLockGuard {
+    fn drop(&mut self) {
+        let Some(dir) = self.state_dir.take() else {
+            return;
+        };
+        HELD.with(|h| h.borrow_mut().retain(|p| p != &dir));
+        release_process_lock(&dir);
+    }
+}
+
 /// Force-remove the process lock (for --force-unlock).
 pub fn force_unlock(state_dir: &Path) -> Result<(), String> {
     let lock_path = process_lock_path(state_dir);

@@ -336,7 +336,8 @@ pub fn load_apply_report(state_dir: &Path, machine: &str) -> Result<Option<Strin
 // ============================================================================
 
 pub use process_lock::{
-    acquire_process_lock, force_unlock, locked_by_other_live_pid, release_process_lock,
+    acquire_process_lock, force_unlock, hold_process_lock, locked_by_other_live_pid,
+    release_process_lock, ProcessLockGuard,
 };
 #[cfg(test)]
 pub(super) use process_lock::{parse_lock_pid, process_lock_path};

@@ -366,13 +366,12 @@ pub fn apply_scoped(
 ) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();
 
-    // FJ-266: State locking
-    if !cfg.dry_run {
-        if cfg.force_unlock {
-            state::force_unlock(cfg.state_dir)?;
-        }
-        state::acquire_process_lock(cfg.state_dir)?;
-    }
+    // FJ-266 / FJ-LOCK-001 C2: a guard, released on every exit (`?`, panic).
+    let _lock = if cfg.dry_run {
+        None
+    } else {
+        Some(state::hold_process_lock(cfg.state_dir, cfg.force_unlock)?)
+    };
 
     let execution_order = resolver::build_execution_order(cfg.config)?;
     let all_machines = collect_machines(cfg.config);
@@ -465,10 +464,6 @@ pub fn apply_scoped(
 
     if let Ok(ref results) = result {
         rollback_on_failure(cfg, results, &lock_snapshots);
-    }
-
-    if !cfg.dry_run {
-        state::release_process_lock(cfg.state_dir);
     }
 
     result
