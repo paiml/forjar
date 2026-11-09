@@ -36,3 +36,24 @@ fn the_default_knobs_request_nothing() {
     assert_eq!(k.max_parallel, None);
     assert_eq!(k.resource_timeout, None);
 }
+
+/// forjar#432 (option 2): the saved-plan preflight says the drift gate did not
+/// run. The line is printed by `run_plan_apply_gates`, which both the dry run
+/// and the real apply pass through before they diverge.
+#[test]
+fn the_saved_plan_preflight_says_the_drift_gate_did_not_run() {
+    use crate::cli::apply_from_plan_gates::DRIFT_GATE_NOT_RUN;
+    assert_eq!(
+        DRIFT_GATE_NOT_RUN,
+        "drift gate: not run for saved plans (bound to state_hash instead)"
+    );
+    let src = include_str!("apply_from_plan_gates.rs");
+    let body = src
+        .split("pub(super) fn run_plan_apply_gates(")
+        .nth(1)
+        .expect("run_plan_apply_gates exists");
+    assert!(
+        body.contains("println!(\"{DRIFT_GATE_NOT_RUN}\");"),
+        "the preflight must print the notice"
+    );
+}
