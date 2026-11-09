@@ -147,7 +147,7 @@ fb_sweepable() {
       *) fb_log "  REFUSE too shallow (depth 2, not /tmp): $fb_p"; return 1 ;;
     esac
   fi
-  if [ -n "$HOME" ] && [ "$fb_p" = "$HOME" ]; then
+  if [ -n "${HOME:-}" ] && [ "$fb_p" = "${HOME:-}" ]; then
     fb_log "  REFUSE \$HOME itself: $fb_p"
     return 1
   fi

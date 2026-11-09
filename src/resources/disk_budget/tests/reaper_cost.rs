@@ -126,7 +126,9 @@ fn a_timeout_means_not_measured_and_nothing_is_deleted() {
     let in_use = shell_fn(&s, "fb_in_use");
     assert!(in_use.contains("[ \"$FB_OPEN_OK\" = \"1\" ] || return 0"));
     // (4) the rule loop only runs on a completed scan.
-    assert!(s.contains("if [ \"$FB_MET\" != \"1\" ] && [ \"$FB_OPEN_OK\" = \"1\" ]; then"));
+    assert!(s.contains(
+        "if [ \"$FB_MET\" != \"1\" ] && [ \"$FB_UNREACH\" != \"1\" ] && [ \"$FB_OPEN_OK\" = \"1\" ]; then"
+    ));
     assert!(s.contains("nothing proven dead, deleting nothing"));
 }
 

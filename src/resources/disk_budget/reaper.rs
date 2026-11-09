@@ -24,9 +24,10 @@ fn read_df(path: &str) -> String {
         r#"
 fb_read_df() {{
   # POSIX `df -P` keeps the record on one line even for long device names.
-  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4}}')
+  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4, $2}}')
   FB_USED_PCT="${{1:-0}}"
   FB_FREE_KB="${{2:-0}}"
+  FB_TOTAL_KB="${{3:-0}}"
   FB_FREE_GB=$((FB_FREE_KB / 1024 / 1024))
 }}
 "#
@@ -49,6 +50,38 @@ fn label(name: &str) -> String {
             }
         })
         .collect()
+}
+
+/// The per-rule reachability scan (forjar#669): sums the bytes this rule could free,
+/// under the SAME idle and sweepable filters the delete loop applies, deleting nothing.
+fn reach_block(rule: &ReclaimRule) -> String {
+    let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
+    let roots = roots.join(" ");
+    let mut prefixes: Vec<String> = rule
+        .roots
+        .iter()
+        .map(|r| ReclaimRule::root_prefix(r))
+        .collect();
+    prefixes.dedup();
+    let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
+    let prefixes = prefixes.join(" ");
+    format!(
+        r#"
+if [ "$FB_OPEN_OK" = "1" ]; then
+  {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    fb_is_idle "$cand" {idle} || continue
+    fb_sweepable "$cand" {prefixes} || continue
+    sz=$(fb_bytes "$cand")
+    [ -n "$sz" ] || FB_REACH_UNM=1
+    echo "${{sz:-0}}" >>"$FB_REACH"
+  done < "$FB_CANDS"
+fi
+"#,
+        finder = detect::fn_name(rule.kind),
+        idle = rule.min_idle_minutes,
+    )
 }
 
 /// The per-rule reclaim block.
@@ -85,7 +118,7 @@ fn rule_block(rule: &ReclaimRule) -> String {
 if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" != "1" ]; then
   fb_log "rule {name}: open-path scan not measured - nothing proven dead, deleting nothing"
 fi
-if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
+if [ "$FB_MET" != "1" ] && [ "$FB_UNREACH" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
   fb_log {log_msg}
   {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
   if [ -s "$FB_UNMLOG" ]; then
@@ -145,6 +178,7 @@ pub(super) fn script(budget: &DiskBudget, status_json: &str, log_tag: &str) -> S
     let target_used = budget.target_used_pct();
     let crit = budget.critical_free_gb;
     let rules: String = budget.reclaim.iter().map(rule_block).collect();
+    let reach: String = budget.reclaim.iter().map(reach_block).collect();
 
     format!(
         r#"#!/bin/sh
@@ -180,7 +214,10 @@ FB_PROCRAW=$(mktemp) || exit 1
 FB_MARKERS=$(mktemp) || exit 1
 FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
-trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
+FB_UNREACH=0
+FB_REACH_UNM=0
+FB_REACH=$(mktemp) || exit 1
+trap 'rm -f "$FB_REACH" "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
 # as a test expression (SC1140) and rejects the script.
@@ -197,6 +234,16 @@ if [ "$FB_USED_PCT" -lt "$FB_HIGH" ]; then
 else
   FB_TRIGGERED=1
   fb_scan_open_paths
+  # forjar#669: can freeing EVERY eligible candidate reach the target at all? If not,
+  # sweeping the idle trees is a TTL sweep that fixes nothing and destroys warm caches.
+  : >"$FB_REACH"
+{reach}  FB_REACH_BYTES=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_REACH" 2>/dev/null || echo 0)
+  FB_NEED_BYTES=$(awk -v t="$FB_TOTAL_KB" -v u="$FB_USED_PCT" -v g="$FB_TARGET_USED" 'BEGIN{{n=t*1024*(u-g)/100; if(n<0)n=0; printf "%.0f", n}}')
+  # NOT MEASURED is not "unreachable" (L23): a timed-out walk or du decides nothing.
+  if [ "$FB_OPEN_OK" = "1" ] && [ ! -s "$FB_UNMLOG" ] && [ "$FB_REACH_UNM" != "1" ] && [ "$FB_REACH_BYTES" -lt "$FB_NEED_BYTES" ]; then
+    FB_UNREACH=1
+    fb_log "UNREACHABLE: target ${{FB_TARGET_USED}}% needs ${{FB_NEED_BYTES}} bytes freed, all eligible candidates hold ${{FB_REACH_BYTES}}; shortfall $((FB_NEED_BYTES - FB_REACH_BYTES)) bytes - deleting nothing"
+  fi
 {rules}fi
 
 fb_read_df

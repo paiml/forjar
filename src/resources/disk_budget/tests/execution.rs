@@ -35,7 +35,21 @@ fn mk_target(root: &std::path::Path, name: &str) -> std::path::PathBuf {
     d
 }
 
+/// forjar#669: the pass first asks whether the target is reachable at all. These
+/// fixtures demand 99% free of a real filesystem, which no fixture tree can
+/// reach, so a 4 KiB `df` stub sits first on PATH and keeps the target reachable;
+/// what they exercise is liveness and the timeout fail-safe, not reachability.
 fn run(script: &std::path::Path, status: &std::path::Path, path: &str) -> String {
+    let dfdir = script.parent().unwrap().join("dfstub");
+    std::fs::create_dir_all(&dfdir).unwrap();
+    let df = dfdir.join("df");
+    std::fs::write(
+        &df,
+        "#!/bin/sh\necho 'Filesystem 1024-blocks Used Available Capacity Mounted on'\necho '/dev/stub 4 1 1 81% /'\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&df, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = &format!("{}:{path}", dfdir.display());
     let out = Command::new("sh")
         .arg(script)
         .env("PATH", path)
