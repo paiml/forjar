@@ -246,3 +246,38 @@ fn unreachable_target_logs_shortfall_and_deletes_nothing() {
     assert!(!log.contains("target unreachable"), "{log}");
     assert!(!dormant.exists(), "a reachable target reclaims: {log}");
 }
+
+/// forjar#668 (in scope): `fb_in_use` fails closed. A /proc scan that returns
+/// nothing (find always sees its own parent shell, so empty means the scan did
+/// not work) proves nothing dead, so nothing is deleted.
+#[test]
+fn an_empty_proc_scan_fails_closed_and_deletes_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("src");
+    let dormant = mk_target(&root, "dormant");
+    let script = tmp.path().join("reaper.sh");
+    std::fs::write(
+        &script,
+        script_for(&root.to_string_lossy(), ReclaimKind::CargoTarget),
+    )
+    .unwrap();
+    let status = tmp.path().join("status.json");
+    let sys_path = std::env::var("PATH").unwrap();
+
+    // A `find` that lists nothing under /proc and is the real one elsewhere.
+    let stub = tmp.path().join("stub");
+    std::fs::create_dir_all(&stub).unwrap();
+    let fake = stub.join("find");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in /proc/*) exit 0;; esac; done\nexec /usr/bin/find \"$@\"\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let log = run(&script, &status, &format!("{}:{sys_path}", stub.display()));
+    assert!(log.contains("saw no processes"), "{log}");
+    assert!(
+        dormant.exists(),
+        "an empty /proc scan proves nothing dead, so nothing may be deleted: {log}"
+    );
+}
