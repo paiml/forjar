@@ -24,9 +24,10 @@ fn read_df(path: &str) -> String {
         r#"
 fb_read_df() {{
   # POSIX `df -P` keeps the record on one line even for long device names.
-  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4}}')
+  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4, $2}}')
   FB_USED_PCT="${{1:-0}}"
   FB_FREE_KB="${{2:-0}}"
+  FB_TOTAL_KB="${{3:-0}}"
   FB_FREE_GB=$((FB_FREE_KB / 1024 / 1024))
 }}
 "#
@@ -49,6 +50,44 @@ fn label(name: &str) -> String {
             }
         })
         .collect()
+}
+
+/// forjar#669: the bytes this rule could free if EVERY eligible candidate went.
+/// Same eligibility as the delete loop (idle, not in use, strictly under a
+/// declared root), summed into FB_REACH_KB, and nothing is removed.
+fn rule_preflight(rule: &ReclaimRule) -> String {
+    let finder = detect::fn_name(rule.kind);
+    let idle = rule.min_idle_minutes;
+    let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
+    let roots = roots.join(" ");
+    let mut prefixes: Vec<String> = rule
+        .roots
+        .iter()
+        .map(|r| ReclaimRule::root_prefix(r))
+        .collect();
+    prefixes.dedup();
+    let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
+    let prefixes = prefixes.join(" ");
+    format!(
+        r#"
+: >"$FB_UNMLOG"
+{finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+# An unfinished walk is not a measurement: leave the verdict to the rule block,
+# which logs NOT MEASURED, rather than calling the target unreachable.
+if [ -s "$FB_UNMLOG" ]; then
+  FB_REACH_UNK=1
+  : >"$FB_UNMLOG"
+fi
+while IFS= read -r cand; do
+  [ -n "$cand" ] || continue
+  fb_in_use "$cand" && continue
+  fb_is_idle "$cand" {idle} || continue
+  fb_sweepable "$cand" {prefixes} || continue
+  sz=$(fb_bytes "$cand")
+  FB_REACH_KB=$((FB_REACH_KB + ${{sz:-0}} / 1024))
+done < "$FB_CANDS"
+"#
+    )
 }
 
 /// The per-rule reclaim block.
@@ -85,7 +124,7 @@ fn rule_block(rule: &ReclaimRule) -> String {
 if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" != "1" ]; then
   fb_log "rule {name}: open-path scan not measured - nothing proven dead, deleting nothing"
 fi
-if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
+if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ] && [ "$FB_UNREACHABLE" != "1" ]; then
   fb_log {log_msg}
   {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
   if [ -s "$FB_UNMLOG" ]; then
@@ -147,6 +186,7 @@ pub(super) fn script(budget: &DiskBudget, status_json: &str, log_tag: &str) -> S
     let target_used = budget.target_used_pct();
     let crit = budget.critical_free_gb;
     let rules: String = budget.reclaim.iter().map(rule_block).collect();
+    let preflight: String = budget.reclaim.iter().map(rule_preflight).collect();
 
     format!(
         r#"#!/bin/sh
@@ -182,6 +222,7 @@ FB_PROCRAW=$(mktemp) || exit 1
 FB_MARKERS=$(mktemp) || exit 1
 FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
+FB_UNREACHABLE=0
 trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
@@ -199,6 +240,18 @@ if [ "$FB_USED_PCT" -lt "$FB_HIGH" ]; then
 else
   FB_TRIGGERED=1
   fb_scan_open_paths
+  # forjar#669: can freeing every eligible candidate reach the target at all? If
+  # not, say so and delete NOTHING: a missed target must never escalate into a
+  # time-to-live sweep of every idle candidate.
+  FB_REACH_KB=0
+  FB_REACH_UNK=0
+  if [ "$FB_OPEN_OK" = "1" ]; then
+{preflight}  fi
+  FB_NEED_KB=$((FB_TOTAL_KB / 100 * (FB_USED_PCT - FB_TARGET_USED)))
+  if [ "$FB_OPEN_OK" = "1" ] && [ "$FB_REACH_UNK" != "1" ] && [ "$FB_REACH_KB" -lt "$FB_NEED_KB" ]; then
+    FB_UNREACHABLE=1
+    fb_log "target unreachable: need ${{FB_NEED_KB}}K, every eligible candidate offers ${{FB_REACH_KB}}K (shortfall $((FB_NEED_KB - FB_REACH_KB))K) - deleting nothing"
+  fi
 {rules}fi
 
 fb_read_df

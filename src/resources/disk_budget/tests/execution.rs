@@ -14,10 +14,12 @@ fn script_for(root: &str, kind: ReclaimKind) -> String {
         kind,
         min_idle_minutes: 1,
     }];
-    // Trigger at 2% used, demand 99% free: always triggered, never met, so
-    // every provably-dead idle candidate is a deletion.
-    r.budget_high_watermark_pct = Some(2);
-    r.budget_target_free_pct = Some(99);
+    // The fake `df` (see `run_with`) reports 50% used. Trigger at 2%, demand
+    // 51% free: always triggered, never met, and the 2 KB it needs is within
+    // reach of any one candidate, so every provably-dead idle candidate is a
+    // deletion.
+    r.budget_high_watermark_pct = Some(50);
+    r.budget_target_free_pct = Some(51);
     reaper_script(&r).expect("script")
 }
 
@@ -36,6 +38,30 @@ fn mk_target(root: &std::path::Path, name: &str) -> std::path::PathBuf {
 }
 
 fn run(script: &std::path::Path, status: &std::path::Path, path: &str) -> String {
+    run_with(script, status, path, 200)
+}
+
+/// Run with a stub `df` reporting a filesystem of `total_kb` KB at 50% used.
+fn run_with(
+    script: &std::path::Path,
+    status: &std::path::Path,
+    path: &str,
+    total_kb: u64,
+) -> String {
+    let dfdir = script.parent().unwrap().join("dfstub");
+    std::fs::create_dir_all(&dfdir).unwrap();
+    let df = dfdir.join("df");
+    std::fs::write(
+        &df,
+        format!(
+            "#!/bin/sh\necho 'Filesystem 1024-blocks Used Available Capacity Mounted on'\necho 'fake {t} {h} {h} 50% /'\n",
+            t = total_kb,
+            h = total_kb / 2
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&df, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:{path}", dfdir.display());
     let out = Command::new("sh")
         .arg(script)
         .env("PATH", path)
@@ -187,4 +213,36 @@ fn cargo_target_in_use_by_cwd_or_exe_survives_and_dormant_is_reclaimed() {
         "a dir holding a running exe must survive: {log}"
     );
     assert!(!dormant.exists(), "a dormant dir must be reclaimed: {log}");
+}
+
+/// forjar#669: when freeing EVERY eligible candidate still cannot reach the
+/// target, the reaper must say so and delete nothing. The old loop kept going
+/// past the target it could never meet and swept every idle candidate.
+#[test]
+fn unreachable_target_logs_shortfall_and_deletes_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("src");
+    let dormant = mk_target(&root, "dormant");
+    let script = tmp.path().join("reaper.sh");
+    std::fs::write(
+        &script,
+        script_for(&root.to_string_lossy(), ReclaimKind::CargoTarget),
+    )
+    .unwrap();
+    let status = tmp.path().join("status.json");
+    let sys_path = std::env::var("PATH").unwrap();
+
+    // 100 GB filesystem at 50% used, target 49%: needs ~1 GB; the one idle
+    // candidate offers a few KB.
+    let log = run_with(&script, &status, &sys_path, 100_000_000);
+    assert!(log.contains("target unreachable"), "{log}");
+    assert!(
+        dormant.exists(),
+        "an unreachable target must delete nothing: {log}"
+    );
+
+    // Same tree on a tiny filesystem: reachable, so the dormant dir goes.
+    let log = run_with(&script, &status, &sys_path, 200);
+    assert!(!log.contains("target unreachable"), "{log}");
+    assert!(!dormant.exists(), "a reachable target reclaims: {log}");
 }
