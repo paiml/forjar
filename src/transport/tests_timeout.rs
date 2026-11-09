@@ -106,7 +106,10 @@ fn test_165_timeout_path_fast_command_ok() {
 fn a_timeout_before_the_child_spawns_still_kills_it() {
     let slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let done = std::sync::atomic::AtomicBool::new(false);
-    assert!(!kill_worker_child_group(&slot, &done), "nothing to kill yet");
+    assert!(
+        !kill_worker_child_group(&slot, &done),
+        "nothing to kill yet"
+    );
     let start = std::time::Instant::now();
     let out = local::exec_local("sleep 30", Some(&slot));
     assert!(start.elapsed().as_secs() < 10, "late child was not killed");
