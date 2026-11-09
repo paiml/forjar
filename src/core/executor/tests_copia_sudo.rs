@@ -11,6 +11,7 @@ use std::os::unix::fs::PermissionsExt;
 /// A `sudo` shim on PATH that records each call, then runs the script as the
 /// current user. Non-root only: as root the wrapper skips sudo by design.
 #[test]
+#[allow(clippy::disallowed_methods)] // PATH shim for sudo; test-only, same as tests_phase60
 fn copia_scripts_run_through_sudo_when_resource_is_sudo() {
     let uid = std::process::Command::new("id").arg("-u").output().unwrap();
     if uid.stdout.starts_with(b"0") {
