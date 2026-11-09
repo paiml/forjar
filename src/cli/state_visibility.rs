@@ -72,6 +72,30 @@ pub fn report<L>(
     eprintln!("{}", describe(state_dir, &missing));
 }
 
+/// GH-880: a plan against a state directory that does not exist is not a plan.
+///
+/// `forjar plan` in a fresh worktree has no state, so every resource reads as
+/// "add" and the output looks authoritative. Refuse it, and say how to point
+/// at the canonical state.
+pub fn require_state_dir(state_dir: &Path) -> Result<(), String> {
+    if state_dir.is_dir() {
+        return Ok(());
+    }
+    Err(format!(
+        "no state at {}; use --state-dir <canonical> (a plan without state reports every \
+         resource as an add and is not authoritative)",
+        describe_path(state_dir)
+    ))
+}
+
+fn describe_path(state_dir: &Path) -> String {
+    std::env::current_dir()
+        .map(|c| c.join(state_dir))
+        .unwrap_or_else(|_| state_dir.to_path_buf())
+        .display()
+        .to_string()
+}
+
 /// Set-difference specification for [`machines_missing_state`], as a bitmask.
 ///
 /// Bit i means "machine i". This is the allocation-free form Kani can address
@@ -137,5 +161,24 @@ mod tests {
     fn describe_is_quiet_when_nothing_is_missing() {
         let out = describe(std::path::Path::new("."), &[]);
         assert!(!out.contains("no prior state"), "{out}");
+    }
+}
+
+#[cfg(test)]
+mod require_state_tests {
+    use super::require_state_dir;
+
+    #[test]
+    fn missing_state_dir_errors_and_names_the_flag() {
+        let d = tempfile::tempdir().unwrap();
+        let err = require_state_dir(&d.path().join("nope")).unwrap_err();
+        assert!(err.contains("no state at"), "{err}");
+        assert!(err.contains("--state-dir"), "{err}");
+    }
+
+    #[test]
+    fn existing_state_dir_passes() {
+        let d = tempfile::tempdir().unwrap();
+        assert!(require_state_dir(d.path()).is_ok());
     }
 }
