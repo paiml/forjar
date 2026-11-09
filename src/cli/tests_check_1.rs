@@ -491,4 +491,26 @@ resources:
         let result = cmd_anomaly(&state, None, 3, false);
         assert!(result.is_ok());
     }
+
+    /// forjar#659: a host ssh never reached is UNMEASURED (connection class),
+    /// not a failed check; a host that answered and disagrees is still a failure.
+    #[test]
+    fn fj659_unreachable_host_is_unmeasured_not_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            "version: \"1.0\"\nname: p\nmachines:\n  ghost:\n    hostname: ghost\n    addr: forjar-check-probe.invalid\n    user: noah\nresources:\n  marker:\n    type: file\n    machine: ghost\n    path: /tmp/forjar-659-marker\n    content: x\n",
+        )
+        .unwrap();
+        let err = cmd_check(&config, None, None, None, dir.path(), false, false).unwrap_err();
+        assert!(
+            err.starts_with(crate::core::error::DRIFT_UNMEASURED_MARKER),
+            "{err}"
+        );
+        assert_eq!(
+            crate::core::error::classify_untyped(&err),
+            crate::core::error::ErrorClass::Connection
+        );
+    }
 }

@@ -134,6 +134,13 @@ fn run_single_check(
         // Neither a pass nor a failure — forjar cannot observe the state, and
         // claiming either would be a guess.
         Ok(out) if out.exit_code == 2 => ("skip", Some(2), out.stdout.trim().to_string(), true),
+        // #659: ssh's own failure (DNS, route, auth) says nothing about the host.
+        Ok(out) if out.exit_code == 255 && transport::is_ssh_transport(machine) => (
+            "unmeasured",
+            Some(255),
+            out.stderr.trim().to_string(),
+            false,
+        ),
         Ok(out) => (
             "fail",
             Some(out.exit_code),
@@ -277,6 +284,8 @@ struct CheckTally {
     pass: usize,
     fail: usize,
     skip: usize,
+    /// #659: checks whose target never answered (ssh exit 255): neither pass nor drift.
+    unmeasured: usize,
     results: Vec<CheckResult>,
 }
 
@@ -340,6 +349,8 @@ fn check_resource_machines(
         report_unrecorded(result.in_state, resource_id, machine_name, ctx.json);
         if passed {
             tally.pass += 1;
+        } else if result.status == "unmeasured" {
+            tally.unmeasured += 1;
         } else {
             tally.fail += 1;
         }
@@ -451,6 +462,7 @@ pub(crate) fn cmd_check_selected(
         pass: total_pass,
         fail: total_fail,
         skip: total_skip,
+        unmeasured: total_unmeasured,
         results: check_results,
     } = tally;
 
@@ -464,10 +476,18 @@ pub(crate) fn cmd_check_selected(
         )?;
     } else {
         println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip");
+        if total_unmeasured > 0 {
+            println!("       {total_unmeasured} unmeasured (target did not answer)");
+        }
     }
 
     if total_fail > 0 {
         Err(format!("{total_fail} check(s) failed"))
+    } else if total_unmeasured > 0 {
+        Err(format!(
+            "{}: {total_unmeasured} check(s)",
+            crate::core::error::DRIFT_UNMEASURED_MARKER
+        ))
     } else {
         Ok(())
     }
