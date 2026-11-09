@@ -71,7 +71,7 @@ impl RunMeta {
     pub fn record_resource(&mut self, resource_id: &str, status: ResourceRunStatus) {
         match &status {
             ResourceRunStatus::Noop => self.summary.noop += 1,
-            ResourceRunStatus::Failed { .. } => self.summary.failed += 1,
+            ResourceRunStatus::Converged { failed: true, .. } => self.summary.failed += 1,
             ResourceRunStatus::Converged { .. } => self.summary.converged += 1,
             ResourceRunStatus::Skipped { .. } => self.summary.skipped += 1,
         }
@@ -81,20 +81,12 @@ impl RunMeta {
 }
 
 /// Per-resource status within a run.
-///
-/// forjar#688: `Converged` means SUCCESS only. A failure used to be
-/// `Converged { failed: true }`, which `#[serde(tag = "action")]` wrote as
-/// `action: converged`, so anything keying on `action` counted it a success.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    tag = "action",
-    rename_all = "lowercase",
-    from = "ResourceRunStatusWire"
-)]
+#[serde(tag = "action", rename_all = "lowercase")]
 pub enum ResourceRunStatus {
     /// Resource was already converged.
     Noop,
-    /// Resource was created or updated successfully.
+    /// Resource was created or updated.
     Converged {
         /// Process exit code.
         #[serde(default)]
@@ -102,15 +94,9 @@ pub enum ResourceRunStatus {
         /// Duration in seconds.
         #[serde(default)]
         duration_secs: Option<f64>,
-    },
-    /// Resource failed. `exit_code` is `None` for a transport failure.
-    Failed {
-        /// Process exit code, absent when the transport itself failed.
+        /// Whether the action failed.
         #[serde(default)]
-        exit_code: Option<i32>,
-        /// Duration in seconds.
-        #[serde(default)]
-        duration_secs: Option<f64>,
+        failed: bool,
     },
     /// Resource was skipped (dependency failed).
     Skipped {
@@ -118,61 +104,6 @@ pub enum ResourceRunStatus {
         #[serde(default)]
         reason: Option<String>,
     },
-}
-
-/// Read-side shape of [`ResourceRunStatus`]: accepts the pre-#688 files, where
-/// a failure was `action: converged` plus `failed: true`.
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "lowercase")]
-enum ResourceRunStatusWire {
-    Noop,
-    Converged {
-        #[serde(default)]
-        exit_code: Option<i32>,
-        #[serde(default)]
-        duration_secs: Option<f64>,
-        #[serde(default)]
-        failed: bool,
-    },
-    Failed {
-        #[serde(default)]
-        exit_code: Option<i32>,
-        #[serde(default)]
-        duration_secs: Option<f64>,
-    },
-    Skipped {
-        #[serde(default)]
-        reason: Option<String>,
-    },
-}
-
-impl From<ResourceRunStatusWire> for ResourceRunStatus {
-    fn from(w: ResourceRunStatusWire) -> Self {
-        match w {
-            ResourceRunStatusWire::Noop => Self::Noop,
-            ResourceRunStatusWire::Converged {
-                exit_code,
-                duration_secs,
-                failed: true,
-            }
-            | ResourceRunStatusWire::Failed {
-                exit_code,
-                duration_secs,
-            } => Self::Failed {
-                exit_code,
-                duration_secs,
-            },
-            ResourceRunStatusWire::Converged {
-                exit_code,
-                duration_secs,
-                failed: false,
-            } => Self::Converged {
-                exit_code,
-                duration_secs,
-            },
-            ResourceRunStatusWire::Skipped { reason } => Self::Skipped { reason },
-        }
-    }
 }
 
 /// Summary counts for a run.

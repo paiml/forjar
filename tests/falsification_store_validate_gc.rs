@@ -382,6 +382,7 @@ fn update_meta_resource_records_status() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.2),
+            failed: false,
         },
     );
 

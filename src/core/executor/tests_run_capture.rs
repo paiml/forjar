@@ -131,6 +131,7 @@ fn update_meta_resource_success() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.5),
+            failed: false,
         },
     );
 
@@ -150,9 +151,10 @@ fn update_meta_resource_failure() {
     run_capture::update_meta_resource(
         &dir,
         "bad-pkg",
-        ResourceRunStatus::Failed {
+        ResourceRunStatus::Converged {
             exit_code: Some(100),
             duration_secs: Some(0.5),
+            failed: true,
         },
     );
 
@@ -187,15 +189,17 @@ fn update_meta_resource_multiple() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.0),
+            failed: false,
         },
     );
     run_capture::update_meta_resource(&dir, "config", ResourceRunStatus::Noop);
     run_capture::update_meta_resource(
         &dir,
         "bad",
-        ResourceRunStatus::Failed {
+        ResourceRunStatus::Converged {
             exit_code: Some(1),
             duration_secs: Some(0.3),
+            failed: true,
         },
     );
 
