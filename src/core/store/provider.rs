@@ -117,7 +117,12 @@ pub fn import_command(config: &ImportConfig) -> String {
                 .version
                 .as_deref()
                 .map_or(String::new(), |v| format!(":{v}"));
-            format!("docker create {}{tag} && docker export", config.reference)
+            // The created container is removed on every exit path (forjar#621): `docker
+            // export` needs the container id, and nothing else ever removes it.
+            format!(
+                "cid=$(docker create {}{tag}) && trap 'docker rm -f \"$cid\" >/dev/null 2>&1' EXIT && docker export \"$cid\" | tar -x -C \"$STAGING\"",
+                config.reference
+            )
         }
         ImportProvider::Tofu => {
             format!("tofu -chdir={} output -json", config.reference)

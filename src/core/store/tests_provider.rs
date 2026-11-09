@@ -257,3 +257,26 @@ fn test_fj1333_provider_json_serde() {
         assert_eq!(provider, parsed);
     }
 }
+
+/// forjar#621: the docker import script must remove the container it creates,
+/// export that container by id, and still pass the I8 purifier gate.
+#[test]
+fn test_forjar621_docker_import_removes_created_container() {
+    let cfg = ImportConfig {
+        provider: ImportProvider::Docker,
+        reference: "ubuntu".to_string(),
+        version: Some("24.04".to_string()),
+        arch: "x86_64".to_string(),
+        options: BTreeMap::new(),
+    };
+    let cmd = import_command(&cfg);
+    assert!(cmd.contains("cid=$(docker create ubuntu:24.04)"), "{cmd}");
+    assert!(cmd.contains("trap 'docker rm -f \"$cid\""), "{cmd}");
+    assert!(cmd.contains("docker export \"$cid\""), "{cmd}");
+    assert!(
+        !cmd.ends_with("docker export"),
+        "bare export with no id: {cmd}"
+    );
+    let script = crate::core::store::provider_exec::build_staging_script(&cmd, "/tmp/s".as_ref());
+    crate::core::purifier::validate_script(&script).expect("I8 gate accepts the docker script");
+}
