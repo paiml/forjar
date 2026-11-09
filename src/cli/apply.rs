@@ -127,7 +127,11 @@ pub(crate) fn cmd_apply_scoped(
     let _state_lock = if dry_run {
         None
     } else {
-        Some(state::hold_process_lock(state_dir, force_unlock)?)
+        Some(state::hold_machine_locks(
+            state_dir,
+            &executor::lock_targets(&config, machine_filter),
+            force_unlock,
+        )?)
     };
     let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,

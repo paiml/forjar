@@ -155,7 +155,8 @@ fn force_unlock_no_lock() {
 #[test]
 fn force_unlock_existing() {
     let dir = tempfile::tempdir().unwrap();
-    acquire_process_lock(dir.path()).unwrap();
+    // A dead holder (FJ-LOCK-001 C3: a live one is refused).
+    std::fs::write(process_lock_path(dir.path()), "pid: 4294967290\n").unwrap();
     force_unlock(dir.path()).unwrap();
     assert!(!process_lock_path(dir.path()).exists());
 }

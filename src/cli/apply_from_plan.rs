@@ -348,8 +348,9 @@ pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> 
     let _state_lock = if req.dry_run {
         None
     } else {
-        Some(crate::core::state::hold_process_lock(
+        Some(crate::core::state::hold_machine_locks(
             req.state_dir,
+            &crate::core::executor::lock_targets(&config, req.selectors.machine.as_deref()),
             req.knobs.force_unlock,
         )?)
     };

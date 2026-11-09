@@ -2,6 +2,9 @@
 
 pub mod ephemeral;
 pub mod integrity;
+pub mod lock_info;
+pub mod lock_scope;
+mod lock_wait;
 pub mod process_lock;
 pub mod reconstruct;
 pub mod rulebook_log;
@@ -80,7 +83,8 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
     let yaml = serde_yaml_ng::to_string(&stamped).map_err(|e| format!("serialize error: {e}"))?;
 
     // Write to temp file, then rename for crash-safe persistence
-    let tmp_path = path.with_extension("lock.yaml.tmp");
+    // FJ-LOCK-001 C4: a pid-suffixed tmp, so two writers never share one.
+    let tmp_path = path.with_extension(format!("lock.yaml.{}.tmp", std::process::id()));
     std::fs::write(&tmp_path, &yaml)
         .map_err(|e| format!("cannot write {}: {}", tmp_path.display(), e))?;
     std::fs::rename(&tmp_path, &path).map_err(|e| {
@@ -144,13 +148,15 @@ pub fn load_global_lock(state_dir: &Path) -> Result<Option<GlobalLock>, String> 
 
 /// Save the global lock file atomically.
 pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), String> {
+    let _global = lock_scope::hold_global_lock(state_dir)?;
     std::fs::create_dir_all(state_dir)
         .map_err(|e| format!("cannot create dir {}: {}", state_dir.display(), e))?;
 
     let path = global_lock_path(state_dir);
     let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {e}"))?;
 
-    let tmp_path = path.with_extension("lock.yaml.tmp");
+    // FJ-LOCK-001 C4: pid-suffixed tmp, so two writers never share one.
+    let tmp_path = path.with_extension(format!("lock.yaml.{}.tmp", std::process::id()));
     std::fs::write(&tmp_path, &yaml)
         .map_err(|e| format!("cannot write {}: {}", tmp_path.display(), e))?;
     std::fs::rename(&tmp_path, &path).map_err(|e| {
@@ -212,6 +218,7 @@ pub fn update_global_lock(
     config_file: Option<&Path>,
     machine_results: &[(String, usize, usize, usize)], // (name, total, converged, failed)
 ) -> Result<(), String> {
+    let _global = lock_scope::hold_global_lock(state_dir)?;
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
     let machines: Vec<String> = machine_results.iter().map(|(m, ..)| m.clone()).collect();
     warn_on_stack_conflict(state_dir, &lock, (config_name, config_file), &machines);
@@ -280,6 +287,7 @@ pub fn persist_outputs(
     outputs: &indexmap::IndexMap<String, String>,
     ephemeral: bool,
 ) -> Result<(), String> {
+    let _global = lock_scope::hold_global_lock(state_dir)?;
     let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
     let values = if ephemeral {
         ephemeral::redact_outputs(outputs, true)
@@ -335,6 +343,10 @@ pub fn load_apply_report(state_dir: &Path, machine: &str) -> Result<Option<Strin
 // FJ-266: State locking — prevent concurrent applies (see `process_lock`)
 // ============================================================================
 
+pub use lock_info::LockInfo;
+pub use lock_scope::{
+    force_unlock_by_id, hold_global_lock, hold_machine_locks, parse_lock_timeout, set_lock_timeout,
+};
 pub use process_lock::{
     acquire_process_lock, force_unlock, hold_process_lock, locked_by_other_live_pid,
     release_process_lock, ProcessLockGuard,
@@ -430,6 +442,8 @@ mod tests_basic;
 mod tests_edge;
 #[cfg(test)]
 mod tests_encrypt;
+#[cfg(test)]
+mod tests_fj_lock_c3_c5;
 #[cfg(test)]
 mod tests_global_lock;
 #[cfg(test)]

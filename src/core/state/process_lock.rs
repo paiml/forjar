@@ -14,78 +14,114 @@
 //!     before unlinking (TOCTOU guard), so it can never delete a concurrent
 //!     winner's freshly-acquired valid lock.
 
+use super::lock_info::{is_pid_running, read_lock_info, Holder, LockInfo};
+use super::lock_wait;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// Path to the process lock file.
 pub(crate) fn process_lock_path(state_dir: &Path) -> PathBuf {
     state_dir.join(".forjar.lock")
 }
 
-/// Acquire an exclusive process lock. Returns an error if another apply is running.
-/// Stale locks (PID no longer running) are automatically removed.
+/// Acquire an exclusive process lock, failing fast if another apply holds it.
+/// Stale locks (holder gone) are automatically removed.
 ///
-/// FJ-266/#154: Acquisition is atomic. `OpenOptions::create_new` is a single
-/// O_EXCL syscall, so two concurrent `forjar apply` processes can never both
-/// observe the file absent and both win — the loser gets `AlreadyExists` and
-/// then evaluates the stale-PID branch before retrying. The previous
-/// exists→read→remove→write sequence had a TOCTOU window in which both
-/// processes wrote the lock and ran concurrently, corrupting state.
+/// FJ-266/#154: Acquisition is atomic (see the module doc). The lock is held
+/// until [`release_process_lock`] or a [`ProcessLockGuard`] drops it.
 pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
+    acquire_at(&process_lock_path(state_dir), Duration::ZERO).map(|_| ())
+}
 
-    let lock_path = process_lock_path(state_dir);
-    let content = process_lock_content();
+/// Acquire the lock file at `lock_path`, waiting up to `timeout` for a live
+/// holder (FJ-LOCK-001 C5: `Duration::ZERO` fails fast, like Terraform's
+/// `-lock-timeout=0s`). Waiters are served FIFO. Returns the identity written
+/// into the lock, whose `id` is what release matches on.
+pub(crate) fn acquire_at(lock_path: &Path, timeout: Duration) -> Result<LockInfo, String> {
+    let info = LockInfo::current();
+    let content = info.render();
+    let deadline = Instant::now() + timeout;
+    let ticket = (!timeout.is_zero()).then(|| lock_wait::enqueue(lock_path, &info.id));
+    let outcome = acquire_loop(lock_path, &content, deadline, ticket.as_deref());
+    if let Some(t) = ticket {
+        lock_wait::dequeue(&t);
+    }
+    outcome.map(|()| info)
+}
 
-    // #165: BOUND the loop. The previous code looped unconditionally; if a
-    // stale lock could be observed (dead PID) but never removed (read-only
-    // mount → EROFS, sticky-bit dir owned by another UID → EPERM), every
-    // iteration was identical and the thread span a core forever. We cap the
-    // retries and back off briefly between attempts, so acquisition can never
-    // livelock — on exhaustion we surface the locked-by-PID-style error.
-    let exhausted = || {
-        format!(
-            "could not acquire state lock {} after {} attempts",
-            lock_path.display(),
-            MAX_LOCK_ACQUIRE_ATTEMPTS
-        )
-    };
-    for attempt in 0..MAX_LOCK_ACQUIRE_ATTEMPTS {
-        match try_create_lock(&lock_path, &content) {
-            Ok(()) => return Ok(()),
-            Err(LockAcquireError::Io(e)) => return Err(e),
-            // Lost the race / pre-existing lock: evaluate staleness atomically.
-            Err(LockAcquireError::AlreadyExists) => {
-                match reap_or_reject_stale_lock(&lock_path)? {
-                    // Stale lock removed (or vanished, or replaced by a fresh
-                    // one) — retry the create_new, after a short backoff.
-                    ReapOutcome::Retry => {}
-                    // Held by a live PID — reject immediately, no point retrying.
-                    ReapOutcome::HeldByLivePid(msg) => return Err(msg),
+/// One bounded pass of the create / reap / wait loop.
+fn acquire_loop(
+    lock_path: &Path,
+    content: &str,
+    deadline: Instant,
+    ticket: Option<&Path>,
+) -> Result<(), String> {
+    // #165: BOUND the reap retries. If a stale lock can be observed but never
+    // removed (EROFS, cross-UID sticky dir) every iteration is identical and
+    // the thread would spin a core forever; the cap makes that an error.
+    let mut reap_attempts = 0u32;
+    loop {
+        // FIFO: only the head of the queue may attempt, so a late arrival
+        // cannot take the lock from a waiter that has been queued longer.
+        let my_turn = ticket.is_none_or(lock_wait::is_head);
+        if my_turn {
+            match try_create_lock(lock_path, content) {
+                Ok(()) => return Ok(()),
+                Err(LockAcquireError::Io(e)) => return Err(e),
+                Err(LockAcquireError::AlreadyExists) => {
+                    match reap_or_reject_stale_lock(lock_path)? {
+                        ReapOutcome::Retry => {
+                            reap_attempts += 1;
+                            if reap_attempts >= MAX_LOCK_ACQUIRE_ATTEMPTS {
+                                return Err(format!(
+                                    "could not acquire state lock {} after {} attempts",
+                                    lock_path.display(),
+                                    MAX_LOCK_ACQUIRE_ATTEMPTS
+                                ));
+                            }
+                            std::thread::sleep(LOCK_ACQUIRE_BACKOFF);
+                            continue;
+                        }
+                        ReapOutcome::HeldByLivePid(msg) => {
+                            if Instant::now() >= deadline {
+                                return Err(timeout_message(msg, ticket.is_some()));
+                            }
+                        }
+                    }
                 }
             }
+        } else if Instant::now() >= deadline {
+            let holder = read_lock_info(lock_path).map(|i| i.describe());
+            return Err(timeout_message(
+                format!(
+                    "state lock {} is queued behind earlier waiters (holder: {})",
+                    lock_path.display(),
+                    holder.unwrap_or_else(|| "none".into())
+                ),
+                true,
+            ));
         }
-        if attempt + 1 < MAX_LOCK_ACQUIRE_ATTEMPTS {
-            std::thread::sleep(LOCK_ACQUIRE_BACKOFF);
-        }
+        std::thread::sleep(LOCK_WAIT_POLL);
     }
-    Err(exhausted())
 }
 
-/// #165: Cap on `acquire_process_lock` retries so it can never livelock.
+fn timeout_message(msg: String, waited: bool) -> String {
+    if waited {
+        format!("{msg} [--lock-timeout expired while waiting]")
+    } else {
+        msg
+    }
+}
+
+/// #165: Cap on stale-lock reap retries so acquisition can never livelock.
 const MAX_LOCK_ACQUIRE_ATTEMPTS: u32 = 5;
 
-/// #165: Short backoff between lock-acquire attempts (also yields the CPU so a
-/// transient contender / reap window can clear instead of busy-spinning).
-const LOCK_ACQUIRE_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
+/// #165: Short backoff between reap retries (yields the CPU instead of spinning).
+const LOCK_ACQUIRE_BACKOFF: Duration = Duration::from_millis(50);
 
-/// Build the lock-file content (our PID + start timestamp).
-fn process_lock_content() -> String {
-    format!(
-        "pid: {}\nstarted_at: {}\n",
-        std::process::id(),
-        crate::tripwire::eventlog::now_iso8601()
-    )
-}
+/// How often a waiting acquirer re-checks a live holder.
+const LOCK_WAIT_POLL: Duration = Duration::from_millis(50);
 
 /// Outcome of an atomic lock-file creation attempt.
 enum LockAcquireError {
@@ -162,9 +198,9 @@ enum LockOwner {
 /// Classify a lock file's content into a [`LockOwner`]. Pure (modulo the
 /// `is_running` probe) so the decision is unit-testable without real processes.
 fn classify_lock_owner(content: &str, is_running: impl Fn(u32) -> bool) -> LockOwner {
-    match parse_lock_pid(content) {
-        Some(pid) if is_running(pid) => LockOwner::Live(pid),
-        _ => LockOwner::Stale,
+    match LockInfo::parse(content).holder_with(is_running) {
+        Holder::Dead => LockOwner::Stale,
+        Holder::LiveLocal | Holder::Remote => LockOwner::Live(LockInfo::parse(content).pid),
     }
 }
 
@@ -190,11 +226,10 @@ fn reap_or_reject_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> {
     };
 
     if let LockOwner::Live(pid) = classify_lock_owner(&content, is_pid_running) {
-        return Ok(ReapOutcome::HeldByLivePid(format!(
-            "state directory is locked by PID {} ({}). \
-             If this is stale, run: forjar apply --force-unlock",
+        return Ok(ReapOutcome::HeldByLivePid(held_message(
             pid,
-            lock_path.display()
+            lock_path,
+            &LockInfo::parse(&content),
         )));
     }
 
@@ -277,23 +312,45 @@ fn unlink_confirmed_stale_lock(lock_path: &Path) -> Result<ReapOutcome, String> 
 pub fn locked_by_other_live_pid(state_dir: &Path) -> Option<String> {
     let lock_path = process_lock_path(state_dir);
     let content = std::fs::read_to_string(&lock_path).ok()?;
+    let info = LockInfo::parse(&content);
     match classify_lock_owner(&content, is_pid_running) {
-        LockOwner::Live(pid) if pid != std::process::id() => Some(format!(
-            "state directory is locked by PID {} ({}). \
-             If this is stale, run: forjar apply --force-unlock",
-            pid,
-            lock_path.display()
-        )),
+        LockOwner::Live(pid) if !info.owned_by_this_process() => {
+            Some(held_message(pid, &lock_path, &info))
+        }
         _ => None,
     }
 }
 
-pub fn release_process_lock(state_dir: &Path) {
-    let lock_path = process_lock_path(state_dir);
-    let _ = std::fs::remove_file(&lock_path);
+/// The refusal for a live holder: PID first (older readers match on it), then
+/// the whole [`LockInfo`] so the operator can decide without opening the file.
+fn held_message(pid: u32, lock_path: &Path, info: &LockInfo) -> String {
+    format!(
+        "state directory is locked by PID {pid} ({}): {}. Wait, or pass --lock-timeout <dur>; \
+         if the holder is gone: forjar apply --force-unlock <ID> (refused while it is alive)",
+        lock_path.display(),
+        info.describe()
+    )
 }
 
-/// FJ-LOCK-001 C2 (#922): the apply's hold on a state dir, released on Drop.
+/// Release the lock at `<state_dir>/.forjar.lock` if THIS process owns it.
+pub fn release_process_lock(state_dir: &Path) {
+    let lock_path = process_lock_path(state_dir);
+    let ours = read_lock_info(&lock_path).is_some_and(|i| i.owned_by_this_process());
+    if ours {
+        let _ = std::fs::remove_file(&lock_path);
+    }
+}
+
+/// FJ-LOCK-001 C3 (#923): remove the lock at `lock_path` only if it still
+/// carries `id`. A's late release can no longer delete the lock B acquired
+/// after A's was reaped or force-unlocked, which used to admit a third apply.
+pub(crate) fn release_owned(lock_path: &Path, id: &str) {
+    if read_lock_info(lock_path).is_some_and(|i| i.id == id) {
+        let _ = std::fs::remove_file(lock_path);
+    }
+}
+
+/// FJ-LOCK-001 C2 (#922): the apply's hold on a set of locks, released on Drop.
 ///
 /// The lock used to be taken in the executor, after the drift gate had already
 /// written state, released before the generation and outputs were recorded,
@@ -302,11 +359,13 @@ pub fn release_process_lock(state_dir: &Path) {
 /// through `apply_post_actions`; `Drop` runs on return, `?` and unwind alike.
 ///
 /// Re-entrant on the SAME thread only: the executor's own take under a CLI
-/// hold is a no-op guard. Another thread or process still meets the lock file
-/// and is refused, exactly as before.
+/// hold joins it. Another thread or process still meets the lock file and is
+/// refused, exactly as before. Release is owner-checked (C3): each lock is
+/// removed only while it still carries the id this guard wrote.
+#[derive(Debug)]
 #[must_use = "the lock is released when the guard drops"]
 pub struct ProcessLockGuard {
-    state_dir: Option<PathBuf>,
+    held: Vec<(PathBuf, String)>,
 }
 
 thread_local! {
@@ -314,41 +373,90 @@ thread_local! {
 }
 
 /// Take (or, when this thread already holds it, join) the apply lock for
-/// `state_dir`. `force_unlock` clears a stale lock first, never our own hold.
+/// `state_dir`. `force_unlock` clears a dead holder first and refuses a live one.
 pub fn hold_process_lock(state_dir: &Path, force_unlock: bool) -> Result<ProcessLockGuard, String> {
-    if HELD.with(|h| h.borrow().iter().any(|p| p == state_dir)) {
-        return Ok(ProcessLockGuard { state_dir: None });
+    std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
+    hold_paths(
+        &[process_lock_path(state_dir)],
+        force_unlock,
+        Duration::ZERO,
+    )
+}
+
+/// Acquire every lock file in `paths` in the order given (callers sort, so two
+/// multi-lock applies cannot deadlock), sharing ONE deadline. On any failure
+/// the locks already taken are released by the guard's drop.
+pub(crate) fn hold_paths(
+    paths: &[PathBuf],
+    force_unlock: bool,
+    timeout: Duration,
+) -> Result<ProcessLockGuard, String> {
+    let deadline = Instant::now() + timeout;
+    let mut guard = ProcessLockGuard { held: Vec::new() };
+    for path in paths {
+        if HELD.with(|h| h.borrow().iter().any(|p| p == path)) {
+            continue;
+        }
+        if force_unlock {
+            force_unlock_path(path, None)?;
+        }
+        let left = deadline.saturating_duration_since(Instant::now());
+        let info = acquire_at(path, left)?;
+        HELD.with(|h| h.borrow_mut().push(path.clone()));
+        guard.held.push((path.clone(), info.id));
     }
-    if force_unlock {
-        self::force_unlock(state_dir)?;
-    }
-    acquire_process_lock(state_dir)?;
-    HELD.with(|h| h.borrow_mut().push(state_dir.to_path_buf()));
-    Ok(ProcessLockGuard {
-        state_dir: Some(state_dir.to_path_buf()),
-    })
+    Ok(guard)
 }
 
 impl Drop for ProcessLockGuard {
     fn drop(&mut self) {
-        let Some(dir) = self.state_dir.take() else {
-            return;
-        };
-        HELD.with(|h| h.borrow_mut().retain(|p| p != &dir));
-        release_process_lock(&dir);
+        for (path, id) in self.held.drain(..).rev() {
+            HELD.with(|h| h.borrow_mut().retain(|p| p != &path));
+            release_owned(&path, &id);
+        }
     }
 }
 
-/// Force-remove the process lock (for --force-unlock).
+/// Force-remove the process lock (for --force-unlock), refusing a live holder.
 pub fn force_unlock(state_dir: &Path) -> Result<(), String> {
-    let lock_path = process_lock_path(state_dir);
-    if !lock_path.exists() {
-        return Ok(());
-    }
-    std::fs::remove_file(&lock_path).map_err(|e| format!("cannot remove lock file: {e}"))
+    force_unlock_path(&process_lock_path(state_dir), None)
 }
 
-/// Parse PID from lock file content.
+/// FJ-LOCK-001 C3 (#923): the Terraform `force-unlock <ID>` model. Removes the
+/// lock at `lock_path` unless its holder is a live process on THIS host, and,
+/// when `expected_id` is given, unless the lock's id differs (the operator
+/// named a lock that has since been replaced). A remote holder cannot be
+/// verified from here, so the named id is the operator's attestation.
+pub(crate) fn force_unlock_path(lock_path: &Path, expected_id: Option<&str>) -> Result<(), String> {
+    let Some(info) = read_lock_info(lock_path) else {
+        return Ok(());
+    };
+    if let Some(id) = expected_id {
+        if info.id != id {
+            return Err(format!(
+                "refusing --force-unlock {id}: {} now holds a different lock ({})",
+                lock_path.display(),
+                info.describe()
+            ));
+        }
+    }
+    if info.holder() == Holder::LiveLocal {
+        return Err(format!(
+            "refusing to force-unlock {}: its holder is alive on this host ({}); \
+             wait for it, or stop that process",
+            lock_path.display(),
+            info.describe()
+        ));
+    }
+    match std::fs::remove_file(lock_path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(format!("cannot remove lock file: {e}")),
+    }
+}
+
+/// Parse PID from lock file content (kept for the legacy-format tests).
+#[cfg(test)]
 pub(crate) fn parse_lock_pid(content: &str) -> Option<u32> {
     for line in content.lines() {
         if let Some(rest) = line.strip_prefix("pid:") {
@@ -356,11 +464,6 @@ pub(crate) fn parse_lock_pid(content: &str) -> Option<u32> {
         }
     }
     None
-}
-
-/// Check if a PID is still running (Linux-specific: /proc/<pid> exists).
-fn is_pid_running(pid: u32) -> bool {
-    Path::new(&format!("/proc/{pid}")).exists()
 }
 
 #[cfg(test)]

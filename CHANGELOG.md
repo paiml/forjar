@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)

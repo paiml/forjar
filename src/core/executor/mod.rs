@@ -90,7 +90,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Instant;
 
-pub use helpers::collect_machines;
+pub use helpers::{collect_machines, lock_targets};
 pub use plan_scope::PlanScope;
 
 pub(crate) use crate::tripwire::eventlog::log_tripwire;
@@ -370,7 +370,11 @@ pub fn apply_scoped(
     let _lock = if cfg.dry_run {
         None
     } else {
-        Some(state::hold_process_lock(cfg.state_dir, cfg.force_unlock)?)
+        Some(state::hold_machine_locks(
+            cfg.state_dir,
+            &lock_targets(cfg.config, cfg.machine_filter),
+            cfg.force_unlock,
+        )?)
     };
 
     let execution_order = resolver::build_execution_order(cfg.config)?;
