@@ -75,3 +75,27 @@ fn a_reachable_target_still_reclaims() {
     assert!(!out.contains("UNREACHABLE"), "{out}");
     fs::remove_dir_all(&root).ok();
 }
+
+/// forjar#936: an empty /proc scan means "nobody provably idle", never "nobody
+/// is using it". A reachable target must survive when `find /proc` sees nothing.
+#[test]
+fn an_empty_proc_scan_fails_closed() {
+    let (root, bin, target, res) = fixture("emptyscan", 40);
+    let shim = "#!/bin/sh\ncase \"$*\" in */proc/*) exit 0;; esac\nexec /usr/bin/find \"$@\"\n";
+    let p = bin.join("find");
+    fs::write(&p, shim).unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let out = run_reaper(&res, &bin, &root).stdout;
+    assert!(
+        target.exists(),
+        "empty /proc scan must fail closed, nothing deleted\n{out}"
+    );
+    assert!(
+        out.contains("NOT MEASURED"),
+        "must say it did not measure\n{out}"
+    );
+    fs::remove_dir_all(&root).ok();
+}
