@@ -174,6 +174,13 @@ fn apply_early_exits(args: &ApplyArgs) -> Option<Result<(), String>> {
         ));
     }
     if let Some(ref cm) = args.canary_machine {
+        // forjar#435: this exit returns above `apply_pre_checks`, so
+        // `--pre-script`, `--pre-flight`, `--webhook-before` and
+        // `--abort-on-drift` parsed, converged the canary AND the fleet, and
+        // never ran. Run them once for the invocation, before anything converges.
+        if let Err(e) = apply_pre_checks(args) {
+            return Some(Err(e));
+        }
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
         return Some(cmd_apply_canary_machine(
             &args.file,
