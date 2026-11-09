@@ -1,9 +1,9 @@
 //! FJ-266: State locking — prevent concurrent applies.
 //!
-//! Acquisition is atomic via `OpenOptions::create_new` (a single O_EXCL
-//! syscall), so two concurrent `forjar apply` processes can never both observe
-//! the lock absent and both win. The loser gets `AlreadyExists` and evaluates
-//! the stale-PID branch before retrying.
+//! Acquisition is atomic via `link(2)` of a fully written staging file (as
+//! exclusive as O_EXCL, and the lock never exists empty — FJ-LOCK-001 C1), so
+//! two concurrent `forjar apply` processes can never both win. The loser gets
+//! `AlreadyExists` and evaluates the stale-PID branch before retrying.
 //!
 //! #165 hardening:
 //!   * the retry loop is BOUNDED (it previously looped unconditionally and could
@@ -97,15 +97,32 @@ enum LockAcquireError {
 
 /// Atomically create the lock file with O_EXCL semantics.
 fn try_create_lock(lock_path: &Path, content: &str) -> Result<(), LockAcquireError> {
-    use std::io::Write;
-    match std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(lock_path)
-    {
-        Ok(mut f) => f
-            .write_all(content.as_bytes())
-            .map_err(|e| LockAcquireError::Io(format!("cannot write lock file: {e}"))),
+    try_create_lock_observed(lock_path, content, || {})
+}
+
+/// [`try_create_lock`] with `on_visible` run the moment the lock path exists.
+///
+/// FJ-LOCK-001 C1 (#921): the lock is never visible empty. `create_new` then
+/// `write_all` left a window in which a racer read "", parsed no PID, judged
+/// the lock stale and unlinked the LIVE holder's lock. Now the full content is
+/// written to a private staging file and published with `link(2)`, which is as
+/// exclusive as O_EXCL (EEXIST if the path exists) and makes the path appear
+/// with its content already in place.
+fn try_create_lock_observed(
+    lock_path: &Path,
+    content: &str,
+    on_visible: impl FnOnce(),
+) -> Result<(), LockAcquireError> {
+    let staging = staging_path(lock_path);
+    std::fs::write(&staging, content)
+        .map_err(|e| LockAcquireError::Io(format!("cannot write lock file: {e}")))?;
+    let linked = std::fs::hard_link(&staging, lock_path);
+    let _ = std::fs::remove_file(&staging);
+    match linked {
+        Ok(()) => {
+            on_visible();
+            Ok(())
+        }
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
             Err(LockAcquireError::AlreadyExists)
         }
@@ -113,6 +130,15 @@ fn try_create_lock(lock_path: &Path, content: &str) -> Result<(), LockAcquireErr
             "cannot create lock file: {e}"
         ))),
     }
+}
+
+/// A staging path beside the lock, unique per process and per attempt, so two
+/// threads or processes never share one.
+fn staging_path(lock_path: &Path) -> PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let n = SEQ.fetch_add(1, Ordering::Relaxed);
+    lock_path.with_file_name(format!(".forjar.lock.{}.{n}.tmp", std::process::id()))
 }
 
 /// Outcome of evaluating a pre-existing lock file.

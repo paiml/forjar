@@ -368,3 +368,34 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
         "unparseable lock content must not be reported as a live holder"
     );
 }
+
+/// FJ-LOCK-001 C1 (#921) falsifier. A racer that reads the lock path the
+/// instant it exists must find the winner's PID in it. With create-then-write,
+/// it read an empty file, classified it Stale, re-confirmed "" == "" and
+/// unlinked the LIVE lock — so both acquirers ran. Deterministic: the racer runs
+/// inside the window via the `on_visible` seam, no sleeps, no threads.
+#[test]
+fn falsify_fj_lock_c1_racer_never_reaps_a_fresh_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock_path = process_lock_path(dir.path());
+    let content = process_lock_content();
+    let mut racer = None;
+    let won = try_create_lock_observed(&lock_path, &content, || {
+        racer = Some(reap_or_reject_stale_lock(&lock_path));
+    });
+    assert!(won.is_ok(), "the winner must acquire");
+    assert!(
+        matches!(racer, Some(Ok(ReapOutcome::HeldByLivePid(_)))),
+        "racer must see a live holder, got {racer:?}"
+    );
+    assert_eq!(std::fs::read_to_string(&lock_path).unwrap(), content);
+    let names: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        vec![".forjar.lock".to_string()],
+        "no staging file left"
+    );
+}
