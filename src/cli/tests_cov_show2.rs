@@ -166,3 +166,22 @@ fn output_no_outputs() {
     let r = super::show::cmd_output(cfg.path(), None, false);
     assert!(r.is_ok());
 }
+
+// ── forjar#660: show resolves `data:` sources like plan and apply ──
+
+const CONFIG_WITH_DATA: &str = "version: '1.0'\nname: test\nmachines:\n  web1:\n    hostname: web1\n    addr: 127.0.0.1\nresources:\n  greeting:\n    type: file\n    path: /etc/greeting\n    content: \"{{data.greeting}}\"\ndata:\n  greeting:\n    type: command\n    value: \"echo hello-from-data\"\n";
+
+#[test]
+fn show_resolves_data_sources() {
+    let cfg = write_temp_config(CONFIG_WITH_DATA);
+    assert!(super::show::cmd_show(cfg.path(), None, false).is_ok());
+    assert!(super::show::cmd_show(cfg.path(), Some("greeting"), true).is_ok());
+}
+
+#[test]
+fn show_reports_a_failing_data_source() {
+    let yaml = CONFIG_WITH_DATA.replace("echo hello-from-data", "exit 3");
+    let cfg = write_temp_config(&yaml);
+    let err = super::show::cmd_show(cfg.path(), None, false).unwrap_err();
+    assert!(err.contains("greeting"), "error should name the data source: {err}");
+}
