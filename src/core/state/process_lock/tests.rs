@@ -342,11 +342,7 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
 
     // OUR OWN pid must not block us — otherwise the probe refuses every apply
     // the moment the lock's lifetime is ever moved earlier.
-    std::fs::write(
-        process_lock_path(d.path()),
-        format!("pid: {}\nhost: self\n", std::process::id()),
-    )
-    .unwrap();
+    std::fs::write(process_lock_path(d.path()), LockInfo::current().render()).unwrap();
     assert!(
         locked_by_other_live_pid(d.path()).is_none(),
         "our own lock must not refuse us"
@@ -355,7 +351,7 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
     // Stale (dead PID). Reaping stays the ACQUIRER's job, so a read-only probe
     // must not block — otherwise a crashed run wedges the state dir against a
     // check that can never clear it.
-    std::fs::write(process_lock_path(d.path()), "pid: 4294967290\nhost: dead\n").unwrap();
+    std::fs::write(process_lock_path(d.path()), "pid: 4294967290\n").unwrap();
     assert!(
         locked_by_other_live_pid(d.path()).is_none(),
         "a stale lock must not be treated as held — the acquirer reaps it"
@@ -378,7 +374,7 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
 fn falsify_fj_lock_c1_racer_never_reaps_a_fresh_lock() {
     let dir = tempfile::tempdir().unwrap();
     let lock_path = process_lock_path(dir.path());
-    let content = process_lock_content();
+    let content = LockInfo::current().render();
     let mut racer = None;
     let won = try_create_lock_observed(&lock_path, &content, || {
         racer = Some(reap_or_reject_stale_lock(&lock_path));

@@ -53,7 +53,7 @@ fn run_apply(file: &Path, state_dir: &Path) -> Result<(), String> {
 fn falsify_fj_lock_c2_lock_held_from_pre_validate_to_post_actions() {
     let dir = tempfile::tempdir().unwrap();
     let state_dir = dir.path().join("state");
-    let lock = state_dir.join(".forjar.lock");
+    let lock = state_dir.join("local").join(".forjar.lock");
     let file = write_config(dir.path(), &lock);
     run_apply(&file, &state_dir).unwrap();
     assert!(dir.path().join("pre.ok").exists(), "pre_apply ran unlocked");
@@ -95,7 +95,7 @@ fn falsify_fj_lock_c2_error_after_acquire_releases_lock() {
     };
     assert!(executor::apply(&cfg).is_err(), "a self-cycle must fail");
     assert!(
-        !dir.path().join(".forjar.lock").exists(),
+        !dir.path().join("local").join(".forjar.lock").exists(),
         "lock leaked on an error after acquire"
     );
 }

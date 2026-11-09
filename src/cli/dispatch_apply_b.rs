@@ -339,6 +339,7 @@ fn apply_from_plan(
         args.force_tag.as_deref(),
     )?;
     let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+    super::apply_lock_flags::prepare_state_lock(args, &sd)?;
     cmd_apply_from_plan(&PlanApplyRequest {
         file: &args.file,
         state_dir: &sd,
@@ -374,7 +375,7 @@ fn apply_from_plan(
 /// literal is not testable without running an apply.
 pub(super) fn knobs_from(args: &ApplyArgs) -> ApplyKnobs {
     ApplyKnobs {
-        force_unlock: args.force_unlock,
+        force_unlock: args.force_unlock.is_some(),
         progress: args.progress,
         timeout_secs: args.timeout,
         retry: args.retry,
@@ -435,6 +436,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         super::apply_quality_gate::check_quality_gate(&args.file, &args.policy_dir, verbose)?;
     }
 
+    super::apply_lock_flags::prepare_state_lock(args, &sd)?;
+
     let result = cmd_apply_scoped(
         &args.file,
         &sd,
@@ -453,7 +456,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.env_file.as_deref(),
         args.workspace.as_deref(),
         args.report,
-        args.force_unlock,
+        args.force_unlock.is_some(),
         args.output.as_deref(),
         args.progress,
         args.timing,
