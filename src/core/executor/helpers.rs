@@ -207,7 +207,11 @@ pub(crate) fn copia_apply_file(
     let source = resource.source.as_deref().unwrap_or("");
 
     // Phase 1: the receiver computes a copia Signature (od+awk weak + b3sum strong).
-    let sig_script = copia::signature_script(path);
+    // #927: `sudo: true` is a property of the RESOURCE; the copia scripts bypass the apply
+    // dispatch, so each one is put in the declared privilege context here (parent mkdir, the
+    // `.forjar-new` staging write, chown/chmod and the rename all run elevated).
+    let in_ctx = |s: String| crate::core::codegen::in_declared_privilege_context(resource, s);
+    let sig_script = in_ctx(copia::signature_script(path));
     let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
 
     if !sig_output.success() {
@@ -231,7 +235,9 @@ pub(crate) fn copia_apply_file(
     match signature {
         // New file (or a receiver without b3sum) — full transfer.
         None => {
-            let script = copia::full_transfer_script(path, source, owner, group, mode)?;
+            let script = in_ctx(copia::full_transfer_script(
+                path, source, owner, group, mode,
+            )?);
             transport::exec_script_timeout(machine, &script, timeout_secs)
         }
         Some(sig) => {
@@ -245,7 +251,9 @@ pub(crate) fn copia_apply_file(
             let expected = blake3::hash(&new_data).to_hex().to_string();
 
             // Phase 3: the receiver reconstructs (byte-range copies + literal inserts).
-            let script = copia::patch_script(path, &delta, &expected, owner, group, mode);
+            let script = in_ctx(copia::patch_script(
+                path, &delta, &expected, owner, group, mode,
+            ));
             transport::exec_script_timeout(machine, &script, timeout_secs)
         }
     }
