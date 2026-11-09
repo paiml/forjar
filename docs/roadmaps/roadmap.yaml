@@ -5597,3 +5597,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-862
+  github_issue: 862
+  item_type: task
+  title: 'ci: run quorum receipt nightly, not on PRs'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-09T07:37:05Z
+  updated: 2026-11-09T07:37:05Z
+  spec: null
+  acceptance_criteria:
+  - quorum receipt job is not required by any main ruleset and never had a green run; move trigger to nightly schedule + workflow_dispatch
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 879

@@ -8,8 +8,9 @@
 name: Quorum
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
 
 # Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
 #
