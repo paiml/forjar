@@ -280,7 +280,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
 ///
 /// Uses a heredoc to pass the script to `sudo bash` — avoids the single-quote
 /// escaping that triggers bashrs SC2075 false positives.
-fn in_declared_privilege_context(resource: &Resource, script: String) -> String {
+pub(crate) fn in_declared_privilege_context(resource: &Resource, script: String) -> String {
     if !resource.sudo {
         return script;
     }
