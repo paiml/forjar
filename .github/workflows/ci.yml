@@ -180,6 +180,12 @@ jobs:
       # editing and undoing their own stack must NEVER be refused.
       - name: undo must refuse a foreign state dir, and only a foreign one
         run: cargo test --locked --test falsification_undo_state_dir_interlock
+      # #673: the weekly stress lane must fit its timeout and not fail-fast.
+      - name: stress workflow fits its timeout
+        run: cargo test --locked --test falsification_stress_workflow_fits_its_timeout
+      # #649: bashrs SEC005 needs a token boundary (disk-watch is not a key).
+      - name: SEC005 token boundary
+        run: cargo test --locked --test falsification_sec005_needs_a_token_boundary
       # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
       # crate's 242 integration test binaries is a 70.70 GiB tree — already the
       # size of a hosted runner's disk. The cache asked tar+zstd for a second
