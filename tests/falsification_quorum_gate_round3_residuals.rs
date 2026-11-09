@@ -243,19 +243,3 @@ fn pr_is_the_exact_top_level_integer_token() {
     let o = r.run(&pretty, &[]);
     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
 }
-
-#[test]
-fn workflow_judges_from_the_pr_base_not_the_pr_copy() {
-    let wf = std::fs::read_to_string(root().join(".github/workflows/quorum.yml")).unwrap();
-    assert!(wf.contains(r#"git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh""#));
-    assert!(wf.contains(r#"git show "$PR_BASE_SHA:scripts/quorum-models.json""#));
-    assert!(!wf.contains("run: |\n          ./scripts/quorum-store-gate.sh"));
-    assert!(
-        !wf.contains("PR_AUTHOR_MODELS"),
-        "PR must not be able to set it"
-    );
-    assert!(
-        wf.to_lowercase().contains("bootstrap"),
-        "bootstrap case documented"
-    );
-}

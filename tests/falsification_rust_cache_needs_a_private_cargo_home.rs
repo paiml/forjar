@@ -105,17 +105,17 @@ fn a_self_hosted_job_caching_cargo_must_own_its_cargo_home() {
     );
     assert!(
         uses >= 1,
-        "no cache use found at all — quorum.yml's is expected, so the matcher is blind:\n{text}"
+        "no cache use found at all — behavior.yml's is expected, so the matcher is blind:\n{text}"
     );
 }
 
 /// The negative control, on the REAL workflow rather than a fixture: copy
-/// every workflow, delete `quorum.yml`'s private CARGO_HOME, and the lint must
+/// every workflow, delete `behavior.yml`'s private CARGO_HOME, and the lint must
 /// refuse exactly that job by name. Without this the green test above could
 /// be green for a reason other than the fix (a matcher that stopped seeing
-/// quorum.yml, say) — a control has to fail for the reason it names.
+/// behavior.yml, say) — a control has to fail for the reason it names.
 #[test]
-fn quorum_without_its_private_cargo_home_is_refused_by_name() {
+fn behavior_without_its_private_cargo_home_is_refused_by_name() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let src = root.join(".github/workflows");
     let tmp = std::env::temp_dir().join(format!(
@@ -129,7 +129,7 @@ fn quorum_without_its_private_cargo_home_is_refused_by_name() {
         let path = entry.expect("dir entry").path();
         let name = path.file_name().expect("file name").to_owned();
         let mut text = std::fs::read_to_string(&path).expect("read workflow");
-        if name == "quorum.yml" {
+        if name == "behavior.yml" {
             let kept: Vec<&str> = text
                 .lines()
                 .filter(|l| {
@@ -158,15 +158,15 @@ fn quorum_without_its_private_cargo_home_is_refused_by_name() {
     );
     assert_eq!(
         removed, 1,
-        "expected exactly one CARGO_HOME declaration in quorum.yml to remove"
+        "expected exactly one CARGO_HOME declaration in behavior.yml to remove"
     );
     assert_ne!(
         out.status.code(),
         Some(0),
-        "with quorum.yml's private CARGO_HOME removed the lint still passed:\n{text}"
+        "with behavior.yml's private CARGO_HOME removed the lint still passed:\n{text}"
     );
     assert!(
-        text.contains("quorum.yml") && text.contains("(job `receipt`)"),
-        "the lint failed, but not naming quorum.yml job `receipt`:\n{text}"
+        text.contains("behavior.yml") && text.contains("(job `behavior`)"),
+        "the lint failed, but not naming behavior.yml job `behavior`:\n{text}"
     );
 }

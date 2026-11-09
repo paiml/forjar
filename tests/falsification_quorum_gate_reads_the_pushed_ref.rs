@@ -31,7 +31,7 @@
 //! not"), available to exactly the enforced authors `QUORUM_SKIP` is refused
 //! to.
 //!
-//! `.github/workflows/quorum.yml` checks out `pull_request.head.sha`, so in CI
+//! The former quorum CI workflow checked out `pull_request.head.sha`, so in CI
 //! HEAD *is* the pushed commit and none of this shows. It is the local hook —
 //! byte-identical to the tracked one — that is wrong.
 //!
@@ -326,7 +326,7 @@ fn an_untracked_receipt_cannot_waive_the_gate() {
 /// A developer standing on the branch they are pushing, with the receipt
 /// committed, has to keep working — and so does a bare `./scripts/quorum-gate.sh`
 /// with no arguments at all, which `Makefile`'s `quorum` target and
-/// `.github/workflows/quorum.yml` both use.
+/// the (removed) CI workflow both used.
 #[test]
 fn the_ordinary_same_branch_push_still_passes_with_and_without_the_flag() {
     let f = fixture();

@@ -180,9 +180,6 @@ jobs:
       # editing and undoing their own stack must NEVER be refused.
       - name: undo must refuse a foreign state dir, and only a foreign one
         run: cargo test --locked --test falsification_undo_state_dir_interlock
-      # #862/#876: the quorum receipt check is LAB (C324) and never runs on pull_request.
-      - name: quorum receipt check is LAB, not a PR status
-        run: cargo test --locked --test falsification_quorum_workflow_is_lab
       # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
       # crate's 242 integration test binaries is a 70.70 GiB tree — already the
       # size of a hosted runner's disk. The cache asked tar+zstd for a second
