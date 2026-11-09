@@ -179,6 +179,7 @@ mod logs_follow;
 mod logs_gc;
 pub mod lsp;
 // GH-215: maps a diagnostic message back to a range in the document.
+mod drift_lock_names;
 mod lsp_locate;
 mod lsp_publish;
 mod lsp_validate;
