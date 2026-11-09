@@ -1,109 +1,66 @@
-# Quorum gate — mirrors the pre-push check on every PR.
+# Quorum receipt check — LAB (GATE/LAB rule C324; forjar#862, #876).
 #
-# The local hook is FAST FEEDBACK, not enforcement: `.git/hooks/` is untracked,
-# `git push --no-verify` always works, and a contributor who never ran
-# `make install-hooks` is never gated. This job is the half that can actually
-# enforce, and it only does so once `main` has branch protection requiring it —
-# see docs/specifications/quorum-spec.md, "A local hook enforces nothing on its own".
+# This check is not required on main, so it cannot block a merge. A check that
+# cannot block is LAB: it never runs inside a PR job. It runs nightly and by
+# hand, verifies each open PR's head-bound receipt in the receipt store, and a
+# red is one ticket with one owner, not a status on every PR.
+# See docs/specifications/quorum-spec.md.
 name: Quorum
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Verify one PR (default: every open PR)"
+        required: false
 
-# Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
-#
-# Without this, every push to a PR leaves the previous quorum job running against
-# a diff that no longer exists -- and because the gate's whole job is to reject a
-# receipt whose diff moved, those stale runs fail LOUDLY and correctly. A red X
-# from a run that was already obsolete is exactly how a gate gets reclassified as
-# noise and then ignored.
 concurrency:
-  group: quorum-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: quorum-lab
+  cancel-in-progress: false
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   receipt:
     name: quorum receipt
-    runs-on: [self-hosted, clean-room, ARM64]
-    # A CARGO_HOME private to this job, matching behavior.yml, convergence.yml,
-    # mutation.yml and binary-release.yml. This was the one self-hosted workflow
-    # in the repo still on the SHARED /home/noah/.cargo, and the rust-cache step
-    # below is what makes that matter: its save step runs `cleanRegistry`
-    # unconditionally and deletes ${CARGO_HOME}/registry/src -- the extracted
-    # crate sources every OTHER job on the box is compiling from at that moment.
-    # `cache-bin: "false"`, the paiml/infra#208 mitigation, does not prevent it;
-    # it skips `cleanBin` alone. Measured on intel 2026-09-19 (paiml/infra#775):
-    # eight save steps in 100 minutes, every crate directory's birth time pinned
-    # to the second one of them finished, and an infra `cargo kani` build killed
-    # mid-crate with `could not parse/generate dep info ... No such file or
-    # directory`.
-    #
-    # A private CARGO_HOME is the ONLY exoneration, because it is the only thing
-    # that moves the SOURCES: `--target-dir`, `cargo install --root` and a fresh
-    # $HOME leave cargo reading from the shared registry whatever else the job
-    # owns. The path is outside the workspace, so it survives the checkout clean
-    # and is a cache rather than a cold download -- the same reasoning the
-    # sibling workflows already record.
+    # The receipt store is a lambda host path (/mnt/nvme-raid0/cop-inbox/promote-state);
+    # only the lambda-night seats mount it (infra fleet/routing.yaml). Any other label
+    # set can be scheduled on a store-less runner: "receipt store ... is missing".
+    runs-on: [self-hosted, lambda-night]
+    # A CARGO_HOME private to this job (infra#430/#775): the shared ~/.cargo is
+    # swept by rust-cache's cleanRegistry under other jobs' builds.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+      GH_TOKEN: ${{ github.token }}
+      QUORUM_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # THE PUSHED HEAD, NOT THE PR MERGE COMMIT.
-          #
-          # `actions/checkout` defaults on `pull_request` to a synthetic merge of
-          # (PR head + base tip). Its merge-base with main is therefore the MAIN
-          # TIP, not the commit the branch actually forked from -- so the gate
-          # read base_commit=<main tip> and rejected an honest receipt that said
-          # <fork point>. Observed: local merge-base 20398b99, CI ebd44028, on a
-          # receipt that was correct. Checking out the real head makes CI verify
-          # exactly the bytes the developer pushed, which is the whole point.
-          ref: ${{ github.event.pull_request.head.sha }}
-          # The gate diffs against the merge-base with origin/main, so it needs
-          # real history. A shallow clone makes `git merge-base` fail, which the
-          # gate correctly treats as UNMEASURED -> exit 1 rather than a pass.
+          ref: main
           fetch-depth: 0
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Fetch gate from the PR base commit
-        # JUDGE FROM BASE: the gate and its allowlist come from the PR BASE commit, never
-        # the PR's own copy, so a PR cannot weaken the judge that reads it. Fails closed if
-        # the base lacks either file.
-        # BOOTSTRAP: the very first merge of this gate (PR #874) has no base copy, so this
-        # step fails there by design; that one merge cannot be judged from base and is a
-        # one-off for the repo owner. The test-only author override is deliberately NOT set anywhere
-        # here; the gate ignores it in CI.
+      - name: Verify each open PR's receipt
+        # The gate and its allowlist come from main, never from a PR's own copy.
         env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_INPUT: ${{ github.event.inputs.pr_number }}
         run: |
-          d="$RUNNER_TEMP/quorum-base-gate"
-          rm -rf "${d:?}"; mkdir -p "$d/scripts"
-          git show "$PR_BASE_SHA:scripts/quorum-store-gate.sh" > "$d/scripts/quorum-store-gate.sh" \
-            || { echo "FAIL: scripts/quorum-store-gate.sh absent on PR base (bootstrap case)" >&2; exit 1; }
-          git show "$PR_BASE_SHA:scripts/quorum-models.json" > "$d/scripts/quorum-models.json" \
-            || { echo "FAIL: scripts/quorum-models.json absent on PR base (bootstrap case)" >&2; exit 1; }
-          echo "QUORUM_BASE_GATE=$d/scripts/quorum-store-gate.sh" >> "$GITHUB_ENV"
-
-      - name: Verify quorum receipt
-        # Reads the receipt STORE (<store>/quorum/<repo>/<pr>/<headsha>.json),
-        # not a committed .quorum/<branch>.json: a receipt binds to the head
-        # sha, and committing it would move the head (loop). Fails closed on a
-        # missing store or file.
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          # author model ids come from the PR commits' Co-Authored-By trailers (per commit)
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          QUORUM_REPO: ${{ github.repository }}
-        run: |
-          bash "$QUORUM_BASE_GATE"
+          fail=0
+          if [ -n "$PR_INPUT" ]; then prs="$PR_INPUT"; else
+            prs="$(gh pr list --state open --json number --jq '.[].number')"
+          fi
+          for pr in $prs; do
+            git fetch -q origin "pull/$pr/head:refs/remotes/pr/$pr"
+            head="$(git rev-parse "refs/remotes/pr/$pr")"
+            base="$(gh pr view "$pr" --json baseRefOid --jq .baseRefOid)"
+            git fetch -q origin "$base" || true
+            if PR_NUMBER="$pr" PR_HEAD_SHA="$head" PR_BASE_SHA="$base" bash scripts/quorum-store-gate.sh; then
+              echo "PASS #$pr"
+            else
+              echo "RED #$pr (LAB: one ticket, one owner)"; fail=1
+            fi
+          done
+          exit "$fail"
