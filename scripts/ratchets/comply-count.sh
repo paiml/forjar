@@ -93,38 +93,29 @@ if [ -z "$json" ]; then
   exit 2
 fi
 
-printf '%s' "$json" | python3 -c '
-import json, re, sys
+case "$json" in
+  *"{"*) body="{${json#*\{}" ;;
+  *) echo "comply-count: no JSON object in comply output" >&2; exit 1 ;;
+esac
 
-want = sys.argv[1]
-raw = sys.stdin.read()
-i = raw.find("{")
-if i < 0:
-    sys.exit("comply-count: no JSON object in comply output")
-try:
-    d = json.loads(raw[i:])
-except Exception as e:
-    sys.exit("comply-count: comply output does not parse: %s" % e)
-
-for c in d.get("checks", []) or []:
-    name = str(c.get("name", ""))
-    if not name.startswith(want + ":"):
-        continue
-    status = str(c.get("status", "")).lower()
-    msg = str(c.get("message", ""))
-    if status == "pass":
-        print(0)
-        sys.exit(0)
-    # "44 finding(s) — ORPHAN-ROADMAP 24, …". The leading integer is the count
-    # the check itself reports; this script never recounts it from the sample,
-    # which is truncated to a handful of lines.
-    m = re.match(r"\s*(\d+)\s+finding", msg)
-    if m:
-        print(int(m.group(1)))
-        sys.exit(0)
-    sys.exit("comply-count: %s reports %s but its message carries no finding count: %.120s"
-             % (want, status, msg))
-
-sys.exit("comply-count: no check named %s in the comply roster — the id has rotted, "
-         "and a rotted id must not read as zero findings" % want)
-' "$want"
+# First check whose name starts "<want>:" decides; the output is a count or an
+# "E:" line (error text for stderr). A rotted id must not read as zero findings.
+res=$(printf '%s' "$body" | jq -r --arg want "$want" '
+  ([(.checks // [])[] | select((.name // "" | tostring) | startswith($want + ":"))] | .[0]) as $c
+  | if $c == null then
+      "E:comply-count: no check named \($want) in the comply roster — the id has rotted, and a rotted id must not read as zero findings"
+    elif (($c.status // "") | tostring | ascii_downcase) == "pass" then "0"
+    else
+      (($c.message // "") | tostring) as $m
+      # "44 finding(s) — ORPHAN-ROADMAP 24, …". The leading integer is the count
+      # the check itself reports; this script never recounts it from the sample,
+      # which is truncated to a handful of lines.
+      | ([$m | capture("^\\s*(?<n>[0-9]+)\\s+finding")] | .[0]) as $r
+      | if $r then ($r.n | tonumber | tostring)
+        else "E:comply-count: \($want) reports \(($c.status // "") | tostring | ascii_downcase) but its message carries no finding count: \($m[0:120])"
+        end
+    end' 2>&1) || { echo "comply-count: comply output does not parse: $res" >&2; exit 1; }
+case "$res" in
+  E:*) echo "${res#E:}" >&2; exit 1 ;;
+  *) printf '%s\n' "$res" ;;
+esac
