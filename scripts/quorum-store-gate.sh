@@ -50,7 +50,7 @@ set -euo pipefail
 fail() { echo "FAIL quorum receipt: $*" >&2; exit 1; }
 
 repo="${QUORUM_REPO:-paiml/forjar}"
-store="${QUORUM_STORE:-/mnt/nvme-raid0/cop-inbox/promote-state}"
+store="${QUORUM_STORE:-}" # empty => fetch the receipt by sha from refs/quorum/ (host-independent)
 pr="${PR_NUMBER:-}"
 head="${PR_HEAD_SHA:-}"
 allow="$(dirname "${BASH_SOURCE[0]}")/quorum-models.json"
@@ -101,6 +101,18 @@ else
 fi
 authors="$(printf '%s' "$ids" | jq -R . | jq -s -c 'unique')" || fail "could not build author list"
 
+if [ -z "$store" ]; then
+  # Host-independent lookup (FLAKE-001 C3, paiml/infra#3479): the receipt is a blob under its own ref,
+  # fetched by sha over git transport (no REST quota, no host path, one exact ref = O(1)). A fetch
+  # error is UNMEASURED and fails closed; it is never read as a pass.
+  remote="${QUORUM_REMOTE:-origin}"
+  ref="refs/quorum/$repo/$pr/$head"
+  store="$(mktemp -d)" || fail "mktemp failed (UNMEASURED)"
+  trap 'rm -rf "${store:?}"' EXIT
+  mkdir -p "$store/quorum/$repo/$pr"
+  git fetch --quiet --depth=1 "$remote" "$ref" 2>/dev/null || fail "cannot fetch $ref from $remote (UNMEASURED or absent)"
+  git cat-file blob FETCH_HEAD > "$store/quorum/$repo/$pr/$head.json" 2>/dev/null || fail "$ref is not a blob (refused)"
+fi
 [ -d "$store" ] || fail "receipt store $store is missing (UNMEASURED)"
 file="$store/quorum/$repo/$pr/$head.json"
 [ ! -L "$file" ] || fail "$file is a symlink (refused)"
