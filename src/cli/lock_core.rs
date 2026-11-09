@@ -328,6 +328,11 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
             continue;
         }
         let machine_name = entry.file_name().to_string_lossy().to_string();
+        // #661: a machine this config does not declare belongs to another stack
+        // sharing the state dir; its lock is not ours to prune.
+        if !config.machines.contains_key(&machine_name) {
+            continue;
+        }
         if let Some(mut lock) = state::load_lock(state_dir, &machine_name)? {
             pruned +=
                 prune_machine_lock(state_dir, &machine_name, &mut lock, &config_resources, yes)?;

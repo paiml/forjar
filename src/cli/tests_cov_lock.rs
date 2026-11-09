@@ -339,6 +339,29 @@ mod tests {
         let _ = cmd_lock_prune(&cfg, dir.path(), true);
     }
 
+    /// forjar#661: `lock-prune -f X` must leave alone the lock of a machine X
+    /// does not declare; that machine belongs to another stack in the state dir.
+    #[test]
+    fn test_lock_prune_skips_undeclared_machines() {
+        let dir = make_dir();
+        let cfg = minimal_config(dir.path());
+        write_yaml(
+            dir.path(),
+            "only-a/state.lock.yaml",
+            &state_lock_yaml().replace("machine: web", "machine: only-a"),
+        );
+        let other = dir.path().join("only-a/state.lock.yaml");
+        let before = std::fs::read_to_string(&other).unwrap();
+        cmd_lock_prune(&cfg, dir.path(), true).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&other).unwrap(),
+            before,
+            "lock-prune rewrote a machine the config does not declare"
+        );
+        let web = std::fs::read_to_string(dir.path().join("web/state.lock.yaml")).unwrap();
+        assert!(!web.contains("\n  g:"), "declared machine was not pruned");
+    }
+
     // ── lock_audit: cmd_lock_history ──
 
     #[test]
