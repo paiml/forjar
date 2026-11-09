@@ -98,3 +98,18 @@ fn test_165_timeout_path_fast_command_ok() {
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "quick");
 }
+
+/// Timeout that fires BEFORE the worker has spawned its child (heavily loaded host: observed
+/// infra#3590, forjar apply ran 30s under `--resource-timeout 2`). The marker left in the empty
+/// slot must make the late child kill itself, so the join is bounded by the limit, not the script.
+#[test]
+fn a_timeout_before_the_child_spawns_still_kills_it() {
+    let slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let done = std::sync::atomic::AtomicBool::new(false);
+    assert!(!kill_worker_child_group(&slot, &done), "nothing to kill yet");
+    let start = std::time::Instant::now();
+    let out = local::exec_local("sleep 30", Some(&slot));
+    assert!(start.elapsed().as_secs() < 10, "late child was not killed");
+    // Killed before or after the stdin write: an Err or a non-success exit, never a clean 30s run.
+    assert!(out.map(|o| !o.success()).unwrap_or(true));
+}

@@ -39,10 +39,19 @@ use crate::core::types::Machine;
 /// still-alive child.
 pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
 
+/// Marker the timeout path leaves in an EMPTY slot: "timed out before the child was spawned".
+/// PID 0 is never a real child, and `kill -- -0` must never be issued.
+const CANCELLED_PID: u32 = 0;
+
 /// Record a freshly-spawned child's PID into the (optional) tracking slot.
 pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
     if let Some(slot) = slot {
         if let Ok(mut guard) = slot.lock() {
+            // The timeout fired before this child existed: nobody else will kill it, so kill its
+            // group now or the timeout's join waits out the whole script (infra#3590).
+            if *guard == Some(CANCELLED_PID) {
+                kill_process_group(child.id());
+            }
             *guard = Some(child.id());
         }
     }
@@ -361,9 +370,16 @@ fn kill_worker_child_group(
     if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
     }
-    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-        kill_process_group(pid);
-        return true;
+    if let Ok(mut guard) = pid_slot.lock() {
+        match *guard {
+            Some(pid) if pid != CANCELLED_PID => {
+                kill_process_group(pid);
+                return true;
+            }
+            // Worker has not spawned yet: leave a marker so record_child_pid kills the child on arrival.
+            None => *guard = Some(CANCELLED_PID),
+            Some(_) => {}
+        }
     }
     false
 }
