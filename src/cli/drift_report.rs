@@ -37,6 +37,7 @@ pub(super) fn print_drift_summary(scan: &DriftScan, json: bool) -> Result<(), St
             "resources_inspected": inspected,
             "resources_skipped": skipped,
             "resources_unmeasured": sum("unmeasured"),
+            "locks_read": scan.locks_read,
             "census": scan.censuses,
             "findings": scan.findings,
             "unmeasured": scan.unmeasured,
@@ -74,7 +75,26 @@ pub(super) fn print_drift_summary(scan: &DriftScan, json: bool) -> Result<(), St
         // alone is the sentence that has been misread for a year.
         println!("  {inspected} resource(s) inspected, {skipped} not inspected.");
     }
+    if !json {
+        for line in lock_basis_lines(scan) {
+            println!("{line}");
+        }
+    }
     Ok(())
+}
+
+/// forjar#585: the lock(s) a verdict was read from, because "no drift" over an
+/// unnamed lock is unfalsifiable when a tree holds several for one machine.
+pub(super) fn lock_basis_lines(scan: &DriftScan) -> Vec<String> {
+    if scan.locks_read.is_empty() {
+        return vec![
+            "  lock read: none (no lock file; checked against the declaration only)".to_string(),
+        ];
+    }
+    scan.locks_read
+        .iter()
+        .map(|p| format!("  lock read: {p}"))
+        .collect()
 }
 
 /// Run the alert command when drift is detected.
@@ -132,4 +152,31 @@ pub(super) fn render_finding(
     println!("  {label}: {} on {name} ({})", f.resource_id, f.detail);
     println!("    Expected: {}", f.expected_hash);
     println!("    Actual:   {}", f.actual_hash);
+}
+
+#[cfg(test)]
+mod lock_basis_tests {
+    use super::*;
+
+    #[test]
+    fn verdict_names_every_lock_it_read() {
+        let scan = DriftScan {
+            locks_read: vec![
+                "state/intel/state.lock.yaml".into(),
+                "state/gx10/state.lock.yaml".into(),
+            ],
+            ..Default::default()
+        };
+        let lines = lock_basis_lines(&scan);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("state/intel/state.lock.yaml"));
+        assert!(lines[1].contains("state/gx10/state.lock.yaml"));
+    }
+
+    #[test]
+    fn verdict_without_a_lock_says_so_instead_of_staying_silent() {
+        let lines = lock_basis_lines(&DriftScan::default());
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("none"), "{lines:?}");
+    }
 }

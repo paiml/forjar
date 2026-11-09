@@ -216,8 +216,19 @@ fn scan_machines_for_drift(
         return scan_lockless(state_dir, machine_filter, config, scan_opts);
     };
 
+    let locks_read: Vec<String> = machine_locks
+        .iter()
+        .map(|(name, _)| {
+            crate::core::state::lock_file_path(state_dir, name)
+                .display()
+                .to_string()
+        })
+        .collect();
+
     if machine_locks.len() <= 1 {
-        return scan_sequential(&machine_locks, config, scan_opts);
+        let mut scan = scan_sequential(&machine_locks, config, scan_opts)?;
+        scan.locks_read = locks_read;
+        return Ok(scan);
     }
 
     // Parallel: check each machine in its own thread
@@ -242,6 +253,7 @@ fn scan_machines_for_drift(
     for part in parts {
         scan.absorb(part);
     }
+    scan.locks_read = locks_read;
     Ok(scan)
 }
 
@@ -260,6 +272,9 @@ pub(super) struct DriftScan {
     /// are reported like any drift and never remediated: re-applying a pin
     /// that is behind the live binary is the downgrade itself.
     pub(super) version_drift: usize,
+    /// forjar#585: the lock file(s) this verdict was read from, one per machine.
+    /// Empty when no lock was read (lockless scan), which the report says aloud.
+    pub(super) locks_read: Vec<String>,
 }
 
 impl DriftScan {
@@ -268,6 +283,7 @@ impl DriftScan {
         self.total_drift += part.total_drift;
         self.total_unmeasured += part.total_unmeasured;
         self.version_drift += part.version_drift;
+        self.locks_read.append(&mut part.locks_read);
         self.findings.append(&mut part.findings);
         self.unmeasured.append(&mut part.unmeasured);
         self.censuses.append(&mut part.censuses);
