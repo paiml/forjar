@@ -65,6 +65,7 @@ pub(crate) fn cmd_apply_scoped(
     use std::time::Instant;
     let t_total = Instant::now();
 
+    super::apply_selection::reject_disjoint_machines(scope.only_machine, machine_filter)?;
     let events_mode = output_mode == Some("events");
     let t_parse = Instant::now();
     let (mut config, data_faults) = load_apply_config(file, env_file, workspace)?;
