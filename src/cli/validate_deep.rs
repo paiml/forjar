@@ -103,7 +103,7 @@ pub(super) fn check_naming_silent(config: &types::ForjarConfig) -> Result<(), St
 pub(super) fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> {
     let mut issues = 0usize;
     for res in config.resources.values() {
-        if format!("{:?}", res.resource_type) == "Unknown" {
+        if res.resource_type.to_string() == "Unknown" {
             issues += 1;
         }
     }

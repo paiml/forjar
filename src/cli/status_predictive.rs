@@ -421,9 +421,7 @@ fn collect_type_entropy(state_dir: &Path, targets: &[&String]) -> Vec<(String, u
             Err(_) => continue,
         };
         for rs in lock.resources.values() {
-            *type_counts
-                .entry(format!("{:?}", rs.resource_type))
-                .or_default() += 1;
+            *type_counts.entry(rs.resource_type.to_string()).or_default() += 1;
         }
     }
     let mut entries: Vec<(String, usize)> = type_counts.into_iter().collect();

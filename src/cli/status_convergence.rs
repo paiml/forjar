@@ -236,7 +236,7 @@ fn summary_dimension_key(
 ) -> Result<String, String> {
     match dimension {
         "machine" => Ok(lock.machine.clone()),
-        "type" => Ok(format!("{:?}", rl.resource_type)),
+        "type" => Ok(rl.resource_type.to_string()),
         "status" => Ok(format!("{:?}", rl.status)),
         _ => Err(format!(
             "Unknown dimension '{dimension}'. Use: machine, type, status"

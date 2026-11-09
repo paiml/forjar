@@ -13,7 +13,7 @@ pub(crate) fn cmd_validate_check_idempotency(file: &Path, json: bool) -> Result<
     let mut non_idempotent = Vec::new();
     for name in &order {
         if let Some(res) = config.resources.get(name) {
-            let rt = format!("{:?}", res.resource_type);
+            let rt = res.resource_type.to_string();
             if rt == "Unknown" {
                 non_idempotent.push(format!("{name}: unknown resource type"));
             }
@@ -233,7 +233,7 @@ pub(crate) fn cmd_validate_check_deprecation(file: &Path, json: bool) -> Result<
     let deprecated_types = ["legacy", "raw_shell"];
 
     for (name, res) in &config.resources {
-        let type_str = format!("{:?}", res.resource_type).to_lowercase();
+        let type_str = res.resource_type.to_string();
         for dep_type in &deprecated_types {
             if type_str.contains(dep_type) {
                 warnings.push((name.clone(), format!("deprecated type: {type_str}")));

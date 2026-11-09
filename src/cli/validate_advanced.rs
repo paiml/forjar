@@ -112,7 +112,7 @@ pub(crate) fn cmd_validate_check_resource_health_conflicts(
 fn find_health_conflicts(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut conflicts = Vec::new();
     for (name, resource) in &config.resources {
-        let rtype = format!("{:?}", resource.resource_type);
+        let rtype = resource.resource_type.to_string();
         let has_service_state = resource.state.as_deref() == Some("running")
             || resource.state.as_deref() == Some("stopped");
         let is_service = rtype.contains("Service");
@@ -277,7 +277,7 @@ fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, S
     let mut issues = Vec::new();
     for (name, resource) in &config.resources {
         if let Some(ref state) = resource.state {
-            let rtype = format!("{:?}", resource.resource_type);
+            let rtype = resource.resource_type.to_string();
             if !is_valid_state_for_type(state, &rtype) {
                 issues.push((
                     name.clone(),

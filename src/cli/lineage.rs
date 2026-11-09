@@ -16,7 +16,7 @@ fn merkle_hash(
 ) -> String {
     let mut hasher = blake3::Hasher::new();
     hasher.update(id.as_bytes());
-    hasher.update(format!("{:?}", resource.resource_type).as_bytes());
+    hasher.update(resource.resource_type.to_string().as_bytes());
 
     if let Some(ref c) = resource.content {
         hasher.update(c.as_bytes());

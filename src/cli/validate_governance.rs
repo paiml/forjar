@@ -87,7 +87,7 @@ pub(crate) fn cmd_validate_check_resource_provider_support(
 fn find_provider_support_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut issues = Vec::new();
     for (name, resource) in &config.resources {
-        let rtype = format!("{:?}", resource.resource_type);
+        let rtype = resource.resource_type.to_string();
         let provider = resource.provider.as_deref().unwrap_or("default");
         if rtype.contains("Package") && provider == "file" {
             issues.push((
@@ -177,7 +177,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency_hints(
 fn find_idempotency_hint_gaps(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut gaps = Vec::new();
     for (name, resource) in &config.resources {
-        let rtype = format!("{:?}", resource.resource_type);
+        let rtype = resource.resource_type.to_string();
         if (rtype.contains("File") || rtype.contains("Template")) && resource.state.is_none() {
             gaps.push((
                 name.clone(),
@@ -331,7 +331,7 @@ fn score_drift_risk(config: &types::ForjarConfig) -> Vec<(String, usize)> {
         .iter()
         .map(|(name, resource)| {
             let mut score = 0usize;
-            let rtype = format!("{:?}", resource.resource_type);
+            let rtype = resource.resource_type.to_string();
             // Files drift more than packages
             if rtype.contains("File") || rtype.contains("Template") {
                 score += 3;

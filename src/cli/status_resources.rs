@@ -118,7 +118,7 @@ fn tally_resource_types(
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             for (_, rlock) in &lock.resources {
-                let rtype = format!("{:?}", rlock.resource_type);
+                let rtype = rlock.resource_type.to_string();
                 *type_counts.entry(rtype).or_insert(0) += 1;
             }
         }

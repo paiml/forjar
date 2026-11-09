@@ -330,7 +330,7 @@ fn run_test_sweep(
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 
-        let rtype = format!("{:?}", resource.resource_type).to_lowercase();
+        let rtype = resource.resource_type.to_string();
         // A resource type with no check script is skipped, never failed.
         let Ok(check_script) = codegen::check_script(&resolved) else {
             out.tally.skip += 1;

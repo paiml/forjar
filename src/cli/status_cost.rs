@@ -122,7 +122,7 @@ fn tally_cost_types(
         };
 
         for rl in lock.resources.values() {
-            let type_str = format!("{:?}", rl.resource_type);
+            let type_str = rl.resource_type.to_string();
             *type_counts.entry(type_str).or_insert(0) += 1;
             total_resources += 1;
         }

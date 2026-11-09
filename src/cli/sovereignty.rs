@@ -17,7 +17,7 @@ pub(crate) fn cmd_sovereignty(file: &Path, state_dir: &Path, json: bool) -> Resu
         let residency = extract_tag(&resource.tags, "residency:");
         entries.push(SovereigntyEntry {
             id: id.clone(),
-            resource_type: format!("{:?}", resource.resource_type),
+            resource_type: resource.resource_type.to_string(),
             machines: resource.machine.iter().map(|s| s.to_owned()).collect(),
             jurisdiction,
             classification,

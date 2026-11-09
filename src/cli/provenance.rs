@@ -67,7 +67,7 @@ fn compute_plan_hash(config: &types::ForjarConfig) -> String {
     for id in &ids {
         hasher.update(id.as_bytes());
         if let Some(r) = config.resources.get(*id) {
-            hasher.update(format!("{:?}", r.resource_type).as_bytes());
+            hasher.update(r.resource_type.to_string().as_bytes());
             for dep in &r.depends_on {
                 hasher.update(dep.as_bytes());
             }
@@ -117,7 +117,7 @@ fn collect_materials(
         // Hash the resource definition
         let mut hasher = blake3::Hasher::new();
         hasher.update(id.as_bytes());
-        hasher.update(format!("{:?}", resource.resource_type).as_bytes());
+        hasher.update(resource.resource_type.to_string().as_bytes());
         if let Some(ref c) = resource.content {
             hasher.update(c.as_bytes());
         }
