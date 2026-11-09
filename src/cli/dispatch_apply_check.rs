@@ -80,3 +80,31 @@ pub(super) fn cmd_apply_check(
         verbose,
     )
 }
+
+/// forjar#470: `apply --refresh-only` takes the same selection as the apply.
+///
+/// Before this, `-r`, `-g`, `--subset`, `--exclude` and `--skip` were dropped on
+/// this path and a "scoped" refresh re-read every resource in the lock. The
+/// selection is the one `apply` and `--check` resolve (`selectors_of`), so the
+/// three modes cannot disagree about which resources a flag set names.
+pub(super) fn cmd_apply_refresh_only(
+    args: &ApplyArgs,
+    state_dir: &Path,
+    verbose: bool,
+) -> Result<(), String> {
+    let scope = scope_of(args);
+    let selectors = selectors_of(args, &scope);
+    super::apply_variants::cmd_refresh_only_with(
+        &args.file,
+        state_dir,
+        args.machine.as_deref(),
+        verbose,
+        args.timeout,
+        args.env_file.as_deref(),
+        args.workspace.as_deref(),
+        // Refs #368: the operator gate runs on this mode too; `None` here
+        // would resolve `$USER@$(hostname)` and refuse the typed operator.
+        args.operator.as_deref(),
+        |config| resolve_selection(config, &selectors, verbose).map(|_| ()),
+    )
+}

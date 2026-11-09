@@ -302,17 +302,8 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
     }
     if args.refresh_only {
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_refresh_only(
-            &args.file,
-            &sd,
-            args.machine.as_deref(),
-            verbose,
-            args.timeout,
-            args.env_file.as_deref(),
-            args.workspace.as_deref(),
-            // Refs #368: the operator gate runs on this mode too; `None` here
-            // would resolve `$USER@$(hostname)` and refuse the typed operator.
-            args.operator.as_deref(),
+        return Some(super::dispatch_apply_check::cmd_apply_refresh_only(
+            args, &sd, verbose,
         ));
     }
     if let Some(ref pf) = args.plan_file {
