@@ -47,6 +47,7 @@ mod tests_edge_apply_b;
 mod tests_edge_details;
 #[cfg(test)]
 mod tests_edge_record;
+mod tests_failed_meta;
 #[cfg(test)]
 mod tests_failure_text;
 #[cfg(test)]

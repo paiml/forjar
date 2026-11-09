@@ -71,7 +71,8 @@ impl RunMeta {
     pub fn record_resource(&mut self, resource_id: &str, status: ResourceRunStatus) {
         match &status {
             ResourceRunStatus::Noop => self.summary.noop += 1,
-            ResourceRunStatus::Converged { failed: true, .. } => self.summary.failed += 1,
+            ResourceRunStatus::Failed { .. }
+            | ResourceRunStatus::Converged { failed: true, .. } => self.summary.failed += 1,
             ResourceRunStatus::Converged { .. } => self.summary.converged += 1,
             ResourceRunStatus::Skipped { .. } => self.summary.skipped += 1,
         }
@@ -86,7 +87,8 @@ impl RunMeta {
 pub enum ResourceRunStatus {
     /// Resource was already converged.
     Noop,
-    /// Resource was created or updated.
+    /// Resource was created or updated successfully. Files written before
+    /// `Failed` existed may still carry `failed: true`; readers honour it.
     Converged {
         /// Process exit code.
         #[serde(default)]
@@ -94,9 +96,19 @@ pub enum ResourceRunStatus {
         /// Duration in seconds.
         #[serde(default)]
         duration_secs: Option<f64>,
-        /// Whether the action failed.
+        /// Legacy flag: old run files recorded a failure as `converged` +
+        /// `failed: true`. New runs write `Failed` and leave this false.
         #[serde(default)]
         failed: bool,
+    },
+    /// Resource failed (non-zero exit, or a transport error with no exit code).
+    Failed {
+        /// Process exit code; absent for a transport failure.
+        #[serde(default)]
+        exit_code: Option<i32>,
+        /// Duration in seconds.
+        #[serde(default)]
+        duration_secs: Option<f64>,
     },
     /// Resource was skipped (dependency failed).
     Skipped {
