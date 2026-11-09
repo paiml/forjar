@@ -370,14 +370,7 @@ pub(crate) fn cmd_check(
         ..Default::default()
     };
     super::apply_selection::resolve_selection(&mut config, &selectors, verbose)?;
-    cmd_check_selected(
-        &config,
-        machine_filter,
-        tag_filter,
-        state_dir,
-        json,
-        verbose,
-    )
+    cmd_check_selected(&config, machine_filter, None, state_dir, json, verbose)
 }
 
 /// PMAT-160 (#467): run the checks over a config that is ALREADY the selection.

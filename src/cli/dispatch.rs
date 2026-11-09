@@ -62,6 +62,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
             why,
             refresh,
             offline,
+            params,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan_with_pins(
@@ -82,6 +83,7 @@ pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String
                 out.as_deref(),
                 why,
                 group.as_deref(),
+                &params,
                 refresh,
                 PlanVersionPins::Check { upstream: !offline },
             )
