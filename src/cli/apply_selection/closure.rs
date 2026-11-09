@@ -24,8 +24,9 @@ use std::collections::HashSet;
 
 /// Every resource-set selector `apply` accepts, resolved once.
 ///
-/// `-m`/`--machine` is deliberately absent: it selects the executor and the
-/// lock, not the resource set. `-t` is present but only existence-checked —
+/// `-m`/`--machine` selects the executor and the lock, not the resource set, so
+/// it never prunes here; it is carried (`machine`) only so a contradiction with
+/// `--only-machine` is refused by name (#471). `-t` is present but only existence-checked —
 /// tags stay a plan-level filter downstream.
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Selectors<'a> {
@@ -51,6 +52,8 @@ pub(crate) struct Selectors<'a> {
     pub exclude_machine: Option<&'a str>,
     /// `-t`: existence-checked here, never pruned here.
     pub tag: Option<&'a str>,
+    /// `-m` / `--machine` (#471): never prunes; checked against `--only-machine` only.
+    pub machine: Option<&'a str>,
 }
 
 impl<'a> Selectors<'a> {
@@ -182,6 +185,13 @@ fn check_existence(config: &types::ForjarConfig, sel: &Selectors<'_>) -> Result<
     check_skip(config, sel.skip)?;
     check_machine(config, sel.only_machine, "--only-machine")?;
     check_machine(config, sel.exclude_machine, "--exclude-machine")?;
+    if let (Some(only), Some(m)) = (sel.only_machine, sel.machine) {
+        if only != m {
+            return Err(format!(
+                "--only-machine '{only}' and -m '{m}' select disjoint machines; name one machine"
+            ));
+        }
+    }
     // An unknown goal carries make's own message; a known one costs one walk.
     resolver::goal_closure(config, sel.goals)?;
     Ok(())
