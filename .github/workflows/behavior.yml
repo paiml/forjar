@@ -3,20 +3,16 @@
 name: behavior
 on:
   push:
-    branches: [main]
+    branches: [main, "train/**"]
     paths:
       - "src/**"
       - "tests/**/*.spec.yaml"
       - ".cargo/config.toml"
       - ".github/workflows/behavior.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "tests/**/*.spec.yaml"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
