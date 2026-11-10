@@ -25,8 +25,8 @@ on:
 # from a run that was already obsolete is exactly how a gate gets reclassified as
 # noise and then ignored.
 concurrency:
-  group: quorum-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -77,7 +77,8 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Show toolchain
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
 
