@@ -53,7 +53,7 @@ fn the_saved_plan_preflight_says_the_drift_gate_did_not_run() {
         .nth(1)
         .expect("run_plan_apply_gates exists");
     assert!(
-        body.contains("println!(\"{DRIFT_GATE_NOT_RUN}\");"),
-        "the preflight must print the notice"
+        body.contains("eprintln!(\"{DRIFT_GATE_NOT_RUN}\");"),
+        "the preflight must print the notice on stderr, never on a stdout a --json stream owns"
     );
 }

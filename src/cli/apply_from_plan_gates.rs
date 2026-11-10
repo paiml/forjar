@@ -76,6 +76,13 @@ fn reviewed_action_counts(
     counts
 }
 
+/// forjar#432 (option 2): the saved-plan path runs no live-drift probe, so the
+/// preflight output says so by name. The plan is bound to `state_hash`, which
+/// catches a state file that moved; it cannot see a host that drifted under an
+/// unchanged state file, and nobody should read the binding as a probe.
+pub(super) const DRIFT_GATE_NOT_RUN: &str =
+    "drift gate: not run for saved plans (bound to state_hash instead)";
+
 /// Every preflight gate an ordinary `apply` runs, in the order it runs them.
 ///
 /// Called from `cmd_apply_from_plan` after `check_plan_still_holds` and
@@ -87,13 +94,6 @@ fn reviewed_action_counts(
 /// KNOWN AND DELIBERATE GAP, so it is not later mistaken for coverage:
 /// `honour_an_empty_plan` returns before this call, so a sealed zero-change
 /// plan still runs no gate. Harmless — nothing converges — but real.
-/// forjar#432 (option 2): the saved-plan path runs no live-drift probe, so the
-/// preflight output says so by name. The plan is bound to `state_hash`, which
-/// catches a state file that moved; it cannot see a host that drifted under an
-/// unchanged state file, and nobody should read the binding as a probe.
-pub(super) const DRIFT_GATE_NOT_RUN: &str =
-    "drift gate: not run for saved plans (bound to state_hash instead)";
-
 pub(super) fn run_plan_apply_gates(
     config: &types::ForjarConfig,
     req: &PlanApplyRequest,
@@ -114,7 +114,7 @@ pub(super) fn run_plan_apply_gates(
                 .is_none_or(|f| f == m.as_str())
         })
         .collect();
-    println!("{DRIFT_GATE_NOT_RUN}");
+    eprintln!("{DRIFT_GATE_NOT_RUN}");
     // forjar#847: same inode pre-check an ordinary apply runs; a dry run warns.
     super::inode_gate::machines_pre_check(config, &machines, req.dry_run)?;
     super::apply_preflight::apply_state_gates(
