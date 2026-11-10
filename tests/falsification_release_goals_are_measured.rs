@@ -371,3 +371,39 @@ fn the_release_goal_scripts_carry_no_pipeline_that_can_take_sigpipe() {
         }
     }
 }
+
+/// forjar#528: gate T's status arm is two-directional. A row that carries the
+/// open window's label and reads `completed` while no merged PR names it is a
+/// claim with no work behind it (PMAT-240).
+#[test]
+fn a_completed_ticket_labelled_for_the_open_window_with_no_merge_is_named_and_red() {
+    let claims_without_merge = fixture(Case {
+        rows: vec![
+            (SHIPPED, vec!["release:v0.0.1"]),
+            (OPEN, vec!["release:v0.0.2"]),
+            ("PMAT-903", vec!["release:v0.0.2"]),
+        ],
+        ..Case::default()
+    });
+    let r = run(&claims_without_merge, AN_HOUR);
+    r.assert_red("PMAT-903 says completed under release:v0.0.2 and no PR names it");
+    r.assert_says("PMAT-903");
+    r.assert_says("no PR merged since v0.0.1 names it");
+}
+
+/// The legitimate shapes stay green: a ticket completed outside any window
+/// (no open-window label), and one still in progress under the open label.
+#[test]
+fn completed_outside_a_window_and_planned_inside_one_are_both_green() {
+    let fine = fixture(Case {
+        rows: vec![
+            (SHIPPED, vec!["release:v0.0.1"]),
+            (OPEN, vec!["release:v0.0.2"]),
+            ("PMAT-904", vec![]),
+            (concat!("planned:", "PMAT-905"), vec!["release:v0.0.2"]),
+        ],
+        ..Case::default()
+    });
+    let r = run(&fine, AN_HOUR);
+    r.assert_green("outside-window completed and an unmerged planned row are not claims");
+}

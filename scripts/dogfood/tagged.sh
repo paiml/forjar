@@ -494,6 +494,23 @@ for t in $DOGFOOD_WINDOW_TICKETS; do
   check_status "$t" "is named by a PR merged since ${NEWEST}"
 done
 
+# T10 (forjar#528): A LABEL IS A CLAIM, AND `completed` MUST BE BACKED BY A MERGE.
+#
+# T7 reads `status` only for tickets a tagged release or a merged PR already
+# names. The other direction was open: a row carrying `release:${NEXT_TAG}` that
+# reads `completed` while NO merged PR in the window names it passed forever
+# (PMAT-240 read completed with its work undone), and `release-goal.sh cut`
+# carried the badge into the next window at every cut. A ticket completed
+# OUTSIDE any window carries no open-window label and is untouched.
+dogfood_rows_with_label "release:${NEXT_TAG}"
+for t in $DOGFOOD_ROWS; do
+  case " $DOGFOOD_WINDOW_TICKETS " in *" $t "*) continue ;; esac
+  dogfood_row_status "$t"
+  if [ "$DOGFOOD_ROW_STATUS" = "completed" ]; then
+    fail "$t carries release:${NEXT_TAG} and its roadmap row reads status: completed, but no PR merged since ${NEWEST} names it: the label claims it belongs to this window and nothing merged there says it shipped (correct the row or drop the label)"
+  fi
+done
+
 dogfood_epoch "$NEXT_DUE"; due="$DOGFOOD_EPOCH"
 dogfood_cargo_version
 case "$DOGFOOD_CARGO_VERSION" in
@@ -578,3 +595,8 @@ echo "GATE T PASS ${checked} tagged release(s) since ${FLOOR} reconcile with git
 # instant then disagrees with the declared one by a few seconds on the real
 # ledger and the gate exits 1, which shows next.due is re-derived from the
 # tag's own creation instant and not read back from the file.
+# mutation (T10, forjar#528): change `[ "$DOGFOOD_ROW_STATUS" = "completed" ]`
+# in the open-window label arm to `= "never"` — a row labelled for the open
+# window that reads completed with no merged PR then passes, and
+# a_completed_ticket_labelled_for_the_open_window_with_no_merge_is_named_and_red
+# goes green-where-red-was-required (fails).
