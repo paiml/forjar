@@ -315,23 +315,28 @@ fn print_prune_summary(pruned: usize, yes: bool) {
 }
 
 // FJ-366: Lock prune — remove stale lock entries
+//
+// forjar#661: scoped to the machines `-f` declares, and refused on a machine
+// another stack also owns. Every machine is checked before any is written, so a
+// refusal leaves the state dir untouched.
 pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
+    use super::lock_prune_scope as scope;
     let config = parse_and_validate(file)?;
     let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
+    let global = state::load_global_lock(state_dir)?;
 
-    let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
+    let mut locks = Vec::new();
+    for machine_name in scope::declared_machine_dirs(&config, state_dir)? {
+        if let Some(lock) = state::load_lock(state_dir, &machine_name)? {
+            let stale = stale_lock_entries(&lock, &config_resources);
+            scope::refuse_if_owned_by_other(global.as_ref(), &config.name, &machine_name, &stale)?;
+            locks.push((machine_name, lock));
+        }
+    }
 
     let mut pruned = 0usize;
-    for entry in entries.flatten() {
-        if !entry.path().is_dir() {
-            continue;
-        }
-        let machine_name = entry.file_name().to_string_lossy().to_string();
-        if let Some(mut lock) = state::load_lock(state_dir, &machine_name)? {
-            pruned +=
-                prune_machine_lock(state_dir, &machine_name, &mut lock, &config_resources, yes)?;
-        }
+    for (machine_name, mut lock) in locks {
+        pruned += prune_machine_lock(state_dir, &machine_name, &mut lock, &config_resources, yes)?;
     }
 
     print_prune_summary(pruned, yes);
