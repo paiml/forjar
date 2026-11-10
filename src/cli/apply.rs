@@ -61,6 +61,11 @@ pub(crate) fn cmd_apply_scoped(
     // promise `--rollback-on-failure` makes that a shared state dir cannot
     // keep. Everything below this line either reads the state dir or writes it.
     super::apply_preflight::rollback_on_failure_gate(rollback_on_failure, dry_run, state_dir)?;
+    // forjar#845: refuse a stale checkout before any connect or state write.
+    if !dry_run {
+        let exempt = std::env::var(super::apply_checkout_gate::PR_WORKTREE_ENV).ok();
+        super::apply_checkout_gate::checkout_fresh_gate(file, exempt.as_deref())?;
+    }
 
     use std::time::Instant;
     let t_total = Instant::now();
