@@ -136,3 +136,89 @@ pub(crate) fn to_json(rows: &[PinRow]) -> serde_json::Value {
             .collect(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn fixture(dir: &std::path::Path, live: &str) -> (ForjarConfig, ExecutionPlan) {
+        let bin = dir.join("ollama");
+        std::fs::write(&bin, format!("#!/bin/sh\nprintf '%s\\n' '{live}'\n")).unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let yaml = format!(
+            "version: \"1.0\"\nname: t\nmachines:\n  box:\n    hostname: box\n    addr: 127.0.0.1\nresources:\n  ollama:\n    type: github_release\n    machine: box\n    repo: ollama/ollama\n    tag: v0.33.2\n    asset_pattern: '*linux-amd64*'\n    binary: ollama\n    install_dir: {}\n",
+            dir.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let plan = ExecutionPlan {
+            name: "t".into(),
+            changes: vec![crate::core::types::PlannedChange {
+                resource_id: "ollama".into(),
+                machine: "box".into(),
+                resource_type: crate::core::types::ResourceType::GithubRelease,
+                action: PlanAction::NoOp,
+                description: String::new(),
+            }],
+            execution_order: vec!["ollama".into()],
+            to_create: 0,
+            to_update: 0,
+            to_destroy: 0,
+            unchanged: 1,
+            unprobed: Vec::new(),
+        };
+        (config, plan)
+    }
+
+    #[test]
+    fn plan_names_a_live_version_that_is_not_the_pin() {
+        let dir = tempfile::tempdir().unwrap();
+        let (config, plan) = fixture(dir.path(), "ollama version is 0.34.2");
+        let rows = measure(&config, &plan, PlanVersionPins::Check { upstream: false }).unwrap();
+        let drifted: Vec<_> = rows.iter().filter(|r| r.verdict == "DRIFTED").collect();
+        assert_eq!(drifted.len(), 1);
+        assert!(
+            drifted[0].detail.contains("0.34.2"),
+            "{}",
+            drifted[0].detail
+        );
+        assert!(drifted[0].detail.contains("DOWNGRADE"));
+        // offline: the upstream leg is disclosed, never silently dropped
+        assert!(rows
+            .iter()
+            .any(|r| r.verdict == "NOT CHECKED" && r.detail.contains("offline")));
+        let json = to_json(&rows);
+        assert_eq!(json[0]["resource_id"], "ollama");
+        assert_eq!(json[0]["verdict"], "DRIFTED");
+        print_text(&rows);
+    }
+
+    #[test]
+    fn plan_adds_nothing_when_the_pin_matches_or_the_check_is_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let (config, plan) = fixture(dir.path(), "ollama version is 0.33.2");
+        let rows = measure(&config, &plan, PlanVersionPins::Check { upstream: false }).unwrap();
+        assert!(
+            rows.iter().all(|r| r.verdict != "DRIFTED"),
+            "a matching pin is not drift"
+        );
+        assert_eq!(
+            rows.len(),
+            1,
+            "only the offline upstream disclosure remains"
+        );
+        print_text(&rows);
+        assert!(measure(&config, &plan, PlanVersionPins::Skip).is_none());
+    }
+
+    #[test]
+    fn plan_says_not_checked_for_an_undeclared_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut config, plan) = fixture(dir.path(), "0.33.2");
+        config.machines.clear();
+        let rows = measure(&config, &plan, PlanVersionPins::Check { upstream: false }).unwrap();
+        assert!(!rows.is_empty());
+        assert!(rows.iter().all(|r| r.verdict == "NOT CHECKED"));
+        assert!(rows[0].detail.contains("not declared"));
+    }
+}
