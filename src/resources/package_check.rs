@@ -143,13 +143,16 @@ pub fn check_script(resource: &Resource) -> String {
                          [ -n \"$_fj_bins\" ] && ( \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
                          _fj_want={}; _fj_seen=0; \
+                         _fj_tmp=\"$(mktemp -d)\" && cd \"$_fj_tmp\" || exit 1; \
+                         trap 'rm -rf -- \"$_fj_tmp\"' EXIT; \
                          for _fj_b in $_fj_bins; do \
                          _fj_p=\"$_fj_root/$_fj_b\"; \
+                         [ -x \"$_fj_p\" ] || exit 1; \
                          _fj_v=\"$(\"$_fj_p\" --version 2>/dev/null)\" || _fj_v=\"\"; \
                          if [ -z \"$_fj_v\" ]; then case \"$_fj_b\" in cargo-*) \
                          _fj_v=\"$(\"$_fj_p\" \"${{_fj_b#cargo-}}\" --version 2>/dev/null)\" \
                          || _fj_v=\"\";; esac; fi; \
-                         [ -n \"$_fj_v\" ] || exit 1; \
+                         [ -n \"$_fj_v\" ] || continue; \
                          if [ -z \"$_fj_want\" ]; then _fj_seen=1; \
                          else case \"$_fj_v\" in *\"$_fj_want\"*) _fj_seen=1;; esac; fi; \
                          done; \
