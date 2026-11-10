@@ -15,8 +15,8 @@
 //! non-PR runs share replaces the PENDING one even with
 //! `cancel-in-progress: false`, so two quick pushes to main would silently
 //! skip a main run. A unique group per non-PR run is never cancelled and
-//! never replaced. Push, schedule, merge_group, release and train/* runs all
-//! take that path.
+//! never replaced. Push, schedule, merge_group, release and train/** runs all
+//! take that path (train/** runs are push events since #971, not pull_request).
 //!
 //! The rule is a pure function (`violations`) so the mutants below can prove
 //! the test would catch each way of breaking it.
@@ -80,7 +80,7 @@ const GOOD: &str = "on:\n  push:\n    branches: [main]\n  pull_request:\nconcurr
 #[test]
 fn every_pull_request_workflow_cancels_superseded_runs() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows");
-    let mut checked = 0;
+    let mut seen = Vec::new();
     let mut bad = Vec::new();
     for e in std::fs::read_dir(&dir).expect("read .github/workflows") {
         let p = e.expect("dir entry").path();
@@ -93,16 +93,21 @@ fn every_pull_request_workflow_cancels_superseded_runs() {
             .iter()
             .any(|t| t == "pull_request")
         {
-            checked += 1;
+            seen.push(p.file_stem().unwrap().to_string_lossy().into_owned());
         }
         for m in v {
             bad.push(format!("{}: {m}", p.file_name().unwrap().to_string_lossy()));
         }
     }
-    assert!(
-        checked >= 9,
-        "discovery found only {checked} pull_request workflows"
-    );
+    // After #953/#962/#971 only these workflows run on pull_request (the rest moved to
+    // push main+train/** or workflow_dispatch). The old floor of 9 counted workflows that no
+    // longer exist on the PR path; name the real set so losing one still fails discovery.
+    for want in ["audit", "ci", "lint"] {
+        assert!(
+            seen.iter().any(|s| s == want),
+            "discovery lost pull_request workflow {want}; found {seen:?}"
+        );
+    }
     assert!(
         bad.is_empty(),
         "superseded runs are not cancelled:\n{}",
