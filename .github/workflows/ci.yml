@@ -437,11 +437,11 @@ jobs:
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
   # infra#3828: runner-smells ratchet (RS-01..RS-11); counts may not exceed .github/runner-smells.baseline.
-  # SHA is paiml/.github#113 head; re-pin to the merge commit once #113 merges.
+  # SHA is the paiml/.github#113 merge commit.
   runner-smells:
-    uses: paiml/.github/.github/workflows/runner-smells.yml@7424d422d4b21b0ff1e01d6c5bf2681c9fca244d
+    uses: paiml/.github/.github/workflows/runner-smells.yml@d0ac85f159e8840129439833f57d6cb5a927b279
     with:
-      scanner_ref: 7424d422d4b21b0ff1e01d6c5bf2681c9fca244d
+      scanner_ref: d0ac85f159e8840129439833f57d6cb5a927b279
 
   gate:
     timeout-minutes: 15
