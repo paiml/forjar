@@ -25,7 +25,7 @@ const REQUIRED: [(&str, &str); 10] = [
     ("surface.sh", "C — transport surface"),
     ("docs.sh", "D — documented invocations"),
     ("quorum.sh", "E — quorum receipt per merged PR"),
-    ("coverage.sh", "F — coverage and mutants"),
+    ("coverage.sh", "F — coverage floor"),
     ("contracts.sh", "G — contracts"),
     ("crux-reconcile.sh", "H — crux reconciliation"),
     (
