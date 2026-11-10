@@ -484,3 +484,91 @@ fn the_binary_decides_the_version_not_the_record() {
         "a binary at 0.2.0 must not satisfy a 0.3.0 pin"
     );
 }
+
+/// A helper binary shipped by a crate: `body` is its whole script.
+fn install_script_bin(cargo_home: &std::path::Path, name: &str, body: &str) {
+    let bindir = cargo_home.join("bin");
+    std::fs::create_dir_all(&bindir).unwrap();
+    let p = bindir.join(name);
+    std::fs::write(&p, format!("#!/usr/bin/env bash\n{body}\n")).unwrap();
+    let mut perms = std::fs::metadata(&p).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o755);
+    std::fs::set_permissions(&p, perms).unwrap();
+}
+
+#[test]
+fn gh_662_a_helper_without_version_does_not_fail_an_installed_crate() {
+    // forjar#662: `quietcrate-helper --version` exits 2 with nothing on stdout.
+    // The crate's real binary prints the pinned version. The design comment
+    // says a helper that versions itself differently must not be a new false
+    // negative; the loop exited 1 on it anyway.
+    let dir = tempfile::tempdir().unwrap();
+    stub_cargo(
+        dir.path(),
+        "quietcrate v2.0.0:\n    quietcrate\n    quietcrate-helper",
+    );
+    install_bin_version(dir.path(), "quietcrate", "2.0.0");
+    install_script_bin(
+        dir.path(),
+        "quietcrate-helper",
+        "echo 'error: unexpected argument --version' >&2; exit 2",
+    );
+    let script =
+        forjar::resources::package_check::check_script(&cargo_pkg(&["quietcrate"], Some("2.0.0")));
+    assert!(
+        run_check(&script, dir.path()),
+        "a present helper with no --version must not fail the check.\nscript:\n{script}"
+    );
+}
+
+#[test]
+fn gh_662_a_crate_whose_every_binary_stays_silent_is_not_installed() {
+    // Tolerating a silent helper must not let a crate with NO binary that
+    // reports a version pass.
+    let dir = tempfile::tempdir().unwrap();
+    stub_cargo(
+        dir.path(),
+        "silentcrate v1.0.0:\n    silent-a\n    silent-b",
+    );
+    install_script_bin(dir.path(), "silent-a", "exit 2");
+    install_script_bin(dir.path(), "silent-b", "exit 2");
+    let script = forjar::resources::package_check::check_script(&cargo_pkg(&["silentcrate"], None));
+    assert!(
+        !run_check(&script, dir.path()),
+        "no binary reported a version; the crate cannot count as installed"
+    );
+}
+
+#[test]
+fn gh_662_the_check_does_not_let_a_helper_write_into_the_working_directory() {
+    // forjar#662: `democrate-report --version` ignores its argument and writes
+    // docs/report.md into whatever directory forjar was started from.
+    let dir = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    stub_cargo(
+        dir.path(),
+        "democrate v1.0.0:\n    democrate\n    democrate-report",
+    );
+    install_bin_version(dir.path(), "democrate", "1.0.0");
+    install_script_bin(
+        dir.path(),
+        "democrate-report",
+        "mkdir -p docs && echo report > docs/report.md && echo written",
+    );
+    let script = forjar::resources::package_check::check_script(&cargo_pkg(&["democrate"], None));
+    let ok = Command::new("bash")
+        .arg("-c")
+        .arg(&script)
+        .current_dir(work.path())
+        .env("PATH", format!("{}:/usr/bin:/bin", dir.path().display()))
+        .env("CARGO_HOME", dir.path())
+        .output()
+        .unwrap()
+        .status
+        .success();
+    assert!(ok, "the crate is installed and must pass");
+    assert!(
+        !work.path().join("docs").exists(),
+        "the check wrote into the caller's working directory"
+    );
+}
