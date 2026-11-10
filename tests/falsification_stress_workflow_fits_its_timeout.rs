@@ -24,11 +24,14 @@ fn passes_per_leg_fit_the_timeout() {
                 .ok()
         })
         .expect("seq loop");
-    let timeout: u32 = w
+    // Pin to the stress step's own timeout: the line after the seq loop's step.
+    let step = w
+        .find("name: Stress test iteration")
+        .expect("stress test step");
+    let timeout: u32 = w[step..]
         .lines()
-        .rev()
         .find_map(|l| l.trim().strip_prefix("timeout-minutes: ")?.parse().ok())
-        .expect("timeout-minutes");
+        .expect("timeout-minutes on the stress step");
     // 9 min per pass worst case, plus a 10 min build.
     assert!(
         passes * 9 + 10 <= timeout,
