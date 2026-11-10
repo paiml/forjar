@@ -56,6 +56,8 @@ pub(crate) fn cmd_apply_scoped(
     scope: &ApplyScope,
 ) -> Result<(), String> {
     warn_sequential_ignored(sequential);
+    // forjar#845: first of all, before any connect, plan-execute or state write.
+    super::apply_fresh_checkout::fresh_checkout_gate(file, dry_run)?;
     // PMAT-174: the FIRST gate, above the config, the sockets and the drift
     // pass, because it is about the arguments rather than the config — a
     // promise `--rollback-on-failure` makes that a shared state dir cannot
