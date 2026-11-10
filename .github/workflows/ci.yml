@@ -67,7 +67,6 @@ jobs:
       # the coverage job is SKIPPED and the gate prints "coverage: NOT MEASURED"
       # -- never green. On a v* tag push it is mandatory: skipped there is RED.
       coverage_on: tag
-      heavy_on: train
     secrets: inherit
 
   # Release preflight: a stale Cargo.lock must fail PR CI, not the tag.
