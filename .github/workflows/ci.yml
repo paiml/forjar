@@ -56,7 +56,7 @@ jobs:
       repo: ${{ github.event.repository.name }}
       # ARM64 route-back (infra-cop 2026-11-10 18:25Z, ARM64 starvation): the 2026-10-27 move put
       # every gate job on ARM64 because ARM64 sat idle and X64 had 123 forjar jobs queued. On
-      # 2026-11-10 18:35Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
+      # 2026-11-10 ~18:26Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
       # Back to X64; `examples-validate` stays on ARM64 as the one aarch64 smoke.
       runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
