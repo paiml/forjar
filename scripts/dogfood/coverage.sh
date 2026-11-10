@@ -1,22 +1,15 @@
 #!/usr/bin/env bash
-# Dogfood gate F — the coverage floor, and the mutants the floor cannot see.
+# Dogfood gate F — the coverage floor (mutation runs nightly only).
 #
 # Exit code is the gate. The only line a caller must read is the final
 # `GATE F PASS|FAIL <detail>`.
 #
-# WHY BOTH HALVES
+# WHY NO MUTATION HERE
 #
-# Line coverage answers "was this line executed", never "would anything have
-# noticed if it were wrong". A suite that calls every function and asserts
-# nothing reports 100%. So the floor is necessary and is not sufficient, and
-# this gate runs the sufficient half too: `cargo mutants` over EXACTLY the lines
-# this branch changed. A survivor is a mutation of new code that the whole suite
-# accepted — new code no test would have caught being wrong.
-#
-# `--in-diff` and not a full sweep: a whole-repo mutation run is hours, so a gate
-# built on it would be disabled within a week. Scoped to the diff it is minutes,
-# and it asserts the property that actually matters on a release branch — that
-# what CHANGED is guarded by something with teeth.
+# Mutation testing never runs in a build, a PR, a merge queue, a release gate or
+# locally through this script: operator ruling 2026-11-10, "NO build can do
+# mutation outside of nightly; the end. FOREVER". It lives in
+# .github/workflows/mutation.yml, `schedule` trigger only (infra#3828).
 #
 # HOW THE FLOOR IS ENFORCED
 #
@@ -139,73 +132,10 @@ if [ "$rc" -ne 0 ]; then
   fail "line coverage ${measured:-UNMEASURED} is below the ${FLOOR}% floor (cargo llvm-cov exit ${rc}) — write the tests, do not move the floor"
 fi
 
-# --------------------------- Arm 3: mutants over exactly what this branch changed
-if ! git rev-parse --verify --quiet origin/main >/dev/null; then
-  fail "no origin/main to diff against: the in-diff scope cannot be computed, so this arm would mutate nothing and say so in green"
-fi
-work="$(mktemp -d)"
-diff_file="${work}/branch.diff"
-git diff "origin/main...HEAD" -- '*.rs' >"$diff_file"
-grc=0
-changed_rs="$(git diff --name-only "origin/main...HEAD" -- '*.rs' | grep -c .)" || grc=$?
-if [ "$grc" -gt 1 ]; then
-  fail "grep exited ${grc} counting the changed .rs files — the mutation scope is UNMEASURED"
-fi
-# MUTABLE .rs files, not all of them. `cargo mutants` mutates library and binary
-# targets; it does not mutate `tests/`, `benches/` or `examples/`. A branch whose
-# only Rust change is a new integration test therefore produces zero mutants and
-# no outcomes.json — which the UNMEASURED arm below read as "the tool did not
-# run". Measured 2026-09-08 on the 1.26.0 release cut, whose Rust change is one
-# falsification test: `INFO No mutants to filter`, exit 0, no outcomes.json, and
-# the release gate went red on a branch with nothing to mutate.
-#
-# Counting the mutable set instead keeps both halves honest: a diff that touches
-# a src/ file still MUST produce mutants and kill them, and a tests-only diff
-# passes this arm while every other arm still measures it.
-mrc=0
-# `-z`: `git diff --name-only` QUOTES a path containing a space or a non-ASCII
-# byte ("src/a b.rs"), and a leading quote defeats an anchored match, so a diff
-# that does touch src/ could read as zero mutable files (found by the PMAT-165
-# quorum). NUL-delimited output is never quoted.
-mutable_rs="$(git diff --name-only -z "origin/main...HEAD" -- '*.rs' \
-  | tr '\0' '\n' | grep -E '(^|/)src/' | grep -c .)" || mrc=$?
-if [ "$mrc" -gt 1 ]; then
-  fail "grep exited ${mrc} counting the mutable changed .rs files — the mutation scope is UNMEASURED"
-fi
-if [ "$changed_rs" -gt 0 ] && [ "$mutable_rs" -eq 0 ]; then
-  rm -rf "${work:?}"
-  echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus, ceiling ${IGNORED_EXPECTED}); mutants: ${changed_rs} .rs file(s) changed, none under src/ — cargo mutants has no library or binary target to mutate in this diff"
-  exit 0
-fi
-if [ "$changed_rs" -eq 0 ]; then
-  rm -rf "${work:?}"
-  echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); no .rs differs from origin/main, so there is nothing to mutate"
-  exit 0
-fi
-
-rc=0
-cargo mutants --in-diff "$diff_file" --timeout 300 --output "$work" >"${work}/mutants.log" 2>&1 || rc=$?
-outcomes="${work}/mutants.out/outcomes.json"
-if [ ! -f "$outcomes" ]; then
-  cat "${work}/mutants.log"
-  fail "cargo mutants wrote no outcomes.json (exit ${rc}) — the mutation arm is UNMEASURED, and unmeasured is not clean; artifacts left in ${work}"
-fi
-total="$(jq -r '.total_mutants // (.outcomes | length)' "$outcomes")"
-missed="$(jq -r '[.outcomes[] | select(.summary == "MissedMutant")] | length' "$outcomes")"
-timeouts="$(jq -r '[.outcomes[] | select(.summary == "Timeout")] | length' "$outcomes")"
-if [ "$total" -eq 0 ]; then
-  fail "cargo mutants generated 0 mutants from a diff touching ${changed_rs} .rs file(s) — the in-diff scope resolved to nothing, so this arm proved nothing; artifacts in ${work}"
-fi
-if [ "$missed" -gt 0 ]; then
-  jq -r '.outcomes[] | select(.summary == "MissedMutant") | .scenario.Mutant | "  SURVIVED \(.file):\(.span.start.line) \(.genre) -> \(.replacement)"' "$outcomes"
-  fail "${missed} of ${total} mutant(s) of this branch's OWN changes survived the whole suite: that code can be wrong and nothing notices; artifacts in ${work}"
-fi
-if [ "$timeouts" -gt 0 ]; then
-  fail "${timeouts} of ${total} mutant(s) timed out at 300s — a timeout is not a catch, it is a mutant nobody judged; artifacts in ${work}"
-fi
-rm -rf "${work:?}"
-
-echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); ${total} in-diff mutant(s) over ${changed_rs} changed .rs file(s), 0 survived, 0 timed out"
+# Mutation is NOT run here. Operator ruling (2026-11-10 16:50Z, verbatim): "NO
+# build can do mutation outside of nightly; the end. FOREVER". It runs only from
+# the `schedule` trigger of .github/workflows/mutation.yml (infra#3828).
+echo "GATE F PASS line coverage ${measured:-?} >= ${FLOOR}%; forjar-contracts ${failed} failed / ${ignored} ignored (${annotated} aprender-corpus annotations; both exactly as recorded); mutation runs nightly only"
 
 # mutation: change FLOOR to 90 — Arm 0 then reports the floor as DRIFTED from
 # the Makefile's two `--fail-under-lines 95` and the gate exits 1 in a second,

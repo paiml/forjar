@@ -59,7 +59,7 @@ on:
   # time on a fleet shared with every other paiml repo. It now runs where a
   # release is being made: a v* tag push, or a deliberate manual dispatch.
   # Nothing ships unmeasured -- gate F (scripts/dogfood/coverage.sh) runs the 95%
-  # line floor and cargo mutants locally before every release.
+  # line floor locally before every release; mutation is nightly-only.
   push:
     tags: ['v*']
   workflow_dispatch:
