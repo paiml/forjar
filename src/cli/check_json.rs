@@ -1,12 +1,32 @@
 //! `forjar check --json` report (split out of check.rs for the 500-line ceiling).
 
 /// Format check results as JSON.
+#[cfg(test)]
 pub(super) fn format_check_json(
     config_name: &str,
     results: &[super::check::CheckResult],
     total_pass: usize,
     total_fail: usize,
     total_skip: usize,
+) -> Result<(), String> {
+    format_check_json_with_locks(
+        config_name,
+        results,
+        total_pass,
+        total_fail,
+        total_skip,
+        &std::collections::BTreeMap::new(),
+    )
+}
+
+/// forjar#585: JSON check report that names the lock each machine was read from.
+pub(super) fn format_check_json_with_locks(
+    config_name: &str,
+    results: &[super::check::CheckResult],
+    total_pass: usize,
+    total_fail: usize,
+    total_skip: usize,
+    locks: &std::collections::BTreeMap<String, String>,
 ) -> Result<(), String> {
     let json_results: Vec<_> = results
         .iter()
@@ -43,6 +63,7 @@ pub(super) fn format_check_json(
         "fail": total_fail,
         "skip": total_skip,
         "results": json_results,
+        "locks": locks,
     });
     println!(
         "{}",

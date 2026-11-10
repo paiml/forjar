@@ -183,7 +183,9 @@ fn run_single_check(
     )
 }
 
+#[cfg(test)]
 pub(super) use super::check_json::format_check_json;
+pub(super) use super::check_json::format_check_json_with_locks;
 
 /// FJ-178: Per-machine state locks plus whether the state dir exists at all.
 pub(super) struct CheckState {
@@ -364,6 +366,23 @@ pub(crate) fn cmd_check(
 /// `machine_filter` and `tag_filter` stay, unchanged and for the same reasons
 /// they stay in `apply`: `-m` picks the executor, `-t` is a per-resource filter
 /// the planner applies too.
+/// forjar#585: the lock file each checked machine was read from.
+fn check_lock_paths(
+    config: &types::ForjarConfig,
+    state: &CheckState,
+    state_dir: &Path,
+) -> std::collections::BTreeMap<String, String> {
+    config
+        .machines
+        .keys()
+        .filter(|m| state.locks.contains_key(*m))
+        .map(|m| {
+            let path = super::drift::resolved_lock_path(state_dir, m);
+            (m.clone(), path.display().to_string())
+        })
+        .collect()
+}
+
 pub(crate) fn cmd_check_selected(
     config: &types::ForjarConfig,
     machine_filter: Option<&str>,
@@ -427,13 +446,28 @@ pub(crate) fn cmd_check_selected(
         results: check_results,
     } = tally;
 
+    let lock_paths = check_lock_paths(config, &ctx.state, state_dir);
+
+    let counts = (total_pass, total_fail, total_skip, total_unmeasured);
+    report_check(&config.name, &check_results, counts, &lock_paths, json)
+}
+
+/// Print the check report (JSON or text) and map the tally to the exit verdict.
+fn report_check(
+    name: &str,
+    check_results: &[CheckResult],
+    (total_pass, total_fail, total_skip, total_unmeasured): (usize, usize, usize, usize),
+    lock_paths: &std::collections::BTreeMap<String, String>,
+    json: bool,
+) -> Result<(), String> {
     if json {
-        format_check_json(
-            &config.name,
-            &check_results,
+        format_check_json_with_locks(
+            name,
+            check_results,
             total_pass,
             total_fail,
             total_skip,
+            lock_paths,
         )?;
     } else {
         let extra = if total_unmeasured > 0 {
@@ -442,6 +476,9 @@ pub(crate) fn cmd_check_selected(
             String::new()
         };
         println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip{extra}");
+        for (m, p) in lock_paths {
+            println!("  lock ({m}): {p}");
+        }
     }
 
     // forjar#659: a target that never answered outranks a drift verdict: exit 4.
