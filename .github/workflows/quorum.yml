@@ -19,8 +19,8 @@ on:
 # from a run that was already obsolete is exactly how a gate gets reclassified as
 # noise and then ignored.
 concurrency:
-  group: quorum-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
