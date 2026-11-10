@@ -133,7 +133,7 @@ enforcement:
     mutation: "change `forjar plan -f forjar.yaml` in README.md to `forjar plan --f forjar.yaml` — clap exits 2 on the rebound argv and the gate reports a documented invocation that does not hold"
     severity: "ERROR"
   gate_f_coverage:
-    description: "95% line floor enforced inside llvm-cov, plus cargo mutants over this branch's own diff; survivors and timeouts are both RED"
+    description: "95% line floor enforced inside llvm-cov, measured alone; mutation runs only from the nightly schedule (infra#3828)"
     check: "scripts/dogfood/coverage.sh"
     mutation: "change FLOOR to 90 — Arm 0 reports the floor as DRIFTED from the Makefile's two `--fail-under-lines 95` and the gate exits 1"
     severity: "ERROR"
