@@ -76,7 +76,7 @@ if [ "$FB_OPEN_OK" = "1" ]; then
     fb_sweepable "$cand" {prefixes} || continue
     sz=$(fb_bytes "$cand")
     [ -n "$sz" ] || FB_REACH_UNM=1
-    echo "${{sz:-0}}" >>"$FB_REACH"
+    printf '%s\t%s\n' "${{sz:-0}}" "$cand" >>"$FB_REACH"
   done < "$FB_CANDS"
 fi
 "#,
@@ -221,6 +221,7 @@ FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
 FB_UNREACH=0
 FB_REACH_UNM=0
+FB_IDLE_TO=0
 FB_REACH=$(mktemp) || exit 1
 trap 'rm -f "$FB_REACH" "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MAPS" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
@@ -242,18 +243,18 @@ else
   # forjar#669: can freeing EVERY eligible candidate reach the target at all? If not,
   # sweeping the idle trees is a TTL sweep that fixes nothing and destroys warm caches.
   : >"$FB_REACH"
-{reach}  FB_REACH_BYTES=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_REACH" 2>/dev/null || echo 0)
+{reach}  FB_REACH_BYTES=$(fb_sum_reach "$FB_REACH")
   FB_NEED_BYTES=$(awk -v t="$FB_TOTAL_KB" -v u="$FB_USED_PCT" -v g="$FB_TARGET_USED" 'BEGIN{{n=t*1024*(u-g)/100; if(n<0)n=0; printf "%.0f", n}}')
   # NOT MEASURED is not "unreachable" (L23): a timed-out walk or du decides nothing.
-  if [ "$FB_OPEN_OK" = "1" ] && [ ! -s "$FB_UNMLOG" ] && [ "$FB_REACH_UNM" != "1" ] && [ "$FB_REACH_BYTES" -lt "$FB_NEED_BYTES" ]; then
+  if [ "$FB_OPEN_OK" = "1" ] && [ ! -s "$FB_UNMLOG" ] && [ "$FB_REACH_UNM" != "1" ] && [ "$FB_IDLE_TO" != "1" ] && [ "$FB_REACH_BYTES" -lt "$FB_NEED_BYTES" ]; then
     FB_UNREACH=1
     fb_log "UNREACHABLE: target ${{FB_TARGET_USED}}% needs ${{FB_NEED_BYTES}} bytes freed, all eligible candidates hold ${{FB_REACH_BYTES}}; shortfall $((FB_NEED_BYTES - FB_REACH_BYTES)) bytes - deleting nothing"
   fi
 {rules}fi
 
 fb_read_df
-FB_RECLAIMED=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_LEDGER" 2>/dev/null || echo 0)
-FB_WOULD_BYTES=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_WOULD" 2>/dev/null || echo 0)
+FB_RECLAIMED=$(awk '{{s+=$1}} END{{printf "%.0f", s}}' "$FB_LEDGER" 2>/dev/null || echo 0)
+FB_WOULD_BYTES=$(awk '{{s+=$1}} END{{printf "%.0f", s}}' "$FB_WOULD" 2>/dev/null || echo 0)
 FB_MET_FINAL=0
 [ "$FB_USED_PCT" -le "$FB_TARGET_USED" ] && FB_MET_FINAL=1
 

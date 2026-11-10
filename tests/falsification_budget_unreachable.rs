@@ -99,3 +99,80 @@ fn an_empty_proc_scan_fails_closed() {
     );
     fs::remove_dir_all(&root).ok();
 }
+
+fn shim(bin: &std::path::Path, name: &str, body: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    let p = bin.join(name);
+    fs::write(&p, format!("#!/bin/sh\n{body}\n")).unwrap();
+    fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// A maps scan that produced nothing must not be "measured": FB_OPEN would be
+/// empty, fb_in_use would answer "not in use" for everything, and the reaper
+/// would delete. Fail closed.
+#[test]
+fn an_empty_maps_scan_fails_closed() {
+    let (root, bin, target, res) = fixture("emptymaps", 40);
+    shim(
+        &bin,
+        "cat",
+        "case \"$1\" in /proc/*/maps) exit 0;; esac\nexec /usr/bin/cat \"$@\"",
+    );
+    let out = run_reaper(&res, &bin, &root).stdout;
+    assert!(
+        target.exists(),
+        "empty maps scan must delete nothing\n{out}"
+    );
+    assert!(out.contains("maps scan produced nothing"), "{out}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// An idle check that timed out is NOT MEASURED: the candidate must not be
+/// silently dropped from the reach sum and the pass declared UNREACHABLE.
+#[test]
+fn a_timed_out_idle_check_is_not_unreachable() {
+    let (root, bin, target, res) = fixture("idleto", 1_000_000_000);
+    shim(
+        &bin,
+        "find",
+        "case \"$*\" in *-mmin*) exit 124;; esac\nexec /usr/bin/find \"$@\"",
+    );
+    let out = run_reaper(&res, &bin, &root).stdout;
+    assert!(
+        !out.contains("UNREACHABLE"),
+        "timeout decided unreachable\n{out}"
+    );
+    assert!(target.exists(), "{out}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// Two rules over the same tree must count its bytes once. du is stubbed to
+/// 1 MB per candidate; the need sits between 1x and 2x of that.
+#[test]
+fn overlapping_rules_count_bytes_once() {
+    let root = tmpdir("overlap");
+    let bin = root.join("bin");
+    let target = root.join("src/wt/target");
+    mk_cargo_target(&target);
+    backdate(&root.join("src"));
+    install_df_stub_total(&bin, &[(95, 1_000); 12], 9_766);
+    shim(
+        &bin,
+        "du",
+        "for a; do p=\"$a\"; done\nprintf '1000000\\t%s\\n' \"$p\"",
+    );
+    let rule = |n: &str| ReclaimRule {
+        name: n.into(),
+        roots: vec![root.join("src").to_string_lossy().into_owned()],
+        kind: ReclaimKind::CargoTarget,
+        min_idle_minutes: 60,
+    };
+    let res = budget_resource(&root, vec![rule("a"), rule("b")]);
+    let out = run_reaper(&res, &bin, &root).stdout;
+    assert!(
+        out.contains("UNREACHABLE"),
+        "double count hid the shortfall\n{out}"
+    );
+    assert!(target.exists(), "{out}");
+    fs::remove_dir_all(&root).ok();
+}

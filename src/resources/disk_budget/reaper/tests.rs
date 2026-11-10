@@ -192,3 +192,40 @@ fn declares_itself_forjar_managed() {
     let s = script(&budget(vec![]), "/run/x.json", "budget");
     assert!(s.contains("DO NOT EDIT"));
 }
+
+/// Run the generated `fb_sum_reach` over `input` with the host awk.
+fn sum_reach(input: &str) -> String {
+    let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+    let a = s.find("fb_sum_reach() {").expect("fn");
+    let f = &s[a..a + s[a..].find("\n}\n").unwrap() + 3];
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("fb-sum-{}-{n}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let inp = dir.join("in");
+    std::fs::write(&inp, input).unwrap();
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("{f}\nfb_sum_reach \"$1\""))
+        .arg("sh")
+        .arg(&inp)
+        .output()
+        .unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+    String::from_utf8(out.stdout).unwrap()
+}
+
+#[test]
+fn reach_sum_prints_plain_integer_above_2_pow_31() {
+    // mawk prints 4500000000 as 4.5e+09 under `print s+0`; %.0f never does.
+    assert_eq!(sum_reach("3000000000\t/a\n1500000000\t/b\n"), "4500000000");
+    let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
+    assert!(!s.contains("print s+0"), "exponent-form sum survived");
+}
+
+#[test]
+fn reach_sum_dedupes_paths_and_nested_paths() {
+    // /a twice, /a/target nested under it, /b with a space in its path.
+    let i = "100\t/a\n100\t/a\n40\t/a/target\n7\t/b c\n";
+    assert_eq!(sum_reach(i), "107");
+}
