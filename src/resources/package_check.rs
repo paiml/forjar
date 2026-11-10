@@ -145,7 +145,6 @@ pub fn check_script(resource: &Resource) -> String {
                          \"$_fj_c\"|\"cargo-$_fj_c\") _fj_prim=\"$_fj_b\";; esac; done; \
                          [ -n \"$_fj_prim\" ] && _fj_bins=\"$_fj_prim\"; \
                          [ -n \"$_fj_bins\" ] && ( \
-                         cd \"${{TMPDIR:-/tmp}}\" 2>/dev/null; \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
                          case \"$_fj_root\" in /*) ;; *) _fj_root=\"$PWD/$_fj_root\";; esac; \
                          _fj_want={}; _fj_seen=0; \
