@@ -40,16 +40,14 @@ name: Proofs
 # (the org ruleset requires `gate`), so it never gated a merge anyway.
 on:
   push:
-    branches: [main]
+    branches: [main, "train/**"]
   schedule:
     - cron: '17 6 * * *'
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
-  group: proofs-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

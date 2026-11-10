@@ -3,21 +3,17 @@
 name: mutation
 on:
   push:
-    branches: [main]
+    branches: [main, "train/**"]
     paths:
       - "src/**"
       - "mutants.toml"
       - ".cargo/config.toml"
       - ".github/workflows/mutation.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "mutants.toml"
   workflow_dispatch:
 
 concurrency:
-  group: mutation-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   mutation:
@@ -47,12 +43,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      # Toolchain comes from rust-toolchain.toml (preinstalled in the runner image);
+      # no runtime fetch, no floating `@stable`.
+      - name: Show toolchain
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-mutants
+      - name: Assert cargo-mutants is available
         run: |
           # forjar#566: a stale `rustup override set 1.89.0`, left in this
           # runner's workspace by the MSRV job before that job stopped writing
@@ -60,7 +58,10 @@ jobs:
           # and failed to build under it. Clear it so the pin applies.
           rustup override unset
           rustc --version
-          cargo install cargo-mutants
+          if ! command -v cargo-mutants >/dev/null 2>&1; then
+            echo "cargo-mutants is not on runner ${RUNNER_NAME:-unknown}: add it to the runner image; a PR gate makes no network fetch" >&2
+            exit 1
+          fi
 
       - name: Run mutation tests
         continue-on-error: true
