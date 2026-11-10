@@ -27,7 +27,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         "cargo" => {
             // GH-257: ask CARGO what it installed, not the PATH.
@@ -176,7 +176,7 @@ pub fn check_script(resource: &Resource) -> String {
             format!(
                 "{}\n{}",
                 crate::resources::package::cargo::path_prelude(),
-                verdict::check_script_from(&checks)
+                finish(resource, checks)
             )
         }
         "uv" => {
@@ -193,7 +193,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         "brew" => {
             let checks: Vec<String> = packages
@@ -207,10 +207,24 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         other => verdict::check_script_from(&[verdict::always_diverged(&format!(
             "unsupported provider: {other}"
         ))]),
     }
+}
+
+/// #694: a declared `completion_check` is an assertion of its own, beside the
+/// provider's presence checks. It was accepted and never run, so a JRE that is
+/// installed but is not the java that runs graded as converged.
+fn finish(resource: &Resource, mut checks: Vec<String>) -> String {
+    if let Some(ref cc) = resource.completion_check {
+        checks.push(verdict::assert_that(
+            cc,
+            "completion_check=passed",
+            "completion_check=failed",
+        ));
+    }
+    verdict::check_script_from(&checks)
 }

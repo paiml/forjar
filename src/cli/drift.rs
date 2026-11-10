@@ -212,8 +212,12 @@ fn scan_machines_for_drift(
     scope: Option<&[String]>,
     scan_opts: ScanOptions,
 ) -> Result<DriftScan, String> {
-    let Some(machine_locks) = collect_machine_locks(state_dir, machine_filter, scope)? else {
-        return scan_lockless(state_dir, machine_filter, config, scan_opts);
+    let machine_locks = match collect_machine_locks(state_dir, machine_filter, scope)? {
+        Some(locks) if !locks.is_empty() || config.is_none() => locks,
+        // forjar#852: an EMPTY state dir (no lock for any machine) is as lockless
+        // as an absent one. Walking zero locks inspected 0 and exited 0, hiding a
+        // declared pin whose live version differs.
+        _ => return scan_lockless(state_dir, machine_filter, config, scan_opts),
     };
 
     if machine_locks.len() <= 1 {

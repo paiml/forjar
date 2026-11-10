@@ -112,3 +112,18 @@ fn fj154_apt_state_query_quoted() {
     assert!(script.contains("'\"'\"'"), "{script}");
     assert!(!script.contains(" 'x';id"), "{script}");
 }
+
+/// #694: a declared completion_check must appear in the generated check for
+/// every provider, and must change the verdict.
+#[test]
+fn gh694_package_check_runs_the_declared_completion_check() {
+    for provider in ["apt", "cargo", "uv", "brew"] {
+        let mut r = make_apt_resource(&["jre"]);
+        r.provider = Some(provider.to_string());
+        assert!(!check_script(&r).contains("java -version"), "{provider}");
+        r.completion_check = Some("java -version 2>&1 | grep -q openjdk".to_string());
+        let s = check_script(&r);
+        assert!(s.contains("java -version"), "{provider}: {s}");
+        assert!(s.contains("completion_check=failed"), "{provider}");
+    }
+}
