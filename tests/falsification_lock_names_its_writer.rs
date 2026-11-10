@@ -445,3 +445,36 @@ fn lock_merge_writes_through_the_writer_sidecar_included() {
         );
     }
 }
+
+/// forjar#585: `lock --restamp` names the absolute lock it rewrote (and the
+/// state dir it walked), so a run over one tree cannot be mistaken for another.
+#[test]
+fn lock_restamp_names_the_locks_it_touched() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = dir.path().join("state");
+    fs::create_dir_all(state.join("yoga")).unwrap();
+    fs::write(
+        state.join("yoga").join("state.lock.yaml"),
+        "schema: '1.0'\nmachine: yoga\nhostname: yoga\ngenerated_at: 2026-09-10T07:15:25Z\ngenerator: forjar 1.1.1\nblake3_version: '1.8'\nresources: {}\n",
+    )
+    .unwrap();
+    let want = fs::canonicalize(state.join("yoga").join("state.lock.yaml")).unwrap();
+    let run = |extra: &[&str]| {
+        let out = Command::new(FORJAR)
+            .args(["lock", "--restamp", "--dry-run", "--state-dir"])
+            .arg(&state)
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    let human = run(&[]);
+    assert!(human.contains(want.to_str().unwrap()), "{human}");
+    let json = run(&["--json"]);
+    assert!(json.contains(want.to_str().unwrap()), "{json}");
+    assert!(
+        json.contains("\"state_dir\""),
+        "json names the walked dir: {json}"
+    );
+}
