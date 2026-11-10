@@ -9,6 +9,8 @@ pub fn exec_local(
     script: &str,
     pid_slot: Option<&super::ChildPidSlot>,
 ) -> Result<ExecOutput, String> {
+    #[cfg(test)]
+    super::test_spawn_delay(script);
     let mut cmd = Command::new("bash");
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())

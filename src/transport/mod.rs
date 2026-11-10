@@ -39,11 +39,36 @@ use crate::core::types::Machine;
 /// still-alive child.
 pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
 
+/// Test seam (FJ-969): a script carrying a `# forjar-test-spawn-delay-ms: N`
+/// line makes the worker sleep N ms BEFORE spawning, modelling spawn latency
+/// under host load so the PID is not yet published when the timeout fires.
+#[cfg(test)]
+pub(crate) fn test_spawn_delay(script: &str) {
+    for line in script.lines() {
+        if let Some(ms) = line.strip_prefix("# forjar-test-spawn-delay-ms: ") {
+            if let Ok(ms) = ms.trim().parse::<u64>() {
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+            }
+        }
+    }
+}
+
 /// Record a freshly-spawned child's PID into the (optional) tracking slot.
+/// FJ-969: sentinel stored in the slot by the timeout path when it fired before
+/// any child PID was published. PID 0 is never a real child, so it is
+/// unambiguous. The worker checks for it right after spawn (under the same lock
+/// the timeout path used to set it, so there is no window) and kills its own
+/// freshly-spawned process group instead of running the script to completion.
+pub(crate) const CANCELLED_BEFORE_SPAWN: u32 = 0;
+
 pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
     if let Some(slot) = slot {
         if let Ok(mut guard) = slot.lock() {
+            let cancelled = *guard == Some(CANCELLED_BEFORE_SPAWN);
             *guard = Some(child.id());
+            if cancelled {
+                kill_process_group(child.id());
+            }
         }
     }
 }
@@ -361,9 +386,17 @@ fn kill_worker_child_group(
     if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
     }
-    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-        kill_process_group(pid);
-        return true;
+    if let Ok(mut guard) = pid_slot.lock() {
+        match *guard {
+            Some(pid) if pid != CANCELLED_BEFORE_SPAWN => {
+                kill_process_group(pid);
+                return true;
+            }
+            // FJ-969: child not spawned yet. Leave a cancel marker so the
+            // worker kills it the moment it is spawned and join() returns.
+            None => *guard = Some(CANCELLED_BEFORE_SPAWN),
+            Some(_) => {}
+        }
     }
     false
 }

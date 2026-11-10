@@ -98,3 +98,34 @@ fn test_165_timeout_path_fast_command_ok() {
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "quick");
 }
+
+/// FJ-969: the timeout bound must hold whatever the spawn latency. The worker
+/// is delayed 3 s BEFORE spawning (PID not yet published when the 1 s timeout
+/// fires). Unfixed, the kill is a no-op and `join` waits out the full 20 s
+/// sleep; fixed, the worker kills its own child as soon as it is spawned.
+#[cfg(unix)]
+#[test]
+fn test_969_timeout_bound_holds_when_spawn_is_delayed() {
+    let m = Machine {
+        hostname: "local".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+        allowed_operators: vec![],
+    };
+    let script = "# forjar-test-spawn-delay-ms: 3000\nsleep 20";
+    let start = std::time::Instant::now();
+    let err = exec_script_timeout(&m, script, Some(1)).expect_err("must time out");
+    let elapsed = start.elapsed();
+    assert!(err.contains("transport timeout"), "got: {err}");
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "timeout bound exceeded: {elapsed:?} (sleep 20 was waited out)"
+    );
+}
