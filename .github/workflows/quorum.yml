@@ -71,7 +71,8 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Show toolchain
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
 

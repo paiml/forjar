@@ -146,3 +146,32 @@ fn a_workflow_without_a_pull_request_trigger_is_exempt() {
     let m = "on:\n  push:\n    branches: [main]\njobs: {}\n";
     assert!(violations(m).is_empty());
 }
+
+/// A PR gate makes no network fetch and uses no floating toolchain (Noah, 2026-11-10).
+#[test]
+fn pr_workflows_install_nothing_over_the_network() {
+    let banned = [
+        "dtolnay/rust-toolchain",
+        "toolchain install",
+        "cargo install",
+    ];
+    for name in ["behavior", "convergence", "mutation", "msrv", "quorum"] {
+        let path = format!(
+            "{}/.github/workflows/{name}.yml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let text = std::fs::read_to_string(&path).unwrap();
+        for (n, line) in text.lines().enumerate() {
+            if line.trim_start().starts_with('#') {
+                continue;
+            }
+            for b in banned {
+                assert!(
+                    !line.contains(b),
+                    "{name}.yml:{} fetches over the network: {line}",
+                    n + 1
+                );
+            }
+        }
+    }
+}
