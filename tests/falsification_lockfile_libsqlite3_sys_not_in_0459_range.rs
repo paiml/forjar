@@ -27,7 +27,14 @@ fn locked_libsqlite3_sys() -> Vec<(u32, u32, u32)> {
             }
         }
         if name == "libsqlite3-sys" {
-            let p: Vec<u32> = ver.split('.').map(|n| n.parse().unwrap()).collect();
+            // Leading digits only: tolerate `0.39.1-rc.1` and `0.39.1+build`.
+            let p: Vec<u32> = ver
+                .split('.')
+                .map(|n| {
+                    let d: String = n.chars().take_while(char::is_ascii_digit).collect();
+                    d.parse().unwrap_or(0)
+                })
+                .collect();
             out.push((p[0], p[1], p[2]));
         }
     }
