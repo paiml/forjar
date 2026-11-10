@@ -10,6 +10,16 @@ on:
     paths:
       - 'Cargo.lock'
       - 'deny.toml'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+      - '.github/workflows/audit.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   audit:
