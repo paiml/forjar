@@ -161,7 +161,7 @@ pub fn check_script(resource: &Resource) -> String {
                          [ \"$_fj_seen\" = 1 ] )",
                         sh_squote(&needle),
                         sh_squote(BINS_UNDER_HEADER),
-                        sh_squote(&crate_name),
+                        sh_squote(crate_name),
                         sh_squote(version.unwrap_or("")),
                     );
                     verdict::assert_that(
