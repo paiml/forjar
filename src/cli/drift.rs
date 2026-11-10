@@ -28,6 +28,7 @@ pub(super) struct ScanOptions {
 /// alone is what let `No drift detected.` stand in for both "checked 62
 /// resources, all clean" and "checked none of them".
 fn check_machine_drift(
+    state_dir: &Path,
     name: &str,
     lock: &types::StateLock,
     config: Option<&types::ForjarConfig>,
@@ -35,7 +36,15 @@ fn check_machine_drift(
     scan: ScanOptions,
 ) {
     let ScanOptions { detect: opts, .. } = scan;
-    print_machine_header(name, &format!("{} resources", lock.resources.len()), scan);
+    print_machine_header(
+        name,
+        &format!(
+            "{} resources, lock {}",
+            lock.resources.len(),
+            resolved_lock_path(state_dir, name).display()
+        ),
+        scan,
+    );
 
     let machine = config.and_then(|c| c.machines.get(name));
     let report = match (machine, config) {
@@ -57,6 +66,12 @@ fn check_machine_drift(
         _ => drift::detect_drift_reported(lock, None),
     };
     report_machine_findings(name, report, acc, scan);
+    if let Some(obj) = acc.censuses.last_mut().and_then(|c| c.as_object_mut()) {
+        obj.insert(
+            "lock".to_string(),
+            serde_json::json!(resolved_lock_path(state_dir, name).display().to_string()),
+        );
+    }
 }
 
 /// `Checking <machine> (<scope>)...`, before the scan that may take a minute.
@@ -226,7 +241,7 @@ fn scan_machines_for_drift(
         .collect();
 
     if machine_locks.len() <= 1 {
-        let mut scan = scan_sequential(&machine_locks, config, scan_opts)?;
+        let mut scan = scan_sequential(state_dir, &machine_locks, config, scan_opts)?;
         scan.locks_read = locks_read;
         return Ok(scan);
     }
@@ -238,7 +253,7 @@ fn scan_machines_for_drift(
             .map(|(name, lock)| {
                 s.spawn(move || {
                     let mut part = DriftScan::default();
-                    check_machine_drift(name, lock, config, &mut part, scan_opts);
+                    check_machine_drift(state_dir, name, lock, config, &mut part, scan_opts);
                     part
                 })
             })
@@ -292,6 +307,7 @@ impl DriftScan {
 
 /// Sequential scan fallback for 0-1 machines.
 fn scan_sequential(
+    state_dir: &Path,
     machine_locks: &[(String, types::StateLock)],
     config: Option<&types::ForjarConfig>,
     scan_opts: ScanOptions,
@@ -301,7 +317,7 @@ fn scan_sequential(
         ..Default::default()
     };
     for (name, lock) in machine_locks {
-        check_machine_drift(name, lock, config, &mut scan, scan_opts);
+        check_machine_drift(state_dir, name, lock, config, &mut scan, scan_opts);
     }
     Ok(scan)
 }
@@ -457,4 +473,16 @@ fn ensure_drift_containers(config: Option<&types::ForjarConfig>) -> Result<(), S
         }
     }
     Ok(())
+}
+
+/// forjar#585: the absolute path of the lock a verdict was drawn from.
+///
+/// A verdict that does not name its lock is unfalsifiable when a tree holds
+/// more than one lock for a machine: three callers passing three `--state-dir`s
+/// got 2, 3 and 9 DRIFTED from "the same" command and could not tell why.
+pub(super) fn resolved_lock_path(state_dir: &Path, machine: &str) -> std::path::PathBuf {
+    let p = crate::core::state::lock_file_path(state_dir, machine);
+    std::fs::canonicalize(&p)
+        .or_else(|_| std::env::current_dir().map(|d| d.join(&p)))
+        .unwrap_or(p)
 }
