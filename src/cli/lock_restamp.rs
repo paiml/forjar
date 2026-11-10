@@ -11,9 +11,21 @@
 use crate::core::state::{load_lock, save_lock, stamped_for_write, writer_stamp};
 use std::path::Path;
 
+fn resolved_dir(state_dir: &Path) -> String {
+    std::fs::canonicalize(state_dir)
+        .unwrap_or_else(|_| state_dir.to_path_buf())
+        .display()
+        .to_string()
+}
+
+fn resolved(state_dir: &Path, machine: &str) -> String {
+    resolved_dir(&state_dir.join(machine)) + "/state.lock.yaml"
+}
+
 /// One lock's before/after, for the report.
 struct Restamp {
     machine: String,
+    lock: String,
     before: String,
     created_by: Option<String>,
 }
@@ -49,12 +61,13 @@ pub(crate) fn cmd_lock_restamp(state_dir: &Path, dry_run: bool, json: bool) -> R
             save_lock(state_dir, &lock)?;
         }
         done.push(Restamp {
+            lock: resolved(state_dir, &machine),
             machine,
             before: lock.generator.clone(),
             created_by: stamped.created_by,
         });
     }
-    report(&done, unchanged, &writer, dry_run, json)
+    report(&done, unchanged, &writer, dry_run, json, state_dir)
 }
 
 fn report(
@@ -63,19 +76,20 @@ fn report(
     writer: &str,
     dry_run: bool,
     json: bool,
+    state_dir: &Path,
 ) -> Result<(), String> {
     if json {
         let rows: Vec<serde_json::Value> = done
             .iter()
             .map(|r| {
                 serde_json::json!({
-                    "machine": r.machine, "before": r.before, "after": writer,
+                    "machine": r.machine, "lock": r.lock, "before": r.before, "after": writer,
                     "created_by": r.created_by,
                 })
             })
             .collect();
         let out = serde_json::json!({
-            "writer": writer, "dry_run": dry_run,
+            "writer": writer, "dry_run": dry_run, "state_dir": resolved_dir(state_dir),
             "restamped": done.len(), "unchanged": unchanged, "locks": rows,
         });
         println!(
@@ -91,10 +105,11 @@ fn report(
     };
     for r in done {
         println!(
-            "  {verb} {}: {} -> {writer} (created_by: {})",
+            "  {verb} {}: {} -> {writer} (created_by: {}) [{}]",
             r.machine,
             r.before,
-            r.created_by.as_deref().unwrap_or("-")
+            r.created_by.as_deref().unwrap_or("-"),
+            r.lock
         );
     }
     println!(
@@ -106,6 +121,7 @@ fn report(
             "restamped"
         }
     );
+    println!("state dir: {}", resolved_dir(state_dir));
     Ok(())
 }
 
