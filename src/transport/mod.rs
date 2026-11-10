@@ -39,10 +39,19 @@ use crate::core::types::Machine;
 /// still-alive child.
 pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
 
-/// Record a freshly-spawned child's PID into the (optional) tracking slot.
+/// #969: sentinel the timeout path writes into an EMPTY slot (child not yet spawned).
+/// PID 0 is never a real child; `record_child_pid` sees it and kills the child it just
+/// spawned, so the bound holds whatever the spawn latency. Never passed to `kill`.
+pub(crate) const PID_CANCELLED: u32 = 0;
+
+/// Record a freshly-spawned child's PID into the (optional) tracking slot. If the timeout
+/// already fired (slot holds [`PID_CANCELLED`]) the new child is killed at once (#969).
 pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
     if let Some(slot) = slot {
         if let Ok(mut guard) = slot.lock() {
+            if *guard == Some(PID_CANCELLED) {
+                kill_process_group(child.id());
+            }
             *guard = Some(child.id());
         }
     }
@@ -361,11 +370,21 @@ fn kill_worker_child_group(
     if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
     }
-    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-        kill_process_group(pid);
-        return true;
+    let Ok(mut guard) = pid_slot.lock() else {
+        return false;
+    };
+    match *guard {
+        Some(pid) if pid != PID_CANCELLED => {
+            kill_process_group(pid);
+            true
+        }
+        // #969: child not spawned yet; leave a cancel marker so the spawner kills it.
+        None => {
+            *guard = Some(PID_CANCELLED);
+            false
+        }
+        Some(_) => false,
     }
-    false
 }
 
 /// Check if a machine uses SSH transport (not pepita, container, or local).

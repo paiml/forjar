@@ -98,3 +98,43 @@ fn test_165_timeout_path_fast_command_ok() {
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "quick");
 }
+
+/// #969: the timeout fires BEFORE the child spawned (slot still empty). The kill helper
+/// must leave a cancel marker, and the spawner's `record_child_pid` must then kill the
+/// child it just started, so the elapsed bound holds whatever the spawn latency.
+/// RED on the unfixed code (the kill was a no-op and the child ran its full sleep).
+#[cfg(unix)]
+#[test]
+fn test_969_timeout_before_spawn_kills_late_child() {
+    use std::process::{Command, Stdio};
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+    let slot: ChildPidSlot = Arc::new(Mutex::new(None));
+    let done = AtomicBool::new(false);
+    // Timeout fires with no PID published yet: nothing to signal, but a marker is left.
+    assert!(!kill_worker_child_group(&slot, &done));
+    assert_eq!(*slot.lock().unwrap(), Some(PID_CANCELLED));
+    // The delayed spawn now happens (own process group, as in exec_local).
+    let mut cmd = Command::new("sleep");
+    cmd.arg("30").stdout(Stdio::null()).stderr(Stdio::null());
+    configure_process_group(&mut cmd);
+    let mut child = cmd.spawn().unwrap();
+    let t = std::time::Instant::now();
+    record_child_pid(Some(&slot), &child);
+    let status = child.wait().unwrap();
+    assert!(!status.success(), "late child must have been killed");
+    assert!(
+        t.elapsed().as_secs() < 5,
+        "kill must be immediate, took {:?}",
+        t.elapsed()
+    );
+}
+
+/// #969: the cancel sentinel is never handed to `kill` (`kill -9 -- -0` would signal our own group).
+#[test]
+fn test_969_cancel_marker_is_not_killed_again() {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+    let slot: ChildPidSlot = Arc::new(Mutex::new(Some(PID_CANCELLED)));
+    assert!(!kill_worker_child_group(&slot, &AtomicBool::new(false)));
+}
