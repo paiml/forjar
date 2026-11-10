@@ -144,7 +144,7 @@ pub fn check_script(resource: &Resource) -> String {
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
                          _fj_want={}; _fj_seen=0; \
                          _fj_tmp=\"$(mktemp -d)\" && cd \"$_fj_tmp\" || exit 1; \
-                         trap 'rm -rf -- \"$_fj_tmp\"' EXIT; \
+                         trap 'rm -rf -- \"${{_fj_tmp:?}}\"' EXIT; \
                          for _fj_b in $_fj_bins; do \
                          _fj_p=\"$_fj_root/$_fj_b\"; \
                          [ -x \"$_fj_p\" ] || exit 1; \
