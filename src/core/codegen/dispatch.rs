@@ -318,9 +318,10 @@ pub(crate) fn in_declared_privilege_context(resource: &Resource, script: String)
     //
     // The bare EXIT trap and the fixed variable name are safe UNSCOPED because
     // codegen never concatenates two wrapped scripts into one shell: this
-    // function is private, its only three callers are `apply_script`,
-    // `check_script` and `state_query_script`, each wraps one WHOLE generated
-    // script exactly once, and every consumer feeds one such script to one
+    // function is crate-private, its only callers are `apply_script`,
+    // `check_script`, `state_query_script` and (#927) the three copia scripts
+    // in `executor::helpers::copia_apply_file_via`, each wraps one WHOLE
+    // generated script exactly once, and every consumer feeds one such script to one
     // `bash` process (`transport::exec_script*` writes one script to one child;
     // `store::container_build::execute_scripts` runs one `exec -i ... bash` per
     // element of its `&[String]`, never a join). Should a future caller join

@@ -203,6 +203,19 @@ pub(crate) fn copia_apply_file(
     resource: &Resource,
     timeout_secs: Option<u64>,
 ) -> Result<transport::ExecOutput, String> {
+    copia_apply_file_via(resource, &mut |script| {
+        transport::exec_script_timeout(machine, script, timeout_secs)
+    })
+}
+
+/// The body of [`copia_apply_file`] with the transport as a seam: `exec` is
+/// handed every script the receiver runs, exactly as `exec_script_timeout`
+/// is, so a test observes all three (signature, full transfer, patch) at the
+/// call site and not only the wrapper's output (#927 review).
+pub(crate) fn copia_apply_file_via(
+    resource: &Resource,
+    exec: &mut dyn FnMut(&str) -> Result<transport::ExecOutput, String>,
+) -> Result<transport::ExecOutput, String> {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
     let source = resource.source.as_deref().unwrap_or("");
 
@@ -212,7 +225,7 @@ pub(crate) fn copia_apply_file(
     // `.forjar-new` staging write, chown/chmod and the rename all run elevated).
     let in_ctx = |s: String| crate::core::codegen::in_declared_privilege_context(resource, s);
     let sig_script = in_ctx(copia::signature_script(path));
-    let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
+    let sig_output = exec(&sig_script)?;
 
     if !sig_output.success() {
         // Refs #390: the fifth stderr-only constructor in this module tree. A
@@ -238,7 +251,7 @@ pub(crate) fn copia_apply_file(
             let script = in_ctx(copia::full_transfer_script(
                 path, source, owner, group, mode,
             )?);
-            transport::exec_script_timeout(machine, &script, timeout_secs)
+            exec(&script)
         }
         Some(sig) => {
             let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
@@ -254,7 +267,7 @@ pub(crate) fn copia_apply_file(
             let script = in_ctx(copia::patch_script(
                 path, &delta, &expected, owner, group, mode,
             ));
-            transport::exec_script_timeout(machine, &script, timeout_secs)
+            exec(&script)
         }
     }
 }
