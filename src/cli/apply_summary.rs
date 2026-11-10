@@ -50,6 +50,7 @@ fn print_drift_repairs(repairs: &[super::apply_drift::DriftRepair]) {
     }
 }
 
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn print_apply_summary(
     config: &types::ForjarConfig,
@@ -61,6 +62,34 @@ pub(super) fn print_apply_summary(
     drift_repaired: &[super::apply_drift::DriftRepair],
     dur_apply: std::time::Duration,
     json: bool,
+) -> Result<(), String> {
+    print_apply_summary_with_locks(
+        config,
+        results,
+        total_converged,
+        total_unchanged,
+        total_failed,
+        forced_noop_count,
+        drift_repaired,
+        dur_apply,
+        json,
+        &std::collections::BTreeMap::new(),
+    )
+}
+
+/// forjar#585: apply summary that names the lock each machine was written to.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn print_apply_summary_with_locks(
+    config: &types::ForjarConfig,
+    results: &[types::ApplyResult],
+    total_converged: u32,
+    total_unchanged: u32,
+    total_failed: u32,
+    forced_noop_count: u32,
+    drift_repaired: &[super::apply_drift::DriftRepair],
+    dur_apply: std::time::Duration,
+    json: bool,
+    locks: &std::collections::BTreeMap<String, String>,
 ) -> Result<(), String> {
     // FJ-129 contract: forced_noop must not exceed converged. If --force
     // wasn't used, the caller passes 0.
@@ -101,6 +130,7 @@ pub(super) fn print_apply_summary(
         let output = serde_json::json!({
             "name": config.name,
             "machines": results,
+            "locks": locks,
             "summary": {
                 "total_converged": total_converged,
                 "total_unchanged": total_unchanged,
@@ -164,6 +194,9 @@ pub(super) fn print_apply_summary(
                     "Apply complete: {total_converged} converged{drift_clause}, {total_unchanged} unchanged."
                 ))
             );
+        }
+        for (m, p) in locks {
+            println!("  lock ({m}): {p}");
         }
         print_drift_repairs(drift_repaired);
         // FJ-129: When --force re-ran resources the lock reported as
