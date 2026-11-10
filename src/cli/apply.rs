@@ -4,7 +4,7 @@ use super::apply_helpers::*;
 use super::apply_output::*;
 use super::apply_scope::ApplyScope;
 use super::apply_selection::*;
-use super::apply_summary::print_apply_summary;
+use super::apply_summary::print_apply_summary_with_locks;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
@@ -230,7 +230,18 @@ pub(crate) fn cmd_apply_scoped(
         return super::data_isolation::fail_if_any(&data_faults);
     }
 
-    print_apply_summary(
+    let lock_paths: std::collections::BTreeMap<String, String> = results
+        .iter()
+        .map(|r| {
+            (
+                r.machine.clone(),
+                super::drift::resolved_lock_path(state_dir, &r.machine)
+                    .display()
+                    .to_string(),
+            )
+        })
+        .collect();
+    print_apply_summary_with_locks(
         &config,
         &results,
         total_converged,
@@ -240,6 +251,7 @@ pub(crate) fn cmd_apply_scoped(
         &drift_repaired,
         dur_apply,
         json,
+        &lock_paths,
     )?;
 
     if report {
