@@ -150,16 +150,16 @@ fn mutation_clears_a_stale_override_before_installing() {
         .expect("mutation.yml has a `mutation` job");
     let install = runs(job)
         .into_iter()
-        .find(|r| commands(r).any(|l| l.starts_with("cargo install cargo-mutants")))
-        .expect("mutation.yml installs cargo-mutants in some step");
+        .find(|r| commands(r).any(|l| l.contains("command -v cargo-mutants")))
+        .expect("mutation.yml asserts cargo-mutants is preinstalled in some step");
     let lines: Vec<&str> = commands(install).collect();
     let unset = lines.iter().position(|l| *l == "rustup override unset");
     let cargo = lines
         .iter()
-        .position(|l| l.starts_with("cargo install cargo-mutants"));
+        .position(|l| l.contains("command -v cargo-mutants"));
     assert!(
         matches!((unset, cargo), (Some(u), Some(c)) if u < c),
         "mutation.yml's install step does not run `rustup override unset` before \
-         `cargo install cargo-mutants`, so a stale override pins it to 1.89.0 (forjar#566):\n{install}"
+         `command -v cargo-mutants`, so a stale override pins it to 1.89.0 (forjar#566):\n{install}"
     );
 }
