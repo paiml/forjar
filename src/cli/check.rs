@@ -388,6 +388,7 @@ pub(crate) fn cmd_check(
     let selectors = super::apply_selection::Selectors {
         resource: resource_filter,
         tag: tag_filter,
+        machine: machine_filter,
         ..Default::default()
     };
     super::apply_selection::resolve_selection(&mut config, &selectors, verbose)?;

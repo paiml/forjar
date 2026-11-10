@@ -192,6 +192,13 @@ fn check_existence(config: &types::ForjarConfig, sel: &Selectors<'_>) -> Result<
             ));
         }
     }
+    if let (Some(ex), Some(m)) = (sel.exclude_machine, sel.machine) {
+        if ex == m {
+            return Err(format!(
+                "--exclude-machine '{ex}' and -m '{m}' name the same machine; nothing would converge"
+            ));
+        }
+    }
     // An unknown goal carries make's own message; a known one costs one walk.
     resolver::goal_closure(config, sel.goals)?;
     Ok(())
