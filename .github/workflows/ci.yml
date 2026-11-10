@@ -30,11 +30,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# runner-smells RS-06: no debug info, no incremental artefacts on CI runners.
+env:
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_INCREMENTAL: 0
+
 jobs:
   # PMAT-237: what can this change break? One job, one decision, and every
   # heavy job below gates on it. The release gate (`make dogfood-release`) is
   # untouched and still runs everything.
   classify:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, ARM64]
     outputs:
       code: ${{ steps.class.outputs.code }}
@@ -75,6 +82,7 @@ jobs:
   # committing the refreshed Cargo.lock — release.yml's `cargo package`
   # then dirties the tree and skips release creation entirely.
   lockfile:
+    timeout-minutes: 30
     name: lockfile-preflight
     runs-on: [self-hosted, clean-room, ARM64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -113,6 +121,7 @@ jobs:
   # is the same "guard nobody runs" shape as #242 and #298. Add new structural
   # guards to this list, or accept that they are documentation.
   examples-validate:
+    timeout-minutes: 30
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
@@ -365,6 +374,7 @@ jobs:
   # A-H and T over the whole window before any tag, and the `gate` job below
   # refuses this job's skip whenever `gates` says it should have run.
   dogfood-surface:
+    timeout-minutes: 30
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
     runs-on: [self-hosted, clean-room, ARM64]
@@ -404,6 +414,7 @@ jobs:
         run: echo "GATE D NOT-SELECTED this change touches nothing gate D reads (the built binary, README.md, docs/audits/surface_audit.csv, scripts/dogfood/docs.sh) — measured in full by make dogfood-release before the tag"
 
   dogfood-guards:
+    timeout-minutes: 30
     if: needs.classify.outputs.code == 'true'
     needs: classify
     runs-on: [self-hosted, clean-room, ARM64]
@@ -425,7 +436,15 @@ jobs:
       - name: Guard tests
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_coverage_gate_mutation_scope --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
 
+  # infra#3828: runner-smells ratchet (RS-01..RS-11); counts may not exceed .github/runner-smells.baseline.
+  # SHA is paiml/.github#113 head; re-pin to the merge commit once #113 merges.
+  runner-smells:
+    uses: paiml/.github/.github/workflows/runner-smells.yml@7424d422d4b21b0ff1e01d6c5bf2681c9fca244d
+    with:
+      scanner_ref: 7424d422d4b21b0ff1e01d6c5bf2681c9fca244d
+
   gate:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, ARM64]
     needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
