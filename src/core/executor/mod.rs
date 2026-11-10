@@ -32,6 +32,8 @@ mod tests_converge;
 #[cfg(test)]
 mod tests_converge2;
 #[cfg(test)]
+mod tests_copia_sudo;
+#[cfg(test)]
 mod tests_core;
 #[cfg(test)]
 mod tests_core_b;
