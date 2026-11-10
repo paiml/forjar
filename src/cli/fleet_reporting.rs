@@ -258,7 +258,7 @@ pub(crate) fn cmd_export(
                     serde_json::json!({
                         "resource": id,
                         "machine": machine,
-                        "type": format!("{:?}", rl.resource_type),
+                        "type": rl.resource_type.to_string(),
                         "status": format!("{:?}", rl.status),
                         "hash": rl.hash,
                         "applied_at": rl.applied_at,

@@ -27,11 +27,44 @@ const SUDO_PREAMBLE: &str = "SUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\""
 /// false `missing:` one step later. `cli::check` maps exit 2 to SKIP —
 /// forjar cannot observe another user's crontab without privilege, and that is
 /// neither a pass nor a failure.
-const CRONTAB_CHECK_GUARD: &str = "\
-if [ \"$(id -u)\" -ne 0 ] && ! sudo -n true >/dev/null 2>&1; then\n  \
-  echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
-  exit 2\n\
-fi";
+///
+/// forjar#848: the probe is the READ itself (`sudo -n crontab -u U -l`), not
+/// `sudo -n true`. A least-privilege sudoers rule that grants only
+/// `/usr/bin/crontab` refuses `true`, so the old probe SKIPped a host whose
+/// crontab was perfectly observable. Only a refusal printed by sudo itself
+/// (`sudo: ...`) skips; `no crontab for <user>` and every other crontab error
+/// fall through to the fail-closed read.
+fn crontab_check_guard(u: &str) -> String {
+    format!(
+        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -q '^sudo:'; then\n  \
+           echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
+           exit 2\n\
+         fi"
+    )
+}
+
+/// Refuse by name when a forjar marker is present without its intact block.
+///
+/// forjar#445: a human edit that leaves `# forjar:<name>` but changes the
+/// `# forjar-cmd:<name>` line or the entry makes the block non-intact, so
+/// `delete_block` stops at the marker, the edited entry stays, and a fresh
+/// block is appended: two jobs scheduled, one not forjar's. forjar deletes
+/// nothing it did not write, so the honest answer is to refuse and leave the
+/// crontab unchanged. Intact means: marker, then exactly the cmd marker, then
+/// an entry line.
+fn intact_block_guard(name: &str, marker: &str, cmd_marker: &str) -> String {
+    let msg = sh_squote(&format!(
+        "forjar: cron '{name}': the block under '# forjar:{name}' has been edited by hand; remove it or restore it before forjar manages this job"
+    ));
+    format!(
+        "if ! printf '%s\\n' \"$EXISTING\" | FJ_M={marker} FJ_C={cmd_marker} awk \
+         'd==1{{if($0!=ENVIRON[\"FJ_C\"])bad=1;d=2;next}} d==2{{d=0;next}} \
+         $0==ENVIRON[\"FJ_M\"]{{d=1;next}} END{{if(d)bad=1;exit bad?3:0}}'; then\n  \
+           printf '%s\\n' {msg} >&2\n  \
+           exit 1\n\
+         fi"
+    )
+}
 
 /// Delete this resource's whole block — marker, cmd_marker, entry — from stdin.
 ///
@@ -111,7 +144,8 @@ pub fn check_script(resource: &Resource) -> String {
         &format!("missing:{name}"),
     );
     let read = read_existing(&u, "EXISTING=''");
-    format!("{CRONTAB_CHECK_GUARD}\n{SUDO_PREAMBLE}\n{read}\n{verdict}")
+    let guard = crontab_check_guard(&u);
+    format!("{guard}\n{SUDO_PREAMBLE}\n{read}\n{verdict}")
 }
 
 /// The `state: absent` script. It fails CLOSED.
@@ -127,12 +161,13 @@ pub fn check_script(resource: &Resource) -> String {
 /// with the read error on stderr and installs nothing. The install happens
 /// only when the filter actually removed lines; a crontab without this
 /// resource's block is converged and is never rewritten.
-fn absent_script(u: &str, strip: &str) -> String {
+fn absent_script(u: &str, strip: &str, intact: &str) -> String {
     let read = read_existing(u, "exit 0");
     format!(
         "set -euo pipefail\n\
          {SUDO_PREAMBLE}\n\
          {read}\n\
+         {intact}\n\
          KEPT=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
          [ \"$KEPT\" = \"$EXISTING\" ] && exit 0\n\
          printf '%s\\n' \"$KEPT\" | $SUDO crontab -u {u} -"
@@ -148,9 +183,10 @@ pub fn apply_script(resource: &Resource) -> String {
     let marker = sh_squote(&format!("# forjar:{name}"));
     let cmd_marker = sh_squote(&format!("# forjar-cmd:{name}"));
     let strip = delete_block(&marker, &cmd_marker);
+    let intact = intact_block_guard(name, &marker, &cmd_marker);
 
     match state {
-        "absent" => absent_script(&u, &strip),
+        "absent" => absent_script(&u, &strip, &intact),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
             let command = resource.command.as_deref().unwrap_or("true");
@@ -163,6 +199,7 @@ pub fn apply_script(resource: &Resource) -> String {
                 "set -euo pipefail\n\
                  {SUDO_PREAMBLE}\n\
                  {read}\n\
+                 {intact}\n\
                  EXISTING=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
                  {{\n\
                    echo \"$EXISTING\"\n\

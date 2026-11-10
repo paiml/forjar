@@ -132,7 +132,7 @@ fn collect_resource_inputs(
                     result.push((
                         m.to_string(),
                         name.clone(),
-                        format!("{:?}", rl.resource_type),
+                        rl.resource_type.to_string(),
                         rl.details.len(),
                     ));
                 }
@@ -185,7 +185,7 @@ fn tally_resource_types(state_dir: &Path, targets: &[&String]) -> Vec<(String, u
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for rl in lock.resources.values() {
-                    let rtype = format!("{:?}", rl.resource_type);
+                    let rtype = rl.resource_type.to_string();
                     *type_counts.entry(rtype).or_default() += 1;
                 }
             }

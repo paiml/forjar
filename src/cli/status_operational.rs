@@ -171,7 +171,7 @@ pub(super) fn collect_apply_durations(state_dir: &Path, targets: &[&String]) -> 
         };
         for rs in lock.resources.values() {
             if let Some(dur) = rs.duration_seconds {
-                let rtype = format!("{:?}", rs.resource_type);
+                let rtype = rs.resource_type.to_string();
                 type_durations.entry(rtype).or_default().push(dur);
             }
         }

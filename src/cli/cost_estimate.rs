@@ -24,7 +24,7 @@ pub(crate) fn cmd_cost_estimate(file: &Path, json: bool) -> Result<(), String> {
 
         items.push(CostItem {
             id: id.clone(),
-            resource_type: format!("{:?}", resource.resource_type),
+            resource_type: resource.resource_type.to_string(),
             complexity: cost.complexity,
             estimated_seconds: cost.estimated_seconds,
             category: cost.category,

@@ -155,9 +155,9 @@ const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
 printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
 # A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
-# `true` is the check guard's `sudo -n true` probe.
+# forjar#848: `true` is NOT allowed; the check guard must probe the read itself.
 case "$1" in
-  crontab|/usr/bin/crontab|true) ;;
+  crontab|/usr/bin/crontab) ;;
   *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
 esac
 exec "$@"
@@ -386,4 +386,100 @@ fn the_err_trap_file_is_removed() {
     let _ = fx.run(&script);
     let left = std::fs::read_dir(&tmp).unwrap().count();
     assert_eq!(left, 0, "the ERR temp file leaked");
+}
+
+// ── forjar#848: the check guard probes the read, not `sudo -n true` ──
+
+/// A crontab-only sudoers rule (the fake refuses `true`) must still be observed.
+#[test]
+fn fj848_check_runs_under_a_crontab_only_sudoers_rule() {
+    let fx = FakeCrontab::new("t848a");
+    fx.seed("# forjar:backup\n# forjar-cmd:backup\n0 3 * * * /usr/local/bin/backup.sh\n");
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{stdout} / {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(stdout.contains("exists:backup"), "{stdout:?}");
+    assert!(!stdout.contains("FORJAR_SKIP"), "{stdout:?}");
+}
+
+/// When sudo refuses even crontab, check SKIPs (exit 2), never reports missing.
+#[test]
+fn fj848_check_skips_when_sudo_refuses_the_read() {
+    let fx = FakeCrontab::new("t848b");
+    write_exe(
+        &fx.bin().join("sudo"),
+        "#!/usr/bin/env bash\necho 'sudo: a password is required' >&2\nexit 1\n",
+    );
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("FORJAR_SKIP"));
+}
+
+/// `no crontab for <user>` is not a sudo refusal: it is the benign missing case.
+#[test]
+fn fj848_no_crontab_is_missing_not_skip() {
+    let fx = FakeCrontab::new("t848c");
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("missing:backup"), "{stdout:?}");
+}
+
+// ── forjar#445: a hand-edited block is refused by name ──
+
+#[test]
+fn fj445_hand_edited_entry_under_a_marker_is_refused_by_name() {
+    let fx = FakeCrontab::new("t445a");
+    let seeded = "# forjar:backup\n0 9 * * * /bin/hand-written\n";
+    fx.seed(seeded);
+    let out = fx.run(&apply_script(&cron("backup", "0 3 * * *", CMD)));
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("cron 'backup'") && err.contains("edited by hand"),
+        "{err:?}"
+    );
+    assert_eq!(fx.read(), seeded, "the crontab must be unchanged");
+}
+
+#[test]
+fn fj445_absent_also_refuses_a_non_intact_block() {
+    let fx = FakeCrontab::new("t445b");
+    let seeded = "# forjar:backup\n";
+    fx.seed(seeded);
+    let out = fx.run(&apply_script(&absent("backup")));
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(fx.read(), seeded);
+}
+
+#[test]
+fn fj445_an_intact_block_and_a_prefix_sibling_still_apply() {
+    let fx = FakeCrontab::new("t445c");
+    fx.apply(&cron("backup", "0 3 * * *", CMD));
+    fx.apply(&cron("backup-db", "0 5 * * *", CMD));
+    fx.apply(&cron("backup", "0 4 * * *", CMD));
+    let store = fx.read();
+    assert_eq!(store.matches(CMD).count(), 2, "{store:?}");
+    assert!(
+        store.contains("0 4 * * *") && store.contains("0 5 * * *"),
+        "{store:?}"
+    );
 }

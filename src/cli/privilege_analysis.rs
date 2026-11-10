@@ -91,7 +91,7 @@ pub(crate) fn cmd_privilege_analysis(
             }
         }
         let level = analyze_resource(resource);
-        let rtype = format!("{:?}", resource.resource_type).to_lowercase();
+        let rtype = resource.resource_type.to_string();
         entries.push((id.clone(), level, rtype));
     }
 
