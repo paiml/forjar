@@ -18,7 +18,7 @@ set -euo pipefail
 BASE="scripts/ratchets/cb200-baseline.json"
 [ -f "$BASE" ] || { echo "✗ no $BASE — the ceiling is undeclared"; exit 1; }
 
-ceiling=$(python3 -c "import json;print(json.load(open('$BASE'))['ceiling'])")
+ceiling=$(jq -er '.ceiling' "$BASE") || { echo "✗ $BASE has no readable ceiling — UNMEASURED"; exit 1; }
 
 # REBUILD THE INDEX FIRST. CB-200 grades from `.pmat/context.db`, and when that
 # is older than the sources it reports PRE-CHANGE numbers while still printing a
@@ -51,7 +51,7 @@ cache_root="${PMAT_COMPLY_CACHE:-$HOME/.cache/paiml-mcp-agent-toolkit/comply/ind
 # `sed -n 1p`, not `head -1`: head closes the pipe after one line, `ls` takes
 # SIGPIPE, xargs reports 125 for a signalled child, and under `pipefail` the
 # whole script died here with no output at all (measured: exit 125, 0 lines).
-newest_src=$(git ls-files -z -- '*.rs' '*.py' | xargs -0 -r stat -c '%Y %n' 2>/dev/null | sort -rn | sed -n '1p' | cut -d' ' -f2-)
+newest_src=$(git ls-files -z -- '*.rs' | xargs -0 -r stat -c '%Y %n' 2>/dev/null | sort -rn | sed -n '1p' | cut -d' ' -f2-)
 if [ -n "$newest_src" ] && [ -d "$cache_root" ]; then
   for dir in "$cache_root/$(basename "$PWD")"-*; do
     [ -d "$dir" ] || continue
@@ -73,27 +73,7 @@ fi
 raw=$(pmat comply check --format json 2>/dev/null || true)
 [ -n "$raw" ] || { echo "✗ CB-200 UNMEASURED: pmat comply produced no output"; exit 1; }
 
-now=$(printf '%s' "$raw" | python3 -c '
-import json, sys, re
-out = []
-def walk(o):
-    if isinstance(o, dict):
-        m = str(o.get("message", ""))
-        if "below minimum grade" in m:
-            n = re.search(r"(\d+) function", m)
-            if n:
-                out.append(int(n.group(1)))
-        for v in o.values():
-            walk(v)
-    elif isinstance(o, list):
-        for v in o:
-            walk(v)
-try:
-    walk(json.load(sys.stdin))
-except Exception:
-    pass
-print(out[0] if out else -1)
-')
+now=$(jq -r '[.. | objects | (.message? // empty) | strings | select(contains("below minimum grade")) | capture("(?<n>[0-9]+) function")? | .n | tonumber] | (.[0] // -1)' <<<"$raw" 2>/dev/null) || now=-1
 
 # A count carried on a stale index is worse than no count: it reads as authority.
 # PMAT-240: a here-string, not a pipe — `grep -q` exits early and printf takes
