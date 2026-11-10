@@ -51,7 +51,7 @@ jobs:
   ci:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    uses: paiml/.github/.github/workflows/sovereign-ci.yml@main
+    uses: paiml/.github/.github/workflows/sovereign-ci.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0
     with:
       repo: ${{ github.event.repository.name }}
       # ARM64 gate move (operator via arbiter-cop, 2026-10-27): the reusable workflow's
@@ -67,6 +67,7 @@ jobs:
       # the coverage job is SKIPPED and the gate prints "coverage: NOT MEASURED"
       # -- never green. On a v* tag push it is mandatory: skipped there is RED.
       coverage_on: tag
+      heavy_on: train
     secrets: inherit
 
   # Release preflight: a stale Cargo.lock must fail PR CI, not the tag.
