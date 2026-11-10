@@ -53,6 +53,7 @@ fn print_status_json(
     global: &Option<types::GlobalLock>,
     machines: &[types::StateLock],
     config: &Option<types::ForjarConfig>,
+    state_dir: &Path,
 ) -> Result<(), String> {
     let machine_values: Vec<serde_json::Value> = machines
         .iter()
@@ -65,6 +66,7 @@ fn print_status_json(
             serde_json::json!({
                 "machine": lock.machine,
                 "hostname": lock.hostname,
+                "lock": super::drift::resolved_lock_path(state_dir, &lock.machine).display().to_string(),
                 "generated_at": lock.generated_at,
                 "generator": lock.generator,
                 "blake3_version": lock.blake3_version,
@@ -157,6 +159,7 @@ fn print_status_text(
     global: &Option<types::GlobalLock>,
     machines: &[types::StateLock],
     config: &Option<types::ForjarConfig>,
+    state_dir: &Path,
 ) {
     print_status_header(global);
 
@@ -167,6 +170,10 @@ fn print_status_text(
 
     for lock in machines {
         println!("Machine: {} ({})", lock.machine, lock.hostname);
+        println!(
+            "  Lock: {}",
+            super::drift::resolved_lock_path(state_dir, &lock.machine).display()
+        );
         if let Some(stack) = machine_owner(global, &lock.machine) {
             println!("  Stack: {stack}");
         }
@@ -271,9 +278,9 @@ pub(crate) fn cmd_status(
     }
 
     if json {
-        print_status_json(&global, &machines, &config)?;
+        print_status_json(&global, &machines, &config, state_dir)?;
     } else {
-        print_status_text(&global, &machines, &config);
+        print_status_text(&global, &machines, &config, state_dir);
     }
 
     Ok(())
