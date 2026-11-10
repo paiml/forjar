@@ -20,6 +20,12 @@ on:
       - "src/cli/commands/**"
       - ".github/workflows/docs.yml"
 
+# A new push to a PR cancels that PR's older docs run; push-to-main runs have a
+# unique group and are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
