@@ -67,7 +67,7 @@ fn compute_plan_hash(config: &types::ForjarConfig) -> String {
     for id in &ids {
         hasher.update(id.as_bytes());
         if let Some(r) = config.resources.get(*id) {
-            hasher.update(r.resource_type.to_string().as_bytes());
+            hasher.update(format!("{:?}", r.resource_type).as_bytes());
             for dep in &r.depends_on {
                 hasher.update(dep.as_bytes());
             }
@@ -117,7 +117,7 @@ fn collect_materials(
         // Hash the resource definition
         let mut hasher = blake3::Hasher::new();
         hasher.update(id.as_bytes());
-        hasher.update(resource.resource_type.to_string().as_bytes());
+        hasher.update(format!("{:?}", resource.resource_type).as_bytes());
         if let Some(ref c) = resource.content {
             hasher.update(c.as_bytes());
         }
@@ -199,4 +199,36 @@ fn print_provenance_text(
         "\n  {} unsigned, not SLSA-conformant provenance chain: config -> plan -> state",
         green("✓")
     );
+}
+
+#[cfg(test)]
+mod golden_tests {
+    use super::*;
+
+    const YAML: &str = "version: '1.0'\nname: g\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: github_release\n    machine: m\n    path: /x\n  b:\n    type: file\n    machine: m\n    path: /y\n    content: hi\n    depends_on: [a]\n";
+
+    /// Hash inputs are byte-stable across releases: the Debug spelling.
+    #[test]
+    fn provenance_hashes_equal_their_base_values() {
+        let cfg = crate::core::parser::parse_config(YAML).expect("parse");
+        assert_eq!(
+            compute_plan_hash(&cfg),
+            GOLDEN_PLAN,
+            "plan_hash drifted from base"
+        );
+        assert_eq!(
+            collect_materials(&cfg, None),
+            GOLDEN_MATERIALS(),
+            "material hashes drifted"
+        );
+    }
+
+    const GOLDEN_PLAN: &str = "459a3e48ed95ebd656c54ff4405a5bb847899692e3b8a7a2030be9e8418f03b8";
+    #[allow(non_snake_case)]
+    fn GOLDEN_MATERIALS() -> Vec<(String, String)> {
+        vec![
+            ("a".into(), "a9eef830568a650d".into()),
+            ("b".into(), "7d1906f51f9b86c1".into()),
+        ]
+    }
 }

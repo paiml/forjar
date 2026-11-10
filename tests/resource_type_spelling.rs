@@ -118,6 +118,17 @@ fn debug_bound_texts(span: &str) -> Vec<String> {
     out
 }
 
+/// Explicit exemptions: these Debug spellings feed hashes, which must stay
+/// byte-stable across releases (golden tests in lineage.rs / provenance.rs).
+fn is_hash_site(file: &str, span: &str) -> bool {
+    let span = span.trim_start();
+    match file {
+        "model_eval.rs" | "repro_proof.rs" => span.trim() == "\"{rtype:?}\"",
+        "lineage.rs" | "provenance.rs" => span.starts_with("\"{:?}\""),
+        _ => false,
+    }
+}
+
 #[test]
 fn cli_never_debug_formats_resource_type() {
     let mut files = Vec::new();
@@ -140,8 +151,7 @@ fn cli_never_debug_formats_resource_type() {
                 let names_type = bare.contains("resource_type") || has_word(&bare, "rtype");
                 let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 // Hash inputs must stay byte-stable across releases: not a display site.
-                let is_hash_input = matches!(name, "model_eval.rs" | "repro_proof.rs")
-                    && span.trim() == "\"{rtype:?}\"";
+                let is_hash_input = is_hash_site(name, &span);
                 if names_type && !is_hash_input {
                     hits.push(format!("{}: {}", f.display(), span.replace('\n', " ")));
                 }

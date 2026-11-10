@@ -32,11 +32,11 @@ const SUDO_PREAMBLE: &str = "SUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\""
 /// `sudo -n true`. A least-privilege sudoers rule that grants only
 /// `/usr/bin/crontab` refuses `true`, so the old probe SKIPped a host whose
 /// crontab was perfectly observable. Only a refusal printed by sudo itself
-/// (`sudo: ...`, `Sorry, user ...`) or a missing sudo (`sh: sudo: not found`) skips; `no crontab for <user>` and every other crontab error
+/// (`sudo: ...`, `Sorry, user ...`) or a missing sudo (`sh: sudo: not found`, `bash: line N: sudo: command not found`) skips; `no crontab for <user>` and every other crontab error
 /// fall through to the fail-closed read.
 fn crontab_check_guard(u: &str) -> String {
     format!(
-        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -Eq '^(sudo:|Sorry, user|[a-z]*sh: ([0-9]+: )?sudo: (command )?not found)'; then\n  \
+        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -Eq '^(sudo:|Sorry, user|[^ :]*sh: (line [0-9]+: |[0-9]+: )?sudo: (command )?not found)'; then\n  \
            echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
            exit 2\n\
          fi"

@@ -407,15 +407,13 @@ fn fj848_check_runs_under_a_crontab_only_sudoers_rule() {
 }
 
 /// When sudo refuses even crontab, check SKIPs (exit 2), never reports missing.
-/// Covers sudo's own refusals, the "Sorry, user" form, and a host with no sudo.
+/// Covers sudo's own refusals and the "Sorry, user" form; a host with no sudo
+/// is covered below with the real shells' own messages.
 #[test]
 fn fj848_check_skips_when_sudo_refuses_the_read() {
     let msgs = [
         "sudo: a password is required",
         "Sorry, user bob is not allowed to execute '/usr/bin/crontab' as root",
-        "sh: sudo: not found",
-        "sh: 1: sudo: not found",
-        "bash: sudo: command not found",
     ];
     for (i, msg) in msgs.iter().enumerate() {
         let fx = FakeCrontab::new(&format!("t848b{i}"));

@@ -51,6 +51,8 @@ mod tests_cron_b;
 #[cfg(test)]
 mod tests_cron_exec;
 #[cfg(test)]
+mod tests_cron_nosudo;
+#[cfg(test)]
 mod tests_docker;
 #[cfg(test)]
 mod tests_docker_b;
