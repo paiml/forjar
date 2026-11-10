@@ -77,6 +77,8 @@ mod tests_package_b;
 #[cfg(test)]
 mod tests_package_c;
 #[cfg(test)]
+mod tests_package_cargo_primary;
+#[cfg(test)]
 mod tests_package_d;
 #[cfg(test)]
 mod tests_user;

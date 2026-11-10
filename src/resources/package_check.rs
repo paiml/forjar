@@ -142,8 +142,11 @@ pub fn check_script(resource: &Resource) -> String {
                          | awk -v p={} {})\"; \
                          [ -n \"$_fj_bins\" ] && ( \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
-                         _fj_want={}; _fj_seen=0; \
+                         _fj_want={}; _fj_seen=0; _fj_pick=\"\"; \
                          for _fj_b in $_fj_bins; do \
+                         [ \"$_fj_b\" = {} ] && _fj_pick=\"$_fj_b\"; done; \
+                         [ -n \"$_fj_pick\" ] || for _fj_b in $_fj_bins; do _fj_pick=\"$_fj_b\"; break; done; \
+                         for _fj_b in $_fj_pick; do \
                          _fj_p=\"$_fj_root/$_fj_b\"; \
                          _fj_v=\"$(\"$_fj_p\" --version 2>/dev/null)\" || _fj_v=\"\"; \
                          if [ -z \"$_fj_v\" ]; then case \"$_fj_b\" in cargo-*) \
@@ -157,6 +160,7 @@ pub fn check_script(resource: &Resource) -> String {
                         sh_squote(&needle),
                         sh_squote(BINS_UNDER_HEADER),
                         sh_squote(version.unwrap_or("")),
+                        sh_squote(crate_name),
                     );
                     verdict::assert_that(
                         &condition,
