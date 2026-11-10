@@ -98,3 +98,39 @@ fn test_165_timeout_path_fast_command_ok() {
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "quick");
 }
+
+/// infra#3590: the timeout can fire BEFORE the worker has spawned and published
+/// its child (a loaded host delays the spawn past the deadline). The kill is then
+/// a no-op, and `exec_script_timeout` joins a worker that goes on to run the whole
+/// script ("apply ran 30s; --resource-timeout 2 did not bound it"). A cancel
+/// recorded in the slot must make the late-published child die on arrival.
+#[cfg(unix)]
+#[test]
+fn test_3590_child_published_after_timeout_is_killed() {
+    let slot: ChildPidSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let done = std::sync::atomic::AtomicBool::new(false);
+    // Timeout fires first: no PID yet, nothing to kill, but the cancel is recorded.
+    assert!(!kill_worker_child_group(&slot, &done));
+    // The worker now spawns its child (own group, as the transports do) and publishes it.
+    let mut cmd = std::process::Command::new("sleep");
+    cmd.arg("30");
+    configure_process_group(&mut cmd);
+    let mut child = cmd.spawn().unwrap();
+    record_child_pid(Some(&slot), &child);
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(s) = child.try_wait().unwrap() {
+            break Some(s);
+        }
+        if start.elapsed().as_secs() >= 5 {
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    assert!(
+        status.is_some(),
+        "child published after the timeout was still running 5s later"
+    );
+}

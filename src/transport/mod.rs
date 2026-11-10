@@ -40,13 +40,26 @@ use crate::core::types::Machine;
 pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
 
 /// Record a freshly-spawned child's PID into the (optional) tracking slot.
+///
+/// infra#3590: if the timeout already fired before this child existed, the slot
+/// holds [`TIMEOUT_CANCELLED`]; the child is killed on arrival (its group, as on
+/// the normal timeout path) instead of running the whole script while the caller
+/// joins this worker. Both sides hold the slot's mutex, so exactly one of
+/// "publish then kill" or "cancel then kill on arrival" happens.
 pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
     if let Some(slot) = slot {
         if let Ok(mut guard) = slot.lock() {
+            if *guard == Some(TIMEOUT_CANCELLED) {
+                kill_process_group(child.id());
+            }
             *guard = Some(child.id());
         }
     }
 }
+
+/// Sentinel stored in a [`ChildPidSlot`] by the timeout path when no child had
+/// been published yet. Never a real PID (`pid_max` is far below `u32::MAX`).
+const TIMEOUT_CANCELLED: u32 = u32::MAX;
 
 /// #165: Put the spawned child in its own process group so a timeout kill can
 /// target the *group* (`kill -9 -- -<pgid>`) rather than a bare PID that the OS
@@ -361,11 +374,21 @@ fn kill_worker_child_group(
     if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
     }
-    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-        kill_process_group(pid);
-        return true;
+    let Ok(mut guard) = pid_slot.lock() else {
+        return false;
+    };
+    match *guard {
+        Some(pid) if pid != TIMEOUT_CANCELLED => {
+            kill_process_group(pid);
+            true
+        }
+        // No child yet (slow spawn on a loaded host): leave a cancel so the
+        // worker kills the child the moment it publishes it (infra#3590).
+        _ => {
+            *guard = Some(TIMEOUT_CANCELLED);
+            false
+        }
     }
-    false
 }
 
 /// Check if a machine uses SSH transport (not pepita, container, or local).
