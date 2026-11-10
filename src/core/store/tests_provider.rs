@@ -257,3 +257,25 @@ fn test_fj1333_provider_json_serde() {
         assert_eq!(provider, parsed);
     }
 }
+
+/// #621: the docker import script removes the container it creates.
+#[test]
+fn docker_import_removes_created_container() {
+    let cfg = ImportConfig {
+        provider: ImportProvider::Docker,
+        reference: "ubuntu".to_string(),
+        version: Some("24.04".to_string()),
+        arch: "x86_64".to_string(),
+        options: BTreeMap::new(),
+    };
+    let cmd = import_command(&cfg);
+    assert!(cmd.contains("cid=$(docker create ubuntu:24.04)"), "{cmd}");
+    assert!(
+        cmd.contains("docker export \"$cid\""),
+        "export needs the id: {cmd}"
+    );
+    assert!(
+        cmd.contains("docker rm \"$cid\""),
+        "must remove what it creates: {cmd}"
+    );
+}
