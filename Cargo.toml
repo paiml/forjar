@@ -121,7 +121,7 @@ sha2 = "0.10"
 # Cargo.lock transitively, so this adds no new transitive dependencies.
 hmac = "0.12"
 flate2 = "1"
-rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+rusqlite = { version = "0.41", features = ["bundled"], optional = true }
 dhat = { version = "0.3.3", optional = true }
 toml = "1.1"
 # OpenSSL: system pkg-config by default, vendored for cross-compilation.
