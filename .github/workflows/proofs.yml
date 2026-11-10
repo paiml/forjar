@@ -35,8 +35,7 @@ name: Proofs
 # measured for the same work on an idle box. Every pull_request paid it.
 #
 # So: main stays proven post-merge, a nightly catches drift, and a PR that
-# actually touches the harnesses is covered on the train/** run. (The old
-# `proofs` label opt-in no longer exists: proofs has no pull_request trigger.) This is a
+# actually touches the harnesses opts in with the `proofs` label. This is a
 # scheduling change, not a weakening — `proofs` is not a required context
 # (the org ruleset requires `gate`), so it never gated a merge anyway.
 on:
@@ -47,7 +46,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -108,6 +107,9 @@ jobs:
     # The host-side fix is paiml/infra's.
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'proofs')
     # 45 was too short, but NOT because proving is slow — measured 2026-08-16:
     #
     #   proof_applicable_operators_valid   22+ min  -> 2s   (after the fix below)

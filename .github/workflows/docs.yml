@@ -18,7 +18,7 @@ on:
 # A new push to a PR cancels that PR's older docs run; push-to-main runs have a
 # unique group and are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

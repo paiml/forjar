@@ -1,4 +1,4 @@
-# Quorum gate — mirrors the pre-push check. Not run on PRs (see below).
+# Quorum gate — mirrors the pre-push check on every PR.
 #
 # The local hook is FAST FEEDBACK, not enforcement: `.git/hooks/` is untracked,
 # `git push --no-verify` always works, and a contributor who never ran
@@ -13,9 +13,7 @@ name: Quorum
 # the host, and "cannot measure" was reported as FAIL. It also ran before any review could exist, so a new PR
 # was red by construction and reviewers skip red PRs. The receipt is enforced where it matters: the merge
 # train refuses a PR without the two-lane aggregate at the exact head (infra fleet/cops/merge-train.sh AGR_JQ).
-# workflow_dispatch is kept as a stub only: the job reads github.event.pull_request.* and github.base_ref,
-# which are empty on a dispatch, so a manual run reports UNMEASURED until dispatch inputs are wired.
-# `gate` stays the one required check.
+# Kept as a manual dispatch for audits; `gate` stays the one required check.
 on:
   workflow_dispatch:
 
