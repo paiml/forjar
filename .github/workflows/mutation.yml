@@ -2,14 +2,11 @@
 # Runs mutation tests to verify detection coverage
 name: mutation
 on:
-  push:
-    branches: [main, "train/**"]
-    paths:
-      - "src/**"
-      - "mutants.toml"
-      - ".cargo/config.toml"
-      - ".github/workflows/mutation.yml"
-  workflow_dispatch:
+  # infra#3828, operator ruling 2026-11-10 16:50Z: "NO build can do mutation
+  # outside of nightly; the end. FOREVER". `schedule` ONLY: no push, pull_request,
+  # merge_group, train/** or dispatch trigger, and nothing may `needs:` this job.
+  schedule:
+    - cron: "17 3 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
