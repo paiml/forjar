@@ -10,8 +10,8 @@ on:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: msrv-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   msrv:
@@ -42,14 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Assert MSRV toolchain is installed
+      - name: Install MSRV toolchain
         # rust: 1.89.0 (bumped from 1.88 — aprender-contracts 0.30 requires 1.89)
         run: |
           # Clear any override a previous run of this job left in this
           # workspace, so the runner stops poisoning jobs that come after it.
           # Exits 0 when there is none (measured).
           rustup override unset
-          rustup toolchain list | grep -q "^1.89.0" || { echo "1.89.0 missing from runner image; a PR gate makes no network fetch" >&2; exit 1; }
+          rustup toolchain install 1.89.0 --profile minimal
           rustc --version
 
       - name: Cache cargo

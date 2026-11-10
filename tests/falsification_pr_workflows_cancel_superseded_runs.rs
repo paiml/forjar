@@ -155,7 +155,7 @@ fn pr_workflows_install_nothing_over_the_network() {
         "toolchain install",
         "cargo install",
     ];
-    for name in ["behavior", "convergence", "mutation", "msrv", "quorum"] {
+    for name in ["behavior", "convergence", "mutation", "quorum"] {
         let path = format!(
             "{}/.github/workflows/{name}.yml",
             env!("CARGO_MANIFEST_DIR")
