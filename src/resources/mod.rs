@@ -61,6 +61,8 @@ mod tests_file_b;
 #[cfg(test)]
 mod tests_file_content_escape;
 #[cfg(test)]
+mod tests_file_staging;
+#[cfg(test)]
 mod tests_github_release_downgrade;
 #[cfg(test)]
 mod tests_gpu;

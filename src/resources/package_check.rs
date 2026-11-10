@@ -27,7 +27,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         "cargo" => {
             // GH-257: ask CARGO what it installed, not the PATH.
@@ -176,7 +176,7 @@ pub fn check_script(resource: &Resource) -> String {
             format!(
                 "{}\n{}",
                 crate::resources::package::cargo::path_prelude(),
-                verdict::check_script_from(&checks)
+                finish(resource, checks)
             )
         }
         "uv" => {
@@ -193,7 +193,7 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         "brew" => {
             let checks: Vec<String> = packages
@@ -207,10 +207,27 @@ pub fn check_script(resource: &Resource) -> String {
                     )
                 })
                 .collect();
-            verdict::check_script_from(&checks)
+            finish(resource, checks)
         }
         other => verdict::check_script_from(&[verdict::always_diverged(&format!(
             "unsupported provider: {other}"
         ))]),
     }
+}
+
+/// forjar#694: a declared `completion_check` is part of the verdict.
+///
+/// It used to be accepted, validated and never emitted, so a package resource
+/// was graded on presence alone while its config read as if the tool ran.
+/// It is appended after the provider's presence assertions, with the same
+/// marker names the task check uses.
+fn finish(resource: &Resource, mut checks: Vec<String>) -> String {
+    if let Some(ref check) = resource.completion_check {
+        checks.push(verdict::assert_that(
+            check,
+            "task=completed",
+            "task=pending",
+        ));
+    }
+    verdict::check_script_from(&checks)
 }
