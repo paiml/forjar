@@ -125,7 +125,7 @@ help:
 	@echo "  audit         - Run security audit (cargo-audit + cargo-deny)"
 	@echo "  doc-test      - Run documentation tests"
 	@echo "  dogfood       - The standing gates B C D G (hermetic; run on every commit)"
-	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), T (release goals: every tag declared, every ticket labelled, the cut on time), F (coverage + in-diff mutants) and H (crux); the pre-publish gate"
+	@echo "  dogfood-release - dogfood plus A E (a receipt per merged PR), T (release goals: every tag declared, every ticket labelled, the cut on time), F (the 95% coverage floor; mutation is nightly only) and H (crux); the pre-publish gate"
 	@echo "  dogfood-published VERSION=x.y.z - gates C and D against the crate crates.io serves"
 	@echo "  release-check - Tag, GitHub release, crates.io, docs.rs, quorum receipts, crux doc"
 	@echo "  release-goal  - The release goal as one status line: <next tag> <bar> elapsed/cadence, merged and tagged tickets, due, basis"
@@ -156,7 +156,7 @@ help:
 #                               one, and the next cut not overdue — against
 #                               git and GitHub; seconds too, so it runs before
 #                               F. F is a full coverage build
-#                               plus an in-diff mutation run (minutes); H is RED
+#                               (mutation is nightly-only, never here); H is RED
 #                               until the release's CRUX reconciliation is
 #                               written. All four block a PUBLISH, not a commit.
 #   dogfood-published           the same C and D against the artifact crates.io
