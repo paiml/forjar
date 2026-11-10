@@ -68,6 +68,10 @@ pub(super) fn cmd_apply_check(
     state_dir: &Path,
     verbose: bool,
 ) -> Result<(), String> {
+    super::apply_selection::reject_disjoint_machines(
+        args.only_machine.as_deref(),
+        args.machine.as_deref(),
+    )?;
     let mut config = super::helpers::parse_and_validate(&args.file)?;
     let scope = scope_of(args);
     resolve_selection(&mut config, &selectors_of(args, &scope), verbose)?;

@@ -134,3 +134,38 @@ pub(crate) fn strip_unrequested_phony(config: &mut types::ForjarConfig, goals: &
         resource.restart_on.retain(|t| !dropped.contains(t));
     }
 }
+
+/// forjar#471: `--only-machine X` prunes the config to X, then the executor's
+/// `-m Y` filter skips all of it — nothing converges and the run exits 0 with
+/// no message. Two machine selectors naming different machines contradict each
+/// other; refuse the invocation by name.
+pub(crate) fn reject_disjoint_machines(
+    only_machine: Option<&str>,
+    machine: Option<&str>,
+) -> Result<(), String> {
+    match (only_machine, machine) {
+        (Some(o), Some(m)) if o != m => Err(format!(
+            "--only-machine '{o}' and -m '{m}' select disjoint machines"
+        )),
+        _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod disjoint_machine_tests {
+    use super::reject_disjoint_machines as r;
+
+    #[test]
+    fn different_machines_are_refused_by_name() {
+        let e = r(Some("a"), Some("b")).unwrap_err();
+        assert!(e.contains("--only-machine 'a' and -m 'b' select disjoint machines"));
+    }
+
+    #[test]
+    fn same_or_single_selector_is_fine() {
+        assert!(r(Some("a"), Some("a")).is_ok());
+        assert!(r(Some("a"), None).is_ok());
+        assert!(r(None, Some("b")).is_ok());
+        assert!(r(None, None).is_ok());
+    }
+}
