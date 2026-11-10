@@ -208,8 +208,10 @@ fn push_atomic_replace_lines(lines: &mut Vec<String>, path: &str, resource: &Res
     let staged = format!("{path}.forjar-new");
     let p = sh_squote(path);
     // forjar#638: the staging name is per-run (`$$`), not fixed, so a writer in
-    // the same directory cannot pre-create or swap a predictable name between
-    // the `rm -f` and the `mv -f`. The helpers below quote `staged` themselves;
+    // the same directory can no longer rely on a fixed name between the
+    // `rm -f` and the `mv -f`. A PID is still guessable (a `mktemp` name would
+    // close that), and an apply that dies before the `mv -f` leaves its
+    // `.forjar-new.<pid>` behind: that residue is accepted. The helpers below quote `staged` themselves;
     // their lines are rewritten to the per-run form once, here.
     let s = format!("{}$$", sh_squote(&format!("{staged}.")));
     let fixed = sh_squote(&staged);
