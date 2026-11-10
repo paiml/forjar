@@ -43,6 +43,11 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             args.operator.as_deref(),
             args.machine.as_deref(),
         )?;
+        // forjar#845: the same position, for the same reason — before any
+        // early exit, hook, backup, connect or state write. A config read from
+        // a checkout that is not origin/main (and not a named PR worktree)
+        // converges hosts to a state the repository has already left.
+        super::apply_checkout_guard::check_apply_checkout(&args.file)?;
     }
 
     if let Some(r) = apply_early_exits(&args) {

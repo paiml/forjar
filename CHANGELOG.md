@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`apply` refuses a config checkout whose HEAD is not `origin/main` (PMAT-845, #845).**
+An intel apply ran from a forjar checkout 73 files behind origin/main and
+nothing refused it. Before any hook, connect or state write, `apply` now finds
+the git checkout holding the config, runs `git fetch origin main`, and refuses
+(non-zero, naming both shas and the behind/ahead counts) unless HEAD equals
+`origin/main`. A fetch that fails or an `origin/main` that does not resolve is
+a refusal too. The one exception is a named PR worktree:
+`FORJAR_PR_WORKTREE=<branch>` (the branch HEAD is on) or `=<PR number>`, which
+is printed on stderr. A config outside any checkout, or in a repository with no
+`origin` remote, is not guarded. `plan`, `drift` and the read-only apply modes
+are unchanged.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)

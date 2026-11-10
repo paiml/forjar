@@ -3,6 +3,7 @@
 mod agent_registry;
 mod agent_sbom;
 mod apply;
+mod apply_checkout_guard;
 mod apply_drift;
 mod apply_drift_fanout;
 mod apply_dry_run;
