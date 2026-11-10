@@ -142,9 +142,11 @@ pub fn check_script(resource: &Resource) -> String {
                          | awk -v p={} {})\"; \
                          [ -n \"$_fj_bins\" ] && ( \
                          _fj_root=\"${{CARGO_HOME:-$HOME/.cargo}}/bin\"; \
+                         case \"$_fj_root\" in /*) ;; *) _fj_root=\"$PWD/$_fj_root\";; esac; \
                          _fj_want={}; _fj_seen=0; \
-                         _fj_tmp=\"$(mktemp -d)\" && cd \"$_fj_tmp\" || exit 1; \
+                         _fj_tmp=\"$(mktemp -d)\" || exit 1; \
                          trap 'rm -rf -- \"${{_fj_tmp:?}}\"' EXIT; \
+                         cd \"$_fj_tmp\" || exit 1; \
                          for _fj_b in $_fj_bins; do \
                          _fj_p=\"$_fj_root/$_fj_b\"; \
                          [ -x \"$_fj_p\" ] || exit 1; \
