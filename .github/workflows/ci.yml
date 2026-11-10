@@ -439,9 +439,9 @@ jobs:
   # infra#3828: runner-smells ratchet (RS-01..RS-11); counts may not exceed .github/runner-smells.baseline.
   # SHA is the paiml/.github#113 merge commit.
   runner-smells:
-    uses: paiml/.github/.github/workflows/runner-smells.yml@d0ac85f159e8840129439833f57d6cb5a927b279
+    uses: paiml/.github/.github/workflows/runner-smells.yml@d768b8ac5abfa7d0038470fd38023a15323ac0aa
     with:
-      scanner_ref: d0ac85f159e8840129439833f57d6cb5a927b279
+      scanner_ref: d768b8ac5abfa7d0038470fd38023a15323ac0aa
 
   gate:
     timeout-minutes: 15
