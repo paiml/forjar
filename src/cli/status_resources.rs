@@ -85,13 +85,13 @@ pub(crate) fn cmd_status_resource_age(
 /// Simple cost model: weight by resource type complexity.
 fn resource_cost_weight(t: &str) -> f64 {
     match t {
-        "Package" => 2.0,
-        "File" => 1.0,
-        "Service" => 3.0,
-        "Mount" => 2.5,
-        "User" => 2.0,
-        "Docker" => 5.0,
-        "Network" => 3.0,
+        "package" => 2.0,
+        "file" => 1.0,
+        "service" => 3.0,
+        "mount" => 2.5,
+        "user" => 2.0,
+        "docker" => 5.0,
+        "network" => 3.0,
         _ => 1.0,
     }
 }
@@ -210,12 +210,12 @@ pub(crate) fn cmd_status_resource_size(
                 }
                 first = false;
                 print!(
-                    r#"{{"machine":"{}","resource":"{}","type":"{:?}","details_count":{}}}"#,
+                    r#"{{"machine":"{}","resource":"{}","type":"{}","details_count":{}}}"#,
                     m, rname, rlock.resource_type, details_size
                 );
             } else {
                 println!(
-                    "{}/{}: type={:?}, hash_len={}, details={}",
+                    "{}/{}: type={}, hash_len={}, details={}",
                     m, rname, rlock.resource_type, hash_len, details_size
                 );
             }

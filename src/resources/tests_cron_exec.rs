@@ -407,21 +407,27 @@ fn fj848_check_runs_under_a_crontab_only_sudoers_rule() {
 }
 
 /// When sudo refuses even crontab, check SKIPs (exit 2), never reports missing.
+/// Covers sudo's own refusals, the "Sorry, user" form, and a host with no sudo.
 #[test]
 fn fj848_check_skips_when_sudo_refuses_the_read() {
-    let fx = FakeCrontab::new("t848b");
-    write_exe(
-        &fx.bin().join("sudo"),
-        "#!/usr/bin/env bash\necho 'sudo: a password is required' >&2\nexit 1\n",
-    );
-    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
-    assert_eq!(
-        out.status.code(),
-        Some(2),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert!(String::from_utf8_lossy(&out.stdout).contains("FORJAR_SKIP"));
+    let msgs = [
+        "sudo: a password is required",
+        "Sorry, user bob is not allowed to execute '/usr/bin/crontab' as root",
+        "sh: sudo: not found",
+        "sh: 1: sudo: not found",
+        "bash: sudo: command not found",
+    ];
+    for (i, msg) in msgs.iter().enumerate() {
+        let fx = FakeCrontab::new(&format!("t848b{i}"));
+        write_exe(
+            &fx.bin().join("sudo"),
+            &format!("#!/usr/bin/env bash\necho '{msg}' >&2\nexit 1\n"),
+        );
+        let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{msg}: {err}");
+        assert!(String::from_utf8_lossy(&out.stdout).contains("FORJAR_SKIP"));
+    }
 }
 
 /// `no crontab for <user>` is not a sudo refusal: it is the benign missing case.

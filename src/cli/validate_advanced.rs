@@ -115,7 +115,7 @@ fn find_health_conflicts(config: &types::ForjarConfig) -> Vec<(String, String)> 
         let rtype = resource.resource_type.to_string();
         let has_service_state = resource.state.as_deref() == Some("running")
             || resource.state.as_deref() == Some("stopped");
-        let is_service = rtype.contains("Service");
+        let is_service = rtype == "service";
         if has_service_state && !is_service {
             conflicts.push((
                 name.clone(),
@@ -291,11 +291,11 @@ fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, S
 }
 
 fn is_valid_state_for_type(state: &str, rtype: &str) -> bool {
-    if rtype.contains("Package") {
+    if rtype == "package" {
         ["present", "absent", "latest"].contains(&state)
-    } else if rtype.contains("Service") {
+    } else if rtype == "service" {
         ["running", "stopped", "enabled", "disabled"].contains(&state)
-    } else if rtype.contains("File") || rtype.contains("Template") {
+    } else if rtype == "file" {
         ["present", "absent", "directory"].contains(&state)
     } else {
         true

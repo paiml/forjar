@@ -32,11 +32,11 @@ const SUDO_PREAMBLE: &str = "SUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\""
 /// `sudo -n true`. A least-privilege sudoers rule that grants only
 /// `/usr/bin/crontab` refuses `true`, so the old probe SKIPped a host whose
 /// crontab was perfectly observable. Only a refusal printed by sudo itself
-/// (`sudo: ...`) skips; `no crontab for <user>` and every other crontab error
+/// (`sudo: ...`, `Sorry, user ...`) or a missing sudo (`sh: sudo: not found`) skips; `no crontab for <user>` and every other crontab error
 /// fall through to the fail-closed read.
 fn crontab_check_guard(u: &str) -> String {
     format!(
-        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -q '^sudo:'; then\n  \
+        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -Eq '^(sudo:|Sorry, user|[a-z]*sh: ([0-9]+: )?sudo: (command )?not found)'; then\n  \
            echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
            exit 2\n\
          fi"
@@ -46,12 +46,13 @@ fn crontab_check_guard(u: &str) -> String {
 /// Refuse by name when a forjar marker is present without its intact block.
 ///
 /// forjar#445: a human edit that leaves `# forjar:<name>` but changes the
-/// `# forjar-cmd:<name>` line or the entry makes the block non-intact, so
-/// `delete_block` stops at the marker, the edited entry stays, and a fresh
+/// `# forjar-cmd:<name>` line (or drops it) makes the block non-intact, so
+/// `delete_block` stops at the marker, the edited line stays, and a fresh
 /// block is appended: two jobs scheduled, one not forjar's. forjar deletes
 /// nothing it did not write, so the honest answer is to refuse and leave the
 /// crontab unchanged. Intact means: marker, then exactly the cmd marker, then
-/// an entry line.
+/// one more line. The entry line itself is NOT compared: an edited entry under
+/// intact markers is a block forjar wrote, and it is replaced, not refused.
 fn intact_block_guard(name: &str, marker: &str, cmd_marker: &str) -> String {
     let msg = sh_squote(&format!(
         "forjar: cron '{name}': the block under '# forjar:{name}' has been edited by hand; remove it or restore it before forjar manages this job"

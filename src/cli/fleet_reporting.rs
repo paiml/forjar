@@ -229,7 +229,7 @@ pub(crate) fn cmd_export(
             let mut lines = vec!["resource,machine,type,status,hash,applied_at".to_string()];
             for (id, machine, rl) in &all_resources {
                 lines.push(format!(
-                    "{},{},{:?},{:?},{},{}",
+                    "{},{},{},{:?},{},{}",
                     id,
                     machine,
                     rl.resource_type,

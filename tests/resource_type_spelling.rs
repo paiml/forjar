@@ -14,6 +14,110 @@ fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
     }
 }
 
+fn has_word(hay: &str, word: &str) -> bool {
+    hay.match_indices(word).any(|(i, _)| {
+        let before = hay[..i].chars().next_back();
+        let after = hay[i + word.len()..].chars().next();
+        let w = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+        !w(before) && !w(after)
+    })
+}
+
+/// Every `name!( ... )` macro call, over however many lines, as its argument text.
+fn macro_spans(text: &str) -> Vec<String> {
+    let b = text.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while let Some(off) = text[i..].find("!(") {
+        let open = i + off + 1;
+        let mut depth = 0i32;
+        let mut end = None;
+        for (j, &c) in b.iter().enumerate().skip(open) {
+            match c {
+                b'(' => depth += 1,
+                b')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = Some(j);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let Some(end) = end else { break };
+        out.push(text[open + 1..end].to_string());
+        i = open + 1;
+    }
+    out
+}
+
+/// Split a macro call into its format string and its trailing arguments.
+fn literal_and_tail(span: &str) -> Option<(&str, &str)> {
+    let rest = &span[span.find('"')? + 1..];
+    let rb = rest.as_bytes();
+    let mut k = 0;
+    while k < rb.len() {
+        match rb[k] {
+            b'\\' => k += 2,
+            b'"' => return Some((&rest[..k], &rest[k + 1..])),
+            _ => k += 1,
+        }
+    }
+    None
+}
+
+/// Top-level comma-separated arguments.
+fn split_args(tail: &str) -> Vec<String> {
+    let (mut args, mut depth, mut cur) = (Vec::new(), 0i32, String::new());
+    for c in tail.chars() {
+        depth += i32::from(matches!(c, '(' | '[' | '{')) - i32::from(matches!(c, ')' | ']' | '}'));
+        if c == ',' && depth == 0 {
+            args.push(std::mem::take(&mut cur));
+        } else {
+            cur.push(c);
+        }
+    }
+    args.push(cur);
+    let trimmed = args.into_iter().map(|a| a.trim().to_string());
+    trimmed.filter(|a| !a.is_empty()).collect()
+}
+
+/// The `{name:spec}` placeholders of a format string, `{{` escapes skipped.
+fn placeholders(lit: &str) -> Vec<(String, String)> {
+    let plain = lit.replace("{{", "").replace("}}", "");
+    let mut out = Vec::new();
+    for part in plain.split('{').skip(1) {
+        let inner = part.split('}').next().unwrap_or("");
+        let (name, spec) = inner.split_once(':').unwrap_or((inner, ""));
+        out.push((name.to_string(), spec.to_string()));
+    }
+    out
+}
+
+/// What each Debug placeholder (`{:?}`, `{x:?}`, `{:#?}`) in the span's format
+/// string is bound to: the matching positional argument, or the inline name.
+fn debug_bound_texts(span: &str) -> Vec<String> {
+    let Some((lit, tail)) = literal_and_tail(span) else {
+        return vec![];
+    };
+    let args = split_args(tail);
+    let mut pos = 0usize;
+    let mut out = Vec::new();
+    for (name, spec) in placeholders(lit) {
+        let bound = if name.is_empty() {
+            pos += 1;
+            args.get(pos - 1).cloned().unwrap_or_default()
+        } else {
+            name
+        };
+        if spec.ends_with('?') {
+            out.push(bound);
+        }
+    }
+    out
+}
+
 #[test]
 fn cli_never_debug_formats_resource_type() {
     let mut files = Vec::new();
@@ -29,9 +133,18 @@ fn cli_never_debug_formats_resource_type() {
     let mut hits = Vec::new();
     for f in &files {
         let text = fs::read_to_string(f).expect("utf8");
-        for (i, l) in text.lines().enumerate() {
-            if l.contains("{:?}") && l.contains("resource_type") {
-                hits.push(format!("{}:{}: {}", f.display(), i + 1, l.trim()));
+        for span in macro_spans(&text) {
+            for bound in debug_bound_texts(&span) {
+                // `x.resource_type.to_string()` is the fixed spelling, not a Debug use.
+                let bare = bound.replace("resource_type.to_string()", "");
+                let names_type = bare.contains("resource_type") || has_word(&bare, "rtype");
+                let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                // Hash inputs must stay byte-stable across releases: not a display site.
+                let is_hash_input = matches!(name, "model_eval.rs" | "repro_proof.rs")
+                    && span.trim() == "\"{rtype:?}\"";
+                if names_type && !is_hash_input {
+                    hits.push(format!("{}: {}", f.display(), span.replace('\n', " ")));
+                }
             }
         }
     }
@@ -47,4 +160,22 @@ fn display_is_serde_spelling() {
     use forjar::core::types::ResourceType;
     assert_eq!(ResourceType::WasmBundle.to_string(), "wasm_bundle");
     assert_eq!(ResourceType::GithubRelease.to_string(), "github_release");
+}
+
+#[test]
+fn scanner_catches_multiline_and_inline_debug_calls() {
+    let hit = |t: &str| {
+        macro_spans(t).iter().any(|s| {
+            debug_bound_texts(s)
+                .iter()
+                .any(|b| b.contains("resource_type") || has_word(b, "rtype"))
+        })
+    };
+    let multi = "println!(\n    \"t={:?}\",\n    rlock.resource_type\n);";
+    let second = "println!(\"{} {:?}\", a,\n    rl.resource_type);";
+    let inline = "let s = format!(\"{rtype:?}\");";
+    let clean = "println!(\"t={}\", rlock.resource_type);";
+    let other = "println!(\"{},{:?}\", rl.resource_type, rl.status);";
+    assert!(hit(multi) && hit(second) && hit(inline));
+    assert!(!hit(clean) && !hit(other));
 }

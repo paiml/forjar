@@ -245,7 +245,7 @@ pub(crate) fn cmd_validate_check_mount_points(file: &Path, json: bool) -> Result
     let cfg = parse_and_validate(file)?;
     let mut mount_paths: Vec<(String, String)> = Vec::new();
     for (name, resource) in &cfg.resources {
-        if resource.resource_type.to_string().contains("Mount") {
+        if resource.resource_type == types::ResourceType::Mount {
             if let Some(ref path) = resource.path {
                 mount_paths.push((name.clone(), path.clone()));
             }
