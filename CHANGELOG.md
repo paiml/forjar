@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
+The timeout path killed the script's process group by spawning the external
+`kill` program and discarded the error. An image without procps
+(`rust:1.95-slim`) has no such program, so nothing was killed and a 2 s timeout
+waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
+the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
+refused.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything

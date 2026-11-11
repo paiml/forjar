@@ -7108,3 +7108,26 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-992
+  github_issue: 992
+  item_type: task
+  title: '--resource-timeout does not bound the apply when no external kill binary exists (clean-room B2 red on v1.34.0)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-11T20:12:00Z
+  updated: 2026-11-11T20:40:00Z
+  spec: null
+  acceptance_criteria:
+  - The timeout path signals the child's process group by syscall (killpg), so a host or image with no kill binary on PATH is bounded like any other.
+  - With PATH holding every host tool except kill, forjar apply --resource-timeout 2 ends a sleep 30 task in under 15 s and fails the apply.
+  - No file under src/ spawns a kill binary.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  release: 1.34.1

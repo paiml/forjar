@@ -32,10 +32,10 @@ mod tests_timeout;
 
 use crate::core::error::{ForjarError, I8_VALIDATION_MARKER};
 use crate::core::types::Machine;
-use child_group::kill_worker_child_group;
-pub(crate) use child_group::{configure_process_group, record_child_pid, ChildPidSlot};
 #[cfg(test)]
-use child_group::{kill_group_command, kill_process_group};
+use child_group::kill_process_group;
+use child_group::kill_worker_child_group;
+pub(crate) use child_group::{configure_process_group, kill_pid, record_child_pid, ChildPidSlot};
 
 /// FJ-#154: Write a script to a child's stdin, reaping the child on failure.
 ///
