@@ -77,3 +77,16 @@ fn f852_state_dir_with_another_stacks_lock_is_not_lockless() {
     )
     .expect("a never-applied machine beside another stack's locks is not a drift failure");
 }
+
+#[test]
+fn f852_holds_no_lock_tells_empty_from_populated() {
+    use super::drift_state::holds_no_lock;
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(holds_no_lock(&tmp.path().join("absent")), "absent");
+    assert!(holds_no_lock(tmp.path()), "empty");
+    std::fs::create_dir_all(tmp.path().join("m-no-lock")).unwrap();
+    assert!(holds_no_lock(tmp.path()), "a machine dir without a lock");
+    let lock = crate::core::state::new_lock("m1", "m1");
+    crate::core::state::save_lock(tmp.path(), &lock).unwrap();
+    assert!(!holds_no_lock(tmp.path()), "one lock anywhere");
+}

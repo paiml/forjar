@@ -224,7 +224,13 @@ pub fn check_script(resource: &Resource) -> String {
 /// provider's presence checks. It was accepted and never run, so a JRE that is
 /// installed but is not the java that runs graded as converged.
 fn finish(resource: &Resource, mut checks: Vec<String>) -> String {
-    if let Some(ref cc) = resource.completion_check {
+    // A blank `completion_check` asserts nothing; as an `if` condition it is a
+    // shell syntax error, so it is dropped here rather than quoted into the script.
+    if let Some(cc) = resource
+        .completion_check
+        .as_deref()
+        .filter(|cc| !cc.trim().is_empty())
+    {
         checks.push(verdict::assert_that(
             cc,
             "completion_check=passed",

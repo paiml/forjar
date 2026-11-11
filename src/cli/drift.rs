@@ -8,7 +8,7 @@ pub(super) use super::drift_dry_run::print_dry_run_report;
 use super::drift_followup::{drift_verdict, DriftFollowUp};
 use super::drift_lockless::scan_lockless;
 use super::drift_report::{census_json, print_drift_summary, render_finding};
-use super::drift_state::collect_machine_locks;
+use super::drift_state::{collect_machine_locks, holds_no_lock};
 use super::helpers::*;
 use crate::core::types;
 use crate::tripwire::drift;
@@ -228,10 +228,12 @@ fn scan_machines_for_drift(
     scan_opts: ScanOptions,
 ) -> Result<DriftScan, String> {
     let machine_locks = match collect_machine_locks(state_dir, machine_filter, scope)? {
-        Some(locks) if !locks.is_empty() || config.is_none() => locks,
-        // forjar#852: an EMPTY state dir (no lock for any machine) is as lockless
-        // as an absent one. Walking zero locks inspected 0 and exited 0, hiding a
-        // declared pin whose live version differs.
+        // forjar#852: a state dir with NO lock for any machine is as lockless as
+        // an absent one. Walking zero locks inspected 0 and exited 0, hiding a
+        // declared pin whose live version differs. A dir that holds another
+        // stack's locks is not empty: the machine this config declares simply
+        // has no state yet (forjar#488), which is not an error.
+        Some(locks) if !locks.is_empty() || config.is_none() || !holds_no_lock(state_dir) => locks,
         _ => return scan_lockless(state_dir, machine_filter, config, scan_opts),
     };
 
