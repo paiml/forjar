@@ -262,6 +262,25 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
     Ok(in_declared_privilege_context(resource, script))
 }
 
+/// #685: the apply script of `resource` for LINTING, never for running.
+///
+/// `forjar lint` and the quality gate read the UNRESOLVED config, so a resource
+/// carrying `{{secrets.*}}` is refused by [`apply_script`] (the I8 chokepoint)
+/// and its apply script, the one script I8 actually gates, was never linted.
+/// Here each secret reference becomes a placeholder no secret rule can match,
+/// and the script is generated from that copy. Returns `Err` only when a script
+/// cannot be produced at all, so the caller can say so instead of skipping.
+pub fn apply_script_for_lint(resource: &Resource) -> Result<String, String> {
+    use crate::core::resolver::{has_unresolved_secret, with_secret_placeholders};
+    if !has_unresolved_secret(resource) {
+        return apply_script(resource);
+    }
+    let masked = with_secret_placeholders(resource).ok_or_else(|| {
+        "resource carries a secret reference that could not be masked".to_string()
+    })?;
+    apply_script(&masked)
+}
+
 /// FJ-1394 / FJ-29: run a generated script in the privilege context the
 /// resource DECLARES.
 ///

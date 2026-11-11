@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-621 (forjar#621 / PR #933) \u2014 `store import docker` captures created container ID, runs `docker export | tar` under `set -o pipefail`, and removes the temporary container on success or failure.",
+  "branch": "ct3/621-docker-import-rm",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "938dda2f716fecdef60807b32896fdfc809d3330",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at round-2 head 21a730e8; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 21a730e8 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Shell Pipeline Semantics): PASS",
+      "round 2, head 21a730e8 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Store Integrity & Quoting): PASS",
+      "round 2, head 21a730e8 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C3 and R1..R2; R1 (Round 1 @91a0e86 missing pipefail causing rc=0 on truncated export) was fixed at 21a730e8 and R2 (docker rm exit status intentionally ignored in exit $rc) was narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 (@91a0e86) claimed `docker export \"$cid\" | tar -x -C \"$STAGING\"; rc=$?` exited with the export's status, whereas without `pipefail` `rc` captured `tar`'s status (0 on block-aligned cutoff); fixed at 21a730e8 with `(set -o pipefail; ...)` and stub-docker test.",
+      "R2: If `docker rm \"$cid\"` itself fails after a successful export, `exit $rc` in `src/core/store/provider.rs:126` still returns 0 (preserving the extracted store artifact while printing `docker rm` stderr rather than rolling back)."
+    ]
+  },
+  "falsification": {
+    "test": "Strip `set -o pipefail; ` from `src/core/store/provider.rs:126` (and separately revert `provider.rs` to `main`) on t2fw13 (<SCRATCH>) and run `cargo test --lib tests_provider`; both `docker_import_fails_when_export_fails_and_still_removes_container` and `docker_import_removes_created_container` fail.",
+    "test_file": "src/core/store/tests_provider.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): removing `set -o pipefail; ` from `src/core/store/provider.rs` failed `docker_import_fails_when_export_fails_and_still_removes_container` (`left: Some(0), right: Some(1)`, `FJ933_REV2_KILLED`), and restoring `provider.rs` from `main` failed `docker_import_removes_created_container` (`FJ933_REV1_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "Nix `fetchDocker` / `skopeo copy`: extracts OCI filesystem layers without leaving daemon-side stopped containers behind on completion or error",
+      "BuildKit / `docker buildx` container lifecycle: pairs ephemeral container creation with guaranteed post-step `rm` cleanup while propagating pipeline errors via `pipefail`",
+      "Bazel `container_pull` / `crane export`: streams image filesystem tarballs directly and fails closed on non-zero producer status before committing content-addressed digests"
+    ],
+    "verdict": "Capturing `cid=$(docker create ...)`, streaming `docker export | tar` inside a `pipefail` subshell, always running `docker rm \"$cid\"`, and exiting with `$rc` prevent both container leaks and partial-rootfs store commits."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at round-2 head 21a730e8 (`53/53` `tests_provider`, `FJ933_REV1_KILLED`, `FJ933_REV2_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets"
+    ],
+    "findings": "0 vacuous assertions in `src/core/store/tests_provider.rs`; both shape and stub-daemon behavioural falsifiers discriminated cleanly under revert on t2fw13."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-621-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "90abaa76fe78cd00413f9a08a1c4a215989e1f00",
+        "sha256": "2ab360fe0613c85dfa9d20d59708096e4d7bfa03c7368d795e96c2fe7f34aafc",
+        "bytes": 1455
+      },
+      {
+        "path": ".quorum/evidence/PMAT-621-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "95c5e2c4bb43751a425dd9ee55e35b776ebfd105",
+        "sha256": "b7aedd61a5522e5d1a9b220c7213ff5bea2e8d66b76e3280e523c117034b7922",
+        "bytes": 1181
+      },
+      {
+        "path": ".quorum/evidence/PMAT-621-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "2def0279dcb1634d6278e7b869699f1999dfe995",
+        "sha256": "3fa1144c54b33d3ead83248131cab4693a4abd9f1165f2e41c41e61608e48c37",
+        "bytes": 2581
+      },
+      {
+        "path": ".quorum/evidence/PMAT-621-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "269d478c1645e11f0cdc6e9cf94986ecfe29f4d0",
+        "sha256": "754301b2bd3ad886b82476c9098675e14ead826ec3cc2f8207d4bfb46c3811d7",
+        "bytes": 873
+      }
+    ],
+    "total_bytes": 6090,
+    "claims_digest": ".quorum/evidence/PMAT-621-judges.md"
+  }
+}
