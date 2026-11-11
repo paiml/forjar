@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**drift and plan compare the live version against the declared pin (PMAT-912, #852, #613, #694).**
+`forjar drift` with an empty state dir (no lock for any machine) is now treated
+as lockless, as an absent one already was: a declared pin is compared against
+the live binary, offline too, instead of inspecting 0 resources and exiting 0.
+`forjar plan` names a live version that is not the pin, discloses the skipped
+upstream leg when offline, and reads NOT CHECKED for an undeclared machine.
+A package resource's declared `completion_check` is now run by the check script
+for every provider (apt, cargo, uv, brew) beside the presence checks.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
