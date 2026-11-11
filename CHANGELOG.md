@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**build.rs resolves `contracts/` when it runs, not when it was compiled (PMAT-194, #456).**
+`env!("CARGO_MANIFEST_DIR")` is expanded when the build script is compiled, so a
+reused build-script binary (same `CARGO_TARGET_DIR`, another checkout) read the
+old checkout's `contracts/` and panicked. It now reads the variable at run time.
+CI also runs the vendored `forjar-contracts` suite, which no job ran since the
+crate moved in-tree (#452).
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
