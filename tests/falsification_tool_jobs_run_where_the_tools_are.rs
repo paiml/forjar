@@ -161,6 +161,9 @@ fn test_args(line: &str) -> Option<&str> {
         .map(|(_, rest)| rest)
 }
 
+/// The package that owns nas_archive's rsync-requiring safety test.
+const ROOT_PACKAGE: &str = "forjar";
+
 /// Flags that consume the next token as their value, so it is not a filter.
 const TAKES_VALUE: &[&str] = &[
     "-p",
@@ -233,6 +236,12 @@ fn cargo_args_are_unfiltered(args: &str) -> bool {
     let mut toks = args.split_whitespace();
     while let Some(tok) = toks.next() {
         if TARGETED.contains(&tok) || !tok.starts_with('-') {
+            return false;
+        }
+        // `-p <pkg>` narrows the run to that package's tests. nas_archive's
+        // rsync-requiring test belongs to the root crate, so only `-p forjar`
+        // still reaches it; any other package cannot (forjar#452).
+        if matches!(tok, "-p" | "--package") && toks.clone().next() != Some(ROOT_PACKAGE) {
             return false;
         }
         if TAKES_VALUE.contains(&tok) {
@@ -346,6 +355,10 @@ fn the_detector_does_not_pin_what_cannot_reach_the_test() {
         "# cargo mutants would go here",
         "echo cargo is fine",
         "cargo test --doc && cargo test --locked --test foo",
+        // forjar#452: a package other than the root crate cannot reach the root
+        // crate's nas_archive test (it lives in src/resources/nas_archive).
+        "cargo test --locked -p forjar-contracts",
+        "cargo test --locked --package forjar-contracts",
     ] {
         assert!(
             !runs_unfiltered_lib_tests(narrowed),
