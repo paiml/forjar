@@ -40,4 +40,6 @@ A first GREEN run was discarded: it reported 20 tests, which showed it had reuse
 
 - `show` still has its own path beside `prepare_config`; other steps that `prepare_config` performs and `show` skips were not audited here.
 
+- Three-lane review of PR #934 at 8b70633 (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. The receipt's contract wording was narrowed afterwards to what the lanes confirmed. Quorum receipt: `.quorum/reaper-w-forjar-660.json`, written by agy and committed unedited.
+
 IMPL-PMAT-660-RECEIPT-END
