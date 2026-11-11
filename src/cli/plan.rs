@@ -150,6 +150,17 @@ pub(crate) fn cmd_plan_with_pins(
     // forjar#415: a sealed plan is re-planned by `apply --plan-file` against
     // the locks ON DISK, which `--refresh` never writes — so the diff leg of a
     // refreshed plan could never verify. Refuse the pair by name.
+    // A sealed plan is re-checked by `apply --plan-file`, which rebuilds the
+    // config WITHOUT `--param`, so a seal over overridden params can never
+    // verify (PLAN_HASH_MISMATCH). Refuse the pair up front, by name.
+    if !param_overrides.is_empty() && plan_out.is_some() {
+        return Err(
+            "plan --param --out: a sealed plan is re-checked by `apply --plan-file`, \
+             which rebuilds the config without --param, so it could never apply. \
+             Put the value in the config or --env-file and plan again, or drop --out."
+                .to_string(),
+        );
+    }
     if refresh && plan_out.is_some() {
         return Err(
             "plan --refresh --out: a sealed plan is re-checked against the locks on \
