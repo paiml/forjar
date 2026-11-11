@@ -5837,7 +5837,7 @@ roadmap:
   labels: []
   notes: null
   release: backlog
-- id: GH-660
+- id: PMAT-660
   github_issue: 660
   item_type: task
   title: 'forjar show does not resolve data: command sources (plan/apply do): ''unknown data source'''
