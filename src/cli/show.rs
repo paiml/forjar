@@ -33,6 +33,8 @@ pub(crate) fn cmd_show(
     json: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
+    // forjar#660: plan and apply resolve `data:` sources first; show must too, or `{{data.x}}` is "unknown".
+    resolver::resolve_data_sources(&mut config)?;
 
     // Resolve templates in all resources
     for (_id, resource) in config.resources.iter_mut() {
