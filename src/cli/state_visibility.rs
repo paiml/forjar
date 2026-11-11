@@ -75,13 +75,15 @@ pub fn report<L>(
 /// GH-880: a plan against a state directory that does not exist is not a plan.
 ///
 /// `forjar plan` in a fresh worktree has no state, so every resource reads as
-/// "add" and the output looks authoritative. Refuse it, and say how to point
-/// at the canonical state.
-pub fn require_state_dir(state_dir: &Path) -> Result<(), String> {
+/// "add" and the output looks authoritative. Returns the refusal text, or
+/// `None` when the directory is there. It returns the message rather than a
+/// `Result<_, String>` so this adds no site to the untyped-error ratchet
+/// (`scripts/ratchets/untyped-error-sites.json`); the caller owns the `Err`.
+pub fn missing_state_refusal(state_dir: &Path) -> Option<String> {
     if state_dir.is_dir() {
-        return Ok(());
+        return None;
     }
-    Err(format!(
+    Some(format!(
         "no state at {}; use --state-dir <canonical> (a plan without state reports every \
          resource as an add and is not authoritative)",
         describe_path(state_dir)
@@ -166,12 +168,12 @@ mod tests {
 
 #[cfg(test)]
 mod require_state_tests {
-    use super::require_state_dir;
+    use super::missing_state_refusal;
 
     #[test]
     fn missing_state_dir_errors_and_names_the_flag() {
         let d = tempfile::tempdir().unwrap();
-        let err = require_state_dir(&d.path().join("nope")).unwrap_err();
+        let err = missing_state_refusal(&d.path().join("nope")).unwrap();
         assert!(err.contains("no state at"), "{err}");
         assert!(err.contains("--state-dir"), "{err}");
     }
@@ -179,6 +181,6 @@ mod require_state_tests {
     #[test]
     fn existing_state_dir_passes() {
         let d = tempfile::tempdir().unwrap();
-        assert!(require_state_dir(d.path()).is_ok());
+        assert!(missing_state_refusal(d.path()).is_none());
     }
 }

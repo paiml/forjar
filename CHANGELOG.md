@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `forjar apply -t TAG` now runs the tagged resources together with their
+  `depends_on` closure, as `-r` does, so a tagged deploy no longer executes
+  against a prerequisite that carries no tag (PMAT-890).
+- `forjar plan` against a state directory that does not exist is refused,
+  naming `--state-dir`, instead of printing every resource as an add (#880).
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything

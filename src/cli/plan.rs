@@ -159,7 +159,9 @@ pub(crate) fn cmd_plan_with_pins(
         );
     }
     // GH-880: no state directory at all is an error, not "everything is an add".
-    super::state_visibility::require_state_dir(state_dir)?;
+    if let Some(refusal) = super::state_visibility::missing_state_refusal(state_dir) {
+        return Err(refusal);
+    }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let mut locks = load_machine_locks(&config, state_dir, machine_filter)?;
 
