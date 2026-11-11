@@ -10,8 +10,15 @@ Ticket: PMAT-194 (forjar#456), PR #909, branch lane-909.
 - `.github/workflows/ci.yml` (already in the PR): the `examples-validate` job runs
   `cargo test --locked -p forjar-contracts` and the two falsifiers below (#452).
 - New this lane: `tests/falsification_tool_jobs_run_where_the_tools_are.rs` — the
-  unfiltered-lib-run detector now treats `-p <pkg>` / `--package <pkg>` for any
-  package other than the root crate `forjar` as a narrowed run.
+  unfiltered-lib-run detector treats a run as narrowed when it names packages
+  (`-p <pkg>`, `--package <pkg>`, `--package=<pkg>`) and none of them is the root
+  crate `forjar` and `--workspace` is absent; cargo runs the union of every `-p`.
+- Review round 1 (three non-author lanes, head 6f655ea): `build.rs` now emits
+  `cargo::rerun-if-env-changed=CARGO_MANIFEST_DIR` so a second checkout sharing a
+  target dir re-runs the script; the multi-`-p` and `--package=` forms in the
+  detector; the build.rs source check also catches `option_env!`; the ci.yml
+  falsifier accepts `--package` spellings. The ci.yml step itself is unchanged;
+  whether the added steps need a gate sign-off is not decided by this receipt.
 - `CHANGELOG.md`: Unreleased entry for the build.rs fix and the contracts CI step.
 - origin/main was already merged into the branch (clean) before this lane started.
 
@@ -62,53 +69,45 @@ it passed on the origin/main tree, which lacks the new step) and is GREEN after.
 - `falsification_build_rs_manifest_dir_runtime::build_rs_reads_manifest_dir_at_run_time`
 - `falsification_ci_runs_contracts_crate_tests::ci_runs_the_forjar_contracts_unit_tests`
 - `falsification_tool_jobs_run_where_the_tools_are::the_detector_does_not_pin_what_cannot_reach_the_test`
-  (two new narrowed cases: `-p forjar-contracts`, `--package forjar-contracts`)
+  (narrowed: `-p forjar-contracts`, `--package forjar-contracts`, `--package=forjar-contracts`, two non-root
+  packages; unfiltered: `-p forjar-contracts -p forjar` in both orders, `--package` and `--package=` pairs,
+  `-p forjar-contracts --workspace`)
+- `falsification_build_rs_manifest_dir_runtime::build_rs_reruns_when_the_manifest_dir_changes`
+  (RED on kfocus before the build.rs fix, GREEN after; the multi-`-p` case was RED the same way)
 - `falsification_tool_jobs_run_where_the_tools_are::every_unfiltered_lib_test_job_runs_where_rsync_is`
-
-## Reds that are NOT caused by this PR (also red on plain origin/main)
-
-Measured by reverting the PR's files (`build.rs`, `.github`, the two new tests) to
-origin/main in the build clone and running the ten failing test binaries: the same
-nine binaries fail identically (the tenth, red 3, passes there). These need a design
-decision, a workflow edit (forbidden to this lane), or are host-dependent, so they
-are left for the owner:
-
-- `falsification_every_ci_job_runs_on_the_fleet::the_jobs_that_delegate_their_runner_are_exactly_these`:
-  ci.yml pins the shared workflow by commit sha, the test expects `@main`.
-- `falsification_release_workflow_shape::rule2_release_yml_is_the_only_v_star_tag_push_producer`:
-  bench.yml, ci.yml and coverage.yml also trigger on `v*` tags (workflow edit).
-- `falsification_untyped_error_sites_ratchet::the_live_tree_holds_both_ceilings`:
-  untyped_error_fns = 790 against a ceiling of 778 in `scripts/ratchets/untyped-error-sites.json`.
-- `falsification_verb_cli_reader_parity` (two tests): expect sorted listing, observed read_dir order.
-- `falsification_budget_dry_run` (three tests), `falsification_comply_count_cannot_run_inside_itself`
-  (`ulimit -u` cap of 513 vs this account's thread count),
-  `falsification_cron_check_reads_the_owner_crontab` (sudo on the host),
-  `falsification_e02_controlmaster_before_the_drift_gate` (fixture ssh spawn count),
-  `falsification_io_hash_answers_for_its_machine` (a real connect to 203.0.113.7 times out
-  instead of failing as the test names it): the build host's environment; root causes not
-  separated from the host in this lane.
 
 ## Commands run and results
 
-Host kfocus, through the capped wrapper `fc-pre.sh pr-909`, final tree (head plus this lane's commits):
+Host kfocus, through the capped wrapper `fc-pre.sh pr-909`, tree at the commit that carries this receipt's code:
 
+- RED (before the fixes, commit with the new cases only): `cargo test --test falsification_tool_jobs_run_where_the_tools_are --test falsification_build_rs_manifest_dir_runtime --test falsification_ci_runs_contracts_crate_tests --no-fail-fast`: rc=101;
+  `build_rs_reruns_when_the_manifest_dir_changes` FAILED, `the_detector_does_not_pin_what_cannot_reach_the_test` FAILED ("missed an unfiltered run: cargo test --locked -p forjar-contracts -p forjar")
 - `cargo fmt --all -- --check`: rc=0
 - `cargo clippy --all-targets -- -D warnings`: rc=0
 - `cargo test --lib`: rc=0, 13785 passed, 0 failed, 4 ignored
 - `cargo test --test falsification_tool_jobs_run_where_the_tools_are`: rc=0, 4 passed
-- `cargo test --test falsification_build_rs_manifest_dir_runtime`: rc=0, 2 passed
+- `cargo test --test falsification_build_rs_manifest_dir_runtime`: rc=0, 3 passed
 - `cargo test --test falsification_ci_runs_contracts_crate_tests`: rc=0, 1 passed
 - `cargo test --test falsification_version_matches_manifest`: rc=0, 4 passed
+- `cargo test --test falsification_contract_citations_resolve`: rc=0, 7 passed
+- `cargo test --test examples_validate`: rc=0, 2 passed
 - `cargo test --locked -p forjar-contracts`: rc=0, 1332 passed, 0 failed, 44 ignored
 
-Host framework16, uncapped `cargo test --no-fail-fast` over every integration target, tree before the CHANGELOG
-line was added (rust 1.93.0, `cargo`): 384 binaries ok, 9 failed, all nine listed above. The same nine fail
-identically on the tree with the PR's files reverted to origin/main; the tool_jobs binary (red 3) passed
-there and failed on the PR tree before the detector fix, and passes after it. The workspace-wide run's totals
-were not kept: not measured on the final tree. Flips: none seen (the nine reds were identical in both runs).
+Earlier measurement, host framework16, tree before the review-round changes: uncapped `cargo test --no-fail-fast`
+over every integration target: 384 binaries ok, 9 failed, the nine listed below; the same nine fail identically
+with the PR's files reverted to origin/main. No flips seen (identical in both runs).
 
-Not measured: the nine named reds were not fixed or hidden (they are on plain main, no CI job runs them);
-the clean-room run on the final tree.
+## Not covered
 
-verdict: PARTIAL - fmt, clippy, lib tests and the PR's targets are green on kfocus and the one PR-caused test red is fixed at the detector; nine integration targets that no CI job runs stay red on plain origin/main
+- Nine integration targets are red on plain origin/main and no CI job runs them (forjar#858). They were neither
+  fixed nor hidden: `falsification_budget_dry_run` (3 tests), `falsification_comply_count_cannot_run_inside_itself`,
+  `falsification_cron_check_reads_the_owner_crontab`, `falsification_e02_controlmaster_before_the_drift_gate`,
+  `falsification_every_ci_job_runs_on_the_fleet`, `falsification_io_hash_answers_for_its_machine`,
+  `falsification_release_workflow_shape`, `falsification_untyped_error_sites_ratchet` (790 against ceiling 778),
+  `falsification_verb_cli_reader_parity` (2 tests).
+- The all-targets run was not repeated on the final tree (not measured); the clean-room run on the final tree.
+- Whether the `.github/workflows/ci.yml` steps added by this PR need gate sign-off, and the runner-pool
+  placement of `examples-validate`: not decided here.
+
+verdict: PASS - every in-scope claim is measured on kfocus (fmt, clippy, lib, the PR's and the detector's targets, the contracts crate); the nine reds no CI job runs are listed under Not covered
 IMPL-PMAT-194-RECEIPT-END
