@@ -48,4 +48,6 @@ GREEN at this head:
 
 The RED runs of the C1 and C3-C5 falsifiers were made by the authors of those commits and are not repeated in this receipt; here they are GREEN only. The issue's 8-parallel-apply falsifier is not implemented (lock span and release are tested instead).
 
+- Three-lane review of PR #930 at a60316a (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. One lane finding (the FIFO claim in the `lock_wait.rs` module doc was wider than the code) is fixed in be9aa5db. Quorum receipt: `.quorum/forjar-cop-fj-lock-001-c1c2.json`, written by agy and committed unedited.
+
 IMPL-PMAT-920-RECEIPT-END
