@@ -97,8 +97,8 @@ fn refresh_without_r_is_unchanged() {
     assert!(ids.contains(&"unrelated".to_string()), "{ids:?}");
 }
 
-/// forjar#590: a guard whose `command` AND `completion_check` carry a
-/// `{{params.*}}` template must be seeded as converged exactly like the
+/// forjar#590: a guard whose `completion_check` carries a `{{params.*}}`
+/// template (its `command` is plain) must be seeded as converged exactly like the
 /// template-free guard beside it. Reported on 1.31.0: one template flipped the
 /// resource from `unchanged` to `FAILED`, so every templated guard was
 /// permanently RED while satisfied. The two resources differ ONLY by the
