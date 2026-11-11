@@ -48,4 +48,6 @@ Checks on the same tree: `cargo fmt --all -- --check` rc=0; `cargo clippy --lib 
 
 Independent repro of the defect before the fix: `handoff/agy/review-forjar-941-a7a77e0.md` (agy, FAIL @a7a77e0).
 
+- Three-lane review of PR #941 at 78b309b (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. One lane finding (a doc comment on `Selectors.tag`) is fixed in 835caef0. Quorum receipt: `.quorum/fix-refresh-only-selection-470.json`, written by agy and committed unedited.
+
 IMPL-PMAT-911-RECEIPT-END
