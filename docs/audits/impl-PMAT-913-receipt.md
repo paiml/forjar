@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-913 — CI and release gate hygiene (train)
 
-verdict: PASS — two PRs of the train, one section each. PR #981: the arch-neutral gate jobs run on the X64 clean-room pool (three reviewed arch-neutral jobs on either pool) instead of the starved ARM64 pool; only `runs-on` lines change, and `examples-validate` stays on ARM64 as the aarch64 smoke. PR #978: the `examples-validate` job runs the same 20 non-sudo integration test targets, in the same order, in one `cargo test` invocation instead of 18 steps; no target is dropped and the live-sudo step stays separate.
+verdict: PASS — PRs of the train, one section per change. PR #981: the arch-neutral gate jobs run on the X64 clean-room pool (three reviewed arch-neutral jobs on either pool) instead of the starved ARM64 pool; only `runs-on` lines change, and `examples-validate` stays on ARM64 as the aarch64 smoke. PR #978: the `examples-validate` job runs the same 20 non-sudo integration test targets, in the same order, in one `cargo test` invocation instead of 18 steps; no target is dropped and the live-sudo step stays separate. Folded into PR #978 on 2026-11-11: the reusable workflow's jobs go back to the ARM64 clean-room pool, and the mutation job reads the clock when it starts and does nothing outside 00:00-05:59 UTC (review of these two changes is requested at the new head and is not part of the PASS above until it lands).
 
 ## Identity
 
@@ -59,5 +59,44 @@ Evidence:
 - Counts from the PR body (non-comment lines of ci.yml, lint.yml, audit.yml): `cargo test` 21 → 4; `cargo clippy` and `cargo build/check/install` unchanged.
 
 Not measured by forjar-cop on a build host: nothing was compiled for this receipt. The change is workflow YAML, and the PR's CI run is the execution of it.
+
+## PR #978 (folded in) — reusable workflow's jobs back to the ARM64 clean-room pool
+
+A separate PR for this was refused by the open-PR cap (25 open, cap 12), so the change rides on PR #978, same ticket.
+
+Root cause (five whys):
+
+1. After #981, `ci / lint`, `ci / security`, `ci / provenance` and `ci / gate` ask for `[self-hosted, clean-room, X64]`.
+2. This repository is public.
+3. The X64 clean-room runner group does not serve public repositories.
+4. So the X64 jobs of `ci.yml` share one seat (infra-cop's measurement, 2026-11-11, relayed by fleet-sup 17:35Z; not re-measured by forjar-cop).
+5. #981 moved the jobs on queue length alone and did not check which runner groups serve this repository.
+
+Contract: the `runs_on` input of the `ci` job is `["self-hosted","clean-room","ARM64"]`; no job content changes; the jobs defined in `ci.yml` itself stay where #981 put them.
+
+Falsifier: on this PR's CI run the four reusable-workflow jobs must be taken by an ARM64 clean-room runner and finish green. Green on X64 and red on ARM64 reverts the line.
+
+## PR #978 (folded in) — mutation job: earlier cron, night window read at job start
+
+Root cause (five whys):
+
+1. A mutation run sat queued on `intel` through the working day of 2026-11-11 (run 43009168778, cancelled 17:18Z).
+2. It was a `schedule` run created at 11:06 UTC.
+3. The cron was `17 3 * * *`: GitHub delivered the 03:17 slot about 7 h 50 min late.
+4. Nothing in the workflow looked at the clock, so a late delivery ran, or queued, by day.
+5. #973 made the workflow schedule-only but took the schedule's delivery time on trust.
+
+Change: cron `17 0 * * *`; a first step reads the UTC hour when the job starts and, from 06:00 on, every later step is skipped and the job ends with a notice.
+
+Contract: started at an hour below 6 UTC, the job runs as before; otherwise no step after the first runs. Triggers stay `schedule` only.
+
+Falsifier: the hour test, run by hand for 0, 5, 6, 11 and 23, gave run, run, stop, stop, stop; `date -u +%-H` for 08:05 printed `8` (no octal reading). The parsed workflow shows the condition on every step after the first.
+
+Not covered:
+
+- The job stays pinned to `intel`. The ARM64 clean-room containers were checked as a second home (gx10-pool1, gx10-pool3, gx10-light1, read-only): `cargo-mutants` is present, `rsync` is absent, and the unfiltered lib tests need rsync (#598). `tests/falsification_tool_jobs_run_where_the_tools_are.rs` pins the label for that reason. Moving the job needs rsync in that image first.
+- No run of the workflow has exercised the new step: it is schedule-only, so the first measurement is the next night's run.
+- A late delivery now costs that day's mutation run; nothing retries it.
+- Nothing was compiled for these two sections; the repository's workflow tests run in this PR's CI.
 
 IMPL-PMAT-913-RECEIPT-END
