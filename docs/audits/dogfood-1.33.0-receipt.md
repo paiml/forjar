@@ -5,7 +5,7 @@ verdict: NO-GO as measured — MEASURED LATE, on 2026-11-02, against tag v1.33.0
 ## How this was measured
 
 - Date: 2026-11-02, by forjar-w3, in a detached worktree at tag `v1.33.0` (49b33fbd), builds under a scratch directory on `/`, with the tag's own `scripts/dogfood/*.sh`: the same scripts the 1.30–1.32 receipts used, run in `make dogfood-release` order (B C D G, then A E T F H).
-- The cookbook for gate D is `paiml/forjar-cookbook` at `fa292885a124b26ec89dce21725cb95081f7838f`, the commit the v1.33.0 ledger row names.
+- The cookbook for gate D is `paiml/forjar-cookbook` at `fa292885a124b26ec89dce21725cb95081f7838f`, the commit the v1.33.0 ledger row named on 2026-11-02. The row now names `9ba66ad7875d16e587ebfbe59837d88e333375fd` (the first cookbook commit whose Cargo.lock pins forjar 1.33.0); gate D was not re-run against it here.
 - Host `pv` is 0.72.2, newer than the one in use on 2026-09-28. That matters to gate G below.
 - Nothing here was run on a PR head; the other receipts' "why on a branch head" does not apply.
 
@@ -21,11 +21,11 @@ verdict: NO-GO as measured — MEASURED LATE, on 2026-11-02, against tag v1.33.0
 | F | not_measured | `GATE F FAIL line coverage UNMEASURED is below the 95% floor (cargo llvm-cov exit 101)`: the run aborted on a failing test, see below. No percentage was produced. |
 | G | FAIL | `GATE G FAIL pv validate contracts/blake3-state-v1.yaml exited 1` — `[ERROR] VS-COUNT-001: verification_summary.total_obligations is 4 but proof_obligations has 3 entries`. Measured with pv 0.72.2; whether pv at cut time reported it is not_measured. |
 | H | FAIL | `GATE H FAIL no docs/audits/crux-1.33.0.md: 1 behaviour(s) are being released against no recorded comparison with any other system` — the document is absent AT THE TAG; it was added to main later (the ledger row names it). |
-| T | FAIL at the tag | `GATE T FAIL v1.33.0 is reachable from HEAD ... and has no row in docs/roadmaps/releases.yaml`: the ledger row for v1.33.0 was written after the tag. Gate T for v1.33.0 is re-run on the booking branch (release/v1.34.0), where it reconciles the row; see the cover note in that branch's commit. |
+| T | FAIL at the tag | `GATE T FAIL v1.33.0 is reachable from HEAD ... and has no row in docs/roadmaps/releases.yaml`: the ledger row for v1.33.0 was written after the tag. Gate T for v1.33.0 is re-run on the booking branch (chore/bump-1.34.0), where it reconciles the row; see the cover note in that branch's commit. |
 
 ## Findings
 
-**Gate A and E measured a one-PR window.** At HEAD = v1.33.0 the scripts' "since the newest tag" lower bound is `v1.33.0-rc.1` (a prerelease sorts above its final tag in `--sort=-v:refname`, the defect fixed on release/v1.34.0 in 3161a8ef), so the window was #654 only. The other ten PRs of the ledger's v1.33.0 row (#589 #606 #610 #630 #632 #637 #640 #643 #646 #650) were not measured by A or E here: **not_measured**. With the lower bound corrected to v1.33.0 the window is empty, which proves nothing.
+**Gate A and E measured a one-PR window.** At HEAD = v1.33.0 the scripts' "since the newest tag" lower bound is `v1.33.0-rc.1` (a prerelease sorts above its final tag in `--sort=-v:refname`, the defect fixed on main in 963eed6b (#695)), so the window was #654 only. The other ten PRs of the ledger's v1.33.0 row (#589 #606 #610 #630 #632 #637 #640 #643 #646 #650) were not measured by A or E here: **not_measured**. With the lower bound corrected to v1.33.0 the window is empty, which proves nothing.
 
 **Gate F did not produce a coverage figure.** `cargo llvm-cov --workspace` ran `cargo test --tests`, which stopped on one failing test: `tests/falsification_release_workflow_shape.rs` `rule2_release_yml_is_the_only_v_star_tag_push_producer` — `found ["bench.yml", "ci.yml", "coverage.yml", "release.yml"]`, expected only `release.yml`. The lib suite before it passed (13566 passed, 0 failed, 4 ignored). Whether this test also failed on 2026-09-28 is not_measured.
 
