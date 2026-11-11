@@ -105,6 +105,28 @@ pub(super) fn cmd_apply_refresh_only(
         // Refs #368: the operator gate runs on this mode too; `None` here
         // would resolve `$USER@$(hostname)` and refuse the typed operator.
         args.operator.as_deref(),
-        |config| resolve_selection(config, &selectors, verbose).map(|_| ()),
+        |config| select_for_refresh(config, &selectors, args.tag.as_deref(), verbose),
     )
+}
+
+/// The resources a `--refresh-only` run may re-read: the selector closure
+/// (`resolve_selection`), then narrowed by `-t/--tag` with the same rule the
+/// executor applies (`has_tag`: an exact match on one of the resource's tags).
+///
+/// The tag is not a `Selectors` field, so without this step `--refresh-only
+/// -t alpha` re-read every resource and rewrote lock entries the operator had
+/// scoped out.
+pub(super) fn select_for_refresh(
+    config: &mut crate::core::types::ForjarConfig,
+    selectors: &Selectors<'_>,
+    tag: Option<&str>,
+    verbose: bool,
+) -> Result<(), String> {
+    resolve_selection(config, selectors, verbose)?;
+    if let Some(tag) = tag {
+        config
+            .resources
+            .retain(|_, r| r.tags.iter().any(|t| t == tag));
+    }
+    Ok(())
 }
