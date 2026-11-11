@@ -6,9 +6,18 @@ use std::path::Path;
 
 /// FJ-2106: Handle --load flag — tar OCI layout and pipe to docker/podman load.
 pub(crate) fn cmd_build_load(oci_dir: &Path) -> Result<(), String> {
-    let runtime = if super::dispatch_misc_b::which_runtime("docker") {
+    cmd_build_load_with(oci_dir, super::dispatch_misc_b::which_runtime)
+}
+
+/// `cmd_build_load` with the runtime probe injected, so a test states "no runtime" instead of
+/// assuming it from the host (forjar#503).
+pub(crate) fn cmd_build_load_with(
+    oci_dir: &Path,
+    has_runtime: impl Fn(&str) -> bool,
+) -> Result<(), String> {
+    let runtime = if has_runtime("docker") {
         "docker"
-    } else if super::dispatch_misc_b::which_runtime("podman") {
+    } else if has_runtime("podman") {
         "podman"
     } else {
         return Err("--load requires docker or podman on PATH".into());
