@@ -5791,7 +5791,7 @@ roadmap:
   labels: []
   notes: null
   release: backlog
-- id: GH-503
+- id: PMAT-503
   github_issue: 503
   item_type: task
   title: 'cmd_build_with_load_flag_no_runtime asserts on the host: with docker on PATH and `docker load` failing, the workspace suite stops at the lib binary'
