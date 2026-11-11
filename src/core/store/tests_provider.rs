@@ -279,3 +279,56 @@ fn docker_import_removes_created_container() {
         "must remove what it creates: {cmd}"
     );
 }
+
+/// Runs the generated docker import script against a stub `docker` whose
+/// `export` writes one whole tar block and then fails. Returns the script's
+/// exit code and whether `docker rm` ran.
+#[cfg(unix)]
+fn run_docker_import_with_failing_export() -> (Option<i32>, bool) {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("bin");
+    let staging = dir.path().join("staging");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(&staging).unwrap();
+    let marker = dir.path().join("rm-ran");
+    let stub = format!(
+        "#!/bin/sh\ncase \"$1\" in\n  create) echo cid123 ;;\n  export) head -c 512 /dev/zero; exit 1 ;;\n  rm) : > '{}' ;;\nesac\n",
+        marker.display()
+    );
+    let docker = bin.join("docker");
+    std::fs::write(&docker, stub).unwrap();
+    std::fs::set_permissions(&docker, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let cfg = ImportConfig {
+        provider: ImportProvider::Docker,
+        reference: "ubuntu".to_string(),
+        version: None,
+        arch: "x86_64".to_string(),
+        options: BTreeMap::new(),
+    };
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let status = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(import_command(&cfg))
+        .env("PATH", path)
+        .env("STAGING", &staging)
+        .status()
+        .unwrap();
+    (status.code(), marker.exists())
+}
+
+#[cfg(unix)]
+#[test]
+fn docker_import_fails_when_export_fails_and_still_removes_container() {
+    let (code, removed) = run_docker_import_with_failing_export();
+    assert!(removed, "docker rm must run after a failed export");
+    assert_eq!(
+        code,
+        Some(1),
+        "the script must exit with the export's status"
+    );
+}
