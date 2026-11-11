@@ -3,7 +3,7 @@
 use super::commands::LintGateArgs;
 use super::helpers::*;
 use crate::core::quality_gate::{self, GateThresholds};
-use crate::core::{codegen, types};
+use crate::core::{codegen, resolver, types};
 use std::path::Path;
 
 // `lint --fix`'s machinery lives in `lint_fix.rs` (the 500-line ceiling split it
@@ -328,11 +328,20 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     for (id, resource) in &config.resources {
         for (kind, result) in [
             ("check", codegen::check_script(resource)),
-            ("apply", codegen::apply_script(resource)),
+            ("apply", codegen::apply_script_for_lint(resource)),
             ("state_query", codegen::state_query_script(resource)),
         ] {
-            if let Ok(script) = result {
-                lint_generated_script(id, kind, &script, &mut warnings, &mut tally);
+            match result {
+                Ok(script) => {
+                    lint_generated_script(id, kind, &script, &mut warnings, &mut tally);
+                }
+                // #685: a secret-bearing apply script that could not be
+                // generated is not a clean one. Say so; the skip used to be
+                // silent. Refusals on a resource with no secret stay quiet.
+                Err(e) if kind == "apply" && resolver::has_unresolved_secret(resource) => {
+                    warnings.push(format!("bashrs: {id}/{kind} not linted: {e}"));
+                }
+                Err(_) => {}
             }
         }
     }
@@ -450,3 +459,7 @@ pub(crate) fn cmd_lint_with_writer(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "tests_lint_secret.rs"]
+mod tests_lint_secret;

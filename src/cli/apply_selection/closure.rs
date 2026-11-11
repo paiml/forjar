@@ -24,10 +24,12 @@ use std::collections::HashSet;
 
 /// Every resource-set selector `apply` accepts, resolved once.
 ///
-/// `-m`/`--machine` is deliberately absent: it selects the executor and the
-/// lock, not the resource set. `-t` is a positive selector: the tagged
-/// resources are closed over `depends_on` like `-r`, so a tagged deploy never
-/// runs against a prerequisite that carries no tag.
+/// `-m`/`--machine` selects the executor and the lock, not the resource set, so
+/// it never prunes here; it is carried (`machine`) only so a contradiction with
+/// `--only-machine` or `--exclude-machine` is refused by name (#471). `-t` is a
+/// positive selector: the tagged resources are closed over `depends_on` like
+/// `-r`, so a tagged deploy never runs against a prerequisite that carries no
+/// tag.
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Selectors<'a> {
     /// `-r` / `--resource`: exact id (positive).
@@ -52,6 +54,8 @@ pub(crate) struct Selectors<'a> {
     pub exclude_machine: Option<&'a str>,
     /// `-t` (positive): tagged resources plus their `depends_on` closure.
     pub tag: Option<&'a str>,
+    /// `-m` / `--machine` (#471): never prunes; checked against `--only-machine` and `--exclude-machine`.
+    pub machine: Option<&'a str>,
 }
 
 impl<'a> Selectors<'a> {
@@ -183,6 +187,20 @@ fn check_existence(config: &types::ForjarConfig, sel: &Selectors<'_>) -> Result<
     check_skip(config, sel.skip)?;
     check_machine(config, sel.only_machine, "--only-machine")?;
     check_machine(config, sel.exclude_machine, "--exclude-machine")?;
+    if let (Some(only), Some(m)) = (sel.only_machine, sel.machine) {
+        if only != m {
+            return Err(format!(
+                "--only-machine '{only}' and -m '{m}' select disjoint machines; name one machine"
+            ));
+        }
+    }
+    if let (Some(ex), Some(m)) = (sel.exclude_machine, sel.machine) {
+        if ex == m {
+            return Err(format!(
+                "--exclude-machine '{ex}' and -m '{m}' name the same machine; nothing would converge"
+            ));
+        }
+    }
     // An unknown goal carries make's own message; a known one costs one walk.
     resolver::goal_closure(config, sel.goals)?;
     Ok(())

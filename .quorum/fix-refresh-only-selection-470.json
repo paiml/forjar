@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-911 (forjar#470 / PR #941) \u2014 apply --refresh-only ignored resource selectors (-r, --resource-Filter, -t/--tag, --only-machine, --exclude-machine), apply --canary-machine bypassed apply_pre_checks, and saved-plan apply omitted DRIFT_GATE_NOT_RUN disclosure on stderr.",
+  "branch": "fix/refresh-only-selection-470",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "518142c4873725ef642e763d05d77c7ed710f158",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head 78b309bc; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 78b309bc \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Selector Equivalence): PASS",
+      "round 2, head 78b309bc \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Lock Integrity & Side Effects): PASS",
+      "round 2, head 78b309bc \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), none sharing the author model (Claude Opus 5.5).",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; R1 (Round 1 -t/--tag pruning bug) was fixed at 78b309bc and R2 (dispatch_apply_check doc comment) was narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 (@a7a77e0) claimed resolve_selection alone scoped apply --refresh-only -t <tag>, whereas resolve_selection only existence-checks Selectors.tag without pruning config.resources; fixed by select_for_refresh at 78b309bc.",
+      "R2: dispatch_apply_check doc comment above select_for_refresh claimed 'The tag is not a Selectors field', whereas Selectors.tag exists for existence validation and select_for_refresh narrows config.resources afterwards."
+    ]
+  },
+  "falsification": {
+    "test": "Revert tag filter in select_for_refresh (dispatch_apply_check) and pre_checks call in apply_early_exits (dispatch_apply_b) on t2fw13 (<SCRATCH>); refresh_only_tag_selector_refreshes_only_tagged and falsification_canary_runs_prehooks both fail.",
+    "test_file": "tests/falsification_canary_runs_prehooks.rs",
+    "cargo_test_target": "falsification_canary_runs_prehooks",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13: commenting apply_pre_checks(args)? in dispatch_apply_b fails tests/falsification_canary_runs_prehooks.rs (hook marker absent / exit 0 on failing pre-script); removing retain(tag) in select_for_refresh fails refresh_only_tag_selector_refreshes_only_tagged."
+  },
+  "crux": {
+    "systems": [
+      "Terraform plan/apply -refresh-only -target=ADDR: restricts state refresh strictly to targeted resource instances while preserving unselected state entries",
+      "Ansible --tags / --limit with --check: resolves host and tag intersections before running pre_tasks or state probes",
+      "Helm upgrade --atomic pre-upgrade hooks: executes pre-rollout checks once before canary/release phases"
+    ],
+    "verdict": "Scoping --refresh-only via resolve_selection + tag retention, running apply_pre_checks before --canary-machine, and disclosing DRIFT_GATE_NOT_RUN on stderr match standard IaC selector and preflight contracts."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Correctness, Failure Modes, Contract/Falsifiers) verified with cargo test and revert kills on t2fw13",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 78b309bc (4 claims confirmed, 2 claims refuted: R1 code bug fixed in round 2, R2 doc comment narrowed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-911",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo test --lib refresh_only (5/5) + apply_from_plan (34/34) + --test falsification_canary_runs_prehooks (3/3) + 3 revert kills on t2fw13"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-911-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "f1b489c873c6e97daa4adee334e7d00cf180452f",
+        "sha256": "01bf60cee102c916e5835d0a96af4eec23172da2534ff35fea8e72ac121c0591",
+        "bytes": 1184
+      },
+      {
+        "path": ".quorum/evidence/PMAT-911-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "5492538011334cd3641debd1a3a4f5484ca59097",
+        "sha256": "70766d01ce6344cbdf8fe1cc0a279072c628e67e1d88272a7bb93db296db7951",
+        "bytes": 626
+      },
+      {
+        "path": ".quorum/evidence/PMAT-911-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "67718cfc2cf4210d66469f8acc679f4c7b9e8703",
+        "sha256": "c5701326e4f7cfe3a2743af1613763626a110f0a888b2ff9165b83a395328ec5",
+        "bytes": 3271
+      },
+      {
+        "path": ".quorum/evidence/PMAT-911-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "507476d339541bd001666163840b3b1977d96bba",
+        "sha256": "997e32b528db1a9764d2476ad9a269692fe428789ee9f7823fca03a3e019247c",
+        "bytes": 323
+      }
+    ],
+    "total_bytes": 5404,
+    "claims_digest": ".quorum/evidence/PMAT-911-judges.md"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-590 (forjar#590 / PR #946) \u2014 regression-pin tests verifying `apply --refresh` resolves `{{params.*}}` templates in `completion_check` before seeding or rejecting `type: task` guards.",
+  "branch": "f20-r2/590-refresh-template",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "2aab5405d1ca881081d1b79ffad707a3a9476913",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head f84ece9b; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head f84ece9b \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Template-Resolution Order): PASS",
+      "round 1, head f84ece9b \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Transport Boundaries & Isolation): PASS",
+      "round 1, head f84ece9b \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C3 and R1..R2; R1 (the original #590 premise that main skips template resolution on local --refresh) and R2 (test doc comment claiming command is also templated + unmeasured SSH/secrets scope) were refuted/narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Issue #590 hypothesized that `apply --refresh` on `main` built `completion_check` before resolving `{{params.*}}` templates, whereas `lockless_check::host_check_passes` and `refresh::refresh_check_fails` already call `resolve_resource_templates` first.",
+      "R2: The doc comment in `src/core/executor/tests_refresh_closure.rs:100` states both `command` and `completion_check` carry a `{{params.*}}` template, whereas `command` is hardcoded to `\"false\"` and remote SSH / `{{secrets.*}}` paths remain unmeasured."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb `codegen::check_script(&resolved)` to `codegen::check_script(resource)` in `src/core/executor/lockless_check.rs:50` on t2fw13 (<SCRATCH>) and run `cargo test --lib refresh_closure`; `refresh_seeds_a_templated_guard_like_a_plain_one` fails (`FJ946_REV1_KILLED`).",
+    "test_file": "src/core/executor/tests_refresh_closure.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): replacing `codegen::check_script(&resolved)` with `codegen::check_script(resource)` in `src/core/executor/lockless_check.rs:50` failed `refresh_seeds_a_templated_guard_like_a_plain_one` (`#590: [\"plain\"]`, missing `\"templated\"`, `FJ946_REV1_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "Ansible `check_mode` / `when` & `creates` variable interpolation: expands Jinja2 variables before probing target host filesystem guards",
+      "Terraform `refresh` / `data` precondition evaluation: interpolates `var.*` and `local.*` expressions prior to executing external or local state readers",
+      "Chef `not_if` / `only_if` guard blocks: evaluates node attributes inside shell guard strings before running convergence checks"
+    ],
+    "verdict": "Resolving `{{params.*}}` and `{{machines.*}}` templates prior to generating `completion_check` in `--refresh`, and pinning both positive and negative templated guard cases, matches standard IaC guard semantics."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at head f84ece9b (`5/5` `refresh_closure` green + `FJ946_REV1_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets"
+    ],
+    "findings": "0 vacuous assertions in `src/core/executor/tests_refresh_closure.rs`; positive and negative controls discriminate cleanly under perturbation on t2fw13."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-590-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "69edfeba9cef457dbe4457c8bf7324abed3c45ef",
+        "sha256": "b739eca4bb34ac29a6ae2afe1c543d382dd5f89261a6e0a9e82b8b32523c9a1a",
+        "bytes": 1346
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "c4a8d3872e7f3bc3a19a8fc4e394064048526638",
+        "sha256": "1bd89d7c14b0dc72ebba1be0cc64cd997be6f0d1c644f212b3bc683cc5d2ca84",
+        "bytes": 1045
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "98ec3c144dee7ce2b03620de349525fa66a2cd30",
+        "sha256": "6015b4299838ea2affe7edd15445f8b47454d08a7792102cb0db4a83dda16042",
+        "bytes": 2599
+      },
+      {
+        "path": ".quorum/evidence/PMAT-590-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "402b8bdaee7b5637c72bcaf10cd250909df10744",
+        "sha256": "195fb38fa990a4f85ebdc3d1be1007dc8b83f317f3c41c58f4c14bb32c925497",
+        "bytes": 839
+      }
+    ],
+    "total_bytes": 5829,
+    "claims_digest": ".quorum/evidence/PMAT-590-judges.md"
+  }
+}
