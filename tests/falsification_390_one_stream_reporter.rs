@@ -29,12 +29,16 @@ use std::path::Path;
 ///                   plus the two Refs #406 redaction writes that strike a
 ///                   resolved secret out of each stream BEFORE that record is
 ///                   written. Both persist bytes; neither renders a message.
+///                   PMAT-5880 adds two more: `redact_output` strikes the
+///                   secrets out of each stream BEFORE `failure_text` cuts the
+///                   excerpt, so a secret straddling the cut cannot leak a
+///                   prefix. Redaction again, not rendering (forjar#858).
 ///   resource_ops  — `record_success` hashes the state query's stdout
 ///   helpers       — content hashing and `parse_signature`: data, not messages
 fn budget() -> BTreeMap<&'static str, usize> {
     BTreeMap::from([
         ("failure_text.rs", 3),
-        ("run_capture.rs", 4),
+        ("run_capture.rs", 6),
         ("resource_ops.rs", 1),
         ("helpers.rs", 2),
     ])

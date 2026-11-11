@@ -48,6 +48,44 @@ fn sweepable_refuses_the_root_itself_and_top_level_dirs() {
     assert!(!sweepable(&home, &["/home"]), "$HOME itself is never swept");
 }
 
+/// Run `fb_sweepable` the way the reaper does (`set -u`) with HOME set to
+/// `home`, or removed when `None`. Returns the exit code.
+fn sweepable_strict(cand: &str, prefix: &str, home: Option<&str>) -> i32 {
+    let script = format!(
+        "set -u\nfb_log() {{ :; }}\n{}\nfb_sweepable \"$@\"",
+        prelude()
+    );
+    let mut cmd = std::process::Command::new("sh");
+    cmd.arg("-c").arg(script).arg("sh").arg(cand).arg(prefix);
+    match home {
+        Some(h) => cmd.env("HOME", h),
+        None => cmd.env_remove("HOME"),
+    };
+    cmd.status().expect("sh runs").code().unwrap_or(-1)
+}
+
+#[test]
+fn sweepable_survives_set_u_with_no_home() {
+    // forjar#858: sudo, ssh and a systemd unit without User= deliver no HOME.
+    // A bare `$HOME` under `set -u` aborted the whole reaper pass (exit 2).
+    let dir = std::path::Path::new("/tmp")
+        .join(format!("fj858-{}", std::process::id()))
+        .join("target");
+    std::fs::create_dir_all(&dir).unwrap();
+    let p = dir.to_str().unwrap().to_string();
+    let no_home = sweepable_strict(&p, "/tmp", None);
+    let home_is_cand = sweepable_strict(&p, "/tmp", Some(&p));
+    std::fs::remove_dir_all(dir.parent().unwrap()).ok();
+    assert_eq!(
+        no_home, 0,
+        "{p} must be sweepable with HOME unset under set -u"
+    );
+    assert_eq!(
+        home_is_cand, 1,
+        "$HOME itself is still refused (1, not a crash)"
+    );
+}
+
 #[test]
 fn cargo_detector_accepts_either_real_layout() {
     // Measured on lambda-labs 2026-08-16 across a 4.6 TB targets/ tree:

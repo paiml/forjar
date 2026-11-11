@@ -147,7 +147,11 @@ fb_sweepable() {
       *) fb_log "  REFUSE too shallow (depth 2, not /tmp): $fb_p"; return 1 ;;
     esac
   fi
-  if [ -n "$HOME" ] && [ "$fb_p" = "$HOME" ]; then
+  # `${HOME:-}`, never `$HOME`: the reaper runs under `set -u`, and sudo, ssh
+  # and a systemd unit without User= deliver no HOME. A bare `$HOME` killed
+  # the pass right here ("HOME: parameter not set", exit 2) before it
+  # reclaimed or reported anything (forjar#858, budget_dry_run).
+  if [ -n "${HOME:-}" ] && [ "$fb_p" = "${HOME:-}" ]; then
     fb_log "  REFUSE \$HOME itself: $fb_p"
     return 1
   fi
