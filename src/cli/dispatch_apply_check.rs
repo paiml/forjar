@@ -113,9 +113,9 @@ pub(super) fn cmd_apply_refresh_only(
 /// (`resolve_selection`), then narrowed by `-t/--tag` with the same rule the
 /// executor applies (`has_tag`: an exact match on one of the resource's tags).
 ///
-/// The tag is not a `Selectors` field, so without this step `--refresh-only
-/// -t alpha` re-read every resource and rewrote lock entries the operator had
-/// scoped out.
+/// `resolve_selection` only checks that `Selectors.tag` names an existing tag;
+/// it does not prune by it. So without this step `--refresh-only -t alpha`
+/// re-read every resource and rewrote lock entries the operator had scoped out.
 pub(super) fn select_for_refresh(
     config: &mut crate::core::types::ForjarConfig,
     selectors: &Selectors<'_>,
