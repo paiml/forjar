@@ -47,38 +47,42 @@ ci.yml all pass on the merged tree. Nothing was skipped or ignored.
 
 ## Failures that are not caused by this PR
 
-A full `cargo test --no-fail-fast` on kfocus ends with 9 failing targets. None
-is caused by the PR: the PR changes no file under `src/`, and re-running the
-eight non-doc targets with `stress.yml` put back to its origin/main content
-gives the identical 9 failing tests.
+The first full `cargo test --no-fail-fast` on kfocus (taken while the host was
+loaded by other builds) ended with 9 failing targets. The final run, on the
+committed tree, ends with 2. None is caused by the PR: it changes no file under
+`src/`, and re-running the eight non-doc targets with `stress.yml` put back to
+its origin/main content gave the identical failing tests.
 
-- `falsification_every_ci_job_runs_on_the_fleet`
-  (`the_jobs_that_delegate_their_runner_are_exactly_these`): origin/main's
-  ci.yml pins `sovereign-ci.yml@fbee3788...`, the test expects `@main`.
+Still failing in the final run, both red on origin/main by content:
+
 - `falsification_release_workflow_shape`
   (`rule2_release_yml_is_the_only_v_star_tag_push_producer`): origin/main's
   bench.yml, ci.yml and coverage.yml all carry `tags: ['v*']`.
 - `falsification_untyped_error_sites_ratchet` (`the_live_tree_holds_both_ceilings`):
   790 untyped error fns against a ceiling of 778, from src/ on main.
-- `falsification_budget_dry_run`, `falsification_comply_count_cannot_run_inside_itself`,
-  `falsification_cron_check_reads_the_owner_crontab`,
-  `falsification_e02_controlmaster_before_the_drift_gate`,
-  `falsification_io_hash_answers_for_its_machine`: src behaviour on this host
-  (sudo, ulimit, ssh, 90% full /tmp), identical with the PR's workflow change removed.
-- `--doc`: every doctest fails at link time, "linking with `cc` failed ... PLEASE
-  submit a bug report to llvm", a linker crash on kfocus.
+
+Failed in the first run only, and passed in the final run with no change to the
+tree, so they are load or host dependent (the doctests died at link time with an
+LLVM linker crash): `falsification_every_ci_job_runs_on_the_fleet`,
+`falsification_budget_dry_run`, `falsification_comply_count_cannot_run_inside_itself`,
+`falsification_cron_check_reads_the_owner_crontab`,
+`falsification_e02_controlmaster_before_the_drift_gate`,
+`falsification_io_hash_answers_for_its_machine`, and `--doc`.
 
 These need their own tickets and owners; they are outside the scope of
-PMAT-673 and widening to them is a design decision.
+PMAT-673, and fixing them means editing src/ or main's workflows, a design
+decision.
 
 ## Commands run (all on kfocus, ~/src/fc-pre/pr-914)
 
 - `cargo fmt --all -- --check`: exit 0
 - `cargo clippy --all-targets -- -D warnings`: exit 0
 - `cargo test --locked` over the nine dogfood-guards targets from ci.yml: exit 0
-- `cargo test --no-fail-fast` (full): exit 101, 9 targets failed, listed above
-- `cargo test --no-fail-fast` over the 8 failing non-doc targets with stress.yml
-  at origin/main content: exit 101, the same 9 failing tests
+- `cargo test --no-fail-fast` (full, first run): exit 101, 9 targets failed
+- `cargo test --no-fail-fast` over 8 targets with stress.yml at origin/main
+  content: exit 101, the same failing tests as the first run
+- `cargo test --no-fail-fast` (full, final run on the committed tree): 2 targets
+  failed, both listed above
 
-verdict: partial - the PR's own red (dogfood-guards) is green and fmt and clippy are clean; the full suite still has 9 failing targets that also fail without the PR's change
+verdict: partial - the PR's own red (dogfood-guards) is green and fmt and clippy are clean; two suite targets still fail and also fail without the PR's change
 IMPL-PMAT-673-RECEIPT-END
