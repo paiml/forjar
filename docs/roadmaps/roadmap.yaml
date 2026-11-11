@@ -7656,3 +7656,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-858
+  github_issue: 858
+  item_type: task
+  title: integration tests red on main and not run by CI (forjar#858)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T09:00:00Z
+  updated: 2026-11-15T09:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
