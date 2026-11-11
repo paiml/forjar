@@ -18,9 +18,9 @@ verdict: PASS — `cmd_show` resolves data sources right after parse-and-validat
 
 ## Contract and falsifier
 
-Contract: `forjar show` resolves `data:` sources before templates, so every manifest that `plan` resolves, `show` resolves too.
+Contract: `forjar show` resolves `data:` sources before templates, so a manifest whose templates read `{{data.*}}` renders under `show` as it does under `plan`. This does not extend to what only `plan`'s `prepare_config` adds (`--env-file` params, the `--workspace` param): `show` still skips those.
 
-Falsifier: `cli::tests_cov_show2::show_resolves_data_sources`.
+Falsifier: `cli::tests_cov_show2::show_resolves_data_sources`. It asserts that `cmd_show` succeeds on a `{{data.*}}` manifest (it failed before); it does not capture stdout, and the substituted value itself is pinned by `core::resolver::tests_data`.
 
 ## Evidence (kfocus, `nice -n 19`, 2026-11-11, `cargo test --lib tests_cov_show2`)
 
