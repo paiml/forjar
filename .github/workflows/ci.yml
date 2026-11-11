@@ -58,7 +58,12 @@ jobs:
       # every gate job on ARM64 because ARM64 sat idle and X64 had 123 forjar jobs queued. On
       # 2026-11-10 ~18:26Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
       # Back to X64; `examples-validate` stays on ARM64 as the one aarch64 smoke.
-      runs_on: '["self-hosted","clean-room","X64"]'
+      # 2026-11-11 (infra-cop, measured after #981): this repository is public, and the X64
+      # clean-room runner group does not serve public repositories, so the X64 jobs of this
+      # workflow share one seat. The reusable workflow's jobs (lint, security, provenance and
+      # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
+      # where #981 put them.
+      runs_on: '["self-hosted","clean-room","ARM64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
       # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
