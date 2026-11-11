@@ -2506,12 +2506,12 @@ roadmap:
   kind: code
   github_issue: null
   item_type: task
-  title: 'E07: derivation sandbox emits seccomp-bpf and forjar-hash-dir — neither binary exists (GH #410)'
-  status: planned
+  title: 'E07 part 1: seal a sandbox $out in-process; the plan no longer names forjar-hash-dir or /HASH/ (GH #410)'
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'See GitHub issue #410 and docs/specifications/forjar-architecture-crux-audit.md'
@@ -2521,7 +2521,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6).
+  notes: 'Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6). Retitled 2026-11-11 from: "E07: derivation sandbox emits seccomp-bpf and forjar-hash-dir — neither binary exists (GH #410)"; remainder moved to PMAT-987. Completed 2026-11-11: 46ee342d (#682, Refs #410) adds sandbox_seal::seal_output, so the plan no longer names forjar-hash-dir or a literal /HASH/ path. Nothing calls seal_output yet and seccomp-bpf has not landed; both are PMAT-987.'
 - id: PMAT-146
   kind: code
   github_issue: null
@@ -2584,11 +2584,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'E12: plan --refresh consults the host before diffing; check and apply --dry-run --refresh already did (GH #415)'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-02T16:20:39Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'See GitHub issue #415 and docs/specifications/forjar-architecture-crux-audit.md'
@@ -2599,7 +2599,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: 'Retitled 2026-10-06 from "plan/check/--dry-run are lock-relative and cannot consult a host" to the scope the issue Fix names. Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6). 2026-10-06: delivered as plan --refresh (the issue Fix and Success criterion). check already runs check scripts on the target (src/cli/check.rs) and apply --dry-run --refresh already refreshes before the dry-run return (src/core/executor/mod.rs), so only plan needed the change. Plain apply --dry-run without --refresh stays lock-relative by design, as plain plan does; --refresh is the opt-in for both.'
+  notes: 'Retitled 2026-10-06 from "plan/check/--dry-run are lock-relative and cannot consult a host" to the scope the issue Fix names. Carried onto main from the local roadmap branch on 2026-09-07 for the 1.26.0 triage; deferred to 1.27 (CRUX-0 stages S5-S6). 2026-10-06: delivered as plan --refresh (the issue Fix and Success criterion). check already runs check scripts on the target (src/cli/check.rs) and apply --dry-run --refresh already refreshes before the dry-run return (src/core/executor/mod.rs), so only plan needed the change. Plain apply --dry-run without --refresh stays lock-relative by design, as plain plan does; --refresh is the opt-in for both. 2026-11-11: completed. 314ed749 (#684) adds plan --refresh, which runs the drift detectors before the diff and writes nothing; the commit says Closes #415, and #415 is closed completed with #684 as the closer.'
 - id: PMAT-151
   kind: code
   github_issue: null
@@ -5012,15 +5012,15 @@ roadmap:
 - id: PMAT-698
   github_issue: 698
   item_type: task
-  title: 'bump bashrs to 7.4.2: I8 gate must lint infra''s fw16-wired-10g-nm-owner completion_check with 0 errors (SC2075 FP, bashrs#441)'
-  status: planned
+  title: 'bump bashrs to 7.4.2 (I8 gate: quoted $a=$b no longer SC1066)'
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-10T13:40:00Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
-  - '`cargo tree -i bashrs --depth 0` prints `bashrs v7.4.2` and a committed fixture copy of the fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test; the same test is red on bashrs 7.4.1. Blocked until bashrs 7.4.2 is on crates.io.'
+  - 'Cargo.lock on main is bashrs 7.4.2 (33aa711e #715, add6c08e #758); tests/falsification_698_i8_sc1066_quoted_equals.rs is red on bashrs 7.4.1.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5028,7 +5028,7 @@ roadmap:
   - kind:code
   - must-carry
   - release:v1.34.0
-  notes: null
+  notes: 'Retitled 2026-11-11 from: "bump bashrs to 7.4.2: I8 gate must lint infra''s fw16-wired-10g-nm-owner completion_check with 0 errors (SC2075 FP, bashrs#441)"; remainder moved to PMAT-988. Completed 2026-11-11: the bashrs 7.4.2 bump (33aa711e #715, add6c08e #758) and an I8 regression fixture for the SC1066 quoted-$a=$b form landed. Original acceptance criterion, narrowed on 2026-11-11 to what was met: "`cargo tree -i bashrs --depth 0` prints `bashrs v7.4.2` and a committed fixture copy of the fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test; the same test is red on bashrs 7.4.1. Blocked until bashrs 7.4.2 is on crates.io." The fw16 SC2075 fixture has not landed (no fw16 or nm-owner fixture exists in tests/ or src/) and is PMAT-988.'
   release: 1.34.0
   epic: 696
 - id: PMAT-710
@@ -5116,11 +5116,11 @@ roadmap:
   github_issue: 663
   item_type: task
   title: 'service: state enabled/disabled converge to what their check asserts (#663)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-04T14:30:00Z
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-11T10:03:19Z
   spec: docs/book/src/03-resources.md
   acceptance_criteria:
   - For each state (running, stopped, enabled, disabled) and each start (active/inactive x enabled/disabled), the generated apply_script run against a fake systemctl leaves the unit in the declared state, the generated check_script then exits 0, and a second apply makes no start/stop/enable/disable call (src/resources/tests_service_converge.rs).
@@ -5133,8 +5133,8 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
-  release: 1.35.0
+  notes: 'Completed 2026-11-11: ac292488 (#767, from #666) adds test_663_enabled_converges, test_663_disabled_converges and test_663_contradictory_enabled_is_a_validation_error in src/resources/tests_service_converge.rs. release moved from 1.35.0 to 1.34.0: the work merged in the 1.34.0 window.'
+  release: 1.34.0
 - id: PMAT-738
   github_issue: 738
   item_type: task
@@ -5178,12 +5178,12 @@ roadmap:
 - id: PMAT-756
   github_issue: 756
   item_type: task
-  title: 'IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest'
-  status: planned
+  title: 'IMG-001 (1-2/N): base index resolves to linux/<arch>; assembler layers a base, keeps the tag, reports the manifest digest'
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-21T20:16:56Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'paiml/infra#2074 IMG-001 gaps 1-4: empty scratch image from forjar build'
@@ -5193,7 +5193,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'Retitled 2026-11-11 from: "IMG-001: type:image build layers its base, executes packages/command, keeps the tag, prints the manifest digest" (paiml/infra#2074 IMG-001 gaps 1-4); remainder moved to PMAT-989. Completed 2026-11-11: 8bf9ab7b (#784) resolves a multi-platform index to the linux/<arch> manifest; f1c8536c (#816, which also carries #817) adds the image plumbing and assemble_image_with_base, which layers a base, annotates the tag in index.json and reports the manifest digest. Not landed, and now PMAT-989: forjar build (src/cli/build_image.rs) calls assemble_image with no base, and packages/command are not executed.'
   epic: 765
 - id: PMAT-703
   github_issue: 703
@@ -5275,14 +5275,14 @@ roadmap:
   notes: null
   epic: 696
 - id: PMAT-775
-  github_issue: 775
+  github_issue: null
   item_type: task
   title: 'audit red on main: tokio 1.53.1 unsound (RUSTSEC-2026-0386), lock to 1.54.1'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-10-24T12:00:00Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -5291,8 +5291,8 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
-  release: 1.35.0
+  notes: 'Completed 2026-11-11: 118ab321 (#783) locks tokio at 1.54.1 and adds a lockfile test that fails on 1.53.1 and forbids an ignore entry. github_issue was 775 and is now null: forjar#775 is the unrelated secrets-encrypt issue ("secrets encrypt: plaintext only via argv"). release moved from 1.35.0 to 1.34.0: the work merged in the 1.34.0 window.'
+  release: 1.34.0
   epic: 763
 - id: PMAT-735
   github_issue: 735
@@ -5452,11 +5452,11 @@ roadmap:
   github_issue: 760
   item_type: task
   title: 'parse_config: a malformed document reports the schema-free parse''s error (forjar#720)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-10-22T13:54:47Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'Ticket minted for PR #720 which carried no Pmat-Ticket trailer (EMG3-2).'
@@ -5466,17 +5466,17 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'Completed 2026-11-11: 318be9ec (#786) makes parse_config report the schema-free Value parse''s error, with a test in src/core/parser/tests_core.rs.'
   epic: 670
 - id: PMAT-5880
   github_issue: null
   item_type: task
   title: redact resolved secrets from the failure excerpt (infra#2307 gate-token delivery)
-  status: in_progress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-10-24T13:40:00Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -5485,7 +5485,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'Completed 2026-11-11: e7c6a6e0 (#782) redacts resolved secrets from the failure excerpt in state.lock, events.jsonl, last-apply and stderr, at both wave widths; a canary test greps every state file.'
 - id: PMAT-840
   github_issue: 840
   item_type: task
@@ -5511,11 +5511,11 @@ roadmap:
   github_issue: 838
   item_type: task
   title: 'Forjar-managed 24/7 watchdog: per-cop tick timer, sanctioned restart from brief, minimum live workers per tier-1 repo'
-  status: planned
+  status: cancelled
   priority: high
   assigned_to: null
   created: 2026-10-31T09:46:41Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'Operator (Noah via arbiter-cop): "the sovereign stack must work 24/7". Evidence: forjar-cop idle 36h with no tick; deadman alerts with no auto-action; rmedia-b3 55 MB session needed manual restart; aprender workers-alive=0 undetected. Five whys (to confirm by measurement): cycle is a session loop not a unit; nothing owns it; deadman only alerts; restart is ad-hoc ssh/tmux; no declared minimum worker count so zero is not a failure. Scope: (a) per-cop tick/publish timer declared in forjar; (b) restart a stalled or oversized session from its handoff brief via a sanctioned forjar path, no ad-hoc ssh; (c) minimum live workers per tier-1 repo (from flow-manifest.yaml) with an andon below it. Falsifiers first: stop a cop and assert a row still publishes and the session restarts from its brief; drop workers below the minimum and assert the andon. Scope review before any build.'
@@ -5525,7 +5525,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'Cancelled 2026-11-11: PR #839 named this ticket but shipped only the row plus the forjar#851 drift_followup extraction; the watchdog never started in forjar; #838 closed not_planned 2026-11-05; no successor minted here (fleet watchdog work belongs in paiml/infra)'
   epic: 837
 - id: PMAT-721
   github_issue: 721
@@ -5551,11 +5551,11 @@ roadmap:
   github_issue: 613
   item_type: task
   title: 'drift/plan blind to versioned-binary drift: live --version never compared with the declared pin or upstream latest'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-09-24T00:00:00Z
-  updated: 2026-11-11T09:54:55Z
+  updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
   - 'src/tripwire/drift/tests_version_pin.rs fj613_live_version_ahead_of_pin_is_drift_even_when_the_lock_agrees: a github_release pinned v0.33.2 whose binary prints "ollama version is 0.34.2", under a lock baselined after the install, yields one DRIFT finding (expected "version 0.33.2", actual "version 0.34.2", detail names the DOWNGRADE) and the census names the offline upstream skip; it fails with "got []" when the two version_pin::detect call sites are reverse-applied'
@@ -5566,7 +5566,7 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.0
-  notes: null
+  notes: 'Completed 2026-11-11: landed in 270df0d7 (#781, from #628) and 468cf294 (#811, split 14 of #759); the tests named in the acceptance criteria exist in src/tripwire/drift/tests_version_pin.rs, and drift_followup.rs refuses --auto-remediate when a version finding exists.'
   release: 1.34.0
 - id: PMAT-622
   github_issue: 622
@@ -5701,6 +5701,62 @@ roadmap:
   - release:v1.34.0
   notes: null
   epic: 696
+- id: PMAT-987
+  github_issue: 987
+  item_type: task
+  title: 'E07 part 2: seccomp-bpf mechanism; execute_sandbox_plan runs and calls seal_output'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-11T10:03:19Z
+  updated: 2026-11-11T10:03:19Z
+  spec: null
+  acceptance_criteria:
+  - 'The seccomp-bpf mechanism exists, and execute_sandbox_plan runs the plan and calls sandbox_seal::seal_output (the remainder of GH #410)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: split from PMAT-145
+- id: PMAT-988
+  github_issue: 988
+  item_type: task
+  title: 'I8 gate: committed fw16-wired-10g-nm-owner completion_check fixture lints 0 errors (SC2075, bashrs#441)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-11T10:03:19Z
+  updated: 2026-11-11T10:03:19Z
+  spec: null
+  acceptance_criteria:
+  - A committed fixture copy of infra's fw16-wired-10g-nm-owner completion_check lints with 0 errors through the I8 gate test. If it fails on bashrs 7.4.2, the fix belongs in bashrs.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: split from PMAT-698
+  epic: 696
+- id: PMAT-989
+  github_issue: 989
+  item_type: task
+  title: 'IMG-001 (3/N): forjar build layers its declared base and executes packages/command into a layer'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-11T10:03:19Z
+  updated: 2026-11-11T10:03:19Z
+  spec: null
+  acceptance_criteria:
+  - forjar build layers the base its config declares, and packages and command are executed into a layer (paiml/infra#2074 IMG-001 gaps 1-2)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: split from PMAT-756
+  epic: 765
 - id: GH-414
   github_issue: 414
   item_type: task
