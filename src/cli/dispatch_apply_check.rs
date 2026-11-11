@@ -42,8 +42,8 @@ pub(super) fn scope_of(args: &ApplyArgs) -> super::apply_scope::ApplyScope<'_> {
 
 /// Every resource-set selector the operator typed, as one value.
 ///
-/// `-m` is deliberately absent (it picks the executor, not the resource set);
-/// `-t` is carried so the resolver can existence-check it, and applied again
+/// `-m` is carried only so a contradiction with `--only-machine` / `--exclude-machine`
+/// is refused (#471), exactly as `apply` refuses it; it never prunes. `-t` is carried so the resolver can existence-check it, and applied again
 /// per resource by the check loop, exactly as the planner applies it.
 pub(super) fn selectors_of<'a>(
     args: &'a ApplyArgs,
@@ -54,6 +54,7 @@ pub(super) fn selectors_of<'a>(
         group: args.group.as_deref(),
         subset: args.subset.as_deref(),
         tag: args.tag.as_deref(),
+        machine: args.machine.as_deref(),
         ..Default::default()
     }
     .with_scope(scope)
