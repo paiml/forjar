@@ -76,6 +76,9 @@ full at the time; it passes with the disk at 45%.
 - `cargo test --no-fail-fast --test <the 11 targets>` on origin/main export: exit 101, 10 failed
 - `cargo test --test falsification_release_changelog_counts_the_window --test falsification_version_matches_manifest --test falsification_crux_gate_reads_the_release_section --test falsification_crux_audit_shape` (after the CHANGELOG edit): exit 0
 - `cargo test --test falsification_446_exec_facts_doctor`: exit 0
+- `cargo test --workspace --no-fail-fast` (the gate command, run before the host wrapper rule): exit 101, the same 10 integration targets failed, nothing else
+- Final run through the host wrapper on the committed tree (fmt, clippy, lib tests for file, package, lint corpus and shell_escape, and the audit, changelog, version and doctor integration targets): RC fmt=0, clippy=0, lib=0, integ=0, wrapper rc=0
+- Flips (same inputs, two verdicts): `fj446_doctor_machine_reports_path_and_disk` failed once with the host disk at 99% and passed at 45%; no other test flipped
 
 verdict: PARTIAL - PR change is green (fmt, clippy, 13789 lib tests, its falsifiers); CI red was a stale branch, cleared by the main merge; 10 integration targets stay red on origin/main itself and are outside this PR
 
