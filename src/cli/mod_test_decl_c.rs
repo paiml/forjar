@@ -133,6 +133,8 @@ mod tests_cov_apply_modes;
 #[cfg(test)]
 mod tests_cov_apply_variants2;
 #[cfg(test)]
+mod tests_refresh_only_selection;
+#[cfg(test)]
 mod tests_cov_fleet_run;
 #[cfg(test)]
 mod tests_cov_infra_dispatch2;
