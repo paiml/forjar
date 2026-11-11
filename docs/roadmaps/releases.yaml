@@ -103,7 +103,9 @@ releases:
     tickets: [PMAT-588, PMAT-600, PMAT-604, PMAT-614, PMAT-624, PMAT-629, PMAT-631, PMAT-634, PMAT-642, PMAT-651, PMAT-652]
     dogfood: docs/audits/dogfood-1.33.0-receipt.md
     crux: docs/audits/crux-1.33.0.md
-    cookbook: fa292885a124b26ec89dce21725cb95081f7838f
+    cookbook: 9ba66ad7875d16e587ebfbe59837d88e333375fd
+    # cookbook was fa292885 (locks forjar 1.32.0, never compiled against 1.33.0); 9ba66ad7
+    # (forjar-cookbook#33, 2026-11-02) is the first commit whose Cargo.lock pins 1.33.0: qualified LATE
     # #646 is PMAT-624 and #643 is PMAT-642 (named by github_issue)
     # #630 names PMAT-1055, which PMAT-629 declares as its alias (forjar#882)
 next:
