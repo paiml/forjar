@@ -135,7 +135,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       # One `cargo test` over every integration target below (same job, same
       # default feature set, same --locked): one resolution/compile plan instead
-      # of 20 invocations. Targets run in this order and a failing target fails
+      # of 18 invocations (20 targets). Targets run in this order and a failing target fails
       # the step (cargo's default fail-fast, as the former per-step chain did).
       # Each guards what its own test file's header says (#292 orphaned sources,
       # #298 contract citations, #376/#377 undo, #386 hosted cache, #400/PMAT-554
