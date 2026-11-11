@@ -64,6 +64,7 @@ case "${1:-}" in
     if [ -d "$CB200_WATCH" ]; then echo present > "$CB200_SEEN"; else echo absent > "$CB200_SEEN"; fi
     # The newline INSIDE the JSON string must reach the parser as the two
     # characters `\n`, so printf gets `\\n` there and a real newline at the end.
+    if [ -n "${CB200_RAW_FILE:-}" ]; then cat "$CB200_RAW_FILE"; exit 0; fi
     printf '{"checks":[{"name":"CB-200: TDG Grade Gate","status":"Fail","severity":"Error","message":"%s function(s) below minimum grade A\\n    a.rs:1 f [F] (complexity: 40)"}]}\n' "$CB200_COUNT"
     ;;
   *) echo "shim: unexpected $*" >&2; exit 2 ;;
@@ -222,4 +223,79 @@ fn a_missing_cache_root_is_skipped_not_created_or_removed() {
         !fx.cache_root.exists(),
         "the script created a cache root it was not asked for"
     );
+}
+
+/// Run the ratchet with `pmat comply check` printing exactly `raw`.
+fn run_raw(fx: &Fixture, raw: &str) -> (i32, String) {
+    let file = fx._dir.path().join("raw.out");
+    std::fs::write(&file, raw).expect("write raw");
+    let path = format!(
+        "{}:{}",
+        fx.bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    let out = Command::new("bash")
+        .arg("scripts/cb200-ratchet.sh")
+        .current_dir(&fx.root)
+        .env("PATH", path)
+        .env("PMAT_COMPLY_CACHE", &fx.cache_root)
+        .env("CB200_WATCH", &fx.cache_dir)
+        .env("CB200_SEEN", &fx.seen)
+        .env("CB200_RAW_FILE", &file)
+        .output()
+        .expect("run the ratchet");
+    let text =
+        String::from_utf8_lossy(&out.stdout).to_string() + &String::from_utf8_lossy(&out.stderr);
+    (out.status.code().unwrap_or(-1), text)
+}
+
+const REPORT: &str = r#"{"checks":[{"name":"CB-200: TDG Grade Gate","status":"Fail","message":"700 function(s) below minimum grade A"}]}"#;
+
+/// PMAT-896 review round 1: an output the ratchet cannot read as exactly one
+/// comply document is UNMEASURED (exit 1, says so) — never a crash of the
+/// integer comparison (exit 2, "integer expression expected"), never a pass.
+/// The deleted Python parsed the whole output with `json.load` and printed -1
+/// on any failure, so every case below was already UNMEASURED there.
+#[test]
+fn an_output_that_is_not_exactly_one_document_is_unmeasured() {
+    let cases: [(&str, String); 5] = [
+        (
+            "two documents, noise first",
+            format!("{{\"info\":1}}\n{REPORT}\n"),
+        ),
+        ("two documents, report first", format!("{REPORT}\n{{}}\n")),
+        ("whitespace only", " \n \n".to_string()),
+        (
+            "banner line before the document",
+            format!("[log] starting\n{REPORT}\n"),
+        ),
+        ("truncated document", REPORT[..40].to_string()),
+    ];
+    for (name, raw) in cases {
+        let fx = fixture();
+        set_cache_age(&fx, "2100-01-01T00:00:00");
+        let (code, text) = run_raw(&fx, &raw);
+        assert_eq!(
+            code, 1,
+            "{name}: expected a refusal with exit 1, got {code}: {text}"
+        );
+        assert!(
+            text.contains("UNMEASURED"),
+            "{name}: the refusal does not say UNMEASURED: {text}"
+        );
+        assert!(
+            !text.contains("integer expression"),
+            "{name}: the integer comparison crashed instead of refusing: {text}"
+        );
+    }
+}
+
+/// Control: exactly one document still measures.
+#[test]
+fn exactly_one_document_is_measured() {
+    let fx = fixture();
+    set_cache_age(&fx, "2100-01-01T00:00:00");
+    let (code, text) = run_raw(&fx, &format!("{REPORT}\n"));
+    assert_eq!(code, 1, "700 against a ceiling of 651 must be red: {text}");
+    assert!(text.contains("REGRESSED"), "wrong reason: {text}");
 }

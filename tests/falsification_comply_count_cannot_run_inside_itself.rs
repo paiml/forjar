@@ -257,3 +257,82 @@ fn the_guard_does_not_stop_the_measurement() {
         "the measurement printed {stdout:?} rather than the count the check reported"
     );
 }
+
+/// Run the script with a stubbed `pmat` whose `comply check` prints exactly `raw`.
+fn measure_raw(raw: &str) -> (i32, String, String) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let out_file = dir.path().join("pmat.out");
+    std::fs::write(&out_file, raw).expect("write raw");
+    let stub = dir.path().join("pmat");
+    std::fs::write(
+        &stub,
+        format!("#!/usr/bin/env bash\ncat '{}'\n", out_file.display()),
+    )
+    .expect("write stub");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    }
+    let path = format!(
+        "{}:{}",
+        dir.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    run(&[("PATH", &path)], &["CB-200"])
+}
+
+const ONE_DOC: &str =
+    r#"{"checks":[{"name":"CB-200: x","status":"fail","message":"12 finding(s) — A 12"}]}"#;
+
+/// PMAT-896 review round 1: an output that is not exactly one JSON document
+/// must FAIL CLOSED — non-zero and nothing on stdout, because a caller reads
+/// an empty or numeric stdout as the check's finding count.
+///
+/// The deleted Python cut the output at its first `{` and `json.loads`-ed the
+/// rest, so a `{}` anywhere before the report, a second document, or trailing
+/// text ("Extra data") was an error and exit 1. Each case below was exit 1
+/// there; the jq version without a one-document check printed one row per
+/// document, matched no arm of its `case`, and exited 0 with empty stdout.
+#[test]
+fn unreadable_or_ambiguous_comply_output_fails_closed() {
+    let cases: [(&str, String); 6] = [
+        (
+            "brace on a banner line",
+            format!("[log] cfg={{}}\n{ONE_DOC}\n"),
+        ),
+        ("empty object line first", format!("{{}}\n{ONE_DOC}\n")),
+        ("two documents", format!("{{\"info\":1}}\n{ONE_DOC}\n")),
+        (
+            "report then a second document",
+            format!("{ONE_DOC}\n{{}}\n"),
+        ),
+        ("no JSON at all", "[log] pmat crashed\n".to_string()),
+        ("truncated document", ONE_DOC[..30].to_string()),
+    ];
+    for (name, raw) in cases {
+        let (code, stdout, stderr) = measure_raw(&raw);
+        assert_ne!(
+            code, 0,
+            "{name}: exited 0 (stdout={stdout:?}, stderr={stderr:?})"
+        );
+        assert!(
+            stdout.trim().is_empty(),
+            "{name}: printed {stdout:?} on stdout"
+        );
+        assert!(
+            !stderr.trim().is_empty(),
+            "{name}: failed without saying why"
+        );
+    }
+}
+
+/// Controls: a text-only banner line before the one document is still read
+/// (the Python cut at the first `{` too), and a pass is 0.
+#[test]
+fn one_document_is_measured_with_or_without_a_plain_banner() {
+    let (code, stdout, stderr) = measure_raw(&format!("[log] starting\n{ONE_DOC}\n"));
+    assert_eq!((code, stdout.trim()), (0, "12"), "stderr={stderr}");
+    let pass = r#"{"checks":[{"name":"CB-200: x","status":"pass","message":"ok"}]}"#;
+    let (code, stdout, stderr) = measure_raw(pass);
+    assert_eq!((code, stdout.trim()), (0, "0"), "stderr={stderr}");
+}
