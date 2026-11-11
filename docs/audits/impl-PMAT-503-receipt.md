@@ -38,4 +38,6 @@ RED is a compile failure, not a failing assertion: with `src/cli/build_distribut
 - The docker and podman branches still shell out for real; only the choice of branch is injected.
 - Three-lane review, not fixed here: the second assertion of `cmd_build_with_load_flag_no_runtime` passes a probe that reports podman, so it runs real `tar` and `podman load` on `/nonexistent-oci-dir`; it passes on any host because that path fails either way, but it does spawn host binaries. The same test still writes a `forjar.yaml` it no longer uses. No test passes a probe that reports both runtimes, so "docker before podman" is stated in the contract and not pinned by a test.
 
+- Three-lane review of PR #948 at c946388 (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. The receipt's verdict was narrowed afterwards; the lanes' test findings are listed under Not covered. Quorum receipt: `.quorum/g3-503-load-test-hermetic.json`, written by agy and committed unedited.
+
 IMPL-PMAT-503-RECEIPT-END
