@@ -1,0 +1,5 @@
+# PMAT-590 (`forjar#946`) — Three-Lane Independent Refuter Transcript Summary
+
+- **Lane 1 (Gemini 4 Carbon High — Correctness & Template-Resolution Order)**: Verified `host_check_passes` and `refresh_check_fails` template resolution order, positive/negative tests, and `FJ946_REV1_KILLED` (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @f84ece9b2456abbfda44ac5f9a1404f602e2ce0c`.
+- **Lane 2 (Gemini 4 Carbon High — Failure Modes, Transport Boundaries & Isolation)**: Verified fail-closed behavior on undefined params, hermetic tempdir usage, and the `resolve_resource_templates` vs `resolve_resource_templates_with_secrets` / SSH boundary (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @f84ece9b2456abbfda44ac5f9a1404f602e2ce0c`.
+- **Lane 3 (Gemini 4 Carbon High — Contract, Revert Falsifiers & Traceability)**: Verified `docs/audits/impl-PMAT-590-receipt.md`, `5/5` `refresh_closure`, and `FJ946_REV1_KILLED` on `t2fw13` (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @f84ece9b2456abbfda44ac5f9a1404f602e2ce0c`.

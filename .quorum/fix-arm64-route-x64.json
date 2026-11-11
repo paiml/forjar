@@ -1,0 +1,102 @@
+{
+  "kind": "code",
+  "issue": "PMAT-913 (forjar#913, PR #981) \u2014 205 forjar CI jobs queued behind 6 ARM64 clean-room runners at 2026-11-10 ~18:26Z; 13 arch-neutral gate jobs move back to X64, 4 reviewed arch-neutral lint/msrv legs drop the arch label to use either pool, and examples-validate stays on ARM64 as the aarch64 smoke.",
+  "branch": "fix/arm64-route-x64",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "7826044a40bd2d96fb894ac62193c44e357e1cbe",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/traceability) at head 32255669; 3/3 PASS with 2 prose claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 32255669 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Pool Routing): PASS",
+      "round 1, head 32255669 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes & Cache-Arch Safety): PASS",
+      "round 1, head 32255669 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Guards & Gate Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the PR author model (Claude Opus 5.5).",
+    "kill_rule": "every claim K1..K6 was independently attacked across all 3 angles; R1 and R2 were refuted in commit/PR prose while all 20 workflow YAML files and cache guards passed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: commit 535b2280 recorded (18:35Z) for the 205-job ARM64 queue measurement in ci.yml:59 and its commit body, whereas the org-runner snapshot was ~18:26Z; refuted and corrected in ci.yml:59 by commit d4a6693d.",
+      "R2: PR #981 body under 'What.' claimed 'Moved to X64 (11 jobs) ... (That is 14 runs-on lines.)', whereas the diff moves 13 jobs / 13 runs-on lines to X64 (8 in ci.yml, 3 in proofs.yml, 1 in behavior.yml, 1 in convergence.yml) plus 4 arch-less lines in lint.yml/msrv.yml = 17 total runner lines."
+    ]
+  },
+  "falsification": {
+    "test": "tests/cache-key-arch-guard.sh + scripts/lint-rust-cache-guard.sh (--selftest 12/12) + 20-workflow yaml.safe_load check on t2fw13 (<SCRATCH>); stripping -${{ runner.arch }} from lint.yml turns cache-key-arch-guard.sh RED.",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13: removing -${{ runner.arch }} from .github/workflows/lint.yml in <SCRATCH> caused tests/cache-key-arch-guard.sh to exit non-zero with FAIL .github/workflows/lint.yml."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions self-hosted label routing: omitting ARM64/X64 on arch-neutral jobs lets idle runners in either clean-room pool claim queued legs",
+      "Swatinem/rust-cache + actions/cache with runner.arch: arch-segmented cache keys prevent cross-ELF proc-macro target/ contamination across x86_64 and aarch64",
+      "Buildkite elastic agent queues: arch-agnostic lint/check steps share a common pool while native binary smoke tests pin a dedicated arch queue"
+    ],
+    "verdict": "Operational CI runner routing only; shipped CLI behaviour is unchanged."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Correctness, Failure Modes, Contract/Traceability) with workflow/cache guard verification on t2fw13",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 32255669 (4 claims confirmed, 2 prose claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-913",
+    "tools": [
+      "analyze_vacuous_tests",
+      "bash tests/cache-key-arch-guard.sh + bash scripts/lint-rust-cache-guard.sh --selftest on t2fw13: 20 workflows clean, 12/12 selftest cases green"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-913-981-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "f2f952e7721826d7df24580b256ca3aea31cf451",
+        "sha256": "56412a5bc94871f637dd8ddf041faadf8788b48135d7c672e4dab01eab2225f1",
+        "bytes": 1144
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-981-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "fda88677fdda9066b6d29dcd3273880cccf13aac",
+        "sha256": "594260ba7fec336ca3757cf3cfb40d98d0606fd3400da10b4484c5e39459e322",
+        "bytes": 532
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-981-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3ff814f8ce14d935ef7b1de182bc8c480557413e",
+        "sha256": "48205ec6df7de63f65f60d50fe3b96d24e40e23b8cd8b58de6b9366d3155ffd1",
+        "bytes": 3138
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-981-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "072bb1dc2a6ed49bb4a913501c55c39b9b194a15",
+        "sha256": "96279674de80774e50590134d317e27f54e32b745a89200e6659c35e92ad7fa1",
+        "bytes": 323
+      }
+    ],
+    "total_bytes": 5137,
+    "claims_digest": ".quorum/evidence/PMAT-913-981-judges.md"
+  }
+}
