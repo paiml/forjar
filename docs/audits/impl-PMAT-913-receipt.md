@@ -21,7 +21,7 @@ Falsifier: dropping or reordering one `--test` target fails the step-target bije
 Evidence:
 
 - Independent review, agy (Gemini 4 Carbon), run on t2fw13: `PASS @acc837269db9f9a1f6699f2376b8a28c30225451`. It parsed the job before (c5b7e4f) and after (acc8372), found the 20 targets 1:1 in order, the sudo step preserved, and killed the target-drop falsifier. File: `handoff/agy/review-forjar-978-acc8372.md` in the fleet inbox.
-- Three-lane review at 20c4883 (agy, `handoff/agy/review-forjar-978-20c4883-lane{1,2,3}.md`): all three PASS. Two claims of this receipt were refuted as written and are corrected above: the step count (18 non-sudo steps covering 20 targets, plus 1 live-sudo step, not 19 merged steps) and the order claim (the version-manifest target moved ahead of the live-sudo target).
+- Three-lane review at 20c4883 (agy; quorum receipt `.quorum/chore-ci-dedupe-cargo.json`, written by agy and committed unedited): all three PASS. Two claims of this receipt were refuted as written and are corrected above: the step count (18 non-sudo steps covering 20 targets, plus 1 live-sudo step, not 19 merged steps) and the order claim (the version-manifest target moved ahead of the live-sudo target).
 - CI on acc83726: rollup SUCCESS, including `examples-validate`, `dogfood-guards` and `gate`. The merged step ran every target on the PR's own run.
 - Counts from the PR body (non-comment lines of ci.yml, lint.yml, audit.yml): `cargo test` 21 → 4; `cargo clippy` and `cargo build/check/install` unchanged.
 
