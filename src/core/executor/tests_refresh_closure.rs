@@ -42,7 +42,11 @@ resources:
 "#;
 
 fn refreshed_ids(filter: Option<&str>) -> Vec<String> {
-    let config: ForjarConfig = serde_yaml_ng::from_str(YAML).unwrap();
+    refreshed_ids_of(YAML, filter)
+}
+
+fn refreshed_ids_of(yaml: &str, filter: Option<&str>) -> Vec<String> {
+    let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let cfg = ApplyConfig {
         config: &config,
@@ -91,4 +95,62 @@ fn refresh_under_r_leaves_non_closure_and_checkless_deps_alone() {
 fn refresh_without_r_is_unchanged() {
     let ids = refreshed_ids(None);
     assert!(ids.contains(&"unrelated".to_string()), "{ids:?}");
+}
+
+/// forjar#590: a guard whose `completion_check` carries a `{{params.*}}`
+/// template (its `command` is plain) must be seeded as converged exactly like the
+/// template-free guard beside it. Reported on 1.31.0: one template flipped the
+/// resource from `unchanged` to `FAILED`, so every templated guard was
+/// permanently RED while satisfied. The two resources differ ONLY by the
+/// template, so a regression that makes template resolution count as "check
+/// failed" drops `templated` and fails this test.
+#[test]
+fn refresh_seeds_a_templated_guard_like_a_plain_one() {
+    let yaml = r#"
+version: "1.0"
+name: refresh-templated
+params:
+  root: /
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  plain:
+    type: task
+    machine: localhost
+    command: "false"
+    completion_check: "[ -d / ]"
+  templated:
+    type: task
+    machine: localhost
+    command: "false"
+    completion_check: "[ -d {{params.root}} ]"
+"#;
+    let ids = refreshed_ids_of(yaml, None);
+    assert!(ids.contains(&"plain".to_string()), "{ids:?}");
+    assert!(ids.contains(&"templated".to_string()), "#590: {ids:?}");
+}
+
+/// The negative control: a templated check that FAILS must not be seeded.
+#[test]
+fn refresh_does_not_seed_a_templated_guard_whose_check_fails() {
+    let yaml = r#"
+version: "1.0"
+name: refresh-templated-fail
+params:
+  root: /definitely/not/a/dir
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  templated:
+    type: task
+    machine: localhost
+    command: "false"
+    completion_check: "[ -d {{params.root}} ]"
+"#;
+    let ids = refreshed_ids_of(yaml, None);
+    assert!(!ids.contains(&"templated".to_string()), "{ids:?}");
 }
