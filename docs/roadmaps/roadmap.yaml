@@ -7108,3 +7108,25 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-492
+  github_issue: 492
+  item_type: task
+  title: 'Release build-binaries fails on apt lock contention: every apt-get in a workflow waits for the lock (DPkg::Lock::Timeout) and a guard keeps it so'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-11T21:20:00Z
+  updated: 2026-11-11T21:30:00Z
+  spec: null
+  acceptance_criteria:
+  - Every apt-get update or install in .github/workflows carries -o DPkg::Lock::Timeout=600, so a shared runner waits for the apt lock instead of failing the leg.
+  - scripts/apt-lock-timeout-guard.sh exits 0 on the real tree, 1 on a planted bare apt-get, and 2 when it scanned nothing.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Opened by prq-run seat-s3; the proof that a shared runner now waits is a real CI run, not yet re-run'
+  release: backlog
