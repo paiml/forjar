@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A file resource stages to a per-run name, not a fixed one (PMAT-638, #638).**
+The atomic replace staged every write at `<path>.forjar-new`, a name any writer
+in the same directory could open between the `rm -f` and the `mv -f`. The script
+now stages at `<path>.forjar-new.$$` (the shell's PID). A PID is still guessable
+and an apply that dies before the `mv -f` leaves its `.forjar-new.<pid>` behind;
+both are accepted and stated in the code. A `completion_check` declared on a
+package resource is now part of its check verdict (#694). The generated-script
+lint corpus now exercises `state: file` with `content` and with `source`.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
