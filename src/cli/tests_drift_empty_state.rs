@@ -55,3 +55,25 @@ fn f852_empty_state_dir_pin_mismatch_is_drift() {
 fn f852_empty_state_dir_matching_pin_is_clean() {
     run("0.33.2").expect("matching pin is clean");
 }
+
+/// forjar#488 vs #852: a state dir that holds ANOTHER stack's lock is not an
+/// empty one. A declared machine that was never applied there has "no state
+/// yet", which is not an error, even when it declares nothing a lockless run
+/// could ask the host about (a `file`).
+#[test]
+fn f852_state_dir_with_another_stacks_lock_is_not_lockless() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state = tmp.path().join("state");
+    let other = crate::core::state::new_lock("elsewhere", "elsewhere");
+    crate::core::state::save_lock(&state, &other).unwrap();
+    let cfg = tmp.path().join("f.yaml");
+    std::fs::write(
+        &cfg,
+        "version: \"1.0\"\nname: t\nmachines:\n  box:\n    hostname: box\n    addr: 127.0.0.1\nresources:\n  f:\n    type: file\n    machine: box\n    path: /tmp/forjar-f852-never\n    content: x\n",
+    )
+    .unwrap();
+    cmd_drift_offline(
+        &cfg, &state, None, false, None, false, false, false, false, None, false, true, true,
+    )
+    .expect("a never-applied machine beside another stack's locks is not a drift failure");
+}

@@ -127,3 +127,18 @@ fn gh694_package_check_runs_the_declared_completion_check() {
         assert!(s.contains("completion_check=failed"), "{provider}");
     }
 }
+
+/// #694: a blank `completion_check` asserts nothing. It must not reach the
+/// script as an empty `if` condition, which is a shell syntax error (`if\n  \nthen`).
+#[test]
+fn gh694_blank_completion_check_adds_no_assertion() {
+    for provider in ["apt", "cargo", "uv", "brew"] {
+        let mut r = make_apt_resource(&["jre"]);
+        r.provider = Some(provider.to_string());
+        let without = check_script(&r);
+        for blank in ["", "   ", "\n\t "] {
+            r.completion_check = Some(blank.to_string());
+            assert_eq!(check_script(&r), without, "{provider}: {blank:?}");
+        }
+    }
+}
