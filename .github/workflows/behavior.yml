@@ -3,21 +3,17 @@
 name: behavior
 on:
   push:
-    branches: [main]
+    branches: [main, "train/**"]
     paths:
       - "src/**"
       - "tests/**/*.spec.yaml"
       - ".cargo/config.toml"
       - ".github/workflows/behavior.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "tests/**/*.spec.yaml"
   workflow_dispatch:
 
 concurrency:
-  group: behavior-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   behavior:
@@ -39,8 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      # Toolchain comes from rust-toolchain.toml (preinstalled in the runner image);
+      # no runtime fetch, no floating `@stable`.
+      - name: Show toolchain
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
 
