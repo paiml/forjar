@@ -233,22 +233,31 @@ fn binary_args_are_unfiltered(args: &str) -> bool {
 }
 
 fn cargo_args_are_unfiltered(args: &str) -> bool {
+    // `-p <pkg>` narrows the run to that package's tests, and cargo runs the
+    // UNION of every `-p`. nas_archive's rsync-requiring test belongs to the
+    // root crate, so the run is narrowed only if packages are named and none of
+    // them is the root and the whole workspace was not asked for (forjar#452).
+    let (mut saw_package, mut saw_root, mut workspace) = (false, false, false);
     let mut toks = args.split_whitespace();
     while let Some(tok) = toks.next() {
         if TARGETED.contains(&tok) || !tok.starts_with('-') {
             return false;
         }
-        // `-p <pkg>` narrows the run to that package's tests. nas_archive's
-        // rsync-requiring test belongs to the root crate, so only `-p forjar`
-        // still reaches it; any other package cannot (forjar#452).
-        if matches!(tok, "-p" | "--package") && toks.clone().next() != Some(ROOT_PACKAGE) {
-            return false;
+        let package = match tok {
+            "-p" | "--package" => toks.next(),
+            _ => tok.strip_prefix("--package="),
+        };
+        if let Some(pkg) = package {
+            saw_package = true;
+            saw_root |= pkg == ROOT_PACKAGE;
+            continue;
         }
+        workspace |= matches!(tok, "--workspace" | "--all");
         if TAKES_VALUE.contains(&tok) {
             toks.next();
         }
     }
-    true
+    !saw_package || saw_root || workspace
 }
 
 #[test]

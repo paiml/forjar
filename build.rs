@@ -17,6 +17,9 @@ struct EquationYaml {
 }
 
 fn emit_contract_assertions() {
+    // The directory is read when this script RUNS; whether it runs again when
+    // another checkout shares the target dir is decided by this directive.
+    println!("cargo::rerun-if-env-changed=CARGO_MANIFEST_DIR");
     let dir =
         std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
             .join("contracts");
