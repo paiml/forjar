@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-685 — lint and the quality gate lint the apply script of a secret-bearing resource
 
-verdict: PASS — `forjar lint` and the quality gate now generate and lint the apply script of a resource that carries `{{secrets.*}}`, from a copy whose secret references are placeholders; a script that still cannot be generated is reported, not skipped.
+verdict: PASS — `forjar lint` and the quality gate now generate and lint the apply script of a resource that carries `{{secrets.*}}`, from a copy whose secret references are placeholders; `forjar lint` reports a script that still cannot be generated instead of skipping it. The quality gate does not: it leaves such a script out without a message (`src/core/quality_gate/checks.rs`, unchanged here).
 
 ## Identity
 

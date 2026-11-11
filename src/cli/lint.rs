@@ -337,7 +337,7 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
                 }
                 // #685: a secret-bearing apply script that could not be
                 // generated is not a clean one. Say so; the skip used to be
-                // silent. Other refusals (a type with no apply) stay quiet.
+                // silent. Refusals on a resource with no secret stay quiet.
                 Err(e) if kind == "apply" && resolver::has_unresolved_secret(resource) => {
                     warnings.push(format!("bashrs: {id}/{kind} not linted: {e}"));
                 }
