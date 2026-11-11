@@ -2514,7 +2514,7 @@ roadmap:
   updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
-  - 'See GitHub issue #410 and docs/specifications/forjar-architecture-crux-audit.md'
+  - 'Part 1 only: sandbox_seal::seal_output exists and steps 8-9 of the sandbox plan no longer name forjar-hash-dir or /HASH/ (46ee342d #682). The seccomp-bpf mechanism and executing the plan are PMAT-987. Original criterion: see GitHub issue #410 and docs/specifications/forjar-architecture-crux-audit.md.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5186,7 +5186,7 @@ roadmap:
   updated: 2026-11-11T10:03:19Z
   spec: null
   acceptance_criteria:
-  - 'paiml/infra#2074 IMG-001 gaps 1-4: empty scratch image from forjar build'
+  - 'A multi-platform base index resolves to its linux/<arch> manifest (8bf9ab7b #784); assemble_image_with_base layers a base, writes the tag into index.json and reports the manifest digest (f1c8536c #816). infra#2074 gaps 1-2 (forjar build layers its base; packages/command executed) are PMAT-989. Original criterion: paiml/infra#2074 IMG-001 gaps 1-4, empty scratch image from forjar build.'
   phases: []
   subtasks: []
   estimated_effort: null
