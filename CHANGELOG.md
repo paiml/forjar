@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**The weekly Stress Tests lane can go green (PMAT-673, #673).** Each matrix leg
+ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a
+30-minute timeout, so no leg could finish, and the default fail-fast cancelled
+the sibling legs. The legs now run three passes under a 45-minute timeout with
+`fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
+pins that passes x 9 minutes + build fits the timeout.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
