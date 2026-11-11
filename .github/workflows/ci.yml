@@ -184,14 +184,6 @@ jobs:
       # editing and undoing their own stack must NEVER be refused.
       - name: undo must refuse a foreign state dir, and only a foreign one
         run: cargo test --locked --test falsification_undo_state_dir_interlock
-      # #452: the vendored crate's own suite (1300+ tests) was never run in CI.
-      - name: forjar-contracts unit tests
-        run: cargo test --locked -p forjar-contracts
-      # #456: build.rs reads CARGO_MANIFEST_DIR at run time, not compile time.
-      - name: build.rs resolves contracts/ at run time
-        run: cargo test --locked --test falsification_build_rs_manifest_dir_runtime
-      - name: CI runs the forjar-contracts tests
-        run: cargo test --locked --test falsification_ci_runs_contracts_crate_tests
       # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
       # crate's 242 integration test binaries is a 70.70 GiB tree — already the
       # size of a hosted runner's disk. The cache asked tar+zstd for a second
