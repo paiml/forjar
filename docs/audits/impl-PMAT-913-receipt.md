@@ -8,7 +8,7 @@ verdict: PASS — PR #981: the arch-neutral gate jobs run on the X64 clean-room 
 - PR #981, branch `fix/arm64-route-x64`, change head 3225566
 - files: `.github/workflows/behavior.yml`, `ci.yml`, `convergence.yml`, `lint.yml`, `msrv.yml`, `proofs.yml` (+23 −20), `docs/roadmaps/roadmap.yaml` (row `GH-913` renamed to `PMAT-913`)
 
-This receipt covers PR #981 only at this commit. PR #978 (same train) carries its own section of this file on its branch; whichever lands second merges the two sections.
+This receipt covers PR #981 only at this commit. PR #978 (same train) carries its own section of this file on its branch; whichever lands second merges the two sections. PR #904 (a dependabot action bump filed under this train) has its own section below.
 
 ## PR #981 — route arch-neutral gate jobs off the ARM64 pool
 
@@ -34,5 +34,22 @@ Known cost, from the PR body: the X64 clean-room pool was also full when measure
 Not measured by forjar-cop on a build host: nothing was compiled for this receipt. The change is workflow YAML, and the PR's CI run is the execution of it.
 
 - Three-lane review of PR #981 at 3225566 (agy, Gemini 4 Carbon): 3/3 PASS, 2 prose claims refuted (a timestamp already fixed in d4a6693d; the PR body said 11 jobs where the diff moves 13, body corrected). Quorum receipt: `.quorum/fix-arm64-route-x64.json`, written by agy and committed unedited.
+
+## PR #904 — softprops/action-gh-release 3.0.2 to 3.0.4
+
+Change: one line, `.github/workflows/nightly.yml:247` (`Create nightly release`), the pinned commit `3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2` becomes `8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4`. `git diff origin/main --shortstat` on the PR branch merged with main at dbd1ec3e: 1 file changed, 1 insertion, 1 deletion. It is the only `softprops/action-gh-release` call site in the file.
+
+Contract: the nightly release step runs the v3.0.4 action; no `with:` input changes.
+
+Evidence (read 2026-11-11, `gh api`, 2 read-only calls):
+
+- `repos/softprops/action-gh-release/git/ref/tags/v3.0.4` is an annotated tag (object 28ab305d0ffa26d60ec4bd614126329e26c7a0ec); `git/tags/28ab305d...` dereferences it to commit 8a0cd651e5b2365bd640854a3fa5dfc70e4875f3, which is the SHA the PR pins. The pin is the commit, not the tag object.
+- Pin style matches the file: every other `uses:` in `nightly.yml` is a 40-character commit SHA with a `# vX.Y.Z` comment (`actions/checkout`, `upload-artifact`, `download-artifact`); the one exception, `dtolnay/rust-toolchain@stable` (line 129), was already unpinned on main.
+
+Not measured: the nightly release step itself was not run on a host; the PR's CI run does not exercise it (it runs on schedule). Nothing was compiled for this section. Whether v3.0.4 changes release behaviour was not read from the upstream changelog.
+
+CHANGELOG: no Unreleased entry. The file lists no individual GitHub Action bump (the 1.34.0 "CI and release engineering" line names gate changes, not action pins), and `[Unreleased]` on main is empty.
+
+Quorum receipt: not written here. `.quorum/<slug>.json` is the reviewer's file, and the review round for #904 is the place it comes from.
 
 IMPL-PMAT-913-RECEIPT-END
