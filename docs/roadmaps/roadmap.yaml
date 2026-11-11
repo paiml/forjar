@@ -2785,6 +2785,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
+  - orch-basis:state
   notes: 'Clean-room builds start from a fresh checkout, so the release artifact is not affected; the hazard is local reuse of target/. Registered under the title "S2: build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — read it at run time so a reused build-script binary never reads another checkout''s contracts/ (GH #456, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
   release: backlog
 - id: PMAT-195
