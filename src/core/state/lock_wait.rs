@@ -3,8 +3,10 @@
 //! A waiter drops a ticket file `<lock>.q.<unix-nanos>.<pid>.<id>` beside the
 //! lock and only the lexicographically first ticket whose owner is alive may
 //! try to take the lock, so waiters are served in arrival order and a late
-//! arrival cannot overtake. Tickets of dead processes are swept as they are
-//! met, so a killed waiter never blocks the queue.
+//! waiter cannot overtake an earlier one. The order holds among queued callers
+//! only: a caller with a zero timeout takes no ticket and tries once, so it can
+//! win a just-released lock ahead of the queue. Tickets of dead processes are
+//! swept as they are met, so a killed waiter never blocks the queue.
 
 use std::path::{Path, PathBuf};
 
