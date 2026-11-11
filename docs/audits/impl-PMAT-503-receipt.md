@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-503 — `cmd_build_with_load_flag_no_runtime` depends on the host's docker/podman
 
-verdict: PASS — the runtime probe is injected (`cmd_build_load_with`), so the "no runtime" tests state that case themselves and no longer depend on what is on the host's PATH; production behaviour is unchanged
+verdict: PASS — the runtime probe is injected (`cmd_build_load_with`), so the "no runtime" tests state that case themselves and their verdict no longer depends on which runtime the host has; one probe in them still spawns `tar`/`podman` from PATH against a path that does not exist (see Not covered); production behaviour is unchanged
 
 ## Identity
 
@@ -36,5 +36,6 @@ RED is a compile failure, not a failing assertion: with `src/cli/build_distribut
 
 - The host-dependent failure that #503 reports (docker present, `docker load` failing) was not reproduced for this receipt; the evidence is that the tests no longer read the host.
 - The docker and podman branches still shell out for real; only the choice of branch is injected.
+- Three-lane review, not fixed here: the second assertion of `cmd_build_with_load_flag_no_runtime` passes a probe that reports podman, so it runs real `tar` and `podman load` on `/nonexistent-oci-dir`; it passes on any host because that path fails either way, but it does spawn host binaries. The same test still writes a `forjar.yaml` it no longer uses. No test passes a probe that reports both runtimes, so "docker before podman" is stated in the contract and not pinned by a test.
 
 IMPL-PMAT-503-RECEIPT-END
