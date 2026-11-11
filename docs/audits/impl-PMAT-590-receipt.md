@@ -48,4 +48,6 @@ Both mutations were reverted; neither is in this branch.
 - The original report was against a remote (ssh) host. Both tests use the local transport; a remote-only cause is unmeasured.
 - The tests cover `type: task` only.
 
+- Three-lane review of PR #946 at f84ece9 (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. One lane finding (a test doc comment) is fixed in e9cdfcad. Quorum receipt: `.quorum/f20-r2-590-refresh-template.json`, written by agy and committed unedited.
+
 IMPL-PMAT-590-RECEIPT-END
