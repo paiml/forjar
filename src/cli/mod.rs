@@ -358,6 +358,8 @@ mod tests_apply_selection_closure;
 mod tests_apply_selection_tag;
 #[cfg(test)]
 mod tests_plan_param;
+#[cfg(test)]
+mod tests_plan_review_fixes;
 
 /// forjar#615: plan and apply compute the same set for -r / -g.
 #[cfg(test)]
