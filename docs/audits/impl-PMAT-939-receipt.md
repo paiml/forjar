@@ -40,4 +40,6 @@ RED, the same test binary with the `libsqlite3-sys` version in `Cargo.lock` set 
 - The three review lanes ran that missing RED themselves (an ignore entry planted in `deny.toml` failed the test); it is their measurement, not the author's.
 - `locked_libsqlite3_sys` strips pre-release suffixes (`0.39.0-rc.1` reads as 0.39.0), indexes three version parts without a length check, and the first test does not assert that at least one `libsqlite3-sys` entry was found, so a lockfile with none passes it.
 
+- Three-lane review of PR #945 at a33086c (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. The lanes' findings were added under Not covered afterwards. Quorum receipt: `.quorum/s-forjar-2-939.json`, written by agy and committed unedited.
+
 IMPL-PMAT-939-RECEIPT-END

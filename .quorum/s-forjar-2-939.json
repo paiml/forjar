@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-939 (forjar#939 / PR #945) \u2014 integration falsifier ensuring `Cargo.lock` pins no `libsqlite3-sys < 0.39.0` (`RUSTSEC-2026-0459`) and neither `deny.toml` nor `.cargo/audit.toml` waives the advisory.",
+  "branch": "s-forjar-2/939",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "d8303491c6fa5d0a9f308c579df8013cacad98b1",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head a33086cb; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head a33086cb \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Lockfile/Advisory Parser Semantics): PASS",
+      "round 1, head a33086cb \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Supply-Chain Waiver Prevention & Hermeticity): PASS",
+      "round 1, head a33086cb \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C3 and R1..R2; R1 (pre-release 0.39.0-rc.1 suffix stripping and missing non-empty assertion in locked_libsqlite3_sys) and R2 (unexecuted RED run for advisory_is_not_ignored_in_audit_or_deny_config in the receipt) were narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: `locked_libsqlite3_sys` (`tests/falsification_lockfile_libsqlite3_sys_not_in_0459_range.rs:30`) treats pre-release `0.39.0-rc.1` as `(0, 39, 0)` and omits an `!is_empty()` guard on matched packages.",
+      "R2: `docs/audits/impl-PMAT-939-receipt.md` omitted a RED perturbation for `advisory_is_not_ignored_in_audit_or_deny_config`, which agy executed on `t2fw13` (`FJ945_REV2_KILLED`)."
+    ]
+  },
+  "falsification": {
+    "test": "Mutate `libsqlite3-sys` to `0.30.1` in `Cargo.lock` (`FJ945_REV1_KILLED`) and plant `ignore = [\"RUSTSEC-2026-0459\"]` in `deny.toml` (`FJ945_REV2_KILLED`) on t2fw13 (<SCRATCH>); compiled `falsification_lockfile_libsqlite3_sys_not_in_0459_range` binary fails both.",
+    "test_file": "tests/falsification_lockfile_libsqlite3_sys_not_in_0459_range.rs",
+    "cargo_test_target": "falsification_lockfile_libsqlite3_sys_not_in_0459_range",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): setting `libsqlite3-sys` to `0.30.1` in `Cargo.lock` failed `lock_pins_no_libsqlite3_sys_below_0_39_0` (`FJ945_REV1_KILLED`), and adding `RUSTSEC-2026-0459` to `deny.toml` failed `advisory_is_not_ignored_in_audit_or_deny_config` (`FJ945_REV2_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "cargo-deny `[advisories]` + lockfile floor integration tests: pairs advisory-database gates with explicit minimum-version assertions on C-binding `-sys` crates so silent waivers cannot mask vulnerable C libraries",
+      "RustSec `cargo-audit` CI policy without `ignore` waivers: treats `ignore = [\"RUSTSEC-...\"]` entries as security debt requiring explicit regression pins",
+      "Offline `Cargo.lock` `[[package]]` scanners in Rust workspaces: inspects every resolved duplicate version of `-sys` crates deterministically in milliseconds without network access"
+    ],
+    "verdict": "Pinning both `libsqlite3-sys >= 0.39.0` across all `Cargo.lock` `[[package]]` blocks and absence of `RUSTSEC-2026-0459` in `deny.toml`/`.cargo/audit.toml` prevents both lockfile regressions and waiver bypasses."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at head a33086cb (`2/2` green + `FJ945_REV1_KILLED` + `FJ945_REV2_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_fmt_check"
+    ],
+    "findings": "Both assertions in `tests/falsification_lockfile_libsqlite3_sys_not_in_0459_range.rs` (68 lines) killed their respective perturbations on t2fw13."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-939-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "4b7118b2b9741261a9b95a1c998a31efbcade2d5",
+        "sha256": "fe86fc10f55b8966b683c0b890eac00cfab3ecd3bd34a0f5b8989f9560e99f69",
+        "bytes": 1414
+      },
+      {
+        "path": ".quorum/evidence/PMAT-939-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "05d49f241a0f0154dc2bd0e0d47fb0049a010a06",
+        "sha256": "d75becec8acf80e374ebbfabc5c6d7ae2f79ed16868fae5b2097d480a54a449f",
+        "bytes": 982
+      },
+      {
+        "path": ".quorum/evidence/PMAT-939-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "2dc4b56478d08b46fba438d1bdd41ff207a56923",
+        "sha256": "e90922856aa6f65e22190b380c5b703478fce83e19f5405414f31a31e6aa33f5",
+        "bytes": 2379
+      },
+      {
+        "path": ".quorum/evidence/PMAT-939-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "2f74559a1e4dc50680217b7828ad56c4be4d4a38",
+        "sha256": "d4958f3bcaa469a58154ebce837a4d523ec3bd9953969ce545b75a562625da61",
+        "bytes": 894
+      }
+    ],
+    "total_bytes": 5669,
+    "claims_digest": ".quorum/evidence/PMAT-939-judges.md"
+  }
+}
