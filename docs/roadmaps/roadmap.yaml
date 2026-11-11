@@ -5973,7 +5973,7 @@ roadmap:
   labels: []
   notes: null
   release: backlog
-- id: GH-685
+- id: PMAT-685
   github_issue: 685
   item_type: task
   title: forjar lint and the quality gate silently skip the apply script of a resource that carries a secret reference
@@ -6277,7 +6277,7 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
-- id: GH-848
+- id: PMAT-848
   github_issue: 848
   item_type: task
   title: 'cron check SKIPs (exit 2) under a crontab-only sudoers rule: CRONTAB_CHECK_GUARD probes `sudo -n true`'
