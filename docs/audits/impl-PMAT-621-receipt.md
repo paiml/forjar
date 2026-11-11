@@ -46,4 +46,6 @@ Fix: the pipeline runs in a subshell with `set -o pipefail`; `docker rm` still r
 
 Measured on kfocus, 2026-11-11 14:04Z, `cargo test --lib tests_provider`: with the fix 53 passed, 0 failed. With only the `pipefail` subshell removed: 52 passed, 1 failed (`docker_import_fails_when_export_fails_and_still_removes_container`).
 
+- Three-lane review of PR #933 at 21a730e (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. Round 1 failed at 91a0e86 on the export status; the fix is 21a730e8 (see the section above). Quorum receipt: `.quorum/ct3-621-docker-import-rm.json`, written by agy and committed unedited.
+
 IMPL-PMAT-621-RECEIPT-END
