@@ -5653,6 +5653,25 @@ roadmap:
   - release:v1.34.0
   notes: null
   epic: 696
+- id: PMAT-986
+  github_issue: 986
+  item_type: task
+  title: 'v1.34.0 window: 25 merged PRs ticketed after the fact (gate T T3)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-11-11T09:57:00Z
+  updated: 2026-11-11T09:57:00Z
+  spec: null
+  acceptance_criteria:
+  - Each of the 25 PRs listed in forjar#986 carries one appended Pmat-Ticket line naming this row (Noah ruling 2026-11-11 09:50Z)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - release:v1.34.0
+  notes: null
+  epic: 696
 - id: GH-414
   github_issue: 414
   item_type: task
