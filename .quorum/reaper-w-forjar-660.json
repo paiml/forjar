@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-660 (forjar#660 / PR #934) \u2014 `forjar show` calls `resolver::resolve_data_sources(&mut config)?` before expanding `{{data.*}}` resource templates.",
+  "branch": "reaper-w/forjar-660",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "86cd39a632dcf59f41e6ed1a4fadac2aca9120c9",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head 8b70633c; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 8b70633c \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Data-Source Resolution Order): PASS",
+      "round 1, head 8b70633c \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Command-Execution Side Effects & Security): PASS",
+      "round 1, head 8b70633c \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C3 and R1..R2; R1 (impl-PMAT-660-receipt.md:21 overbroad claim that every manifest plan resolves is also resolved by show) and R2 (stdout value assertion granularity in show_resolves_data_sources) were narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: `docs/audits/impl-PMAT-660-receipt.md:21` states every manifest `plan` resolves is also resolved by `show`, whereas `show` still bypasses `prepare_config` (`--workspace` and `--env-file`).",
+      "R2: `show_resolves_data_sources` (`src/cli/tests_cov_show2.rs:175`) asserts `.is_ok()` on `cmd_show` rather than capturing `println!` output to assert the literal substituted value."
+    ]
+  },
+  "falsification": {
+    "test": "Restore `src/cli/show.rs` from `main` on t2fw13 (<SCRATCH>) and run `cargo test --lib show_resolves_data_sources`; test fails immediately (`FJ934_REV_KILLED`).",
+    "test_file": "src/cli/tests_cov_show2.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): restoring `src/cli/show.rs` from `main` failed `show_resolves_data_sources` with `unknown data source 'greeting'` (`FJ934_REV_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform `terraform show` / `terraform console`: evaluates `data.*` blocks in the config graph before rendering resource attribute expressions",
+      "Helm `helm template` / `lookup`: populates external lookup/values tables prior to rendering chart manifests to stdout",
+      "Pulumi `preview` / stack output inspection: resolves `invoke` data sources before interpolating resource inputs"
+    ],
+    "verdict": "Calling `resolver::resolve_data_sources(&mut config)?` immediately after `parse_and_validate(file)?` in `cmd_show` aligns `show` with `validate` and `plan` while preserving fail-closed error propagation."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at head 8b70633c (`22/22` `tests_cov_show2` green + `FJ934_REV_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets"
+    ],
+    "findings": "0 vacuous assertions in `src/cli/tests_cov_show2.rs`; `src/cli/show.rs` (393 lines) and `src/cli/tests_cov_show2.rs` (188 lines) pass file-health."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-660-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "547ef58dffc90862d34176d09b37c77cef7dde08",
+        "sha256": "8c3aaf15b5200e089a1ce9c34110fb9e9f4f40c67506281772fbb97c78cdcc6b",
+        "bytes": 1164
+      },
+      {
+        "path": ".quorum/evidence/PMAT-660-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "1478626eb76285951526aae29c011ced47227a44",
+        "sha256": "bcbc9e3d03fb4c733f0f8e961c485964bf2bf0cd7607de5873e79876cbc61fc6",
+        "bytes": 1040
+      },
+      {
+        "path": ".quorum/evidence/PMAT-660-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e9e7a4a5c5368ac24c418950c1c1f076466f5d5a",
+        "sha256": "f47bb059bbf5abbbb6c3549ecea1c694ef971f8b8a7a6bc481dcaff2e88cf2a5",
+        "bytes": 2282
+      },
+      {
+        "path": ".quorum/evidence/PMAT-660-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "97456c4067d36fa9a46e1f61d6e7cfcb7c59e869",
+        "sha256": "ae004d24a13465f13c131b21ed2077aa05325414d13bdcc7dcd2bb98c79a3415",
+        "bytes": 755
+      }
+    ],
+    "total_bytes": 5241,
+    "claims_digest": ".quorum/evidence/PMAT-660-judges.md"
+  }
+}

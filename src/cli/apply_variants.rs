@@ -335,6 +335,7 @@ fn refresh_machine_lock(
 /// ordinary `apply --operator alice` converged. That is forjar#358's defect —
 /// a mode that drops what the operator actually typed — reappearing one flag
 /// over, which is precisely the shape this change exists to close.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_refresh_only(
     file: &Path,
@@ -346,6 +347,39 @@ pub(crate) fn cmd_refresh_only(
     workspace: Option<&str>,
     operator: Option<&str>,
 ) -> Result<(), String> {
+    cmd_refresh_only_with(
+        file,
+        state_dir,
+        machine_filter,
+        verbose,
+        timeout,
+        env_file,
+        workspace,
+        operator,
+        |_| Ok(()),
+    )
+}
+
+/// forjar#470: `--refresh-only` selects before it refreshes.
+///
+/// `select` narrows the parsed config in place (the caller passes the same
+/// `resolve_selection` the apply and `--check` use). `refresh_machine_lock` only
+/// re-reads a lock entry whose resource is still in the config, so a pruned
+/// config refreshes exactly the selected set and leaves every other lock entry
+/// byte-for-byte untouched. The selection runs BEFORE the lock-write gates, so
+/// an unknown `-r` is refused without touching the lock.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_refresh_only_with(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    verbose: bool,
+    timeout: Option<u64>,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+    operator: Option<&str>,
+    select: impl FnOnce(&mut types::ForjarConfig) -> Result<(), String>,
+) -> Result<(), String> {
     super::dispatch_apply::check_operator_auth(file, operator, machine_filter)?;
 
     let mut config = parse_and_validate(file)?;
@@ -354,6 +388,7 @@ pub(crate) fn cmd_refresh_only(
     }
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
+    select(&mut config)?;
 
     // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
     // tampered lock has destroyed the only evidence the tamper happened.

@@ -248,3 +248,43 @@ fn an_empty_scope_changes_nothing() {
     run(&mut c, ApplyScope::default()).unwrap();
     assert_eq!(ids(&c).len(), before);
 }
+
+/// #471: `--only-machine X -m Y` named two different machines, pruned the config
+/// to X and then let the executor's `-m Y` skip every resource: rc=0, nothing
+/// converged, no message. The invocation is a contradiction, so it is refused by name.
+#[test]
+fn only_machine_and_a_different_machine_flag_are_refused() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = cfg(d.path());
+    let scope = ApplyScope {
+        only_machine: Some("local"),
+        ..Default::default()
+    };
+    let sel = Selectors {
+        machine: Some("other"),
+        ..Default::default()
+    }
+    .with_scope(&scope);
+    let err = resolve_selection(&mut c, &sel, false).expect_err("disjoint machine selectors");
+    assert!(
+        err.contains("--only-machine 'local' and -m 'other' select disjoint machines"),
+        "{err}"
+    );
+}
+
+#[test]
+fn only_machine_and_the_same_machine_flag_agree() {
+    let d = tempfile::tempdir().unwrap();
+    let mut c = cfg(d.path());
+    let scope = ApplyScope {
+        only_machine: Some("local"),
+        ..Default::default()
+    };
+    let sel = Selectors {
+        machine: Some("local"),
+        ..Default::default()
+    }
+    .with_scope(&scope);
+    resolve_selection(&mut c, &sel, false).expect("same machine twice is not a contradiction");
+    assert_eq!(ids(&c), vec!["a-file", "b-file", "both-file"]);
+}

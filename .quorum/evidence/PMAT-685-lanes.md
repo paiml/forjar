@@ -1,0 +1,5 @@
+# PMAT-685 & PMAT-848 (`forjar#903`) — Three-Lane Independent Refuter Transcript Summary
+
+- **Lane 1 (Gemini 4 Carbon High — Correctness & Lint/Cron Semantics)**: Verified `with_secret_placeholders`, `apply_script_for_lint`, `lint_scripts` error reporting, and `crontab_check_guard` stderr/exit handling (`C1..C4` confirmed; `R1, R2` refuted). Verdict: `PASS @765f9493b8898d7b40d143b2e8f1edfac2c974c5`.
+- **Lane 2 (Gemini 4 Carbon High — Failure Modes, Secret Redaction & Sudoers Security)**: Verified `apply_script` stays fail-closed on unresolved secrets, `LC_ALL=C` protects `^sudo:` matching across locales, and `2>&1 >/dev/null` isolates stderr (`C1..C4` confirmed; `R1, R2` refuted). Verdict: `PASS @765f9493b8898d7b40d143b2e8f1edfac2c974c5`.
+- **Lane 3 (Gemini 4 Carbon High — Contract, Revert Falsifiers & Traceability)**: Verified both Gate A receipts, `roadmap.yaml`, `FJ903_REV1_KILLED`, and `FJ903_REV2_KILLED` on `t2fw13` (`C1..C4` confirmed; `R1, R2` refuted). Verdict: `PASS @765f9493b8898d7b40d143b2e8f1edfac2c974c5`.

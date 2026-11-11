@@ -1,0 +1,5 @@
+# PMAT-621 (`forjar#933`) — Three-Lane Independent Refuter Transcript Summary
+
+- **Lane 1 (Gemini 4 Carbon High — Correctness & Shell Pipeline Semantics)**: Verified `&&` short-circuit on `docker create` failure, `(set -o pipefail; ...)` subshell isolation, `rc=$?` capture, `docker rm "$cid" >/dev/null`, and `exit $rc` across all exit combinations (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @21a730e853584d929e4c8b3375f15ef35e350bab`.
+- **Lane 2 (Gemini 4 Carbon High — Failure Modes, Store Integrity & Quoting)**: Verified double-quoting of `"$cid"` and `"$STAGING"`, store-commit fail-closed behavior in `execute_import`, hermetic child-process `PATH` scoping in stub-docker test, and `docker rm` / `SIGKILL` residual boundaries (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @21a730e853584d929e4c8b3375f15ef35e350bab`.
+- **Lane 3 (Gemini 4 Carbon High — Contract, Revert Falsifiers & Traceability)**: Verified `docs/audits/impl-PMAT-621-receipt.md`, `roadmap.yaml`, `53/53` `tests_provider`, `FJ933_REV1_KILLED`, and `FJ933_REV2_KILLED` on `t2fw13` (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @21a730e853584d929e4c8b3375f15ef35e350bab`.

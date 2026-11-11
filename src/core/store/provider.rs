@@ -117,7 +117,15 @@ pub fn import_command(config: &ImportConfig) -> String {
                 .version
                 .as_deref()
                 .map_or(String::new(), |v| format!(":{v}"));
-            format!("docker create {}{tag} && docker export", config.reference)
+            // Remove the container this import creates, success or failure (#621:
+            // an unremoved `Created` container leaked on every call). `pipefail`
+            // in the subshell makes `rc` the export's status: without it `rc` is
+            // tar's, and tar exits 0 on a stream cut at a block boundary, so a
+            // failed export would stage a partial rootfs as a success.
+            format!(
+                "cid=$(docker create {}{tag}) && {{ (set -o pipefail; docker export \"$cid\" | tar -x -C \"$STAGING\"); rc=$?; docker rm \"$cid\" >/dev/null; exit $rc; }}",
+                config.reference
+            )
         }
         ImportProvider::Tofu => {
             format!("tofu -chdir={} output -json", config.reference)

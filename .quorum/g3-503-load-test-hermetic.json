@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-503 (forjar#503 / PR #948) \u2014 extract `cmd_build_load_with` runtime-probe seam in `build_distribution.rs` so `cmd_build_with_load_flag_no_runtime` passes hermetically when `docker` is on `PATH` without a daemon.",
+  "branch": "g3/503-load-test-hermetic",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "f43391e8c2c3c81e6719bfc892424bcef67e40ba",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head c9463886; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head c9463886 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Runtime Probe Seam Equivalence): PASS",
+      "round 1, head c9463886 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Subprocess Isolation & Host Leakage): PASS",
+      "round 1, head c9463886 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C3 and R1..R2; R1 (second assertion in tests_build_image.rs:379 still spawning tar/podman from host PATH) and R2 (unused forjar.yaml fixture + unpinned docker-before-podman precedence) were narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 3,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: `docs/audits/impl-PMAT-503-receipt.md:3` claims the tests no longer depend on host `PATH`, whereas the second check (`tests_build_image.rs:379`) still spawns `tar` and `podman load` from `PATH`.",
+      "R2: `cmd_build_with_load_flag_no_runtime` (`tests_build_image.rs:366`) writes an unused `forjar.yaml` (`let _ = &path;`) and does not pin `docker`-over-`podman` precedence when both return `true`."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb `if has_runtime(\"docker\")` to `if true` in `src/cli/build_distribution.rs:18` on t2fw13 (<SCRATCH>) and run `cargo test --lib cmd_build_with_load_flag_no_runtime`; test fails (`FJ948_REV_KILLED`).",
+    "test_file": "src/cli/tests_build_image.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): replacing `if has_runtime(\"docker\")` with `if true` in `src/cli/build_distribution.rs:18` bypassed the no-runtime branch and failed `cmd_build_with_load_flag_no_runtime` (`FJ948_REV_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "Rust CLI dependency injection (`fn foo_with<F: Fn(&str) -> bool>`): standard zero-trait seam for isolating `PATH` binary lookups without mutating process-global `std::env::set_var(\"PATH\", ...)`",
+      "Go `exec.LookPath` function-field injection in `ko` / `nerdctl` unit tests: avoids flaky host `docker` binary detection on shared CI builders",
+      "Cargo test harness multi-threaded safety (Rust 2024 `unsafe set_var`): function-parameter seams avoid UB and cross-test races on `PATH`"
+    ],
+    "verdict": "Injecting `has_runtime: F` into `cmd_build_load_with` cleanly eliminates the `#503` failure on `docker`-installed daemonless hosts without process-global `PATH` mutation."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at head c9463886 (`tests_build_image` green + `FJ948_REV_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets"
+    ],
+    "findings": "0 vacuous assertions in `src/cli/tests_build_image.rs`; `build_distribution.rs` (203 lines) and `tests_build_image.rs` (472 lines) stay within the 500-line file-health limit."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-503-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "fc8a4812a9eaedce55080b6f714f578b74285d28",
+        "sha256": "fcfc4b06e14db472211e3ee103152b23cb44b255650f02458bfac28c8ea531e4",
+        "bytes": 1282
+      },
+      {
+        "path": ".quorum/evidence/PMAT-503-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "d8815754bacbd02de2c1b1ccdbfbfabd8997ef19",
+        "sha256": "af527e790416d646a9cab1b5b865754443a40781b6cc518dd54136bcc974e09d",
+        "bytes": 994
+      },
+      {
+        "path": ".quorum/evidence/PMAT-503-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "7f8d9cdbfe4fa2c92c62b2f30204e07807291f61",
+        "sha256": "5cd70462fdb724691b2a86cf781e4b25cd5f5507f582b6b520760cba8f046bba",
+        "bytes": 2278
+      },
+      {
+        "path": ".quorum/evidence/PMAT-503-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "98c35576fdfc6a7ea758319fa8e92af571f8bb8b",
+        "sha256": "c9cb16f9d386796a1f566d41a17d14999f17cb46fc8397af1a1cb9964fe99b80",
+        "bytes": 783
+      }
+    ],
+    "total_bytes": 5337,
+    "claims_digest": ".quorum/evidence/PMAT-503-judges.md"
+  }
+}

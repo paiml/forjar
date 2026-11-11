@@ -19,7 +19,8 @@ pub use data::{
 pub use redaction::{carries_ciphertext, collect_secret_values, redact_transcript};
 pub use resource::{
     has_unresolved_secret, resolve_all, resolve_or_fallback, resolve_resource_templates,
-    resolve_resource_templates_with_secrets, unresolved_secret_resources,
+    resolve_resource_templates_with_secrets, unresolved_secret_resources, with_secret_placeholders,
+    LINT_SECRET_PLACEHOLDER,
 };
 pub use template::resolve_template;
 pub use template::{
