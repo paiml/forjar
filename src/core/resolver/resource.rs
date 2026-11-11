@@ -314,3 +314,21 @@ pub fn unresolved_secret_resources(
 pub fn has_unresolved_secret(resource: &Resource) -> bool {
     serde_yaml_ng::to_string(resource).is_ok_and(|s| s.contains("{{secrets."))
 }
+
+/// The text `{{secrets.*}}` references are replaced with when a script is
+/// generated only to be LINTED. A plain word: no secret rule can match it, and
+/// it is never executed or written anywhere (#685).
+pub const LINT_SECRET_PLACEHOLDER: &str = "forjar-lint-placeholder";
+
+/// #685: a copy of `resource` with every `{{secrets.*}}` reference replaced by
+/// [`LINT_SECRET_PLACEHOLDER`], or `None` when the copy cannot be built.
+///
+/// Used by `forjar lint` and the quality gate, which work on the UNRESOLVED
+/// config and so cannot call `apply_script` on a secret-bearing resource (the
+/// I8 chokepoint refuses it). The copy is for linting only; apply never sees it.
+pub fn with_secret_placeholders(resource: &Resource) -> Option<Resource> {
+    let yaml = serde_yaml_ng::to_string(resource).ok()?;
+    let re = regex::Regex::new(r"\{\{\s*secrets\.[^}]*\}\}").ok()?;
+    let replaced = re.replace_all(&yaml, LINT_SECRET_PLACEHOLDER);
+    serde_yaml_ng::from_str(&replaced).ok()
+}

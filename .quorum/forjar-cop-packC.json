@@ -1,0 +1,98 @@
+{
+  "kind": "code",
+  "issue": "PMAT-685 & PMAT-848 (forjar#685, forjar#848 / PR #903) \u2014 `forjar lint` and `quality_gate` lint secret-bearing apply scripts via synthetic placeholders, and `cron` check guards probe `sudo -n crontab -u <user> -l` so crontab-only sudoers rules no longer false-SKIP.",
+  "branch": "forjar-cop/packC",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "1da319050caa69de479843e5ee64e04bfc03ce11",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head 765f9493; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 765f9493 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Lint/Cron Semantics): PASS",
+      "round 1, head 765f9493 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Secret Redaction & Sudoers Security): PASS",
+      "round 1, head 765f9493 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes attacked C1..C4 and R1..R2; R1 (impl-PMAT-685-receipt.md overclaim on quality_gate reporting ungenerated scripts) and R2 (lint.rs:340 comment vs non-dispatchable secret types & whitespace asymmetry) were narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: docs/audits/impl-PMAT-685-receipt.md:3 claims both `forjar lint` and `quality_gate` report an apply script that still cannot be generated, whereas `src/core/quality_gate/checks.rs:33` uses `if let Ok(text) = result` and silently drops generation `Err`s.",
+      "R2: `src/cli/lint.rs:340` comments that non-apply-type refusals stay quiet, whereas a non-dispatchable type (`Model`/`Gpu`/`Dataset`/`Recipe`) containing `{{secrets.x}}` matches `has_unresolved_secret` and emits `not linted`."
+    ]
+  },
+  "falsification": {
+    "test": "Revert `apply_script_for_lint` -> `apply_script` in `src/cli/lint.rs:331` (`FJ903_REV1_KILLED`) and restore `src/resources/cron.rs` from `main` (`FJ903_REV2_KILLED`) on t2fw13 (<SCRATCH>); `secret_bearing_task_apply_script_is_linted` and `fj848_check_observes_under_a_crontab_only_sudoers_rule` both fail.",
+    "test_file": "src/cli/tests_lint_secret.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): reverting `lint.rs:331` to `apply_script` failed `secret_bearing_task_apply_script_is_linted` (`FJ903_REV1_KILLED`), and restoring `src/resources/cron.rs` from `main` failed `fj848_check_observes_under_a_crontab_only_sudoers_rule` (`FJ903_REV2_KILLED`)."
+  },
+  "crux": {
+    "systems": [
+      "Helm `helm lint` / `helm template`: substitutes chart default/placeholder values so template rendering and static YAML/shell linters run without live cluster secrets",
+      "Ansible `ansible-lint` with `--offline` / vault placeholders: replaces vaulted variables with synthetic strings so task shell modules are still checked by `shellcheck`",
+      "Puppet / SaltStack `cron` provider under restricted `sudoers`: invokes `sudo -n crontab -u <user> -l` directly rather than `sudo -n true` so command-scoped `NOPASSWD` rules succeed"
+    ],
+    "verdict": "Substituting `__FORJAR_SECRET_<key>__` strictly on the read-only lint path while keeping `apply_script` fail-closed, and probing `LC_ALL=C sudo -n crontab -u <user> -l` directly in `crontab_check_guard`, match best practice."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes at head 765f9493 (`FJ903_REV1_KILLED`, `FJ903_REV2_KILLED`, and `0` cron bashrs errors on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets"
+    ],
+    "findings": "0 vacuous assertions in `src/cli/tests_lint_secret.rs`, `src/core/quality_gate/tests_secret_apply.rs`, and `src/resources/tests_cron_exec.rs`; all touched files pass file-health."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-685-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "f7e6a0a7baf8ed3ca86a7d561b13e8d4dff19356",
+        "sha256": "203799e99b8b59e95091f793b6a77798c19cfcef1e7bf972e65c88dccc719a45",
+        "bytes": 1485
+      },
+      {
+        "path": ".quorum/evidence/PMAT-685-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "1e825a765a505026bc8a34926a4698c2566b252d",
+        "sha256": "2cb872e42ccb179b65549ba3e8fd7a8a28da0136e62bddf5a53c1cfa29f482e1",
+        "bytes": 1042
+      },
+      {
+        "path": ".quorum/evidence/PMAT-685-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "58c8226f67dd1bf0b9e78b798160a4749a149721",
+        "sha256": "377bef8151d2b0a86e5989a9c22fe694ded00a0eb635623e475ac2f036f147c5",
+        "bytes": 2946
+      },
+      {
+        "path": ".quorum/evidence/PMAT-685-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "7710b4a87d22a6ab6c125a39e1d9016bd4b253ee",
+        "sha256": "4aab2b0fe1e71b5aec76be5b84e98c3649840f4dccf1bb76ffe7b0eb15b06c77",
+        "bytes": 989
+      }
+    ],
+    "total_bytes": 6462,
+    "claims_digest": ".quorum/evidence/PMAT-685-judges.md"
+  }
+}
