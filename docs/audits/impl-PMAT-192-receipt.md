@@ -39,4 +39,6 @@ GREEN, on this tree:
 
 Checks on the same tree: `cargo fmt --all -- --check` rc=0; `cargo clippy --lib --tests -- -D warnings` rc=0.
 
+- Three-lane review of PR #950 at 7b335a0 (agy, Gemini 4 Carbon): 3/3 PASS; the refuted claims are listed under `quorum.refuted_claims` in the receipt. One lane finding (two comments that did not name `--exclude-machine`) is fixed in bb4f9e0b. Quorum receipt: `.quorum/mail-ana-471.json`, written by agy and committed unedited.
+
 IMPL-PMAT-192-RECEIPT-END

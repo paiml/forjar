@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-192 (forjar#471 / PR #950) \u2014 contradictory machine flags (--only-machine X -m Y and --exclude-machine X -m X) silently yielded empty intersection with exit 0; check_existence now refuses both contradictions by name across apply and apply --check.",
+  "branch": "mail-ana/471",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "70e0edf2dfa1d8fd720a49fa5fae68d75f26b771",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head 7b335a09; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 7b335a09 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Selector Resolution): PASS",
+      "round 2, head 7b335a09 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes & CLI Boundary): PASS",
+      "round 2, head 7b335a09 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), none sharing the author model (Claude Opus 5.5).",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; R1 (dead check.rs field tripping file-health) was fixed at 7b335a09 and R2 (closure.rs:28,55 doc comments) was narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 wired dead field machine: machine_filter into cmd_check (src/cli/check.rs), which accepts neither --only-machine nor --exclude-machine and pushed check.rs to 514 lines past file-health; removed at 7b335a09.",
+      "R2: src/cli/apply_selection/closure.rs:28,55 doc comments stated Selectors.machine is 'checked against --only-machine only', whereas check_existence at closure.rs:196 also checks it against --exclude-machine."
+    ]
+  },
+  "falsification": {
+    "test": "Revert --only-machine vs -m and --exclude-machine vs -m contradiction guards in src/cli/apply_selection/closure.rs:189-202 on t2fw13 (<SCRATCH>) and run tests/falsification_apply_machine_contradiction.rs.",
+    "test_file": "tests/falsification_apply_machine_contradiction.rs",
+    "cargo_test_target": "falsification_apply_machine_contradiction",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13: removing the only_machine != machine block fails apply_refuses_disjoint_only_machine_and_machine_flag (FJ950_REV1_KILLED); removing exclude_machine == machine fails apply_refuses_excluded_machine_named_by_machine_flag (FJ950_REV2_KILLED)."
+  },
+  "crux": {
+    "systems": [
+      "kubectl --selector / field-selector validation: mutually contradictory target selectors fail fast before mutating cluster state",
+      "systemd/systemctl unit & host targeting: invalid or empty explicit host target fails non-zero rather than reporting converged",
+      "Ansible --limit hostA:!hostA: warns/fails when explicit host inclusion and exclusion cancel to zero hosts"
+    ],
+    "verdict": "Refusing disjoint --only-machine/-m and identical --exclude-machine/-m in check_existence before state mutation eliminates silent 0-resource convergence."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Correctness, Failure Modes, Contract/Falsifiers) with hostile CLI test and 2 revert kills on t2fw13",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 7b335a09 (4 claims confirmed, 2 claims refuted: R1 dead code removed, R2 doc comment narrowed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-192",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo test --lib apply_scope (13/13) + --test falsification_apply_machine_contradiction (3/3) + hostile CLI check + 2 revert kills on t2fw13"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-192-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "8088a1ff97b2d5e72c1d7c7d5576819499d52f12",
+        "sha256": "6c625faf36b3e62b12d0b5aed622f5a7ee74ff78f1b80a64a80daa3f197409e3",
+        "bytes": 1066
+      },
+      {
+        "path": ".quorum/evidence/PMAT-192-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "14f6725d77b8db2590121fc930437e86bf64afd6",
+        "sha256": "003f6f3355d5e6b4af10c88a87ce3df742e4e8cd1bce4d8850d6e5de7e7968e6",
+        "bytes": 554
+      },
+      {
+        "path": ".quorum/evidence/PMAT-192-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "52bc242fcc2875210de83de25b139f996ad5a678",
+        "sha256": "a306b53935be7a078f29dfd4e76a442ce0e58ad38a1b12223756823cb09759b8",
+        "bytes": 3121
+      },
+      {
+        "path": ".quorum/evidence/PMAT-192-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "599b26c9e8d2a57e97b238653af58f4c042d27ba",
+        "sha256": "0e69bddeba161fdac486bee8a57b22715999198185c69804da75ae87fc829d3d",
+        "bytes": 337
+      }
+    ],
+    "total_bytes": 5078,
+    "claims_digest": ".quorum/evidence/PMAT-192-judges.md"
+  }
+}
