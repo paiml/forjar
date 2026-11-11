@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Runner-smells ratchet and cheap workflow fixes (PMAT-913, #972, infra#3828).**
+`ci.yml` gains a `runner-smells` job (the shared scanner, pinned by SHA) that fails
+when a count exceeds `.github/runner-smells.baseline`. Workflows gain per-job
+`timeout-minutes`, `CARGO_PROFILE_*_DEBUG=0` and `CARGO_INCREMENTAL=0` env, a
+draft-PR skip on `lint.yml` and `audit.yml`, and a `concurrency` group on `pr-gate.yml`.
+No gate's accept condition changes.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
