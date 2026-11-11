@@ -90,6 +90,7 @@ pub(crate) fn cmd_apply_scoped(
         goals,
         exclude,
         tag: tag_filter,
+        machine: machine_filter,
         ..Default::default()
     }
     .with_scope(scope);
