@@ -56,31 +56,54 @@ Not caused by this PR (open, see verdict): see "Remaining reds".
 - Integration: `falsification_688_failed_resource_action_failed`, `falsification_query_runlog`, `falsification_runlog_doctor_imagelog`, `falsification_store_validate_gc`, `falsification_apply_machine_contradiction`.
 - No test gave two verdicts on the same inputs (no flips).
 
+## Review round 1 (three non-author FAILs at cf60cd9)
+
+- Lane 1, `plan_compute.rs:33-41`: `plan -t TAG` handed the tag to the planner,
+  which drops untagged prerequisites, while `apply -t TAG` closes over
+  `depends_on`. Why: the branch changed the apply resolver and left the plan
+  composition (`plan_filtered`) on the old flat filter; two spellings of one
+  selection. Fix at the owner: `plan_filtered` passes no tag to the planner and
+  `plan_selector::apply_selection_filter` takes `tag` as a third positive
+  selector (closed with `goal_closure`, validated by `reject_empty_selection`,
+  the same function and messages `apply` uses). Red test:
+  `plan_dash_t_includes_the_depends_on_closure_like_apply` and
+  `plan_dash_t_with_an_unknown_tag_is_an_error_like_apply`.
+- Lane 3, `plan.rs:101,134`: `plan --param k=v --out p.json` sealed over the
+  overridden config, while `apply --plan-file` rebuilds the config without
+  `--param`, so the file could only fail with PLAN_HASH_MISMATCH. Fix: the pair
+  is refused at plan time by name, as `--refresh --out` is. Making
+  `apply --plan-file` accept `--param` is the other option; it is a new apply
+  feature and was not taken. Red test: `plan_param_with_out_is_refused_by_name`.
+- Lane 2, `plan.rs:162`: the #880 refusal (the issue text requires "plan with no
+  state exits non-zero") makes README line 197 `forjar plan -f forjar.yaml` fail
+  in the gate D sandbox, which has no `state/` (a real `forjar init` creates it).
+  No gate, docs.sh or test was edited. The README line now names the directory,
+  `forjar plan -f forjar.yaml --state-dir state`, which the gate rebinds to its
+  temp state dir. Whether plan should refuse at all is the issue's decision and
+  is unchanged.
+
 ## Remaining reds, not fixed here
 
-1. `falsification_untyped_error_sites_ratchet::the_live_tree_holds_both_ceilings`:
-   measured `untyped_error_fns: 790, lock_literals_outside_state: 154` against
-   ceilings 778 and 153. `origin/main` itself measures 790 and 154 (same counting
-   rules, `git ls-tree` of `origin/main`), so it is red on main and not caused by
-   this PR. The branch now equals main's count.
-2. CI gate D (`scripts/dogfood/docs.sh`), README line 197 `forjar plan -f forjar.yaml`
-   fails with `no state at <sandbox>/state`. `forjar init` creates `state/`, so the
-   README flow is correct for a user; the gate's sandbox copies only the fixture
-   YAML and never creates `state/` as `init` would. The fix belongs in
-   `scripts/dogfood/docs.sh` (create `state/` in the work dir), which is outside
-   this lane's scope. Reproduced on gx10 with the built binary.
-3. CI `dogfood-guards` named test target `falsification_coverage_gate_mutation_scope`,
-   removed on main by #973; the merge of main brings that fix.
+1. `falsification_untyped_error_sites_ratchet::the_live_tree_holds_both_ceilings`
+   (a LAB check, forjar#858): measured on gx10 `untyped_error_fns: 790,
+   lock_literals_outside_state: 154` against ceilings 778 and 153; `origin/main`
+   counts the same 790 and 154. Not caused by this PR; the branch equals main.
+2. `dogfood-guards` named a removed test target; main's #973 removed it and the
+   merge brought that in. Not re-run.
 
 ## Commands run (host gx10 through fc-pre.sh)
 
-- `cargo fmt --all -- --check`: exit 0
-- `cargo clippy --all-targets -- -D warnings`: exit 0
-- `cargo test --lib`: exit 0 (13794 passed, 4 ignored)
-- `cargo test --test falsification_untyped_error_sites_ratchet`: exit 101 (790 > 778, same on main)
-- `cargo test --test` for the five integration tests above: exit 0 each
-- `bash scripts/dogfood/docs.sh` (debug binary, before the fix): exit 1 on line 197, see red 2
+All on gx10 through `fc-pre.sh pr-899`.
 
-verdict: PARTIAL - fmt, clippy and the touched tests pass; the ratchet is red on main too and gate D needs a change in scripts/dogfood/docs.sh, outside scope
+- RED tree (commit 58e420fb exported without git): `cargo test --lib tests_plan_review_fixes`: exit 101, 3 failed (all three new tests).
+- Fixed tree: `cargo fmt --all -- --check`: exit 0.
+- `cargo clippy --all-targets -- -D warnings`: exit 0.
+- `cargo test --lib`: exit 0, 13797 passed, 0 failed, 4 ignored (includes the three new tests, now green).
+- `bash scripts/dogfood/docs.sh` (debug binary, cookbook cloned beside it): exit 0, `GATE D PASS 18 documented invocation(s) ... 98 cookbook config(s) validate`.
+- `cargo test --test` falsification_688_failed_resource_action_failed, falsification_query_runlog, falsification_runlog_doctor_imagelog, falsification_store_validate_gc, falsification_apply_machine_contradiction: exit 0 each.
+- `cargo test --test falsification_untyped_error_sites_ratchet`: exit 101 (790 > 778, same on origin/main, LAB).
+- Flips (a test with two verdicts on the same inputs): none observed; the full integration suite was not run.
+
+verdict: PARTIAL - review fixes for lanes 1-3 are in and measured, but the untyped-error ratchet (LAB) stays red on main itself
 
 IMPL-PMAT-890-RECEIPT-END
