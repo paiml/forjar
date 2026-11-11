@@ -7089,3 +7089,22 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-969
+  github_issue: 969
+  item_type: task
+  title: '--resource-timeout kill is a no-op when the child PID is not yet published (exec_script_timeout)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-10T14:20:00Z
+  updated: 2026-11-11T12:35:00Z
+  spec: null
+  acceptance_criteria:
+  - A timeout that fires before the worker has spawned its child leaves a marker in the PID slot, and the late child's process group is killed as soon as it is recorded.
+  - With the marker removed, a_timeout_before_the_child_spawns_still_kills_it goes red.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
