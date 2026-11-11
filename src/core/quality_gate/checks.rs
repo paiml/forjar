@@ -30,7 +30,7 @@ pub fn generate_scripts(config: &ForjarConfig) -> Vec<GeneratedScript> {
     for (id, resource) in &config.resources {
         for (kind, result) in [
             ("check", codegen::check_script(resource)),
-            ("apply", codegen::apply_script(resource)),
+            ("apply", codegen::apply_script_for_lint(resource)),
             ("state_query", codegen::state_query_script(resource)),
         ] {
             if let Ok(text) = result {

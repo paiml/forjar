@@ -19,19 +19,27 @@ use crate::resources::verdict;
 /// One copy, three call sites.
 const SUDO_PREAMBLE: &str = "SUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"";
 
-/// Refuse to answer when the crontab cannot be read at all.
+/// Refuse to answer when sudo will not run the crontab read.
 ///
 /// Modelled on `service::SYSTEMD_CHECK_GUARD`. `crontab -l` exits 1 for BOTH
 /// "no crontab for user" and EPERM, so the honest signal has to be taken
-/// BEFORE the read; without it a host with no passwordless sudo just moves the
-/// false `missing:` one step later. `cli::check` maps exit 2 to SKIP —
-/// forjar cannot observe another user's crontab without privilege, and that is
-/// neither a pass nor a failure.
-const CRONTAB_CHECK_GUARD: &str = "\
-if [ \"$(id -u)\" -ne 0 ] && ! sudo -n true >/dev/null 2>&1; then\n  \
-  echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
-  exit 2\n\
-fi";
+/// BEFORE the read. The probe is the read itself (`sudo -n crontab -u U -l`),
+/// not `sudo -n true` (forjar#848: a crontab-only sudoers rule refuses `true`
+/// and the check SKIPped on a host where the read works). Only a refusal
+/// printed by sudo itself (`sudo: ...`) is a SKIP; "no crontab" and any other
+/// crontab error are left to the fail-closed read. `cli::check` maps exit 2 to
+/// SKIP.
+fn crontab_check_guard(u: &str) -> String {
+    format!(
+        "if [ \"$(id -u)\" -ne 0 ]; then\n  \
+           if ! PROBE=$(LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null) \
+         && printf '%s\\n' \"$PROBE\" | grep -q '^sudo:'; then\n    \
+             echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n    \
+             exit 2\n  \
+           fi\n\
+         fi"
+    )
+}
 
 /// Delete this resource's whole block — marker, cmd_marker, entry — from stdin.
 ///
@@ -111,7 +119,8 @@ pub fn check_script(resource: &Resource) -> String {
         &format!("missing:{name}"),
     );
     let read = read_existing(&u, "EXISTING=''");
-    format!("{CRONTAB_CHECK_GUARD}\n{SUDO_PREAMBLE}\n{read}\n{verdict}")
+    let guard = crontab_check_guard(&u);
+    format!("{guard}\n{SUDO_PREAMBLE}\n{read}\n{verdict}")
 }
 
 /// The `state: absent` script. It fails CLOSED.
