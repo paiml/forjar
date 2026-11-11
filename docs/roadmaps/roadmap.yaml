@@ -6722,7 +6722,7 @@ roadmap:
   labels: []
   notes: null
   release: 1.35.0
-- id: GH-913
+- id: PMAT-913
   github_issue: 913
   item_type: task
   title: 'Train: CI and release gate hygiene'
