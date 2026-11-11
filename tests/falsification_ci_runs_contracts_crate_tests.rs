@@ -13,7 +13,16 @@ fn ci_runs_the_forjar_contracts_unit_tests() {
     let runs = ci
         .lines()
         .filter(|l| !l.trim_start().starts_with('#'))
-        .any(|l| l.contains("cargo test") && l.contains("-p forjar-contracts"));
+        .any(|l| {
+            l.contains("cargo test")
+                && [
+                    "-p forjar-contracts",
+                    "--package forjar-contracts",
+                    "--package=forjar-contracts",
+                ]
+                .iter()
+                .any(|f| l.contains(f))
+        });
     assert!(
         runs,
         "no non-comment `cargo test ... -p forjar-contracts` step in ci.yml"

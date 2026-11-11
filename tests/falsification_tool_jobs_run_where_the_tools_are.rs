@@ -335,6 +335,13 @@ fn the_detector_does_not_pin_what_cannot_reach_the_test() {
         "cargo test --doc; cargo test --lib",
         "cargo build || cargo test --lib",
         "cargo test -p forjar --lib",
+        // forjar#452 review: cargo runs the UNION of every -p; one root package
+        // anywhere in the list reaches the nas_archive test.
+        "cargo test --locked -p forjar-contracts -p forjar",
+        "cargo test --locked -p forjar -p forjar-contracts",
+        "cargo test --locked --package forjar-contracts --package forjar",
+        "cargo test --locked --package=forjar-contracts --package=forjar",
+        "cargo test --locked -p forjar-contracts --workspace",
         "cargo llvm-cov --lcov --output-path lcov.info",
         "cargo mutants --timeout 120",
     ] {
@@ -359,6 +366,8 @@ fn the_detector_does_not_pin_what_cannot_reach_the_test() {
         // crate's nas_archive test (it lives in src/resources/nas_archive).
         "cargo test --locked -p forjar-contracts",
         "cargo test --locked --package forjar-contracts",
+        "cargo test --locked --package=forjar-contracts",
+        "cargo test --locked -p forjar-contracts -p forjar-contracts-macros",
     ] {
         assert!(
             !runs_unfiltered_lib_tests(narrowed),
