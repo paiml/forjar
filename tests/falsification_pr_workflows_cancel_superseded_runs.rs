@@ -8,6 +8,7 @@
 //! ```yaml
 //! concurrency:
 //!   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+//!   # or, as #971 set it: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
 //!   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 //! ```
 //!
@@ -15,8 +16,8 @@
 //! non-PR runs share replaces the PENDING one even with
 //! `cancel-in-progress: false`, so two quick pushes to main would silently
 //! skip a main run. A unique group per non-PR run is never cancelled and
-//! never replaced. Push, schedule, merge_group, release and train/* runs all
-//! take that path.
+//! never replaced. Push, schedule, merge_group, release and train/** runs all
+//! take that path (train/** runs are push events since #971, not pull_request).
 //!
 //! The rule is a pure function (`violations`) so the mutants below can prove
 //! the test would catch each way of breaking it.
@@ -58,12 +59,14 @@ fn violations(text: &str) -> Vec<String> {
     };
     let mut out = Vec::new();
     let group = c.get("group").and_then(Value::as_str).unwrap_or("");
-    if !group.contains("github.workflow") || !group.contains("github.event.pull_request.number") {
+    let per_pr =
+        group.contains("github.event.pull_request.number") || group.contains("github.head_ref");
+    if !group.contains("github.workflow") || !per_pr {
         out.push(format!(
-            "group `{group}` is not per workflow and per PR number"
+            "group `{group}` is not per workflow and per PR (number or head_ref)"
         ));
     }
-    if group.contains("github.ref") && !group.contains("github.event.pull_request.number") {
+    if group.contains("github.ref") && !per_pr {
         out.push("group is per ref only".into());
     }
     match c.get("cancel-in-progress") {
@@ -80,7 +83,7 @@ const GOOD: &str = "on:\n  push:\n    branches: [main]\n  pull_request:\nconcurr
 #[test]
 fn every_pull_request_workflow_cancels_superseded_runs() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows");
-    let mut checked = 0;
+    let mut seen = Vec::new();
     let mut bad = Vec::new();
     for e in std::fs::read_dir(&dir).expect("read .github/workflows") {
         let p = e.expect("dir entry").path();
@@ -93,15 +96,19 @@ fn every_pull_request_workflow_cancels_superseded_runs() {
             .iter()
             .any(|t| t == "pull_request")
         {
-            checked += 1;
+            seen.push(p.file_stem().unwrap().to_string_lossy().into_owned());
         }
         for m in v {
             bad.push(format!("{}: {m}", p.file_name().unwrap().to_string_lossy()));
         }
     }
+    // fleet-sup 17:05Z: after #953/#971 the PR workflows are audit, ci, lint (and any others
+    // that still trigger on pull_request); the floor is 3, down from 9, so discovery still
+    // fails if the glob stops finding them.
     assert!(
-        checked >= 9,
-        "discovery found only {checked} pull_request workflows"
+        seen.len() >= 3,
+        "discovery found only {} pull_request workflows (floor 3): {seen:?}",
+        seen.len()
     );
     assert!(
         bad.is_empty(),
@@ -138,6 +145,18 @@ fn mutant_group_per_ref_only_is_caught() {
         "${{ github.event.pull_request.number || github.run_id }}",
         "${{ github.ref }}",
     );
+    assert!(!violations(&m).is_empty());
+}
+
+#[test]
+fn the_rule_accepts_head_ref_groups() {
+    let m = GOOD.replace("github.event.pull_request.number", "github.head_ref");
+    assert!(violations(&m).is_empty());
+}
+
+#[test]
+fn mutant_group_without_workflow_is_caught() {
+    let m = GOOD.replace("github.workflow", "x");
     assert!(!violations(&m).is_empty());
 }
 
