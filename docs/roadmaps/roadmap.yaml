@@ -5757,6 +5757,26 @@ roadmap:
   - kind:code
   notes: split from PMAT-756
   epic: 765
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests cannot pass: 10 single-threaded passes per leg never fit its 30-minute timeout'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T15:39:13Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696
 - id: GH-414
   github_issue: 414
   item_type: task
