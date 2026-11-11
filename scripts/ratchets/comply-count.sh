@@ -102,7 +102,7 @@ if [ "$body" = "$json" ]; then
   exit 1
 fi
 body="{${body}"
-row="$(jq -r --arg want "$want" '
+row="$(jq -rs --arg want "$want" 'if length != 1 then "AMBIGUOUS " + (length | tostring) else .[0] |
   [(.checks // [])[] | select((.name // "" | tostring) | startswith($want + ":"))] | first
   | if . == null then "MISSING"
     else ((.status // "" | tostring | ascii_downcase) as $s
@@ -110,7 +110,7 @@ row="$(jq -r --arg want "$want" '
           | if $s == "pass" then "COUNT 0"
             elif ($m | test("^\\s*[0-9]+\\s+finding")) then "COUNT " + ($m | capture("^\\s*(?<n>[0-9]+)").n)
             else "NOCOUNT " + $s + " " + ($m | .[0:120]) end)
-    end' <<<"$body" 2>&1)" || { echo "comply-count: comply output does not parse: ${row}" >&2; exit 1; }
+    end end' <<<"$body" 2>&1)" || { echo "comply-count: comply output does not parse: ${row}" >&2; exit 1; }
 case "$row" in
   "COUNT "*) printf '%s\n' "${row#COUNT }" ;;
   MISSING)
@@ -119,6 +119,14 @@ case "$row" in
     ;;
   NOCOUNT\ *)
     echo "comply-count: ${want} reports ${row#NOCOUNT } but its message carries no finding count" >&2
+    exit 1
+    ;;
+  AMBIGUOUS\ *)
+    echo "comply-count: comply output is not exactly one JSON document (${row#AMBIGUOUS } found) — refusing to guess which one is the report" >&2
+    exit 1
+    ;;
+  *)
+    echo "comply-count: unexpected parser state: ${row:-<empty>}" >&2
     exit 1
     ;;
 esac

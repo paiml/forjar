@@ -73,7 +73,13 @@ fi
 raw=$(pmat comply check --format json 2>/dev/null || true)
 [ -n "$raw" ] || { echo "✗ CB-200 UNMEASURED: pmat comply produced no output"; exit 1; }
 
-now=$(jq -r '[.. | objects | (.message? // empty) | strings | select(contains("below minimum grade")) | capture("(?<n>[0-9]+) function")? | .n | tonumber] | (.[0] // -1)' <<<"$raw" 2>/dev/null) || now=-1
+# Exactly one JSON document, or UNMEASURED (jq -s): a second document (a log
+# line, a stray `{}`) used to make jq print one number per document, and the
+# multi-line value then reached the integer test below. The Python this
+# replaced parsed the whole output with json.load and counted any failure as
+# -1, so ambiguous output was already UNMEASURED there.
+now=$(jq -rs 'if length != 1 then -1 else (.[0] | [.. | objects | (.message? // empty) | strings | select(contains("below minimum grade")) | capture("(?<n>[0-9]+) function")? | .n | tonumber] | (.[0] // -1)) end' <<<"$raw" 2>/dev/null) || now=-1
+case "$now" in '' | *[!0-9]*) now=-1 ;; esac
 
 # A count carried on a stale index is worse than no count: it reads as authority.
 # PMAT-240: a here-string, not a pipe — `grep -q` exits early and printf takes
