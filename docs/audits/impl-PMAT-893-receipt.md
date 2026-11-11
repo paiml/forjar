@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-893 — encryption is a default feature; `secrets encrypt` never takes the secret as an argument
 
-verdict: pending-quorum
+verdict: PARTIAL — merged with origin/main (d764f998) and green on t2yoga for fmt, clippy (default and cli-only), `--lib` and the six integration targets this PR adds or changes; 100% coverage, pv ontology, clean-room run and quorum receipt are still owed.
 
 ## Identity
 
@@ -43,9 +43,27 @@ verdict: pending-quorum
 - Round 5/6 RED first, `falsification_893_secrets_round5`: `flag_then_secret_then_secrets_does_not_leak` and `help_bogus_has_its_own_message` red (2 failed, 7 passed) before the `main.rs` change; GREEN after: 9 passed, 0 failed. Restoring `println!` at each of the view, view-no-marker, rekey, rotate and no-marker sites turns `full_stdout::view_rekey_rotate_full_stdout_exit_one` red (1 failed each); all reverted.
 - Round 7 RED/GREEN: with the case-sensitive mutant applied, `mentions_predicate_catches_glued_words` and `glued_subcommand_word_is_never_echoed` fail (1 failed each); reverted, both pass.
 
+## Merge with main (2026-11-11, build host t2yoga, wrapper `fc-pre.sh pr-895`)
+
+Merge commit d764f998 (`git merge origin/main`, no rebase). Conflicts and resolution:
+- `.github/workflows/lint.yml`, fmt/clippy matrix: main dropped the `ARM64` label from the clean-room runners; this PR renamed the non-encryption legs to `features: cli-only`. Both kept (`[self-hosted, clean-room]` with `cli-only` and `encryption`; macOS legs `cli-only` and `encryption`). The PR's `cli-only` clippy branch (`--no-default-features --features cli`) is unchanged.
+- `CHANGELOG.md`: main moved the earlier Unreleased entries under `## [1.34.0]`; the two PMAT-893 entries stay under `## [Unreleased]` above it.
+- `docs/roadmaps/roadmap.yaml`: main's label and notes on the preceding row taken; the PMAT-893 row (already on the branch) kept after it. File parses as YAML, 376 rows, one PMAT-893.
+The PMAT-893 roadmap row now carries `orch:fable`, `orch-basis:state` and `release: 1.34.1` (the `release:v1.34.0` label is dropped: v1.34.0 is already cut and these entries are Unreleased). The roadmap edit came after the t2yoga run; no test or code reads that row (not re-measured).
+No default, file mode or check was changed to resolve a conflict.
+
+Measured on t2yoga after the merge (one run, log `~/src/fc-pre/pr-895.log`, `DONE rc=0`):
+- `cargo fmt --all -- --check`: rc 0
+- `cargo clippy --all-targets -- -D warnings`: rc 0
+- `cargo clippy --all-targets --no-default-features --features cli -- -D warnings`: rc 0
+- `cargo test --lib`: 13887 passed, 0 failed, 4 ignored
+- `cargo test --locked --test` `falsification_893_secrets_encryption_default` 10 passed; `falsification_893_secrets_round3` 5 passed; `falsification_893_secrets_round4` 4 passed; `falsification_893_secrets_round5` 9 passed; `falsification_default_features_trim` 7 passed; `falsification_version_matches_manifest` 4 passed; 0 failed in all
+- LAB reds on plain main that no CI job runs (forjar#858: `falsification_untyped_error_sites_ratchet`, `falsification_budget_dry_run`, `falsification_release_workflow_shape`): not run, not measured.
+- Tree synced with a clone of the branch's `.git`, so tests that read history saw the real history.
+
 ## Owed before merge
 
-- 100% coverage receipt of the changed path
+- 100% coverage receipt of the changed path (not measured)
 - pv ontology check
 - clean-room run on the tagged commit
 - quorum receipt (written by the quorum, not by the author)
