@@ -31,6 +31,9 @@ pub mod sarif;
 #[cfg(test)]
 #[path = "tests_gate.rs"]
 mod tests_gate;
+#[cfg(test)]
+#[path = "tests_secret_apply.rs"]
+mod tests_secret_apply;
 
 /// The error code an enforcement point reports when the gate blocks.
 ///
