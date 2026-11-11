@@ -26,7 +26,7 @@ use std::collections::HashSet;
 ///
 /// `-m`/`--machine` selects the executor and the lock, not the resource set, so
 /// it never prunes here; it is carried (`machine`) only so a contradiction with
-/// `--only-machine` is refused by name (#471). `-t` is present but only existence-checked —
+/// `--only-machine` or `--exclude-machine` is refused by name (#471). `-t` is present but only existence-checked —
 /// tags stay a plan-level filter downstream.
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct Selectors<'a> {
@@ -52,7 +52,7 @@ pub(crate) struct Selectors<'a> {
     pub exclude_machine: Option<&'a str>,
     /// `-t`: existence-checked here, never pruned here.
     pub tag: Option<&'a str>,
-    /// `-m` / `--machine` (#471): never prunes; checked against `--only-machine` only.
+    /// `-m` / `--machine` (#471): never prunes; checked against `--only-machine` and `--exclude-machine`.
     pub machine: Option<&'a str>,
 }
 
