@@ -7108,3 +7108,25 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-896
+  github_issue: 896
+  item_type: task
+  title: 'python-ban train: cb200-ratchet and comply-count read JSON with jq; delete dead pmat_split.py and split_files.py'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-10T09:01:00Z
+  updated: 2026-11-11T21:30:00Z
+  spec: null
+  acceptance_criteria:
+  - scripts/cb200-ratchet.sh and scripts/ratchets/comply-count.sh run no python; the ceiling, the comply count and the failure messages keep their contract (a pass is 0, a missing id, no count, no JSON or bad JSON is a non-zero exit with a message).
+  - pmat_split.py and split_files.py are deleted and nothing outside historical work records names them.
+  - falsification_cb200_ratchet_measures_this_tree, falsification_comply_count_cannot_run_inside_itself and falsification_607_release_path_runs_no_python stay green.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
