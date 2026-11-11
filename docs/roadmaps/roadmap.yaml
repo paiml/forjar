@@ -5633,6 +5633,26 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-724
+  github_issue: 724
+  item_type: task
+  title: 'is_local_addr recognises addresses held by a local interface (PR #724)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-10-20T11:43:31Z
+  updated: 2026-11-11T09:40:00Z
+  spec: null
+  acceptance_criteria:
+  - Refs infra PMAT-1835 (the id PR #724 names; an infra ticket, so it had no row here)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - alias:PMAT-1835
+  - release:v1.34.0
+  notes: null
+  epic: 696
 - id: GH-414
   github_issue: 414
   item_type: task
