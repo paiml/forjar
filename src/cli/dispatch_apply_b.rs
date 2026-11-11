@@ -339,7 +339,7 @@ fn apply_from_plan(
         args.force_tag.as_deref(),
     )?;
     let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-    super::apply_lock_flags::prepare_state_lock(args, &sd)?;
+    super::apply_lock_flags::prepare_state_lock(&args.lock, &sd)?;
     cmd_apply_from_plan(&PlanApplyRequest {
         file: &args.file,
         state_dir: &sd,
@@ -436,7 +436,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         super::apply_quality_gate::check_quality_gate(&args.file, &args.policy_dir, verbose)?;
     }
 
-    super::apply_lock_flags::prepare_state_lock(args, &sd)?;
+    super::apply_lock_flags::prepare_state_lock(&args.lock, &sd)?;
 
     let result = cmd_apply_scoped(
         &args.file,
