@@ -6917,7 +6917,7 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
-- id: GH-939
+- id: PMAT-939
   github_issue: 939
   item_type: task
   title: 'ci / security red: RUSTSEC-2026-0459 libsqlite3-sys 0.30.1 (via rusqlite 0.32)'
