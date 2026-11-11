@@ -115,7 +115,7 @@ fn c3_c5_flags_parse() {
         .stack_size(16 * 1024 * 1024)
         .spawn(|| {
             let pick = |extra: &[&str]| match parse(extra) {
-                Commands::Apply(a) => (a.force_unlock, a.lock_timeout),
+                Commands::Apply(a) => (a.lock.force_unlock, a.lock.lock_timeout),
                 _ => panic!("not apply"),
             };
             [

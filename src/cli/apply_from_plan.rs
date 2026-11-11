@@ -345,15 +345,13 @@ pub(crate) fn cmd_apply_from_plan(req: &PlanApplyRequest) -> Result<(), String> 
     // was unreachable through a plan file — including the BLAKE3 state-integrity
     // gate whose own refusal says "No apply flag overrides this check".
     // FJ-LOCK-001 C2: those gates write state; hold the lock from here on.
-    let _state_lock = if req.dry_run {
-        None
-    } else {
-        Some(crate::core::state::hold_machine_locks(
-            req.state_dir,
-            &crate::core::executor::lock_targets(&config, req.selectors.machine.as_deref()),
-            req.knobs.force_unlock,
-        )?)
-    };
+    let _state_lock = super::apply_lock_flags::hold_apply_locks(
+        &config,
+        req.state_dir,
+        req.selectors.machine.as_deref(),
+        req.knobs.force_unlock,
+        req.dry_run,
+    )?;
     super::apply_from_plan_gates::run_plan_apply_gates(&config, req, &loaded.plan, &scope)?;
 
     if req.dry_run {

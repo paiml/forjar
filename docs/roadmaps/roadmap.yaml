@@ -5597,3 +5597,23 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-920
+  github_issue: 920
+  item_type: task
+  title: 'FJ-LOCK-001 master: per-machine atomic owner-checked state lock with bounded wait'
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 2026-11-09T14:21:24Z
+  updated: 2026-11-11T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'C1: the process lock is published with link(2), so a racer never reads or reaps an empty lock file.'
+  - 'C2: the state lock is held from the pre-validate gates to the post-apply actions, on the apply and the --plan-file path, and released on every exit; a dry run takes none.'
+  - 'C3-C5: locks carry an owner id, are per machine plus one short global lock, and --lock-timeout waits first come first served.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null

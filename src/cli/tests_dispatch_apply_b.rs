@@ -83,8 +83,10 @@ mod tests_358_plan_file_flags {
     #[test]
     fn every_knob_is_read_from_its_own_flag() {
         let args = ApplyArgs {
-            force_unlock: Some(String::new()),
-            lock_timeout: None,
+            lock: crate::cli::commands::ApplyLockArgs {
+                force_unlock: Some(String::new()),
+                lock_timeout: None,
+            },
             progress: true,
             timeout: Some(11),
             retry: 7,

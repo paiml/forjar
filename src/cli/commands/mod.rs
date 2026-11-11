@@ -1,4 +1,5 @@
 mod apply_args;
+mod apply_lock_args;
 mod dist_args;
 mod graph_args;
 mod lint_args;
@@ -19,6 +20,7 @@ mod subcmd_args;
 mod validate_args;
 mod verify_args;
 pub use apply_args::*;
+pub use apply_lock_args::*;
 use clap::Subcommand;
 pub use dist_args::*;
 pub use graph_args::*;

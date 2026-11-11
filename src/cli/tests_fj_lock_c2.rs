@@ -116,3 +116,20 @@ fn falsify_fj_lock_c2_panic_after_acquire_releases_lock() {
     assert!(caught.is_err());
     assert!(!lock.exists(), "lock leaked across a panic");
 }
+
+/// A real apply holds the machine lock; a dry run writes no state and must
+/// neither take the lock nor wait on one.
+#[test]
+fn falsify_fj_lock_c2_dry_run_takes_no_lock() {
+    use super::apply_lock_flags::hold_apply_locks;
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    let lock = state_dir.join("local").join(".forjar.lock");
+    let file = write_config(dir.path(), &lock);
+    let config = super::helpers::parse_and_validate(&file).unwrap();
+    let held = hold_apply_locks(&config, &state_dir, None, false, false).unwrap();
+    assert!(held.is_some() && lock.exists(), "a real apply takes the lock");
+    assert!(hold_apply_locks(&config, &state_dir, None, false, true).unwrap().is_none());
+    drop(held);
+    assert!(!lock.exists(), "lock released on drop");
+}

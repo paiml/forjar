@@ -375,7 +375,7 @@ fn apply_from_plan(
 /// literal is not testable without running an apply.
 pub(super) fn knobs_from(args: &ApplyArgs) -> ApplyKnobs {
     ApplyKnobs {
-        force_unlock: args.force_unlock.is_some(),
+        force_unlock: args.lock.force_unlock.is_some(),
         progress: args.progress,
         timeout_secs: args.timeout,
         retry: args.retry,
@@ -456,7 +456,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.env_file.as_deref(),
         args.workspace.as_deref(),
         args.report,
-        args.force_unlock.is_some(),
+        args.lock.force_unlock.is_some(),
         args.output.as_deref(),
         args.progress,
         args.timing,
