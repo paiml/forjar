@@ -40,11 +40,11 @@ jobs:
         # too, so the exposure to PR code is the one this file already has.
         include:
           - runner: [self-hosted, clean-room]
-            features: cli-only
+            features: ""
           - runner: [self-hosted, clean-room]
             features: encryption
           - runner: [self-hosted, macOS, mini-builder]
-            features: cli-only
+            features: ""
           - runner: [self-hosted, macOS, mini-builder]
             features: encryption
     runs-on: ${{ matrix.runner }}
@@ -120,11 +120,7 @@ jobs:
       - name: Clippy
         shell: bash
         run: |
-          if [ "${{ matrix.features }}" = "cli-only" ]; then
-            # Default features include encryption; this leg keeps the
-            # non-encryption cfg branches linted.
-            cargo clippy --all-targets --no-default-features --features cli -- -D warnings
-          elif [ -n "${{ matrix.features }}" ]; then
+          if [ -n "${{ matrix.features }}" ]; then
             cargo clippy --all-targets --features ${{ matrix.features }} -- -D warnings
           else
             cargo clippy --all-targets -- -D warnings
