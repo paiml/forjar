@@ -378,6 +378,7 @@ fn falsify_cd_001_002_every_resource_type_dispatches() {
         ResourceType::BackupSync,
         ResourceType::NasArchive,
         ResourceType::TmpReaper,
+        ResourceType::GithubRunner,
     ];
 
     for rt in all {
@@ -385,7 +386,9 @@ fn falsify_cd_001_002_every_resource_type_dispatches() {
             resource_type: rt.clone(),
             ..Default::default()
         };
-        let dispatchable = rt != ResourceType::Recipe;
+        // A recipe is expanded first; a github_runner has no generators until
+        // forjar#1000 phase 2 and must refuse rather than pass.
+        let dispatchable = rt != ResourceType::Recipe && rt != ResourceType::GithubRunner;
 
         assert_eq!(
             check_script(&r).is_ok(),

@@ -10,6 +10,7 @@ mod backup_sync_validate;
 mod disk_budget_validate;
 mod expansion;
 mod format_validation;
+mod github_runner_validate;
 mod nas_archive_validate;
 mod overlay_interface_validate;
 mod unknown_policy;

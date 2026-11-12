@@ -53,6 +53,18 @@ macro_rules! from_module {
 /// points returned before.
 const NOT_DISPATCHABLE: &str = "codegen not implemented for recipe (expand first)";
 
+/// Why `resource` has no generators: a recipe is expanded first, and a
+/// `github_runner` is declared but not yet implemented (forjar#1000, phase 1).
+/// Never a silent pass: the caller gets an `Err` either way.
+fn not_dispatchable(resource: &Resource) -> String {
+    match resource.resource_type {
+        ResourceType::GithubRunner => "github_runner: check and apply are not implemented yet \
+             (forjar#1000, phase 2)"
+            .to_string(),
+        _ => NOT_DISPATCHABLE.to_string(),
+    }
+}
+
 /// Route a resource type to its generators, or `None` when it has no codegen.
 ///
 /// The groups exist only to keep each `match` readable; every variant is named
@@ -82,7 +94,8 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
-        | ResourceType::TmpReaper => handlers_fleet(resource_type),
+        | ResourceType::TmpReaper
+        | ResourceType::GithubRunner => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
         ResourceType::Recipe => None,
@@ -122,6 +135,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::BackupSync
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
+        | ResourceType::GithubRunner
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -155,6 +169,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::BackupSync
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
+        | ResourceType::GithubRunner
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -171,6 +186,11 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         ResourceType::BackupSync => from_module!(resources::backup_sync),
         ResourceType::NasArchive => from_module!(resources::nas_archive),
         ResourceType::TmpReaper => from_module!(resources::tmp_reaper),
+
+        // forjar#1000 phase 1: declared and validated, no generators yet.
+        // `not_dispatchable` says so; it must never fall through to a script
+        // that reports success.
+        ResourceType::GithubRunner => return None,
 
         // Routed to a sibling group by `handlers`.
         ResourceType::Package
@@ -200,7 +220,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
 pub fn check_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_check_script!(resource);
-    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    let row = handlers(&resource.resource_type).ok_or_else(|| not_dispatchable(resource))?;
     Ok(in_declared_privilege_context(
         resource,
         (row.check)(resource),
@@ -257,7 +277,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ));
     }
 
-    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    let row = handlers(&resource.resource_type).ok_or_else(|| not_dispatchable(resource))?;
     let script = (row.apply)(resource);
     Ok(in_declared_privilege_context(resource, script))
 }
@@ -366,7 +386,7 @@ pub(crate) fn in_declared_privilege_context(resource: &Resource, script: String)
 pub fn state_query_script(resource: &Resource) -> Result<String, String> {
     // Contract: codegen-dispatch-v1.yaml precondition (pv codegen)
     contract_pre_state_query_script!(resource);
-    let row = handlers(&resource.resource_type).ok_or_else(|| NOT_DISPATCHABLE.to_string())?;
+    let row = handlers(&resource.resource_type).ok_or_else(|| not_dispatchable(resource))?;
     Ok(in_declared_privilege_context(
         resource,
         (row.state_query)(resource),

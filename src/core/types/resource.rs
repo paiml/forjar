@@ -136,8 +136,7 @@ pub struct Resource {
     pub system_user: bool,
 
     // -- tmp_reaper fields (forjar#847) --
-    /// Age beyond which an entry is reaped (`30m`, `12h`, `7d`, `2w`). Skipped when unset so no
-    /// existing resource's desired-state hash moves.
+    /// Age beyond which an entry is reaped (`30m`, `12h`, `7d`, `2w`); skipped when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_age: Option<String>,
 
@@ -494,4 +493,8 @@ pub struct Resource {
     /// FJ-038: `nas_archive` declaration fields.
     #[serde(flatten)]
     pub archive: ArchiveSpec,
+
+    /// forjar#1000: `github_runner` fields (scope, labels, sha256, work_dir, user, app).
+    #[serde(flatten)]
+    pub runner: super::github_runner_types::RunnerSpec,
 }

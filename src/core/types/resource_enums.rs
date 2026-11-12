@@ -60,6 +60,9 @@ pub enum ResourceType {
     NasArchive,
     /// forjar#847: delete files older than `max_age` under a declared path.
     TmpReaper,
+    /// forjar#1000: self-hosted GitHub Actions runner seat, registered through a
+    /// GitHub App. Phase 1: declared and validated; check/apply not implemented.
+    GithubRunner,
 }
 
 impl fmt::Display for ResourceType {
@@ -87,6 +90,7 @@ impl fmt::Display for ResourceType {
             Self::BackupSync => write!(f, "backup_sync"),
             Self::NasArchive => write!(f, "nas_archive"),
             Self::TmpReaper => write!(f, "tmp_reaper"),
+            Self::GithubRunner => write!(f, "github_runner"),
         }
     }
 }
@@ -217,6 +221,7 @@ mod tests {
             (ResourceType::NasArchive, "nas_archive"),
             (ResourceType::BackupSync, "backup_sync"),
             (ResourceType::TmpReaper, "tmp_reaper"),
+            (ResourceType::GithubRunner, "github_runner"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

@@ -63,7 +63,19 @@ fn resource_fields_has_no_stale_entries() {
     // `max_age` / `pattern` (forjar#847) are real fields but skip serialising
     // when unset, so a default `Resource` does not show them — and that skip is
     // what keeps every existing resource's desired-state hash unchanged.
-    const ALIASES: &[&str] = &["type", "moved_from", "max_age", "pattern"];
+    const ALIASES: &[&str] = &[
+        "type",
+        "moved_from",
+        "max_age",
+        "pattern",
+        // forjar#1000: github_runner fields, skipped when unset for the same reason.
+        "scope",
+        "labels",
+        "sha256",
+        "work_dir",
+        "user",
+        "app",
+    ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS
         .iter()

@@ -156,6 +156,13 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "backup_remote_type",
     "backup_remote_config",
     "backup_token",
+    // forjar#1000: github_runner (owner, repo, name, group, version are shared)
+    "scope",
+    "labels",
+    "sha256",
+    "work_dir",
+    "user",
+    "app",
 ];
 
 pub(crate) const MACHINE_FIELDS: &[&str] = &[

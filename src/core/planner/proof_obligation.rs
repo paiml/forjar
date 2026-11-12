@@ -61,6 +61,8 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         // transfer set.
         ResourceType::BackupSync => ProofObligation::Convergent,
         ResourceType::NasArchive => ProofObligation::Convergent,
+        // Registration is a no-op once the seat is listed (contract C2, C4).
+        ResourceType::GithubRunner => ProofObligation::Idempotent,
     }
 }
 
@@ -96,6 +98,7 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
+        | ResourceType::GithubRunner
         | ResourceType::TmpReaper => ProofObligation::Convergent,
     }
 }

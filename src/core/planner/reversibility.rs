@@ -71,6 +71,9 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         // Destroying the resource removes the script and units, not the archived
         // data — the NAS copy outlives the declaration.
         ResourceType::NasArchive => Reversibility::Reversible,
+        // Removing the declaration deregisters the seat; registering it again
+        // is one more token request. Nothing on the seat is data.
+        ResourceType::GithubRunner => Reversibility::Reversible,
     }
 }
 
