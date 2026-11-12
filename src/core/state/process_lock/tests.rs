@@ -342,11 +342,7 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
 
     // OUR OWN pid must not block us — otherwise the probe refuses every apply
     // the moment the lock's lifetime is ever moved earlier.
-    std::fs::write(
-        process_lock_path(d.path()),
-        format!("pid: {}\nhost: self\n", std::process::id()),
-    )
-    .unwrap();
+    std::fs::write(process_lock_path(d.path()), LockInfo::current().render()).unwrap();
     assert!(
         locked_by_other_live_pid(d.path()).is_none(),
         "our own lock must not refuse us"
@@ -355,7 +351,7 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
     // Stale (dead PID). Reaping stays the ACQUIRER's job, so a read-only probe
     // must not block — otherwise a crashed run wedges the state dir against a
     // check that can never clear it.
-    std::fs::write(process_lock_path(d.path()), "pid: 4294967290\nhost: dead\n").unwrap();
+    std::fs::write(process_lock_path(d.path()), "pid: 4294967290\n").unwrap();
     assert!(
         locked_by_other_live_pid(d.path()).is_none(),
         "a stale lock must not be treated as held — the acquirer reaps it"
@@ -366,5 +362,36 @@ fn locked_by_other_live_pid_is_silent_for_free_stale_and_self() {
     assert!(
         locked_by_other_live_pid(d.path()).is_none(),
         "unparseable lock content must not be reported as a live holder"
+    );
+}
+
+/// FJ-LOCK-001 C1 (#921) falsifier. A racer that reads the lock path the
+/// instant it exists must find the winner's PID in it. With create-then-write,
+/// it read an empty file, classified it Stale, re-confirmed "" == "" and
+/// unlinked the LIVE lock — so both acquirers ran. Deterministic: the racer runs
+/// inside the window via the `on_visible` seam, no sleeps, no threads.
+#[test]
+fn falsify_fj_lock_c1_racer_never_reaps_a_fresh_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let lock_path = process_lock_path(dir.path());
+    let content = LockInfo::current().render();
+    let mut racer = None;
+    let won = try_create_lock_observed(&lock_path, &content, || {
+        racer = Some(reap_or_reject_stale_lock(&lock_path));
+    });
+    assert!(won.is_ok(), "the winner must acquire");
+    assert!(
+        matches!(racer, Some(Ok(ReapOutcome::HeldByLivePid(_)))),
+        "racer must see a live holder, got {racer:?}"
+    );
+    assert_eq!(std::fs::read_to_string(&lock_path).unwrap(), content);
+    let names: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        vec![".forjar.lock".to_string()],
+        "no staging file left"
     );
 }
