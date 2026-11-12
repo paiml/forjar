@@ -929,7 +929,7 @@
    "exit_code": 0,
    "root_cause": "ENC-marked files are counted as 'skipped' rather than an error when the encryption feature is compiled out.",
    "fix_sketch": "Emit the same error as state-encrypt and exit 1 when ENC markers are present without the feature; treat a wrong passphrase as an error.",
-   "replay": "set -u; ST=\"$SANDBOX/st\"; mkdir -p \"$ST\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"s\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" state-decrypt --state-dir \"$ST\" --passphrase wrong-xyz >/dev/null 2>&1 && { echo \"DEFECT: wrong passphrase rc=0\"; exit 1; }; exit 0"
+   "replay": "set -u; ST=\"$SANDBOX/st\"; mkdir -p \"$ST\"; printf 'version: \"1.0\"\\nname: r\\nmachines: { local: { hostname: localhost, addr: 127.0.0.1 } }\\nresources:\\n  f: { type: file, machine: local, path: \"%s/o.txt\", content: \"s\" }\\n' \"$SANDBOX\" > c.yaml; \"$FORJAR\" apply -f c.yaml --state-dir \"$ST\" --yes >/dev/null 2>&1; \"$FORJAR\" state-encrypt --state-dir \"$ST\" --passphrase right-abc >/dev/null 2>&1; \"$FORJAR\" state-decrypt --state-dir \"$ST\" --passphrase wrong-xyz >/dev/null 2>&1 && { echo \"DEFECT: wrong passphrase rc=0\"; exit 1; }; exit 0"
   },
   {
    "id": "plugin-run-reports-converged-with-a-stub-runtime",

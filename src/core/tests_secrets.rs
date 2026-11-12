@@ -57,6 +57,10 @@ fn test_fj200_encrypt_no_recipients() {
 fn test_fj200_encrypt_invalid_recipient() {
     let err = encrypt("test", &["not-a-valid-key"]).unwrap_err();
     assert!(err.contains("invalid recipient"));
+    // The input must never come back in the error (it may be a secret).
+    let err = encrypt("test", &["hunter2SECRETvalue"]).unwrap_err();
+    assert!(!err.contains("hunter2"), "{err}");
+    assert!(err.contains("invalid recipient #1"), "{err}");
 }
 
 #[test]
@@ -260,6 +264,10 @@ fn test_fj200_load_identity_file_not_found() {
         .err()
         .expect("expected error");
     assert!(err.contains("cannot read identity file"));
+    assert!(
+        !err.contains("nonexistent") && !err.contains("key.txt"),
+        "{err}"
+    );
 }
 
 #[test]
@@ -270,6 +278,7 @@ fn test_fj200_load_identity_file_no_key() {
 
     let err = load_identity_file(&path).err().expect("expected error");
     assert!(err.contains("no AGE-SECRET-KEY found"));
+    assert!(!err.contains("empty.txt"), "{err}");
 }
 
 #[test]

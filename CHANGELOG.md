@@ -10,6 +10,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
 About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
 
+**Encryption is now a default feature (PMAT-893, #893).** `cargo install forjar` includes
+age: `forjar secrets keygen`, `secrets encrypt/decrypt` and state encryption work out of
+the box instead of failing with "compiled without encryption support". `secrets keygen -o`
+creates the identity file 0600 from the first syscall and refuses to overwrite.
+`default-features = false` still drops age.
+
+**BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument; the `secrets` family never echoes one (PMAT-893, #895).**
+The positional `VALUE` is removed: an argv secret is visible in `ps` and
+`/proc/<pid>/cmdline`, and a value beginning with `-----BEGIN` (a PEM key) made clap print
+the whole key twice in its "unexpected argument" error and tip. The plaintext now comes
+from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is an
+explicit form of the default, and conflicts with `--from-file`) or `--from-file PATH`. A positional value, or `-` as
+an argv secret, is refused with a fixed message that does not contain it. Scripts that ran
+`forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
+Redaction scope: clap usage errors are replaced by a fixed message when the subcommand
+word is `secrets`, a case-insensitive `secret*` word (glued secrets: `secrets=S`, `secretsS`,
+`secret=S`) or `help`, and for an InvalidSubcommand error when a later word is a secrets
+word (`--verbose S secrets encrypt`). Leading flags with glued values (`--verbose=S`) are
+skipped when locating the subcommand word. `forjar apply -f secrets.yaml --bogus` keeps
+clap's real error. A non-UTF-8 argument no longer panics or prints. Also changed in this family:
+- a bad recipient reads `invalid recipient #N: not an age X25519 public key (value not shown)`
+  (an unset shell variable can slide the secret into the `-r` slot);
+- no path is echoed by `--from-file`, `keygen -o`, `decrypt -i`, `view -f`, `rekey` or
+  `rotate` errors or success lines, only the io error kind (`NotFound`, ...);
+- a failing stdout (full disk, closed pipe) is `cannot write to stdout` with exit 1, not a
+  panic;
+- stdin and `--from-file` plaintext is capped at 16 MiB (`plaintext exceeds the 16 MiB
+  limit`, exit 1), so input size alone cannot reach an out-of-memory abort.
+Known residual risk: forjar builds with `panic = "abort"` and does not disable core dumps or
+zero plaintext buffers, so a SIGABRT or OOM kill while a secret is in memory can write it to
+a core file. Run secrets commands under `ulimit -c 0`; `PR_SET_DUMPABLE`/`RLIMIT_CORE`
+hardening and zeroizing are tracked as a follow-up (no safe wrapper is a direct dependency,
+and `unsafe` is forbidden in this crate).
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
