@@ -42,7 +42,7 @@ jobs:
   # untouched and still runs everything.
   classify:
     timeout-minutes: 15
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, gate-light]
     outputs:
       code: ${{ steps.class.outputs.code }}
       gate_c: ${{ steps.class.outputs.gate_c }}
@@ -356,7 +356,7 @@ jobs:
 
   gate:
     timeout-minutes: 15
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, gate-light]
     needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards]
     if: always()
     steps:
