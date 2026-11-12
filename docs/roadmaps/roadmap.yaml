@@ -7210,3 +7210,22 @@ roadmap:
   - orch-basis:state
   notes: 'Gate A row added by the lane worker on lane-943; the issue number 916 follows the PMAT-n/#n pairing of neighbouring rows and was not read from GitHub. The branch commits before this one carry Pmat-Ticket: PMAT-198 (the #433 row).'
   release: 1.34.1
+- id: PMAT-995
+  github_issue: 995
+  item_type: task
+  title: 'forjar#995: BSD/macOS df inode probe (mini apply blocked)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-12T19:29:06Z
+  updated: 2026-11-12T19:29:06Z
+  spec: null
+  acceptance_criteria:
+  - df -i -P -T fails on macOS; inode gate from forjar#847 refuses mini. Fix probe portability.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 911
