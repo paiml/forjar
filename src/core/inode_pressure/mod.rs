@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 /// Default red line: inode use at or above this percentage is a finding.
 pub const DEFAULT_THRESHOLD_PCT: u8 = 90;
 
+/// The inode probe run on every target.
+pub const DF_INODES_CMD: &str = "df -i -P -T";
+
 /// Declared inode-pressure policy (`inode_pressure:` in the config).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InodePressure {
@@ -198,3 +201,5 @@ pub fn host_df() -> Result<String, String> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod tests_bsd;

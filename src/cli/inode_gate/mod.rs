@@ -256,6 +256,8 @@ pub(crate) fn local_pre_check(cfg: &ForjarConfig) -> Result<(), String> {
 mod tests;
 
 #[cfg(test)]
+mod tests_darwin;
+#[cfg(test)]
 mod tests_machines;
 #[cfg(test)]
 mod tests_scope;
