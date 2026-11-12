@@ -67,6 +67,22 @@ pub(crate) fn is_sha256_hex(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
+/// Refuses a token that is not `[A-Za-z0-9_-]+` before it can enter a seat
+/// script's here-document; the error never contains the token.
+pub(super) fn checked_token(token: String, what: &str) -> Result<String, String> {
+    let ok = !token.is_empty()
+        && token
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+    if ok {
+        Ok(token)
+    } else {
+        Err(format!(
+            "github_runner: the {what} from GitHub has an unexpected shape; refusing to put it in a script"
+        ))
+    }
+}
+
 /// The full script with `token` on its own line inside the here-document.
 pub(super) fn seat_script(plan: &SeatPlan, token: &str) -> String {
     if !is_sha256_hex(&plan.sha256) {
@@ -163,6 +179,15 @@ mod tests {
             labels: "gate,fast".into(),
             group: Some("default".into()),
         }
+    }
+
+    #[test]
+    fn a_token_outside_the_safe_alphabet_is_refused_unprinted() {
+        for bad in ["", "AB\nrm -rf /", "A B", "A'B", "A$(id)", "A;B", "A\u{e9}"] {
+            let err = checked_token(bad.to_string(), "registration token").unwrap_err();
+            assert!(bad.is_empty() || !err.contains(bad), "{err}");
+        }
+        assert_eq!(checked_token("Aa0_-".into(), "t").unwrap(), "Aa0_-");
     }
 
     #[test]
