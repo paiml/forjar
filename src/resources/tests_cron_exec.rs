@@ -33,9 +33,9 @@ use super::cron::*;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 use std::path::{Path, PathBuf};
 
-const CMD: &str = "/usr/local/bin/backup.sh";
+pub(super) const CMD: &str = "/usr/local/bin/backup.sh";
 
-fn cron(name: &str, schedule: &str, command: &str) -> Resource {
+pub(super) fn cron(name: &str, schedule: &str, command: &str) -> Resource {
     Resource {
         resource_type: ResourceType::Cron,
         machine: MachineTarget::Single("m1".to_string()),
@@ -47,13 +47,13 @@ fn cron(name: &str, schedule: &str, command: &str) -> Resource {
     }
 }
 
-fn absent(name: &str) -> Resource {
+pub(super) fn absent(name: &str) -> Resource {
     let mut r = cron(name, "0 3 * * *", CMD);
     r.state = Some("absent".to_string());
     r
 }
 
-fn write_exe(path: &Path, body: &str) {
+pub(super) fn write_exe(path: &Path, body: &str) {
     std::fs::write(path, body).expect("write fake binary");
     #[cfg(unix)]
     {
@@ -63,12 +63,12 @@ fn write_exe(path: &Path, body: &str) {
 }
 
 /// A hermetic crontab: fake `crontab`, `sudo` and `id` on PATH over one file.
-struct FakeCrontab {
+pub(super) struct FakeCrontab {
     dir: PathBuf,
 }
 
 impl FakeCrontab {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let dir =
             std::env::temp_dir().join(format!("forjar-cron-exec-{}-{}", tag, std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -80,7 +80,7 @@ impl FakeCrontab {
         fx
     }
 
-    fn bin(&self) -> PathBuf {
+    pub(super) fn bin(&self) -> PathBuf {
         self.dir.join("bin")
     }
 
@@ -88,16 +88,16 @@ impl FakeCrontab {
         self.dir.join("crontab.store")
     }
 
-    fn seed(&self, text: &str) {
+    pub(super) fn seed(&self, text: &str) {
         std::fs::write(self.store(), text).expect("seed crontab store");
     }
 
     /// The crontab as the fake `crontab -l` would print it.
-    fn read(&self) -> String {
+    pub(super) fn read(&self) -> String {
         std::fs::read_to_string(self.store()).unwrap_or_default()
     }
 
-    fn run(&self, script: &str) -> std::process::Output {
+    pub(super) fn run(&self, script: &str) -> std::process::Output {
         let path = format!(
             "{}:{}",
             self.bin().display(),
@@ -112,7 +112,7 @@ impl FakeCrontab {
             .expect("bash is available")
     }
 
-    fn apply(&self, r: &Resource) {
+    pub(super) fn apply(&self, r: &Resource) {
         let out = self.run(&apply_script(r));
         assert!(
             out.status.success(),
@@ -155,6 +155,7 @@ const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
 printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
 # A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
+# forjar#848: `true` is NOT allowed; the check guard must probe the read itself.
 case "$1" in
   crontab|/usr/bin/crontab) ;;
   *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
@@ -385,46 +386,4 @@ fn the_err_trap_file_is_removed() {
     let _ = fx.run(&script);
     let left = std::fs::read_dir(&tmp).unwrap().count();
     assert_eq!(left, 0, "the ERR temp file leaked");
-}
-
-// ── forjar#848: the check guard probes the read, not `sudo -n true` ──
-
-/// Under a crontab-only sudoers rule (`true` refused) the check must observe
-/// the job, not SKIP.
-#[test]
-fn fj848_check_observes_under_a_crontab_only_sudoers_rule() {
-    let fx = FakeCrontab::new("g848a");
-    fx.seed("# forjar:backup\n# forjar-cmd:backup\n0 3 * * * /usr/local/bin/backup.sh\n");
-    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(
-        out.status.success(),
-        "{stdout} {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert!(stdout.contains("exists:backup"), "{stdout}");
-    assert!(!stdout.contains("FORJAR_SKIP"), "{stdout}");
-}
-
-/// No crontab yet is `missing:`, not a SKIP.
-#[test]
-fn fj848_no_crontab_is_missing_not_skip() {
-    let fx = FakeCrontab::new("g848b");
-    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("missing:backup"), "{stdout}");
-    assert!(!stdout.contains("FORJAR_SKIP"), "{stdout}");
-}
-
-/// A sudo that refuses the read itself is still a SKIP (exit 2).
-#[test]
-fn fj848_sudo_refusing_the_read_is_still_a_skip() {
-    let fx = FakeCrontab::new("g848c");
-    write_exe(
-        &fx.bin().join("sudo"),
-        "#!/usr/bin/env bash\necho 'sudo: a password is required' >&2\nexit 1\n",
-    );
-    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
-    assert_eq!(out.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&out.stdout).contains("FORJAR_SKIP"));
 }

@@ -83,7 +83,7 @@ fn select_task<'a>(
 
     if resource.resource_type != types::ResourceType::Task {
         return Err(format!(
-            "resource '{task_id}' is not a task (type: {:?})",
+            "resource '{task_id}' is not a task (type: {})",
             resource.resource_type
         ));
     }
