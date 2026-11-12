@@ -98,6 +98,8 @@ the sibling legs. The legs now run three passes under a 45-minute timeout with
 `fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
 pins that passes x 9 minutes + build fits the timeout.
 
+- CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492).
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
