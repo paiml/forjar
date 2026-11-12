@@ -54,7 +54,7 @@ Not measured: the reporter's own manifest and provider (the tests use `provider:
 
 ## Review round 1 (FAIL @717244c, three lanes) and what changed
 
-- `src/cli/check.rs` had grown 513 -> 517 lines, past the 500-line growth ratchet of the `file-health` job. The single-check runner moved to the new `src/cli/check_run.rs` (112 lines); `check.rs` is now 462 lines (`wc -l`).
+- `src/cli/check.rs` had grown 513 -> 517 lines, past the 500-line growth ratchet of the `file-health` job. The single-check runner moved to the new `src/cli/check_run.rs` (113 lines); `check.rs` is now 462 lines (`wc -l`).
 - A check script now carries resolved secret values, and a failing script could echo them into the detail that text mode prints and `--json` serializes. `check_run::Redaction` takes the policy `apply` uses for transcripts from the UNRESOLVED declaration: named secret values are struck out of the detail; a `sensitive` resource, or one carrying ciphertext, has its detail withheld whole.
 - New tests in `cli::tests_check_secrets`: `a_failing_check_does_not_keep_the_secret_it_echoed`, `a_sensitive_resource_has_its_check_output_withheld`, and `check_of_a_file_resource_with_secret_content_uses_the_provider` (the reported `file` resource shape; it asserts only that a failure is not the missing-env-var error).
 
