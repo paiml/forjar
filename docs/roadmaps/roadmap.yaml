@@ -7271,3 +7271,23 @@ roadmap:
   - orch-basis:state
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
+- id: PMAT-638
+  github_issue: 638
+  item_type: task
+  title: 'file arm: fixed staging name .forjar-new can be raced from the same directory; I8 corpus never exercises state: file (follow-up to #637)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-25T13:12:59Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696

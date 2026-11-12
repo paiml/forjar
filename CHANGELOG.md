@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**A file resource stages to a per-run name, not a fixed one (PMAT-638, #638).**
+The atomic replace staged every write at `<path>.forjar-new`, a name any writer
+in the same directory could open between the `rm -f` and the `mv -f`. The script
+now stages at `<path>.forjar-new.$$` (the shell's PID). A PID is still guessable
+and an apply that dies before the `mv -f` leaves its `.forjar-new.<pid>` behind;
+both are accepted and stated in the code. A `completion_check` declared on a
+package resource is now part of its check verdict (#694). The generated-script
+lint corpus now exercises `state: file` with `content` and with `source`.
+
 **`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
 About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
 
