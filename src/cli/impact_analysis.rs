@@ -57,7 +57,7 @@ fn compute_impact(resource: &str, config: &types::ForjarConfig) -> ImpactReport 
             let est_secs = estimate_resource_seconds(res);
             affected.push(AffectedResource {
                 name: current.clone(),
-                resource_type: format!("{:?}", res.resource_type).to_lowercase(),
+                resource_type: res.resource_type.to_string(),
                 machine,
                 depth,
                 estimated_seconds: est_secs,

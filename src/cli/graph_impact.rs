@@ -257,7 +257,7 @@ pub(crate) fn cmd_graph_timeline(file: &Path) -> Result<(), String> {
         } else {
             "├"
         };
-        let type_str = format!("{:?}", res.resource_type).to_lowercase();
+        let type_str = res.resource_type.to_string();
         println!("{indent}{marker}── {name} [{type_str}]");
 
         prev_deps = vec![name.clone()];
@@ -310,7 +310,7 @@ pub(crate) fn cmd_graph_what_if(file: &Path, resource: &str) -> Result<(), Strin
             affected.len()
         );
         for name in &affected {
-            let type_str = format!("{:?}", config.resources[name].resource_type).to_lowercase();
+            let type_str = config.resources[name].resource_type.to_string();
             println!("    {} {} [{}]", red("✗"), name, type_str);
         }
     }

@@ -85,13 +85,13 @@ pub(crate) fn cmd_status_resource_age(
 /// Simple cost model: weight by resource type complexity.
 fn resource_cost_weight(t: &str) -> f64 {
     match t {
-        "Package" => 2.0,
-        "File" => 1.0,
-        "Service" => 3.0,
-        "Mount" => 2.5,
-        "User" => 2.0,
-        "Docker" => 5.0,
-        "Network" => 3.0,
+        "package" => 2.0,
+        "file" => 1.0,
+        "service" => 3.0,
+        "mount" => 2.5,
+        "user" => 2.0,
+        "docker" => 5.0,
+        "network" => 3.0,
         _ => 1.0,
     }
 }
@@ -118,7 +118,7 @@ fn tally_resource_types(
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             for (_, rlock) in &lock.resources {
-                let rtype = format!("{:?}", rlock.resource_type);
+                let rtype = rlock.resource_type.to_string();
                 *type_counts.entry(rtype).or_insert(0) += 1;
             }
         }
@@ -210,12 +210,12 @@ pub(crate) fn cmd_status_resource_size(
                 }
                 first = false;
                 print!(
-                    r#"{{"machine":"{}","resource":"{}","type":"{:?}","details_count":{}}}"#,
+                    r#"{{"machine":"{}","resource":"{}","type":"{}","details_count":{}}}"#,
                     m, rname, rlock.resource_type, details_size
                 );
             } else {
                 println!(
-                    "{}/{}: type={:?}, hash_len={}, details={}",
+                    "{}/{}: type={}, hash_len={}, details={}",
                     m, rname, rlock.resource_type, hash_len, details_size
                 );
             }

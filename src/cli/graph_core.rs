@@ -333,7 +333,7 @@ fn print_execution_order_json(order: &[String], config: &types::ForjarConfig) {
             let rtype = config
                 .resources
                 .get(name)
-                .map(|r| format!("{:?}", r.resource_type))
+                .map(|r| r.resource_type.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             format!(
                 r#"{{"step":{},"resource":"{}","type":"{}"}}"#,
@@ -360,7 +360,7 @@ fn print_execution_order_text(order: &[String], config: &types::ForjarConfig) {
             let rtype = config
                 .resources
                 .get(name)
-                .map(|r| format!("{:?}", r.resource_type))
+                .map(|r| r.resource_type.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             println!("  {}. {} ({})", i + 1, name, rtype);
         }

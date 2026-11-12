@@ -104,7 +104,7 @@ fn collect_type_breakdown(state_dir: &Path, targets: &[&String]) -> Vec<(String,
             Err(_) => continue,
         };
         for rs in lock.resources.values() {
-            let rtype = format!("{:?}", rs.resource_type);
+            let rtype = rs.resource_type.to_string();
             *counts.entry(rtype).or_default() += 1;
         }
     }

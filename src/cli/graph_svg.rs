@@ -87,7 +87,7 @@ pub(crate) fn print_graph_svg(config: &ForjarConfig) {
         let label = truncate_with_ellipsis(id, 20);
         println!("  <text x=\"{tx}\" y=\"{ty}\" class=\"label\">{label}</text>");
         let tty = y + 28;
-        let type_str = format!("{rtype:?}").to_lowercase();
+        let type_str = rtype.to_string();
         println!("  <text x=\"{tx}\" y=\"{tty}\" class=\"type-label\">{type_str}</text>");
     }
 
