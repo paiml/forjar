@@ -18,10 +18,6 @@ time-to-live sweep. An empty or timed-out `/proc` scan is NOT MEASURED and
 proves nothing dead; byte sums are exact above 2^31 and counted once across
 overlapping rules.
 
-**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
-`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
-No job is added, removed or skipped.
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
