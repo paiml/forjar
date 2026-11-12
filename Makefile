@@ -217,3 +217,11 @@ cb200-ratchet:
 	@# introduced none of it. The count is COMPARED, not merely printed: a target
 	@# that echoes a number is documentation, and documentation does not fail.
 	@bash scripts/cb200-ratchet.sh
+
+# Per-PR fragments for the hot files (BUILD-FIRST R3): see changelog.d/README.md.
+.PHONY: check-fragments assemble-fragments
+check-fragments: ## Validate changelog.d/ and docs/roadmaps/fragments/ (no writes)
+	@scripts/assemble-changelog.sh --check
+
+assemble-fragments: ## Release cut: fold fragments into CHANGELOG.md / roadmap.yaml and delete them
+	@scripts/assemble-changelog.sh --consume
