@@ -322,7 +322,8 @@ fn acquire_release_process_lock() {
 #[test]
 fn force_unlock_removes_lock() {
     let (_dir, state_dir) = make_state_dir();
-    state::acquire_process_lock(&state_dir).unwrap();
+    // A dead holder: force-unlock refuses a live one (FJ-LOCK-001 C3).
+    std::fs::write(state_dir.join(".forjar.lock"), "pid: 4294967290\n").unwrap();
     state::force_unlock(&state_dir).unwrap();
 
     let lock_file = state_dir.join(".forjar.lock");
