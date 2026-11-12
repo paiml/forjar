@@ -58,7 +58,7 @@ fn collect_model_resources(config: &types::ForjarConfig) -> Vec<ModelInfo> {
 
         models.push(ModelInfo {
             id: id.clone(),
-            resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+            resource_type: resource.resource_type.to_string(),
             machine,
             tags: resource.tags.clone(),
             group: resource.resource_group.clone(),
