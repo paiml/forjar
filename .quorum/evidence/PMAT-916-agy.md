@@ -1,5 +1,5 @@
 # Independent Review (`agy`) — ResourceType Display & cron guards (PMAT-916 / forjar#943)
 
 - **Reviewer**: `agy` — Model: `Gemini 4 Carbon (thinking=high)` (non-author model)
-- **Trajectory**: Round 1 `a4e28c3b` (`3/3 FAIL`) -> Round 2 `f7525fb6c7dd6d4b4f707ef97dcbc14bd10bd735` (`3/3 PASS`, `review-forjar-943-f7525fb-lane{1,2,3}.md`).
-- **Falsification on `<host>` (`<SCRATCH>`)**: Reverting `src/cli/validate_advanced.rs` to `origin/main` (`! cmp -s` verified) failed `cli_never_debug_formats_resource_type` in `tests/resource_type_spelling.rs` (`4 passed; 1 failed`, `FJ_943_REVERT_RC=101`).
+- **Trajectory**: Round 1 `a4e28c3b` (`3/3 FAIL`) -> Round 2 `f7525fb6c7dd6d4b4f707ef97dcbc14bd10bd735` (`3/3 PASS`) -> Round 3 file-health split `10c077e9664456c03fde5e5bbf398733f107cd9e` (`3/3 PASS`, `review-forjar-943-10c077e-lane{1,2,3}.md`).
+- **Falsification on `<host>` (`<SCRATCH>`)**: Reverting `src/cli/validate_advanced.rs` to `origin/main` (`! cmp -s` verified) failed `cli_never_debug_formats_resource_type` in `tests/resource_type_spelling.rs` (`4 passed; 1 failed`, `FJ_943_REVERT_RC=101`), and all 24 cron execution + guard tests (`tests_cron_exec` + `tests_cron_exec_guard`) passed (`24/24`).

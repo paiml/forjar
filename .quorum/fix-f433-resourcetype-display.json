@@ -2,13 +2,13 @@
   "kind": "code",
   "issue": "PMAT-916 (forjar#943: #433, #848, #445) \u2014 format ResourceType via Display snake_case across CLI output while keeping Debug in hash inputs, separate sudo absence from missing crontab in cron check, and refuse truncated 3-line forjar cron blocks.",
   "branch": "fix/f433-resourcetype-display",
-  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @a4e28c3b 3/3 FAIL -> round 2 @f7525fb6 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
+  "recorded_at": "three-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @a4e28c3b 3/3 FAIL -> round 2 @f7525fb6 3/3 PASS -> round 3 @10c077e9 3/3 PASS after splitting tests_cron_exec_guard.rs under the 500-line ceiling) with 4 claims confirmed and 2 claims refuted.",
   "quorum": {
-    "rounds": 2,
+    "rounds": 3,
     "lanes": [
-      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 1 (ResourceType Display vs Hash Inputs & Cron Block Guard): PASS",
-      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, TDG Ceiling & Crontab Corruption Guard): PASS",
-      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification & Revert Discrimination): PASS"
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 -> round 3 @10c077e9 \u2014 agy Gemini 4 Carbon (High) Lane 1 (ResourceType Display vs Hash Inputs & Cron Block Guard): PASS",
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 -> round 3 @10c077e9 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, TDG/File-Health Ceiling & Crontab Corruption Guard): PASS",
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 -> round 3 @10c077e9 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification & Revert Discrimination): PASS"
     ],
     "lane_errors": 0,
     "judges": 3,
@@ -40,12 +40,12 @@
   },
   "agy_teamwork": {
     "ran": true,
-    "mode": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (@a4e28c3b -> @f7525fb6)",
-    "rounds": 2,
+    "mode": "three-round three-lane agy Gemini 4 Carbon (thinking=high) review (@a4e28c3b -> @f7525fb6 -> @10c077e9)",
+    "rounds": 3,
     "lanes_per_round": 3,
     "sandbox": true,
     "writes": false,
-    "verdict": "round 1: 0/3 PASS at a4e28c3b; round 2: 3/3 PASS at f7525fb6 (4 claims confirmed, 2 claims refuted)."
+    "verdict": "round 1: 0/3 PASS at a4e28c3b; round 2: 3/3 PASS at f7525fb6; round 3: 3/3 PASS at 10c077e9 (4 claims confirmed, 2 claims refuted)."
   },
   "pmat": {
     "ticket": "PMAT-916",
@@ -58,7 +58,7 @@
   },
   "base": "dbd1ec3e",
   "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
-  "diff_sha256": "cf97e0d63a87be4b8e1b33381a64e9fc074ed7e9",
+  "diff_sha256": "387ab0d6cb1e545bda39ca8143075c2d16927a7c",
   "evidence": {
     "files": [
       {
@@ -66,39 +66,39 @@
         "roles": [
           "claims"
         ],
-        "blob": "6de7326043c89cad1d6657380bdaf376ac22ffa9",
-        "sha256": "f48cdac702602f32f84d411e25b6945de217a13836975e753acb6dc23b75b8f1",
-        "bytes": 2063
+        "blob": "52ef6cce18b61f323a9e993d7d61c174ee429807",
+        "sha256": "756c5bfd7ba952e5e7a3aa3a32bd02c367b88077969c6427101ee0d02da461c1",
+        "bytes": 2330
       },
       {
         "path": ".quorum/evidence/PMAT-916-lanes.md",
         "roles": [
           "lanes"
         ],
-        "blob": "0e83500bd8547dce6926a8340a2d1a2eddec5cc9",
-        "sha256": "d375838cd6d2c890ee48e1fe2903a7a1d07f7a053babd7a7b8d34483744d423b",
-        "bytes": 1259
+        "blob": "ae07de7b81d5f9d417d37cf1241e2d17fd64ac6f",
+        "sha256": "7ba7b8b226b458001c657610e7ed0d3f04833d7e180dcb215e3d59f0d6ebb35f",
+        "bytes": 1647
       },
       {
         "path": ".quorum/evidence/PMAT-916-judges.md",
         "roles": [
           "judges"
         ],
-        "blob": "3458243ce2096030801f4b8289284668cd812444",
-        "sha256": "0cb2bf0fd8ff7b0c872801f4e79a603b34240eeea1abd7ebd9d5f1c9a22a159f",
-        "bytes": 2862
+        "blob": "0167c47b32fa6bd368c86bc8053992053740b7a1",
+        "sha256": "decb2b3f4f35c6b9f194ffd251d8bf4a1bcce9c859a7ddafc06864433e6e7818",
+        "bytes": 3316
       },
       {
         "path": ".quorum/evidence/PMAT-916-agy.md",
         "roles": [
           "agy"
         ],
-        "blob": "15aeb269ae3ddd9307b9d345b19bde09ba17eea5",
-        "sha256": "9c2a9d58702fe4c166d2c2f78ccfe0bb6df79f200548f4385ec16fd0e9c99fd1",
-        "bytes": 600
+        "blob": "10d18a952fd5f9030b839f35d7433a781caf6b22",
+        "sha256": "d4bff59190caf1d857cfa88d0bd18aa4915475be78a3d7132024b942108b5a7c",
+        "bytes": 789
       }
     ],
-    "total_bytes": 6784,
+    "total_bytes": 8082,
     "claims_digest": ".quorum/evidence/PMAT-916-judges.md"
   }
 }
