@@ -100,18 +100,11 @@ pub(super) fn check_naming_silent(config: &types::ForjarConfig) -> Result<(), St
     }
 }
 
-pub(super) fn check_idempotency_silent(config: &types::ForjarConfig) -> Result<(), String> {
-    let mut issues = 0usize;
-    for res in config.resources.values() {
-        if res.resource_type.to_string() == "Unknown" {
-            issues += 1;
-        }
-    }
-    if issues == 0 {
-        Ok(())
-    } else {
-        Err(format!("{issues} potential idempotency issue(s)"))
-    }
+/// No resource type is non-idempotent by type: `ResourceType` is a closed enum
+/// with no unknown variant. The former `== "Unknown"` test compared snake_case
+/// text with a Pascal-case literal and could never be true.
+pub(super) fn check_idempotency_silent(_config: &types::ForjarConfig) -> Result<(), String> {
+    Ok(())
 }
 
 pub(super) fn check_connectivity_silent(config: &types::ForjarConfig) -> Result<(), String> {

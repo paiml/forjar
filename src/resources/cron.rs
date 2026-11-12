@@ -51,15 +51,19 @@ fn crontab_check_guard(u: &str) -> String {
 /// block is appended: two jobs scheduled, one not forjar's. forjar deletes
 /// nothing it did not write, so the honest answer is to refuse and leave the
 /// crontab unchanged. Intact means: marker, then exactly the cmd marker, then
-/// one more line. The entry line itself is NOT compared: an edited entry under
-/// intact markers is a block forjar wrote, and it is replaced, not refused.
+/// one entry line. The entry line's CONTENT is not compared: an edited entry
+/// under intact markers is a block forjar wrote, and it is replaced, not
+/// refused. Its SHAPE is checked: a blank or `#` line is not an entry, it is
+/// what remains when the entry was deleted or commented out, and `delete_block`
+/// would otherwise drop it as if it were forjar's (a sibling's marker, a human
+/// note).
 fn intact_block_guard(name: &str, marker: &str, cmd_marker: &str) -> String {
     let msg = sh_squote(&format!(
         "forjar: cron '{name}': the block under '# forjar:{name}' has been edited by hand; remove it or restore it before forjar manages this job"
     ));
     format!(
         "if ! printf '%s\\n' \"$EXISTING\" | FJ_M={marker} FJ_C={cmd_marker} awk \
-         'd==1{{if($0!=ENVIRON[\"FJ_C\"])bad=1;d=2;next}} d==2{{d=0;next}} \
+         'd==1{{if($0!=ENVIRON[\"FJ_C\"])bad=1;d=2;next}} d==2{{if($0~/^[ \\t]*(#|$)/)bad=1;d=0;next}} \
          $0==ENVIRON[\"FJ_M\"]{{d=1;next}} END{{if(d)bad=1;exit bad?3:0}}'; then\n  \
            printf '%s\\n' {msg} >&2\n  \
            exit 1\n\

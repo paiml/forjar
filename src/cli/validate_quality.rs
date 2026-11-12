@@ -10,15 +10,11 @@ pub(crate) fn cmd_validate_check_idempotency(file: &Path, json: bool) -> Result<
     let config = parse_and_validate(file)?;
     let order = resolver::build_execution_order(&config)?;
 
-    let mut non_idempotent = Vec::new();
-    for name in &order {
-        if let Some(res) = config.resources.get(name) {
-            let rt = res.resource_type.to_string();
-            if rt == "Unknown" {
-                non_idempotent.push(format!("{name}: unknown resource type"));
-            }
-        }
-    }
+    // ResourceType is a closed enum with no unknown variant, and `parse_and_validate`
+    // has already refused an unknown `type:`. The former `== "Unknown"` test could
+    // never be true (its text is snake_case), so it is gone rather than kept as a
+    // check that looks like it runs.
+    let non_idempotent: Vec<String> = Vec::new();
 
     if json {
         println!(
