@@ -20,7 +20,12 @@ struct EquationYaml {
 }
 
 fn emit_contract_assertions() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    // The directory is read when this script RUNS; whether it runs again when
+    // another checkout shares the target dir is decided by this directive.
+    println!("cargo::rerun-if-env-changed=CARGO_MANIFEST_DIR");
+    let dir =
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
+            .join("contracts");
     if !dir.exists() {
         return;
     }
@@ -120,7 +125,9 @@ fn unresolved_binding(dir: &std::path::Path, b: &BindingYaml) -> Option<String> 
 /// `#[test]` in tests/falsification_contract_citations_resolve.rs, deliberately:
 /// a build result is cacheable and a test result is not.
 fn verify_binding_equations(binding_path: &std::path::Path) {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let dir =
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
+            .join("contracts");
     let text = std::fs::read_to_string(binding_path).expect("read binding.yaml");
     let registry: BindingRegistryYaml = serde_yaml_ng::from_str(&text).expect("parse binding.yaml");
     assert!(
