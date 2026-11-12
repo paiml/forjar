@@ -225,3 +225,44 @@ fn t7_report_json_carries_the_base_reference_and_layer_count() {
         assert!(with.get(k).is_some(), "existing field {k} must stay");
     }
 }
+
+/// Config whose `image:` is the JSON-quoted (so YAML-quoted) `base`, verbatim.
+fn write_config_with_base(dir: &Path, base: &str) -> PathBuf {
+    let path = dir.join("forjar.yaml");
+    std::fs::write(
+        &path,
+        format!(
+            "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\n\
+             resources:\n  app:\n    type: image\n    machine: m\n    name: myapp\n    \
+             version: \"1.0\"\n    image: {}\n    path: /app/bin\n",
+            serde_json::to_string(base).unwrap()
+        ),
+    )
+    .unwrap();
+    path
+}
+
+/// A base reference is handed to the container runtime as a bare argument
+/// (`<rt> image inspect <ref>`, `<rt> run .. <ref>`), so one that is empty,
+/// starts with '-', or holds whitespace or control characters is refused at
+/// the single entry point, before any lookup: even when a layout for it exists
+/// on disk, and without producing a "fetch it with" hint for it.
+#[test]
+fn t8_unsafe_base_references_are_refused_before_any_lookup() {
+    for bad in ["", "-x", "--privileged", "-", "a b", " lead", "a\tb", "a\nb", "a\u{7f}b"] {
+        let work = tempfile::tempdir().unwrap();
+        let state = work.path().join("state");
+        // A complete layout exists under the directory name the reference maps to.
+        write_base(&state.join(bad.replace([':', '/'], "_")), 0x10, b"base-layer");
+        let cfg = write_config_with_base(work.path(), bad);
+
+        let err = build(&state, &cfg)
+            .expect_err(&format!("base reference {bad:?} must be refused, not built on"));
+
+        assert!(err.contains(&format!("{bad:?}")), "names the reference {bad:?}: {err}");
+        for hint in ["skopeo", "docker pull", "docker save", "Fetch it with"] {
+            assert!(!err.contains(hint), "no fetch hint for {bad:?} ({hint}): {err}");
+        }
+        assert!(!state.join("app/index.json").exists(), "nothing written for {bad:?}");
+    }
+}
