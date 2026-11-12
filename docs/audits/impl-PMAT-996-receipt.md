@@ -6,7 +6,7 @@ verdict: PARTIAL — the check, the lockless check and the `--refresh` check now
 
 - ticket PMAT-996 (forjar#996; reported as `forjar apply --check` 1.34.0 failing with "secret not found" on a manifest whose `apply` works); kind: code
 - branch `fix/check-secrets-provider`, base `main` @ c4ce3a2c
-- files: `src/cli/check.rs`, `src/core/executor/lockless_check.rs`, `src/core/executor/refresh.rs`, `src/cli/tests_check_secrets.rs`, `src/core/executor/tests_lockless_secrets.rs`, `src/core/executor/tests_refresh_secrets.rs`, `src/cli/mod_test_decl.rs`, `CHANGELOG.md`, `docs/roadmaps/roadmap.yaml`
+- files: `src/cli/check.rs`, `src/cli/check_run.rs`, `src/cli/mod.rs`, `src/core/executor/lockless_check.rs`, `src/core/executor/refresh.rs`, `src/cli/tests_check_secrets.rs`, `src/core/executor/tests_lockless_secrets.rs`, `src/core/executor/tests_refresh_secrets.rs`, `src/cli/mod_test_decl.rs`, `CHANGELOG.md`, `docs/roadmaps/roadmap.yaml`
 
 ## Root cause (five whys)
 
@@ -51,6 +51,24 @@ Not measured: the reporter's own manifest and provider (the tests use `provider:
 
 - Other callers of the env-only `resolve_resource_templates` are unchanged and may show the same defect for their verb: `src/cli/check_test_runners.rs`, `src/cli/validate_deep.rs`, `src/cli/validate_core.rs`, `src/cli/coverage_promote.rs`, `src/cli/show.rs`, `src/cli/build_image.rs`, `src/cli/contracts.rs`, `src/mcp/handlers.rs`. Each needs its own decision: some of these verbs should not run a subprocess provider at all.
 - A check now runs the declared provider, including `sops` and `op` subprocesses. The unattended surface already swaps those for a declining provider on the config it is handed; not re-measured here for the check verb.
-- `src/cli/check.rs` is 517 lines after formatting (513 before).
+
+## Review round 1 (FAIL @717244c, three lanes) and what changed
+
+- `src/cli/check.rs` had grown 513 -> 517 lines, past the 500-line growth ratchet of the `file-health` job. The single-check runner moved to the new `src/cli/check_run.rs` (112 lines); `check.rs` is now 462 lines (`wc -l`).
+- A check script now carries resolved secret values, and a failing script could echo them into the detail that text mode prints and `--json` serializes. `check_run::Redaction` takes the policy `apply` uses for transcripts from the UNRESOLVED declaration: named secret values are struck out of the detail; a `sensitive` resource, or one carrying ciphertext, has its detail withheld whole.
+- New tests in `cli::tests_check_secrets`: `a_failing_check_does_not_keep_the_secret_it_echoed`, `a_sensitive_resource_has_its_check_output_withheld`, and `check_of_a_file_resource_with_secret_content_uses_the_provider` (the reported `file` resource shape; it asserts only that a failure is not the missing-env-var error).
+
+Measured on host gx10, round 2:
+
+    redaction line reversed, cargo test --lib -- tests_check_secrets:  3 passed; 2 failed (the two redaction tests)
+    restored:
+    cargo fmt --all -- --check                      rc=0
+    cargo clippy --all-targets -- -D warnings       rc=0
+    tests_check_secrets:    5 passed; 0 failed
+    tests_lockless_secrets: 2 passed; 0 failed
+    tests_refresh_secrets:  2 passed; 0 failed
+    cargo test --lib        13820 passed; 0 failed; 4 ignored
+
+Still not measured: `apply --check` through its own argument struct (it calls the same `cmd_check_selected`), and the `file-health` job itself (no PR exists yet, so CI has not run).
 
 IMPL-PMAT-996-RECEIPT-END

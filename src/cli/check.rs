@@ -2,9 +2,9 @@
 
 pub(crate) use super::check_test::cmd_test;
 
+use super::check_run::{run_single_check, Redaction};
 use super::helpers::*;
 use crate::core::{codegen, resolver, state, types};
-use crate::transport;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -78,14 +78,6 @@ pub(super) fn localhost_machine() -> types::Machine {
     }
 }
 
-/// Ensure container is running if needed.
-fn ensure_container_if_needed(machine: &types::Machine) -> Result<(), String> {
-    if machine.is_container_transport() {
-        transport::container::ensure_container(machine)?;
-    }
-    Ok(())
-}
-
 /// Build a CheckResult from status/exit_code/detail.
 pub(super) fn make_check_result(
     resource_id: &str,
@@ -102,69 +94,6 @@ pub(super) fn make_check_result(
         detail,
         in_state: None,
     }
-}
-
-/// Print check failure in text mode.
-fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
-    println!("  FAIL {resource_id} ({machine_name}) — {detail}");
-}
-
-/// Run a check script on one machine and record the result.
-fn run_single_check(
-    machine: &types::Machine,
-    check_script: &str,
-    resource_id: &str,
-    machine_name: &str,
-    json: bool,
-) -> (CheckResult, bool) {
-    if let Err(e) = ensure_container_if_needed(machine) {
-        if !json {
-            print_check_failure(resource_id, machine_name, &e);
-        }
-        return (
-            make_check_result(resource_id, machine_name, "error", None, e),
-            false,
-        );
-    }
-
-    let output = transport::exec_script(machine, check_script);
-    let (status, exit_code, detail, passed) = match output {
-        Ok(out) if out.success() => ("pass", Some(0), String::new(), true),
-        // FJ-2720: exit 2 = NOT APPLICABLE on this host (no systemd, no docker).
-        // Neither a pass nor a failure — forjar cannot observe the state, and
-        // claiming either would be a guess.
-        Ok(out) if out.exit_code == 2 => ("skip", Some(2), out.stdout.trim().to_string(), true),
-        Ok(out) => (
-            "fail",
-            Some(out.exit_code),
-            out.stderr.trim().to_string(),
-            false,
-        ),
-        Err(e) => ("error", None, e, false),
-    };
-
-    if !json {
-        if passed {
-            println!("  ok {resource_id} ({machine_name})");
-        } else {
-            let msg = if let Some(code) = exit_code {
-                format!("exit {code}")
-            } else {
-                detail.clone()
-            };
-            print_check_failure(resource_id, machine_name, &msg);
-            if exit_code.is_some() {
-                for line in detail.lines().filter(|l| !l.is_empty()) {
-                    println!("       {line}");
-                }
-            }
-        }
-    }
-
-    (
-        make_check_result(resource_id, machine_name, status, exit_code, detail),
-        passed,
-    )
 }
 
 /// Format check results as JSON.
@@ -346,6 +275,7 @@ fn check_resource_machines(
     resource: &types::Resource,
     resource_id: &str,
     check_script: &str,
+    redaction: &Redaction,
     tally: &mut CheckTally,
 ) {
     for machine_name in resource.machine.iter() {
@@ -355,8 +285,14 @@ fn check_resource_machines(
             continue;
         }
 
-        let (mut result, passed) =
-            run_single_check(machine, check_script, resource_id, machine_name, ctx.json);
+        let (mut result, passed) = run_single_check(
+            machine,
+            check_script,
+            resource_id,
+            machine_name,
+            ctx.json,
+            redaction,
+        );
         result.in_state = resource_in_state(&ctx.state, machine_name, resource_id);
         report_unrecorded(result.in_state, resource_id, machine_name, ctx.json);
         if passed {
@@ -469,7 +405,16 @@ pub(crate) fn cmd_check_selected(
             continue;
         };
 
-        check_resource_machines(&ctx, resource, resource_id, &check_script, &mut tally);
+        // forjar#996: the policy comes from the UNRESOLVED declaration.
+        let redaction = Redaction::for_resource(resource, &config.secrets);
+        check_resource_machines(
+            &ctx,
+            resource,
+            resource_id,
+            &check_script,
+            &redaction,
+            &mut tally,
+        );
     }
 
     let CheckTally {

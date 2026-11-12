@@ -29,6 +29,7 @@ mod build_image;
 mod bundle;
 mod cbom;
 mod check;
+mod check_run;
 mod check_test;
 mod check_test_runners;
 mod checkpoint;
