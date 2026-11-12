@@ -113,9 +113,7 @@ pub(crate) fn cmd_apply_scoped(
     // drop the prerequisites the closure just pulled IN — the #466 dry run,
     // reintroduced one frame later — and `-r a` would once more probe, plan
     // and preview `a` without `b`. `-m` and `-t` stay: the machine picks the
-    // executor and the lock. `-t` is a selector too (fleetops-1): the tagged
-    // resources AND their `depends_on` closure are already the selection, so a
-    // second tag filter would drop the untagged prerequisites just pulled in.
+    // executor and the lock. `-t` is already resolved with its closure (fleetops-1).
     let gate_scope = super::apply_drift::GateScope {
         machine: machine_filter,
         resource: None,
@@ -159,7 +157,6 @@ pub(crate) fn cmd_apply_scoped(
         // PMAT-160: the executor iterates `config.resources`, which IS the
         // selection. A second filter here could only narrow it further.
         resource_filter: None,
-        // fleetops-1: the tag was resolved into `config` with its closure.
         tag_filter: None,
         group_filter: None,
         timeout_secs,
