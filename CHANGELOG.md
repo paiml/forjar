@@ -31,8 +31,9 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - `lint` masks secret references so apply scripts are linted (#903).
 - Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#945).
 - Tests only: the build test no longer depends on the host's docker or podman (#503, #948); a templated guard is pinned as seeded like a plain one (#590, #946).
+- CI only: same-job `cargo test` steps run as one invocation (infra#3828, #978).
 
-**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
 `--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
 files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.

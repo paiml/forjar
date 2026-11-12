@@ -5767,7 +5767,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-11-09T14:21:24Z
-  updated: 2026-11-11T13:00:00Z
+  updated: 2026-11-12T11:15:20Z
   spec: null
   acceptance_criteria:
   - 'C1: the process lock is published with link(2), so a racer never reads or reaps an empty lock file.'
@@ -5778,6 +5778,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
 - id: GH-414
   github_issue: 414
   item_type: task
@@ -6880,7 +6881,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-12T11:15:20Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -6888,6 +6889,7 @@ roadmap:
   estimated_effort: null
   labels:
   - release:v1.34.0
+  - release:v1.34.1
   notes: null
   release: 1.35.0
 - id: GH-915

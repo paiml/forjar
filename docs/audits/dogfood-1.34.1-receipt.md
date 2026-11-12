@@ -24,6 +24,8 @@ verdict: NO-GO on the nine-gate bar, as measured on 2026-11-12 at 5aea6c1e (lane
 
 Gate A and E count only the 9 PRs merged on main since v1.34.0; PR #993 (PMAT-992) was not merged when this was measured, so neither gate saw it. Re-run both after it merges.
 
+Note added 2026-11-12 after main (c4ce3a2c) was merged into this branch: #978 (PMAT-913) and #930 (PMAT-920) merged after the table above was measured, so the window v1.34.0..main now holds 11 PRs, not 9. Their roadmap rows now carry `release:v1.34.1` (`scripts/release-goal.sh sync`; `sync --check` exits 0). Gates A and E were not re-run on the 11; the table is unchanged and still describes 5aea6c1e.
+
 ## Other targets
 
 On kfocus, same tree: `cargo fmt --all -- --check` rc 0; `cargo clippy --all-targets -- -D warnings` rc 0; `cargo test --lib` 13786 passed, 0 failed, 4 ignored; `falsification_version_matches_manifest` 4 passed; `falsification_992_timeout_needs_no_kill_binary` 2 passed; the release-ledger and changelog readers (`falsification_release_changelog_counts_the_window`, `_release_goal_cut_books_the_tag`, `_release_goals_are_measured`, `_crux_gate_reads_the_release_section`, `_crux_audit_shape`, `_607_release_path_runs_no_python`, `_quorum_anchors_release_shaped`) all passed. `falsification_release_workflow_shape` failed 1 of 8 (`rule2_release_yml_is_the_only_v_star_tag_push_producer`: bench.yml, ci.yml and coverage.yml also list `v*` tag pushes), a known LAB red (forjar#858), not touched.
