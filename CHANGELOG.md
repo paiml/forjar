@@ -91,6 +91,13 @@ time-to-live sweep. An empty or timed-out `/proc` scan is NOT MEASURED and
 proves nothing dead; byte sums are exact above 2^31 and counted once across
 overlapping rules.
 
+**The weekly Stress Tests lane can go green (PMAT-673, #673).** Each matrix leg
+ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a
+30-minute timeout, so no leg could finish, and the default fail-fast cancelled
+the sibling legs. The legs now run three passes under a 45-minute timeout with
+`fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
+pins that passes x 9 minutes + build fits the timeout.
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
