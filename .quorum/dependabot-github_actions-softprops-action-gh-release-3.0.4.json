@@ -1,0 +1,103 @@
+{
+  "kind": "code",
+  "issue": "PMAT-913 (forjar#904) \u2014 bump softprops/action-gh-release from 3.0.2 (3d0d9888cb7fd7b750713d6e236d1fcb99157228) to 3.0.4 (8a0cd651e5b2365bd640854a3fa5dfc70e4875f3) in .github/workflows/nightly.yml:247.",
+  "branch": "dependabot/github_actions/softprops/action-gh-release-3.0.4",
+  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 fdc6a8b0 3/3 FAIL -> round 2 0a66d9eb 3/3 PASS); 4 claims confirmed and 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 1, head fdc6a8b0 \u2014 agy Gemini 4 Carbon (High) Lanes 1-3: FAIL (absent .quorum Gate E bundle + PMAT-913 receipt section)",
+      "round 2, head 0a66d9eb \u2014 agy Gemini 4 Carbon (High) Lane 1 (Action Commit Pin Integrity & Workflow Semantics): PASS",
+      "round 2, head 0a66d9eb \u2014 agy Gemini 4 Carbon (High) Lane 2 (Workflow Failure Modes & Gate Isolation): PASS",
+      "round 2, head 0a66d9eb \u2014 agy Gemini 4 Carbon (High) Lane 3 (PMAT-913 Traceability & Release Gate E Readiness): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from dependabot[bot] and the Claude receipt author.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 caught Gate E failure without a committed .quorum receipt at fdc6a8b0 and R2 refuted Dependabot's direct:production metadata + pre-receipt shortstat.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Merging raw Dependabot head fdc6a8b0 without .quorum/dependabot-github_actions-softprops-action-gh-release-3.0.4.json failed scripts/dogfood/quorum.sh (measured fj904_gate_e_rc=1 on <host>); resolved via 0a66d9eb + this committed Gate E bundle.",
+      "R2: Commit 473630d8 labelled softprops/action-gh-release as dependency-type: direct:production (it is a nightly GitHub Actions step, zero runtime/Cargo dependency) and docs/audits/impl-PMAT-913-receipt.md:40 cited the pre-receipt 1-file shortstat."
+    ]
+  },
+  "falsification": {
+    "test": "Simulate post-merge release Gate E (scripts/dogfood/quorum.sh) on <host> (<SCRATCH>) with and without .quorum/dependabot-github_actions-softprops-action-gh-release-3.0.4.json, plus verify git tag dereference of softprops/action-gh-release v3.0.4.",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): omitting .quorum/dependabot-github_actions-softprops-action-gh-release-3.0.4.json caused scripts/dogfood/quorum.sh to exit 1 (GATE E FAIL PR #904 merged with no .quorum receipt at HEAD)."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions immutable SHA pinning: pinning 40-char commit SHAs rather than mutable v3 tags prevents upstream tag retargeting supply-chain attacks",
+      "Git annotated tag dereferencing (refs/tags/v3.0.4 -> tag object 28ab305d -> commit 8a0cd651): ensures workflow uses: pins the commit tree Actions actually executes",
+      "Forjar release Gate E (scripts/dogfood/quorum.sh): enforces committed .quorum/<slug>.json receipts uniformly across human, agent, and bot branches"
+    ],
+    "verdict": "Operational nightly-release workflow SHA bump only; shipped CLI and library behaviour is unchanged."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes across 2 rounds (fdc6a8b0 -> 0a66d9eb)",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 0a66d9eb (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-913",
+    "tools": [
+      "analyze_vacuous_tests",
+      "workflow YAML validation + v3.0.4 annotated-tag dereference check + scripts/dogfood/quorum.sh Gate E simulation on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "0ce718f44dab1c52afb64cc20ea61ab752253cd8",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-913-904-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "5cf1900223413c49489c6e79aaddfba9201fbfe4",
+        "sha256": "2474d9a9619870933dbdc2841d28cac104bfefe6d6b815479fbd8e2876cd665e",
+        "bytes": 1983
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-904-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "a78ea7bc6805b08cc4d79c6f0fa74f95c45793a5",
+        "sha256": "656aeeff64637594a1dfa671ab8aa05e811a364d1b011cd7f42fbb2e106f6334",
+        "bytes": 1369
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-904-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "ea02baa4ea123bbbc454deb9141f8e0b0a922b85",
+        "sha256": "4308480b9c6228911689c093536c372a0311c8b5de5ebf9e18e7a6e25b52e2ac",
+        "bytes": 2864
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-904-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "96a2b9f8f9ccd7b42866be103b27c060f33b756c",
+        "sha256": "62b695c01048b6c3145847322f8a963b7382a4154fbb6986cad5a76359da3805",
+        "bytes": 777
+      }
+    ],
+    "total_bytes": 6993,
+    "claims_digest": ".quorum/evidence/PMAT-913-904-judges.md"
+  }
+}
