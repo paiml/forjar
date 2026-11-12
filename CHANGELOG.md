@@ -52,6 +52,18 @@ and `unsafe` is forbidden in this crate).
 - `forjar plan` against a state directory that does not exist is refused,
   naming `--state-dir`, instead of printing every resource as an add (#880).
 
+**`check` and `apply --check` count an unreachable host as unmeasured, exit 4 (PMAT-659, #659).**
+A host that never answered (ssh exit 255, or a transport error) was reported as `fail`, the same word
+as drift, so a dead host read as "changes needed". It is now `unmeasured`: the text report prints
+`UNMEASURED`, `--json` carries `"status": "unmeasured"`, `"unmeasured": N` and `all_passed: false`, and
+the run exits 4 ahead of a drift verdict. Same rule as the drift detectors.
+
+**`lock-prune -f` is scoped to the config it is given (PMAT-661, #661).**
+It walked every machine directory under `--state-dir` and called every key the one config lacked
+stale, so a state dir shared by two stacks lost the other stack's entries. It now touches only the
+machines the config declares, and refuses, before writing anything, a machine another stack's stamp
+also lists.
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the

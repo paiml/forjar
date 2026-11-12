@@ -73,7 +73,7 @@ pub struct ApplyArgs {
     #[arg(short = 'w', long)]
     pub workspace: Option<String>,
 
-    /// FJ-226: Run check scripts instead of apply scripts (exit 2 = changes needed) — honours every apply selector (--subset, --exclude, -g, --skip, -m) and exits 0 when only an unselected resource fails (#467)
+    /// FJ-226: Run check scripts instead of apply scripts (exit 1 = changes needed, exit 4 = a host could not be reached) — honours every apply selector (--subset, --exclude, -g, --skip, -m) and exits 0 when only an unselected resource fails (#467)
     #[arg(long)]
     pub check: bool,
 
