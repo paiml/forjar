@@ -54,12 +54,14 @@ macro_rules! from_module {
 const NOT_DISPATCHABLE: &str = "codegen not implemented for recipe (expand first)";
 
 /// Why `resource` has no generators: a recipe is expanded first, and a
-/// `github_runner` is declared but not yet implemented (forjar#1000, phase 1).
+/// `github_runner` is run by the executor and `forjar check`, not by a seat
+/// script generator (forjar#1000).
 /// Never a silent pass: the caller gets an `Err` either way.
 fn not_dispatchable(resource: &Resource) -> String {
     match resource.resource_type {
-        ResourceType::GithubRunner => "github_runner: check and apply are not implemented yet \
-             (forjar#1000, phase 2)"
+        ResourceType::GithubRunner => "github_runner: registered by the executor and \
+             `forjar check` (it needs the control-host API session), not by a seat \
+             script generator (forjar#1000)"
             .to_string(),
         _ => NOT_DISPATCHABLE.to_string(),
     }

@@ -161,6 +161,17 @@ fn exec_prepared(
             String::new(),
         );
     }
+    // forjar#1000: a github_runner needs the control-host API session, so it is
+    // applied here, not by a seat script generator; the script it returns is the
+    // token-redacted transcript form.
+    if prep.resolved.resource_type == ResourceType::GithubRunner {
+        return crate::resources::github_runner::apply(
+            machine,
+            &prep.resolved,
+            cfg.resource_timeout.or(cfg.timeout_secs),
+            cfg.config.policy.ssh_retries,
+        );
+    }
     let script = match codegen::apply_script(&prep.resolved) {
         Ok(script) => script,
         Err(e) => return (Err(e), String::new()),

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`github_runner` registers and checks a runner seat (PMAT-1000, #1000, part of #697).**
+`forjar check` lists the runners for the org or repo and reports a declared seat as pass, pending (not registered) or drift, naming both label sets or both groups. `forjar apply` adopts a listed seat that matches without running anything on it, refuses a drifted one (never `--replace`, no registration token requested), and registers an absent one with one registration-token request: the pinned tarball is checked against its sha256 before anything is extracted, `config.sh --unattended` runs as the declared user, and the service is installed and started. The App key is read through the manifest `secrets:` provider and the RS256 JWT is signed on the control host with the `openssl` crate already built under the `tls` feature (no new dependency); only the one-hour registration token reaches the seat, on stdin, and run logs show it as `<redacted>`. `FORJAR_GITHUB_API_URL` and `FORJAR_GITHUB_RUNNER_DOWNLOAD_BASE` override the API and tarball locations. Not yet: `state: absent` (deregistration) is refused as not implemented, and the falsifiers run against a local fake of the GitHub API, not a live runner.
+
 **Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
 26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
 `lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.

@@ -1,0 +1,441 @@
+//! forjar#1000: the `github_runner` resource — a persistent self-hosted GitHub
+//! Actions runner seat, registered through a GitHub App.
+//!
+//! Contract: `contracts/github-runner-v1.yaml`.
+//!
+//! Everything that holds a credential happens HERE, on the control host: the
+//! App key is read through the manifest `secrets:` provider, the JWT is signed
+//! here, and the installation token stays in [`Session`]. The seat receives one
+//! thing, the 1 h registration token, on stdin (see `script`). None of the
+//! types in this module implements `Debug`, so a stray `{:?}` cannot print one.
+//!
+//! * [`check`] lists the scope's runners and returns a [`Verdict`].
+//! * [`apply`] adopts a matching seat (zero commands on it), refuses a drifted
+//!   one (zero commands, zero registration-token requests, never `--replace`),
+//!   and registers an absent one with exactly one registration-token request.
+
+mod api;
+mod jwt;
+mod labels;
+mod script;
+
+use crate::core::types::{Machine, Resource};
+use crate::transport::{self, ExecOutput};
+use api::Github;
+use labels::ListedLabel;
+
+/// What the listing says about the seat.
+pub enum Verdict {
+    /// No runner of that name in the scope.
+    Absent,
+    /// Listed with the declared labels and group.
+    Equal,
+    /// Listed with a different label set or group; the text names both.
+    Drift(String),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    Org,
+    Repo,
+}
+
+/// A validated, fully resolved `github_runner` declaration.
+struct Seat {
+    scope: Scope,
+    owner: String,
+    repo: Option<String>,
+    name: String,
+    labels: Vec<String>,
+    group: Option<String>,
+    version: String,
+    sha256: String,
+    work_dir: String,
+    user: String,
+    app_id: u64,
+    installation_id: Option<u64>,
+    private_key: String,
+}
+
+fn need(value: &Option<String>, field: &str, name: &str) -> Result<String, String> {
+    match value.as_deref().map(str::trim) {
+        Some(v) if !v.is_empty() => Ok(v.to_string()),
+        _ => Err(format!("github_runner `{name}`: `{field}` is required")),
+    }
+}
+
+impl Seat {
+    fn from_resource(r: &Resource) -> Result<Self, String> {
+        let name = need(&r.name, "name", "?")?;
+        let spec = &r.runner;
+        let app = spec
+            .app
+            .as_ref()
+            .ok_or_else(|| format!("github_runner `{name}`: `app` is required"))?;
+        let private_key = need(&app.private_key, "app.private_key", &name)?;
+        if private_key.contains("{{secrets.") {
+            return Err(format!(
+                "github_runner `{name}`: app.private_key was not supplied by the secrets provider"
+            ));
+        }
+        let scope = match spec.scope.as_deref() {
+            Some("org") => Scope::Org,
+            Some("repo") => Scope::Repo,
+            _ => {
+                return Err(format!(
+                    "github_runner `{name}`: `scope` must be org or repo"
+                ))
+            }
+        };
+        let work_dir = spec
+            .work_dir
+            .clone()
+            .unwrap_or_else(|| format!("/opt/github-runner/{name}"));
+        Ok(Self {
+            scope,
+            owner: need(&r.owner, "owner", &name)?,
+            repo: r.repo.clone().filter(|_| scope == Scope::Repo),
+            labels: spec.labels.clone(),
+            group: r.group.clone().filter(|_| scope == Scope::Org),
+            version: need(&r.version, "version", &name)?,
+            sha256: need(&spec.sha256, "sha256", &name)?,
+            work_dir,
+            user: need(&spec.user, "user", &name)?,
+            app_id: app
+                .app_id
+                .ok_or_else(|| format!("github_runner `{name}`: `app.app_id` is required"))?,
+            installation_id: app.installation_id,
+            private_key,
+            name,
+        })
+    }
+
+    /// `/orgs/<owner>` or `/repos/<owner>/<repo>`.
+    fn base(&self) -> Result<String, String> {
+        match (self.scope, &self.repo) {
+            (Scope::Org, _) => Ok(format!("/orgs/{}", self.owner)),
+            (Scope::Repo, Some(repo)) => Ok(format!("/repos/{}/{repo}", self.owner)),
+            (Scope::Repo, None) => {
+                Err(format!("github_runner `{}`: `repo` is required", self.name))
+            }
+        }
+    }
+
+    fn registration_url(&self) -> String {
+        match &self.repo {
+            Some(repo) => format!("https://github.com/{}/{repo}", self.owner),
+            None => format!("https://github.com/{}", self.owner),
+        }
+    }
+
+    fn plan(&self) -> script::SeatPlan {
+        let arm64 = self.labels.iter().any(|l| l.eq_ignore_ascii_case("arm64"));
+        script::SeatPlan {
+            tarball_url: script::tarball_url(&self.version, arm64),
+            sha256: self.sha256.to_ascii_lowercase(),
+            install_dir: format!("{}/runner", self.work_dir),
+            work_dir: self.work_dir.clone(),
+            user: self.user.clone(),
+            registration_url: self.registration_url(),
+            name: self.name.clone(),
+            labels: labels::custom_for_config(&self.labels).join(","),
+            group: self.group.clone(),
+        }
+    }
+}
+
+/// An authenticated view of one scope: the installation token lives here and
+/// nowhere else.
+struct Session<'a> {
+    gh: Github,
+    seat: &'a Seat,
+    base: String,
+    token: String,
+}
+
+struct Found {
+    id: u64,
+    labels: Vec<ListedLabel>,
+}
+
+fn now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+fn string_field(json: &serde_json::Value, key: &str, what: &str) -> Result<String, String> {
+    json.get(key)
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| format!("github_runner: GitHub's {what} response had no `{key}`"))
+}
+
+impl<'a> Session<'a> {
+    fn open(seat: &'a Seat) -> Result<Self, String> {
+        let base = seat.base()?;
+        let jwt = jwt::app_jwt(seat.app_id, &seat.private_key, now())?;
+        let gh = Github::from_env();
+        let installation = match seat.installation_id {
+            Some(id) => id,
+            None => gh
+                .get(&format!("{base}/installation"), &jwt)?
+                .get("id")
+                .and_then(serde_json::Value::as_u64)
+                .ok_or("github_runner: the App has no installation on this owner")?,
+        };
+        let granted = gh.post(
+            &format!("/app/installations/{installation}/access_tokens"),
+            &jwt,
+        )?;
+        let token = string_field(&granted, "token", "installation token")?;
+        Ok(Self {
+            gh,
+            seat,
+            base,
+            token,
+        })
+    }
+
+    fn find(&self) -> Result<Option<Found>, String> {
+        for page in 1..=50 {
+            let path = format!("{}/actions/runners?per_page=100&page={page}", self.base);
+            let body = self.gh.get(&path, &self.token)?;
+            let runners = body.get("runners").and_then(|r| r.as_array());
+            let runners = runners.map(Vec::as_slice).unwrap_or_default();
+            if let Some(r) = runners
+                .iter()
+                .find(|r| r["name"] == self.seat.name.as_str())
+            {
+                return Ok(Some(found_from(r)));
+            }
+            if runners.len() < 100 {
+                break;
+            }
+        }
+        Ok(None)
+    }
+
+    /// The runner group a listed runner is in (org scope only).
+    fn group_of(&self, runner_id: u64) -> Result<String, String> {
+        let listing = format!("{}/actions/runner-groups?per_page=100", self.base);
+        let groups = self.gh.get(&listing, &self.token)?;
+        for g in groups["runner_groups"].as_array().into_iter().flatten() {
+            let gid = g["id"].as_u64().unwrap_or(0);
+            let members_path = format!(
+                "{}/actions/runner-groups/{gid}/runners?per_page=100",
+                self.base
+            );
+            let members = self.gh.get(&members_path, &self.token)?;
+            if members["runners"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|m| m["id"].as_u64() == Some(runner_id))
+            {
+                return Ok(g["name"].as_str().unwrap_or_default().to_string());
+            }
+        }
+        Err(format!(
+            "github_runner `{}`: cannot determine which runner group the seat is in",
+            self.seat.name
+        ))
+    }
+
+    fn verdict(&self) -> Result<Verdict, String> {
+        let Some(found) = self.find()? else {
+            return Ok(Verdict::Absent);
+        };
+        let listed_group = match (&self.seat.group, self.seat.scope) {
+            (Some(_), Scope::Org) => Some(self.group_of(found.id)?),
+            _ => None,
+        };
+        Ok(
+            match labels::difference(
+                &self.seat.labels,
+                &found.labels,
+                self.seat.group.as_deref(),
+                listed_group.as_deref(),
+            ) {
+                None => Verdict::Equal,
+                Some(d) => Verdict::Drift(d),
+            },
+        )
+    }
+
+    /// The one request that mints the 1 h registration token.
+    fn registration_token(&self) -> Result<String, String> {
+        let path = format!("{}/actions/runners/registration-token", self.base);
+        string_field(
+            &self.gh.post(&path, &self.token)?,
+            "token",
+            "registration token",
+        )
+    }
+}
+
+fn found_from(runner: &serde_json::Value) -> Found {
+    let labels = runner["labels"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|l| {
+            Some(ListedLabel {
+                name: l["name"].as_str()?.to_string(),
+                read_only: l["type"] == "read-only",
+            })
+        })
+        .collect();
+    Found {
+        id: runner["id"].as_u64().unwrap_or(0),
+        labels,
+    }
+}
+
+/// `forjar check`: what GitHub lists for the seat, against what is declared.
+pub fn check(resource: &Resource) -> Result<Verdict, String> {
+    let seat = Seat::from_resource(resource)?;
+    Session::open(&seat)?.verdict()
+}
+
+fn redact(text: &str, token: &str) -> String {
+    text.replace(token, script::REDACTED)
+}
+
+fn adopted(name: &str) -> ExecOutput {
+    ExecOutput {
+        exit_code: 0,
+        stdout: format!(
+            "github_runner `{name}`: already registered with the declared labels and group; adopted, nothing run on the seat\n"
+        ),
+        stderr: String::new(),
+    }
+}
+
+/// `forjar apply`: returns the outcome and the TRANSCRIPT form of the script
+/// (the registration token replaced by a placeholder), which is what the run
+/// log and `--trace` may show.
+pub fn apply(
+    machine: &Machine,
+    resource: &Resource,
+    timeout_secs: Option<u64>,
+    ssh_retries: u32,
+) -> (Result<ExecOutput, String>, String) {
+    let seat = match Seat::from_resource(resource) {
+        Ok(s) => s,
+        Err(e) => return (Err(e), String::new()),
+    };
+    if resource.state.as_deref() == Some("absent") {
+        let e = format!(
+            "github_runner `{}`: state: absent (deregistration) is not implemented in this phase",
+            seat.name
+        );
+        return (Err(e), String::new());
+    }
+    match register_if_absent(machine, &seat, timeout_secs, ssh_retries) {
+        Ok(done) => done,
+        Err(e) => (Err(e), String::new()),
+    }
+}
+
+fn register_if_absent(
+    machine: &Machine,
+    seat: &Seat,
+    timeout_secs: Option<u64>,
+    ssh_retries: u32,
+) -> Result<(Result<ExecOutput, String>, String), String> {
+    let session = Session::open(seat)?;
+    match session.verdict()? {
+        Verdict::Equal => Ok((Ok(adopted(&seat.name)), String::new())),
+        Verdict::Drift(d) => Err(format!(
+            "github_runner `{}`: refusing to re-register a drifted seat (never --replace): {d}",
+            seat.name
+        )),
+        Verdict::Absent => {
+            let token = session.registration_token()?;
+            let plan = seat.plan();
+            let real = script::seat_script(&plan, &token);
+            let transcript = script::seat_script(&plan, script::REDACTED);
+            let out = transport::exec_script_retry(machine, &real, timeout_secs, ssh_retries);
+            let out = out
+                .map(|o| ExecOutput {
+                    exit_code: o.exit_code,
+                    stdout: redact(&o.stdout, &token),
+                    stderr: redact(&o.stderr, &token),
+                })
+                .map_err(|e| redact(&e, &token));
+            Ok((out, transcript))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::{ResourceType, RunnerApp};
+
+    fn resource(scope: &str, repo: Option<&str>) -> Resource {
+        Resource {
+            resource_type: ResourceType::GithubRunner,
+            name: Some("host-gate-1".into()),
+            owner: Some("example-org".into()),
+            repo: repo.map(str::to_string),
+            version: Some("2.330.0".into()),
+            runner: crate::core::types::RunnerSpec {
+                scope: Some(scope.into()),
+                labels: vec!["gate".into()],
+                sha256: Some("ab".repeat(32)),
+                user: Some("runner".into()),
+                app: Some(RunnerApp {
+                    app_id: Some(1),
+                    installation_id: None,
+                    private_key: Some("PEMBODY".into()),
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn org_and_repo_scope_use_their_own_api_paths() {
+        let org = Seat::from_resource(&resource("org", None)).unwrap();
+        assert_eq!(org.base().unwrap(), "/orgs/example-org");
+        assert_eq!(org.registration_url(), "https://github.com/example-org");
+        let repo = Seat::from_resource(&resource("repo", Some("example-repo"))).unwrap();
+        assert_eq!(repo.base().unwrap(), "/repos/example-org/example-repo");
+        assert_eq!(
+            repo.registration_url(),
+            "https://github.com/example-org/example-repo"
+        );
+    }
+
+    #[test]
+    fn an_unresolved_key_is_refused_without_printing_it() {
+        let mut r = resource("org", None);
+        r.runner.app.as_mut().unwrap().private_key = Some("{{secrets.runner-app-pem}}".into());
+        let err = Seat::from_resource(&r).err().unwrap();
+        assert!(err.contains("secrets provider"), "{err}");
+    }
+
+    #[test]
+    fn a_missing_user_is_named() {
+        let mut r = resource("org", None);
+        r.runner.user = None;
+        assert!(Seat::from_resource(&r).err().unwrap().contains("`user`"));
+    }
+
+    #[test]
+    fn the_plan_passes_only_custom_labels_and_defaults_the_work_dir() {
+        let mut r = resource("org", None);
+        r.runner.labels = vec!["self-hosted".into(), "gate".into()];
+        let plan = Seat::from_resource(&r).unwrap().plan();
+        assert_eq!(plan.labels, "gate");
+        assert_eq!(plan.install_dir, "/opt/github-runner/host-gate-1/runner");
+    }
+
+    #[test]
+    fn redaction_removes_every_occurrence() {
+        assert_eq!(redact("a TOK b TOK", "TOK"), "a <redacted> b <redacted>");
+    }
+}

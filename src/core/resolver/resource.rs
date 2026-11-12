@@ -96,6 +96,26 @@ fn resolve_extended_fields(
     Ok(())
 }
 
+/// forjar#1000: resolve the `github_runner` fields, the App private key among
+/// them (a `{{secrets.*}}` reference, read on the control host).
+fn resolve_runner_fields(
+    r: &mut Resource,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+    secrets: &SecretsConfig,
+) -> Result<(), String> {
+    let spec = &mut r.runner;
+    spec.scope = resolve_opt(&spec.scope, params, machines, secrets)?;
+    spec.labels = resolve_list(&spec.labels, params, machines, secrets)?;
+    spec.sha256 = resolve_opt(&spec.sha256, params, machines, secrets)?;
+    spec.work_dir = resolve_opt(&spec.work_dir, params, machines, secrets)?;
+    spec.user = resolve_opt(&spec.user, params, machines, secrets)?;
+    if let Some(app) = spec.app.as_mut() {
+        app.private_key = resolve_opt(&app.private_key, params, machines, secrets)?;
+    }
+    Ok(())
+}
+
 /// Resolve the build, isolation and overlay fields.
 ///
 /// FJ-2721 (PMAT-199): these were all silently unresolved — a hand-maintained
@@ -221,6 +241,7 @@ pub fn resolve_resource_templates_with_secrets(
 
     resolve_core_fields(&mut r, params, machines, secrets)?;
     resolve_extended_fields(&mut r, params, machines, secrets)?;
+    resolve_runner_fields(&mut r, params, machines, secrets)?;
     resolve_build_and_overlay_fields(&mut r, params, machines, secrets)?;
     resolve_stages(&mut r, params, machines, secrets)?;
 

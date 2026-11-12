@@ -13,6 +13,7 @@ pub mod docker;
 pub mod file;
 mod file_assert;
 pub mod github_release;
+pub mod github_runner;
 pub mod gpu;
 pub mod model;
 pub mod mount;

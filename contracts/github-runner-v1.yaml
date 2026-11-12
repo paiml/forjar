@@ -14,15 +14,26 @@ metadata:
     `apply --check` cannot see a seat that fell off or whose labels drifted,
     and the registration token is handled outside the secrets path.
 
-    Six obligations. C1 to C5 are about registration and are proven in phase 2,
-    against a local fake of the GitHub API (no network, no real App). C6 is
-    about the manifest and is proven in phase 1, against the real binary.
+    Six obligations. C1 to C5 are about registration and are proven against a
+    local fake of the GitHub API (no network, no real App) driving the real
+    binary. C6 is about the manifest and is proven against the real binary.
 
-    PHASE STATUS. Phase 1 (this file's first commit) ships the resource type,
-    the C6 validation, and a `check`/`apply` that refuse with "not implemented
-    yet" rather than pass silently. C1 to C5 carry no `enforced_by` citation
-    until phase 2 lands the fake they need; the obligations are stated now so
-    the design is fixed before the code is written.
+    PHASE STATUS. Phase 1 shipped the resource type and the C6 validation.
+    Phase 2 ships `check` and `apply` and the falsifiers for C1 to C5. What is
+    NOT proven by them: a real registration against GitHub, the App
+    installation lookup against the live API, the runner's reading of
+    `ACTIONS_RUNNER_INPUT_TOKEN` on a live runner, the service unit on a
+    non-systemd host, `state: absent` (deregistration, refused as not
+    implemented), and an end-to-end repo-scoped seat (the repo-scope API paths
+    are unit-tested only).
+
+    Meaning of "0 commands on the seat" and "token requests = 0": the
+    resource itself runs nothing on the seat (forjar's own disk preflight is
+    not the resource), and asks GitHub for no REGISTRATION token. The control
+    host still mints a JWT and an installation token to list the runners.
+    On a fresh state dir an adopted seat is recorded `converged` (nothing ran);
+    a repeat apply against the same state dir is `unchanged` without calling
+    the API at all, and `forjar check` is the live observation.
 
     Persistent seats only. Ephemeral and just-in-time seats, runner group
     management, runner auto-update policy and scale sets are out of scope.
@@ -33,7 +44,7 @@ metadata:
     - "GitHub REST: POST /orgs/{org}/actions/runners/registration-token and POST /repos/{owner}/{repo}/actions/runners/registration-token (a token is valid 1 h)"
     - "GitHub REST: GET /orgs/{org}/actions/runners and GET /repos/{owner}/{repo}/actions/runners (the list check reads)"
     - "GitHub Apps: authenticating as an App with a signed JWT, then as an installation"
-    - "tests/falsification_github_runner.rs — driven through the binary"
+    - "tests/falsification_github_runner.rs (C6) and tests/falsification_github_runner_registration.rs (C1 to C5) — driven through the binary"
 
   quorum_validation:
     - system: "Terraform (`terraform plan`, drift against a remote API)"
@@ -117,42 +128,42 @@ equations:
     invariants:
       - "Each of the four is refused on its own, naming its field"
       - "A manifest correct in all four is accepted (the refusal is not a blanket refusal)"
-      - "Until registration lands (phase 2), check and apply on this type fail with 'not implemented yet'; they never report success"
+      - "`state: absent` on this type is refused as not implemented; it never reports success"
 
 proof_obligations:
   - type: invariant
     property: "C1 key_stays_on_control_host: no script, state file, event log line or output holds the private key, the JWT or a token"
     formal: "marker key ∉ stdout ∪ stderr ∪ state dir ∪ event log; JWT ∉ same; fake's token ∉ same"
     applies_to: all
-    status: phase-2
-    notes: "F1. Fails if the token is passed as an argument or written to state. Needs the local fake of the GitHub API."
+    enforced_by: "tests/falsification_github_runner_registration.rs::f1_key_jwt_and_tokens_stay_off_every_surface"
+    notes: "F1. Fails if the token is passed as an argument or written to state. The registration token is asserted to reach config.sh (positive control) and to appear in exactly one seat script, once, on its own stdin line."
 
   - type: invariant
     property: "C2 adopt_is_noop: a seat listed with the same name, label set and group produces 0 commands and `unchanged`"
     formal: "listed(name) ∧ labels equal as sets ∧ group equal ⟹ seat_commands = 0 ∧ unchanged"
     applies_to: all
-    status: phase-2
-    notes: "F2. The fake lists the seat with equal labels in another order."
+    enforced_by: "tests/falsification_github_runner_registration.rs::f2_equal_labels_in_another_order_adopt_with_zero_seat_commands"
+    notes: "F2. The fake lists the seat with equal labels in another order. `unchanged` is the repeat-apply result (F4); a first apply on a fresh state dir records converged with nothing run, and `forjar check` passes."
 
   - type: invariant
     property: "C3 drift_is_refused: a seat listed with a different label set or group fails with both sets named and runs 0 commands"
     formal: "listed(name) ∧ labels differ ⟹ exit ≠ 0 ∧ missing label named ∧ token_requests = 0"
     applies_to: all
-    status: phase-2
-    notes: "F3. The fake lists the seat with one label fewer."
+    enforced_by: "tests/falsification_github_runner_registration.rs::f3_label_drift_is_refused_naming_the_difference, f3_group_drift_is_refused_naming_both_groups"
+    notes: "F3. The fake lists the seat with one label fewer; a second test lists it in another group."
 
   - type: invariant
     property: "C4 absent_registers_once: an absent seat is registered with exactly one registration-token request, and a second apply is `unchanged`"
     formal: "¬listed ⟹ token_requests = 1; then listed ⟹ second apply token_requests = 0"
     applies_to: all
-    status: phase-2
-    notes: "F4. The fake lists nothing, then lists the seat."
+    enforced_by: "tests/falsification_github_runner_registration.rs::f4_absent_registers_once_then_stays_unchanged"
+    notes: "F4. The fake lists nothing, then lists the seat once the token has been served."
 
   - type: safety
     property: "C5 tarball_is_pinned: a tarball whose sha256 differs from the manifest is refused before `config.sh` runs"
     formal: "sha256(tarball) ≠ declared ⟹ refused ∧ config_sh_runs = 0"
     applies_to: all
-    status: phase-2
+    enforced_by: "tests/falsification_github_runner_registration.rs::f5_tampered_tarball_is_refused_before_config_sh_runs"
     notes: "F5. A tarball with one byte changed."
 
   - type: invariant
@@ -166,31 +177,31 @@ falsification_tests:
   - id: FALSIFY-GHR-001
     rule: "key_stays_on_control_host"
     prediction: "Passing the registration token as an argument to config.sh, or writing it to the state file, puts it in the transcript the test searches"
-    test: "phase 2: F1 against the local fake of the GitHub API"
+    test: "tests/falsification_github_runner_registration.rs::f1_key_jwt_and_tokens_stay_off_every_surface"
     if_fails: "A credential reaches the seat's process list, the state directory or the event log"
 
   - id: FALSIFY-GHR-002
     rule: "adopt_is_noop"
     prediction: "Comparing labels as an ordered list instead of a set sends commands to a seat whose labels are merely in another order"
-    test: "phase 2: F2 against the local fake of the GitHub API"
+    test: "tests/falsification_github_runner_registration.rs::f2_equal_labels_in_another_order_adopt_with_zero_seat_commands"
     if_fails: "A healthy seat is re-registered and drops its queued job"
 
   - id: FALSIFY-GHR-003
     rule: "drift_is_refused"
     prediction: "Re-registering on a label difference (a silent --replace) records a registration-token request the test counts"
-    test: "phase 2: F3 against the local fake of the GitHub API"
+    test: "tests/falsification_github_runner_registration.rs::f3_label_drift_is_refused_naming_the_difference"
     if_fails: "Drift is papered over and the queued job on the seat is lost"
 
   - id: FALSIFY-GHR-004
     rule: "absent_registers_once"
     prediction: "Requesting a token on every apply makes the second apply record a request"
-    test: "phase 2: F4 against the local fake of the GitHub API"
+    test: "tests/falsification_github_runner_registration.rs::f4_absent_registers_once_then_stays_unchanged"
     if_fails: "Every apply burns a registration token and may register a duplicate seat"
 
   - id: FALSIFY-GHR-005
     rule: "tarball_is_pinned"
     prediction: "Running config.sh before the digest check executes a tarball with one byte changed"
-    test: "phase 2: F5 against the local fake of the GitHub API"
+    test: "tests/falsification_github_runner_registration.rs::f5_tampered_tarball_is_refused_before_config_sh_runs"
     if_fails: "An unverified archive is executed on the seat"
 
   - id: FALSIFY-GHR-006
@@ -214,7 +225,7 @@ qa_gate:
     - "absent_registers_once"
     - "tarball_is_pinned"
     - "scope_is_validated"
-  pass_criteria: "All 6 falsification tests pass (C6 in phase 1; C1 to C5 in phase 2)"
+  pass_criteria: "All 6 falsification tests pass"
   falsification: "Remove the scope rules from src/core/parser/github_runner_validate.rs"
 
 verification_level: L3

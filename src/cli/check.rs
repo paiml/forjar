@@ -3,6 +3,8 @@
 pub(crate) use super::check_test::cmd_test;
 
 use super::helpers::*;
+
+mod runner;
 use crate::core::{codegen, resolver, state, types};
 use crate::transport;
 use std::collections::HashMap;
@@ -456,16 +458,7 @@ pub(crate) fn cmd_check_selected(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
-
-        let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
-        else {
-            tally.skip += 1;
-            continue;
-        };
-
-        check_resource_machines(&ctx, resource, resource_id, &check_script, &mut tally);
+        runner::check_one(&ctx, config, resource_id, resource, &mut tally)?;
     }
 
     let CheckTally {
