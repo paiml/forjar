@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-11-12
+
+Patch release for the `--resource-timeout` fix below (PMAT-992), which the
+v1.34.0 clean-room run on `rust:1.95-slim` found. It is cut from `main`, so it
+also carries what merged after the v1.34.0 tag; those are listed after the fix.
+
 **`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
 The timeout path killed the script's process group by spawning the external
 `kill` program and discarded the error. An image without procps
@@ -14,6 +20,17 @@ The timeout path killed the script's process group by spawning the external
 waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
 the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
 refused.
+
+Also merged since v1.34.0, one line each from the merge subjects:
+
+- `apply --only-machine X` with `-m Y` (disjoint) is refused by name instead of converging nothing at rc=0 (#471, #950).
+- `apply`: refresh-only selection, canary pre-hooks and a plan-file drift notice (#911, #941).
+- `show` resolves `data:` sources before templates (#660, #934).
+- `store import docker` removes the container it created (#621, #933).
+- A timeout that fires before the child spawns still kills the child (infra#3590, #932).
+- `lint` masks secret references so apply scripts are linted (#903).
+- Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#945).
+- Tests only: the build test no longer depends on the host's docker or podman (#503, #948); a templated guard is pinned as seeded like a plain one (#590, #946).
 
 ## [1.34.0] - 2026-11-11
 
