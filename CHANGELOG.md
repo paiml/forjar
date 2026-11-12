@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
+26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
+`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
+No job is added, removed or skipped.
+
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
 `--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared

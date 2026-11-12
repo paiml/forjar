@@ -99,4 +99,36 @@ Not covered:
 - A late delivery now costs that day's mutation run; nothing retries it.
 - Nothing was compiled for these two sections; the repository's workflow tests run in this PR's CI.
 
+
+## PR #972 — job timeouts and no-debug-info env (reduced scope)
+
+Not yet merged; the verdict above covers the merged PRs only. Scope after the coordinator ruling of 2026-11-12 10:59Z:
+this PR keeps only what does not change which jobs run or what a gate accepts.
+
+- In: `timeout-minutes` on 26 jobs in 11 workflow files; `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0` as workflow env in `ci.yml` and `lint.yml`.
+- Out, kept on the local branch `chore/runner-smells-job-and-draft-skip` (5f5112c3) for a separate PR with a proof run: the `runner-smells` called workflow and `.github/runner-smells.baseline`; the draft-PR skip and `ready_for_review` trigger on `audit.yml` and `lint.yml`; the `concurrency` group on `pr-gate.yml`.
+- Out, not measurable: the 7 timeouts on `release.yml`. Its last 5 runs all failed, so no green duration exists, and a release is in flight. `release.yml` and `pr-gate.yml` are byte-identical to main.
+- `git diff origin/main -- .github` adds only `timeout-minutes` lines (26) and the two env blocks; every workflow file parses (`yq -e .jobs`); `ci.yml` has 0 non-reusable jobs without a timeout.
+
+### Timeouts against measured durations
+
+Measured on lambda through the REST API: for each touched workflow, the longest successful job in its last 3 successful runs (nightly: 1 run per build leg).
+
+| workflow | job | longest green | timeout |
+|---|---|---|---|
+| ci.yml | dogfood-surface | 28 min | 60 (was 30 in this PR's first version) |
+| ci.yml | examples-validate | 26 min | 60 (was 30) |
+| ci.yml | every other job | 5 min or less | 15 to 30 |
+| release-goal.yml | release-goal | 21 min | 60 (was 15; review round 1) |
+| stress.yml | stress (3 legs) | 26 min; the review cites 74 and 95 min under host load (runs 40300791720, 42617061589), not re-measured here | 120 (was 60; review round 1) |
+| bench.yml | benchmark | 21 min | 60 |
+| binary-release.yml | build (4 targets) | 12 min | 120 |
+| nightly.yml | build (7 legs) | 15 min | 120 |
+| proofs.yml | kani | 10 min | 150 (unchanged from main) |
+| msrv.yml | msrv | 11 min | 60 |
+| lint.yml | clippy | 4 min | 60 |
+| audit.yml, quorum.yml | audit, quorum receipt | 3 and 6 min | 30 and 15 |
+
+Every job with a timeout in this PR had at least one successful run in the sample; jobs whose longest run was under 3 minutes are not listed. Not measured: CI on this head.
+
 IMPL-PMAT-913-RECEIPT-END
