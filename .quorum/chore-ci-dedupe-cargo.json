@@ -1,0 +1,102 @@
+{
+  "kind": "code",
+  "issue": "PMAT-913 (forjar#913, PR #978) \u2014 ci.yml examples-validate spawned 18 separate non-sudo cargo test invocations across 20 integration targets; merging them into one cargo test --locked step cuts Cargo metadata/resolution overhead from 21 workflow cargo test lines to 4 while keeping the real-sudo closefrom step isolated.",
+  "branch": "chore/ci-dedupe-cargo",
+  "base": "c5b7e4f3",
+  "base_commit": "c5b7e4f31a8817ebaf774231e395374a6de7e481",
+  "diff_sha256": "01e5e1a338e9690f19b8f7bf73564a065c98fda6",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/traceability) at head 20c48834; 3/3 PASS with 2 prose claims refuted and narrowed.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 20c48834 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Target Equivalence): PASS",
+      "round 1, head 20c48834 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes & Privilege Boundary): PASS",
+      "round 1, head 20c48834 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract & Gate Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), none sharing the author model (Claude Opus 5.5).",
+    "kill_rule": "every claim K1..K6 was independently attacked across all 3 angles; R1 and R2 were refuted as prose/comment inaccuracies and corrected by forjar-cop.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: ci.yml:139 ('instead of 20 invocations') and docs/audits/impl-PMAT-913-receipt.md:3,14 ('instead of 19 steps') misstate the merged step count: examples-validate merged 18 non-sudo steps into 1 step (plus 1 untouched live-sudo step = 2 steps total).",
+      "R2: docs/audits/impl-PMAT-913-receipt.md:16 claimed the set and order of --test targets across examples-validate was unchanged, whereas falsification_version_matches_manifest moved into the non-sudo batch ahead of falsification_sudo_transport_survives_closefrom."
+    ]
+  },
+  "falsification": {
+    "test": "YAML AST target bijection on t2fw13 (<SCRATCH>) between c5b7e4f3:.github/workflows/ci.yml and 20c48834:.github/workflows/ci.yml (20/20 non-sudo targets, 1/1 FORJAR_REQUIRE_SUDO_TESTS=1 target); dropping nh[-1] fails the bijection assertion.",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13: dropping falsification_version_matches_manifest from the merged run block triggers AssertionError in the parsed YAML target-set comparator."
+  },
+  "crux": {
+    "systems": [
+      "Cargo multi-target CLI: cargo test --locked --test A --test B resolves the graph once and executes each integration binary sequentially with fail-fast exit semantics",
+      "Bazel test suites: one bazel test target list shares a single analysis/execution graph while running isolated test binaries",
+      "GitHub Actions bash step defaults: bash -eo pipefail exits on non-zero return from the combined cargo test invocation"
+    ],
+    "verdict": "No shipped CLI behaviour changes: workflow-only consolidation matching standard Cargo multi-target invocation."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Correctness, Failure Modes, Contract/Traceability) with AST/shell verification on t2fw13",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 20c48834 (4 claims confirmed, 2 prose claims refuted and narrowed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-913",
+    "tools": [
+      "analyze_vacuous_tests",
+      "python3 yaml.safe_load AST step/target bijection on t2fw13: 20/20 non-sudo targets + 1/1 live-sudo target verified"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-913-978-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "164b99f455a9a6832ac6710d0112879f772195e5",
+        "sha256": "3d576a5faad5a7f971aaa73f03de6915411ad60eebd3a99b465f9bcc1cf321ba",
+        "bytes": 1114
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-978-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "79e6ed9f1a4fcee7cbf66b6d7bdd7720dac1f9bd",
+        "sha256": "ea5ea8f52d672d22eda739246558120a8009f117b0cb63dec73bf42a2dc89f9d",
+        "bytes": 541
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-978-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "2f142ebf05ed88e05203908c6135877fee5ab7ef",
+        "sha256": "840a0c791bae27a1892b80a4cd6ce20670ad89378d2360453343b0a1940732a9",
+        "bytes": 3333
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-978-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "6411d67be33000199deb9dd3d44f3eb26fb9e725",
+        "sha256": "2fb7dc4a220f10adf2abf46e03a9b5d8c302f1561b11464d2bee306ac3d9d1d3",
+        "bytes": 320
+      }
+    ],
+    "total_bytes": 5308,
+    "claims_digest": ".quorum/evidence/PMAT-913-978-judges.md"
+  }
+}

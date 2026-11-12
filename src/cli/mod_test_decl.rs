@@ -51,6 +51,10 @@ mod tests_apply_1_c;
 #[cfg(test)]
 mod tests_apply_2;
 #[cfg(test)]
+mod tests_fj_lock_c2;
+#[cfg(test)]
+mod tests_fj_lock_c3_c5;
+#[cfg(test)]
 mod tests_apply_20;
 #[cfg(test)]
 mod tests_apply_20_b;
