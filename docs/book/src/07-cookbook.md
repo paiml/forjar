@@ -1226,7 +1226,7 @@ forjar secrets keygen > ~/.forjar/identity.txt
 # AGE-SECRET-KEY-1...
 
 # Encrypt a secret value
-forjar secrets encrypt "s3cur3-p@ssw0rd" -r age1abc...xyz
+printf %s "s3cur3-p@ssw0rd" | forjar secrets encrypt -r age1abc...xyz
 # Output: ENC[age,YWdlLWVuY3J5cH...]
 
 # Paste the marker directly in your YAML
@@ -1260,7 +1260,7 @@ Multi-recipient encryption for teams:
 
 ```bash
 # Encrypt for multiple team members
-forjar secrets encrypt "shared-secret" \
+printf %s "shared-secret" | forjar secrets encrypt \
   -r age1alice... \
   -r age1bob... \
   -r age1carol...
