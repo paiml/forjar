@@ -25,7 +25,7 @@ check() {
 fx() {
   local d="$T/$1"
   mkdir -p "$d" || exit 2
-  printf "$2" >"$d/w.yml"
+  printf '%b' "$2" >"$d/w.yml"
   printf '%s\n' "$d"
 }
 HDR='jobs:\n  a:\n    steps:\n'
@@ -46,9 +46,9 @@ check semicolon-second-call-bare 1 "$(fx sc "$HDR      - run: sudo apt-get -o DP
 check after-then 1 "$(fx th "$HDR      - run: |\n          if true; then sudo apt-get install -y x; fi\n")"
 check bare-in-block-scalar 1 "$(fx bs "$HDR      - run: |\n          set -e\n          sudo apt-get install -y x\n")"
 check continuation-line-bare 1 "$(fx cb "$HDR      - run: |\n          sudo apt-get \\\\\n            install -y x\n")"
-check yaml-extension 1 "$(d="$T/yx"; mkdir -p "$d"; printf "${HDR}      - run: sudo apt-get update\n" >"$d/w.yaml"; echo "$d")"
-check one-good-one-bad-file 1 "$(d=$(fx gb "$HDR$GOOD"); printf "${HDR}      - run: sudo apt-get update\n" >"$d/z.yml"; echo "$d")"
-check space-in-dir-name 1 "$(d="$T/has space"; mkdir -p "$d"; printf "${HDR}      - run: sudo apt-get update\n" >"$d/w.yml"; echo "$d")"
+check yaml-extension 1 "$(d="$T/yx"; mkdir -p "$d"; printf '%b' "${HDR}      - run: sudo apt-get update\n" >"$d/w.yaml"; echo "$d")"
+check one-good-one-bad-file 1 "$(d=$(fx gb "$HDR$GOOD"); printf '%b' "${HDR}      - run: sudo apt-get update\n" >"$d/z.yml"; echo "$d")"
+check space-in-dir-name 1 "$(d="$T/has space"; mkdir -p "$d"; printf '%b' "${HDR}      - run: sudo apt-get update\n" >"$d/w.yml"; echo "$d")"
 
 # Compliant shapes the guard must accept (rc=0). Each carries a second, good call so a pass is not "0 calls".
 check good-call 0 "$(fx good "$HDR$GOOD")"
@@ -60,7 +60,7 @@ check echo-prose-is-not-a-call 0 "$(fx ep "$HDR$GOOD      - run: echo \"apt-get 
 check echo-warning-prose 0 "$(fx ew "$HDR$GOOD      - run: |\n          echo \"::warning::apt-get is not available. install musl-tools.\"\n")"
 check step-name-is-not-a-call 0 "$(fx sn "$HDR$GOOD      - name: apt-get install deps\n")"
 check command-v-probe-is-not-a-call 0 "$(fx cv "$HDR$GOOD      - run: command -v apt-get >/dev/null\n")"
-check space-in-dir-name-good 0 "$(d="$T/has space ok"; mkdir -p "$d"; printf "$HDR$GOOD" >"$d/w.yml"; echo "$d")"
+check space-in-dir-name-good 0 "$(d="$T/has space ok"; mkdir -p "$d"; printf '%b' "$HDR$GOOD" >"$d/w.yml"; echo "$d")"
 
 # Not measured (rc=2): the guard says so rather than passing.
 check missing-dir 2 "$T/does-not-exist"
