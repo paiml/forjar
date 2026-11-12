@@ -77,7 +77,7 @@ pub(crate) fn cmd_test_mutation(file: &Path, opts: &RunnerOpts) -> Result<(), St
             let resolved =
                 resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
             let script = codegen::apply_script(&resolved).ok()?;
-            let rtype = format!("{:?}", r.resource_type).to_lowercase();
+            let rtype = r.resource_type.to_string();
             let refs = [script.as_str()];
             let hash = crate::tripwire::hasher::composite_hash(&refs);
             Some(MutationTarget {
@@ -149,7 +149,7 @@ pub(crate) fn cmd_test_convergence(file: &Path, opts: &RunnerOpts) -> Result<(),
                 resolver::resolve_resource_templates(r, &config.params, &config.machines).ok()?;
             let apply = codegen::apply_script(&resolved).ok()?;
             let check = codegen::check_script(&resolved).unwrap_or_default();
-            let rtype = format!("{:?}", r.resource_type).to_lowercase();
+            let rtype = r.resource_type.to_string();
             // Empty expected_hash: convergence verified by idempotency
             // (state-after-first == state-after-second), not by comparing
             // against a pre-computed hash, because scripts may require

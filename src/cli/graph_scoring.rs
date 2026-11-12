@@ -260,7 +260,7 @@ pub(crate) fn cmd_graph_resource_type_clustering(file: &Path, json: bool) -> Res
 pub(super) fn build_type_clusters(config: &types::ForjarConfig) -> Vec<(String, Vec<String>)> {
     let mut clusters: HashMap<String, Vec<String>> = HashMap::new();
     for (name, resource) in &config.resources {
-        let type_str = format!("{:?}", resource.resource_type);
+        let type_str = resource.resource_type.to_string();
         clusters.entry(type_str).or_default().push(name.clone());
     }
     for v in clusters.values_mut() {

@@ -85,17 +85,17 @@ pub(crate) fn cmd_status_staleness_report(
 /// Cost units per resource type (relative complexity).
 fn cost_per_type(t: &str) -> f64 {
     match t {
-        "Package" => 2.0,
-        "File" => 1.0,
-        "Service" => 3.0,
-        "Mount" => 4.0,
-        "User" => 2.5,
-        "Docker" => 5.0,
-        "Cron" => 1.5,
-        "Network" => 3.0,
-        "Pepita" => 4.0,
-        "Model" => 8.0,
-        "Gpu" => 6.0,
+        "package" => 2.0,
+        "file" => 1.0,
+        "service" => 3.0,
+        "mount" => 4.0,
+        "user" => 2.5,
+        "docker" => 5.0,
+        "cron" => 1.5,
+        "network" => 3.0,
+        "pepita" => 4.0,
+        "model" => 8.0,
+        "gpu" => 6.0,
         _ => 1.0,
     }
 }
@@ -122,7 +122,7 @@ fn tally_cost_types(
         };
 
         for rl in lock.resources.values() {
-            let type_str = format!("{:?}", rl.resource_type);
+            let type_str = rl.resource_type.to_string();
             *type_counts.entry(type_str).or_insert(0) += 1;
             total_resources += 1;
         }
