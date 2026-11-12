@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-194 (forjar#909) \u2014 read CARGO_MANIFEST_DIR at runtime in build.rs with cargo::rerun-if-env-changed=CARGO_MANIFEST_DIR (no compile-time host path baking), and harden tool-job Cargo -p/--package parser.",
+  "branch": "s-forjar-2/pack696",
+  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 6f655eac 3/3 FAIL -> round 2 8905e5a2 3/3 PASS); 4 claims confirmed and 2 round-1 claims refuted and fixed.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 1, head 6f655eac \u2014 agy Gemini 4 Carbon (High) Lanes 1-3: FAIL (multi -p false negative and --package= parsing gap in tool-job guard)",
+      "round 2, head 8905e5a2 \u2014 agy Gemini 4 Carbon (High) Lane 1 (build.rs Runtime Lookup & Rerun Directive): PASS",
+      "round 2, head 8905e5a2 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Cargo -p / --package= / --workspace Union Parser): PASS",
+      "round 2, head 8905e5a2 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification & build.rs Revert Kill): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 (multi -p bypass) and R2 (--package= blind spot) were killed in round 1 at 6f655eac and verified fixed in round 2 at 8905e5a2.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 (6f655eac) returned false on the first non-root -p <pkg> in tests/falsification_tool_jobs_run_where_the_tools_are.rs:289, letting cargo test -p forjar-contracts -p forjar bypass the rsync runner guard; fixed in 8905e5a2.",
+      "R2: Round 1 (6f655eac) failed to parse --package=<pkg> (= form) in cargo_args_are_unfiltered; fixed with strip_prefix(\"--package=\") and unit tests in 8905e5a2."
+    ]
+  },
+  "falsification": {
+    "test": "Revert build.rs to origin/main on <host> (<SCRATCH>) and run cargo test --test falsification_build_rs_manifest_dir_runtime.",
+    "test_file": "tests/falsification_build_rs_manifest_dir_runtime.rs",
+    "cargo_test_target": "falsification_build_rs_manifest_dir_runtime",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting build.rs (! cmp -s verified) failed all 3 tests in falsification_build_rs_manifest_dir_runtime (0 passed; 3 failed, FJ_909_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "Cargo build-script environment contract: std::env::var(\"CARGO_MANIFEST_DIR\") + cargo::rerun-if-env-changed reads the active checkout path at execution time instead of embedding the compile host's path via env!()",
+      "Debian / Nix reproducible builds: strips build-directory path literals from compiled build-runner binaries so cached target/ artifacts remain path-independent",
+      "Cargo CLI package selection (-p, --package, --workspace): evaluates the union of all -p flags rather than short-circuiting on the first flag"
+    ],
+    "verdict": "Reading CARGO_MANIFEST_DIR at runtime in build.rs removes baked host paths while full-argv -p/--package= scanning closes multi-package guard bypasses."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes across 2 rounds (6f655eac -> 8905e5a2)",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 8905e5a2 (4 claims confirmed, 2 round-1 claims refuted and fixed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-194",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + falsification_build_rs_manifest_dir_runtime (3/3) + falsification_tool_jobs (all green) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "a9233cc4fcacf539b52371d29a9efba0db0d278e",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-194-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "be21a2ae227cd704f22385728c02176509d77991",
+        "sha256": "b3d356ad8eb22452d3394dab12fc0f5ad921d6de78b7b313e95aaf03aeaffa42",
+        "bytes": 1798
+      },
+      {
+        "path": ".quorum/evidence/PMAT-194-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "21b03c3a82d5117221850d8c256295fde4d8c23f",
+        "sha256": "f4ad2b14fa08ba6379e2bc446ccd4aab7357a08878351b1b50397f91754402ae",
+        "bytes": 1462
+      },
+      {
+        "path": ".quorum/evidence/PMAT-194-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "0568811c92ab2342de1d504f5b2a9877594b53a1",
+        "sha256": "dc9e2241190766389574cbe5e1ed4f40cbee31f7f64c39ae3a15e8e3a18082c3",
+        "bytes": 2759
+      },
+      {
+        "path": ".quorum/evidence/PMAT-194-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "1b0182ecf9505499128c4e4ff220a0f05c8aa6ae",
+        "sha256": "a01c0b9a857a8064313a22816d5411fc1baee9ad4b4cb981307e02821beed374",
+        "bytes": 625
+      }
+    ],
+    "total_bytes": 6644,
+    "claims_digest": ".quorum/evidence/PMAT-194-judges.md"
+  }
+}

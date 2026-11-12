@@ -179,7 +179,18 @@ fn record_one(
                         &t.redact_output(out),
                         &t.redact(&verdict),
                     ));
-                    fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
+                    let outcome =
+                        fail(cfg, rec, ctx, trace_session, machine_name, counters, &error);
+                    update_run_meta(
+                        ctx,
+                        cfg.run_id.as_deref(),
+                        &change.resource_id,
+                        ResourceRunStatus::Failed {
+                            exit_code: Some(out.exit_code),
+                            duration_secs: Some(duration),
+                        },
+                    );
+                    outcome
                 }
                 None => converge(
                     cfg,
@@ -204,10 +215,9 @@ fn record_one(
                 ctx,
                 cfg.run_id.as_deref(),
                 &change.resource_id,
-                ResourceRunStatus::Converged {
+                ResourceRunStatus::Failed {
                     exit_code: Some(out.exit_code),
                     duration_secs: Some(duration),
-                    failed: true,
                 },
             );
             outcome
@@ -217,7 +227,18 @@ fn record_one(
             // redacted before it is clipped and again as a whole.
             let t = &executed.transcript;
             let error = t.redact(&super::failure_text::transport_failure(&t.redact(e)));
-            fail(cfg, rec, ctx, trace_session, machine_name, counters, &error)
+            let outcome = fail(cfg, rec, ctx, trace_session, machine_name, counters, &error);
+            // forjar#688: a transport failure used to leave no meta row at all.
+            update_run_meta(
+                ctx,
+                cfg.run_id.as_deref(),
+                &change.resource_id,
+                ResourceRunStatus::Failed {
+                    exit_code: None,
+                    duration_secs: Some(duration),
+                },
+            );
+            outcome
         }
     }
 }
@@ -252,7 +273,6 @@ fn converge(
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(rec.duration),
-            failed: false,
         },
     );
     counters.converged += 1;
