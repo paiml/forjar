@@ -263,7 +263,11 @@ fn write_config_with_base(dir: &Path, base: &str) -> PathBuf {
 /// on disk, and without producing a "fetch it with" hint for it.
 #[test]
 fn t8_unsafe_base_references_are_refused_before_any_lookup() {
-    for bad in ["", "-x", "--privileged", "-", "a b", " lead", "a\tb", "a\nb", "a\u{7f}b"] {
+    for bad in [
+        "", "-x", "--privileged", "-", "a b", " lead", "a\tb", "a\nb", "a\u{7f}b",
+        // Round 1: a directory name, and characters a shell would act on in the hint.
+        ".", "..", "ubuntu;id", "ubuntu$(id)", "a'b", "a`b", "a&b", "a|b",
+    ] {
         let work = tempfile::tempdir().unwrap();
         let state = work.path().join("state");
         // A complete layout exists under the directory name the reference maps to.
