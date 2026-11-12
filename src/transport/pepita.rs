@@ -180,9 +180,11 @@ pub fn cleanup_namespace(machine: &Machine) -> Result<(), String> {
 
     // Kill the init process if the pidfile exists
     if let Ok(pid_str) = std::fs::read_to_string(&pidfile) {
-        let pid = pid_str.trim();
-        // Send SIGKILL to the init process — this tears down the entire namespace
-        let _ = Command::new("kill").args(["-9", pid]).output();
+        // Send SIGKILL to the init process — this tears down the entire namespace.
+        // By syscall (#992): an image without procps has no `kill` binary.
+        if let Ok(pid) = pid_str.trim().parse::<u32>() {
+            let _ = super::kill_pid(pid);
+        }
     }
 
     // Remove pidfile
