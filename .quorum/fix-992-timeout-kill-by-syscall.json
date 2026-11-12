@@ -4,7 +4,7 @@
   "branch": "fix/992-timeout-kill-by-syscall",
   "base": "4a73376b",
   "base_commit": "4a73376b450aae881151a3f87abd103b186ffc19",
-  "diff_sha256": "62dc227db6ee2592a136dc7afd246f79c437eb72",
+  "diff_sha256": "5fe7d09b7a49d802d5190cccb768ad170310246f",
   "recorded_at": "round 3: three independent agy Gemini 4 Carbon (thinking=high) lanes, 3/3 PASS at head 098e3709. Round 4 (delta after merging origin/main 1d4cc583 and 4a73376b): three independent Claude Opus 5.5 fallback lanes, 3/3 PASS at head b3f44c3f.",
   "quorum": {
     "rounds": 4,
