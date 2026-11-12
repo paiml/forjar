@@ -52,11 +52,10 @@ fn label(name: &str) -> String {
         .collect()
 }
 
-/// The per-rule reachability scan (forjar#669): sums the bytes this rule could free,
-/// under the SAME idle and sweepable filters the delete loop applies, deleting nothing.
-fn reach_block(rule: &ReclaimRule) -> String {
+/// The rule's roots and the literal prefixes of those roots, each shell-quoted and
+/// space-joined: what the finder is handed and what `fb_sweepable` checks against.
+fn quoted_roots_and_prefixes(rule: &ReclaimRule) -> (String, String) {
     let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
-    let roots = roots.join(" ");
     let mut prefixes: Vec<String> = rule
         .roots
         .iter()
@@ -64,25 +63,38 @@ fn reach_block(rule: &ReclaimRule) -> String {
         .collect();
     prefixes.dedup();
     let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
-    let prefixes = prefixes.join(" ");
-    format!(
-        r#"
+    (roots.join(" "), prefixes.join(" "))
+}
+
+// The reach scan's shell text, in four pieces around the three values that are
+// spliced in (finder + roots, idle floor, sweepable prefixes). Constants, not one
+// `format!` template, so the generated shell is not scored as Rust control flow
+// and the pieces cannot be re-parsed after a root name is inserted.
+const REACH_OPEN: &str = r#"
 if [ "$FB_OPEN_OK" = "1" ]; then
-  {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+  "#;
+const REACH_SCAN: &str = r#" >"$FB_CANDS" 2>/dev/null || true
   while IFS= read -r cand; do
     [ -n "$cand" ] || continue
     fb_in_use "$cand" && continue
-    fb_is_idle "$cand" {idle} || continue
-    fb_sweepable "$cand" {prefixes} || continue
+    fb_is_idle "$cand" "#;
+const REACH_SWEEPABLE: &str = r#" || continue
+    fb_sweepable "$cand" "#;
+const REACH_SUM: &str = r#" || continue
     sz=$(fb_bytes "$cand")
     [ -n "$sz" ] || FB_REACH_UNM=1
-    printf '%s\t%s\n' "${{sz:-0}}" "$cand" >>"$FB_REACH"
+    printf '%s\t%s\n' "${sz:-0}" "$cand" >>"$FB_REACH"
   done < "$FB_CANDS"
 fi
-"#,
-        finder = detect::fn_name(rule.kind),
-        idle = rule.min_idle_minutes,
-    )
+"#;
+
+/// The per-rule reachability scan (forjar#669): sums the bytes this rule could free,
+/// under the SAME idle and sweepable filters the delete loop applies, deleting nothing.
+fn reach_block(rule: &ReclaimRule) -> String {
+    let (roots, prefixes) = quoted_roots_and_prefixes(rule);
+    let finder = detect::fn_name(rule.kind);
+    let idle = rule.min_idle_minutes;
+    format!("{REACH_OPEN}{finder} {roots}{REACH_SCAN}{idle}{REACH_SWEEPABLE}{prefixes}{REACH_SUM}")
 }
 
 /// The per-rule reclaim block.
@@ -91,16 +103,7 @@ fn rule_block(rule: &ReclaimRule) -> String {
     let log_msg = sh_squote(&format!("rule {}: scanning", label(&rule.name)));
     let finder = detect::fn_name(rule.kind);
     let idle = rule.min_idle_minutes;
-    let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
-    let roots = roots.join(" ");
-    let mut prefixes: Vec<String> = rule
-        .roots
-        .iter()
-        .map(|r| ReclaimRule::root_prefix(r))
-        .collect();
-    prefixes.dedup();
-    let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
-    let prefixes = prefixes.join(" ");
+    let (roots, prefixes) = quoted_roots_and_prefixes(rule);
     let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
 

@@ -1,6 +1,6 @@
 # Implementation receipt — GH-667 (with GH-669, GH-936) — disk-budget never deletes what it cannot prove dead
 
-verdict: PARTIAL — code, tests and the dogfood-guards set are green on kfocus; CB-200 reads 653 on this branch against 652 on plain main and ceiling 651 (this branch adds one function below grade A: `reaper.rs::reach_block`, A-, complexity 9), and the clean-room run has not been done.
+verdict: PARTIAL — code, tests and the dogfood-guards set are green on kfocus; CB-200 reads 652 on this branch, equal to plain main (652) and above the recorded ceiling 651 (a pre-existing red, not grown by this PR), and the clean-room run has not been done.
 
 ## Identity
 
@@ -23,14 +23,14 @@ Fix: none needed in this branch. #982 is an ancestor of the merged tree (`git me
 - `cargo test --locked` on the nine dogfood-guards targets named in ci.yml: all ok (4, 4, 19, 9, 4, 4, 9, 13, 14 passed), rc=0; run twice (before and after the roadmap/CHANGELOG edit), same verdicts.
 - `cargo fmt --all -- --check`: rc=0 (twice).
 - `cargo clippy --all-targets -- -D warnings`: rc=0.
-- `cargo test --lib`: 13789 passed, 0 failed, 4 ignored.
+ passed, 0 failed, 4 ignored (re-run on the final commit: same).
 - Integration targets: `falsification_budget_unreachable` 6 passed; `falsification_disk_budget` 11 passed; `falsification_budget_dry_run` 7 passed (it is listed as red on plain main; it was green here, not re-run on main); `falsification_cb21xx_ratchet_holds_the_ceiling` 9 passed; `falsification_no_tracked_file_is_gitignored` 3 passed; `falsification_quorum_anchors_release_shaped` 4 passed; `falsification_release_goals_are_measured` 18 passed; `falsification_quorum_gate_has_a_triage_shape` 8 passed; `falsification_release_goal_cut_books_the_tag` 2 passed.
 - Red-then-green for the PR's own new tests was not re-measured by this lane (the PR commits carry them); not measured.
 
 ## Known reds, not fixed here
 
 - `falsification_untyped_error_sites_ratchet::the_live_tree_holds_both_ceilings`: 790 against ceiling 778 on this branch, run twice (both rc=101), and 790 on a plain `origin/main` tree (dbd1ec3e). Not run by any CI job; the PR adds 0.
-- CB-200 (`bash scripts/cb200-ratchet.sh`, pmat 3.42.0 on kfocus): 653 on this branch, 652 on plain `origin/main` dbd1ec3e, recorded ceiling 651. The diff of functions below grade A between the two trees: `detect.rs::prelude` B->C- (12->23), `reaper.rs::script` C+->C (19->23), `rule_block` B (13->14), and new `reaper.rs::reach_block` A- (complexity 9). The baseline file was not edited.
+- CB-200 (`bash scripts/cb200-ratchet.sh`, pmat 3.42.0 on kfocus): 652 on this branch at the final commit, 652 on plain `origin/main` dbd1ec3e, recorded ceiling 651. Before the last commit the branch read 653: the PR had added `reaper.rs::reach_block` (A-, complexity 9). It now builds its shell text from constants and shares `quoted_roots_and_prefixes` with `rule_block`; `reach_block` is no longer below A. `detect.rs::prelude` (B -> C-), `reaper.rs::script` (C+ -> C) and `rule_block` (B) were already below A on main, so they do not move the count. The baseline file was not edited.
 
 ## Against the issues' acceptance text
 
@@ -39,7 +39,7 @@ Fix: none needed in this branch. #982 is an ancestor of the merged tree (`git me
 
 ## Open
 
-- CB-200 +1 from `reach_block` (above); the owner of the module should split it or lower complexity.
+- CB-200 is 652 against ceiling 651, as on main; `prelude`, `script` and `rule_block` stay below A (they were before this PR and are worse in grade now).
 - Clean-room run: not done.
 
 IMPL-GH-667-RECEIPT-END
