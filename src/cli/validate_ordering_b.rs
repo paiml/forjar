@@ -328,7 +328,7 @@ pub(crate) fn cmd_validate_check_resource_provider_compatibility(
     ];
     let mut warnings: Vec<(String, String)> = Vec::new();
     for (name, res) in &config.resources {
-        let rtype = format!("{:?}", res.resource_type).to_lowercase();
+        let rtype = res.resource_type.to_string();
         if !valid_types.iter().any(|t| rtype.contains(t)) {
             warnings.push((name.clone(), rtype));
         }

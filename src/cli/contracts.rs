@@ -64,7 +64,7 @@ fn analyze_resource(
 ) -> Option<ContractRow> {
     let resolved =
         resolver::resolve_resource_templates(resource, &config.params, &config.machines).ok()?;
-    let rtype = format!("{:?}", resource.resource_type).to_lowercase();
+    let rtype = resource.resource_type.to_string();
 
     let has_check = codegen::check_script(&resolved).is_ok();
     let has_apply = codegen::apply_script(&resolved).is_ok();

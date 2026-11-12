@@ -225,7 +225,7 @@ fn push_security_resources(
             items.push((
                 m.to_string(),
                 rname.clone(),
-                format!("{:?}", rlock.resource_type),
+                rlock.resource_type.to_string(),
                 format!("{:?}", rlock.status),
             ));
         }
