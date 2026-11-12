@@ -58,7 +58,12 @@ jobs:
       # every gate job on ARM64 because ARM64 sat idle and X64 had 123 forjar jobs queued. On
       # 2026-11-10 ~18:26Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
       # Back to X64; `examples-validate` stays on ARM64 as the one aarch64 smoke.
-      runs_on: '["self-hosted","clean-room","X64"]'
+      # 2026-11-11 (infra-cop, measured after #981): this repository is public, and the X64
+      # clean-room runner group does not serve public repositories, so the X64 jobs of this
+      # workflow share one seat. The reusable workflow's jobs (lint, security, provenance and
+      # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
+      # where #981 put them.
+      runs_on: '["self-hosted","clean-room","ARM64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
       # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
@@ -136,118 +141,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Validate all standalone example configs
-        run: cargo test --locked --test examples_validate
-      # #292: a .rs file under src/ that no `mod`, `#[path]` or `include!`
-      # names is compiled by nothing — not linted, not type-checked, and its
-      # tests do not run. Three were in that state, one of which did not parse
-      # as Rust at all. Cheap: a directory walk, no build of the crate needed.
-      - name: No source file may be orphaned or duplicated
-        run: cargo test --locked --test falsification_no_orphaned_source_files
-      # forjar#722: lint.yml and msrv.yml run on arch-neutral runners, so every
-      # actions/cache key must carry runner.arch. The test runs the shell guard on
-      # the real tree and on reverted copies.
-      - name: Cache keys on arch-neutral runners carry runner.arch
-        run: cargo test --locked --test falsification_722_cache_key_arch
-      # #298: every citation in contracts/ must resolve to the exact item it
-      # names, in the file it names, and every binding must name an equation
-      # its contract defines. This replaces the Python resolver that used to
-      # live in proofs.yml, whose regex read 77 of 211 citations and reported
-      # "every resolvable falsifier citation resolves" over seven dangling
-      # ones. One resolver, in one dialect, in a place that runs it.
-      - name: Every contract citation must resolve
-        run: cargo test --locked --test falsification_contract_citations_resolve
-      # #714: deny.toml ignores RUSTSEC-2024-0449 (unsafe-libyaml, no fix).
-      # The ignore must leave with the crate, cover no unreviewed consumer,
-      # and match .cargo/audit.toml. Reads files only.
-      - name: The unsafe-libyaml advisory ignore stays bounded
-        run: cargo test --locked --test falsification_714_unsafe_libyaml_ignore_is_bounded
-      # forjar#549: a drift query the target never answered is UNMEASURED, not
-      # drift. Asks 203.0.113.9 (TEST-NET-3) over ssh, so it waits out the
-      # connect timeout once per test.
-      - name: An unanswered drift query is not drift
-        run: cargo test --locked --test falsification_drift_unmeasured_is_not_drift
-      # FALSIFY-FVS-005. Spawns the built binary, so it is the slow one here.
-      - name: The binary advertises no undeclared transport
-        run: cargo test --locked --test e2e_transport_absence_t
-      # #376: `undo` re-converged to the CURRENT config instead of the target
-      # generation, so it exited 0 printing "1 converged" while the managed
-      # bytes never moved. These assert the BYTES AT THE PATH, never the
-      # summary line — the summary is what the defect printed. Includes the
-      # control that fails an "always rewrite" implementation, and the jidoka
-      # cases: an undo that cannot faithfully replay must exit non-zero and
-      # leave the host untouched.
-      - name: undo must actually undo, or refuse
-        run: cargo test --locked --test falsification_undo_actually_undoes
-      # #377: `undo` paired the cwd forjar.yaml with an unrelated --state-dir
-      # and applied it. Carries the over-correction guards too: one operator
-      # editing and undoing their own stack must NEVER be refused.
-      - name: undo must refuse a foreign state dir, and only a foreign one
-        run: cargo test --locked --test falsification_undo_state_dir_interlock
-      # #386: the Coverage lane cached `target`, and `cargo llvm-cov` over this
-      # crate's 242 integration test binaries is a 70.70 GiB tree — already the
-      # size of a hosted runner's disk. The cache asked tar+zstd for a second
-      # copy of it on the same filesystem: the SAVE ENOSPC'd on every run (a
-      # `##[warning]`, so the job stayed green and the cache was never written),
-      # and when the margin was tighter the ENOSPC landed mid-build and killed
-      # the runner's Worker process, taking the job's logs with it. Parses the
-      # workflows and prints its denominator; self-hosted jobs are exempt.
-      - name: No hosted job may cache a Rust build directory
-        run: cargo test --locked --test falsification_hosted_jobs_do_not_cache_target
-      # #401: fourteen paths were BOTH tracked and matched by .gitignore
-      # (3,759,246 bytes). Nothing visibly broke — gitignore does not un-track a
-      # file — which is exactly why it survived, while the post-commit hook
-      # re-staged a 1.2 MB `.pmat/baseline.json` after every commit and any two
-      # branches conflicted on its `created_at` line. Asserts the index against
-      # the rules, with `--no-index` (without it git answers about the index and
-      # reports every tracked path as not-ignored, hiding the defect) and
-      # WITHOUT `-v` (which prints negation matches and exits 0, making the
-      # assertion unsatisfiable while any file is deliberately re-included).
-      - name: No tracked file may be gitignored
-        run: cargo test --locked --test falsification_no_tracked_file_is_gitignored
-      # #400: the quorum gate took the branch NAME from the pushed ref and
-      # everything else — diff, receipt, falsification test — from the local
-      # checkout. Pushing a branch you were not standing on was refused with
-      # "no quorum receipt" for a receipt that was in the pushed commit, and an
-      # UNTRACKED receipt carrying a `waived.reason` bypassed the whole gate
-      # silently, for exactly the enforced authors QUORUM_SKIP is refused to.
-      # Drives the real scripts/quorum-gate.sh against synthetic repos.
-      - name: The quorum gate must judge the pushed commit
-        run: cargo test --locked --test falsification_quorum_gate_reads_the_pushed_ref
-
-      # PMAT-554: the receipt-store gate (scripts/quorum-store-gate.sh) judges
-      # untrusted receipts by exact allowlisted ids and commit-trailer authors.
-      - name: The quorum store gate must reject forged receipts
-        run: cargo test --locked --test falsification_quorum_gate_reads_the_receipt_store --test falsification_quorum_gate_bypasses --test falsification_quorum_gate_exact_identity
-      # #629: nightly.yml rebuilt only when a commit landed in the last 24h, so a
-      # commit followed by a quiet day, or a failed nightly, was never built and
-      # the nightly sat 12 days behind main. Executes the gate script from the
-      # parsed workflow against synthetic histories, and asserts the release tags
-      # the commit it built (`target_commitish`), which the tag-vs-HEAD gate needs.
-      - name: The nightly must rebuild whenever its tag is not HEAD
-        run: cargo test --locked --test falsification_nightly_gate_is_tag_vs_head
-      # #614: under `shell: bash` the nightly's Windows leg resolved Git's msys
-      # perl, which lacks Params::Check, so openssl-src died and the release was
-      # skipped for 11 days. Executes the parsed build step with stub cargo/cross
-      # and a planted Strawberry perl: Windows builds with it and fails before
-      # cargo without it, and the other legs leave OPENSSL_SRC_PERL unset.
-      - name: The nightly's Windows leg must build OpenSSL with Strawberry perl
-        run: cargo test --locked --test falsification_nightly_windows_openssl_perl
-      # #683: cross mounts the toolchain sysroot through the docker HOST. On a
-      # containerized runner only the work root is shared with the host, so a
-      # RUSTUP_HOME outside it became an empty /rust: `cargo: not found`, on
-      # whichever aarch64 leg was scheduled there. Discovers every job that runs
-      # `cross build` and resolves the env its step sees.
-      - name: Every path cross mounts must be under the runner's work root
-        run: cargo test --locked --test falsification_683_cross_mounts_under_work_root
-      # PMAT-159: the sudo transport moved from `sudo bash /dev/fd/3` (sudo closes
-      # fd 3 -> exit 127 for every sudo: true resource) to a private temp file. This
-      # is the ALWAYS-ON falsifier: a fake sudo that closes every fd >= 3 and a fake
-      # id that forces the non-root branch, then the real emitted wrapper. It went
-      # RED on the old emitter and needs no privilege. The reusable test job is
-      # `cargo test --lib`, so it runs here or nowhere.
-      - name: The sudo transport survives closefrom
-        run: cargo test --locked --test falsification_sudo_transport_closefrom_emulated
+      # One `cargo test` over every integration target below (same job, same
+      # default feature set, same --locked): one resolution/compile plan instead
+      # of 18 invocations (20 targets). Targets run in this order and a failing target fails
+      # the step (cargo's default fail-fast, as the former per-step chain did).
+      # Each guards what its own test file's header says (#292 orphaned sources,
+      # #298 contract citations, #376/#377 undo, #386 hosted cache, #400/PMAT-554
+      # quorum gates, #401 gitignored files, #614/#629/#683 nightly + cross,
+      # #714 advisory ignore, #722 cache keys, PMAT-159 sudo closefrom emulated and
+      # version coherence -- `--locked` is load-bearing for the latter).
+      - name: Integration guards (examples, orphans, undo, quorum gates, nightly, version)
+        run: |
+          cargo test --locked \
+          --test examples_validate \
+          --test falsification_no_orphaned_source_files \
+          --test falsification_722_cache_key_arch \
+          --test falsification_contract_citations_resolve \
+          --test falsification_714_unsafe_libyaml_ignore_is_bounded \
+          --test falsification_drift_unmeasured_is_not_drift \
+          --test e2e_transport_absence_t \
+          --test falsification_undo_actually_undoes \
+          --test falsification_undo_state_dir_interlock \
+          --test falsification_hosted_jobs_do_not_cache_target \
+          --test falsification_no_tracked_file_is_gitignored \
+          --test falsification_quorum_gate_reads_the_pushed_ref \
+          --test falsification_quorum_gate_reads_the_receipt_store \
+          --test falsification_quorum_gate_bypasses \
+          --test falsification_quorum_gate_exact_identity \
+          --test falsification_nightly_gate_is_tag_vs_head \
+          --test falsification_nightly_windows_openssl_perl \
+          --test falsification_683_cross_mounts_under_work_root \
+          --test falsification_sudo_transport_closefrom_emulated \
+          --test falsification_version_matches_manifest
       # And the LIVE half of the same falsifier. The emulated test fakes `sudo`,
       # so it can show the transport surviving an emulated closefrom but never
       # the host's real one with a real uid 0 on the other side.
@@ -271,17 +196,6 @@ jobs:
         env:
           FORJAR_REQUIRE_SUDO_TESTS: "1"
         run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
-      # PMAT-159: a release ships ONE version and every artefact that states it
-      # must state the same one — manifest, lockfile, changelog, and the binary's
-      # own `--version`. The target existed and ran in NO CI job, which is the
-      # same absence as not having it. `--locked` is the load-bearing flag, not
-      # house style: under a bare `cargo test` cargo repairs a stale `Cargo.lock`
-      # before the test body runs, so the #131 lockfile invariant cannot go red
-      # here; `--locked` makes cargo refuse a lagging lock at resolution and the
-      # test is the message-bearing witness for it. Drop the flag and this step
-      # measures three of its four legs.
-      - name: The release version is coherent (manifest, lock, changelog, binary)
-        run: cargo test --locked --test falsification_version_matches_manifest
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's

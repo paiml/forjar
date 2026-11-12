@@ -32,6 +32,11 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#945).
 - Tests only: the build test no longer depends on the host's docker or podman (#503, #948); a templated guard is pinned as seeded like a plain one (#590, #946).
 
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything

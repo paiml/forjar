@@ -1,0 +1,99 @@
+{
+  "kind": "code",
+  "issue": "PMAT-920 (forjar#920 / PR #930) \u2014 FJ-LOCK-001 C1-C5: atomic lock publication, full-span apply & plan-apply lock guard with dry-run exemption, owner-checked unlock with live-holder refusal, per-machine lock scope, and bounded FIFO wait.",
+  "branch": "forjar-cop/fj-lock-001-c1c2",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "ff9966538a4ec20883b372e1bdb2de7ab2e017f6",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head a60316a8; 3/3 PASS with 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head a60316a8 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Lock Lifecycle): PASS",
+      "round 2, head a60316a8 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, Concurrency & Security): PASS",
+      "round 2, head a60316a8 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), distinct from the Claude Opus 5.5 author model.",
+    "kill_rule": "all 3 lanes independently attacked C1..C4 and R1..R2; R1 (Round 1 file-health & flag-consumer failure) was fixed at a60316a8 and R2 (lock_wait FIFO fairness doc overclaim for timeout==0 callers) was narrowed.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 inline edits pushed src/cli/apply.rs (501 lines) and src/cli/commands/apply_args.rs (711 lines) past file-health and broke every_declared_flag_is_consumed_or_refused; fixed at a60316a8 via apply_lock_flags.rs and ApplyLockArgs.",
+      "R2: src/core/state/lock_wait.rs:4-6 and src/core/state/process_lock.rs:65-67 claim a late arrival cannot overtake queued waiters, whereas acquire_at skips ticket creation when timeout.is_zero() so unqueued zero-timeout callers can acquire on unlock ahead of polling waiters."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb hold_apply_locks in src/cli/apply_lock_flags.rs:36 (`if dry_run {` -> `if true {`) on t2fw13 (<SCRATCH>) and run `cargo test --lib fj_lock_c2`; falsify_fj_lock_c2_lock_held_from_pre_validate_to_post_actions fails.",
+    "test_file": "tests/falsification_state_integrity.rs",
+    "cargo_test_target": "falsification_state_integrity",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13 (<SCRATCH>): replacing `if dry_run {` with `if true {` in `src/cli/apply_lock_flags.rs` failed `cargo test --lib fj_lock_c2` (`falsify_fj_lock_c2_lock_held_from_pre_validate_to_post_actions` observed no per-machine `.forjar.lock` during apply)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform state locking (DynamoDB / filesystem `.terraform.tfstate.lock.info`): writes structured JSON lock owner ID, refuses unlock unless `-force-unlock LOCK_ID` matches, and bounds acquisition via `-lock-timeout=DURATION`",
+      "Linux `flock` / Git `.lock` (`lockfile.c`): stages payload in a PID-unique tempfile and publishes via atomic `link(2)`/`rename(2)` so readers never observe truncated lock metadata",
+      "PostgreSQL / Consul session locks: scopes locks per target resource namespace and acquires sorted multi-target sets to eliminate AB-BA deadlocks"
+    ],
+    "verdict": "Staging `LockInfo` + `hard_link` atomic publication (C1), full-span guard holding with dry-run exemption (C2), owner-ID-checked release and live-PID force-unlock refusal (C3), sorted per-machine scoping (C4), and bounded ticket waiting (C5) align with established state-locking designs."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "verdict": "PASS across all 3 independent Gemini 4 Carbon (thinking=high) lanes on head a60316a8 (`fj_lock` 26/26, `process_lock` 25/25, `FJ930_REV_KILLED` on t2fw13)."
+  },
+  "pmat": {
+    "ran": true,
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo_clippy_all_targets",
+      "file_health_ratchet_check"
+    ],
+    "findings": "0 vacuous assertions in `src/cli/tests_fj_lock_c2.rs`, `src/cli/tests_fj_lock_c3_c5.rs`, `src/core/state/tests_fj_lock_c3_c5.rs`, and `tests/falsification_state_integrity.rs`; `apply.rs` (499) and `apply_args.rs` (704) pass file-health."
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-920-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "85e964db4666d00a8b73e8847c6cc517581a4389",
+        "sha256": "084f24d5fa1d12d79d98259aa67fc21b5ce570be175990e47d69a6e66fdaa961",
+        "bytes": 1931
+      },
+      {
+        "path": ".quorum/evidence/PMAT-920-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "e2ad097319169bc8e095625d5a47805cfc9e1f50",
+        "sha256": "3b058b5915dae3ca9b4ef026752d1dc0ff835ad07b8af65888a65968176fd909",
+        "bytes": 1309
+      },
+      {
+        "path": ".quorum/evidence/PMAT-920-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "f3a3ebbb30275644e19db87c2bedc7ee6e4cf3fd",
+        "sha256": "a74559eda69584a7a017de8dcd5901bb1a0ca34c000b372717c617787d490ef4",
+        "bytes": 3490
+      },
+      {
+        "path": ".quorum/evidence/PMAT-920-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "6946e218acff27749e32746c128bbffb1819aec5",
+        "sha256": "13ef2353848c6d892722153303f0e3ba33b8802974ccf8a128fe957a318466b3",
+        "bytes": 870
+      }
+    ],
+    "total_bytes": 7600,
+    "claims_digest": ".quorum/evidence/PMAT-920-judges.md"
+  }
+}
