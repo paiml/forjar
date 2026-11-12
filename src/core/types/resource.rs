@@ -150,10 +150,12 @@ pub struct Resource {
     #[serde(default)]
     pub schedule: Option<String>,
 
-    /// Command to execute
+    /// Command to execute (`type: image`: a build step run in the base, PMAT-989)
     #[serde(default)]
     pub command: Option<String>,
-
+    /// `type: image`: entrypoint argv; empty keeps the base's own
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entrypoint: Vec<String>,
     // -- Docker fields --
     /// Container image
     #[serde(default)]

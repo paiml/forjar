@@ -3,11 +3,15 @@
 //! Wires `assemble_image()` into the `forjar build` CLI command,
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
-use super::build_image_base::{hash_base_identity, load_declared_base, print_base_line};
+use super::build_image_base::{load_declared_base, print_base_line};
+use super::build_image_cache::{check_build_cache, compute_layer_input_hash, write_build_cache};
+use super::build_image_entries::collect_layer_entries;
+use super::build_image_entries::split_paths_by_type;
+use super::build_image_exec::{exec_decl, exec_summary, run_exec, ExecDecl, ExecReport};
 use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
+use crate::core::store::build_runtime::{BuildRuntime, ContainerCli};
 use crate::core::store::image_assembler::BaseLayout;
 use crate::core::store::layer_builder::LayerEntry;
-use crate::core::store::overlay_export;
 use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerConfig, Resource};
 
 /// FJ-2104: Build container image from a resource definition.
@@ -49,6 +53,29 @@ pub(crate) fn cmd_build_in(
     sandbox: bool,
     json: bool,
 ) -> Result<(), String> {
+    let real = || ContainerCli::detect().map(|c| Box::new(c) as Box<dyn BuildRuntime>);
+    cmd_build_rt(
+        &real, state_dir, file, resource, load, push, far, sandbox, json,
+    )
+}
+
+/// A source of the container runtime, called only when steps must run.
+pub(crate) type RuntimeProvider<'a> = &'a dyn Fn() -> Result<Box<dyn BuildRuntime>, String>;
+
+/// `cmd_build_in` with the container runtime injected, so tests can drive the
+/// whole command with a fake runtime and no docker.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_build_rt(
+    runtime: RuntimeProvider,
+    state_dir: &std::path::Path,
+    file: &std::path::Path,
+    resource: &str,
+    load: bool,
+    push: bool,
+    far: bool,
+    sandbox: bool,
+    json: bool,
+) -> Result<(), String> {
     // Refs #212: `--json` used to print "not yet implemented, flag ignored"
     // and then the human build log, so `forjar build --json | jq` failed while
     // the command exited 0. It now emits a real manifest — and refuses the
@@ -75,62 +102,195 @@ pub(crate) fn cmd_build_in(
         return cmd_build_sandbox(resource, &plan, &config, &output_dir, load, push, far);
     }
 
-    // PMAT-989: a declared base is layered or the build fails — before anything is written.
-    let base = res
-        .image
-        .as_deref()
-        .map(|r| load_declared_base(resource, state_dir, r))
-        .transpose()?;
-    let base_info = res
-        .image
-        .as_deref()
-        .zip(base.as_ref())
-        .map(|(r, b)| (r, b.layers.layers.len()));
-    std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
+    let job = Job {
+        resource,
+        res,
+        config: &config,
+        state_dir,
+        output_dir,
+        dist: Dist { load, push, far },
+        json,
+    };
+    build_layered(runtime, plan, &job)
+}
 
-    let layer_entries = collect_layer_entries(&plan, &config)?;
+/// What one `forjar build` invocation is building, and what to do with it after.
+struct Job<'a> {
+    resource: &'a str,
+    res: &'a Resource,
+    config: &'a ForjarConfig,
+    state_dir: &'a std::path::Path,
+    output_dir: std::path::PathBuf,
+    dist: Dist,
+    json: bool,
+}
+
+/// The distribution flags (`--load`, `--push`, `--far`).
+struct Dist {
+    load: bool,
+    push: bool,
+    far: bool,
+}
+
+impl Job<'_> {
+    fn distribute(&self, tag: &str) -> Result<(), String> {
+        let d = &self.dist;
+        run_distribution(self.resource, tag, &self.output_dir, d.load, d.push, d.far)
+    }
+}
+
+/// PMAT-989: steps run IN the declared base; with no base there is nothing to run in.
+fn require_base_for_steps(job: &Job, decl: Option<&ExecDecl>) -> Result<(), String> {
+    if decl.is_some() && job.res.image.is_none() {
+        return Err(format!(
+            "image '{}' declares `packages:`/`command:` but no `image:` base: the steps \
+             run in a container started from the base, so declare one (e.g. image: \
+             debian:bookworm-slim). `command:` is a build step now, not the entrypoint; use \
+             `entrypoint: [..]` for the process the image starts.",
+            job.resource
+        ));
+    }
+    Ok(())
+}
+
+/// Layer the declared base (and, when steps are declared, their executed
+/// layer) under the Files layers, or serve the build cache.
+fn build_layered(runtime: RuntimeProvider, plan: ImageBuildPlan, job: &Job) -> Result<(), String> {
+    let decl = exec_decl(job.res);
+    require_base_for_steps(job, decl.as_ref())?;
+
+    // PMAT-989: a declared base is layered or the build fails — before anything is written.
+    let base = job
+        .res
+        .image
+        .as_deref()
+        .map(|r| load_declared_base(job.resource, job.state_dir, r))
+        .transpose()?;
+    std::fs::create_dir_all(&job.output_dir).map_err(|e| format!("create output dir: {e}"))?;
+
+    let layer_entries = collect_layer_entries(&plan, job.config)?;
+    let report = decl.as_ref().map(ExecReport::new);
 
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
-    let input_hash = compute_layer_input_hash(&layer_entries, base.as_ref());
-    if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
-        if json {
-            print_build_json(&plan.tag, &output_dir, None, true, base_info);
-            return Ok(());
-        }
-        println!("\nBuilding {resource} ({}) — CACHED", plan.tag);
-        print_base_line(res.image.as_deref(), base.as_ref());
-        println!("  {cached}");
-        println!("  Input hash: {input_hash}");
-        run_distribution(resource, &plan.tag, &output_dir, load, push, far)?;
-        return Ok(());
+    let input_hash = compute_layer_input_hash(
+        &layer_entries,
+        base.as_ref(),
+        decl.as_ref(),
+        plan.entrypoint.as_deref().unwrap_or(&[]),
+    );
+    if let Some(cached) = check_build_cache(&job.output_dir, &input_hash) {
+        return finish_cached(
+            job,
+            &plan,
+            base.as_ref(),
+            report.as_ref(),
+            &cached,
+            &input_hash,
+        );
     }
 
+    let mut report = report;
     let start = std::time::Instant::now();
+    let (plan, layer_entries) = with_executed_layer(
+        runtime,
+        plan,
+        layer_entries,
+        decl.as_ref(),
+        job.res.image.as_deref().zip(base.as_ref()),
+        &mut report,
+    )?;
     let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
-        &output_dir,
+        &job.output_dir,
         &OciLayerConfig::default(),
         None, // E12: default to host architecture
         base.as_ref(),
     )?;
     let duration = start.elapsed();
 
-    if !json {
-        print_build_report(resource, &plan.tag, &result, &output_dir, duration);
-        print_base_line(res.image.as_deref(), base.as_ref());
-    }
-
     // FJ-2403/E17: Collect and persist image build metrics.
-    record_build_metrics(&plan.tag, &result, duration, &output_dir);
-    write_build_cache(&output_dir, &input_hash);
+    record_build_metrics(&plan.tag, &result, duration, &job.output_dir);
+    write_build_cache(&job.output_dir, &input_hash);
 
-    if json {
-        print_build_json(&plan.tag, &output_dir, Some(&result), false, base_info);
+    let base_info = base_summary(job.res, base.as_ref());
+    if job.json {
+        print_build_json(
+            &plan.tag,
+            &job.output_dir,
+            Some(&result),
+            false,
+            base_info,
+            report.as_ref(),
+        );
         return Ok(());
     }
+    print_build_report(job.resource, &plan.tag, &result, &job.output_dir, duration);
+    print_base_line(job.res.image.as_deref(), base.as_ref());
+    if let Some(r) = &report {
+        println!("  {}", r.line());
+    }
+    job.distribute(&plan.tag)
+}
 
-    run_distribution(resource, &plan.tag, &output_dir, load, push, far)
+/// The declared base reference and its layer count, when one is layered.
+fn base_summary<'a>(res: &'a Resource, base: Option<&BaseLayout>) -> Option<(&'a str, usize)> {
+    res.image
+        .as_deref()
+        .zip(base)
+        .map(|(r, b)| (r, b.layers.layers.len()))
+}
+
+/// The build-cache hit path: report it, run the distribution flags, build nothing.
+fn finish_cached(
+    job: &Job,
+    plan: &ImageBuildPlan,
+    base: Option<&BaseLayout>,
+    report: Option<&ExecReport>,
+    cached: &str,
+    input_hash: &str,
+) -> Result<(), String> {
+    if job.json {
+        let info = base_summary(job.res, base);
+        print_build_json(&plan.tag, &job.output_dir, None, true, info, report);
+        return Ok(());
+    }
+    println!("\nBuilding {} ({}) — CACHED", job.resource, plan.tag);
+    print_base_line(job.res.image.as_deref(), base);
+    if let Some(r) = report {
+        println!("  {}", r.line());
+    }
+    println!("  {cached}");
+    println!("  Input hash: {input_hash}");
+    job.distribute(&plan.tag)
+}
+
+/// PMAT-989: run the declared steps in the base and put the captured layer
+/// directly above it, below the Files layers. No steps: the inputs come back
+/// untouched and no runtime is asked for.
+fn with_executed_layer(
+    runtime: RuntimeProvider,
+    mut plan: ImageBuildPlan,
+    mut entries: Vec<Vec<LayerEntry>>,
+    decl: Option<&ExecDecl>,
+    base: Option<(&str, &BaseLayout)>,
+    report: &mut Option<ExecReport>,
+) -> Result<(ImageBuildPlan, Vec<Vec<LayerEntry>>), String> {
+    let (Some(decl), Some((base_ref, base))) = (decl, base) else {
+        return Ok((plan, entries));
+    };
+    let rt = runtime()?;
+    let layer = run_exec(rt.as_ref(), decl, base_ref, base)?;
+    plan.layers.insert(
+        0,
+        LayerStrategy::Build {
+            command: exec_summary(decl),
+            workdir: None,
+        },
+    );
+    *report = report.take().map(|r| r.captured(&layer));
+    entries.insert(0, layer.entries);
+    Ok((plan, entries))
 }
 
 /// Refs #212: the flags `--json` cannot share stdout with.
@@ -261,7 +421,9 @@ fn build_plan_from_resource(
     let all_paths: Vec<String> = res.path.iter().cloned().collect();
     let (config_paths, app_paths) = split_paths_by_type(&all_paths);
 
-    if !config_paths.is_empty() && !app_paths.is_empty() {
+    if all_paths.is_empty() && exec_decl(res).is_some() {
+        // PMAT-989: the executed layer is the content; no empty Files layer beside it.
+    } else if !config_paths.is_empty() && !app_paths.is_empty() {
         // Two layers: app binaries first (changes less), config on top (changes more)
         layers.push(LayerStrategy::Files { paths: app_paths });
         layers.push(LayerStrategy::Files {
@@ -276,163 +438,9 @@ fn build_plan_from_resource(
         base_image: res.image.clone(),
         layers,
         labels: vec![],
-        entrypoint: res.command.clone().map(|e| vec![e]),
+        // PMAT-989: `command:` is a build step now; the entrypoint is its own field.
+        entrypoint: (!res.entrypoint.is_empty()).then(|| res.entrypoint.clone()),
     })
-}
-
-/// Collect LayerEntry sets for each layer in the plan.
-fn collect_layer_entries(
-    plan: &ImageBuildPlan,
-    config: &ForjarConfig,
-) -> Result<Vec<Vec<LayerEntry>>, String> {
-    plan.layers
-        .iter()
-        .map(|strategy| collect_strategy_entries(strategy, config))
-        .collect()
-}
-
-fn collect_strategy_entries(
-    strategy: &LayerStrategy,
-    config: &ForjarConfig,
-) -> Result<Vec<LayerEntry>, String> {
-    match strategy {
-        LayerStrategy::Files { paths } => Ok(collect_file_entries(paths, config)),
-        LayerStrategy::Packages { names } => {
-            let content = names.join("\n");
-            Ok(vec![LayerEntry::file(
-                "var/lib/forjar/packages.list",
-                content.as_bytes(),
-                0o644,
-            )])
-        }
-        LayerStrategy::Build {
-            command: _,
-            workdir,
-        } => collect_build_entries(workdir.as_deref()),
-        LayerStrategy::Derivation { store_path } => collect_derivation_entries(store_path),
-    }
-}
-
-fn collect_file_entries(paths: &[String], config: &ForjarConfig) -> Vec<LayerEntry> {
-    paths
-        .iter()
-        .map(|path| {
-            if let Some(res) = config
-                .resources
-                .values()
-                .find(|r| r.path.as_deref() == Some(path))
-            {
-                let content = res.content.as_deref().unwrap_or("").as_bytes();
-                let mode = res
-                    .mode
-                    .as_deref()
-                    .and_then(|m| u32::from_str_radix(m, 8).ok())
-                    .unwrap_or(0o644);
-                LayerEntry::file(path, content, mode)
-            } else {
-                LayerEntry::file(path, b"", 0o644)
-            }
-        })
-        .collect()
-}
-
-/// FJ-2103: Scan overlay upper dir for Build layer strategy.
-fn collect_build_entries(workdir: Option<&str>) -> Result<Vec<LayerEntry>, String> {
-    let overlay_dir = workdir
-        .map(std::path::Path::new)
-        .unwrap_or_else(|| std::path::Path::new("/tmp/forjar-overlay"));
-    if overlay_dir.exists() {
-        let scan = overlay_export::scan_overlay_upper(overlay_dir, overlay_dir)
-            .map_err(|e| format!("overlay scan: {e}"))?;
-        Ok(overlay_export::merge_overlay_entries(&scan))
-    } else {
-        Ok(vec![])
-    }
-}
-
-/// Scan derivation store path for layer entries.
-fn collect_derivation_entries(store_path: &str) -> Result<Vec<LayerEntry>, String> {
-    let p = std::path::Path::new(store_path);
-    if p.exists() {
-        let scan = overlay_export::scan_overlay_upper(p, p)
-            .map_err(|e| format!("derivation scan: {e}"))?;
-        Ok(scan.entries)
-    } else {
-        Ok(vec![])
-    }
-}
-
-/// E13: Split file paths into config and app layers.
-///
-/// Config files (yaml, toml, json, conf, cfg, ini, env, properties)
-/// go to a separate layer from application binaries. This provides
-/// better cache reuse since configs change more frequently than binaries.
-fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
-    let config_exts = [
-        ".yaml",
-        ".yml",
-        ".toml",
-        ".json",
-        ".conf",
-        ".cfg",
-        ".ini",
-        ".env",
-        ".properties",
-    ];
-    let mut config_paths = Vec::new();
-    let mut app_paths = Vec::new();
-    for path in paths {
-        let lower = path.to_lowercase();
-        if config_exts.iter().any(|ext| lower.ends_with(ext)) {
-            config_paths.push(path.clone());
-        } else {
-            app_paths.push(path.clone());
-        }
-    }
-    (config_paths, app_paths)
-}
-
-/// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
-///
-/// PMAT-989: the base layout's identity is part of the key, so a changed base
-/// misses the cache and an unchanged one still hits.
-fn compute_layer_input_hash(
-    layer_entries: &[Vec<LayerEntry>],
-    base: Option<&BaseLayout>,
-) -> String {
-    let mut hasher = blake3::Hasher::new();
-    hash_base_identity(&mut hasher, base);
-    for entries in layer_entries {
-        for entry in entries {
-            hasher.update(entry.path.as_bytes());
-            hasher.update(&entry.content);
-            hasher.update(&entry.mode.to_le_bytes());
-        }
-    }
-    hasher.finalize().to_hex().to_string()
-}
-
-/// FJ-2403/E16: Check if a cached build with the same input hash exists.
-/// Returns a cache-hit message if found, None otherwise.
-fn check_build_cache(output_dir: &std::path::Path, input_hash: &str) -> Option<String> {
-    let cache_path = output_dir.join("build-cache.hash");
-    let cached_hash = std::fs::read_to_string(&cache_path).ok()?;
-    if cached_hash.trim() == input_hash {
-        let metrics_path = output_dir.join("build-metrics.json");
-        if metrics_path.exists() {
-            return Some(format!(
-                "Layer inputs unchanged (hash: {:.16}…), skipping rebuild",
-                input_hash
-            ));
-        }
-    }
-    None
-}
-
-/// FJ-2403/E16: Write the input hash for cache checking on next build.
-fn write_build_cache(output_dir: &std::path::Path, input_hash: &str) {
-    let cache_path = output_dir.join("build-cache.hash");
-    let _ = std::fs::write(cache_path, input_hash);
 }
 
 /// Exposed for testing.

@@ -8,18 +8,18 @@ use super::build_image::cmd_build_in;
 use crate::core::types::{OciDescriptor, OciImageConfig, OciIndex, OciManifest};
 use std::path::{Path, PathBuf};
 
-const BASE_REF: &str = "ubuntu:22.04";
+pub(super) const BASE_REF: &str = "ubuntu:22.04";
 /// `build_image` maps `:` and `/` in a base reference to `_` for the dir name.
-const BASE_DIR_NAME: &str = "ubuntu_22.04";
+pub(super) const BASE_DIR_NAME: &str = "ubuntu_22.04";
 
 /// A valid 64-hex string made of one repeated byte.
-fn hex(seed: u8) -> String {
+pub(super) fn hex(seed: u8) -> String {
     format!("{seed:02x}").repeat(32)
 }
 
 /// Write a small, structurally valid single-layer base OCI layout. `seed`
 /// picks every digest; `layer` is the layer blob content.
-fn write_base(dir: &Path, seed: u8, layer: &[u8]) {
+pub(super) fn write_base(dir: &Path, seed: u8, layer: &[u8]) {
     let blobs = dir.join("blobs/sha256");
     std::fs::create_dir_all(&blobs).unwrap();
     let (cfg_hex, layer_hex, man_hex) = (hex(seed), hex(seed + 1), hex(seed + 2));
@@ -44,7 +44,7 @@ fn write_base(dir: &Path, seed: u8, layer: &[u8]) {
 }
 
 /// The digest `write_base(.., seed, ..)` gives its layer.
-fn base_layer_digest(seed: u8) -> String {
+pub(super) fn base_layer_digest(seed: u8) -> String {
     format!("sha256:{}", hex(seed + 1))
 }
 
@@ -72,14 +72,14 @@ fn build(state: &Path, config: &Path) -> Result<(), String> {
 }
 
 /// The manifest the built layout's `index.json` points at.
-fn read_manifest(out: &Path) -> OciManifest {
+pub(super) fn read_manifest(out: &Path) -> OciManifest {
     let index: OciIndex =
         serde_json::from_slice(&std::fs::read(out.join("index.json")).unwrap()).unwrap();
     let hex = index.manifests[0].digest.strip_prefix("sha256:").unwrap();
     serde_json::from_slice(&std::fs::read(out.join("blobs/sha256").join(hex)).unwrap()).unwrap()
 }
 
-fn manifest_digest(out: &Path) -> String {
+pub(super) fn manifest_digest(out: &Path) -> String {
     let index: OciIndex =
         serde_json::from_slice(&std::fs::read(out.join("index.json")).unwrap()).unwrap();
     index.manifests[0].digest.clone()
@@ -215,10 +215,10 @@ fn t6_no_image_field_builds_a_scratch_image_as_before() {
 fn t7_report_json_carries_the_base_reference_and_layer_count() {
     use super::build_image_report::build_json_doc;
     let out = Path::new("state/images/app");
-    let with = build_json_doc("t:1", out, None, false, Some((BASE_REF, 3)));
+    let with = build_json_doc("t:1", out, None, false, Some((BASE_REF, 3)), None);
     assert_eq!(with["base"], BASE_REF);
     assert_eq!(with["base_layers"], 3);
-    let without = build_json_doc("t:1", out, None, false, None);
+    let without = build_json_doc("t:1", out, None, false, None, None);
     assert!(without["base"].is_null());
     assert_eq!(without["base_layers"], 0);
     for k in ["tag", "layout", "layout_exists", "cached", "layers", "layer_count", "total_size"] {

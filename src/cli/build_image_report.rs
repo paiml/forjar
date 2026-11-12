@@ -1,6 +1,7 @@
 //! FJ-2104 / Refs #212: what `forjar build` reports — the human log, the JSON
 //! document and the persisted build metrics. Split out of `build_image.rs`.
 
+use super::build_image_exec::ExecReport;
 use crate::core::store::image_assembler::AssembledImage;
 use crate::core::types::{ImageBuildMetrics, LayerMetric};
 
@@ -69,13 +70,15 @@ pub(super) fn record_build_metrics(
 /// Reports the layout that is on disk, not a synthesised description of one:
 /// `layout_exists` is a stat of `index.json`, so a consumer can tell a real
 /// build from a claim. On a cache hit there is no fresh `AssembledImage`.
-/// `base` is the declared base reference and its layer count, when layered.
+/// `base` is the declared base reference and its layer count, when layered;
+/// `exec` is what was executed into a layer (PMAT-989), when anything was.
 pub(super) fn build_json_doc(
     tag: &str,
     output_dir: &std::path::Path,
     result: Option<&AssembledImage>,
     cached: bool,
     base: Option<(&str, usize)>,
+    exec: Option<&ExecReport>,
 ) -> serde_json::Value {
     let layers: Vec<serde_json::Value> = result
         .map(|r| {
@@ -103,6 +106,7 @@ pub(super) fn build_json_doc(
         "total_size": result.map(|r| r.total_size),
         "base": base.map(|(r, _)| r),
         "base_layers": base.map_or(0, |(_, n)| n),
+        "exec": exec.map(ExecReport::json),
     })
 }
 
@@ -112,8 +116,9 @@ pub(super) fn print_build_json(
     result: Option<&AssembledImage>,
     cached: bool,
     base: Option<(&str, usize)>,
+    exec: Option<&ExecReport>,
 ) {
-    let doc = build_json_doc(tag, output_dir, result, cached, base);
+    let doc = build_json_doc(tag, output_dir, result, cached, base, exec);
     println!(
         "{}",
         serde_json::to_string_pretty(&doc).unwrap_or_else(|_| "{}".to_string())

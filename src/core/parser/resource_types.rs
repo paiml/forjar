@@ -83,7 +83,10 @@ fn check_kernel_headers(id: &str, resource: &Resource, errors: &mut Vec<Validati
 }
 
 fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
-    if resource.path.is_none() {
+    // PMAT-989: an image built from `packages:` / `command:` needs no file path.
+    let builds_by_exec = resource.resource_type == ResourceType::Image
+        && (!resource.packages.is_empty() || resource.command.is_some());
+    if resource.path.is_none() && !builds_by_exec {
         errors.push(ValidationError {
             message: format!("resource '{id}' (file) has no path"),
         });

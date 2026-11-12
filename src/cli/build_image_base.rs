@@ -1,11 +1,12 @@
 //! PMAT-989 (IMG-001 3/N): the base image an `image:` resource declares.
 //!
 //! forjar has no registry-pull code; the base is an OCI layout the user puts
-//! on disk (`skopeo copy docker://<ref> oci:<dir>`). A declared base that is
+//! on disk (`skopeo copy docker://<ref> oci:<dir>`, or `docker save <ref> | tar -x`). A declared base that is
 //! not usable is an error: building without it would publish an image that is
 //! not the one the config describes.
 
 use crate::core::store::base_image::{extract_base_layers, format_base_info, verify_base_blobs};
+use crate::core::store::exec_layer::base_fetch_hint;
 use crate::core::store::image_assembler::BaseLayout;
 use std::path::{Path, PathBuf};
 
@@ -13,11 +14,6 @@ use std::path::{Path, PathBuf};
 /// state dir (`ubuntu:22.04` -> `ubuntu_22.04`). Lookup and error text both use it.
 pub(super) fn base_layout_dir(state_dir: &Path, base_ref: &str) -> PathBuf {
     state_dir.join(base_ref.replace([':', '/'], "_"))
-}
-
-/// The exact command that puts `base_ref` where `base_layout_dir` looks.
-fn skopeo_command(base_ref: &str, dir: &Path) -> String {
-    format!("skopeo copy docker://{base_ref} oci:{}", dir.display())
 }
 
 /// Load the declared base, or refuse: absent, unreadable and missing-blob
@@ -35,7 +31,7 @@ pub(super) fn load_declared_base(
              without it (the result would not be the declared image). Looked in {}. \
              Fetch it with: {}",
             dir.display(),
-            skopeo_command(base_ref, &dir)
+            base_fetch_hint(base_ref, &dir)
         )
     };
     if !dir.is_dir() {
