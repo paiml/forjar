@@ -14,11 +14,6 @@ the sibling legs. The legs now run three passes under a 45-minute timeout with
 `fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
 pins that passes x 9 minutes + build fits the timeout.
 
-**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
-`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
-No job is added, removed or skipped.
-
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
