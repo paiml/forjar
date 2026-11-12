@@ -5742,7 +5742,7 @@ roadmap:
   github_issue: 989
   item_type: task
   title: 'IMG-001 (3/N): forjar build layers its declared base and executes packages/command into a layer'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-11T10:03:19Z
@@ -5755,6 +5755,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
+  - orch-basis:state
   notes: split from PMAT-756
   epic: 765
 - id: GH-414

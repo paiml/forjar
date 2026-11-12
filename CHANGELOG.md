@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`forjar build` layers the base image its config declares, and fails when it is absent (PMAT-989, #989, IMG-001).**
+An image resource with `image: <base>` used to read the base layout only to print
+its summary and then build a scratch image, exiting 0. The build now loads the
+layout at `state/images/<base with ':' and '/' as '_'>`, puts the base layers
+first in the manifest, copies their blobs into the output, and includes the
+base's identity in the build-cache key. A declared base that is absent,
+unreadable or missing blobs is now an error that names the reference, the
+directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies
+it, and nothing is written. `--json` gains `base` and `base_layers`, and
+`layer_count` counts the manifest's layers (base + built). Installing packages
+and running `command` into a layer, and the `--sandbox` path, are not part of
+this change.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything

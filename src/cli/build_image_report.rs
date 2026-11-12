@@ -26,7 +26,7 @@ pub(super) fn print_build_report(
     println!(
         "\n  Image: {} ({} layers, {} bytes)",
         tag,
-        result.layers.len(),
+        result.layer_count(),
         result.total_size
     );
     println!("  Layout: {}", output_dir.display());
@@ -75,7 +75,7 @@ pub(super) fn build_json_doc(
     output_dir: &std::path::Path,
     result: Option<&AssembledImage>,
     cached: bool,
-    _base: Option<(&str, usize)>,
+    base: Option<(&str, usize)>,
 ) -> serde_json::Value {
     let layers: Vec<serde_json::Value> = result
         .map(|r| {
@@ -98,8 +98,11 @@ pub(super) fn build_json_doc(
         "layout_exists": output_dir.join("index.json").exists(),
         "cached": cached,
         "layers": layers,
-        "layer_count": result.map(|r| r.layers.len()),
+        // The manifest's layer count (base + built); `layers` lists the built ones.
+        "layer_count": result.map(AssembledImage::layer_count),
         "total_size": result.map(|r| r.total_size),
+        "base": base.map(|(r, _)| r),
+        "base_layers": base.map_or(0, |(_, n)| n),
     })
 }
 

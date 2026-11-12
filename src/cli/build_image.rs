@@ -3,7 +3,9 @@
 //! Wires `assemble_image()` into the `forjar build` CLI command,
 //! converting resource definitions into `ImageBuildPlan` + `LayerEntry` sets.
 
+use super::build_image_base::{hash_base_identity, load_declared_base, print_base_line};
 use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
+use crate::core::store::image_assembler::BaseLayout;
 use crate::core::store::layer_builder::LayerEntry;
 use crate::core::store::overlay_export;
 use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy, OciLayerConfig, Resource};
@@ -66,22 +68,37 @@ pub(crate) fn cmd_build_in(
 
     let plan = build_plan_from_resource(resource, res, &config)?;
     let output_dir = state_dir.join(resource);
-    std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
 
     if sandbox {
+        // PMAT-989 phase 1 leaves the sandbox path alone (it builds in a container).
+        std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
         return cmd_build_sandbox(resource, &plan, &config, &output_dir, load, push, far);
     }
+
+    // PMAT-989: a declared base is layered or the build fails — before anything is written.
+    let base = res
+        .image
+        .as_deref()
+        .map(|r| load_declared_base(resource, state_dir, r))
+        .transpose()?;
+    let base_info = res
+        .image
+        .as_deref()
+        .zip(base.as_ref())
+        .map(|(r, b)| (r, b.layers.layers.len()));
+    std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;
 
     let layer_entries = collect_layer_entries(&plan, &config)?;
 
     // FJ-2403/E16: Check build cache — skip rebuild if inputs unchanged.
-    let input_hash = compute_layer_input_hash(&layer_entries);
+    let input_hash = compute_layer_input_hash(&layer_entries, base.as_ref());
     if let Some(cached) = check_build_cache(&output_dir, &input_hash) {
         if json {
-            print_build_json(&plan.tag, &output_dir, None, true, None);
+            print_build_json(&plan.tag, &output_dir, None, true, base_info);
             return Ok(());
         }
         println!("\nBuilding {resource} ({}) — CACHED", plan.tag);
+        print_base_line(res.image.as_deref(), base.as_ref());
         println!("  {cached}");
         println!("  Input hash: {input_hash}");
         run_distribution(resource, &plan.tag, &output_dir, load, push, far)?;
@@ -89,17 +106,19 @@ pub(crate) fn cmd_build_in(
     }
 
     let start = std::time::Instant::now();
-    let result = crate::core::store::image_assembler::assemble_image(
+    let result = crate::core::store::image_assembler::assemble_image_with_base(
         &plan,
         &layer_entries,
         &output_dir,
         &OciLayerConfig::default(),
         None, // E12: default to host architecture
+        base.as_ref(),
     )?;
     let duration = start.elapsed();
 
     if !json {
         print_build_report(resource, &plan.tag, &result, &output_dir, duration);
+        print_base_line(res.image.as_deref(), base.as_ref());
     }
 
     // FJ-2403/E17: Collect and persist image build metrics.
@@ -107,7 +126,7 @@ pub(crate) fn cmd_build_in(
     write_build_cache(&output_dir, &input_hash);
 
     if json {
-        print_build_json(&plan.tag, &output_dir, Some(&result), false, None);
+        print_build_json(&plan.tag, &output_dir, Some(&result), false, base_info);
         return Ok(());
     }
 
@@ -234,20 +253,8 @@ fn build_plan_from_resource(
     let _ = config;
     let image_reference = resource_image_reference(name, res);
 
-    // Check for base image layers
+    // The declared base is resolved and layered by `cmd_build_in` (PMAT-989).
     let mut layers = Vec::new();
-    if let Some(ref base) = res.image {
-        let base_dir = std::path::Path::new("state/images").join(base.replace([':', '/'], "_"));
-        if base_dir.exists() {
-            if let Ok(base_layers) = crate::core::store::base_image::extract_base_layers(&base_dir)
-            {
-                println!(
-                    "  {}",
-                    crate::core::store::base_image::format_base_info(base, &base_layers)
-                );
-            }
-        }
-    }
 
     // E13: Automatic layer splitting by file type.
     // Config files go to a separate layer for better cache reuse.
@@ -386,8 +393,15 @@ fn split_paths_by_type(paths: &[String]) -> (Vec<String>, Vec<String>) {
 }
 
 /// FJ-2403/E16: Compute a BLAKE3 hash of all layer input content.
-fn compute_layer_input_hash(layer_entries: &[Vec<LayerEntry>]) -> String {
+///
+/// PMAT-989: the base layout's identity is part of the key, so a changed base
+/// misses the cache and an unchanged one still hits.
+fn compute_layer_input_hash(
+    layer_entries: &[Vec<LayerEntry>],
+    base: Option<&BaseLayout>,
+) -> String {
     let mut hasher = blake3::Hasher::new();
+    hash_base_identity(&mut hasher, base);
     for entries in layer_entries {
         for entry in entries {
             hasher.update(entry.path.as_bytes());

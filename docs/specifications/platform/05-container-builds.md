@@ -336,7 +336,7 @@ resources:
 - [x] 6 integration tests with real Docker containers (create, apply, extract, assemble OCI layout)
 - **Note**: Pepita-specific integration deferred (binary not available). Container-based path provides equivalent functionality via Docker/Podman.
 
-### Phase 10: Image Resource Type (FJ-2104) — IMPLEMENTED
+### Phase 10: Image Resource Type (FJ-2104) — PARTIAL (base layering implemented; package/command execution not yet, PMAT-989 phase 2)
 - [x] `ResourceType::Image` (enum variant exists)
 - [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
 - [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
@@ -347,7 +347,10 @@ resources:
 - [x] `build_image.rs` — CLI module with `build_plan_from_resource()`, `collect_layer_entries()`, `--push` via registry_push
 - [x] 10 tests in `tests_image_assembler.rs`
 - [x] Base image layer extraction: `extract_base_layers()`, `verify_base_blobs()`, `copy_base_blobs()` (`store/base_image.rs`)
-- [x] `build_plan_from_resource()` probes local base image layout when `image:` field present
-- **Remaining**: Integration test with `docker load` (requires Docker in CI)
+- [x] `forjar build` layers the declared base (PMAT-989 phase 1): the layout under `state/images/<ref with ':' and '/' as '_'>` is loaded with `extract_base_layers()`, checked with `verify_base_blobs()`, and passed to `assemble_image_with_base()`; base layers come first in the manifest and their blobs are copied into the output layout. The base's identity (layer digests, diff_ids, arch, os, runtime config, history) is part of the build-cache key.
+- [x] A declared base that is absent, unreadable or missing blobs is an error naming the reference, the directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies it (no registry pull in forjar); no image is written. Without `image:` the build is a scratch image as before.
+- [ ] Executing `packages` / `command` into a layer on top of the base: not yet implemented (PMAT-989 phase 2). Today the built layers hold the declared `path:` files only.
+- [ ] `forjar build --sandbox` does not take the base layering path (it builds in a container); not changed by phase 1.
+- **Remaining**: package/command execution (PMAT-989 phase 2); integration test with `docker load` (requires Docker in CI)
 
 > **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.
