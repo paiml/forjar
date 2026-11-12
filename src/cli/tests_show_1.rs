@@ -116,7 +116,7 @@ resources:
             workspace: None,
             check: false,
             report: false,
-            force_unlock: false,
+            lock: Default::default(),
             output: Some("events".to_string()),
             progress: false,
             retry: 0,

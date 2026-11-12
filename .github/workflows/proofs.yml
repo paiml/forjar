@@ -65,6 +65,7 @@ jobs:
   # ledger defect — 34 minutes, the single most expensive job a PR pays for,
   # and it cannot be affected by a change that touches no code.
   classify:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, X64]
     outputs:
       code: ${{ steps.class.outputs.code }}
@@ -256,6 +257,7 @@ jobs:
 
   # Aggregator so branch protection can require one context for both.
   ledger-replay:
+    timeout-minutes: 30
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: ledger-replay
@@ -307,6 +309,7 @@ jobs:
           FORJAR="$BIN" bash scripts/ledger-replay.sh
 
   contracts:
+    timeout-minutes: 30
     name: contracts
     runs-on: [self-hosted, clean-room, X64]
     # UNCONDITIONAL, unlike kani/lean. Those are label-gated because they cost
@@ -376,6 +379,7 @@ jobs:
       # here is what let the rule narrow without anyone deciding to narrow it.
 
   proofs:
+    timeout-minutes: 30
     name: proofs
     runs-on: [self-hosted, clean-room, X64]
     needs: [classify, kani, lean, contracts, ledger-replay]

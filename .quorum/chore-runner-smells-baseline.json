@@ -1,0 +1,102 @@
+{
+  "kind": "code",
+  "issue": "PMAT-913 (forjar#913 / PR #972, infra#3828) — add empirically bounded timeout-minutes to 26 non-reusable jobs across 11 workflow files and set CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_INCREMENTAL=0 in ci.yml and lint.yml.",
+  "branch": "chore/runner-smells-baseline",
+  "base": "c4ce3a2c",
+  "base_commit": "c4ce3a2c5a4d770a79d4dfdcb6295cd438a9e7da",
+  "diff_sha256": "b7daee56eb5122ac9de539f499d0498f8821fefc",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (workflow semantics, empirical Actions telemetry, contract/receipt reconciliation) across 2 rounds (8fb8f9f0 -> 4689c983); 3/3 PASS with 4 claims confirmed and 2 Round-1 claims refuted and fixed.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 4689c983 — agy Gemini 4 Carbon (High) Lane 1 (Workflow Semantics, Env Propagation & Diff Hygiene): PASS",
+      "round 2, head 4689c983 — agy Gemini 4 Carbon (High) Lane 2 (Empirical Runtime Telemetry & Timeout Headroom): PASS",
+      "round 2, head 4689c983 — agy Gemini 4 Carbon (High) Lane 3 (Workflow Shape Contracts, CHANGELOG & Receipt Reconciliation): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; Round 1 killed false-timeout ceilings on release-goal.yml (15m) and stress.yml (60m) plus unmeasured release.yml timeouts.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 (8fb8f9f0) set release-goal.yml to 15 minutes and stress.yml to 60 minutes without non-ci.yml telemetry; Actions API measurements showed green release-goal runs take 18.1-21.4 min and loaded stress runs take 74.3-95.2 min, fixed in 4689c983 to 60 and 120 minutes.",
+      "R2: Round 1 (8fb8f9f0) added 7 unmeasured timeouts to release.yml and a stray blank line in pr-gate.yml; 4689c983 restored both files byte-identical to origin/main while v1.34.1 is in flight, narrowing CHANGELOG.md:11 from 33 to 26 jobs."
+    ]
+  },
+  "falsification": {
+    "test": "Empirical timeout-vs-telemetry comparator and 20-file YAML AST check on yoga (/var/tmp/agy-fj972): reverting release-goal.yml to 15m or stress.yml to 60m violates timeout > max_measured_duration across historical runs.",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured against GitHub Actions telemetry (runs 34750974335, 42617061589) and yoga YAML validator: 8fb8f9f0 failed headroom check on release-goal (15 < 21.4 min) and stress (60 < 95.2 min), whereas 4689c983 passes all 26/26 job bounds."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions timeout-minutes default (360m): an unbounded hang occupies scarce self-hosted clean-room seats for 6 hours unless each non-reusable job declares an explicit ceiling",
+      "Cargo CI profile tuning (rust-lang/cargo CI & Matklad fast-compile guidelines): CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, and CARGO_INCREMENTAL=0 cut object size, linker time, and runner disk churn",
+      "Kubernetes / Tekton activeDeadlineSeconds sizing: job deadlines must sit at >=1.25x-2x empirical p99 green duration rather than early-exit red-run duration to avoid survivorship-bias kills"
+    ],
+    "verdict": "Bounding 26 measured non-reusable jobs and disabling debug/incremental Cargo artifacts in ci.yml and lint.yml protects self-hosted runner capacity without altering gate semantics."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Workflow Semantics, Empirical Telemetry, Contract Reconciliation) verified via Actions REST API and yoga YAML AST checks",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 4689c983 (4 claims confirmed, 2 Round-1 timeout/scope claims refuted and corrected)."
+  },
+  "pmat": {
+    "ticket": "PMAT-913",
+    "tools": [
+      "analyze_vacuous_tests",
+      "python3 yaml.safe_load AST validation of all 20 .github/workflows/*.yml files on yoga (/var/tmp/agy-fj972)"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-913-972-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "3270d92c08aea1b5a0d33ff9106fed80d20e9a48",
+        "sha256": "1f4a8b4191b41b9dc7b5f37dc8248e1445d4f42a448de6c406c15b60f384a4ab",
+        "bytes": 1135
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-972-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "33b57be121809a0b9df2b02bc82f5cca71d0ed5e",
+        "sha256": "52647c01ac0d3011d245dccb7dbfcc35ccfcc125478f09eb43f564c7f59f8f82",
+        "bytes": 2292
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-972-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "03fb4b9f703f87ab0da774490c8508a91af534b6",
+        "sha256": "7b0bc91e4593a0028c00db804920105a647b51d3cb2ff36c86461f66949bfc3a",
+        "bytes": 3256
+      },
+      {
+        "path": ".quorum/evidence/PMAT-913-972-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "11678995e203d5885639b2de70f8853a50e8988d",
+        "sha256": "e52165ca511a0121fc6d2fcbb455c28a5705c2cb2104975f9fbcbb6ec6550f0c",
+        "bytes": 1559
+      }
+    ],
+    "total_bytes": 8242,
+    "claims_digest": ".quorum/evidence/PMAT-913-972-judges.md"
+  }
+}
