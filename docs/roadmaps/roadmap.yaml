@@ -7127,3 +7127,25 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-996
+  github_issue: 996
+  item_type: task
+  title: 'apply --check ignores the manifest secrets provider'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-12T12:30:00Z
+  updated: 2026-11-12T12:45:00Z
+  spec: null
+  acceptance_criteria:
+  - A check of a manifest with secrets provider file resolves a secret template from the declared path, not from FORJAR_SECRET_ environment variables.
+  - The lockless check and the --refresh check resolve through the same manifest secrets block.
+  - With the fix reversed, four of the six tests in tests_check_secrets, tests_lockless_secrets and tests_refresh_secrets go red; the other two are controls.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: null

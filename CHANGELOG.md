@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`apply --check` resolves secrets through the manifest provider (PMAT-996, #996).**
+The check, the lockless check and the `--refresh` check resolved `{{secrets.*}}` from `FORJAR_SECRET_*` environment
+variables only, so a manifest with `secrets: {provider: file|sops|op}` failed `apply --check` with "secret not found"
+while `apply` and `--dry-run` worked. All three now use the manifest `secrets:` block.
+
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
 `--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared

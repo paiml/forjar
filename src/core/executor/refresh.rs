@@ -72,9 +72,12 @@ pub(super) fn refresh_in_scope(cfg: &ApplyConfig, id: &str, resource: &Resource)
 /// diverged resource, and re-applying on "I could not look" would rebuild the
 /// world whenever a host is briefly unreachable.
 fn refresh_check_fails(cfg: &ApplyConfig, resource: &Resource) -> bool {
-    let Ok(resolved) =
-        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)
-    else {
+    let Ok(resolved) = resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &cfg.config.params,
+        &cfg.config.machines,
+        &cfg.config.secrets,
+    ) else {
         return false;
     };
     let Ok(script) = codegen::check_script(&resolved) else {
