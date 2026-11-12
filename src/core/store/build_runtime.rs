@@ -107,6 +107,19 @@ pub(super) fn parse_diff(text: &str) -> Result<Vec<DiffEntry>, String> {
         .collect()
 }
 
+/// Arguments of the `run` that starts the build container: never pulls.
+pub(crate) fn start_args(image: &str) -> [&str; 7] {
+    [
+        "run",
+        "-d",
+        "--pull=never",
+        "--entrypoint",
+        "sleep",
+        image,
+        "7200",
+    ]
+}
+
 impl BuildRuntime for ContainerCli {
     fn name(&self) -> String {
         self.runtime.clone()
@@ -132,15 +145,7 @@ impl BuildRuntime for ContainerCli {
     }
 
     fn start(&self, image: &str) -> Result<String, String> {
-        let out = self.run(&[
-            "run",
-            "-d",
-            "--pull=never",
-            "--entrypoint",
-            "sleep",
-            image,
-            "7200",
-        ])?;
+        let out = self.run(&start_args(image))?;
         if !out.status.success() {
             return Err(format!(
                 "{} run {image}: {}",
@@ -206,6 +211,14 @@ impl BuildRuntime for ContainerCli {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn start_never_pulls_and_runs_the_given_image() {
+        let a = start_args("img:1");
+        assert!(a.contains(&"--pull=never"));
+        assert_eq!(a[5], "img:1");
+        assert_eq!(a[0], "run");
+    }
 
     #[test]
     fn parse_diff_reads_all_three_kinds() {

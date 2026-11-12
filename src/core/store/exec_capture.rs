@@ -5,7 +5,10 @@
 //! Nothing here starts a process.
 //!
 //! Known limit: `LayerEntry` carries no uid/gid, so every captured file lands
-//! in the layer owned by root (0:0), whatever it was in the container.
+//! in the layer owned by root (0:0), whatever it was in the container. To stop
+//! that from widening privilege, setuid/setgid bits are STRIPPED from every
+//! entry the container did not own as root (uid or gid not 0); each is counted
+//! in `ExecLayer::stripped` and reported.
 
 use super::build_runtime::{DiffEntry, DiffKind};
 use super::layer_builder::LayerEntry;
@@ -75,6 +78,19 @@ pub struct ExecLayer {
     pub files: usize,
     /// Whiteout markers.
     pub whiteouts: usize,
+    /// Paths whose setuid/setgid bits were stripped (not owned by root in the container).
+    pub stripped: Vec<String>,
+}
+
+/// The layer forces owner 0:0, so a setuid/setgid bit on a file the container
+/// did not own as root would become a root-owned setuid binary. Strip the bits.
+fn drop_unowned_setid(path: &str, mode: u32, h: &tar::Header, stripped: &mut Vec<String>) -> u32 {
+    let root = h.uid().ok() == Some(0) && h.gid().ok() == Some(0);
+    if root || mode & 0o6000 == 0 {
+        return mode;
+    }
+    stripped.push(format!("/{path}"));
+    mode & !0o6000
 }
 
 /// Archive path (`./etc/x`, `/etc/x/`) -> layer-relative path (`etc/x`).
@@ -139,6 +155,7 @@ pub fn capture(diff: &[DiffEntry], export_tar: &Path) -> Result<ExecLayer, Strin
     let mut entries: Vec<LayerEntry> = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut links: Vec<(String, String, u32)> = Vec::new();
+    let mut stripped: Vec<String> = Vec::new();
 
     let mut ar = open_tar(export_tar)?;
     for e in ar.entries().map_err(|e| format!("read export: {e}"))? {
@@ -155,6 +172,7 @@ pub fn capture(diff: &[DiffEntry], export_tar: &Path) -> Result<ExecLayer, Strin
             .mode()
             .map_err(|e| format!("mode of {path}: {e}"))?
             & 0o7777;
+        let mode = drop_unowned_setid(&path, mode, e.header(), &mut stripped);
         use tar::EntryType as T;
         match e.header().entry_type() {
             T::Regular | T::Continuous => {
@@ -217,6 +235,7 @@ pub fn capture(diff: &[DiffEntry], export_tar: &Path) -> Result<ExecLayer, Strin
         entries,
         files,
         whiteouts: whiteouts.len(),
+        stripped,
     })
 }
 
@@ -258,6 +277,44 @@ fn resolve_hardlinks(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn hdr(uid: u64, gid: u64) -> tar::Header {
+        let mut h = tar::Header::new_gnu();
+        h.set_uid(uid);
+        h.set_gid(gid);
+        h
+    }
+
+    #[test]
+    fn setid_bits_are_stripped_unless_the_entry_is_root_owned() {
+        let mut out = Vec::new();
+        assert_eq!(
+            drop_unowned_setid("a", 0o6755, &hdr(1000, 1000), &mut out),
+            0o755
+        );
+        assert_eq!(
+            drop_unowned_setid("b", 0o4755, &hdr(0, 1000), &mut out),
+            0o755
+        );
+        assert_eq!(
+            drop_unowned_setid("c", 0o2755, &hdr(1000, 0), &mut out),
+            0o755
+        );
+        assert_eq!(out, vec!["/a", "/b", "/c"]);
+        assert_eq!(
+            drop_unowned_setid("d", 0o4755, &hdr(0, 0), &mut out),
+            0o4755
+        );
+        assert_eq!(
+            drop_unowned_setid("e", 0o1755, &hdr(1000, 1000), &mut out),
+            0o1755
+        );
+        assert_eq!(
+            out.len(),
+            3,
+            "root-owned and sticky-only entries are untouched"
+        );
+    }
 
     #[test]
     fn normalised_paths_are_matched_by_prefix_file_and_suffix() {

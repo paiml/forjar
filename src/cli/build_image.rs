@@ -96,6 +96,12 @@ pub(crate) fn cmd_build_rt(
     let plan = build_plan_from_resource(resource, res, &config)?;
     let output_dir = state_dir.join(resource);
 
+    if sandbox && super::build_image_exec::exec_decl(res).is_some() {
+        return Err(format!(
+            "--sandbox does not execute `packages:` or `command:` (resource '{resource}'); \
+             build without --sandbox"
+        ));
+    }
     if sandbox {
         // PMAT-989 phase 1 leaves the sandbox path alone (it builds in a container).
         std::fs::create_dir_all(&output_dir).map_err(|e| format!("create output dir: {e}"))?;

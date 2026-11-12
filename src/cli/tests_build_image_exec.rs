@@ -37,7 +37,11 @@ fn with_base(extra: &str) -> String {
 
 fn runtime() -> FakeRuntime {
     let mut rt = FakeRuntime::new(vec![base_diff_id()]);
-    rt.diff = vec![('A', "/usr/bin/jq"), ('A', "/etc/greeting"), ('D', "/etc/old")];
+    rt.diff = vec![
+        ('A', "/usr/bin/jq"),
+        ('A', "/etc/greeting"),
+        ('D', "/etc/old"),
+    ];
     rt.nodes = std::rc::Rc::new(vec![
         FakeNode::File("usr/bin/jq", b"ELF-jq".to_vec(), 0o755),
         FakeNode::File("etc/greeting", b"hi\n".to_vec(), 0o644),
@@ -48,7 +52,9 @@ fn runtime() -> FakeRuntime {
 fn build_with(rt: &FakeRuntime, state: &Path, cfg: &Path) -> Result<(), String> {
     let rt = rt.clone();
     let provider = move || Ok(Box::new(rt.clone()) as Box<dyn BuildRuntime>);
-    cmd_build_rt(&provider, state, cfg, "app", false, false, false, false, false)
+    cmd_build_rt(
+        &provider, state, cfg, "app", false, false, false, false, false,
+    )
 }
 
 fn fresh(seed_state: bool) -> (tempfile::TempDir, PathBuf) {
@@ -99,7 +105,11 @@ fn an_unchanged_spec_is_a_cache_hit_that_starts_no_container() {
 
     let second = runtime();
     build_with(&second, &state, &cfg).unwrap();
-    assert!(second.log().is_empty(), "cache hit must not touch the runtime: {:?}", second.log());
+    assert!(
+        second.log().is_empty(),
+        "cache hit must not touch the runtime: {:?}",
+        second.log()
+    );
     assert_eq!(manifest_digest(&state.join("app")), before);
 }
 
@@ -140,8 +150,14 @@ fn steps_without_a_declared_base_are_refused_before_anything_is_written() {
     let cfg = write_cfg(work.path(), STEPS);
     let rt = runtime();
     let err = build_with(&rt, &state, &cfg).unwrap_err();
-    assert!(err.contains("no `image:` base") && err.contains("entrypoint"), "{err}");
-    assert!(!state.join("app").exists(), "no output dir for a refused build");
+    assert!(
+        err.contains("no `image:` base") && err.contains("entrypoint"),
+        "{err}"
+    );
+    assert!(
+        !state.join("app").exists(),
+        "no output dir for a refused build"
+    );
     assert!(rt.log().is_empty());
 }
 
@@ -163,7 +179,10 @@ fn a_runtime_whose_base_differs_from_the_layout_is_refused() {
     let cfg = write_cfg(work.path(), &with_base(STEPS));
     let rt = FakeRuntime::new(vec!["sha256:other".into()]);
     let err = build_with(&rt, &state, &cfg).unwrap_err();
-    assert!(err.contains("first difference") && err.contains("docker save"), "{err}");
+    assert!(
+        err.contains("first difference") && err.contains("docker save"),
+        "{err}"
+    );
     assert!(!state.join("app/index.json").exists());
     assert_eq!(rt.count("start"), 0);
 }
@@ -173,16 +192,26 @@ fn no_steps_needs_no_runtime() {
     let (work, state) = fresh(true);
     let cfg = write_cfg(work.path(), &with_base("    path: /app/bin\n"));
     let provider = || -> Result<Box<dyn BuildRuntime>, String> { Err("must not be asked".into()) };
-    cmd_build_rt(&provider, &state, &cfg, "app", false, false, false, false, false).unwrap();
+    cmd_build_rt(
+        &provider, &state, &cfg, "app", false, false, false, false, false,
+    )
+    .unwrap();
     assert_eq!(read_manifest(&state.join("app")).layers.len(), 2);
 }
 
 #[test]
 fn files_layers_stay_above_the_executed_layer() {
     let (work, state) = fresh(true);
-    let cfg = write_cfg(work.path(), &with_base(&format!("{STEPS}    path: /app/bin\n")));
+    let cfg = write_cfg(
+        work.path(),
+        &with_base(&format!("{STEPS}    path: /app/bin\n")),
+    );
     build_with(&runtime(), &state, &cfg).unwrap();
-    assert_eq!(read_manifest(&state.join("app")).layers.len(), 3, "base, exec, files");
+    assert_eq!(
+        read_manifest(&state.join("app")).layers.len(),
+        3,
+        "base, exec, files"
+    );
 }
 
 #[test]
@@ -195,9 +224,95 @@ fn command_is_a_build_step_and_entrypoint_is_its_own_field() {
         let res = config.resources.get("app").unwrap().clone();
         test_build_plan_from_resource("app", &res, &config).unwrap()
     };
-    assert!(load(&with_base("    command: \"echo x\"\n")).entrypoint.is_none());
+    assert!(load(&with_base("    command: \"echo x\"\n"))
+        .entrypoint
+        .is_none());
     assert_eq!(
         load(&with_base("    entrypoint: [\"/bin/app\", \"--serve\"]\n")).entrypoint,
         Some(vec!["/bin/app".into(), "--serve".into()])
     );
+}
+
+#[test]
+fn sandbox_with_steps_is_refused_not_silently_dropped() {
+    let (work, state) = fresh(true);
+    let cfg = write_cfg(work.path(), &with_base(STEPS));
+    let rt = runtime();
+    let provider = {
+        let rt = rt.clone();
+        move || Ok(Box::new(rt.clone()) as Box<dyn BuildRuntime>)
+    };
+    let err = cmd_build_rt(
+        &provider, &state, &cfg, "app", false, false, false, true, false,
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("--sandbox") && err.contains("packages"),
+        "{err}"
+    );
+    assert!(rt.log().is_empty());
+    assert!(
+        !state.join("app").exists(),
+        "nothing written for a refused build"
+    );
+}
+
+#[test]
+fn the_packages_step_runs_the_apply_script_for_the_declared_packages() {
+    let (work, state) = fresh(true);
+    let cfg = write_cfg(work.path(), &with_base("    packages: [jq, curl]\n"));
+    let rt = runtime();
+    build_with(&rt, &state, &cfg).unwrap();
+    let scripts = rt.scripts.borrow();
+    let first = &scripts[0];
+    assert!(
+        !first.trim().is_empty(),
+        "packages script must not be empty"
+    );
+    assert!(first.contains("jq") && first.contains("curl"), "{first}");
+    assert!(first.contains("apt"), "default provider: {first}");
+}
+
+#[test]
+fn json_report_includes_the_exec_object() {
+    use super::build_image_exec::ExecReport;
+    use super::build_image_report::build_json_doc;
+    let report = ExecReport {
+        packages: 2,
+        command: true,
+        files: Some(5),
+        whiteouts: Some(1),
+        stripped: 3,
+    };
+    let doc = build_json_doc("t:1", Path::new("o"), None, false, None, Some(&report));
+    assert_eq!(doc["exec"]["packages"], 2);
+    assert_eq!(doc["exec"]["command"], true);
+    assert_eq!(doc["exec"]["files"], 5);
+    assert_eq!(doc["exec"]["whiteouts"], 1);
+    assert_eq!(doc["exec"]["setid_stripped"], 3);
+    assert!(report.line().contains("stripped setuid/setgid from 3"));
+}
+
+#[test]
+fn a_non_root_setuid_file_is_built_without_its_setid_bits() {
+    use crate::core::store::build_runtime::{DiffEntry, DiffKind};
+    use crate::core::store::exec_capture::capture;
+    let mut rt = runtime();
+    rt.nodes = std::rc::Rc::new(vec![FakeNode::File("usr/bin/su2", b"x".to_vec(), 0o4755)]);
+    let dir = tempfile::tempdir().unwrap();
+    let tar = dir.path().join("e.tar");
+    rt.export("c", &tar).unwrap();
+    let diff = [DiffEntry {
+        kind: DiffKind::Added,
+        path: "/usr/bin/su2".into(),
+    }];
+    let layer = capture(&diff, &tar).unwrap();
+    assert_eq!(layer.stripped, vec!["/usr/bin/su2".to_string()]);
+    let e = layer
+        .entries
+        .iter()
+        .find(|e| e.path == "usr/bin/su2")
+        .unwrap();
+    assert_eq!(e.mode & 0o6000, 0);
+    assert_eq!(e.mode, 0o755);
 }

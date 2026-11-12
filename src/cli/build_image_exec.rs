@@ -142,6 +142,8 @@ pub(super) struct ExecReport {
     /// `None` on a cache hit (nothing was executed).
     pub files: Option<usize>,
     pub whiteouts: Option<usize>,
+    /// Entries whose setuid/setgid bits were stripped (not root-owned in the container).
+    pub stripped: usize,
 }
 
 impl ExecReport {
@@ -151,12 +153,14 @@ impl ExecReport {
             command: decl.command.is_some(),
             files: None,
             whiteouts: None,
+            stripped: 0,
         }
     }
 
     pub(super) fn captured(mut self, layer: &ExecLayer) -> Self {
         self.files = Some(layer.files);
         self.whiteouts = Some(layer.whiteouts);
+        self.stripped = layer.stripped.len();
         self
     }
 
@@ -165,8 +169,16 @@ impl ExecReport {
             (Some(f), Some(w)) => format!("{f} files captured, {w} whiteouts"),
             _ => "not re-executed (inputs unchanged)".to_string(),
         };
+        let warn = if self.stripped > 0 {
+            format!(
+                "; warning: stripped setuid/setgid from {} non-root-owned file(s)",
+                self.stripped
+            )
+        } else {
+            String::new()
+        };
         format!(
-            "Executed: {} packages, command {}; {captured}",
+            "Executed: {} packages, command {}; {captured}{warn}",
             self.packages,
             if self.command { "yes" } else { "no" }
         )
@@ -178,6 +190,7 @@ impl ExecReport {
             "command": self.command,
             "files": self.files,
             "whiteouts": self.whiteouts,
+            "setid_stripped": self.stripped,
         })
     }
 }

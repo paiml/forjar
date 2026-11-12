@@ -21,6 +21,8 @@ pub(crate) enum FakeNode {
 #[derive(Clone)]
 pub(crate) struct FakeRuntime {
     pub calls: Rc<RefCell<Vec<String>>>,
+    /// Every script `exec` was asked to run, in order.
+    pub scripts: Rc<RefCell<Vec<String>>>,
     /// What the runtime reports for the base image; `Err` = image absent.
     pub image_ids: Result<Vec<String>, String>,
     /// A step whose script contains this text exits 1 with `boom` on stderr.
@@ -33,6 +35,7 @@ impl FakeRuntime {
     pub(crate) fn new(image_ids: Vec<String>) -> Self {
         Self {
             calls: Rc::default(),
+            scripts: Rc::default(),
             image_ids: Ok(image_ids),
             fail_on: None,
             diff: vec![],
@@ -110,6 +113,7 @@ impl BuildRuntime for FakeRuntime {
     }
     fn exec(&self, _id: &str, shell: &str, script: &str) -> Result<ExecOutcome, String> {
         self.calls.borrow_mut().push(format!("exec {shell}"));
+        self.scripts.borrow_mut().push(script.to_string());
         let code = i32::from(self.fail_on.is_some_and(|f| script.contains(f)));
         Ok(ExecOutcome {
             code,

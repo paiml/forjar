@@ -28,7 +28,10 @@ uses, runs `command`, captures the filesystem changes as one extra layer
 and appends it after the base layers. Packages or command without `image:`
 fail the build. The base's diff_ids are checked against the runtime's copy. The
 cache key covers the steps; `--json` gains an `exec` object. Limits: the layer
-is owned by 0:0, package versions are unpinned, `--sandbox` is unchanged. Falsifiers
+is owned by 0:0 (so setuid/setgid bits are stripped from entries the container did not
+own as root, with a warning in the report and `exec.setid_stripped` in `--json`), package
+versions are unpinned, and `--sandbox` with `packages:` or `command:` is refused
+(it would otherwise drop them). Falsifiers
 F1/F2 are in `tests/falsification_image_exec.rs` (`--features container-test`,
 needs Docker; not run by CI). On a containerd-image-store daemon, `--load`ed
 images do not resolve by tag (run by id). A base reference is refused unless it uses only
