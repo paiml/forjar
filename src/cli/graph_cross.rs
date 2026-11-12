@@ -252,7 +252,7 @@ pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(
 
     for (rname, resource) in &config.resources {
         if let Some(boundary) = classify_security_boundary(resource) {
-            let rtype = format!("{:?}", resource.resource_type);
+            let rtype = resource.resource_type.to_string();
             boundaries.push((rname.clone(), rtype, boundary));
         }
     }
@@ -347,7 +347,7 @@ pub(crate) fn cmd_graph_leaf_resources(file: &Path, json: bool) -> Result<(), St
             let rtype = cfg
                 .resources
                 .get(name)
-                .map(|r| format!("{:?}", r.resource_type))
+                .map(|r| r.resource_type.to_string())
                 .unwrap_or_default();
             println!("  {name} ({rtype})");
         }

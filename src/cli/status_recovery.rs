@@ -264,7 +264,7 @@ pub(super) fn collect_type_health(sd: &Path, targets: &[&String]) -> Vec<(String
             Err(_) => continue,
         };
         for rs in lock.resources.values() {
-            let t = format!("{:?}", rs.resource_type);
+            let t = rs.resource_type.to_string();
             let entry = type_map.entry(t).or_insert((0, 0));
             entry.1 += 1;
             if matches!(rs.status, types::ResourceStatus::Converged) {

@@ -46,7 +46,7 @@ pub(crate) fn cmd_dataset_lineage(file: &Path, json: bool) -> Result<(), String>
 
         datasets.push(DatasetNode {
             id: id.clone(),
-            resource_type: format!("{:?}", resource.resource_type),
+            resource_type: resource.resource_type.to_string(),
             tags: resource.tags.clone(),
             artifacts,
         });

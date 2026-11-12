@@ -96,7 +96,7 @@ fn build_eval_report(id: &str, resource: &types::Resource, config_dir: &Path) ->
 
     EvalReport {
         id: id.to_string(),
-        resource_type: format!("{rtype:?}"),
+        resource_type: rtype.to_string(),
         check_count,
         artifact_count,
         config_hash,

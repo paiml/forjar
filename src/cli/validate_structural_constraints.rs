@@ -137,7 +137,7 @@ pub(crate) fn cmd_validate_check_limits(file: &Path, json: bool) -> Result<(), S
             types::MachineTarget::Single(s) => s.clone(),
             types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
         };
-        let key = format!("{}:{:?}", machine_name, res.resource_type);
+        let key = format!("{}:{}", machine_name, res.resource_type);
         *counts.entry(key).or_insert(0) += 1;
     }
     let max_per_type = 50;
