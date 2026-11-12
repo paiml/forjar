@@ -5757,7 +5757,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
-  notes: split from PMAT-756
+  notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command execution into a layer) open'
   epic: 765
 - id: GH-414
   github_issue: 414
