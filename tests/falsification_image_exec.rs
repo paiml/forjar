@@ -34,11 +34,27 @@ fn ok(args: &[&str]) -> String {
     String::from_utf8_lossy(&o.stdout).into_owned()
 }
 
-/// Removes the loaded image even when an assertion fails.
+/// Ids of the images loaded under `TAG`'s repository (what this test created).
+fn loaded_ids() -> Vec<String> {
+    let repo = TAG.split(':').next().unwrap();
+    let mut ids: Vec<String> = ok(&["image", "ls", "-q", "--no-trunc", repo])
+        .lines()
+        .map(str::to_string)
+        .collect();
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+/// Removes the loaded image even when an assertion fails. By id: on a daemon
+/// with the containerd image store the loaded name is not normalised, so
+/// `docker rmi <tag>` and `docker run <tag>` do not find it (see F2).
 struct Untag;
 impl Drop for Untag {
     fn drop(&mut self) {
-        let _ = docker(&["rmi", "-f", TAG]);
+        for id in loaded_ids() {
+            let _ = docker(&["rmi", "-f", &id]);
+        }
     }
 }
 
@@ -53,17 +69,15 @@ fn workdir() -> (tempfile::TempDir, PathBuf) {
         .join("state/images")
         .join(BASE.replace([':', '/'], "_"));
     std::fs::create_dir_all(&layout).unwrap();
-    let tar = work.path().join("base.tar");
-    ok(&["save", "-o", tar.to_str().unwrap(), BASE]);
-    let st = Command::new("tar")
-        .args(["-x", "-f"])
-        .arg(&tar)
-        .arg("-C")
+    // The command the error text tells a user to run, pipe and all.
+    let st = Command::new("bash")
+        .arg("-c")
+        .arg("set -o pipefail; docker save \"$0\" | tar -x -C \"$1\"")
+        .arg(BASE)
         .arg(&layout)
         .status()
         .unwrap();
-    assert!(st.success());
-    std::fs::remove_file(&tar).unwrap();
+    assert!(st.success(), "docker save | tar -x failed: {st}");
     let cfg = work.path().join("forjar.yaml");
     std::fs::write(
         &cfg,
@@ -150,18 +164,14 @@ fn f2_the_declared_package_and_command_output_are_in_the_built_image() {
     let _untag = Untag;
     let out = forjar_build(work.path(), &cfg, &["--load"]);
     assert!(out.contains("loaded into docker"), "{out}");
-    println!("F2 forjar --load output: {}", out.replace('\n', " | "));
-    println!(
-        "F2 images: {}",
-        ok(&[
-            "image",
-            "ls",
-            "--format",
-            "{{.Repository}}:{{.Tag}} {{.ID}}"
-        ])
-        .replace('\n', " | ")
-    );
-    let jq = docker(&["run", "--rm", "--pull=never", TAG, "jq", "--version"]);
+    // Run by image id, not by tag: a containerd-image-store daemon lists the loaded
+    // image as `forjar-exec-989:1` yet resolves neither `docker run` nor `docker image
+    // inspect` of that name (measured on Docker 29.1.3 / kfocus). The content is the
+    // thing under test, so name it by id.
+    let ids = loaded_ids();
+    assert_eq!(ids.len(), 1, "exactly one image was loaded: {ids:?}");
+    let id = ids[0].as_str();
+    let jq = docker(&["run", "--rm", "--pull=never", id, "jq", "--version"]);
     println!(
         "F2 jq --version: rc={:?} {}",
         jq.status.code(),
@@ -177,7 +187,7 @@ fn f2_the_declared_package_and_command_output_are_in_the_built_image() {
         "run",
         "--rm",
         "--pull=never",
-        TAG,
+        id,
         "cat",
         "/etc/forjar-exec-marker",
     ]);
