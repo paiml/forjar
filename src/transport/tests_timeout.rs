@@ -8,20 +8,35 @@
 
 use super::*;
 
-/// #3: the timeout kill must target the child's process GROUP, not a bare PID.
-/// We assert the constructed `kill` command uses the negative-PID convention
-/// (`kill -9 -- -<pid>`) so a recycled bare PID can never be signalled.
+/// #3, #992: the timeout kill signals the child's process GROUP, by syscall. A
+/// real `sleep 30` in its own group dies of SIGKILL at once, with no external
+/// `kill` binary involved (`kill_process_group` spawns nothing).
+#[cfg(unix)]
 #[test]
-fn test_165_kill_group_command_targets_group() {
-    let cmd = kill_group_command(4242);
-    let prog = cmd.get_program().to_string_lossy().to_string();
-    let args: Vec<String> = cmd
-        .get_args()
-        .map(|a| a.to_string_lossy().to_string())
-        .collect();
-    assert_eq!(prog, "kill");
-    // -9 (SIGKILL), -- (end of options), -4242 (negative = the process group).
-    assert_eq!(args, vec!["-9", "--", "-4242"]);
+fn test_992_kill_process_group_kills_a_live_group_by_syscall() {
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::{Command, Stdio};
+    let mut cmd = Command::new("sleep");
+    cmd.arg("30").stdout(Stdio::null()).stderr(Stdio::null());
+    configure_process_group(&mut cmd);
+    let mut child = cmd.spawn().expect("spawn sleep");
+    let start = std::time::Instant::now();
+    assert!(kill_process_group(child.id()), "signal was not delivered");
+    let status = child.wait().expect("wait");
+    assert_eq!(status.signal(), Some(9), "child must die of SIGKILL");
+    assert!(start.elapsed().as_secs() < 10, "kill did not end the child");
+}
+
+/// #992: group 0 is the caller's own group and must never be signalled; an
+/// absent group reports "not delivered" instead of failing silently.
+#[test]
+fn test_992_kill_process_group_refuses_zero_and_reports_absent() {
+    assert!(!kill_process_group(0));
+    assert!(!kill_process_group(u32::MAX));
+    assert!(!kill_process_group(2_000_000_000));
+    assert!(!kill_pid(0));
+    assert!(!kill_pid(1));
+    assert!(!kill_pid(u32::MAX));
 }
 
 /// #3: when the worker has ALREADY finished (child reaped, PID possibly
