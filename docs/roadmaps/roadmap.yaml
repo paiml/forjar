@@ -6891,22 +6891,28 @@ roadmap:
   - release:v1.34.1
   notes: null
   release: 1.35.0
-- id: GH-912
+- id: PMAT-912
   github_issue: 912
   item_type: task
   title: 'Train: drift/plan compare live against the declaration'
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-11T21:30:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'drift with an empty state dir (no lock for any machine) compares a declared pin against the live version, offline too, instead of inspecting 0 resources and exiting 0 (forjar#852).'
+  - 'forjar plan names a live version that is not the declared pin; the offline run discloses the skipped upstream leg; an undeclared machine reads NOT CHECKED (forjar#613).'
+  - 'a package resource declaring completion_check has it run by check_script for every provider (apt, cargo, uv, brew), beside the presence checks (forjar#694).'
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
-  notes: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'PR #961 on branch cf/912-drift-train; receipt docs/audits/impl-PMAT-912-receipt.md'
   release: 1.35.0
 - id: PMAT-913
   github_issue: 913

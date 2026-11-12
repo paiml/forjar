@@ -227,7 +227,13 @@ pub fn check_script(resource: &Resource) -> String {
 /// It is appended after the provider's presence assertions, with the same
 /// marker names the task check uses.
 fn finish(resource: &Resource, mut checks: Vec<String>) -> String {
-    if let Some(ref check) = resource.completion_check {
+    // A blank `completion_check` asserts nothing; as an `if` condition it is a
+    // shell syntax error, so it is dropped here rather than quoted into the script.
+    if let Some(check) = resource
+        .completion_check
+        .as_deref()
+        .filter(|cc| !cc.trim().is_empty())
+    {
         checks.push(verdict::assert_that(
             check,
             "task=completed",

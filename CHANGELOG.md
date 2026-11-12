@@ -100,6 +100,17 @@ pins that passes x 9 minutes + build fits the timeout.
 
 - CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492).
 
+**drift and plan compare the live version against the declared pin (PMAT-912, #852, #613, #694).**
+`forjar drift` with an empty state dir (no lock for any machine) is now treated
+as lockless, as an absent one already was: a declared pin is compared against
+the live binary, offline too, instead of inspecting 0 resources and exiting 0.
+`forjar plan` names a live version that is not the pin, discloses the skipped
+upstream leg when offline, and reads NOT CHECKED for an undeclared machine.
+A package resource's declared `completion_check` is now run by the check script
+for every provider (apt, cargo, uv, brew) beside the presence checks; a blank
+`completion_check` adds no assertion. A state dir that holds another stack's
+locks is not treated as empty, so a never-applied machine still reads `no state yet`.
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
