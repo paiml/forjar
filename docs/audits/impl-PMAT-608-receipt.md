@@ -24,3 +24,5 @@ verdict: PASS for the change as written; build and test were not run by the auth
 - No compile or test run for this receipt. Author evidence is the PR body: `cargo test --lib github_release` 26 pass on intel; full suite not run. The tests added after that body (curl failure) were not re-run here.
 - CI on the pushed head is the execution of record.
 - The `.quorum/` review bundle is written by agy and is not part of this commit.
+
+IMPL-PMAT-608-RECEIPT-END
