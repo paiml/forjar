@@ -37,6 +37,11 @@ images do not resolve by tag (run by id).
 **Changed: `command:` on `type: image` is now a build step, not the entrypoint.** The new
 `entrypoint: [..]` field sets the image entrypoint.
 
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
