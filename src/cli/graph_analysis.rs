@@ -166,7 +166,7 @@ pub(crate) fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), St
     let mut by_type: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (name, res) in &config.resources {
-        let type_name = format!("{:?}", res.resource_type);
+        let type_name = res.resource_type.to_string();
         by_type.entry(type_name).or_default().push(name.clone());
     }
 
@@ -217,7 +217,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
                 let rtype = config
                     .resources
                     .get(name)
-                    .map(|r| format!("{:?}", r.resource_type))
+                    .map(|r| r.resource_type.to_string())
                     .unwrap_or_else(|| "unknown".to_string());
                 format!(r#"{{"resource":"{name}","type":"{rtype}","age":"unknown"}}"#)
             })
@@ -236,7 +236,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
             let rtype = config
                 .resources
                 .get(name)
-                .map(|r| format!("{:?}", r.resource_type))
+                .map(|r| r.resource_type.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             println!("  {name} ({rtype}) — age unknown");
         }

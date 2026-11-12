@@ -19,24 +19,54 @@ use crate::resources::verdict;
 /// One copy, three call sites.
 const SUDO_PREAMBLE: &str = "SUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"";
 
-/// Refuse to answer when sudo will not run the crontab read.
+/// Refuse to answer when the crontab cannot be read at all.
 ///
 /// Modelled on `service::SYSTEMD_CHECK_GUARD`. `crontab -l` exits 1 for BOTH
 /// "no crontab for user" and EPERM, so the honest signal has to be taken
-/// BEFORE the read. The probe is the read itself (`sudo -n crontab -u U -l`),
-/// not `sudo -n true` (forjar#848: a crontab-only sudoers rule refuses `true`
-/// and the check SKIPped on a host where the read works). Only a refusal
-/// printed by sudo itself (`sudo: ...`) is a SKIP; "no crontab" and any other
-/// crontab error are left to the fail-closed read. `cli::check` maps exit 2 to
-/// SKIP.
+/// BEFORE the read; without it a host with no passwordless sudo just moves the
+/// false `missing:` one step later. `cli::check` maps exit 2 to SKIP —
+/// forjar cannot observe another user's crontab without privilege, and that is
+/// neither a pass nor a failure.
+///
+/// forjar#848: the probe is the READ itself (`sudo -n crontab -u U -l`), not
+/// `sudo -n true`. A least-privilege sudoers rule that grants only
+/// `/usr/bin/crontab` refuses `true`, so the old probe SKIPped a host whose
+/// crontab was perfectly observable. Only a refusal printed by sudo itself
+/// (`sudo: ...`, `Sorry, user ...`) or a missing sudo (`sh: sudo: not found`, `bash: line N: sudo: command not found`) skips; `no crontab for <user>` and every other crontab error
+/// fall through to the fail-closed read.
 fn crontab_check_guard(u: &str) -> String {
     format!(
-        "if [ \"$(id -u)\" -ne 0 ]; then\n  \
-           if ! PROBE=$(LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null) \
-         && printf '%s\\n' \"$PROBE\" | grep -q '^sudo:'; then\n    \
-             echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n    \
-             exit 2\n  \
-           fi\n\
+        "if [ \"$(id -u)\" -ne 0 ] && LC_ALL=C sudo -n crontab -u {u} -l 2>&1 >/dev/null | grep -Eq '^(sudo:|Sorry, user|[^ :]*sh: (line [0-9]+: |[0-9]+: )?sudo: (command )?not found)'; then\n  \
+           echo 'FORJAR_SKIP: sudo unavailable - crontab state is not observable here'\n  \
+           exit 2\n\
+         fi"
+    )
+}
+
+/// Refuse by name when a forjar marker is present without its intact block.
+///
+/// forjar#445: a human edit that leaves `# forjar:<name>` but changes the
+/// `# forjar-cmd:<name>` line (or drops it) makes the block non-intact, so
+/// `delete_block` stops at the marker, the edited line stays, and a fresh
+/// block is appended: two jobs scheduled, one not forjar's. forjar deletes
+/// nothing it did not write, so the honest answer is to refuse and leave the
+/// crontab unchanged. Intact means: marker, then exactly the cmd marker, then
+/// one entry line. The entry line's CONTENT is not compared: an edited entry
+/// under intact markers is a block forjar wrote, and it is replaced, not
+/// refused. Its SHAPE is checked: a blank or `#` line is not an entry, it is
+/// what remains when the entry was deleted or commented out, and `delete_block`
+/// would otherwise drop it as if it were forjar's (a sibling's marker, a human
+/// note).
+fn intact_block_guard(name: &str, marker: &str, cmd_marker: &str) -> String {
+    let msg = sh_squote(&format!(
+        "forjar: cron '{name}': the block under '# forjar:{name}' has been edited by hand; remove it or restore it before forjar manages this job"
+    ));
+    format!(
+        "if ! printf '%s\\n' \"$EXISTING\" | FJ_M={marker} FJ_C={cmd_marker} awk \
+         'd==1{{if($0!=ENVIRON[\"FJ_C\"])bad=1;d=2;next}} d==2{{if($0~/^[ \\t]*(#|$)/)bad=1;d=0;next}} \
+         $0==ENVIRON[\"FJ_M\"]{{d=1;next}} END{{if(d)bad=1;exit bad?3:0}}'; then\n  \
+           printf '%s\\n' {msg} >&2\n  \
+           exit 1\n\
          fi"
     )
 }
@@ -136,12 +166,13 @@ pub fn check_script(resource: &Resource) -> String {
 /// with the read error on stderr and installs nothing. The install happens
 /// only when the filter actually removed lines; a crontab without this
 /// resource's block is converged and is never rewritten.
-fn absent_script(u: &str, strip: &str) -> String {
+fn absent_script(u: &str, strip: &str, intact: &str) -> String {
     let read = read_existing(u, "exit 0");
     format!(
         "set -euo pipefail\n\
          {SUDO_PREAMBLE}\n\
          {read}\n\
+         {intact}\n\
          KEPT=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
          [ \"$KEPT\" = \"$EXISTING\" ] && exit 0\n\
          printf '%s\\n' \"$KEPT\" | $SUDO crontab -u {u} -"
@@ -157,9 +188,10 @@ pub fn apply_script(resource: &Resource) -> String {
     let marker = sh_squote(&format!("# forjar:{name}"));
     let cmd_marker = sh_squote(&format!("# forjar-cmd:{name}"));
     let strip = delete_block(&marker, &cmd_marker);
+    let intact = intact_block_guard(name, &marker, &cmd_marker);
 
     match state {
-        "absent" => absent_script(&u, &strip),
+        "absent" => absent_script(&u, &strip, &intact),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
             let command = resource.command.as_deref().unwrap_or("true");
@@ -172,6 +204,7 @@ pub fn apply_script(resource: &Resource) -> String {
                 "set -euo pipefail\n\
                  {SUDO_PREAMBLE}\n\
                  {read}\n\
+                 {intact}\n\
                  EXISTING=$(printf '%s\\n' \"$EXISTING\" | {strip})\n\
                  {{\n\
                    echo \"$EXISTING\"\n\
