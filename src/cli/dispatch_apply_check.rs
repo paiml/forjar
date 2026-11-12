@@ -75,7 +75,7 @@ pub(super) fn cmd_apply_check(
     super::check::cmd_check_selected(
         &config,
         args.machine.as_deref(),
-        args.tag.as_deref(),
+        None, // the tag + its closure is already the selection
         state_dir,
         args.json,
         verbose,

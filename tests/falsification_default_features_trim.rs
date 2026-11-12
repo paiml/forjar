@@ -175,6 +175,21 @@ fn default_still_enables_everything_the_binary_needs() {
     );
 }
 
+/// forjar#893: `cargo install forjar` must include age. `encryption` is a
+/// default feature and enables the optional `age` dependency.
+#[test]
+fn encryption_is_in_default_features() {
+    let m = manifest();
+    let features = table(&m, "features");
+    let enabled = enabled_deps(features, &["default"]);
+    assert!(enabled.contains("age"), "default build lacks age (#893)");
+    let default = features["default"].as_array().unwrap();
+    assert!(
+        default.iter().any(|v| v.as_str() == Some("encryption")),
+        "`encryption` left the default feature list (#893)"
+    );
+}
+
 #[test]
 fn no_default_features_drops_the_heavy_set() {
     let m = manifest();

@@ -55,7 +55,7 @@ pub(crate) fn apply_resource_filter(
     config: &ForjarConfig,
     resource_filter: Option<&str>,
 ) -> Result<(), String> {
-    apply_selection_filter(plan, config, resource_filter, None)
+    apply_selection_filter(plan, config, resource_filter, None, None)
 }
 
 /// GH-214: `plan -g <GROUP>` (FJ-281) — "Filter to resources in this group".
@@ -68,7 +68,7 @@ pub(crate) fn apply_group_filter(
     config: &ForjarConfig,
     group_filter: Option<&str>,
 ) -> Result<(), String> {
-    apply_selection_filter(plan, config, None, group_filter)
+    apply_selection_filter(plan, config, None, group_filter, None)
 }
 
 /// forjar#615: `-r` and `-g` select a resource set AND ITS `depends_on` CLOSURE.
@@ -92,39 +92,34 @@ pub(crate) fn apply_selection_filter(
     config: &ForjarConfig,
     resource: Option<&str>,
     group: Option<&str>,
+    tag: Option<&str>,
 ) -> Result<(), String> {
-    if resource.is_none() && group.is_none() {
+    if resource.is_none() && group.is_none() && tag.is_none() {
         return Ok(());
     }
-    if let Some(id) = resource {
-        if !config.resources.contains_key(id) {
-            let mut known: Vec<&str> = config.resources.keys().map(String::as_str).collect();
-            known.sort_unstable();
-            return Err(format!(
-                "--resource '{id}' matches no resource in this config. Known: {}",
-                known.join(", ")
-            ));
-        }
-    }
+    // The same existence checks, with the same messages, `apply` runs.
+    super::apply_selection::reject_empty_selection(config, resource, tag, group)?;
+    // PMAT-890: `-t` is a positive selector like `-r` and `-g`; `apply -t`
+    // closes it over `depends_on`, so `plan -t` must too.
+    let has_tag =
+        |r: &crate::core::types::Resource| tag.is_none_or(|t| r.tags.iter().any(|x| x == t));
     let in_group = |r: &crate::core::types::Resource| {
         group.is_none_or(|g| r.resource_group.as_deref() == Some(g))
     };
-    if let Some(g) = group {
-        if !config.resources.values().any(in_group) {
-            return Err(format!("--group '{g}' matches no resource in this config"));
-        }
-    }
     let positive: Vec<String> = config
         .resources
         .iter()
-        .filter(|(id, r)| resource.is_none_or(|want| want == id.as_str()) && in_group(r))
+        .filter(|(id, r)| {
+            resource.is_none_or(|want| want == id.as_str()) && in_group(r) && has_tag(r)
+        })
         .map(|(id, _)| id.clone())
         .collect();
     if positive.is_empty() {
         return Err(format!(
-            "no resources match the selectors: --resource '{}', --group '{}'",
+            "no resources match the selectors: --resource '{}', --group '{}', --tag '{}'",
             resource.unwrap_or_default(),
-            group.unwrap_or_default()
+            group.unwrap_or_default(),
+            tag.unwrap_or_default()
         ));
     }
     let keep = resolver::goal_closure(config, &positive)?;

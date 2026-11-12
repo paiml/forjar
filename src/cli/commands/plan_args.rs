@@ -82,6 +82,10 @@ pub struct PlanArgs {
     /// release. This skips the network half; skipped pins are listed as NOT CHECKED.
     #[arg(long)]
     pub offline: bool,
+
+    /// Override a parameter (KEY=VALUE), exactly as `apply --param`
+    #[arg(short, long = "param", value_name = "KEY=VALUE")]
+    pub params: Vec<String>,
 }
 
 /// CLI arguments for the `plan --compact` command.

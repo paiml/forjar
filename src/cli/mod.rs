@@ -29,6 +29,7 @@ mod build_image;
 mod bundle;
 mod cbom;
 mod check;
+mod check_json;
 mod check_test;
 mod check_test_runners;
 mod checkpoint;
@@ -172,6 +173,7 @@ mod lock_lifecycle;
 mod lock_merge;
 mod lock_ops;
 mod lock_output;
+mod lock_prune_scope;
 mod lock_repair;
 mod lock_restamp;
 mod lock_security;
@@ -180,6 +182,7 @@ mod logs_follow;
 mod logs_gc;
 pub mod lsp;
 // GH-215: maps a diagnostic message back to a range in the document.
+mod drift_lock_names;
 mod lsp_locate;
 mod lsp_publish;
 mod lsp_validate;
@@ -345,6 +348,9 @@ mod webhook_post;
 pub(crate) mod workspace;
 pub use commands::Commands;
 pub use dispatch::{dispatch, dispatch_classified};
+pub use secrets::{
+    argv_has_later_secrets_word, argv_is_help, argv_is_secrets_encrypt, argv_mentions_secrets,
+};
 
 // Test module declarations (split across include files for file size).
 include!("mod_test_decl.rs");
@@ -354,6 +360,12 @@ include!("mod_test_decl_c.rs");
 /// PMAT-160: one selection path for `apply`, resolved by graph closure.
 #[cfg(test)]
 mod tests_apply_selection_closure;
+#[cfg(test)]
+mod tests_apply_selection_tag;
+#[cfg(test)]
+mod tests_plan_param;
+#[cfg(test)]
+mod tests_plan_review_fixes;
 
 /// forjar#615: plan and apply compute the same set for -r / -g.
 #[cfg(test)]
