@@ -56,4 +56,6 @@ Measured on kfocus at 81fcf1ee: `cargo fmt --all -- --check` rc 0; `cargo clippy
 
 Not measured: the coverage-gap note of lane 2 (`state_dir()` in `tests/resource_type_cli_output.rs` does not populate a `package` resource, so a revert of that arm in `status_cost.rs` stays green); CI on the new head; the clean-room run.
 
+File-health (500-line limit, `.github/workflows/lint.yml`): `src/resources/tests_cron_exec.rs` read 576 lines (430 on main); the #848/#445 guard tests moved unchanged to `src/resources/tests_cron_exec_guard.rs`, leaving 389 and 193 lines (`wc -l`); 24 `#[test]` before and 24 after (`grep -c`). On kfocus at d469f070: `cargo fmt --all -- --check` rc 0, `cargo clippy --all-targets -- -D warnings` rc 0, `cargo test --lib` 13797 passed, 0 failed, 4 ignored (same count as before the split). No other .rs file changed by this PR grows past its size on main (checked against origin/main 03375fcc with `git diff --name-status` and `wc -l`).
+
 IMPL-PMAT-916-RECEIPT-END
