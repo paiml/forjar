@@ -316,3 +316,29 @@ fn a_non_root_setuid_file_is_built_without_its_setid_bits() {
     assert_eq!(e.mode & 0o6000, 0);
     assert_eq!(e.mode, 0o755);
 }
+
+#[test]
+fn the_report_counts_what_capture_stripped() {
+    use super::build_image_exec::{ExecDecl, ExecReport};
+    use crate::core::store::build_runtime::{DiffEntry, DiffKind};
+    use crate::core::store::exec_capture::capture;
+    let mut rt = runtime();
+    rt.nodes = std::rc::Rc::new(vec![FakeNode::File("usr/bin/su2", b"x".to_vec(), 0o4755)]);
+    let dir = tempfile::tempdir().unwrap();
+    let tar = dir.path().join("e.tar");
+    rt.export("c", &tar).unwrap();
+    let diff = [DiffEntry {
+        kind: DiffKind::Added,
+        path: "/usr/bin/su2".into(),
+    }];
+    let layer = capture(&diff, &tar).unwrap();
+    let decl = ExecDecl {
+        provider: "apt".into(),
+        packages: vec!["jq".into()],
+        command: None,
+    };
+    let report = ExecReport::new(&decl).captured(&layer);
+    assert_eq!(report.stripped, 1);
+    assert_eq!(report.json()["setid_stripped"], 1);
+    assert!(report.line().contains("stripped setuid/setgid from 1"));
+}
