@@ -174,7 +174,7 @@ fn force_unlock_no_lock_file() {
 fn force_unlock_removes_lock() {
     let dir = tempfile::tempdir().unwrap();
     let lock_path = process_lock_path(dir.path());
-    std::fs::write(&lock_path, "pid: 1\n").unwrap();
+    std::fs::write(&lock_path, "pid: 4294967290\n").unwrap();
     assert!(lock_path.exists());
     force_unlock(dir.path()).unwrap();
     assert!(!lock_path.exists());
