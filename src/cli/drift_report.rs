@@ -37,6 +37,7 @@ pub(super) fn print_drift_summary(scan: &DriftScan, json: bool) -> Result<(), St
             "resources_inspected": inspected,
             "resources_skipped": skipped,
             "resources_unmeasured": sum("unmeasured"),
+            "lock_files": scan.lock_files,
             "census": scan.censuses,
             "findings": scan.findings,
             "unmeasured": scan.unmeasured,
@@ -73,6 +74,10 @@ pub(super) fn print_drift_summary(scan: &DriftScan, json: bool) -> Result<(), St
         // The verdict and its population on adjacent lines, because the verdict
         // alone is the sentence that has been misread for a year.
         println!("  {inspected} resource(s) inspected, {skipped} not inspected.");
+    }
+    if !json {
+        // forjar#585: the verdict names the lock it was read from.
+        println!("{}", super::drift_lock_names::describe(&scan.lock_files));
     }
     Ok(())
 }

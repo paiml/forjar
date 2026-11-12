@@ -44,6 +44,14 @@ a core file. Run secrets commands under `ulimit -c 0`; `PR_SET_DUMPABLE`/`RLIMIT
 hardening and zeroizing are tracked as a follow-up (no safe wrapper is a direct dependency,
 and `unsafe` is forbidden in this crate).
 
+### Changed
+
+- `forjar apply -t TAG` now runs the tagged resources together with their
+  `depends_on` closure, as `-r` does, so a tagged deploy no longer executes
+  against a prerequisite that carries no tag (PMAT-890).
+- `forjar plan` against a state directory that does not exist is refused,
+  naming `--state-dir`, instead of printing every resource as an add (#880).
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the

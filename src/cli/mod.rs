@@ -180,6 +180,7 @@ mod logs_follow;
 mod logs_gc;
 pub mod lsp;
 // GH-215: maps a diagnostic message back to a range in the document.
+mod drift_lock_names;
 mod lsp_locate;
 mod lsp_publish;
 mod lsp_validate;
@@ -357,6 +358,12 @@ include!("mod_test_decl_c.rs");
 /// PMAT-160: one selection path for `apply`, resolved by graph closure.
 #[cfg(test)]
 mod tests_apply_selection_closure;
+#[cfg(test)]
+mod tests_apply_selection_tag;
+#[cfg(test)]
+mod tests_plan_param;
+#[cfg(test)]
+mod tests_plan_review_fixes;
 
 /// forjar#615: plan and apply compute the same set for -r / -g.
 #[cfg(test)]

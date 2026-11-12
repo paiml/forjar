@@ -194,8 +194,8 @@ forjar init my-infra && cd my-infra
 
 # Edit forjar.yaml (see Configuration below)
 
-# Preview changes
-forjar plan -f forjar.yaml
+# Preview changes (plan refuses to run without a state directory; `init` created `state/`)
+forjar plan -f forjar.yaml --state-dir state
 
 # Apply
 forjar apply -f forjar.yaml

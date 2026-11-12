@@ -7231,3 +7231,23 @@ roadmap:
   - orch-basis:state
   notes: 'Gate A row added by the lane worker on lane-943; the issue number 916 follows the PMAT-n/#n pairing of neighbouring rows and was not read from GitHub. The branch commits before this one carry Pmat-Ticket: PMAT-198 (the #433 row).'
   release: 1.34.1
+- id: PMAT-890
+  github_issue: 890
+  item_type: task
+  title: 'apply -t includes the depends_on closure (FLEET-OPS-DELIVERY-001 §5 item 1)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-07T08:36:54Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696

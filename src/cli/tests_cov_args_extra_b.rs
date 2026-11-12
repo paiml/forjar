@@ -191,6 +191,7 @@ mod tests {
     fn test_cov_plan_args_construct() {
         let a = PlanArgs {
             offline: false,
+            params: vec![],
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,

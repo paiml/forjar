@@ -37,15 +37,13 @@ fn demo_run_meta() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(0.54),
-            failed: false,
         },
     );
     meta.record_resource(
         "cargo-tools",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(100),
             duration_secs: Some(1.8),
-            failed: true,
         },
     );
     meta.record_resource(
