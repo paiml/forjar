@@ -9,7 +9,7 @@
 pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
 
 /// Marker the timeout path leaves in an EMPTY slot: "timed out before the child was spawned".
-/// PID 0 is never a real child, and `kill -- -0` must never be issued.
+/// PID 0 is never a real child, and group 0 (the caller's own) must never be signalled.
 const CANCELLED_PID: u32 = 0;
 
 /// Record a freshly-spawned child's PID into the (optional) tracking slot.
@@ -41,33 +41,54 @@ pub(crate) fn configure_process_group(cmd: &mut std::process::Command) {
 #[cfg(not(unix))]
 pub(crate) fn configure_process_group(_cmd: &mut std::process::Command) {}
 
-/// #165: Build the `kill` command used on the timeout path.
+/// #165, #992: signal a child's whole process group with SIGKILL, by syscall.
 ///
 /// The child was spawned in its own process group (see
-/// [`configure_process_group`]), so we signal the whole group with the
-/// negative-PID convention (`kill -9 -- -<pgid>`). Because the child is the
-/// group leader, the group id equals the recorded PID. Killing the group
-/// reaches descendants (e.g. the remote shell ssh spawned), and — crucially —
-/// the leading `-` means we can never accidentally signal a single recycled
-/// PID: a process-group target only matches processes the child fathered.
-/// Factored out so the argument construction is unit-testable without spawning.
-pub(super) fn kill_group_command(pid: u32) -> std::process::Command {
-    let mut cmd = std::process::Command::new("kill");
-    cmd.args(["-9", "--", &format!("-{pid}")])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    cmd
+/// [`configure_process_group`]) and is the group leader, so the group id equals
+/// the recorded PID. Killing the group reaches descendants (e.g. the remote
+/// shell ssh spawned), and a process-group target can never match a single
+/// recycled PID: it only matches processes the child fathered.
+///
+/// #992: this used to spawn the external `kill` binary with its error
+/// discarded. An image without procps (`rust:1.95-slim`) has no such binary,
+/// so the spawn failed silently, nothing was killed, and a 2 s
+/// `--resource-timeout` waited out a 30 s script. `killpg(2)` needs no binary.
+///
+/// Returns whether the signal was delivered. PID 0 (the caller's own group)
+/// and values that do not fit a `pid_t` are refused, never signalled.
+#[cfg(unix)]
+pub(super) fn kill_process_group(pid: u32) -> bool {
+    use nix::sys::signal::{killpg, Signal};
+    use nix::unistd::Pid;
+    match i32::try_from(pid) {
+        Ok(raw) if raw > 0 => killpg(Pid::from_raw(raw), Signal::SIGKILL).is_ok(),
+        _ => false,
+    }
 }
 
-/// Best-effort kill of a child's whole process group via the `kill` binary.
-///
-/// Used only on the timeout path, and only when the worker has *not* yet
-/// reported a result (i.e. the child is provably still running). Targeting the
-/// process group instead of a bare PID closes the PID-reuse race: a reaped
-/// child's recycled PID can never belong to the dead group, so we cannot kill
-/// an unrelated process.
-pub(super) fn kill_process_group(pid: u32) {
-    let _ = kill_group_command(pid).status();
+/// Non-Unix fallback: there are no process groups to signal.
+#[cfg(not(unix))]
+pub(super) fn kill_process_group(_pid: u32) -> bool {
+    false
+}
+
+/// #992: SIGKILL one process by syscall (pepita namespace teardown). PIDs 0 and
+/// 1 and values that do not fit a `pid_t` are refused. Returns whether the
+/// signal was delivered.
+#[cfg(unix)]
+pub(crate) fn kill_pid(pid: u32) -> bool {
+    use nix::sys::signal::{kill, Signal};
+    use nix::unistd::Pid;
+    match i32::try_from(pid) {
+        Ok(raw) if raw > 1 => kill(Pid::from_raw(raw), Signal::SIGKILL).is_ok(),
+        _ => false,
+    }
+}
+
+/// Non-Unix fallback: no signal is sent.
+#[cfg(not(unix))]
+pub(crate) fn kill_pid(_pid: u32) -> bool {
+    false
 }
 
 /// #165: Timeout-kill helper. Only signals the child's process group when the
