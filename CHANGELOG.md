@@ -39,6 +39,9 @@ images do not resolve by tag (run by id). A base reference is refused unless it 
 `entrypoint: [..]` field sets the image entrypoint.
 
 
+**`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
+About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the

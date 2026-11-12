@@ -149,11 +149,7 @@ pub(crate) fn cmd_status_failed_resources(
         if let Some(lock) = load_lock_from_yaml(state_dir, m) {
             for (name, rl) in &lock.resources {
                 if format!("{:?}", rl.status) == "Failed" {
-                    entries.push((
-                        m.to_string(),
-                        name.clone(),
-                        format!("{:?}", rl.resource_type),
-                    ));
+                    entries.push((m.to_string(), name.clone(), rl.resource_type.to_string()));
                 }
             }
         }

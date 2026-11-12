@@ -7188,3 +7188,27 @@ roadmap:
   - release:v1.34.1
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   release: 1.34.1
+- id: PMAT-916
+  github_issue: 916
+  item_type: task
+  title: 'ResourceType prints in its serde spelling at every CLI display site; the cron check guard skips only on a sudo refusal and refuses a hand-edited block (PR #943, closes #433, #848, #445)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-11T21:10:00Z
+  updated: 2026-11-11T21:45:00Z
+  spec: null
+  acceptance_criteria:
+  - No CLI line Debug-formats a resource_type; each prints the snake_case Display spelling (tests/resource_type_spelling.rs, tests/resource_type_cli_output.rs).
+  - Lineage and provenance hash inputs keep their Debug spelling, pinned by golden tests.
+  - A crontab-only sudoers rule is observed by cron check, not skipped; a missing sudo or a sudo refusal is a SKIP (exit 2); no crontab is missing.
+  - apply refuses by name, and leaves the crontab unchanged, when a forjar marker lacks its intact block.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Gate A row added by the lane worker on lane-943; the issue number 916 follows the PMAT-n/#n pairing of neighbouring rows and was not read from GitHub. The branch commits before this one carry Pmat-Ticket: PMAT-198 (the #433 row).'
+  release: 1.34.1

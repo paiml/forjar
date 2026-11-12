@@ -151,7 +151,7 @@ pub(crate) fn coverage_entry(
     ResourceCoverage {
         resource_id: rid.to_string(),
         level,
-        resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+        resource_type: resource.resource_type.to_string(),
     }
 }
 

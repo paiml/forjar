@@ -267,7 +267,7 @@ pub(crate) fn cmd_graph_orphans(file: &Path) -> Result<(), String> {
         );
         for name in &orphans {
             let res = &config.resources[name];
-            println!("  {} (type: {:?})", name, res.resource_type);
+            println!("  {} (type: {})", name, res.resource_type);
         }
     }
     Ok(())
