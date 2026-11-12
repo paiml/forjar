@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+#[path = "build_git.rs"]
+mod build_git;
+
 #[derive(serde::Deserialize, Default)]
 struct ContractYaml {
     #[serde(default)]
@@ -145,7 +148,10 @@ fn verify_binding_equations(binding_path: &std::path::Path) {
 /// FORJAR_GIT_SHA (release tag's commit); else ask git; else "unknown".
 fn emit_git_sha() {
     println!("cargo::rerun-if-env-changed=FORJAR_GIT_SHA");
-    println!("cargo::rerun-if-changed=.git/HEAD");
+    let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
+    for p in build_git::rerun_paths(&root) {
+        println!("cargo::rerun-if-changed={p}");
+    }
     let from_env = std::env::var("FORJAR_GIT_SHA").ok();
     let sha = from_env
         .or_else(|| {
