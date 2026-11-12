@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-916 (forjar#943: #433, #848, #445) \u2014 format ResourceType via Display snake_case across CLI output while keeping Debug in hash inputs, separate sudo absence from missing crontab in cron check, and refuse truncated 3-line forjar cron blocks.",
+  "branch": "fix/f433-resourcetype-display",
+  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @a4e28c3b 3/3 FAIL -> round 2 @f7525fb6 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 1 (ResourceType Display vs Hash Inputs & Cron Block Guard): PASS",
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, TDG Ceiling & Crontab Corruption Guard): PASS",
+      "round 1 @a4e28c3b -> round 2 @f7525fb6 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification & Revert Discrimination): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review lanes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 met 3 independent refuters; round 1 killed both the truncated-cron sibling-line corruption in cron.rs:62 and the tautological == \"Unknown\" checks in validate_deep.rs:106 / validate_quality.rs:16.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round-1 intact_block_guard in src/resources/cron.rs:62 accepted a deleted or commented 3rd entry line whenever another marker, comment, or blank line followed # forjar-cmd:<name>, causing delete_block to strip the following line; fixed in 81fcf1ee.",
+      "R2: Round-1 src/cli/validate_deep.rs:106 and src/cli/validate_quality.rs:16 compared res.resource_type.to_string() == \"Unknown\", which was tautologically false on a snake_case Display enum and pushed CB-200 above ceiling; removed in f7525fb6."
+    ]
+  },
+  "falsification": {
+    "test": "Revert src/cli/validate_advanced.rs to origin/main on <host> (<SCRATCH>) and run cargo test --test resource_type_spelling.",
+    "test_file": "tests/resource_type_spelling.rs",
+    "cargo_test_target": "resource_type_spelling",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting src/cli/validate_advanced.rs (! cmp -s verified) failed cli_never_debug_formats_resource_type (4 passed; 1 failed, FJ_943_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform / OpenTofu resource type diagnostics: CLI output always prints exact HCL snake_case type identifiers (aws_instance) rather than internal Go struct names",
+      "Ansible cron module marker block management: validates header/body integrity before rewriting user crontabs via crontab -",
+      "Nix store / BLAKE3 content-addressed lineage: separates stable canonical serialization used in digest inputs from human-facing Display formatting"
+    ],
+    "verdict": "Using snake_case Display in CLI output while preserving canonical Debug strings in lineage/provenance BLAKE3 inputs aligns user diagnostics with YAML syntax without breaking stored digests."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (@a4e28c3b -> @f7525fb6)",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 0/3 PASS at a4e28c3b; round 2: 3/3 PASS at f7525fb6 (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-916",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + resource_type_spelling (5/5) + resource_type_cli_output (10/10) + fj445 (10/10) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "cf97e0d63a87be4b8e1b33381a64e9fc074ed7e9",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-916-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "6de7326043c89cad1d6657380bdaf376ac22ffa9",
+        "sha256": "f48cdac702602f32f84d411e25b6945de217a13836975e753acb6dc23b75b8f1",
+        "bytes": 2063
+      },
+      {
+        "path": ".quorum/evidence/PMAT-916-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "0e83500bd8547dce6926a8340a2d1a2eddec5cc9",
+        "sha256": "d375838cd6d2c890ee48e1fe2903a7a1d07f7a053babd7a7b8d34483744d423b",
+        "bytes": 1259
+      },
+      {
+        "path": ".quorum/evidence/PMAT-916-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3458243ce2096030801f4b8289284668cd812444",
+        "sha256": "0cb2bf0fd8ff7b0c872801f4e79a603b34240eeea1abd7ebd9d5f1c9a22a159f",
+        "bytes": 2862
+      },
+      {
+        "path": ".quorum/evidence/PMAT-916-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "15aeb269ae3ddd9307b9d345b19bde09ba17eea5",
+        "sha256": "9c2a9d58702fe4c166d2c2f78ccfe0bb6df79f200548f4385ec16fd0e9c99fd1",
+        "bytes": 600
+      }
+    ],
+    "total_bytes": 6784,
+    "claims_digest": ".quorum/evidence/PMAT-916-judges.md"
+  }
+}
