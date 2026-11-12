@@ -24,3 +24,5 @@ verdict: PASS for the change as written; build and test were not run by the auth
 - No compile or test run for this receipt. Author evidence is the PR body: built and tested on intel, `cargo test --lib resources::` 782 pass, 1 fail (`disk_budget` test, fails identically on main). Full suite not run.
 - CI on the merged head is the execution of record.
 - The `.quorum/` review bundle is written by agy and is not part of this commit.
+
+IMPL-PMAT-639-RECEIPT-END
