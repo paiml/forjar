@@ -194,3 +194,7 @@ pub(crate) fn persist_unlatched(
 #[cfg(test)]
 #[path = "tests_refresh_closure.rs"]
 mod tests_refresh_closure;
+
+#[cfg(test)]
+#[path = "tests_refresh_secrets.rs"]
+mod tests_refresh_secrets;

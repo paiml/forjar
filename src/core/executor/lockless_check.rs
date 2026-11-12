@@ -235,3 +235,7 @@ pub(crate) fn record_for_apply(
 #[cfg(test)]
 #[path = "tests_lockless_check.rs"]
 mod tests_lockless_check;
+
+#[cfg(test)]
+#[path = "tests_lockless_secrets.rs"]
+mod tests_lockless_secrets;

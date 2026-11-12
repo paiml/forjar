@@ -103,6 +103,8 @@ mod tests_check_1;
 #[cfg(test)]
 mod tests_check_2;
 #[cfg(test)]
+mod tests_check_secrets;
+#[cfg(test)]
 mod tests_cov_apply;
 #[cfg(test)]
 mod tests_cov_apply_b;
