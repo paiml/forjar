@@ -21,6 +21,8 @@ use std::sync::{Arc, Mutex};
 pub const INSTALL_TOKEN: &str = "ghs_FAKEINSTALLATIONTOKENq1w2e3r4";
 /// What the fake hands out as the 1 h registration token.
 pub const REG_TOKEN: &str = "AFAKEREGISTRATIONTOKENz9y8x7w6";
+/// What the fake hands out as the 1 h remove token.
+pub const REMOVE_TOKEN: &str = "AFAKEREMOVETOKENk5j4h3g2";
 
 /// A seat the fake lists. `custom_labels` are the type-`custom` labels; the
 /// fake adds GitHub's implicit `self-hosted`, `Linux` and `X64` itself.
@@ -56,6 +58,9 @@ pub struct State {
     /// Listed after the first registration-token request is served: the fake's
     /// model of "the seat registered itself".
     pub appear_on_token: Option<ListedRunner>,
+    /// When true, the first remove-token request unlists every runner: the
+    /// fake's model of "the seat ran `config.sh remove`".
+    pub vanish_on_remove_token: bool,
 }
 
 pub struct FakeGithub {
@@ -85,6 +90,10 @@ impl FakeGithub {
         self.state.lock().unwrap().appear_on_token = Some(runner);
     }
 
+    pub fn vanish_on_remove_token(&self) {
+        self.state.lock().unwrap().vanish_on_remove_token = true;
+    }
+
     pub fn requests(&self) -> Vec<Request> {
         self.state.lock().unwrap().requests.clone()
     }
@@ -95,6 +104,10 @@ impl FakeGithub {
             .iter()
             .filter(|r| r.method == method && r.path.ends_with(suffix))
             .count()
+    }
+
+    pub fn remove_token_requests(&self) -> usize {
+        self.count("POST", "/actions/runners/remove-token")
     }
 
     pub fn token_requests(&self) -> usize {
@@ -188,11 +201,8 @@ fn route(st: &mut State, method: &str, path: &str, bearer: &str, page_two: bool)
         ("POST", p) if p.ends_with("/access_tokens") => {
             serde_json::json!({"token": INSTALL_TOKEN, "expires_at": "2099-01-01T00:00:00Z"})
         }
-        ("POST", p) if p.ends_with("/actions/runners/registration-token") => {
-            if let Some(r) = st.appear_on_token.take() {
-                st.runners.push(r);
-            }
-            serde_json::json!({"token": REG_TOKEN, "expires_at": "2099-01-01T00:00:00Z"})
+        ("POST" | "DELETE", p) if p.contains("/actions/runners/") => {
+            return token_or_delete(st, method, p);
         }
         ("GET", p) if p.ends_with("/actions/runner-groups") => {
             let groups: Vec<_> = group_names(st)
@@ -223,6 +233,29 @@ fn route(st: &mut State, method: &str, path: &str, bearer: &str, page_two: bool)
         _ => return (404, r#"{"message":"Not Found"}"#.into()),
     };
     (if method == "POST" { 201 } else { 200 }, body.to_string())
+}
+
+/// The registration-token, remove-token and delete-runner endpoints.
+fn token_or_delete(st: &mut State, method: &str, path: &str) -> (u16, String) {
+    let token = |t: &str| serde_json::json!({"token": t, "expires_at": "2099-01-01T00:00:00Z"});
+    if method == "DELETE" {
+        st.runners.clear();
+        return (204, String::new());
+    }
+    let body = if path.ends_with("/registration-token") {
+        if let Some(r) = st.appear_on_token.take() {
+            st.runners.push(r);
+        }
+        token(REG_TOKEN)
+    } else if path.ends_with("/remove-token") {
+        if std::mem::take(&mut st.vanish_on_remove_token) {
+            st.runners.clear();
+        }
+        token(REMOVE_TOKEN)
+    } else {
+        return (404, r#"{"message":"Not Found"}"#.into());
+    };
+    (201, body.to_string())
 }
 
 fn runners_page(runners: &[&ListedRunner], page_two: bool) -> serde_json::Value {
@@ -270,6 +303,25 @@ impl Rig {
     /// `labels` is the YAML flow list the manifest declares; `with_installation`
     /// writes `installation_id` into the manifest or leaves it to be looked up.
     pub fn new(labels: &str, with_installation: bool) -> Self {
+        Self::build(labels, with_installation, None)
+    }
+
+    /// Rewrite the manifest so the seat is `state: absent`.
+    pub fn set_absent(&self) {
+        let text = std::fs::read_to_string(&self.cfg).unwrap();
+        let text = text.replace(
+            "    type: github_runner\n",
+            "    type: github_runner\n    state: absent\n",
+        );
+        std::fs::write(&self.cfg, text).unwrap();
+    }
+
+    /// A repo-scoped seat in `example-org/<repo>` (no runner group).
+    pub fn new_repo(labels: &str, repo: &str) -> Self {
+        Self::build(labels, true, Some(repo))
+    }
+
+    fn build(labels: &str, with_installation: bool, repo: Option<&str>) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         let key_pem = generate_key(root);
@@ -287,6 +339,10 @@ impl Rig {
         } else {
             ""
         };
+        let scope_lines = match repo {
+            Some(r) => format!("    scope: repo\n    repo: {r}\n"),
+            None => "    scope: org\n    group: default\n".to_string(),
+        };
         let cfg = root.join("forjar.yaml");
         std::fs::write(
             &cfg,
@@ -294,8 +350,8 @@ impl Rig {
                 "version: '1.0'\nname: github-runner-seat\n\
                  secrets:\n  provider: file\n  path: \"{secrets}\"\n\
                  machines:\n  local:\n    hostname: localhost\n    addr: localhost\n    transport: local\n\
-                 resources:\n  gate-seat-1:\n    type: github_runner\n    machine: local\n    scope: org\n\
-                 \x20   owner: example-org\n    name: {SEAT_NAME}\n    labels: {labels}\n    group: default\n\
+                 resources:\n  gate-seat-1:\n    type: github_runner\n    machine: local\n{scope_lines}\
+                 \x20   owner: example-org\n    name: {SEAT_NAME}\n    labels: {labels}\n\
                  \x20   version: 2.330.0\n    sha256: {tarball_sha}\n    work_dir: {work}\n    user: {user}\n\
                  \x20   app:\n      app_id: 123456\n{install}      private_key: \"{{{{secrets.runner-app-pem}}}}\"\n",
                 secrets = secrets.display(),

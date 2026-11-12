@@ -37,6 +37,10 @@ impl Github {
         self.call("POST", path, bearer)
     }
 
+    pub(super) fn delete(&self, path: &str, bearer: &str) -> Result<serde_json::Value, String> {
+        self.call("DELETE", path, bearer)
+    }
+
     fn call(&self, method: &str, path: &str, bearer: &str) -> Result<serde_json::Value, String> {
         let url = format!("{}{path}", self.base);
         let request = ureq::http::Request::builder()

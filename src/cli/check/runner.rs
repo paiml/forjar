@@ -19,6 +19,17 @@ fn judge(config: &types::ForjarConfig, resource: &types::Resource) -> (&'static 
         Ok(r) => r,
         Err(e) => return ("error", e, false),
     };
+    if resolved.state.as_deref() == Some("absent") {
+        return match github_runner::check(&resolved) {
+            Ok(Verdict::Absent) => ("pass", String::new(), true),
+            Ok(_) => (
+                "fail",
+                "still registered; apply would deregister it".to_string(),
+                false,
+            ),
+            Err(e) => ("error", e, false),
+        };
+    }
     match github_runner::check(&resolved) {
         Ok(Verdict::Equal) => ("pass", String::new(), true),
         Ok(Verdict::Absent) => (

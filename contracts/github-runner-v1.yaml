@@ -14,18 +14,45 @@ metadata:
     `apply --check` cannot see a seat that fell off or whose labels drifted,
     and the registration token is handled outside the secrets path.
 
-    Six obligations. C1 to C5 are about registration and are proven against a
-    local fake of the GitHub API (no network, no real App) driving the real
-    binary. C6 is about the manifest and is proven against the real binary.
+    Eight obligations. C1 to C5 are about registration, C7 about deregistration
+    and C8 about repo scope; all are proven against a local fake of the GitHub
+    API (no network, no real App) driving the real binary. C6 is about the
+    manifest and is proven against the real binary.
 
     PHASE STATUS. Phase 1 shipped the resource type and the C6 validation.
-    Phase 2 ships `check` and `apply` and the falsifiers for C1 to C5. What is
-    NOT proven by them: a real registration against GitHub, the App
-    installation lookup against the live API, the runner's reading of
-    `ACTIONS_RUNNER_INPUT_TOKEN` on a live runner, the service unit on a
-    non-systemd host, `state: absent` (deregistration, refused as not
-    implemented), and an end-to-end repo-scoped seat (the repo-scope API paths
-    are unit-tested only).
+    Phase 2 shipped `check` and `apply` and the falsifiers for C1 to C5.
+    Phase 3 ships `state: absent` (C7: one remove-token request, `config.sh
+    remove` on the seat with the token on stdin, the listing deleted by id if
+    it outlives the seat) and an end-to-end repo-scoped seat (C8: register,
+    adopt, drift, deregister, all under /repos/{owner}/{repo}, none under
+    /orgs). NOT proven by any falsifier: a real registration against GitHub,
+    the App installation lookup against the live API, the runner's reading of
+    `ACTIONS_RUNNER_INPUT_TOKEN` (also for `config.sh remove`) on a live
+    runner, and the service unit on a non-systemd host.
+
+    LIVE CALL REQUIREMENTS (nothing below has been exercised with a real
+    credential). A live run needs: (1) a GitHub App with the permission
+    "Self-hosted runners: Read and write" at the organization level for
+    `scope: org`, or "Administration: Read and write" at the repository level
+    for `scope: repo`, installed on the owner (or repo); (2) the App id and,
+    optionally, the installation id in the manifest (omitted, the control host
+    looks it up with `GET {base}/installation`, which needs the App JWT only);
+    (3) the App private key (PEM) supplied through the manifest `secrets:`
+    provider as `app.private_key: "{{secrets.<name>}}"`, readable on the
+    control host only; (4) outbound HTTPS from the control host to
+    api.github.com (override with FORJAR_GITHUB_API_URL) and from the seat to
+    github.com for the runner tarball; (5) on the seat, `curl`, `tar`,
+    `sha256sum`, the declared `user` (or passwordless sudo to it) and
+    passwordless sudo for `svc.sh`; (6) a `sha256` of the exact tarball
+    `actions-runner-linux-{x64|arm64}-{version}.tar.gz` from
+    github.com/actions/runner releases; (7) org scope with `group:` needs the
+    group to exist already (group management is out of scope). The calls made
+    are, in order: GET {base}/installation (only without installation_id),
+    POST /app/installations/{id}/access_tokens, GET {base}/actions/runners,
+    GET {base}/actions/runner-groups and its members (org scope with group),
+    then POST {base}/actions/runners/registration-token (register) or POST
+    {base}/actions/runners/remove-token and, only if the listing outlives the
+    seat, DELETE {base}/actions/runners/{id} (deregister).
 
     Meaning of "0 commands on the seat" and "token requests = 0": the
     resource itself runs nothing on the seat (forjar's own disk preflight is
@@ -128,7 +155,29 @@ equations:
     invariants:
       - "Each of the four is refused on its own, naming its field"
       - "A manifest correct in all four is accepted (the refusal is not a blanket refusal)"
-      - "`state: absent` on this type is refused as not implemented; it never reports success"
+      - "`state: absent` is no longer refused: it deregisters (C7)"
+
+  absent_deregisters:
+    formula: |
+      state = absent ∧ ¬listed(name) ⟹ seat_commands = 0 ∧ remove_token_requests = 0 ∧ exit = 0
+      state = absent ∧ listed(name) ⟹ remove_token_requests = 1 ∧ remove_token ∈ one seat script's stdin only
+        ∧ (listed(name) after the script ⟹ delete_requests = 1) ∧ check passes afterwards
+      state = absent ∧ seat script fails ⟹ exit ≠ 0 ∧ delete_requests = 0
+    domain: "a github_runner resource declared `state: absent`"
+    codomain: "(exit status, request counts, command count)"
+    invariants:
+      - "Deregistering an unlisted seat is idempotent and costs no command and no token"
+      - "The remove token obeys the same stdin-only rule as the registration token (C1)"
+      - "A failed remove on the seat never deletes the listing behind its back"
+
+  repo_scope_end_to_end:
+    formula: |
+      scope = repo ⟹ every API path ∈ /app/** ∪ /repos/{owner}/{repo}/** ∧ config.sh --url = github.com/{owner}/{repo}
+        ∧ no --runnergroup
+    domain: "a repo-scoped github_runner through register, adopt, drift and deregister"
+    codomain: "(request paths, config.sh argv)"
+    invariants:
+      - "Repo scope never touches /orgs and never passes a runner group"
 
 proof_obligations:
   - type: invariant
@@ -173,6 +222,20 @@ proof_obligations:
     enforced_by: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused, f6_scope_org_with_repo_is_refused, f6_empty_label_list_is_refused, f6_missing_sha256_is_refused"
     notes: "The two controls (f6_control_a_valid_seat_is_accepted, f6_control_a_repo_scoped_seat_with_a_repo_is_accepted) are what stop a blanket refusal discharging the four."
 
+  - type: invariant
+    property: "C7 absent_deregisters: state absent on a listed seat makes one remove-token request and runs config.sh remove with the token on stdin; on an unlisted seat it does nothing"
+    formal: "absent ∧ listed ⟹ remove_token_requests = 1 ∧ config.sh remove ran; absent ∧ ¬listed ⟹ seat_commands = 0 ∧ requests = 0"
+    applies_to: all
+    enforced_by: "tests/falsification_github_runner_absent.rs::f7_absent_deregisters_a_listed_seat_with_one_remove_token, f7_absent_when_not_listed_is_a_noop, f7_absent_deletes_a_listing_that_outlives_the_seat, f7_absent_reports_a_failed_remove_and_keeps_the_listing"
+    notes: "F7. RED before the change (apply refused state: absent as not implemented), GREEN after. The fake models the seat's config.sh remove by unlisting on the remove-token request."
+
+  - type: invariant
+    property: "C8 repo_scope_end_to_end: a repo-scoped seat registers, is adopted, refuses drift and deregisters through /repos/{owner}/{repo} only"
+    formal: "scope = repo ⟹ no request path under /orgs ∧ --url is the repo URL ∧ no --runnergroup"
+    applies_to: all
+    enforced_by: "tests/falsification_github_runner_absent.rs::f8_repo_scope_registers_adopts_and_deregisters_end_to_end, f8_repo_scope_label_drift_is_refused"
+    notes: "F8. Against the local fake; the live repo-scope endpoints are not exercised."
+
 falsification_tests:
   - id: FALSIFY-GHR-001
     rule: "key_stays_on_control_host"
@@ -210,6 +273,18 @@ falsification_tests:
     test: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused"
     if_fails: "A seat that cannot be registered passes validate and fails later, at 03:00, on a machine"
 
+  - id: FALSIFY-GHR-007
+    rule: "absent_deregisters"
+    prediction: "Refusing state: absent, or requesting a remove token for an unlisted seat, turns the f7 tests red"
+    test: "tests/falsification_github_runner_absent.rs::f7_absent_deregisters_a_listed_seat_with_one_remove_token"
+    if_fails: "A seat taken out of the manifest stays registered with GitHub and keeps receiving jobs"
+
+  - id: FALSIFY-GHR-008
+    rule: "repo_scope_end_to_end"
+    prediction: "Building the repo-scope base path from /orgs, or passing a runner group at repo scope, turns the f8 tests red"
+    test: "tests/falsification_github_runner_absent.rs::f8_repo_scope_registers_adopts_and_deregisters_end_to_end"
+    if_fails: "A repo-scoped seat registers against the wrong scope"
+
 # No kani_harnesses. `metadata.kind: pattern`: the properties are about process
 # exit status and what a fake HTTP server recorded; the falsifiers run the
 # binary rather than model it.
@@ -225,7 +300,9 @@ qa_gate:
     - "absent_registers_once"
     - "tarball_is_pinned"
     - "scope_is_validated"
-  pass_criteria: "All 6 falsification tests pass"
+    - "absent_deregisters"
+    - "repo_scope_end_to_end"
+  pass_criteria: "All 8 falsification tests pass"
   falsification: "Remove the scope rules from src/core/parser/github_runner_validate.rs"
 
 verification_level: L3

@@ -10,6 +10,8 @@
 //! types in this module implements `Debug`, so a stray `{:?}` cannot print one.
 //!
 //! * [`check`] lists the scope's runners and returns a [`Verdict`].
+//! * `state: absent` deregisters: one remove-token request, `config.sh remove`
+//!   on the seat, and the listing deleted by API if it outlives the seat.
 //! * [`apply`] adopts a matching seat (zero commands on it), refuses a drifted
 //!   one (zero commands, zero registration-token requests, never `--replace`),
 //!   and registers an absent one with exactly one registration-token request.
@@ -263,6 +265,18 @@ impl<'a> Session<'a> {
         )
     }
 
+    /// The one request that mints the 1 h remove token (deregistration).
+    fn remove_token(&self) -> Result<String, String> {
+        let path = format!("{}/actions/runners/remove-token", self.base);
+        string_field(&self.gh.post(&path, &self.token)?, "token", "remove token")
+    }
+
+    /// Drop a listing GitHub still holds after the seat is gone.
+    fn delete_listing(&self, runner_id: u64) -> Result<(), String> {
+        let path = format!("{}/actions/runners/{runner_id}", self.base);
+        self.gh.delete(&path, &self.token).map(|_| ())
+    }
+
     /// The one request that mints the 1 h registration token.
     fn registration_token(&self) -> Result<String, String> {
         let path = format!("{}/actions/runners/registration-token", self.base);
@@ -326,16 +340,55 @@ pub fn apply(
         Err(e) => return (Err(e), String::new()),
     };
     if resource.state.as_deref() == Some("absent") {
-        let e = format!(
-            "github_runner `{}`: state: absent (deregistration) is not implemented in this phase",
-            seat.name
-        );
-        return (Err(e), String::new());
+        return match deregister(machine, &seat, timeout_secs, ssh_retries) {
+            Ok(done) => done,
+            Err(e) => (Err(e), String::new()),
+        };
     }
     match register_if_absent(machine, &seat, timeout_secs, ssh_retries) {
         Ok(done) => done,
         Err(e) => (Err(e), String::new()),
     }
+}
+
+/// `state: absent`. Not listed: nothing to do, zero seat commands, zero token
+/// requests. Listed: one remove-token request and one seat script; if GitHub
+/// still lists the runner afterwards (the seat was already wiped), the listing
+/// is deleted by id. A failing seat script is returned as a failure and the
+/// listing is left alone.
+fn deregister(
+    machine: &Machine,
+    seat: &Seat,
+    timeout_secs: Option<u64>,
+    ssh_retries: u32,
+) -> Result<(Result<ExecOutput, String>, String), String> {
+    let session = Session::open(seat)?;
+    let Some(found) = session.find()? else {
+        let out = ExecOutput {
+            exit_code: 0,
+            stdout: format!(
+                "github_runner `{}`: not registered; nothing to deregister\n",
+                seat.name
+            ),
+            stderr: String::new(),
+        };
+        return Ok((Ok(out), String::new()));
+    };
+    let token = session.remove_token()?;
+    let plan = seat.plan();
+    let real = script::remove_script(&plan, &token);
+    let transcript = script::remove_script(&plan, script::REDACTED);
+    let out = transport::exec_script_retry(machine, &real, timeout_secs, ssh_retries)
+        .map(|o| ExecOutput {
+            exit_code: o.exit_code,
+            stdout: redact(&o.stdout, &token),
+            stderr: redact(&o.stderr, &token),
+        })
+        .map_err(|e| redact(&e, &token));
+    if matches!(&out, Ok(o) if o.exit_code == 0) && session.find()?.is_some() {
+        session.delete_listing(found.id)?;
+    }
+    Ok((out, transcript))
 }
 
 fn register_if_absent(

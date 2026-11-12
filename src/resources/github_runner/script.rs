@@ -106,6 +106,38 @@ echo "github_runner: registered {name_plain} and started its service"
     )
 }
 
+/// The script that takes a seat down: stop and uninstall the service, then
+/// `config.sh remove` with the 1 h remove token on stdin, the same here-document
+/// route the registration token takes. A seat with no install left (wiped
+/// by hand) is not an error here; the caller removes the listing by API.
+pub(super) fn remove_script(plan: &SeatPlan, token: &str) -> String {
+    let (dir, user) = (sh_squote(&plan.install_dir), sh_squote(&plan.user));
+    format!(
+        r#"set -euo pipefail
+RUN={dir}
+RUNNER_USER={user}
+as_root() {{
+  if [ "$(id -u)" = 0 ]; then "$@"; elif sudo -n true 2>/dev/null; then sudo -n "$@"; else "$@"; fi
+}}
+as_user() {{
+  if [ "$(id -un)" = "$RUNNER_USER" ]; then "$@"; else sudo -n -u "$RUNNER_USER" -H "$@"; fi
+}}
+if [ -x "$RUN/svc.sh" ]; then
+  (cd "$RUN" && {{ as_root ./svc.sh stop || true; as_root ./svc.sh uninstall || true; }})
+fi
+if [ -x "$RUN/config.sh" ]; then
+cat <<'FORJAR_EOF' | as_user bash -c 'IFS= read -r ACTIONS_RUNNER_INPUT_TOKEN; export ACTIONS_RUNNER_INPUT_TOKEN; cd "$1"; shift; exec ./config.sh "$@"' _ "$RUN" remove --unattended
+{token}
+FORJAR_EOF
+echo "github_runner: deregistered {name_plain} and removed its service"
+else
+  echo "github_runner: no runner install at $RUN; nothing to deregister on the seat"
+fi
+"#,
+        name_plain = plan.name.replace(['\'', '"', '`', '$', '\n'], ""),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,6 +172,15 @@ mod tests {
         assert!(s.find("sha256sum -c").unwrap() < s.find("tar -xzf").unwrap());
         assert!(s.find("tar -xzf").unwrap() < s.find("config.sh").unwrap());
         assert!(s.contains("--unattended") && s.contains("--runnergroup 'default'"));
+    }
+
+    #[test]
+    fn remove_script_keeps_the_token_in_the_here_document_only() {
+        let s = remove_script(&plan(), "TOKENMARKER");
+        assert_eq!(s.matches("TOKENMARKER").count(), 1);
+        assert!(s.lines().any(|l| l == "TOKENMARKER"));
+        assert!(s.contains("config.sh") && s.contains("remove --unattended"));
+        assert!(!remove_script(&plan(), REDACTED).contains("TOKENMARKER"));
     }
 
     #[test]
