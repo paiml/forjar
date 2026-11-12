@@ -105,7 +105,8 @@ pub fn apply_script(resource: &Resource) -> String {
              \n\
              # Download release asset via GitHub API (no gh CLI required)\n\
              RELEASE_URL={release_url}\n\
-             DOWNLOAD_URL=$(curl -fsSL \"$RELEASE_URL\" | \\\n\
+             RELEASE_JSON=$(curl -fsSL \"$RELEASE_URL\")\n\
+             DOWNLOAD_URL=$(printf '%s\\n' \"$RELEASE_JSON\" | \\\n\
              \x20 grep -F {grep_pattern} | \\\n\
              \x20 grep -o '\"browser_download_url\": *\"[^\"]*\"' | \\\n\
              \x20 head -1 | \\\n\
@@ -428,5 +429,32 @@ mod tests {
         assert_eq!(out.status.code(), Some(1));
         let err = String::from_utf8_lossy(&out.stderr);
         assert!(err.contains("aarch64-apple-darwin"), "stderr was: {err:?}");
+    }
+
+    /// forjar#608 review: `|| true` must not mask a failing `curl` (HTTP 404/403, DNS, TLS).
+    #[test]
+    fn fj608_curl_failure_surfaces_not_no_asset() {
+        let dir = tempfile::tempdir().unwrap();
+        let curl = dir.path().join("curl");
+        std::fs::write(
+            &curl,
+            "#!/bin/sh\necho 'curl: (22) HTTP 404' >&2\nexit 22\n",
+        )
+        .unwrap();
+        let mut perm = std::fs::metadata(&curl).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o755);
+        std::fs::set_permissions(&curl, perm).unwrap();
+        let r = make_github_release_resource("paiml/aprender", "apr");
+        let path = format!("{}:/usr/bin:/bin", dir.path().display());
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(apply_script(&r))
+            .env("PATH", path)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(22));
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("HTTP 404"), "stderr was: {err:?}");
+        assert!(!err.contains("no asset matching"), "stderr was: {err:?}");
     }
 }
