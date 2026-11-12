@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**PR Gate no longer runs on `pull_request_target` (PMAT-913, #935).**
+`pr-gate.yml` triggers on `pull_request` and runs only for a same-repository head. A new job,
+`no-pull-request-target`, fails a PR whose workflow files use the `pull_request_target` trigger, and runs
+again on every push to the PR. Falsifier: `tests/falsification_no_pull_request_target.rs`.
+
 **Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
 26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
 `lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.

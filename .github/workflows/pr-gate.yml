@@ -4,7 +4,8 @@ name: PR Gate
 
 on:
   pull_request:
-    types: [opened, reopened]
+    # synchronize: a push to an open PR runs no-pull-request-target again.
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: read
@@ -12,7 +13,10 @@ permissions:
 jobs:
   authorize:
     # Fork PRs never run privileged steps (paiml accepts no fork contributions).
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # The author does not change on a push, so this job runs when the PR opens.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action == 'opened' || github.event.action == 'reopened')
     permissions:
       pull-requests: write
     uses: paiml/.github/.github/workflows/pr-gate.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0

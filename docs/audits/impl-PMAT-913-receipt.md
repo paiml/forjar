@@ -132,3 +132,14 @@ Measured on lambda through the REST API: for each touched workflow, the longest 
 Every job with a timeout in this PR had at least one successful run in the sample; jobs whose longest run was under 3 minutes are not listed. Not measured: CI on this head.
 
 IMPL-PMAT-913-RECEIPT-END
+
+
+## PR #935 — PR Gate on `pull_request`, and a guard against `pull_request_target`
+
+Not yet merged when this section was written. This PR changes what a gate accepts, so it carries a non-author sign-off round bound to its final commit.
+
+- Before: `pr-gate.yml` triggered on `pull_request_target` (`opened`, `reopened`), which runs in the base-repository context with a write token. No job checked the workflow files for that trigger.
+- After: `pr-gate.yml` triggers on `pull_request` (`opened`, `reopened`, `synchronize`, `ready_for_review`). `authorize` runs for a same-repository head when the PR opens or reopens. The new job `no-pull-request-target` runs for a same-repository head on all four events: it runs the guard's fixture suite, then the guard over `.github/workflows`.
+- Review round 1 (2026-11-12, FAIL 3/3 at 122e3302) found that the trigger listed only `opened` and `reopened`, so a later push that added `pull_request_target` to an open PR was not checked. Fixed by listing `synchronize` and `ready_for_review`.
+- Falsifier: `tests/falsification_no_pull_request_target.rs` (6 tests). It runs both scripts, runs the guard against a workflow that carries the trigger (exit 1) and against an empty directory (exit 2), and reads the trigger types from `pr-gate.yml`. `the_pr_gate_runs_again_on_every_push` failed at 4a40b9fc (types `opened`, `reopened`) and passes with the fix.
+- Not measured: the `authorize` job's behaviour on a fork PR under `pull_request` (GitHub gives such a run a read-only token; no fork PR was opened to observe it). A PR from a fork skips both jobs by the `if:` condition, so the guard does not run on it; branch protection and the fork-PR closer are what stop that PR, not this workflow.
