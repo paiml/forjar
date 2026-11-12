@@ -1,0 +1,102 @@
+{
+  "kind": "code",
+  "issue": "PMAT-896 (forjar#958 / PR #959) — delete dead root-level Python splitters pmat_split.py (415 lines) and split_files.py (405 lines) with zero live callers while keeping CI ratchet scripts untouched for a separate proof-run PR.",
+  "branch": "cf/896-python-ban-train",
+  "base": "c4ce3a2c",
+  "base_commit": "c4ce3a2c5a4d770a79d4dfdcb6295cd438a9e7da",
+  "diff_sha256": "e145b2e09ed4ea4cdb055ec7181625c0b4c10f71",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (dead-code caller graph, failure modes/squash trailers, Gate A/roadmap contract) at head 103fa942; 3/3 PASS with 4 claims confirmed and 2 scope/doc claims bounded.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 103fa942 — agy Gemini 4 Carbon (High) Lane 1 (Dead-Code Removal & Caller Graph): PASS",
+      "round 1, head 103fa942 — agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, *.py Glob Consumers & Squash History): PASS",
+      "round 1, head 103fa942 — agy Gemini 4 Carbon (High) Lane 3 (Gate A Ticket Resolution, Receipt & Roadmap Schema): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; R1 bounds partial PMAT-896 scope (#749 and #752 deferred to feat/896-ratchet-ports-jq) and R2 bounds zero-diff Cargo non-compilation.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: PMAT-896 roadmap title and acceptance criteria cover the full python-ban train, whereas PR #959 lands only #958 (dead splitters) and leaves #749 (cb200-ratchet.sh) and #752 (comply-count.sh) open under status: inprogress and verdict: PARTIAL.",
+      "R2: docs/audits/impl-PMAT-896-receipt.md:25 discloses that no Cargo target was compiled at 103fa942 when written, justified only because src/, scripts/, tests/, .github/, Cargo.toml, and Cargo.lock are byte-identical to origin/main."
+    ]
+  },
+  "falsification": {
+    "test": "Caller-graph and tracked *.py invariant check on yoga (/var/tmp/agy-fj959): restoring pmat_split.py or split_files.py raises tracked *.py count above 2 and violates the dead-splitter deletion assertion.",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on yoga (/var/tmp/agy-fj959): on base c4ce3a2c git ls-files '*.py' lists 4 files including pmat_split.py and split_files.py, failing the <=2 tracked Python script invariant that passes at 103fa942."
+  },
+  "crux": {
+    "systems": [
+      "Cargo / Rust workspace hygiene: unused ad-hoc root scripts outside scripts/ and Cargo targets rot without CI execution and widen language surface unnecessarily",
+      "ripgrep / git grep whole-tree symbol & filename search: verifies zero live references across build scripts, Makefiles, GitHub Actions, and Rust tests before removal",
+      "Keep-a-gate-isolated split discipline: separating dead-file deletion from live CI ratchet rewrites keeps risk-free cleanup independent of gate-semantics proof runs"
+    ],
+    "verdict": "Deleting unreferenced root Python helper scripts while leaving CI-executed ratchet scripts untouched is zero-risk and shrinks the tracked Python footprint from 4 files to 2."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Caller Graph, Failure Modes, Gate A/Roadmap Schema) verified on yoga",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 103fa942 (4 claims confirmed, 2 scope/doc claims bounded)."
+  },
+  "pmat": {
+    "ticket": "PMAT-896",
+    "tools": [
+      "analyze_vacuous_tests",
+      "python3 yaml.safe_load roadmap validation on yoga (/var/tmp/agy-fj959): 377 rows, PMAT-896 status=inprogress"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-896-959-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "6dcb850a33baadb37c70f803c9a300c2a9fb6272",
+        "sha256": "3327e6a9c8b7c7b63e59890fe37a72931faf4967d55a092c2b0088e51e714a35",
+        "bytes": 921
+      },
+      {
+        "path": ".quorum/evidence/PMAT-896-959-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "7efdb19363c1c345ff241e8759fe48826171e1e2",
+        "sha256": "919deebf9f0b9fedaec75b6ea98348c62da70eb80210f263d0d4526ac0f9b13f",
+        "bytes": 2085
+      },
+      {
+        "path": ".quorum/evidence/PMAT-896-959-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "1402300e3c6c4a2d83e5c185455efd42ec045492",
+        "sha256": "0bfa4e9df11602840e4004337c9da26f78ff99febd13477c1a3a2f1c9352a877",
+        "bytes": 3068
+      },
+      {
+        "path": ".quorum/evidence/PMAT-896-959-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "8348fbccdb3739abed6092ec0d487bfa64db3290",
+        "sha256": "552ba9eabd536eea8717ddb2c4c51def51a5041f0b13d102f67c18c7092e3660",
+        "bytes": 1555
+      }
+    ],
+    "total_bytes": 7629,
+    "claims_digest": ".quorum/evidence/PMAT-896-959-judges.md"
+  }
+}
