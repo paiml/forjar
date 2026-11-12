@@ -7186,3 +7186,22 @@ roadmap:
   - release:v1.34.1
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   release: 1.34.1
+- id: PMAT-608
+  github_issue: 608
+  item_type: task
+  title: build.rs runtime manifest dir; github_release missing-asset message (#456 #608)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T16:26:30Z
+  updated: 2026-11-12T16:26:30Z
+  spec: null
+  acceptance_criteria:
+  - 'build.rs runtime manifest dir; github_release missing-asset message (PR #910, closes #456 #608)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
