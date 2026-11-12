@@ -15,7 +15,7 @@ fn templated(v: &Option<String>) -> bool {
 }
 
 fn blank(v: &Option<String>) -> bool {
-    !v.as_deref().is_some_and(|s| !s.trim().is_empty())
+    v.as_deref().is_none_or(|s| s.trim().is_empty())
 }
 
 pub(super) fn validate_github_runner(
