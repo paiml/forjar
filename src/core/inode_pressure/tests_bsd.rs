@@ -111,3 +111,9 @@ fn the_probe_on_linux_keeps_gnu_df_i_p_t() {
 fn the_probe_passes_the_exec_validator() {
     crate::core::purifier::validate_script(DF_INODES_CMD).unwrap();
 }
+
+#[test]
+fn host_df_runs_the_probe_on_this_host_and_finds_root() {
+    let text = host_df().unwrap();
+    assert!(parse_df_i(&text).iter().any(|r| r.mount == "/"), "{text}");
+}
