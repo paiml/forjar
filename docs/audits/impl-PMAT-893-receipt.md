@@ -1,11 +1,11 @@
 # Implementation receipt — PMAT-893 — encryption is a default feature; `secrets encrypt` never takes the secret as an argument
 
-verdict: PARTIAL — merged with origin/main (d764f998) and green on t2yoga for fmt, clippy (default and cli-only), `--lib` and the six integration targets this PR adds or changes; 100% coverage, pv ontology, clean-room run and quorum receipt are still owed.
+verdict: PARTIAL — .github/ is byte-identical to origin/main (workflow hunks removed for their own gate PR); fmt, clippy (default and cli-only), `--lib` and the six integration targets are green on gx10; CB-200 measures 652 on both plain main and this branch with pmat 3.43.0 (not measured with pmat 3.42.0 on t2yoga: host load above its threads); 100% coverage, pv ontology, clean-room run and quorum receipt are still owed.
 
 ## Identity
 
 - ticket PMAT-893 (forjar#893); kind: code; PR #895, branch `fix/secrets-encryption-default`
-- files: `Cargo.toml` defaults, `src/cli/secrets.rs`, `src/cli/secrets_input_tests.rs`, `src/cli/mod.rs`, `src/cli/commands/subcmd_args.rs`, `src/cli/dispatch_misc.rs`, `src/cli/dispatch_misc_b.rs`, `src/main.rs`, `src/core/secrets.rs`, `src/core/tests_secrets.rs`, `tests/falsification_893_secrets_encryption_default.rs`, `tests/falsification_893_secrets_round3.rs`, `tests/falsification_893_secrets_round4.rs`, `tests/falsification_893_secrets_round5.rs`, `tests/falsification_default_features_trim.rs`, `src/cli/tests_cov_args_extra_b.rs`, `src/cli/tests_cov_bundle2.rs`, `src/cli/tests_cov_notify_3.rs`, `src/cli/tests_cov_notify_c.rs`, `.github/workflows/{ci,lint}.yml`, `CHANGELOG.md`, `README.md`, `docs/roadmaps/roadmap.yaml`, `docs/book/*`, `docs/cli-defects.json`, `docs/specifications/forjar-cookbook.md`, `examples/dogfood-age-secrets.yaml`
+- files: `Cargo.toml` defaults, `src/cli/secrets.rs`, `src/cli/secrets_input_tests.rs`, `src/cli/mod.rs`, `src/cli/commands/subcmd_args.rs`, `src/cli/dispatch_misc.rs`, `src/cli/dispatch_misc_b.rs`, `src/main.rs`, `src/core/secrets.rs`, `src/core/tests_secrets.rs`, `tests/falsification_893_secrets_encryption_default.rs`, `tests/falsification_893_secrets_round3.rs`, `tests/falsification_893_secrets_round4.rs`, `tests/falsification_893_secrets_round5.rs`, `tests/falsification_default_features_trim.rs`, `src/cli/tests_cov_args_extra_b.rs`, `src/cli/tests_cov_bundle2.rs`, `src/cli/tests_cov_notify_3.rs`, `src/cli/tests_cov_notify_c.rs`, ``CHANGELOG.md`, `README.md`, `docs/roadmaps/roadmap.yaml`, `docs/book/*`, `docs/cli-defects.json`, `docs/specifications/forjar-cookbook.md`, `examples/dogfood-age-secrets.yaml`
 
 ## Changes
 
@@ -13,7 +13,7 @@ verdict: PARTIAL — merged with origin/main (d764f998) and green on t2yoga for 
 - `secrets keygen -o` creates the identity file 0600 from the first syscall (O_CREAT|O_EXCL) and refuses to overwrite.
 - `secrets encrypt`: positional `VALUE` removed (BREAKING). Plaintext comes from stdin (default; `--stdin` is an explicit form of the default, new in this PR) or `--from-file`. A positional value, or `-` as an argv secret, is refused with a message that does not contain it. Usage errors for the whole secrets family (subcommand word `secret*`, case-insensitive), clap's `help`, and an invalid subcommand followed by a later secrets word print a fixed message echoing no argument.
 - Leak fix: `exit_redacted` in `src/main.rs` used `std::env::args()`, which panics (printing the whole value, exit 134) on a non-UTF-8 argument. It now uses `args_os()` with `to_string_lossy()`. No other `std::env::args()` call remains in `src/`.
-- CI runs the secrets-encryption test per PR; lint keeps the non-encryption leg.
+- The CI step and the lint matrix change that came with this PR are NOT in it any more (fix round 1): they are saved as `/mnt/nvme-raid0/cop-inbox/handoff/forjar-cop/gate-pr-895/workflows.patch` for a separate gate PR. Until that lands, no CI job names the 893 test targets and the lint non-encryption leg still builds the default features, which now include age.
 
 ## Review rounds
 
@@ -60,6 +60,13 @@ Measured on t2yoga after the merge (one run, log `~/src/fc-pre/pr-895.log`, `DON
 - `cargo test --locked --test` `falsification_893_secrets_encryption_default` 10 passed; `falsification_893_secrets_round3` 5 passed; `falsification_893_secrets_round4` 4 passed; `falsification_893_secrets_round5` 9 passed; `falsification_default_features_trim` 7 passed; `falsification_version_matches_manifest` 4 passed; 0 failed in all
 - LAB reds on plain main that no CI job runs (forjar#858: `falsification_untyped_error_sites_ratchet`, `falsification_budget_dry_run`, `falsification_release_workflow_shape`): not run, not measured.
 - Tree synced with a clone of the branch's `.git`, so tests that read history saw the real history.
+
+## Fix round 1 (2026-11-12, three non-author lanes returned FAIL at 66479df)
+
+- Gate content: `git checkout origin/main -- .github/` in commit 47ef31a9; `git diff origin/main --stat -- .github/` is empty. The merge-conflict resolution of `lint.yml` in the section above is therefore no longer part of this branch; it is in the saved patch. No test in this PR reads either workflow, so no test moved.
+- CB-200 (`bash scripts/cb200-ratchet.sh`, tree synced with .git, via `fc-pre.sh pr-895`, host gx10, pmat 3.43.0): plain origin/main dbd1ec3e measures 652 (twice); this branch (47ef31a9) measures 652 (twice); recorded ceiling is 651. The branch adds no function below grade A under this instrument. The lanes' 651 for forjar#899 came from pmat 3.42.0 on t2yoga; t2yoga load was 20, 62 and 15 (12 threads) when tried, so that measurement was not made and main under 3.42.0 is not measured. The ceiling and baseline are untouched.
+- Re-run on gx10 (one run, `DONE rc=0`): `cargo fmt --all -- --check` rc 0; `cargo clippy --all-targets -- -D warnings` rc 0; same with `--no-default-features --features cli` rc 0; `cargo test --lib` 13887 passed, 0 failed, 4 ignored; `falsification_893_secrets_encryption_default` 10, `_round3` 5, `_round4` 4, `_round5` 9, `falsification_default_features_trim` 7, `falsification_version_matches_manifest` 4 passed, 0 failed.
+- Trailers on the fix-round commits have no blank line between them (CB-2113).
 
 ## Owed before merge
 
