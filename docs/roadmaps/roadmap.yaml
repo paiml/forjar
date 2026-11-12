@@ -7312,3 +7312,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 915
+- id: PMAT-1004
+  github_issue: 1004
+  item_type: task
+  title: 'ci: run git/bash-only jobs on gate-light'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T20:40:03Z
+  updated: 2026-11-12T20:40:03Z
+  spec: null
+  acceptance_criteria:
+  - git/bash-only jobs (classify x3, ci gate) to gate-light
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
