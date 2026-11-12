@@ -7147,7 +7147,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00Z
-  updated: 2026-11-11T21:30:00Z
+  updated: 2026-11-12T14:40:48Z
   spec: null
   acceptance_criteria:
   - scripts/cb200-ratchet.sh and scripts/ratchets/comply-count.sh run no python; the ceiling, the comply count and the failure messages keep their contract (a pass is 0, a missing id, no count, no JSON or bad JSON is a non-zero exit with a message).
@@ -7160,6 +7160,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
 - id: PMAT-992
   github_issue: 992
