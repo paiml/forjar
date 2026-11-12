@@ -127,7 +127,7 @@ jobs:
   # is the same "guard nobody runs" shape as #242 and #298. Add new structural
   # guards to this list, or accept that they are documentation.
   examples-validate:
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
@@ -291,7 +291,7 @@ jobs:
   # A-H and T over the whole window before any tag, and the `gate` job below
   # refuses this job's skip whenever `gates` says it should have run.
   dogfood-surface:
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
     runs-on: [self-hosted, clean-room, X64]

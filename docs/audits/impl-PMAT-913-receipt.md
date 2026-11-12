@@ -108,6 +108,7 @@ this PR keeps only what does not change which jobs run or what a gate accepts.
 - In: `timeout-minutes` on 33 jobs in 13 workflow files; `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0`, `CARGO_INCREMENTAL=0` as workflow env in `ci.yml` and `lint.yml`.
 - Out, kept on the local branch `chore/runner-smells-job-and-draft-skip` (5f5112c3) for a separate PR with a proof run: the `runner-smells` called workflow and `.github/runner-smells.baseline`; the draft-PR skip and `ready_for_review` trigger on `audit.yml` and `lint.yml`; the `concurrency` group on `pr-gate.yml`.
 - Measured on lambda, tree merged with `origin/main` @ c4ce3a2c: `git diff origin/main -- .github` adds 47 lines in 13 files, all of them `timeout-minutes` lines (33) or the two env blocks; every workflow file parses (`yq -e .jobs`); `ci.yml` has 0 non-reusable jobs without a timeout.
-- Not measured: whether each timeout is above the job's slowest green run (values: 15, 30, 60 or 120 minutes); CI on this head.
+- Measured for `ci.yml` only, longest successful job in the last 3 green CI runs (REST, lambda): `dogfood-surface` 28 min, `examples-validate` 26 min, `ci / test` 5 min, the rest under 5 min. Both slow jobs had a 30-minute timeout in this PR; they are now 60.
+- Not measured: the same comparison for the other 12 workflow files (values 15 to 120 minutes); CI on this head.
 
 IMPL-PMAT-913-RECEIPT-END
