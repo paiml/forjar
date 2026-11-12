@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-969 (F20-I6 / PR #932) \u2014 timeout firing before worker thread recorded child PID found None in ChildPidSlot and leaked the subsequently spawned child process group; CANCELLED_PID (u32::MAX) tombstone under the slot mutex now kills late-spawned child groups immediately in record_child_pid.",
+  "branch": "f20-i6/timeout-spawn-race",
+  "base": "5b8f8123",
+  "base_commit": "5b8f8123be40731340e2a74a6e4ae365648cab45",
+  "diff_sha256": "f599d54bbd843668f886385eba3a57a5e05274f5",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (correctness, failure modes, contract/falsifiers) at head e5279139; 3/3 PASS with 2 Round-1 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head e5279139 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Correctness & Concurrency Ordering): PASS",
+      "round 2, head e5279139 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Failure Modes, PID Sentinel & Poison Recovery): PASS",
+      "round 2, head e5279139 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contract, Revert Falsifiers & Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling (2026-11-11 12:47Z), none sharing the author model (Claude Opus 5.5).",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; R1 (mod.rs 513-line file-health breach) and R2 (post-fmt uncompiled tree) were fixed and verified on t2fw13.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 inline edit in src/transport/mod.rs grew mod.rs from 497 to 513 lines past the 500-line file-health ceiling; refuted and resolved by extracting src/transport/child_group.rs (mod.rs now 424 lines).",
+      "R2: Round 1 failed cargo fmt --check on import ordering in src/transport/mod.rs and left the post-fmt tree uncompiled on kfocus; compiled and verified green on t2fw13 (7/7 tests_timeout pass)."
+    ]
+  },
+  "falsification": {
+    "test": "Revert CANCELLED_PID check in record_child_pid (src/transport/child_group.rs:20) on t2fw13 (<SCRATCH>) and run cargo test --lib transport::tests_timeout.",
+    "test_file": "src/transport/tests_timeout.rs",
+    "cargo_test_target": "falsification_version_matches_manifest",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2fw13: replacing the CANCELLED_PID check in src/transport/child_group.rs:20 with *guard = Some(pid) leaves the late-spawned sleep 30 grandchild alive and fails f20_i6_timeout_before_spawn_still_kills_late_child (FJ932_REV_KILLED)."
+  },
+  "crux": {
+    "systems": [
+      "Tokio CancellationToken / oneshot cancellation state: stores a cancelled sentinel under atomic/mutex synchronization so a late registrant cancels immediately upon registration",
+      "Go os/exec CommandContext: associates context cancellation with process spawn synchronization so pre-cancelled or racing spawns are terminated immediately",
+      "POSIX setpgid(0, 0) + kill(-pgid, SIGKILL): places forked child into PGID == child.id() in pre_exec before spawn() returns to parent"
+    ],
+    "verdict": "Serializing kill_worker_child_group and record_child_pid on ChildPidSlot with CANCELLED_PID = u32::MAX closes the pre-spawn timeout race cleanly on Linux/POSIX."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Correctness, Failure Modes, Contract/Falsifiers) with cold compile, 7/7 timeout tests, and revert kill on t2fw13",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at e5279139 (4 claims confirmed, 2 Round-1 claims refuted and verified fixed on t2fw13)."
+  },
+  "pmat": {
+    "ticket": "PMAT-969",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt --check + cargo clippy --lib --tests -- -D warnings + cargo test --lib transport::tests_timeout (7/7) + revert kill on t2fw13"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-969-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "48b353af5bf21fa9744bbbcacd0c411ae15b15d4",
+        "sha256": "3c87fe517d19437b5ee11c11438573f654e428e662152ff3eba775d98ee4918d",
+        "bytes": 1203
+      },
+      {
+        "path": ".quorum/evidence/PMAT-969-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "765167e5bef69c1025a1630be440a98789aa7f86",
+        "sha256": "cacb2b918ef9271ce215afead0364a616adfae975ccf35dd48b2a029172ab385",
+        "bytes": 564
+      },
+      {
+        "path": ".quorum/evidence/PMAT-969-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "7d96a1c4cd65e50f6f3701f6a123493c43efa28f",
+        "sha256": "e5b5f27f6dfaf317d4e90709bfe6f48d090ca14ca8a616e7ff7c4bcbada894b2",
+        "bytes": 3046
+      },
+      {
+        "path": ".quorum/evidence/PMAT-969-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "9039b1c0c2073b77e2000ac36eed46b63cf3894d",
+        "sha256": "53f291c4646319061a8a902468bd1125f5018114080a49211ccd9b423a39375b",
+        "bytes": 350
+      }
+    ],
+    "total_bytes": 5163,
+    "claims_digest": ".quorum/evidence/PMAT-969-judges.md"
+  }
+}
