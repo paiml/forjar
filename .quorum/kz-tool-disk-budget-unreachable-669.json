@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "GH-667 / GH-669 / GH-936 (forjar#944) \u2014 disk-budget never deletes what it cannot prove dead (/proc/*/exe + streaming /proc/*/maps, fail-closed empty scans, loop-level fb_in_use, and pre-delete reachability check).",
+  "branch": "kz-tool/disk-budget-unreachable-669",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (/proc liveness, reachability pre-pass, falsifiers/revert kill) at head 533f1865; 3/3 PASS with 4 claims confirmed and 2 refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 533f1865 \u2014 agy Gemini 4 Carbon (High) Lane 1 (/proc Liveness Scan, Fail-Closed Empty Guards & fb_sum_reach Arithmetic): PASS",
+      "round 1, head 533f1865 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Unreachable-Target Pre-Pass, Loop-Level fb_in_use & Timeout Disambiguation): PASS",
+      "round 1, head 533f1865 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Surgical Revert Kill & Gate/Governance Audit): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was independently attacked across all 3 lanes; R1 documents the test-path placement in src/resources/disk_budget/tests/execution.rs and R2 closes revert discrimination at 533f1865 via live surgical perturbation.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Issue #667 named tests/falsification_disk_budget_in_use.rs, whereas the PR places those running-binary and exhaustive-ReclaimKind loop checks in src/resources/disk_budget/tests/execution.rs:48 (verified 83/83 passing under cargo test --lib disk_budget).",
+      "R2: Author receipt docs/audits/impl-GH-667-receipt.md did not re-measure red-then-green revert discrimination on merged head 533f1865; closed directly on <host> (<SCRATCH>) by perturbing FB_UNREACH=1 -> FB_UNREACH=0 in reaper.rs:248 (fj944_unreach_revert_rc=101)."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb FB_UNREACH=1 to FB_UNREACH=0 in src/resources/disk_budget/reaper.rs:248 on <host> (<SCRATCH>) and run cargo test --test falsification_budget_unreachable.",
+    "test_file": "tests/falsification_budget_unreachable.rs",
+    "cargo_test_target": "falsification_budget_unreachable",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): setting FB_UNREACH=0 in src/resources/disk_budget/reaper.rs:248 failed both an_unreachable_target_deletes_nothing_and_logs_the_shortfall and overlapping_rules_count_bytes_once (fj944_unreach_revert_rc=101)."
+  },
+  "crux": {
+    "systems": [
+      "systemd-tmpfiles --clean (fuser/open-fd liveness + age watermarks): skips active files and fails closed when /proc cannot be inspected",
+      "Kubernetes kubelet imageGC / eviction manager (HighThresholdPercent -> LowThresholdPercent): computes reclaimable bytes against eviction threshold and emits eviction shortfall events when target cannot be met",
+      "Nix nix-collect-garbage (/proc/*/maps + runtime roots scanner): scans /proc/<pid>/{exe,cwd,fd,maps} before unlinking store paths so running binaries without open fds are never reaped"
+    ],
+    "verdict": "Combining a single-pass /proc/{cwd,exe,fd,maps} fail-closed liveness table with a pre-delete reachability sum prevents both live-binary deletion and futile cache destruction when freeing every idle candidate still misses the disk watermark."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (/proc Liveness, Reachability Pre-Pass, Falsifiers/Revert) at head 533f1865",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 533f1865 (4 claims confirmed, 2 claims refuted: R1 test-file placement documented, R2 revert kill measured directly)."
+  },
+  "pmat": {
+    "ticket": "GH-667",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo clippy --all-targets -- -D warnings + cargo test --lib disk_budget (83/83) + --test falsification_budget_unreachable (6/6) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "e6c07a71834e7e2804c70019e8a90b9031f4e863",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/GH-667-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "c76300fd946bfbf6185aacbd43f69e90d0ca6c48",
+        "sha256": "26f5849349828dfc8841d04a05d6bea3360532fc5a190f44d3c84b03b6bd74e1",
+        "bytes": 2195
+      },
+      {
+        "path": ".quorum/evidence/GH-667-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "c2cd858df6f71eeb322ef43d052b529ec3352549",
+        "sha256": "5f9a9d2400e9c6dc7f16d157cbf86f20cb7ae7d2f26bbf293bbe14a791e62a8d",
+        "bytes": 1876
+      },
+      {
+        "path": ".quorum/evidence/GH-667-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "5886dd970c51576b0921545fdd0e60fde001d20d",
+        "sha256": "4af455c5dcf449726230f07a243da1288dabcd48f30158c8bc1253334636d083",
+        "bytes": 3057
+      },
+      {
+        "path": ".quorum/evidence/GH-667-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "b2924486d51766dc6ff741aa4b027a081ccba752",
+        "sha256": "00e17f257762cd12e0c9a8912f3da7d7a493f1e56649be91a9e98043fc553e0c",
+        "bytes": 1204
+      }
+    ],
+    "total_bytes": 8332,
+    "claims_digest": ".quorum/evidence/GH-667-judges.md"
+  }
+}
