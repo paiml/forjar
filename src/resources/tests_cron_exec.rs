@@ -155,9 +155,8 @@ const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
 printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
 # A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
-# `true` is the check guard's `sudo -n true` probe.
 case "$1" in
-  crontab|/usr/bin/crontab|true) ;;
+  crontab|/usr/bin/crontab) ;;
   *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
 esac
 exec "$@"
@@ -386,4 +385,46 @@ fn the_err_trap_file_is_removed() {
     let _ = fx.run(&script);
     let left = std::fs::read_dir(&tmp).unwrap().count();
     assert_eq!(left, 0, "the ERR temp file leaked");
+}
+
+// ── forjar#848: the check guard probes the read, not `sudo -n true` ──
+
+/// Under a crontab-only sudoers rule (`true` refused) the check must observe
+/// the job, not SKIP.
+#[test]
+fn fj848_check_observes_under_a_crontab_only_sudoers_rule() {
+    let fx = FakeCrontab::new("g848a");
+    fx.seed("# forjar:backup\n# forjar-cmd:backup\n0 3 * * * /usr/local/bin/backup.sh\n");
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{stdout} {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(stdout.contains("exists:backup"), "{stdout}");
+    assert!(!stdout.contains("FORJAR_SKIP"), "{stdout}");
+}
+
+/// No crontab yet is `missing:`, not a SKIP.
+#[test]
+fn fj848_no_crontab_is_missing_not_skip() {
+    let fx = FakeCrontab::new("g848b");
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("missing:backup"), "{stdout}");
+    assert!(!stdout.contains("FORJAR_SKIP"), "{stdout}");
+}
+
+/// A sudo that refuses the read itself is still a SKIP (exit 2).
+#[test]
+fn fj848_sudo_refusing_the_read_is_still_a_skip() {
+    let fx = FakeCrontab::new("g848c");
+    write_exe(
+        &fx.bin().join("sudo"),
+        "#!/usr/bin/env bash\necho 'sudo: a password is required' >&2\nexit 1\n",
+    );
+    let out = fx.run(&check_script(&cron("backup", "0 3 * * *", CMD)));
+    assert_eq!(out.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("FORJAR_SKIP"));
 }

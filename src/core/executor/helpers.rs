@@ -94,6 +94,16 @@ pub fn collect_machines(config: &ForjarConfig) -> Vec<String> {
     machines
 }
 
+/// FJ-LOCK-001 C4: the machines an apply writes, hence the locks it takes.
+/// `-m` narrows it to that one machine; a machine that declares no resource is
+/// not written and is not locked.
+pub fn lock_targets(config: &ForjarConfig, machine_filter: Option<&str>) -> Vec<String> {
+    collect_machines(config)
+        .into_iter()
+        .filter(|m| machine_filter.is_none_or(|f| m == f))
+        .collect()
+}
+
 /// Build resource-specific details for the lock entry.
 /// For container/remote machines, reads file content via transport instead of local filesystem.
 pub(crate) fn build_resource_details(

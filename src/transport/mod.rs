@@ -1,5 +1,6 @@
 //! FJ-010/011/021/230: Transport abstraction — local, SSH, container, and pepita execution.
 
+mod child_group;
 pub mod container;
 pub mod local;
 mod local_iface;
@@ -31,66 +32,10 @@ mod tests_timeout;
 
 use crate::core::error::{ForjarError, I8_VALIDATION_MARKER};
 use crate::core::types::Machine;
-
-/// FJ-#154: Shared slot for publishing a spawned child's PID to the timeout
-/// path. `exec_script_timeout` populates this from a worker thread so it can
-/// kill the underlying ssh/bash/docker/nsenter process when the timeout fires,
-/// instead of leaking a detached thread blocked in `wait_with_output` on a
-/// still-alive child.
-pub(crate) type ChildPidSlot = std::sync::Arc<std::sync::Mutex<Option<u32>>>;
-
-/// Record a freshly-spawned child's PID into the (optional) tracking slot.
-pub(crate) fn record_child_pid(slot: Option<&ChildPidSlot>, child: &std::process::Child) {
-    if let Some(slot) = slot {
-        if let Ok(mut guard) = slot.lock() {
-            *guard = Some(child.id());
-        }
-    }
-}
-
-/// #165: Put the spawned child in its own process group so a timeout kill can
-/// target the *group* (`kill -9 -- -<pgid>`) rather than a bare PID that the OS
-/// may have already recycled for an unrelated process after the child was
-/// reaped. On Unix the child becomes the group leader, so the group id equals
-/// the child PID we record. A no-op on non-Unix targets.
-#[cfg(unix)]
-pub(crate) fn configure_process_group(cmd: &mut std::process::Command) {
-    use std::os::unix::process::CommandExt;
-    cmd.process_group(0);
-}
-
-/// Non-Unix fallback: process groups are not available, so this is a no-op.
-#[cfg(not(unix))]
-pub(crate) fn configure_process_group(_cmd: &mut std::process::Command) {}
-
-/// #165: Build the `kill` command used on the timeout path.
-///
-/// The child was spawned in its own process group (see
-/// [`configure_process_group`]), so we signal the whole group with the
-/// negative-PID convention (`kill -9 -- -<pgid>`). Because the child is the
-/// group leader, the group id equals the recorded PID. Killing the group
-/// reaches descendants (e.g. the remote shell ssh spawned), and — crucially —
-/// the leading `-` means we can never accidentally signal a single recycled
-/// PID: a process-group target only matches processes the child fathered.
-/// Factored out so the argument construction is unit-testable without spawning.
-fn kill_group_command(pid: u32) -> std::process::Command {
-    let mut cmd = std::process::Command::new("kill");
-    cmd.args(["-9", "--", &format!("-{pid}")])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    cmd
-}
-
-/// Best-effort kill of a child's whole process group via the `kill` binary.
-///
-/// Used only on the timeout path, and only when the worker has *not* yet
-/// reported a result (i.e. the child is provably still running). Targeting the
-/// process group instead of a bare PID closes the PID-reuse race: a reaped
-/// child's recycled PID can never belong to the dead group, so we cannot kill
-/// an unrelated process.
-fn kill_process_group(pid: u32) {
-    let _ = kill_group_command(pid).status();
-}
+use child_group::kill_worker_child_group;
+pub(crate) use child_group::{configure_process_group, record_child_pid, ChildPidSlot};
+#[cfg(test)]
+use child_group::{kill_group_command, kill_process_group};
 
 /// FJ-#154: Write a script to a child's stdin, reaping the child on failure.
 ///
@@ -348,24 +293,6 @@ pub fn exec_script_timeout(
             ))
         }
     }
-}
-
-/// #165: Timeout-kill helper. Only signals the child's process group when the
-/// worker has *not* yet finished (`worker_done == false`); otherwise the child
-/// was already reaped and its PID may have been recycled, so signalling would
-/// be unsafe. Returns whether a kill was actually issued (for tests).
-fn kill_worker_child_group(
-    pid_slot: &ChildPidSlot,
-    worker_done: &std::sync::atomic::AtomicBool,
-) -> bool {
-    if worker_done.load(std::sync::atomic::Ordering::SeqCst) {
-        return false;
-    }
-    if let Some(pid) = pid_slot.lock().ok().and_then(|g| *g) {
-        kill_process_group(pid);
-        return true;
-    }
-    false
 }
 
 /// Check if a machine uses SSH transport (not pepita, container, or local).
