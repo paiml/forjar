@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The check, the lockless check and the `--refresh` check resolved `{{secrets.*}}` from `FORJAR_SECRET_*` environment
 variables only, so a manifest with `secrets: {provider: file|sops|op}` failed `apply --check` with "secret not found"
 while `apply` and `--dry-run` worked. All three now use the manifest `secrets:` block.
+The output of a failing check is now redacted the way `apply` redacts its transcript: the value of every secret the
+resource names is printed as `***`, in the text output and in `--json`, also for manifests that use the environment
+provider. For a resource marked `sensitive: true`, or one that carries ciphertext, the detail of a failing check is
+replaced by `[withheld: sensitive resource]`.
 
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
