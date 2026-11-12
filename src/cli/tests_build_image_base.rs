@@ -226,7 +226,21 @@ fn t7_report_json_carries_the_base_reference_and_layer_count() {
     }
 }
 
-/// Config whose `image:` is the JSON-quoted (so YAML-quoted) `base`, verbatim.
+/// `s` as a YAML double-quoted scalar; control characters (DEL included, which
+/// JSON leaves raw and YAML rejects) are written as `\xNN` escapes.
+fn yaml_quote(s: &str) -> String {
+    let body: String = s
+        .chars()
+        .map(|c| match c {
+            '"' | '\\' => format!("\\{c}"),
+            c if c.is_control() => format!("\\x{:02x}", c as u32),
+            c => c.to_string(),
+        })
+        .collect();
+    format!("\"{body}\"")
+}
+
+/// Config whose `image:` is `base`, verbatim.
 fn write_config_with_base(dir: &Path, base: &str) -> PathBuf {
     let path = dir.join("forjar.yaml");
     std::fs::write(
@@ -235,7 +249,7 @@ fn write_config_with_base(dir: &Path, base: &str) -> PathBuf {
             "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\n\
              resources:\n  app:\n    type: image\n    machine: m\n    name: myapp\n    \
              version: \"1.0\"\n    image: {}\n    path: /app/bin\n",
-            serde_json::to_string(base).unwrap()
+            yaml_quote(base)
         ),
     )
     .unwrap();
