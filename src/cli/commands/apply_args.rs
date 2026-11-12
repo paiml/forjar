@@ -81,9 +81,9 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub report: bool,
 
-    /// FJ-266: Force-remove stale state lock before apply
-    #[arg(long)]
-    pub force_unlock: bool,
+    /// FJ-LOCK-001 C3/C5: `--force-unlock [ID]` and `--lock-timeout <DUR>`
+    #[command(flatten)]
+    pub lock: super::ApplyLockArgs,
 
     /// FJ-270: Output mode — 'events' for newline-delimited JSON events
     #[arg(long)]

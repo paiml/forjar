@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
 About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
 
+**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
+26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
+`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
+No job is added, removed or skipped.
+
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
