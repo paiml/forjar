@@ -198,3 +198,21 @@ fn f6_missing_sha256_is_refused() {
     let (out, ok) = validate(dir.path(), &cfg);
     assert_refused_naming(&out, ok, &["sha256"]);
 }
+
+// Injection falsifier: a `$(...)` payload in `sha256` is refused at validate
+// and never runs anything.
+#[test]
+fn f6_sha256_must_be_64_hex_and_a_payload_never_runs() {
+    for bad in ["\"$(touch MARKER)\"", "abc123", "\"`touch MARKER`\""] {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("MARKER");
+        let payload = bad.replace("MARKER", &marker.display().to_string());
+        let cfg = manifest(dir.path(), |seat| {
+            set(seat, "    sha256:", Some(&format!("    sha256: {payload}")));
+        });
+        let (out, ok) = validate(dir.path(), &cfg);
+        assert_refused_naming(&out, ok, &["sha256"]);
+        assert!(out.contains("64 hex"), "{out}");
+        assert!(!marker.exists(), "the payload ran: {payload}");
+    }
+}

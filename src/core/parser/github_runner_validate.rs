@@ -49,5 +49,15 @@ pub(super) fn validate_github_runner(
 
     if blank(&spec.sha256) {
         refuse("`sha256` is required: the runner tarball must be pinned");
+    } else if !templated(&spec.sha256)
+        && !crate::resources::github_runner::is_sha256_hex(
+            &spec
+                .sha256
+                .as_deref()
+                .unwrap_or_default()
+                .to_ascii_lowercase(),
+        )
+    {
+        refuse("`sha256` must be exactly 64 hex characters");
     }
 }

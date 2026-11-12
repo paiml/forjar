@@ -61,8 +61,18 @@ fn config_args(plan: &SeatPlan) -> String {
     args.join(" ")
 }
 
+/// True for exactly 64 lowercase hex characters, the only digest shape the
+/// seat script will carry. Anything else is refused, never quoted around.
+pub(crate) fn is_sha256_hex(s: &str) -> bool {
+    s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 /// The full script with `token` on its own line inside the here-document.
 pub(super) fn seat_script(plan: &SeatPlan, token: &str) -> String {
+    if !is_sha256_hex(&plan.sha256) {
+        return "echo 'github_runner: sha256 must be exactly 64 lowercase hex characters' >&2\nexit 1\n"
+            .to_string();
+    }
     let (work, dir, user) = (
         sh_squote(&plan.work_dir),
         sh_squote(&plan.install_dir),
@@ -85,7 +95,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 curl -fsSL -o "$TMP/runner.tar.gz" {url}
 if ! echo {sha}"  $TMP/runner.tar.gz" | sha256sum -c --status; then
-  echo "github_runner: sha256 mismatch for the runner tarball (expected {sha_plain}); refusing to extract or run it" >&2
+  echo "github_runner: sha256 mismatch for the runner tarball (expected "{sha}"); refusing to extract or run it" >&2
   exit 1
 fi
 tar -xzf "$TMP/runner.tar.gz" -C "$RUN"
@@ -100,7 +110,6 @@ echo "github_runner: registered {name_plain} and started its service"
 "#,
         url = sh_squote(&plan.tarball_url),
         sha = sh_squote(&plan.sha256),
-        sha_plain = plan.sha256.replace('\'', ""),
         args = config_args(plan),
         name_plain = plan.name.replace(['\'', '"', '`', '$', '\n'], ""),
     )
@@ -181,6 +190,24 @@ mod tests {
         assert!(s.lines().any(|l| l == "TOKENMARKER"));
         assert!(s.contains("config.sh") && s.contains("remove --unattended"));
         assert!(!remove_script(&plan(), REDACTED).contains("TOKENMARKER"));
+    }
+
+    #[test]
+    fn a_non_hex_digest_never_reaches_the_script() {
+        let mut p = plan();
+        p.sha256 = "$(touch /tmp/ghr-injected)".into();
+        let s = seat_script(&p, "t");
+        assert!(!s.contains("touch") && !s.contains("sha256sum"));
+        assert!(s.contains("exit 1"));
+        for bad in [
+            "",
+            "AB".repeat(32).as_str(),
+            &"a".repeat(63),
+            &"g".repeat(64),
+        ] {
+            assert!(!is_sha256_hex(bad), "{bad:?}");
+        }
+        assert!(is_sha256_hex(&"ab".repeat(32)));
     }
 
     #[test]

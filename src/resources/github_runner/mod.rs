@@ -20,6 +20,7 @@ mod api;
 mod jwt;
 mod labels;
 mod script;
+pub(crate) use script::is_sha256_hex;
 
 use crate::core::types::{Machine, Resource};
 use crate::transport::{self, ExecOutput};
@@ -100,7 +101,15 @@ impl Seat {
             labels: spec.labels.clone(),
             group: r.group.clone().filter(|_| scope == Scope::Org),
             version: need(&r.version, "version", &name)?,
-            sha256: need(&spec.sha256, "sha256", &name)?,
+            sha256: {
+                let s = need(&spec.sha256, "sha256", &name)?.to_ascii_lowercase();
+                if !script::is_sha256_hex(&s) {
+                    return Err(format!(
+                        "github_runner `{name}`: `sha256` must be exactly 64 hex characters"
+                    ));
+                }
+                s
+            },
             work_dir,
             user: need(&spec.user, "user", &name)?,
             app_id: app

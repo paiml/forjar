@@ -10,12 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **`github_runner` registers and checks a runner seat (PMAT-1000, #1000, part of #697).**
 `forjar check` lists the runners for the org or repo and reports a declared seat as pass, pending (not registered) or drift, naming both label sets or both groups. `forjar apply` adopts a listed seat that matches without running anything on it, refuses a drifted one (never `--replace`, no registration token requested), and registers an absent one with one registration-token request: the pinned tarball is checked against its sha256 before anything is extracted, `config.sh --unattended` runs as the declared user, and the service is installed and started. The App key is read through the manifest `secrets:` provider and the RS256 JWT is signed on the control host with the `openssl` crate already built under the `tls` feature (no new dependency); only the one-hour registration token reaches the seat, on stdin, and run logs show it as `<redacted>`. `FORJAR_GITHUB_API_URL` and `FORJAR_GITHUB_RUNNER_DOWNLOAD_BASE` override the API and tarball locations. `state: absent` deregisters: one remove-token request (stdin only, like the registration token), `config.sh remove` and service uninstall on the seat, and the listing deleted by id if it outlives the seat; an unlisted seat is a no-op. Repo scope is proven end to end (register, adopt, drift, deregister, all under `/repos/{owner}/{repo}`). Not yet: the falsifiers run against a local fake of the GitHub API, not a live runner; the contract lists what a live call needs.
 
-**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
-`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
-No job is added, removed or skipped.
+## [1.34.1] - 2026-11-12
 
-**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+Patch release for the `--resource-timeout` fix below (PMAT-992), which the
+v1.34.0 clean-room run on `rust:1.95-slim` found. It is cut from `main`, so it
+also carries what merged after the v1.34.0 tag; those are listed after the fix.
+
+**`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
+The timeout path killed the script's process group by spawning the external
+`kill` program and discarded the error. An image without procps
+(`rust:1.95-slim`) has no such program, so nothing was killed and a 2 s timeout
+waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
+the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
+refused.
+
+Also merged since v1.34.0, one line each from the merge subjects:
+
+- `apply --only-machine X` with `-m Y` (disjoint) is refused by name instead of converging nothing at rc=0 (#471, #950).
+- `apply`: refresh-only selection, canary pre-hooks and a plan-file drift notice (#911, #941).
+- `show` resolves `data:` sources before templates (#660, #934).
+- `store import docker` removes the container it created (#621, #933).
+- A timeout that fires before the child spawns still kills the child (infra#3590, #932).
+- `lint` masks secret references so apply scripts are linted (#903).
+- Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#945).
+- Tests only: the build test no longer depends on the host's docker or podman (#503, #948); a templated guard is pinned as seeded like a plain one (#590, #946).
+- CI only: same-job `cargo test` steps run as one invocation (infra#3828, #978).
+- CI only: 26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner; `ci.yml` and `lint.yml` build without debug info or incremental state. No job is added, removed or skipped (PMAT-913, infra#3828, #972).
+- Repository only: the dead `pmat_split.py` and `split_files.py` are deleted; no shipped code changes (PMAT-896, #958, #959).
+
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
 `--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
 files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
