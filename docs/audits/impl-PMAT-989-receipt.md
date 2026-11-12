@@ -1,61 +1,45 @@
-# Implementation receipt — PMAT-989 phase 1 — `forjar build` layers the base image its config declares
+# Implementation receipt — PMAT-989 phases 1-2 — `forjar build` layers its declared base and executes packages/command into a layer
 
-verdict: PARTIAL — phase 1 is done and measured (declared base layered, absent base is an error, base keys the cache); phase 2 (executing `packages` / `command` into a layer) is not started.
+verdict: PARTIAL — phases 1 and 2 are implemented and measured (F1 and F2 pass with real Docker on kfocus, twice); open: the `--sandbox` path, no CI job runs the container falsifier, executed-layer files are owned 0:0, and `--load` names are unresolvable on a containerd-image-store daemon.
 
 ## Identity
 
-- ticket PMAT-989 (forjar#989, IMG-001 3/N); kind: code; phase 1 of 2
-- branch `feat/989-image-base-and-exec`, base `main` @ 03375fcc
-- files: `src/cli/build_image.rs`, `src/cli/build_image_base.rs` (new), `src/cli/build_image_report.rs` (new, code moved out of `build_image.rs`), `src/cli/mod.rs`, `src/cli/mod_test_decl_c.rs`, `src/cli/tests_build_image_base.rs` (new), `docs/specifications/platform/05-container-builds.md`, `CHANGELOG.md`, `docs/roadmaps/roadmap.yaml` (row PMAT-989 label/status/notes), this receipt
+- ticket PMAT-989 (forjar#989, IMG-001 3/N); kind: code; branch `feat/989-image-base-and-exec`, base `main` @ 03375fcc
+- phase 1 commits b9dbc7cf, 7e06e49f, 7d1360d4; phase 2 commits 58725d76 (implementation + fake-runtime tests), b3b0a0ff (container-test falsifier), e6360d0c (F2 by image id), and the docs commit that carries this receipt
+- phase 2 files: `src/core/store/{build_runtime,exec_capture,exec_layer,fake_build_runtime,tests_exec_layer}.rs`, `src/core/store/mod.rs`, `src/core/types/resource.rs` (+`entrypoint`), `src/core/parser/{known_fields,resource_types,tests_known_fields_completeness}.rs`, `src/core/observe/classify_e01.rs`, `src/cli/{build_image,build_image_exec,build_image_cache,build_image_entries,build_image_base,build_image_report,mod,mod_test_decl_c,tests_build_image,tests_build_image_base,tests_build_image_exec}.rs`, `tests/falsification_image_exec.rs`, spec Phase 10, book 39 and 20, CHANGELOG, roadmap row
 
-## Root cause (five whys)
+## Contract (phase 2)
 
-1. `forjar build` on a config with `image: ubuntu:22.04` and no base layout on disk wrote a scratch image and exited 0.
-2. `cmd_build` called `assemble_image(..)`, which is `assemble_image_with_base(.., None)`; the base was never passed.
-3. `build_plan_from_resource` read `state/images/<base>` only to print `format_base_info`, then dropped the result; a missing or unreadable layout was silently skipped (`if base_dir.exists()`, `if let Ok(..)`).
-4. `assemble_image_with_base(.., Some(..))` was written and tested (IMG-001 1/N, 2/N) against hand-built fixtures, but no test drove `cmd_build` with a declared base, so nothing connected the tested assembler to the CLI.
-5. The build-cache key (`compute_layer_input_hash`) covered only the file entries, and the only observable of a missing base was a printed line that was absent, so no gate or test compared the declared config with the built manifest.
+An image resource with `packages` and/or `command` and a declared `image:` base runs them in one container started from that base: packages with the `forjar apply` package script (bash), then `command` (sh). The container's changes are captured (diff + export), normalised (single list in `exec_capture.rs`), sorted, epoch-mtime, 0:0, and appended as one layer after the base layers. `packages`/`command` without `image:` is an error. The base's diff_ids are checked against the runtime's copy; a mismatch is an error with the `docker pull` / `docker save <ref> | tar -x -C <dir>` / skopeo commands. `entrypoint: [..]` is the new entrypoint field; `command` is no longer the entrypoint. The cache key covers the steps and shells. `--json` carries `exec`. `--sandbox` is unchanged.
 
-## Contract and falsifiers
+## Evidence
 
-Contract: an image resource with `image: <ref>` builds on the layout at `<state>/images/<ref with ':' and '/' as '_'>` (one function, `base_layout_dir`, used by the lookup and the error text). The manifest lists the base layers first, then the built layers; the base blobs are in the output layout. An absent, unreadable or incomplete base is an `Err` naming the reference, the directory and `skopeo copy docker://<ref> oci:<dir>`, raised before the output directory is created. Without `image:` the build is unchanged. The base's layer digests, diff_ids, arch, os, runtime config and history are part of the cache key. Same config + same base into two empty output dirs gives the same manifest digest.
+TDD note: phase 2 has NO RED commit. The implementation was written before its tests were committed; the tests were not observed failing against a prior tree. Phase 1's RED evidence (5 failed, then 33 passed) stands in the git history. This is a process gap, stated here.
 
-Falsifiers (`src/cli/tests_build_image_base.rs`, all through the real `cmd_build_in` path with a private state dir):
-
-- `t1_base_layers_come_first_and_their_blobs_are_in_the_output`
-- `t2_declared_base_without_a_layout_fails_closed_and_writes_nothing`
-- `t3_base_with_a_missing_blob_fails_naming_the_digest`
-- `t4_same_config_and_base_give_the_same_manifest_digest_in_two_output_dirs`
-- `t5_cache_keys_on_the_base_identity` (a deleted `index.json` is the witness of a cache hit)
-- `t6_no_image_field_builds_a_scratch_image_as_before`
-- `t7_report_json_carries_the_base_reference_and_layer_count`
-
-## Evidence (host t2yoga, rust 1.93.0 toolchain via `~/src/fc-pre/fc-pre.sh`, 2026-11-12)
-
-RED, commit b9dbc7cf (tests + behaviour-preserving seam), `cargo test --lib tests_build_image`: 28 passed, 5 failed.
-
-    t2 ... a declared base that is absent must be an error, not a scratch image: ()
-    t3 ... a base with a missing blob must be refused: ()
-    t1 ... assertion `left == right` failed: base layer + one built layer   left: 1  right: 2
-    t5 ... changing the base must invalidate the build cache
-    t7 ... assertion `left == right` failed   left: Null  right: "ubuntu:22.04"
-    t4, t6 passed on unchanged behaviour (guards)
-
-GREEN, commit 7e06e49f, same command: 33 passed, 0 failed.
-
-On the tree at 7e06e49f (before this receipt and the roadmap note were added), same host:
+Host kfocus (x86_64, Docker 29.1.3, containerd image store), through the capped wrapper, tree equal to 58725d76 for lib/clippy:
 
 - `cargo fmt --all -- --check`: rc=0
-- `cargo clippy --all-targets -- -D warnings`: rc=0
-- `cargo test --lib`: 13792 passed, 0 failed, 4 ignored
-- `cargo test --test falsification_image_assembler --test falsification_container_builds`: 30 passed and 16 passed, 0 failed
+- `cargo clippy --all-targets -- -D warnings`: rc=0; with `--features container-test`: rc=0 (also on the final test file)
+- `cargo test --lib`: 13821 passed, 0 failed, 4 ignored (phase 1: 13792; +29). An earlier lib run failed 2 tests: `resource_fields_has_no_stale_entries` (fixed: `entrypoint` added to ALIASES) and `cli::tests_build_image::cmd_build_far_produces_valid_archive` ("read magic: failed to fill whole buffer"), a pre-existing race (two tests build resource "img" with `--far` into the same cwd-relative `state/images/img.far`); it passed on rerun. Both verdicts recorded; not touched.
+- `falsification_image_assembler`: 30 passed; `falsification_container_builds`: 16 passed.
 
-Not measured: the other integration targets, `cargo test --workspace`, any real `skopeo copy` of a registry image into the layout and a `docker load` of the result, a clean-room run. The known LAB reds of forjar#858 were not run.
+Falsifiers, `cargo test --features container-test --test falsification_image_exec -- --nocapture --test-threads=1`, base `debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc`, `packages: [jq]`, a command writing `/etc/forjar-exec-marker`. Final tree (e6360d0c), two rounds in one run, both 2 passed / 0 failed:
+
+- F1 round 1: run1 = run2 = `sha256:21e6349abad53505af4df5a44cb6ce312ea1256a25a63f31aeed322c059e629a`; round 2: identical value. The same digest was also seen in 3 earlier rounds. Executed layer: 29 files captured, 0 whiteouts; manifest has 2 layers, base first.
+- F2 (loaded image run by id): `jq --version` rc=0 `jq-1.6`; marker file present: true, in both rounds. On gx10 (aarch64, overlay2) F2 run by tag also passed (jq-1.6, rc 0, marker true).
+- D6 additions to the normalised list beyond the initial list: none were needed.
+
+Not measured: `cargo test --workspace`, other integration targets, a clean-room run, the LAB reds of forjar#858 (not run), the falsifier in any CI job, a non-Debian base, a real `docker load` + run of an image with a non-root-owned file.
 
 ## Open
 
-- Phase 2: `packages` / `command` are not executed into a layer; `LayerStrategy::Packages` still writes only a marker file. Nothing here changes that.
-- `forjar build --sandbox` (`cmd_build_sandbox`) was not changed and does not layer the declared base.
-- There is still no registry pull; the layout must be put on disk by the user.
+- `forjar build --sandbox` ignores base/packages/command; `LayerStrategy::Packages` marker arm is unconstructed by `forjar build`.
+- No CI job runs `tests/falsification_image_exec.rs` (workflows not edited by this ticket).
+- Executed-layer files are 0:0 (`LayerEntry` has no uid/gid).
+- No registry pull in forjar; the layout is supplied by the user.
+- containerd image store: `--load` lists `<tag>` but `docker run <tag>` / `docker image inspect <tag>` do not resolve it (assembler index annotation `io.containerd.image.name`, IMG-001 2/N, `image_assembler.rs`); F2 runs by id. Not fixed here.
+- Package versions are unpinned: digest equality was measured within one day's repository snapshot, not across time.
+- Scope touched beyond the briefed set: `src/core/observe/classify_e01.rs` (entrypoint classified Unobservable, forced by the `every_hashed_field_is_classified` gate; one-line revert), `src/core/parser/tests_known_fields_completeness.rs` (ALIASES), `src/core/parser/resource_types.rs` (`path` not required for an image with packages/command), `src/cli/tests_build_image.rs` fixture (`command:` became `entrypoint:`), and docs/book/src/20-platform-features.md.
+- Phase 9 spec line untouched.
 
 IMPL-PMAT-989-RECEIPT-END

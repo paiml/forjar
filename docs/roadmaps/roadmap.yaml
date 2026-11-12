@@ -5757,7 +5757,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
-  notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command execution into a layer) open'
+  notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command executed into a layer on the declared base, entrypoint field, BuildRuntime) done on the same branch; F1 digest equal and F2 jq present measured with container-test (docs/audits/impl-PMAT-989-receipt.md); sandbox path, CI run of the falsifier, uid/gid capture open'
   epic: 765
 - id: GH-414
   github_issue: 414

@@ -20,6 +20,23 @@ it, and nothing is written. `--json` gains `base` and `base_layers`, and
 and running `command` into a layer, and the `--sandbox` path, are not part of
 this change.
 
+**`forjar build` executes `packages` and `command` into a layer on the declared base (PMAT-989, #989, IMG-001 3/N).**
+An image resource's `packages` and `command` were never run: the layers held only
+the declared `path:` files (or a marker file). The build now starts a container
+from the declared base, installs the packages with the script `forjar apply`
+uses, runs `command`, captures the filesystem changes as one extra layer
+(sorted, epoch mtime, runtime-volatile paths normalised, whiteouts for deletes)
+and appends it after the base layers. Packages or command without `image:`
+fail the build. The base's diff_ids are checked against the runtime's copy. The
+cache key covers the steps; `--json` gains an `exec` object. Limits: the layer
+is owned by 0:0, package versions are unpinned, `--sandbox` is unchanged. Falsifiers
+F1/F2 are in `tests/falsification_image_exec.rs` (`--features container-test`,
+needs Docker; not run by CI). On a containerd-image-store daemon, `--load`ed
+images do not resolve by tag (run by id).
+
+**Changed: `command:` on `type: image` is now a build step, not the entrypoint.** The new
+`entrypoint: [..]` field sets the image entrypoint.
+
 ## [1.34.0] - 2026-11-11
 
 Version bump: v1.33.0 is already tagged, so this release carries everything
