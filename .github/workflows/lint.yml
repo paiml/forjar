@@ -7,7 +7,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - "src/**"
@@ -33,7 +32,6 @@ env:
 jobs:
   clippy:
     timeout-minutes: 60
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       matrix:
         # PMAT-547: the Linux leg names the fleet, not a GitHub-hosted label.
@@ -156,7 +154,6 @@ jobs:
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
     timeout-minutes: 15
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
