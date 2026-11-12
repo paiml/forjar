@@ -5757,26 +5757,25 @@ roadmap:
   - kind:code
   notes: split from PMAT-756
   epic: 765
-- id: PMAT-659
-  github_issue: 659
+- id: PMAT-920
+  github_issue: 920
   item_type: task
-  title: 'check / apply --check: an unreachable host counts as a FAIL (ssh exit 255) and exits 1, like drift; the documented exit 2 and exit 4 never happen'
+  title: 'FJ-LOCK-001 master: per-machine atomic owner-checked state lock with bounded wait'
   status: inprogress
-  priority: high
+  priority: critical
   assigned_to: null
-  created: 2026-10-04T02:38:22Z
-  updated: 2026-11-11T18:40:00Z
+  created: 2026-11-09T14:21:24Z
+  updated: 2026-11-11T13:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'C1: the process lock is published with link(2), so a racer never reads or reaps an empty lock file.'
+  - 'C2: the state lock is held from the pre-validate gates to the post-apply actions, on the apply and the --plan-file path, and released on every exit; a dry run takes none.'
+  - 'C3-C5: locks carry an owner id, are per machine plus one short global lock, and --lock-timeout waits first come first served.'
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
-  - orch:fable
-  - orch-basis:state
-  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
-  epic: 696
 - id: GH-414
   github_issue: 414
   item_type: task
@@ -7128,3 +7127,45 @@ roadmap:
   labels:
   - kind:code
   notes: null
+- id: PMAT-896
+  github_issue: 896
+  item_type: task
+  title: 'python-ban train: cb200-ratchet and comply-count read JSON with jq; delete dead pmat_split.py and split_files.py'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-10T09:01:00Z
+  updated: 2026-11-11T21:30:00Z
+  spec: null
+  acceptance_criteria:
+  - scripts/cb200-ratchet.sh and scripts/ratchets/comply-count.sh run no python; the ceiling, the comply count and the failure messages keep their contract (a pass is 0, a missing id, no count, no JSON or bad JSON is a non-zero exit with a message).
+  - pmat_split.py and split_files.py are deleted and nothing outside historical work records names them.
+  - falsification_cb200_ratchet_measures_this_tree, falsification_comply_count_cannot_run_inside_itself and falsification_607_release_path_runs_no_python stay green.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
+- id: PMAT-659
+  github_issue: 659
+  item_type: task
+  title: 'check / apply --check: an unreachable host counts as a FAIL (ssh exit 255) and exits 1, like drift; the documented exit 2 and exit 4 never happen'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T02:38:22Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696

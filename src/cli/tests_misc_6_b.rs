@@ -37,7 +37,7 @@ mod tests {
             env_file: None,
             workspace: None,
             report: false,
-            force_unlock: false,
+            lock: Default::default(),
             output: None,
             progress: false,
             timing: false,
