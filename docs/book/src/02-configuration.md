@@ -571,7 +571,7 @@ For secrets that need to be committed to git, use age encryption. Values are sto
 forjar secrets keygen > identity.txt
 
 # Encrypt a value
-forjar secrets encrypt "my-db-password" -r age1abc...
+printf %s "my-db-password" | forjar secrets encrypt -r age1abc...
 
 # Paste the ENC[age,...] marker into your YAML
 ```
@@ -599,7 +599,7 @@ Both approaches coexist — `{{secrets.key}}` for env-var secrets, `ENC[age,...]
 
 CLI commands:
 - `forjar secrets keygen` — generate a new age identity
-- `forjar secrets encrypt VALUE -r RECIPIENT` — encrypt a value
+- `forjar secrets encrypt -r RECIPIENT [--from-file PATH]` — encrypt a value read from stdin
 - `forjar secrets decrypt MARKER` — decrypt a marker
 - `forjar secrets view -f FILE` — decrypt and display all secrets in a file
 - `forjar secrets rekey -f FILE -r NEW_RECIPIENT` — re-encrypt with new keys
