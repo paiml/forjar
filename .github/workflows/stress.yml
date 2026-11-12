@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   stress:
+    timeout-minutes: 120
     # forjar#598 -- PINNED TO BARE METAL (interim, named coupling). This job
     # runs UNFILTERED lib tests, which include nas_archive's
     # the_environment_can_exercise_the_safety_property -- a test that FAILS
