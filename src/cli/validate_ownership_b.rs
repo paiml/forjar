@@ -79,7 +79,7 @@ fn find_cross_machine_inconsistencies(config: &types::ForjarConfig) -> Vec<(Stri
     let mut type_by_name: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (name, res) in &config.resources {
-        let t = format!("{:?}", res.resource_type);
+        let t = res.resource_type.to_string();
         type_by_name.entry(name.clone()).or_default().push(t);
     }
     let mut issues = Vec::new();

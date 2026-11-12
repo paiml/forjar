@@ -269,7 +269,7 @@ pub(crate) fn cmd_status_fleet_resource_security_posture_score(
         let diversity = lock
             .resources
             .values()
-            .map(|r| format!("{:?}", r.resource_type))
+            .map(|r| r.resource_type.to_string())
             .collect::<std::collections::HashSet<_>>()
             .len();
         let base_score = converged as f64 / total as f64;

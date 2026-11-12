@@ -169,3 +169,27 @@ fn print_lineage_text(dag: &[(String, String, Vec<String>)], root: &str, name: &
         dim("Note:")
     );
 }
+
+#[cfg(test)]
+mod golden_tests {
+    use super::*;
+
+    const YAML: &str = "version: '1.0'\nname: g\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: github_release\n    machine: m\n    path: /x\n  b:\n    type: file\n    machine: m\n    path: /y\n    content: hi\n    depends_on: [a]\n";
+
+    /// Hash inputs are byte-stable across releases: the Debug spelling
+    /// (`GithubRelease`), never the Display one (`github_release`).
+    #[test]
+    fn lineage_hashes_equal_their_base_values() {
+        let cfg = crate::core::parser::parse_config(YAML).expect("parse");
+        let dag = build_merkle_dag(&cfg);
+        let got: Vec<(&str, &str)> = dag
+            .iter()
+            .map(|(i, h, _)| (i.as_str(), h.as_str()))
+            .collect();
+        assert_eq!(got, GOLDEN_NODES, "lineage node hashes drifted from base");
+        assert_eq!(merkle_root(&dag), GOLDEN_ROOT);
+    }
+
+    const GOLDEN_NODES: &[(&str, &str)] = &[("a", "4b5cab091a2dccff"), ("b", "01305ed2838b43d3")];
+    const GOLDEN_ROOT: &str = "54521559817d0658";
+}
