@@ -93,40 +93,38 @@ if [ -z "$json" ]; then
   exit 2
 fi
 
-# jq, not an interpreter (forjar#752): CI stays on shell and
-# sovereign tools. Same contract as before: the leading integer of the check's
-# own message is the count, a pass is 0, anything else is a FAILED measurement.
-body="${json#*\{}"
-if [ "$body" = "$json" ]; then
-  echo "comply-count: no JSON object in comply output" >&2
-  exit 1
-fi
-body="{${body}"
-row="$(jq -rs --arg want "$want" 'if length != 1 then "AMBIGUOUS " + (length | tostring) else .[0] |
-  [(.checks // [])[] | select((.name // "" | tostring) | startswith($want + ":"))] | first
-  | if . == null then "MISSING"
-    else ((.status // "" | tostring | ascii_downcase) as $s
-          | (.message // "" | tostring) as $m
-          | if $s == "pass" then "COUNT 0"
-            elif ($m | test("^\\s*[0-9]+\\s+finding")) then "COUNT " + ($m | capture("^\\s*(?<n>[0-9]+)").n)
-            else "NOCOUNT " + $s + " " + ($m | .[0:120]) end)
-    end end' <<<"$body" 2>&1)" || { echo "comply-count: comply output does not parse: ${row}" >&2; exit 1; }
-case "$row" in
-  "COUNT "*) printf '%s\n' "${row#COUNT }" ;;
-  MISSING)
-    echo "comply-count: no check named ${want} in the comply roster — the id has rotted, and a rotted id must not read as zero findings" >&2
-    exit 1
-    ;;
-  NOCOUNT\ *)
-    echo "comply-count: ${want} reports ${row#NOCOUNT } but its message carries no finding count" >&2
-    exit 1
-    ;;
-  AMBIGUOUS\ *)
-    echo "comply-count: comply output is not exactly one JSON document (${row#AMBIGUOUS } found) — refusing to guess which one is the report" >&2
-    exit 1
-    ;;
-  *)
-    echo "comply-count: unexpected parser state: ${row:-<empty>}" >&2
-    exit 1
-    ;;
-esac
+printf '%s' "$json" | python3 -c '
+import json, re, sys
+
+want = sys.argv[1]
+raw = sys.stdin.read()
+i = raw.find("{")
+if i < 0:
+    sys.exit("comply-count: no JSON object in comply output")
+try:
+    d = json.loads(raw[i:])
+except Exception as e:
+    sys.exit("comply-count: comply output does not parse: %s" % e)
+
+for c in d.get("checks", []) or []:
+    name = str(c.get("name", ""))
+    if not name.startswith(want + ":"):
+        continue
+    status = str(c.get("status", "")).lower()
+    msg = str(c.get("message", ""))
+    if status == "pass":
+        print(0)
+        sys.exit(0)
+    # "44 finding(s) — ORPHAN-ROADMAP 24, …". The leading integer is the count
+    # the check itself reports; this script never recounts it from the sample,
+    # which is truncated to a handful of lines.
+    m = re.match(r"\s*(\d+)\s+finding", msg)
+    if m:
+        print(int(m.group(1)))
+        sys.exit(0)
+    sys.exit("comply-count: %s reports %s but its message carries no finding count: %.120s"
+             % (want, status, msg))
+
+sys.exit("comply-count: no check named %s in the comply roster — the id has rotted, "
+         "and a rotted id must not read as zero findings" % want)
+' "$want"
