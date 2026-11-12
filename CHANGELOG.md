@@ -41,11 +41,6 @@ a core file. Run secrets commands under `ulimit -c 0`; `PR_SET_DUMPABLE`/`RLIMIT
 hardening and zeroizing are tracked as a follow-up (no safe wrapper is a direct dependency,
 and `unsafe` is forbidden in this crate).
 
-**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
-`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
-No job is added, removed or skipped.
-
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
