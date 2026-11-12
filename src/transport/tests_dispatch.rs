@@ -488,6 +488,6 @@ fn test_154_record_child_pid_no_slot() {
 /// #6: killing a non-existent process group is a harmless no-op (best-effort).
 #[test]
 fn test_154_kill_group_nonexistent_is_noop() {
-    // A very high PID: kill(1) of its (absent) group just fails silently.
-    kill_process_group(2_000_000_000);
+    // A very high PID: killpg(2) of its (absent) group reports not-delivered.
+    assert!(!kill_process_group(2_000_000_000));
 }
