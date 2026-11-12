@@ -113,19 +113,55 @@ fn fj154_apt_state_query_quoted() {
     assert!(!script.contains(" 'x';id"), "{script}");
 }
 
-/// #694: a declared completion_check must appear in the generated check for
-/// every provider, and must change the verdict.
+/// forjar#694: `completion_check` on a package resource is emitted into the
+/// check script, for every provider that has presence assertions.
 #[test]
-fn gh694_package_check_runs_the_declared_completion_check() {
+fn gh694_completion_check_reaches_the_check_script() {
     for provider in ["apt", "cargo", "uv", "brew"] {
         let mut r = make_apt_resource(&["jre"]);
         r.provider = Some(provider.to_string());
-        assert!(!check_script(&r).contains("java -version"), "{provider}");
-        r.completion_check = Some("java -version 2>&1 | grep -q openjdk".to_string());
-        let s = check_script(&r);
-        assert!(s.contains("java -version"), "{provider}: {s}");
-        assert!(s.contains("completion_check=failed"), "{provider}");
+        r.completion_check = Some("java -version 2>&1 | grep -q 17".to_string());
+        let script = check_script(&r);
+        assert!(
+            script.contains("java -version 2>&1 | grep -q 17"),
+            "{provider}: {script}"
+        );
+        assert!(script.contains("task=pending"), "{provider}: {script}");
     }
+}
+
+/// forjar#694: without a `completion_check` nothing is added.
+#[test]
+fn gh694_no_completion_check_adds_nothing() {
+    let r = make_apt_resource(&["jre"]);
+    assert!(!check_script(&r).contains("task=pending"));
+}
+
+/// forjar#694: the verdict follows the declared check. dpkg is stubbed to say
+/// the package is installed, so only `completion_check` can fail the script.
+#[test]
+fn gh694_failing_completion_check_diverges_a_present_package() {
+    let dir = tempfile::tempdir().unwrap();
+    let dpkg = dir.path().join("dpkg");
+    std::fs::write(&dpkg, "#!/bin/sh\necho 'ii  jre'\n").unwrap();
+    std::process::Command::new("chmod")
+        .arg("+x")
+        .arg(&dpkg)
+        .status()
+        .unwrap();
+    let run = |check: &str| {
+        let mut r = make_apt_resource(&["jre"]);
+        r.completion_check = Some(check.to_string());
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg(check_script(&r))
+            .env("PATH", format!("{}:/usr/bin:/bin", dir.path().display()))
+            .status()
+            .unwrap()
+            .code()
+    };
+    assert_eq!(run("true"), Some(0));
+    assert_eq!(run("false"), Some(1));
 }
 
 /// #694: a blank `completion_check` asserts nothing. It must not reach the

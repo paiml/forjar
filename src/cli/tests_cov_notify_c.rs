@@ -25,7 +25,7 @@ mod tests {
     #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_keygen() {
-        assert!(cmd_secrets_keygen().is_ok());
+        assert!(cmd_secrets_keygen(None).is_ok());
     }
     #[cfg(feature = "encryption")]
     #[test]

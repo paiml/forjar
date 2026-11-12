@@ -56,7 +56,6 @@ fn main() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.2),
-            failed: false,
         },
     );
     println!("  Captured: nginx-pkg.apply.log (success, 1.2s)");
@@ -83,10 +82,9 @@ fn main() {
     run_capture::update_meta_resource(
         &dir,
         "cargo-tools",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(100),
             duration_secs: Some(0.8),
-            failed: true,
         },
     );
     println!("  Captured: cargo-tools.apply.log (FAILED, exit 100)\n");

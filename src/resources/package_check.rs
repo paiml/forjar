@@ -220,21 +220,24 @@ pub fn check_script(resource: &Resource) -> String {
     }
 }
 
-/// #694: a declared `completion_check` is an assertion of its own, beside the
-/// provider's presence checks. It was accepted and never run, so a JRE that is
-/// installed but is not the java that runs graded as converged.
+/// forjar#694: a declared `completion_check` is part of the verdict.
+///
+/// It used to be accepted, validated and never emitted, so a package resource
+/// was graded on presence alone while its config read as if the tool ran.
+/// It is appended after the provider's presence assertions, with the same
+/// marker names the task check uses.
 fn finish(resource: &Resource, mut checks: Vec<String>) -> String {
     // A blank `completion_check` asserts nothing; as an `if` condition it is a
     // shell syntax error, so it is dropped here rather than quoted into the script.
-    if let Some(cc) = resource
+    if let Some(check) = resource
         .completion_check
         .as_deref()
         .filter(|cc| !cc.trim().is_empty())
     {
         checks.push(verdict::assert_that(
-            cc,
-            "completion_check=passed",
-            "completion_check=failed",
+            check,
+            "task=completed",
+            "task=pending",
         ));
     }
     verdict::check_script_from(&checks)

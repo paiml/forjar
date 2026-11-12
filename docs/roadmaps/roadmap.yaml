@@ -2786,6 +2786,8 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
+  - orch-basis:state
   notes: 'Clean-room builds start from a fresh checkout, so the release artifact is not affected; the hazard is local reuse of target/. Registered under the title "S2: build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — read it at run time so a reused build-script binary never reads another checkout''s contracts/ (GH #456, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
   release: backlog
 - id: PMAT-195
@@ -5488,6 +5490,27 @@ roadmap:
   - kind:code
   - release:v1.34.0
   notes: 'Completed 2026-11-11: e7c6a6e0 (#782) redacts resolved secrets from the failure excerpt in state.lock, events.jsonl, last-apply and stderr, at both wave widths; a canary test greps every state file.'
+- id: PMAT-893
+  github_issue: 893
+  item_type: task
+  title: 'Encryption is a default feature; secrets encrypt takes plaintext on stdin or --from-file, never argv (#893, #895)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-07T00:00:00Z
+  updated: 2026-11-11T22:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'cargo install forjar carries age (keygen, encrypt/decrypt, state encryption work out of the box); keygen -o creates the identity 0600 from the first syscall and refuses to overwrite; secrets encrypt has no positional VALUE, reads stdin or --from-file, and no secrets-family usage error echoes an argument (subcommand-position redaction only; a non-UTF-8 argument must not panic); bad-recipient, --from-file, keygen, decrypt, view, rekey and rotate errors echo no value or path; a failing stdout is exit 1, not a panic; stdin/--from-file plaintext is capped at 16 MiB; core-dump hardening is a documented residual (ulimit -c 0) with a follow-up. Falsifiers: tests/falsification_893_secrets_encryption_default.rs, falsification_893_secrets_round3.rs, falsification_893_secrets_round4.rs, falsification_893_secrets_round5.rs spawn the built binary; falsification_default_features_trim.rs checks the manifest. PR #895.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: null
+  release: 1.34.1
 - id: PMAT-840
   github_issue: 840
   item_type: task
@@ -7216,3 +7239,101 @@ roadmap:
   - orch-basis:state
   notes: 'Gate A row added by the lane worker on lane-943; the issue number 916 follows the PMAT-n/#n pairing of neighbouring rows and was not read from GitHub. The branch commits before this one carry Pmat-Ticket: PMAT-198 (the #433 row).'
   release: 1.34.1
+- id: PMAT-890
+  github_issue: 890
+  item_type: task
+  title: 'apply -t includes the depends_on closure (FLEET-OPS-DELIVERY-001 §5 item 1)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-07T08:36:54Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696
+- id: PMAT-659
+  github_issue: 659
+  item_type: task
+  title: 'check / apply --check: an unreachable host counts as a FAIL (ssh exit 255) and exits 1, like drift; the documented exit 2 and exit 4 never happen'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-10-04T02:38:22Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696
+- id: PMAT-638
+  github_issue: 638
+  item_type: task
+  title: 'file arm: fixed staging name .forjar-new can be raced from the same directory; I8 corpus never exercises state: file (follow-up to #637)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-09-25T13:12:59Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
+  epic: 696
+- id: PMAT-639
+  github_issue: 639
+  item_type: task
+  title: forjar --version names the build commit (#639)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T16:26:19Z
+  updated: 2026-11-12T16:26:19Z
+  spec: null
+  acceptance_criteria:
+  - 'build.rs embeds FORJAR_GIT_SHA; rerun when the branch ref moves (PR #908, closes #639)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 915
+- id: PMAT-1004
+  github_issue: 1004
+  item_type: task
+  title: 'ci: run git/bash-only jobs on gate-light'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T20:40:03Z
+  updated: 2026-11-12T20:40:03Z
+  spec: null
+  acceptance_criteria:
+  - git/bash-only jobs (classify x3, ci gate) to gate-light
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913

@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+#[path = "build_git.rs"]
+mod build_git;
+
 #[derive(serde::Deserialize, Default)]
 struct ContractYaml {
     #[serde(default)]
@@ -17,7 +20,12 @@ struct EquationYaml {
 }
 
 fn emit_contract_assertions() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    // The directory is read when this script RUNS; whether it runs again when
+    // another checkout shares the target dir is decided by this directive.
+    println!("cargo::rerun-if-env-changed=CARGO_MANIFEST_DIR");
+    let dir =
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
+            .join("contracts");
     if !dir.exists() {
         return;
     }
@@ -117,7 +125,9 @@ fn unresolved_binding(dir: &std::path::Path, b: &BindingYaml) -> Option<String> 
 /// `#[test]` in tests/falsification_contract_citations_resolve.rs, deliberately:
 /// a build result is cacheable and a test result is not.
 fn verify_binding_equations(binding_path: &std::path::Path) {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("contracts");
+    let dir =
+        std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
+            .join("contracts");
     let text = std::fs::read_to_string(binding_path).expect("read binding.yaml");
     let registry: BindingRegistryYaml = serde_yaml_ng::from_str(&text).expect("parse binding.yaml");
     assert!(
@@ -141,7 +151,32 @@ fn verify_binding_equations(binding_path: &std::path::Path) {
     );
 }
 
+/// #639: embed the build commit so `forjar --version` names it. CI may pass
+/// FORJAR_GIT_SHA (release tag's commit); else ask git; else "unknown".
+fn emit_git_sha() {
+    println!("cargo::rerun-if-env-changed=FORJAR_GIT_SHA");
+    let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
+    for p in build_git::rerun_paths(&root) {
+        println!("cargo::rerun-if-changed={p}");
+    }
+    let from_env = std::env::var("FORJAR_GIT_SHA").ok();
+    let sha = from_env
+        .or_else(|| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--short=7", "HEAD"])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        })
+        .map(|s| s.chars().take(7).collect::<String>())
+        .filter(|s| s.len() == 7 && s.chars().all(|c| c.is_ascii_hexdigit()))
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo::rustc-env=FORJAR_GIT_SHA={sha}");
+}
+
 fn main() {
+    emit_git_sha();
     emit_contract_assertions();
 
     let binding_path = "contracts/binding.yaml";

@@ -21,15 +21,13 @@ fn run_meta_record_resources() {
         ResourceRunStatus::Converged {
             exit_code: Some(0),
             duration_secs: Some(1.5),
-            failed: false,
         },
     );
     meta.record_resource(
         "c",
-        ResourceRunStatus::Converged {
+        ResourceRunStatus::Failed {
             exit_code: Some(1),
             duration_secs: Some(0.3),
-            failed: true,
         },
     );
     meta.record_resource(
@@ -180,7 +178,6 @@ fn resource_run_status_variants() {
     let converged = ResourceRunStatus::Converged {
         exit_code: Some(0),
         duration_secs: Some(2.5),
-        failed: false,
     };
     let yaml = serde_yaml_ng::to_string(&converged).unwrap();
     assert!(yaml.contains("converged"));
