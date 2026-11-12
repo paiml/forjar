@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-992 (forjar#992 / PR #993, v1.34.1 cut prep) \u2014 --resource-timeout signals the child script's process group directly via killpg(2) (and pepita namespace init via kill(2)) without an external kill binary, plus 1.34.1 manifest/ledger/changelog/dogfood-receipt prep.",
+  "branch": "fix/992-timeout-kill-by-syscall",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (syscall/manifest, lifecycle/ledger, falsifiers/dogfood) at head 236018b2; 3/3 PASS with 5 claims confirmed and 2 refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 2, head 236018b2 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Syscall Semantics, pid_t Boundary & 1.34.1 Manifest Footprint): PASS",
+      "round 2, head 236018b2 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Process-Group Lifecycle, Pepita Teardown & Release Window Reconciliation): PASS",
+      "round 2, head 236018b2 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Discrimination & dogfood-1.34.1 Audit): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C5 and R1..R2 was independently attacked across all 3 lanes; R1 bounds dogfood-1.34.1-receipt.md (candid NO-GO on 5/9 release gates, no gate softened) and R2 bounds local-only integration falsifier scope.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: docs/audits/dogfood-1.34.1-receipt.md records verdict NO-GO on the nine-gate bar (B, F, G, T, H failing; crux-1.34.1.md intentionally unfabricated), so Cargo.toml:3 and CHANGELOG.md:10 stage 1.34.1 on main without claiming nine-gate tag promotion clearance.",
+      "R2: tests/falsification_992_timeout_needs_no_kill_binary.rs:85 exercises local shell apply under a kill-less PATH rather than end-to-end SSH/container or pepita::cleanup_namespace teardown; SSH/container worker timeout shares kill_worker_child_group and kill_pid bounds are pinned in tests_timeout.rs:33."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb kill_process_group in src/transport/child_group.rs:55 back to Command::new(\"kill\").args([\"-9\", &format!(\"-{raw}\")]) on <host> (<SCRATCH>) and run cargo test --test falsification_992_timeout_needs_no_kill_binary.",
+    "test_file": "tests/falsification_992_timeout_needs_no_kill_binary.rs",
+    "cargo_test_target": "falsification_992_timeout_needs_no_kill_binary",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): restoring Command::new(\"kill\") in src/transport/child_group.rs:55 failed both no_source_file_spawns_a_kill_binary and resource_timeout_bounds_the_apply_with_no_kill_binary_on_path (fj993_revert_rc=101)."
+  },
+  "crux": {
+    "systems": [
+      "GNU timeout / coreutils (kill(-pgid, sig) via kill(2)): signals the monitored foreground process group directly by syscall without shelling out to /bin/kill",
+      "systemd KillMode=control-group / process: delivers SIGTERM/SIGKILL via kernel syscalls (kill/pidfd_send_signal) independent of container userland binaries",
+      "Go os/exec CommandContext & tokio::process kill_on_drop: invokes kill(2)/killpg(2) directly on the OS handle so minimal distroless/slim images never depend on procps"
+    ],
+    "verdict": "Signalling the child process group via nix::sys::signal::killpg (and namespace init via kill_pid with raw > 1) eliminates the hidden procps binary dependency while keeping #![forbid(unsafe_code)]."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Syscall/Manifest, Lifecycle/Ledger, Falsifiers/Dogfood) at head 236018b2",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at 236018b2 (5 claims confirmed, 2 claims refuted: R1 dogfood NO-GO scope bounded, R2 transport scope narrowed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-992",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo clippy --all-targets -- -D warnings + 9 release/timeout falsifier suites (53/53) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "7cca5aa5e40a4991aeac1122b9601c4c5fa820fa",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-992-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "df010d4595172aaa93c6cb2fa7ed1f637c695a70",
+        "sha256": "ea40fa99e9ef80841eedc3083b288b18b11470827e15d3943602b465c0ef90c5",
+        "bytes": 2483
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "fd8e30a729927dd369f924ff6d8b2315f62dc695",
+        "sha256": "09889c224deda2267e7d4d2649865a1f26f46fb4d5b67adb7c4e00b92a3e13b1",
+        "bytes": 1809
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "83f44a6abc02ae58c2311ee790ecaac2ca3da084",
+        "sha256": "5681253c54e69bcdff5495aa6aba19bfcda4009799eff49ff5dc9a5381399117",
+        "bytes": 3383
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "63bf6b747088413059c893ef424914fe066e8875",
+        "sha256": "7adea6965ba04f032534c2b083a234a6a0cd409e06d6e43850944efd51e0ae14",
+        "bytes": 1331
+      }
+    ],
+    "total_bytes": 9006,
+    "claims_digest": ".quorum/evidence/PMAT-992-judges.md"
+  }
+}
