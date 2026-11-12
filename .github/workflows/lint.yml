@@ -8,13 +8,30 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "benches/**"
+      - "examples/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain*"
+      - ".cargo/**"
+      - ".github/workflows/lint.yml"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# runner-smells RS-06: no debug info, no incremental artefacts on CI runners.
+env:
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_INCREMENTAL: 0
 
 jobs:
   clippy:
+    timeout-minutes: 60
     strategy:
       matrix:
         # PMAT-547: the Linux leg names the fleet, not a GitHub-hosted label.
@@ -29,9 +46,9 @@ jobs:
         # runs on pull_request like the Linux legs above, which are self-hosted
         # too, so the exposure to PR code is the one this file already has.
         include:
-          - runner: [self-hosted, clean-room, ARM64]
+          - runner: [self-hosted, clean-room]
             features: ""
-          - runner: [self-hosted, clean-room, ARM64]
+          - runner: [self-hosted, clean-room]
             features: encryption
           - runner: [self-hosted, macOS, mini-builder]
             features: ""
@@ -136,7 +153,8 @@ jobs:
   # PR *and* is now over 500. A pre-existing over-limit file (the declarative
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
-    runs-on: [self-hosted, clean-room, ARM64]
+    timeout-minutes: 15
+    runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:

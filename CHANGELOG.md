@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
+26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
+`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
+No job is added, removed or skipped.
+
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
+## [1.34.0] - 2026-11-11
+
+Version bump: v1.33.0 is already tagged, so this release carries everything
+merged since. The entries below were listed under Unreleased.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
@@ -79,6 +94,27 @@ under `timeout` (`FORJAR_BUDGET_FIND_TIMEOUT`, default 120 s), `-xdev`, `nice` a
 MEASURED and fails safe: nothing is proven dead and nothing is deleted. The
 default cadence stays `hourly`; a faster one (e.g. `*:0/15`) is an explicit
 `budget_schedule`.
+
+**A `copia` file transfer runs in the declared `sudo` context, so a source over
+1 MiB no longer fails (#927, #940).**
+
+Also merged since v1.33.0, one line each from the merge subjects:
+
+- `plan --refresh` consults the host before diffing, writes nothing, and says what it could not measure (#415, #684).
+- `plan --output-dir` honours `-r`/`-m`/`-g`/`-t` and never resolves a secret (#674, #675).
+- `apply -r <one> --cost-limit` counts only the selected resources (PMAT-829, #833).
+- A failing data source no longer fails the plan (PMAT-828, #830).
+- A secret is redacted from the failure excerpt in lock, events and stderr (#782).
+- `parse_config` reports the schema-free parse's error for a malformed document (PMAT-760, #786).
+- `--resource-timeout` bounds the apply script on the wave path (#777, #778).
+- `cron` with `state: absent` fails closed when the crontab cannot be read (#790).
+- A new inode-pressure check and a `tmp_reaper` resource (#847, #849).
+- `drift` names the resolved lock it read (#585, #957).
+- The `package` cargo check tolerates a silent helper and runs binaries in a scratch directory (#662, #956).
+- `is_local_addr` recognises addresses held by a local interface (#724).
+- A sandbox's `$out` is sealed in-process (#410, #682).
+- Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#942); tokio 1.54.1 (#783); zip 9 (#715); webpki and rustls bumps (#711).
+- CI and release engineering: ARM64 clean-room gate jobs (#827), PR-number concurrency groups (#976), mutation runs on schedule only (#973), the quorum-receipt gate reads the receipt store (#874).
 
 ## [1.33.0] - 2026-09-28
 

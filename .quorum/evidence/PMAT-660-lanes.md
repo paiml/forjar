@@ -1,0 +1,5 @@
+# PMAT-660 (`forjar#934`) — Three-Lane Independent Refuter Transcript Summary
+
+- **Lane 1 (Gemini 4 Carbon High — Correctness & Data-Source Resolution Order)**: Verified `resolve_data_sources` ordering before `resolve_resource_templates`, YAML/JSON + `-r` filter coverage, and error propagation (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @8b70633cd59aa07500fa017c239dbdbaa674b55f`.
+- **Lane 2 (Gemini 4 Carbon High — Failure Modes, Command Side Effects & Security)**: Verified fail-closed error handling, `forjar_state` isolation without `--state-dir`, and `type: command` execution parity with `validate`/`plan` (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @8b70633cd59aa07500fa017c239dbdbaa674b55f`.
+- **Lane 3 (Gemini 4 Carbon High — Contract, Revert Falsifiers & Traceability)**: Verified `docs/audits/impl-PMAT-660-receipt.md`, `roadmap.yaml`, `22/22` `tests_cov_show2`, and `FJ934_REV_KILLED` on `t2fw13` (`C1..C3` confirmed; `R1, R2` refuted). Verdict: `PASS @8b70633cd59aa07500fa017c239dbdbaa674b55f`.

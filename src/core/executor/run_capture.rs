@@ -293,11 +293,8 @@ pub fn capture_exec_output(
     let output = if transcript.secrets.is_empty() {
         output
     } else {
-        redacted = ExecOutput {
-            exit_code: output.exit_code,
-            stdout: transcript.redact(&output.stdout),
-            stderr: transcript.redact(&output.stderr),
-        };
+        // `suppress` returned above, so this is the plain redaction of both streams.
+        redacted = transcript.redact_output(output);
         &redacted
     };
     // Refs #390: the old call site hard-coded `let rt = "unknown"` with the
