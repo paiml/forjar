@@ -7149,3 +7149,21 @@ roadmap:
   - orch:fable
   - orch-basis:state
   notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
+- id: PMAT-1000
+  github_issue: 1000
+  item_type: task
+  title: 'github_runner resource: register and check self-hosted runner seats through a GitHub App (#1000)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-12T14:44:22Z
+  updated: 2026-11-12T14:44:22Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 697

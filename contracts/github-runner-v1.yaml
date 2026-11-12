@@ -1,0 +1,220 @@
+---
+metadata:
+  version: "1.0.0"
+  kind: pattern
+  created: "2026-11-12"
+  author: "PAIML Engineering"
+  description: |
+    The `github_runner` resource (forjar#1000, part of forjar#697): a
+    self-hosted GitHub Actions runner seat declared in a manifest, registered
+    through a GitHub App, and checked for drift.
+
+    Today a seat is registered by hand: `config.sh` with a token someone
+    fetched. A manifest cannot say "this machine carries these runner seats",
+    `apply --check` cannot see a seat that fell off or whose labels drifted,
+    and the registration token is handled outside the secrets path.
+
+    Six obligations. C1 to C5 are about registration and are proven in phase 2,
+    against a local fake of the GitHub API (no network, no real App). C6 is
+    about the manifest and is proven in phase 1, against the real binary.
+
+    PHASE STATUS. Phase 1 (this file's first commit) ships the resource type,
+    the C6 validation, and a `check`/`apply` that refuse with "not implemented
+    yet" rather than pass silently. C1 to C5 carry no `enforced_by` citation
+    until phase 2 lands the fake they need; the obligations are stated now so
+    the design is fixed before the code is written.
+
+    Persistent seats only. Ephemeral and just-in-time seats, runner group
+    management, runner auto-update policy and scale sets are out of scope.
+
+  references:
+    - "issue: https://github.com/paiml/forjar/issues/1000"
+    - "issue: https://github.com/paiml/forjar/issues/697 — the parent"
+    - "GitHub REST: POST /orgs/{org}/actions/runners/registration-token and POST /repos/{owner}/{repo}/actions/runners/registration-token (a token is valid 1 h)"
+    - "GitHub REST: GET /orgs/{org}/actions/runners and GET /repos/{owner}/{repo}/actions/runners (the list check reads)"
+    - "GitHub Apps: authenticating as an App with a signed JWT, then as an installation"
+    - "tests/falsification_github_runner.rs — driven through the binary"
+
+  quorum_validation:
+    - system: "Terraform (`terraform plan`, drift against a remote API)"
+      adopted: |
+        Declared state is compared with what the remote API lists, and a
+        difference is reported by name with both sides, not applied silently.
+        Adopted: check lists the runners and names a label or group difference
+        with both sets.
+      encoded_as: "equation `drift_is_refused`"
+    - system: "Kubernetes (`kubeadm join` bootstrap tokens)"
+      adopted: |
+        A join token is short-lived, minted by the control plane and handed to
+        the node once; the node never holds the credential that mints it.
+        Adopted: the control host holds the App key and signs the JWT; only the
+        1 h registration token crosses to the seat, on stdin.
+      encoded_as: "equation `key_stays_on_control_host`"
+    - system: "Ansible (`get_url` with `checksum:`)"
+      adopted: |
+        A download is verified against a declared digest before anything runs
+        from it, and a mismatch is a failure, not a warning.
+        Adopted: the tarball is checked against `sha256` before `config.sh`.
+      encoded_as: "equation `tarball_is_pinned`"
+
+equations:
+  key_stays_on_control_host:
+    formula: |
+      secret ∈ {private_key, jwt, registration_token, remove_token}
+        ⟹ secret ∉ (seat scripts ∪ state files ∪ event log ∪ stdout ∪ stderr)
+    domain: "one check or apply of a github_runner resource"
+    codomain: "bool"
+    invariants:
+      - "The App private key is read on the control host through the manifest `secrets:` provider and never leaves it"
+      - "The control host signs the JWT and asks GitHub for the registration token; only that token goes to the seat, over the transport's stdin"
+      - "A token is never an argument (it would show in `ps` and the shell history), never written to a state file, never logged"
+
+  adopt_is_noop:
+    formula: |
+      listed(name) ∧ labels_listed = labels_declared (as sets) ∧ group_listed = group_declared
+        ⟹ seat_commands = 0 ∧ result = unchanged
+    domain: "a seat the API already lists"
+    codomain: "(command count, result)"
+    invariants:
+      - "Label order does not matter: the comparison is of sets"
+      - "An already-registered seat is adopted, never re-registered"
+
+  drift_is_refused:
+    formula: |
+      listed(name) ∧ (labels_listed ≠ labels_declared ∨ group_listed ≠ group_declared)
+        ⟹ exit ≠ 0 ∧ output ∋ both sets ∧ seat_commands = 0 ∧ token_requests = 0
+    domain: "a seat the API lists with a different label set or group"
+    codomain: "(exit status, output, command count, request count)"
+    invariants:
+      - "Never `--replace`: a re-registered seat drops its queued job, so drift is a refusal with the difference, not a silent re-registration"
+      - "The difference names the missing and the extra labels, and both sets"
+
+  absent_registers_once:
+    formula: |
+      ¬listed(name) ⟹ token_requests = 1 ∧ after apply: listed(name)
+      listed(name) (after a first apply) ⟹ second apply: token_requests = 0 ∧ result = unchanged
+    domain: "a seat the API does not list"
+    codomain: "(request count, result)"
+    invariants:
+      - "Exactly one registration-token request per registration"
+      - "A second apply of the same manifest is unchanged"
+
+  tarball_is_pinned:
+    formula: |
+      sha256(tarball) ≠ declared sha256 ⟹ refused ∧ config_sh_runs = 0
+    domain: "the downloaded runner tarball"
+    codomain: "(verdict, execution count)"
+    invariants:
+      - "The digest is checked before `config.sh` runs, so a wrong tarball never executes"
+      - "A missing `sha256` is refused at `validate` (C6), so there is no unpinned path"
+
+  scope_is_validated:
+    formula: |
+      invalid(r) ⟺ (scope = repo ∧ repo = ∅) ∨ (scope = org ∧ repo ≠ ∅) ∨ labels = ∅ ∨ sha256 = ∅
+      invalid(r) ⟹ validate exits non-zero ∧ output ∋ the offending field's name
+    domain: "a github_runner resource in a manifest"
+    codomain: "validate verdict"
+    invariants:
+      - "Each of the four is refused on its own, naming its field"
+      - "A manifest correct in all four is accepted (the refusal is not a blanket refusal)"
+      - "Until registration lands (phase 2), check and apply on this type fail with 'not implemented yet'; they never report success"
+
+proof_obligations:
+  - type: invariant
+    property: "C1 key_stays_on_control_host: no script, state file, event log line or output holds the private key, the JWT or a token"
+    formal: "marker key ∉ stdout ∪ stderr ∪ state dir ∪ event log; JWT ∉ same; fake's token ∉ same"
+    applies_to: all
+    status: phase-2
+    notes: "F1. Fails if the token is passed as an argument or written to state. Needs the local fake of the GitHub API."
+
+  - type: invariant
+    property: "C2 adopt_is_noop: a seat listed with the same name, label set and group produces 0 commands and `unchanged`"
+    formal: "listed(name) ∧ labels equal as sets ∧ group equal ⟹ seat_commands = 0 ∧ unchanged"
+    applies_to: all
+    status: phase-2
+    notes: "F2. The fake lists the seat with equal labels in another order."
+
+  - type: invariant
+    property: "C3 drift_is_refused: a seat listed with a different label set or group fails with both sets named and runs 0 commands"
+    formal: "listed(name) ∧ labels differ ⟹ exit ≠ 0 ∧ missing label named ∧ token_requests = 0"
+    applies_to: all
+    status: phase-2
+    notes: "F3. The fake lists the seat with one label fewer."
+
+  - type: invariant
+    property: "C4 absent_registers_once: an absent seat is registered with exactly one registration-token request, and a second apply is `unchanged`"
+    formal: "¬listed ⟹ token_requests = 1; then listed ⟹ second apply token_requests = 0"
+    applies_to: all
+    status: phase-2
+    notes: "F4. The fake lists nothing, then lists the seat."
+
+  - type: safety
+    property: "C5 tarball_is_pinned: a tarball whose sha256 differs from the manifest is refused before `config.sh` runs"
+    formal: "sha256(tarball) ≠ declared ⟹ refused ∧ config_sh_runs = 0"
+    applies_to: all
+    status: phase-2
+    notes: "F5. A tarball with one byte changed."
+
+  - type: invariant
+    property: "C6 scope_is_validated: scope repo without repo, scope org with repo, an empty label list and a missing sha256 each fail `validate`, naming the field"
+    formal: "invalid(r) ⟹ validate exit ≠ 0 ∧ output ∋ field; ¬invalid(r) ⟹ validate exit 0"
+    applies_to: all
+    enforced_by: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused, f6_scope_org_with_repo_is_refused, f6_empty_label_list_is_refused, f6_missing_sha256_is_refused"
+    notes: "The two controls (f6_control_a_valid_seat_is_accepted, f6_control_a_repo_scoped_seat_with_a_repo_is_accepted) are what stop a blanket refusal discharging the four."
+
+falsification_tests:
+  - id: FALSIFY-GHR-001
+    rule: "key_stays_on_control_host"
+    prediction: "Passing the registration token as an argument to config.sh, or writing it to the state file, puts it in the transcript the test searches"
+    test: "phase 2: F1 against the local fake of the GitHub API"
+    if_fails: "A credential reaches the seat's process list, the state directory or the event log"
+
+  - id: FALSIFY-GHR-002
+    rule: "adopt_is_noop"
+    prediction: "Comparing labels as an ordered list instead of a set sends commands to a seat whose labels are merely in another order"
+    test: "phase 2: F2 against the local fake of the GitHub API"
+    if_fails: "A healthy seat is re-registered and drops its queued job"
+
+  - id: FALSIFY-GHR-003
+    rule: "drift_is_refused"
+    prediction: "Re-registering on a label difference (a silent --replace) records a registration-token request the test counts"
+    test: "phase 2: F3 against the local fake of the GitHub API"
+    if_fails: "Drift is papered over and the queued job on the seat is lost"
+
+  - id: FALSIFY-GHR-004
+    rule: "absent_registers_once"
+    prediction: "Requesting a token on every apply makes the second apply record a request"
+    test: "phase 2: F4 against the local fake of the GitHub API"
+    if_fails: "Every apply burns a registration token and may register a duplicate seat"
+
+  - id: FALSIFY-GHR-005
+    rule: "tarball_is_pinned"
+    prediction: "Running config.sh before the digest check executes a tarball with one byte changed"
+    test: "phase 2: F5 against the local fake of the GitHub API"
+    if_fails: "An unverified archive is executed on the seat"
+
+  - id: FALSIFY-GHR-006
+    rule: "scope_is_validated"
+    prediction: "Dropping the repo-scope rule from the validator turns f6_scope_repo_without_repo_is_refused red; refusing every github_runner turns both controls red"
+    test: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused"
+    if_fails: "A seat that cannot be registered passes validate and fails later, at 03:00, on a machine"
+
+# No kani_harnesses. `metadata.kind: pattern`: the properties are about process
+# exit status and what a fake HTTP server recorded; the falsifiers run the
+# binary rather than model it.
+
+qa_gate:
+  id: F-GHR-001
+  name: "GitHub Runner Seat"
+  description: "a runner seat is declared, registered once through a GitHub App whose key stays on the control host, adopted when present and equal, and refused on drift"
+  checks:
+    - "key_stays_on_control_host"
+    - "adopt_is_noop"
+    - "drift_is_refused"
+    - "absent_registers_once"
+    - "tarball_is_pinned"
+    - "scope_is_validated"
+  pass_criteria: "All 6 falsification tests pass (C6 in phase 1; C1 to C5 in phase 2)"
+  falsification: "Remove the scope rules from src/core/parser/github_runner_validate.rs"
+
+verification_level: L3
