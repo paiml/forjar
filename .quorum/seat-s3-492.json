@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-492 (forjar#951 / #492) \u2014 add -o DPkg::Lock::Timeout=600 to all workflow apt-get update/install calls on shared runners and enforce per-invocation positive lock timeouts via scripts/apt-lock-timeout-guard.sh and falsification_492_apt_lock_guard.",
+  "branch": "seat-s3/492",
+  "recorded_at": "three-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @77742fbe 0/3 PASS -> round 2 @d684c8dd 2/3 PASS -> round 3 @7af27752 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
+  "quorum": {
+    "rounds": 3,
+    "lanes": [
+      "round 1 @77742fbe -> round 2 @d684c8dd -> round 3 @7af27752 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Awk Per-Invocation Parser & Workflow Coverage): PASS",
+      "round 1 @77742fbe -> round 2 @d684c8dd -> round 3 @7af27752 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Shell/bashrs SC2059 Hygiene & Hostile Bypass Matrix): PASS",
+      "round 1 @77742fbe -> round 2 @d684c8dd -> round 3 @7af27752 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Rust Falsifier, --self-test Parity & Revert Kill): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review lanes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 met 3 independent refuters; round 1 killed 3 dynamically reproduced line-grep bypasses in apt-lock-timeout-guard.sh and round 2 killed 4 bashrs SC2059 errors in apt-lock-timeout-guard-test.sh.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round-1 scripts/apt-lock-timeout-guard.sh @77742fbe used whole-line grep, passing inline '# DPkg::Lock::Timeout' comments, DPkg::Lock::Timeout=0, and 'apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get install' chains; rewritten in d684c8dd as an awk per-call parser with 28 self-test cases.",
+      "R2: Round-2 scripts/apt-lock-timeout-guard-test.sh @d684c8dd passed fixture strings as printf format arguments (printf \"$2\"), causing 4 bashrs lint SC2059 [error] failures (Gate B Arm 4b); fixed in 7af27752 via printf '%b' \"$2\"."
+    ]
+  },
+  "falsification": {
+    "test": "Revert .github/workflows/release.yml to origin/main on <host> (<SCRATCH>) and run cargo test --test falsification_492_apt_lock_guard.",
+    "test_file": "tests/falsification_492_apt_lock_guard.rs",
+    "cargo_test_target": "falsification_492_apt_lock_guard",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting .github/workflows/release.yml (! cmp -s verified) failed all 3 tests in falsification_492_apt_lock_guard (0 passed; 3 failed, FJ_951_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "APT DPkg::Lock::Timeout (apt 1.9.11+): waits inside apt-get with fcntl lock polling on /var/lib/dpkg/lock-frontend when positive seconds (>0) are supplied",
+      "flock(1) external wrapper files: coordinates only cooperating callers sharing the same sidecar lockfile and misses unattended-upgrades or bare apt-get processes",
+      "ShellCheck / bashrs SC2059 format-string rule: forbids variable format strings in printf, using '%b' when controlled backslash escapes must expand"
+    ],
+    "verdict": "Passing -o DPkg::Lock::Timeout=600 on every workflow apt-get call coordinates directly on dpkg's native lock across shared self-hosted runners, and per-invocation awk parsing blocks comment/zero/chain bypasses."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three-round three-lane agy Gemini 4 Carbon (thinking=high) review (@77742fbe -> @d684c8dd -> @7af27752)",
+    "rounds": 3,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 0/3 PASS at 77742fbe; round 2: 2/3 PASS, 1/3 FAIL at d684c8dd; round 3: 3/3 PASS at 7af27752 (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-492",
+    "tools": [
+      "analyze_vacuous_tests",
+      "bash -n + shellcheck -S error + bashrs lint --level error + apt-lock-timeout-guard.sh --self-test (28/28) + falsification_492_apt_lock_guard (3/3) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "ee0c2bf34fab397f81377c21f962f712305d03d6",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-492-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "f48b529023ee20ec194d8dbfd0a8eac86dde8d30",
+        "sha256": "ad73d453ecb511bf811e302817473b495ecf257bbe19846cdaebdfb9725de882",
+        "bytes": 1949
+      },
+      {
+        "path": ".quorum/evidence/PMAT-492-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "bbdff53f9b6b5150db648c28da9cc2069a77b84d",
+        "sha256": "f59abb47d46f4f036e822bfcedf3c1060240e6c4bf6d3622e2103f72f41098ca",
+        "bytes": 1022
+      },
+      {
+        "path": ".quorum/evidence/PMAT-492-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "a976c628e6820a122f819e7c799176650102b70f",
+        "sha256": "3f7f198112c4872d14216f57c14e213e64f1e8b5a27c8b13ac9282a86c033bf7",
+        "bytes": 2911
+      },
+      {
+        "path": ".quorum/evidence/PMAT-492-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "c8da367d6abbf8d1c0660687e2bb5df3d8550964",
+        "sha256": "3ee091e79a828379c18697b9202f4e52afbf9f228be1696ec27a5b7a64ed8b95",
+        "bytes": 641
+      }
+    ],
+    "total_bytes": 6523,
+    "claims_digest": ".quorum/evidence/PMAT-492-judges.md"
+  }
+}
