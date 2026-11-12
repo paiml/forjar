@@ -57,6 +57,7 @@ jobs:
   # dependency" and was a deliberate choice; PMAT-547 reverses it, because a
   # GitHub-hosted runner is not something this project may spend.
   ensure-release:
+    timeout-minutes: 30
     name: Ensure release exists
     runs-on: [self-hosted, clean-room, X64]
     outputs:
@@ -96,6 +97,7 @@ jobs:
           fi
 
   build:
+    timeout-minutes: 120
     name: ${{ matrix.target }}
     needs: ensure-release
     # THIS LEG WAS PINNED TO ubuntu-22.04 AND IS NO LONGER PINNED TO ANYTHING.
@@ -353,6 +355,7 @@ jobs:
   # macOS assets added later by release.yml get covered on its own
   # checksums pass or the next re-run.
   checksums:
+    timeout-minutes: 15
     name: Aggregate SHA256SUMS
     needs: [ensure-release, build]
     runs-on: [self-hosted, clean-room, X64]
@@ -406,6 +409,7 @@ jobs:
           gh release upload "$TAG" SHA256SUMS ./*.tar.gz.sha256 --clobber --repo "${{ github.repository }}"
 
   summary:
+    timeout-minutes: 15
     name: Summary
     needs: [ensure-release, build]
     runs-on: [self-hosted, clean-room, X64]

@@ -33,6 +33,7 @@ permissions:
 
 jobs:
   receipt:
+    timeout-minutes: 15
     name: quorum receipt
     runs-on: [self-hosted, clean-room, ARM64]
     # A CARGO_HOME private to this job, matching behavior.yml, convergence.yml,

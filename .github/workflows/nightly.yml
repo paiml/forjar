@@ -21,6 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, X64]
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
@@ -68,6 +69,7 @@ jobs:
 
   # ── Build release binaries (7 targets, native runners) ───
   build:
+    timeout-minutes: 120
     needs: check-activity
     if: needs.check-activity.outputs.has_commits == 'true'
     strategy:
@@ -225,6 +227,7 @@ jobs:
 
   # ── Create/update nightly prerelease ─────────────────────
   release:
+    timeout-minutes: 120
     needs: build
     runs-on: [self-hosted, clean-room, X64]
     steps:
