@@ -14,11 +14,6 @@ old checkout's `contracts/` and panicked. It now reads the variable at run time
 and re-runs when it changes. The CI step that runs the vendored `forjar-contracts`
 suite (#452) is not part of this change and is not measured by CI.
 
-**Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
-`lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
-No job is added, removed or skipped.
-
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
