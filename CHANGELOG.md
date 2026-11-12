@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 **Job timeouts and leaner CI builds (PMAT-913, #972, infra#3828).**
-33 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
+26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner. `ci.yml` and
 `lint.yml` set `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and `CARGO_INCREMENTAL=0`.
 No job is added, removed or skipped.
 
