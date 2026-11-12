@@ -487,3 +487,90 @@ fn fj445_an_intact_block_and_a_prefix_sibling_still_apply() {
         "{store:?}"
     );
 }
+
+// ── forjar#445, review round 1: a block whose entry line was deleted ──
+//
+// `# forjar:backup` + `# forjar-cmd:backup` and then NOT an entry. Whatever
+// line follows is another block's, a comment or a blank, and `delete_block`
+// would drop it as if it were forjar's entry. The guard must refuse by name
+// and leave the crontab byte-for-byte unchanged.
+
+/// Seed a truncated `backup` block followed by `after`, apply `backup`, and
+/// require the by-name refusal with the crontab untouched.
+fn assert_truncated_block_refused(tag: &str, after: &str) {
+    let fx = FakeCrontab::new(tag);
+    let seeded = format!("# forjar:backup\n# forjar-cmd:backup\n{after}");
+    fx.seed(&seeded);
+    let out = fx.run(&apply_script(&cron("backup", "0 3 * * *", CMD)));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{after:?}: {err}");
+    assert!(
+        err.contains("cron 'backup'") && err.contains("edited by hand"),
+        "{after:?}: {err:?}"
+    );
+    assert_eq!(
+        fx.read(),
+        seeded,
+        "{after:?}: the crontab must be unchanged"
+    );
+}
+
+#[test]
+fn fj445_truncated_block_before_a_sibling_marker_is_refused() {
+    assert_truncated_block_refused(
+        "t445d",
+        "# forjar:other\n# forjar-cmd:other\n0 * * * * /usr/bin/other\n",
+    );
+}
+
+#[test]
+fn fj445_truncated_block_before_a_comment_is_refused() {
+    assert_truncated_block_refused("t445e", "# a human note\n0 * * * * /usr/bin/other\n");
+}
+
+#[test]
+fn fj445_truncated_block_before_a_blank_line_is_refused() {
+    assert_truncated_block_refused("t445f", "\n0 * * * * /usr/bin/other\n");
+}
+
+#[test]
+fn fj445_truncated_block_before_an_indented_comment_is_refused() {
+    assert_truncated_block_refused("t445g", "  # indented note\n0 * * * * /usr/bin/other\n");
+}
+
+#[test]
+fn fj445_absent_refuses_a_truncated_block_before_a_sibling_marker() {
+    let fx = FakeCrontab::new("t445h");
+    let seeded = "# forjar:backup\n# forjar-cmd:backup\n# forjar:other\n# forjar-cmd:other\n0 * * * * /usr/bin/other\n";
+    fx.seed(seeded);
+    let out = fx.run(&apply_script(&absent("backup")));
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(fx.read(), seeded);
+}
+
+/// The refusal must not widen: an entry line of any ordinary shape stays intact.
+#[test]
+fn fj445_entry_lines_of_every_ordinary_shape_stay_intact() {
+    for entry in [
+        "0 3 * * * /usr/local/bin/backup.sh",
+        "@reboot /usr/local/bin/backup.sh",
+        "  0 3 * * * /usr/local/bin/backup.sh",
+        "MAILTO=ops@example.com",
+    ] {
+        let fx = FakeCrontab::new("t445i");
+        fx.seed(&format!(
+            "# forjar:backup\n# forjar-cmd:backup\n{entry}\n# forjar:other\n# forjar-cmd:other\n0 * * * * /usr/bin/other\n"
+        ));
+        fx.apply(&cron("backup", "0 4 * * *", CMD));
+        let store = fx.read();
+        assert!(
+            store.contains("0 * * * * /usr/bin/other"),
+            "{entry}: {store:?}"
+        );
+        assert!(
+            store.contains("# forjar:other\n# forjar-cmd:other\n"),
+            "{entry}: {store:?}"
+        );
+        assert_eq!(store.matches(CMD).count(), 1, "{entry}: {store:?}");
+    }
+}

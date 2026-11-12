@@ -189,3 +189,75 @@ fn scanner_catches_multiline_and_inline_debug_calls() {
     assert!(hit(multi) && hit(second) && hit(inline));
     assert!(!hit(clean) && !hit(other));
 }
+
+/// Lines that compare a ResourceType's text with a literal that starts upper-case.
+///
+/// `Display` is snake_case, so no such comparison can ever be true: the branch
+/// behind it is dead and the check it stands for never runs (review round 1 of
+/// #943: `== "Unknown"` in `validate_deep` and `validate_quality`, which had
+/// compared the Debug spelling of an enum that has no such variant). The left
+/// side is either a `resource_type` expression or a variable bound from one.
+fn pascal_compares(text: &str) -> Vec<String> {
+    let bound: Vec<String> = text
+        .lines()
+        .filter(|l| l.contains("resource_type") && l.contains(".to_string()"))
+        .filter_map(|l| l.trim().strip_prefix("let ")?.split([' ', ':']).next())
+        .map(str::to_string)
+        .collect();
+    let mut hits = Vec::new();
+    for line in text.lines() {
+        let Some((lhs, rhs)) = line.split_once(" == \"") else {
+            continue;
+        };
+        if !rhs.starts_with(|c: char| c.is_ascii_uppercase()) {
+            continue;
+        }
+        let lhs_tail = lhs.trim_end();
+        let var = lhs_tail
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .unwrap_or("");
+        if lhs_tail.contains("resource_type") || bound.iter().any(|b| b == var) {
+            hits.push(line.trim().to_string());
+        }
+    }
+    hits
+}
+
+#[test]
+fn cli_never_compares_resource_type_text_to_a_literal_display_cannot_produce() {
+    let mut files = Vec::new();
+    walk(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src/cli"),
+        &mut files,
+    );
+    assert!(
+        files.len() > 50,
+        "scanned only {} files: vacuous",
+        files.len()
+    );
+    let mut hits = Vec::new();
+    for f in &files {
+        let text = fs::read_to_string(f).expect("utf8");
+        for h in pascal_compares(&text) {
+            hits.push(format!("{}: {h}", f.display()));
+        }
+    }
+    assert!(
+        hits.is_empty(),
+        "dead comparison: Display is snake_case, so these are never true:\n{}",
+        hits.join("\n")
+    );
+}
+
+#[test]
+fn pascal_compare_scanner_sees_direct_and_bound_forms_only() {
+    let direct = "if res.resource_type.to_string() == \"Unknown\" {";
+    let bound = "let rt = res.resource_type.to_string();\nif rt == \"Unknown\" {";
+    let spelled = "if res.resource_type.to_string() == \"wasm_bundle\" {";
+    let other = "let rt = 3;\nif status == \"Converged\" {";
+    assert_eq!(pascal_compares(direct).len(), 1);
+    assert_eq!(pascal_compares(bound).len(), 1);
+    assert!(pascal_compares(spelled).is_empty());
+    assert!(pascal_compares(other).is_empty());
+}
