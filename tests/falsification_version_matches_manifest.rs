@@ -158,7 +158,22 @@ fn the_built_binary_reports_the_manifest_version() {
         String::from_utf8_lossy(&out.stderr)
     );
     let printed = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    // #639: the build commit rides along as ` (<7 hex>)`; a tree without git
+    // (a packaged .crate) reports `(unknown)` instead.
     let expected = format!("forjar {}", manifest_version());
+    let (head, sha) = printed
+        .rsplit_once(" (")
+        .unwrap_or_else(|| panic!("--version names no commit: {printed:?}"));
+    let sha = sha.trim_end_matches(')');
+    let in_git = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(".git")
+        .exists();
+    assert!(
+        (sha.len() == 7 && sha.chars().all(|c| c.is_ascii_hexdigit()))
+            || (!in_git && sha == "unknown"),
+        "--version commit is not 7 hex chars: {sha:?}"
+    );
+    let printed = head.to_string();
     assert_eq!(
         printed, expected,
         "the shipped binary does not describe this release: `forjar --version` \
