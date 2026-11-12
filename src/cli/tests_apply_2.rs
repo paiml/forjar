@@ -267,7 +267,7 @@ resources:
                 workspace: None,
                 check: true,
                 report: false,
-                force_unlock: false,
+                lock: Default::default(),
                 output: None,
                 progress: false,
                 retry: 0,

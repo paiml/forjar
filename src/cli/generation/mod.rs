@@ -26,6 +26,7 @@ pub(crate) fn create_generation(
     state_dir: &Path,
     config: Option<&crate::core::types::ForjarConfig>,
 ) -> Result<u32, String> {
+    let _global = crate::core::state::hold_global_lock(state_dir)?;
     let gen_dir = generations_dir(state_dir);
     std::fs::create_dir_all(&gen_dir).map_err(|e| format!("cannot create generations dir: {e}"))?;
 
