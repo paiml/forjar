@@ -16,6 +16,27 @@ pub(super) fn base_layout_dir(state_dir: &Path, base_ref: &str) -> PathBuf {
     state_dir.join(base_ref.replace([':', '/'], "_"))
 }
 
+/// A base reference reaches the container runtime as a bare argument
+/// (`<rt> image inspect <ref>`, `<rt> run .. <ref>`), so one the runtime could
+/// read as a flag, or that is not one token, is refused before any lookup.
+fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), String> {
+    let why = if base_ref.is_empty() {
+        "it is empty"
+    } else if base_ref.starts_with('-') {
+        "it starts with '-' and a container runtime would read it as an option"
+    } else if base_ref
+        .chars()
+        .any(|c| c.is_whitespace() || c.is_control())
+    {
+        "it contains whitespace or a control character"
+    } else {
+        return Ok(());
+    };
+    Err(format!(
+        "image '{resource}' declares base image {base_ref:?}, which is not a usable image          reference: {why}; refusing to build"
+    ))
+}
+
 /// Load the declared base, or refuse: absent, unreadable and missing-blob
 /// layouts all return an `Err` naming the reference, the directory and the
 /// command that would supply it.
@@ -24,6 +45,7 @@ pub(super) fn load_declared_base(
     state_dir: &Path,
     base_ref: &str,
 ) -> Result<BaseLayout, String> {
+    check_base_ref(resource, base_ref)?;
     let dir = base_layout_dir(state_dir, base_ref);
     let refuse = |why: String| {
         format!(
