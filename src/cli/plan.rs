@@ -50,6 +50,7 @@ pub(crate) fn cmd_plan(
         plan_out,
         why,
         group_filter,
+        &[],
         false,
         PlanVersionPins::Skip,
     )
@@ -81,6 +82,8 @@ pub(crate) fn cmd_plan_with_pins(
     // GH-214: `-g` printed "not yet implemented … Flag ignored" and then the
     // whole plan. It is a real filter now, so it has to reach the planner.
     group_filter: Option<&str>,
+    // fleetops-2: `apply --param KEY=VALUE`, same handler, same precedence.
+    param_overrides: &[String],
     refresh: bool,
     version_pins: PlanVersionPins,
 ) -> Result<(), String> {
@@ -93,6 +96,9 @@ pub(crate) fn cmd_plan_with_pins(
     }
     inject_workspace_param(&mut config, workspace);
     let data_faults = super::data_isolation::resolve_isolated(&mut config);
+    // fleetops-2: after env-file/workspace/data sources, exactly where `apply`
+    // applies them, so `--param` wins and plan describes the apply.
+    apply_param_overrides(&mut config, param_overrides)?;
 
     // Refs #363: SEAL OVER THE CONFIG `apply` REBUILDS, NOT THE ONE THE PLANNER RAN.
     //
@@ -144,6 +150,17 @@ pub(crate) fn cmd_plan_with_pins(
     // forjar#415: a sealed plan is re-planned by `apply --plan-file` against
     // the locks ON DISK, which `--refresh` never writes — so the diff leg of a
     // refreshed plan could never verify. Refuse the pair by name.
+    // A sealed plan is re-checked by `apply --plan-file`, which rebuilds the
+    // config WITHOUT `--param`, so a seal over overridden params can never
+    // verify (PLAN_HASH_MISMATCH). Refuse the pair up front, by name.
+    if !param_overrides.is_empty() && plan_out.is_some() {
+        return Err(
+            "plan --param --out: a sealed plan is re-checked by `apply --plan-file`, \
+             which rebuilds the config without --param, so it could never apply. \
+             Put the value in the config or --env-file and plan again, or drop --out."
+                .to_string(),
+        );
+    }
     if refresh && plan_out.is_some() {
         return Err(
             "plan --refresh --out: a sealed plan is re-checked against the locks on \
@@ -151,6 +168,10 @@ pub(crate) fn cmd_plan_with_pins(
              `forjar apply --refresh` instead, or `forjar drift` and then `plan --out`."
                 .to_string(),
         );
+    }
+    // GH-880: no state directory at all is an error, not "everything is an add".
+    if let Some(refusal) = super::state_visibility::missing_state_refusal(state_dir) {
+        return Err(refusal);
     }
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let mut locks = load_machine_locks(&config, state_dir, machine_filter)?;

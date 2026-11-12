@@ -116,10 +116,11 @@ pub const DRIFT_UNMEASURED_MARKER: &str = "drift unmeasured — the target did n
 
 /// The headline of a `forjar drift` run that inspected NONE of the resources
 /// it was asked about (PMAT-564, paiml/infra#605): a decline, exit 2, never a
-/// verdict about resources from another manifest and never a clean exit over
-/// zero coverage. The count follows the marker: `declined: inspected 0 of 10
-/// declared; no lock holds them`.
+/// verdict or a clean exit over zero coverage (`declined: inspected 0 of 10`).
 pub const DRIFT_DECLINED_MARKER: &str = "declined: inspected 0 of";
+
+/// Headline of a `check` run that could not reach a target (forjar#659): exit 4.
+pub const CHECK_UNMEASURED_MARKER: &str = "check unmeasured — the target did not answer";
 
 /// Markers a MIGRATED producer stamps into its message so that the class it
 /// DECLARED survives a not-yet-typed `Result<_, String>` boundary.
@@ -141,6 +142,8 @@ const DECLARED_MARKERS: &[(&str, ErrorClass)] = &[
     // carries 2 here is Partial, and "nothing of what you asked about was
     // measured" is the partial-est answer there is.
     (DRIFT_DECLINED_MARKER, ErrorClass::Partial),
+    // src/cli/check.rs::cmd_check_selected — a target never reached (forjar#659).
+    (CHECK_UNMEASURED_MARKER, ErrorClass::Connection),
 ];
 
 /// An error that knows what kind of failure it is.

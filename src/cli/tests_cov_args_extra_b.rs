@@ -191,6 +191,7 @@ mod tests {
     fn test_cov_plan_args_construct() {
         let a = PlanArgs {
             offline: false,
+            params: vec![],
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,
@@ -348,14 +349,16 @@ mod tests {
 
     #[test]
     fn test_cov_commands_secrets_keygen() {
-        let cmd = Commands::Secrets(SecretsCmd::Keygen);
+        let cmd = Commands::Secrets(SecretsCmd::Keygen { output: None });
         let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_secrets_encrypt() {
         let cmd = Commands::Secrets(SecretsCmd::Encrypt {
-            value: "secret".to_string(),
+            from_file: None,
+            stdin: false,
+            rest: vec![],
             recipient: vec!["age1key".to_string()],
         });
         let _ = format!("{cmd:?}");
