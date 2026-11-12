@@ -49,6 +49,14 @@ No mutation left the tests green, so no test was added for them. Not mutated: `N
 
 `res.image` reaches the container runtime as a bare argument (`<rt> image inspect <ref>`, `<rt> run .. <ref>`). `load_declared_base` now refuses, before any lookup, a reference that is empty, starts with '-', or contains whitespace or a control character; the error names the reference (Debug-quoted) and carries no fetch hint (`base_fetch_hint` is reachable only after this check, from the refuse closure and from `build_exec_layer` on an already-loaded base). RED first: commit 62cbd67b, `t8_unsafe_base_references_are_refused_before_any_lookup`, kfocus, `cargo test --lib tests_build_image_base::t8`: FAILED at `tests_build_image_base.rs:260` (`expect_err`: the build succeeded on base `""` although a layout existed). GREEN after the fix: 1 passed; full lib 13822 passed, 0 failed, 4 ignored; fmt rc=0; clippy `--all-targets -- -D warnings` rc=0 (kfocus). The first GREEN attempt failed at the test's own quoting of DEL for YAML (test bug, fixed in its own commit), not in the fix. `--sandbox` (`cmd_build_sandbox`) does not go through `load_declared_base` and is not covered by this check.
 
+## Review round 1 (agy FAIL x3 @eef2c36): three named lines, fixed
+
+- `check_base_ref` let `.`, `..` and shell metacharacters through; `..` mapped the layout directory to the parent of the image state dir and put it in the printed `rm -rf` hint. Now a reference must use only `[A-Za-z0-9._-/:@]` and may not be `.` or `..`; the message string's stray spacing is gone.
+- `validate_file` counted a whitespace-only `command:` as a build step while `exec_decl` drops it. It now trims. An image with no `path:`, `packages:` or non-blank `command:` (a base-only image included) is refused as `(image) has no path, packages or command`, no longer mislabelled `(file)`. Base-only images stay refused: building one is not in this ticket.
+- CHANGELOG: the phase 1 bullet no longer says packages/command are not part of the change.
+- RED (gx10, tests commit 3c8ba05 with the fix reversed, `cargo test --lib -- tests_validation_image t8_unsafe_base_references`): 1 passed, 2 failed (`test_image_blank_command_without_path_is_refused_as_image`, `t8_unsafe_base_references_are_refused_before_any_lookup`), rc 101.
+- GREEN (gx10, same tree with the fix, 12:02Z 2026-11-12): fmt rc 0; `cargo clippy --all-targets --features container-test -- -D warnings` rc 0; `cargo test --lib` 13850 passed, 0 failed, 4 ignored; `cargo test --features container-test --test falsification_image_exec` 2 passed (F1, F2, real Docker); `falsification_no_orphaned_source_files` 3 passed.
+
 ## Open
 
 - `forjar build --sandbox` ignores base/packages/command and the base-reference check; `LayerStrategy::Packages` marker arm is unconstructed by `forjar build`.

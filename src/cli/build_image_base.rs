@@ -17,9 +17,13 @@ pub(super) fn base_layout_dir(state_dir: &Path, base_ref: &str) -> PathBuf {
 }
 
 /// A base reference reaches the container runtime as a bare argument
-/// (`<rt> image inspect <ref>`, `<rt> run .. <ref>`), so one the runtime could
-/// read as a flag, or that is not one token, is refused before any lookup.
+/// (`<rt> image inspect <ref>`, `<rt> run .. <ref>`), names a directory under
+/// the image state dir, and is printed inside a shell command hint. So one the
+/// runtime could read as a flag, one that names `.` or `..`, or one holding a
+/// character outside the image-reference alphabet is refused before any lookup.
 fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), String> {
+    let in_alphabet =
+        |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '/' | ':' | '@');
     let why = if base_ref.is_empty() {
         "it is empty"
     } else if base_ref.starts_with('-') {
@@ -29,11 +33,16 @@ fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), String> {
         .any(|c| c.is_whitespace() || c.is_control())
     {
         "it contains whitespace or a control character"
+    } else if base_ref == "." || base_ref == ".." {
+        "it names a directory, not an image"
+    } else if !base_ref.chars().all(in_alphabet) {
+        "it contains a character outside [A-Za-z0-9._-/:@]"
     } else {
         return Ok(());
     };
     Err(format!(
-        "image '{resource}' declares base image {base_ref:?}, which is not a usable image          reference: {why}; refusing to build"
+        "image '{resource}' declares base image {base_ref:?}, which is not a usable image \
+         reference: {why}; refusing to build"
     ))
 }
 

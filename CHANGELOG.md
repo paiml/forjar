@@ -16,9 +16,8 @@ base's identity in the build-cache key. A declared base that is absent,
 unreadable or missing blobs is now an error that names the reference, the
 directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies
 it, and nothing is written. `--json` gains `base` and `base_layers`, and
-`layer_count` counts the manifest's layers (base + built). Installing packages
-and running `command` into a layer, and the `--sandbox` path, are not part of
-this change.
+`layer_count` counts the manifest's layers (base + built). The `--sandbox` path is not
+part of this change.
 
 **`forjar build` executes `packages` and `command` into a layer on the declared base (PMAT-989, #989, IMG-001 3/N).**
 An image resource's `packages` and `command` were never run: the layers held only
@@ -32,7 +31,9 @@ cache key covers the steps; `--json` gains an `exec` object. Limits: the layer
 is owned by 0:0, package versions are unpinned, `--sandbox` is unchanged. Falsifiers
 F1/F2 are in `tests/falsification_image_exec.rs` (`--features container-test`,
 needs Docker; not run by CI). On a containerd-image-store daemon, `--load`ed
-images do not resolve by tag (run by id).
+images do not resolve by tag (run by id). A base reference is refused unless it uses only
+`[A-Za-z0-9._-/:@]` and is not `.` or `..`; an image with no `path:`, `packages:` or non-blank
+`command:` fails validation as an image.
 
 **Changed: `command:` on `type: image` is now a build step, not the entrypoint.** The new
 `entrypoint: [..]` field sets the image entrypoint.
