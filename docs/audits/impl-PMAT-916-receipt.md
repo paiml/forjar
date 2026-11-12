@@ -1,6 +1,6 @@
 # Implementation receipt — PMAT-916 — ResourceType serde spelling in the CLI; cron check guard (PR #943)
 
-verdict: PARTIAL — merged with main, fmt/clippy/lib and the touched integration targets are green on kfocus; the clean-room run, the required CI jobs on the merged head, and the ticket-id fix for the earlier PMAT-198 commits are open.
+verdict: PARTIAL — merged with main, round-1 review defects (truncated-block guard, dead "Unknown" comparisons) fixed with red-then-green tests and green on kfocus (fmt, clippy, lib, 17 integration targets); CB-200 reads 652 on plain main and on this branch against ceiling 651 (not caused by this PR, not fixed here), and the CB-2113 trailers of the earlier commits, CI on the new head and the clean-room run are open.
 
 ## Identity
 
@@ -44,5 +44,16 @@ I read the log of the failed job once with `gh run view` (3 of 3 allowed `gh` ca
 
 - Commits `86fca4be` and `37e4d34d` carry `Pmat-Ticket: PMAT-198`; this commit carries PMAT-916. Gate A reads the squash message of the merged PR, so whoever squashes must make the PR title/body claim one ticket. History was not rewritten.
 - the issue number of PMAT-916 should be confirmed against GitHub.
+
+## Round 1 (three non-author reviews of a4e28c3, all FAIL)
+
+1. `intact_block_guard` accepted a block whose entry line was deleted or commented out whenever another line followed the cmd marker, so `delete_block` dropped that line (a sibling's `# forjar:other`, a comment, a blank). Red first (commit fa756480, kfocus, `cargo test --lib fj445`): 5 failed (sibling marker, comment, indented comment, blank line, absent-state with sibling), 5 passed. Fix (81fcf1ee, `src/resources/cron.rs`): the entry line must not be blank or start with `#`. Green: the same 10 pass. A guard that must not widen is pinned by `fj445_entry_lines_of_every_ordinary_shape_stay_intact` (schedule line, `@reboot`, indented line, `MAILTO=` line). Limit: a truncated block followed directly by another real job line cannot be told from the entry and is treated as intact.
+2. `res.resource_type.to_string() == "Unknown"` in `validate_deep.rs` and `validate_quality.rs` was never true (Display is snake_case; the enum has no such variant, and the Debug form on main was never true either). Red first: `tests/resource_type_spelling.rs::cli_never_compares_resource_type_text_to_a_literal_display_cannot_produce` named both lines. Fix: the dead branches are removed; behaviour is unchanged (both checks always passed). Green: 5 of 5 in that target.
+3. CB-200: measured with `bash scripts/cb200-ratchet.sh` on kfocus (pmat 3.42.0, tree with .git, fresh index): plain `origin/main` @ dbd1ec3e reads 652; the branch at a4e28c3b reads 652; the branch at 81fcf1ee reads 652. The ceiling in `scripts/ratchets/cb200-baseline.json` is 651 and was recorded with pmat 3.39.0, so the 652 on main may be the instrument (3.42.0) or main's own growth; this PR adds no function below grade A. The ceiling and the baseline were not edited. `falsification_cb200_ratchet_measures_this_tree` passes (9 of 9 in the dogfood-guards group).
+4. CB-2113: not fixed, history not rewritten. Open: `2c677009` and `8b9ae178` have no `Pmat-Ticket`, `86fca4be` and `37e4d34d` claim PMAT-198, `37e4d34d` and `a4e28c3b` have a blank line before `Co-Authored-By`. The commits added in this round carry `Pmat-Ticket: PMAT-916` in the last paragraph.
+
+Measured on kfocus at 81fcf1ee: `cargo fmt --all -- --check` rc 0; `cargo clippy --all-targets -- -D warnings` rc 0; `cargo test --lib` 13797 passed, 0 failed, 4 ignored; the nine dogfood-guards targets plus `resource_type_cli_output`, `resource_type_spelling`, `falsification_cron_absent_failclosed`, `falsification_390e_nested_shell_strictness`, `falsification_mutation_observability`, `falsification_unobservable_sentinel_survives_i8`, `falsification_query_runlog`, `falsification_scoring_static`: all ok, rc 0.
+
+Not measured: the coverage-gap note of lane 2 (`state_dir()` in `tests/resource_type_cli_output.rs` does not populate a `package` resource, so a revert of that arm in `status_cost.rs` stays green); CI on the new head; the clean-room run.
 
 IMPL-PMAT-916-RECEIPT-END
