@@ -1,0 +1,107 @@
+{
+  "kind": "code",
+  "issue": "PMAT-992 (forjar#992 / PR #993, v1.34.1 cut prep) — --resource-timeout signals the child script's process group directly via killpg(2) (and pepita namespace init via kill(2)) without an external kill binary, plus 1.34.1 manifest/ledger/changelog/dogfood-receipt prep across the 11-PR post-v1.34.0 window.",
+  "branch": "fix/992-timeout-kill-by-syscall",
+  "base": "4a73376b",
+  "base_commit": "4a73376b450aae881151a3f87abd103b186ffc19",
+  "diff_sha256": "5fe7d09b7a49d802d5190cccb768ad170310246f",
+  "recorded_at": "round 3: three independent agy Gemini 4 Carbon (thinking=high) lanes, 3/3 PASS at head 098e3709. Round 4 (delta after merging origin/main 1d4cc583 and 4a73376b): three independent Claude Opus 5.5 fallback lanes, 3/3 PASS at head b3f44c3f.",
+  "quorum": {
+    "rounds": 4,
+    "lanes": [
+      "round 3, head 098e3709 — agy Gemini 4 Carbon (High) Lane 1 (Syscall Semantics, pid_t Boundary & 1.34.1 Manifest Footprint): PASS",
+      "round 3, head 098e3709 — agy Gemini 4 Carbon (High) Lane 2 (Process-Group Lifecycle, Pepita Teardown & 11-PR Window Reconciliation): PASS",
+      "round 3, head 098e3709 — agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Discrimination & dogfood-1.34.1 Audit): PASS",
+      "round 4, head b3f44c3f — Claude Opus 5.5 (fallback) Lane 1 (Source/Workflow/Test Equivalence after two main merges): PASS",
+      "round 4, head b3f44c3f — Claude Opus 5.5 (fallback) Lane 2 (CHANGELOG & Release Manifest Coherence after two main merges): PASS",
+      "round 4, head b3f44c3f — Claude Opus 5.5 (fallback) Lane 3 (Roadmap, Receipts & Gate-Content Audit after two main merges): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C5 and R1..R2 was independently attacked across all 3 lanes; R1 bounds dogfood-1.34.1-receipt.md (candid NO-GO on 5/9 release gates, no gate softened) and R2 bounds local-only integration falsifier scope.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: docs/audits/dogfood-1.34.1-receipt.md records verdict NO-GO on the nine-gate bar (B, F, G, T, H failing; crux-1.34.1.md intentionally unfabricated), so Cargo.toml:3 and CHANGELOG.md:10 stage 1.34.1 on main without claiming nine-gate tag promotion clearance.",
+      "R2: tests/falsification_992_timeout_needs_no_kill_binary.rs:85 exercises local shell apply under a kill-less PATH rather than end-to-end SSH/container or pepita::cleanup_namespace teardown; SSH/container worker timeout shares kill_worker_child_group and kill_pid bounds are pinned in tests_timeout.rs:33."
+    ]
+  },
+  "falsification": {
+    "test": "Perturb kill_process_group in src/transport/child_group.rs:55 back to Command::new(\"kill\").args([\"-9\", &format!(\"-{raw}\")]) on yoga (/var/tmp/agy-fj993) and run cargo test --test falsification_992_timeout_needs_no_kill_binary.",
+    "test_file": "tests/falsification_992_timeout_needs_no_kill_binary.rs",
+    "cargo_test_target": "falsification_992_timeout_needs_no_kill_binary",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on yoga (/var/tmp/agy-fj993): restoring Command::new(\"kill\") in src/transport/child_group.rs:55 failed both no_source_file_spawns_a_kill_binary and resource_timeout_bounds_the_apply_with_no_kill_binary_on_path (fj993_revert_rc=101)."
+  },
+  "crux": {
+    "systems": [
+      "GNU timeout / coreutils (kill(-pgid, sig) via kill(2)): signals the monitored foreground process group directly by syscall without shelling out to /bin/kill",
+      "systemd KillMode=control-group / process: delivers SIGTERM/SIGKILL via kernel syscalls (kill/pidfd_send_signal) independent of container userland binaries",
+      "Go os/exec CommandContext & tokio::process kill_on_drop: invokes kill(2)/killpg(2) directly on the OS handle so minimal distroless/slim images never depend on procps"
+    ],
+    "verdict": "Signalling the child process group via nix::sys::signal::killpg (and namespace init via kill_pid with raw > 1) eliminates the hidden procps binary dependency while keeping #![forbid(unsafe_code)]."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Syscall/Manifest, Lifecycle/Ledger, Falsifiers/Dogfood) refreshed at head 098e3709",
+    "rounds": 3,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 3: 3/3 PASS at 098e3709 (5 claims confirmed across 11-PR post-v1.34.0 window, 2 claims refuted: R1 dogfood NO-GO scope bounded, R2 transport scope narrowed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-992",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo test on yoga (/var/tmp/agy-fj993): 29/29 release-goal, changelog, version, and timeout falsifier tests passed at 098e3709 + revert kill rc=101"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-992-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "5ccf1504b0a2d1736243ceca40500e9793b6b22b",
+        "sha256": "3499b88723bc3a93ff3ef138b5964fa04780b3d7c1b118e2ac75ba1d84512dba",
+        "bytes": 1399
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "369b9cef04d7a00672e0c8c8e4e884964bd11566",
+        "sha256": "99c4e559aaed6364a4e0413246f8a50b594ce3325dadc25f4b8b96441a4ec88e",
+        "bytes": 2497
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "5a86e51629774a46adc72748d5a06164ca05912e",
+        "sha256": "1b1deca569f1d3cdf6883c757dd232a723d040fc2878b0a919b31a60301810f1",
+        "bytes": 3559
+      },
+      {
+        "path": ".quorum/evidence/PMAT-992-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "d775b51fad36100a26ad149551a2a75baa305e33",
+        "sha256": "637fd50e60209f822b462e32752683648367d8f56cf7244bbc5bb2567baa5fd1",
+        "bytes": 3367
+      }
+    ],
+    "total_bytes": 10822,
+    "claims_digest": ".quorum/evidence/PMAT-992-judges.md"
+  }
+}
