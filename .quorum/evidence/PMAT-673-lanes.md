@@ -1,7 +1,9 @@
 # Lanes — `stress.yml` timeout envelope & `SEC005` token boundary (PMAT-673 / forjar#914)
 
-Three-lane `LANES=3` review by `agy` (`Gemini 4 Carbon (thinking=high)`), distinct from the Claude author model, at head `7c609178d784bb214105e1d8a4eaca081e900494`:
+Lane verdicts for this branch are the non-author Claude Opus 5.5 lane files, each bound to head `9b4df9da2a19c842276ac1997ae45e7da359739f` (they review that head, not the final rebound head, and are not adjudicated at the final head):
 
-- **Lane 1 (Worst-Case Runtime Budget vs Step Timeout Invariant)**: `PASS` — verified at 7c609178 against the figures it then carried (3 passes x 4 min <= 30 min). Author note, not an agy verdict: the corrected figures are `3 * 9 min + 10 min build = 37 min <= 45 min`, and 3 legs = 9 weekly stress passes and zero conflicting job-level timeout in `.github/workflows/stress.yml`.
-- **Lane 2 (Matrix Failure Isolation & `SEC005` Boundary Falsifier)**: `PASS` — verified `fail-fast: false` in `.github/workflows/stress.yml` and `falsification_sec005_needs_a_token_boundary` (`2/2` green) as they stood at 7c609178, where the SEC005 test used the unquoted form only. The quoted-assignment test was added after this round and is not re-adjudicated.
-- **Lane 3 (Revert Kill, Non-Blocking Workflow Scope & Traceability)**: `PASS` — verified `stress.yml` is a weekly-cron workflow (`RULES-GATES-1111` clean) and reverting `.github/workflows/stress.yml` to `origin/main` on `<host>` (`<SCRATCH>`) fails both tests (`FJ_914_REVERT_RC=101`).
+- **Lane 1**: `/mnt/nvme-raid0/cop-inbox/handoff/agy/review-forjar-914-9b4df9d-lane1.md`: PASS.
+- **Lane 2**: `/mnt/nvme-raid0/cop-inbox/handoff/agy/review-forjar-914-9b4df9d-lane2.md`: FAIL on the evidence text; this commit removes the false history it named. Not re-adjudicated.
+- **Lane 3**: `/mnt/nvme-raid0/cop-inbox/handoff/agy/review-forjar-914-9b4df9d-lane3.md`: PASS.
+
+Facts at the head: `stress.yml` runs `seq 1 3` with step `timeout-minutes: 45` and `strategy.fail-fast: false`; 3 * 9 min + 10 min build = 37 <= 45.
