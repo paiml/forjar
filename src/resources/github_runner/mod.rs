@@ -212,8 +212,16 @@ impl<'a> Session<'a> {
         for page in 1..=50 {
             let path = format!("{}/actions/runners?per_page=100&page={page}", self.base);
             let body = self.gh.get(&path, &self.token)?;
-            let runners = body.get("runners").and_then(|r| r.as_array());
-            let runners = runners.map(Vec::as_slice).unwrap_or_default();
+            // A listing without `runners` is unmeasured, never "absent".
+            let runners = body
+                .get("runners")
+                .and_then(|r| r.as_array())
+                .ok_or_else(|| {
+                    format!(
+                        "github_runner `{}`: the runner listing has no `runners` array",
+                        self.seat.name
+                    )
+                })?;
             if let Some(r) = runners
                 .iter()
                 .find(|r| r["name"] == self.seat.name.as_str())
@@ -221,10 +229,14 @@ impl<'a> Session<'a> {
                 return Ok(Some(found_from(r)));
             }
             if runners.len() < 100 {
-                break;
+                return Ok(None);
             }
         }
-        Ok(None)
+        Err(format!(
+            "github_runner `{}`: the runner listing has more than 50 pages; \
+             cannot tell whether the seat exists",
+            self.seat.name
+        ))
     }
 
     /// The runner group a listed runner is in (org scope only).

@@ -29,6 +29,26 @@ pub(super) fn validate_github_runner(
         });
     };
 
+    // The seat's verdict is keyed on the runner `name` alone, so a second
+    // machine would find the first one's seat listed and be reported adopted
+    // with nothing installed on it.
+    if let MachineTarget::Multiple(machines) = &resource.machine {
+        if machines.len() > 1 {
+            refuse(&format!(
+                "`machine` lists {} machines ({}); a seat is one runner on one machine, \
+                 declare one resource per machine, each with its own `name`",
+                machines.len(),
+                machines.join(", ")
+            ));
+        }
+    }
+
+    // The seat script elevates with its own `sudo -n`; a declared `sudo:` would
+    // be silently ignored for this type.
+    if resource.sudo {
+        refuse("`sudo` is not supported: the seat script runs its own `sudo -n`");
+    }
+
     let spec = &resource.runner;
     match spec.scope.as_deref() {
         _ if templated(&spec.scope) || templated(&resource.repo) => {}
