@@ -24,9 +24,10 @@ fn read_df(path: &str) -> String {
         r#"
 fb_read_df() {{
   # POSIX `df -P` keeps the record on one line even for long device names.
-  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4}}')
+  set -- $(df -P -k {p} 2>/dev/null | awk 'NR==2{{gsub(/%/,"",$5); print $5, $4, $2}}')
   FB_USED_PCT="${{1:-0}}"
   FB_FREE_KB="${{2:-0}}"
+  FB_TOTAL_KB="${{3:-0}}"
   FB_FREE_GB=$((FB_FREE_KB / 1024 / 1024))
 }}
 "#
@@ -51,14 +52,10 @@ fn label(name: &str) -> String {
         .collect()
 }
 
-/// The per-rule reclaim block.
-fn rule_block(rule: &ReclaimRule) -> String {
-    let name = label(&rule.name);
-    let log_msg = sh_squote(&format!("rule {}: scanning", label(&rule.name)));
-    let finder = detect::fn_name(rule.kind);
-    let idle = rule.min_idle_minutes;
+/// The rule's roots and the literal prefixes of those roots, each shell-quoted and
+/// space-joined: what the finder is handed and what `fb_sweepable` checks against.
+fn quoted_roots_and_prefixes(rule: &ReclaimRule) -> (String, String) {
     let roots: Vec<String> = rule.roots.iter().map(|r| sh_squote(r)).collect();
-    let roots = roots.join(" ");
     let mut prefixes: Vec<String> = rule
         .roots
         .iter()
@@ -66,7 +63,47 @@ fn rule_block(rule: &ReclaimRule) -> String {
         .collect();
     prefixes.dedup();
     let prefixes: Vec<String> = prefixes.iter().map(|p| sh_squote(p)).collect();
-    let prefixes = prefixes.join(" ");
+    (roots.join(" "), prefixes.join(" "))
+}
+
+// The reach scan's shell text, in four pieces around the three values that are
+// spliced in (finder + roots, idle floor, sweepable prefixes). Constants, not one
+// `format!` template, so the generated shell is not scored as Rust control flow
+// and the pieces cannot be re-parsed after a root name is inserted.
+const REACH_OPEN: &str = r#"
+if [ "$FB_OPEN_OK" = "1" ]; then
+  "#;
+const REACH_SCAN: &str = r#" >"$FB_CANDS" 2>/dev/null || true
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    fb_in_use "$cand" && continue
+    fb_is_idle "$cand" "#;
+const REACH_SWEEPABLE: &str = r#" || continue
+    fb_sweepable "$cand" "#;
+const REACH_SUM: &str = r#" || continue
+    sz=$(fb_bytes "$cand")
+    [ -n "$sz" ] || FB_REACH_UNM=1
+    printf '%s\t%s\n' "${sz:-0}" "$cand" >>"$FB_REACH"
+  done < "$FB_CANDS"
+fi
+"#;
+
+/// The per-rule reachability scan (forjar#669): sums the bytes this rule could free,
+/// under the SAME idle and sweepable filters the delete loop applies, deleting nothing.
+fn reach_block(rule: &ReclaimRule) -> String {
+    let (roots, prefixes) = quoted_roots_and_prefixes(rule);
+    let finder = detect::fn_name(rule.kind);
+    let idle = rule.min_idle_minutes;
+    format!("{REACH_OPEN}{finder} {roots}{REACH_SCAN}{idle}{REACH_SWEEPABLE}{prefixes}{REACH_SUM}")
+}
+
+/// The per-rule reclaim block.
+fn rule_block(rule: &ReclaimRule) -> String {
+    let name = label(&rule.name);
+    let log_msg = sh_squote(&format!("rule {}: scanning", label(&rule.name)));
+    let finder = detect::fn_name(rule.kind);
+    let idle = rule.min_idle_minutes;
+    let (roots, prefixes) = quoted_roots_and_prefixes(rule);
     let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
 
@@ -85,7 +122,7 @@ fn rule_block(rule: &ReclaimRule) -> String {
 if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" != "1" ]; then
   fb_log "rule {name}: open-path scan not measured - nothing proven dead, deleting nothing"
 fi
-if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
+if [ "$FB_MET" != "1" ] && [ "$FB_UNREACH" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
   fb_log {log_msg}
   {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
   if [ -s "$FB_UNMLOG" ]; then
@@ -100,6 +137,9 @@ if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
       FB_MET=1
       break
     fi
+    # forjar#667: ONE in-use check for every kind, before the idle check and the rm
+    # (a finder that forgets its own copy used to delete a running build's dir).
+    fb_in_use "$cand" && {{ fb_log "  keep (in use): $cand"; continue; }}
     fb_is_idle "$cand" {idle} || {{ fb_log "  keep (active <{idle}m): $cand"; continue; }}
     # SEC011: last line of defence for a script whose job is `rm -rf`. Every
     # candidate arrives from a glob or a find; if one ever resolves a level too
@@ -145,6 +185,7 @@ pub(super) fn script(budget: &DiskBudget, status_json: &str, log_tag: &str) -> S
     let target_used = budget.target_used_pct();
     let crit = budget.critical_free_gb;
     let rules: String = budget.reclaim.iter().map(rule_block).collect();
+    let reach: String = budget.reclaim.iter().map(reach_block).collect();
 
     format!(
         r#"#!/bin/sh
@@ -177,10 +218,15 @@ FB_WOULD=$(mktemp) || exit 1
 FB_CANDS=$(mktemp) || exit 1
 FB_OPEN=$(mktemp) || exit 1
 FB_PROCRAW=$(mktemp) || exit 1
+FB_MAPS=$(mktemp) || exit 1
 FB_MARKERS=$(mktemp) || exit 1
 FB_UNMLOG=$(mktemp) || exit 1
 FB_MET=0
-trap 'rm -f "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
+FB_UNREACH=0
+FB_REACH_UNM=0
+FB_IDLE_TO=0
+FB_REACH=$(mktemp) || exit 1
+trap 'rm -f "$FB_REACH" "$FB_LEDGER" "$FB_WOULD" "$FB_CANDS" "$FB_OPEN" "$FB_PROCRAW" "$FB_MAPS" "$FB_MARKERS" "$FB_UNMLOG"' EXIT INT TERM
 
 # Tag carries no square brackets: bashrs parses `[...]` inside the string
 # as a test expression (SC1140) and rejects the script.
@@ -197,11 +243,21 @@ if [ "$FB_USED_PCT" -lt "$FB_HIGH" ]; then
 else
   FB_TRIGGERED=1
   fb_scan_open_paths
+  # forjar#669: can freeing EVERY eligible candidate reach the target at all? If not,
+  # sweeping the idle trees is a TTL sweep that fixes nothing and destroys warm caches.
+  : >"$FB_REACH"
+{reach}  FB_REACH_BYTES=$(fb_sum_reach "$FB_REACH")
+  FB_NEED_BYTES=$(awk -v t="$FB_TOTAL_KB" -v u="$FB_USED_PCT" -v g="$FB_TARGET_USED" 'BEGIN{{n=t*1024*(u-g)/100; if(n<0)n=0; printf "%.0f", n}}')
+  # NOT MEASURED is not "unreachable" (L23): a timed-out walk or du decides nothing.
+  if [ "$FB_OPEN_OK" = "1" ] && [ ! -s "$FB_UNMLOG" ] && [ "$FB_REACH_UNM" != "1" ] && [ "$FB_IDLE_TO" != "1" ] && [ "$FB_REACH_BYTES" -lt "$FB_NEED_BYTES" ]; then
+    FB_UNREACH=1
+    fb_log "UNREACHABLE: target ${{FB_TARGET_USED}}% needs ${{FB_NEED_BYTES}} bytes freed, all eligible candidates hold ${{FB_REACH_BYTES}}; shortfall $((FB_NEED_BYTES - FB_REACH_BYTES)) bytes - deleting nothing"
+  fi
 {rules}fi
 
 fb_read_df
-FB_RECLAIMED=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_LEDGER" 2>/dev/null || echo 0)
-FB_WOULD_BYTES=$(awk '{{s+=$1}} END{{print s+0}}' "$FB_WOULD" 2>/dev/null || echo 0)
+FB_RECLAIMED=$(awk '{{s+=$1}} END{{printf "%.0f", s}}' "$FB_LEDGER" 2>/dev/null || echo 0)
+FB_WOULD_BYTES=$(awk '{{s+=$1}} END{{printf "%.0f", s}}' "$FB_WOULD" 2>/dev/null || echo 0)
 FB_MET_FINAL=0
 [ "$FB_USED_PCT" -le "$FB_TARGET_USED" ] && FB_MET_FINAL=1
 
@@ -256,201 +312,4 @@ exit 0
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::types::{ReclaimKind, DEFAULT_SCHEDULE};
-
-    fn budget(rules: Vec<ReclaimRule>) -> DiskBudget {
-        DiskBudget::new("/", 85, 20, 50, DEFAULT_SCHEDULE, rules).unwrap()
-    }
-
-    fn rule() -> ReclaimRule {
-        ReclaimRule {
-            name: "agent-targets".into(),
-            roots: vec!["/home/noah/src/*".into()],
-            kind: ReclaimKind::CargoTarget,
-            min_idle_minutes: 60,
-        }
-    }
-
-    #[test]
-    fn triggered_pass_that_misses_target_exits_nonzero() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(
-            s.contains(r#"[ "$FB_TRIGGERED" = "1" ] && [ "$FB_MET_FINAL" != "1" ]"#),
-            "missing the anti-inertness exit"
-        );
-        assert!(s.contains("exit 1"));
-    }
-
-    #[test]
-    fn reclaimed_nothing_under_pressure_is_flagged_inert() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(s.contains("FB_HEALTH=inert"));
-        assert!(s.contains(r#"[ "$FB_RECLAIMED" -eq 0 ]"#));
-    }
-
-    #[test]
-    fn reads_df_before_and_after_each_delete() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        // once at start, once per candidate, once at the end
-        assert!(
-            s.matches("fb_read_df").count() >= 3,
-            "must re-read df as it deletes"
-        );
-    }
-
-    #[test]
-    fn stops_as_soon_as_target_is_met() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(s.contains(r#"[ "$FB_USED_PCT" -le "$FB_TARGET_USED" ]"#));
-        assert!(s.contains("break"));
-    }
-
-    #[test]
-    fn honours_the_idle_floor_per_rule() {
-        let mut r = rule();
-        r.min_idle_minutes = 45;
-        let s = script(&budget(vec![r]), "/run/x.json", "budget");
-        assert!(s.contains("fb_is_idle \"$cand\" 45"));
-    }
-
-    /// #334: a reaper reached by hand — or by a `sudo`/`ssh` hop that scrubbed
-    /// the environment — must inspect, not delete.
-    #[test]
-    fn deletes_only_on_explicit_opt_in() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        let dry = s.find("DRY-RUN would reclaim").expect("dry-run branch");
-        let rm = s.find("rm -rf -- \"$cand\"").expect("delete branch");
-        assert!(
-            dry < rm,
-            "dry-run must be the guarded branch, not a fallthrough"
-        );
-        // The default is DRY. Deleting is an opt-in the environment must grant.
-        assert!(s.contains("\nFB_DRY=1\n"), "the default must be dry: {s}");
-        assert!(s.contains(r#"if [ "${FORJAR_BUDGET_EXECUTE:-0}" = "1" ]; then FB_DRY=0; fi"#));
-        // The documented variable still works, and still wins.
-        assert!(s.contains(r#"if [ "${FORJAR_BUDGET_DRY_RUN:-0}" = "1" ]; then FB_DRY=1; fi"#));
-        assert!(
-            !s.contains(r#"FB_DRY="${FORJAR_BUDGET_DRY_RUN:-0}""#),
-            "the fail-dangerous default must be gone"
-        );
-    }
-
-    /// The ledger is FREED bytes. A preview that appended to it reported
-    /// `reclaimed_bytes` > 0 and `health=effective` for deletions that never
-    /// happened, which is what made a preview and a reclaim byte-identical.
-    #[test]
-    fn the_ledger_append_is_inside_the_delete_branch() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        let ledger = s
-            .find(r#"echo "${sz:-0}" >>"$FB_LEDGER""#)
-            .expect("ledger append");
-        let close = s
-            .find("\n    fi\n  done < \"$FB_CANDS\"")
-            .expect("branch end");
-        assert!(
-            ledger < close,
-            "the ledger append must be inside the else branch, not after the fi"
-        );
-        // The dry branch records what it WOULD free, separately.
-        assert!(s.contains(r#"echo "${sz:-0}" >>"$FB_WOULD""#));
-    }
-
-    /// A preview must not stamp a health record for deletions that did not
-    /// happen: the status file is the heartbeat AND the drift-hashed health.
-    #[test]
-    fn a_preview_does_not_write_the_heartbeat_or_fail_the_unit() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(
-            s.contains("if [ \"$FB_DRY\" != \"1\" ]; then\ncat >\"$FB_STATUS\""),
-            "the status write must be guarded by the mode"
-        );
-        assert!(
-            s.contains(r#"if [ "$FB_DRY" != "1" ] && [ "$FB_TRIGGERED" = "1" ]"#),
-            "the anti-inertness exit must exempt a preview"
-        );
-    }
-
-    /// A dry run and a reclaim printed identical output. Naming the mode on the
-    /// start and completion lines is what makes them distinguishable in a log.
-    #[test]
-    fn both_log_lines_name_the_mode() {
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(
-            s.contains(r#"if [ "$FB_DRY" = "1" ]; then FB_MODE=dry-run; else FB_MODE=execute; fi"#)
-        );
-        assert_eq!(
-            s.matches("mode=$FB_MODE").count(),
-            2,
-            "start and complete must both carry the mode"
-        );
-        assert!(s.contains("would_reclaim ${FB_WOULD_BYTES} bytes"));
-    }
-
-    #[test]
-    fn writes_status_json_every_run() {
-        let s = script(&budget(vec![rule()]), "/run/budget-root.json", "budget");
-        assert!(s.contains("/run/budget-root.json"));
-        // No `last_run` epoch: the status file's own mtime IS the heartbeat, so
-        // there is no clock arithmetic to keep in sync and no `date` call —
-        // which forjar's I8 purification gate rejects as non-deterministic
-        // (DET002). state_query reads freshness with `find -mmin` instead.
-        assert!(!s.contains("date +%s"), "reaper must not call date");
-        for field in [
-            "reclaimed_bytes",
-            "triggered",
-            "target_met",
-            "tier",
-            "health",
-        ] {
-            assert!(
-                s.contains(&format!("\"{field}\"")),
-                "status missing {field}"
-            );
-        }
-    }
-
-    #[test]
-    fn target_used_is_derived_from_free_target() {
-        // 20% free target => stop at 80% used.
-        let s = script(&budget(vec![rule()]), "/run/x.json", "budget");
-        assert!(s.contains("FB_TARGET_USED=80"));
-        assert!(s.contains("FB_HIGH=85"));
-    }
-
-    #[test]
-    fn rules_are_emitted_in_declaration_order() {
-        let a = ReclaimRule {
-            name: "first".into(),
-            ..rule()
-        };
-        let b = ReclaimRule {
-            name: "second".into(),
-            kind: ReclaimKind::Glob,
-            ..rule()
-        };
-        let s = script(&budget(vec![a, b]), "/run/x.json", "budget");
-        assert!(s.find("rule: first").unwrap() < s.find("rule: second").unwrap());
-    }
-
-    #[test]
-    fn no_rules_still_produces_a_runnable_script() {
-        let s = script(&budget(vec![]), "/run/x.json", "budget");
-        assert!(s.starts_with("#!/bin/sh"));
-        assert!(s.contains("fb_read_df"));
-    }
-
-    #[test]
-    fn paths_are_shell_quoted() {
-        let b = DiskBudget::new("/mnt/a b", 85, 20, 50, "hourly", vec![]).unwrap();
-        let s = script(&b, "/run/x.json", "budget");
-        assert!(s.contains("'/mnt/a b'"), "path must be quoted");
-    }
-
-    #[test]
-    fn declares_itself_forjar_managed() {
-        let s = script(&budget(vec![]), "/run/x.json", "budget");
-        assert!(s.contains("DO NOT EDIT"));
-    }
-}
+mod tests;
