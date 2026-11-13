@@ -555,13 +555,20 @@ cargo install --path .
 ## Verify
 
 A `bash` fence in this file is a claim: every command in one is a step CI runs on the merge path, and
-`pv-readme --check` refuses the README if one is not. Commands shown for illustration are in `console` fences.
+`pv-readme --check` refuses the README if one is not. Commands shown for illustration are in `console` or
+`text` fences.
 
 ```bash
 cargo build --release --locked
 cargo test --locked --doc
 bash scripts/dogfood/docs.sh
+```
+
+The shape itself is graded nightly on `main` by the `readme-shape-lab` workflow (a LAB check, not a merge gate):
+
+```text
 pv-readme --check
+bash tests/readme-shape-falsifier.sh
 ```
 
 ## Contracts
