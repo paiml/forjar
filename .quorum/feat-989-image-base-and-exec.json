@@ -2,9 +2,9 @@
   "kind": "code",
   "issue": "PMAT-989 (forjar#989, IMG-001) \u2014 forjar build layers its declared OCI base image (failing closed when absent or invalid) and executes packages/command inside a container to append one deterministic layer.",
   "branch": "feat/989-image-base-and-exec",
-  "base": "de11cfb4",
-  "base_commit": "de11cfb47d2f4e4cf11f8cc8122e13507e12f2f5",
-  "diff_sha256": "edadb45f094c033fbd1160d8eb2f3a9a96f80390",
+  "base": "2cc18c46",
+  "base_commit": "2cc18c468d43a8ef8bcd455619daf7a9cfbe2c87",
+  "diff_sha256": "48cb5dc658ceede61238b65fd5cb69726577aecc",
   "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (security/base-ref, parser/exec-layer, contracts/docs/hygiene) across 3 rounds, passing 3/3 at head 2be85af3 against origin/main c4ce3a2c with 5 claims confirmed and 2 refuted.",
   "quorum": {
     "rounds": 4,
