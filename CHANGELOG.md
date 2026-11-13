@@ -114,6 +114,19 @@ stale, so a state dir shared by two stacks lost the other stack's entries. It no
 machines the config declares, and refuses, before writing anything, a machine another stack's stamp
 also lists.
 
+**drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
+`forjar drift` with an empty state dir (no lock for any machine) is now treated
+as lockless: a declared pin is compared against the live binary, offline too,
+instead of inspecting 0 resources and exiting 0. A state dir that holds another
+stack's locks is not treated as empty, so a machine of this config that was never
+applied there is not an error. The plan version-pin pass (`plan_version_pins::measure`)
+is now covered by tests: a live version that is not the pin reads DRIFTED, the
+skipped upstream leg is disclosed offline, and an undeclared machine reads NOT CHECKED.
+For #694, which is already on main: a blank or whitespace-only package
+`completion_check` now adds no assertion (it was a shell syntax error), and tests
+pin that the check script includes both its presence checks and `completion_check`
+for apt, cargo, uv and brew, and that `verify_against_host` asks that script.
+
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
 The reaper loop runs one in-use check on every candidate of every reclaim kind,
 before the idle check and before `rm`, so a `cargo_target` whose binary is
