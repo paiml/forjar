@@ -1,3 +1,10 @@
+---
+schema_version: "1.0"
+kind: cli
+entrypoints: [src/main.rs]
+contract_count: 45
+---
+
 <p align="center">
   <img src="docs/hero.svg" alt="forjar — Rust-native Infrastructure as Code" width="900" />
 </p>
@@ -30,12 +37,14 @@
 - [Falsifiable Claims](#falsifiable-claims)
 - [Testing](#testing)
 - [Installation](#installation)
+- [Verify](#verify)
+- [Contracts](#contracts)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-**Latest: v1.6.1 — on [crates.io](https://crates.io/crates/forjar).** Install via `cargo install forjar`, a prebuilt binary, or from source.
+**Releases are on [crates.io](https://crates.io/crates/forjar) and [GitHub](https://github.com/paiml/forjar/releases).** Install via `cargo install forjar`, a prebuilt binary, or from source.
 
 Forjar is a single-binary IaC tool written in Rust. It manages bare-metal machines over SSH using YAML configs, BLAKE3 content-addressed state, and deterministic DAG execution. No cloud APIs, no runtime dependencies, no remote state backends.
 
@@ -123,7 +132,7 @@ resources:
     depends_on: [mkdir]
 ```
 
-```bash
+```console
 forjar make link        # build `link` and its prerequisites, nothing else
 forjar make clean       # run a `phony: true` action target
 forjar import-makefile Makefile -o forjar.yaml
@@ -180,7 +189,7 @@ Contract: `contracts/build-semantics-v1.yaml`.
 
 ## Quick Start
 
-```bash
+```console
 # Install from crates.io
 cargo install forjar
 
@@ -363,7 +372,7 @@ Forjar includes a Nix-inspired content-addressed store for reproducible builds. 
 
 ### Store Commands
 
-```bash
+```console
 forjar pin                            # Pin all inputs to current versions
 forjar pin --check                    # CI gate — fail if lock file is stale
 forjar cache list                     # List local store entries
@@ -409,7 +418,7 @@ On first failure, execution stops immediately. Partial state is preserved in the
 
 ## Benchmarks
 
-```bash
+```console
 cargo bench
 ```
 
@@ -502,7 +511,7 @@ Tests: `test_fj012_apply_local_file`
 
 ## Testing
 
-```bash
+```console
 cargo test                    # 12000+ unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
@@ -515,12 +524,12 @@ cargo clippy -- -D warnings   # lint
 **Prebuilt binaries** (Linux x86_64/aarch64, gnu + static musl — see
 [Releases](https://github.com/paiml/forjar/releases)):
 
-```bash
+```console
 # One-liner installer (picks the right target, verifies sha256)
 curl -fsSL https://raw.githubusercontent.com/paiml/forjar/main/install.sh | sh
 
 # Or manually: download, verify, extract
-VERSION=1.6.1 TARGET=x86_64-unknown-linux-gnu
+VERSION=1.34.0 TARGET=x86_64-unknown-linux-gnu
 curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz"
 curl -fsSLO "https://github.com/paiml/forjar/releases/download/v${VERSION}/forjar-${VERSION}-${TARGET}.tar.gz.sha256"
 sha256sum -c "forjar-${VERSION}-${TARGET}.tar.gz.sha256"
@@ -533,7 +542,7 @@ cargo binstall forjar
 
 **From crates.io / source:**
 
-```bash
+```console
 # From crates.io
 cargo install forjar
 
@@ -542,6 +551,25 @@ git clone https://github.com/paiml/forjar.git
 cd forjar
 cargo install --path .
 ```
+
+## Verify
+
+A `bash` fence in this file is a claim: every command in one is a step CI runs on the merge path, and
+`pv-readme --check` refuses the README if one is not. Commands shown for illustration are in `console` fences.
+
+```bash
+cargo build --release --locked
+cargo test --locked --doc
+bash scripts/dogfood/docs.sh
+pv-readme --check
+```
+
+## Contracts
+
+The behaviour forjar promises is written as <!-- CONTRACT_COUNT_START -->45<!-- CONTRACT_COUNT_END --> contracts
+under [`contracts/`](contracts/), validated by `pv validate` in CI. This README is one of their subjects:
+[`contracts/readme-root.yaml`](contracts/readme-root.yaml) holds the `readme:Readme` shape it must satisfy, and
+the count above is rendered by `pv-readme --write`, never typed.
 
 ## Contributing
 

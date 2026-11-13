@@ -7389,3 +7389,93 @@ roadmap:
   - kind:code
   notes: null
   epic: 915
+- id: PMAT-1018
+  github_issue: 1018
+  item_type: task
+  title: 'README: readme:Readme SHACL shape contract and census.json'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-13T12:37:08Z
+  updated: 2026-11-13T12:37:23.810565164+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 1017
+- id: PMAT-1019
+  github_issue: 1019
+  item_type: task
+  title: 'README: pv frontmatter and CONTRACT_COUNT block'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-13T12:37:10Z
+  updated: 2026-11-13T12:37:10Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 1017
+- id: PMAT-1020
+  github_issue: 1020
+  item_type: task
+  title: 'README: one fleet structure, claim fences only for commands CI runs'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-13T12:37:13Z
+  updated: 2026-11-13T12:37:13Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 1017
+- id: PMAT-1021
+  github_issue: 1021
+  item_type: task
+  title: 'README: CI runs pv-readme --check on the merge path'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-13T12:37:16Z
+  updated: 2026-11-13T12:37:16Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 1017
+- id: PMAT-1022
+  github_issue: 1022
+  item_type: task
+  title: 'README: falsifier, a planted bad README must exit 1'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-13T12:37:18Z
+  updated: 2026-11-13T12:37:18Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 1017
