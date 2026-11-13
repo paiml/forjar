@@ -115,22 +115,54 @@ fn an_unchanged_spec_is_a_cache_hit_that_starts_no_container() {
 
 #[test]
 fn changing_packages_command_or_entrypoint_misses_the_cache() {
+    // Each variant differs from the one before it in exactly ONE field, so a key
+    // that drops that field serves the stale image (a hit, no container).
     let (work, state) = fresh(true);
-    let variants = [
-        STEPS.to_string(),
-        "    packages: [jq, curl]\n    command: \"echo hi > /etc/greeting\"\n".to_string(),
-        "    packages: [jq]\n    command: \"echo bye > /etc/greeting\"\n".to_string(),
-        format!("{STEPS}    entrypoint: [\"/usr/bin/jq\"]\n"),
-        format!("{STEPS}    provider: apt\n    entrypoint: [\"/usr/bin/jq\"]\n"),
+    let cmd_only = "    packages: [jq]\n    command: \"echo bye > /etc/greeting\"\n";
+    let with_entry = format!("{cmd_only}    entrypoint: [\"/usr/bin/jq\"]\n");
+    let with_pkg = "    packages: [jq, curl]\n    command: \"echo bye > /etc/greeting\"\n    \
+                    entrypoint: [\"/usr/bin/jq\"]\n";
+    let restated = format!("{with_pkg}    provider: apt\n");
+    let entry_only = "    packages: [jq, curl]\n    command: \"echo bye > /etc/greeting\"\n    \
+                      entrypoint: [\"/usr/bin/curl\"]\n";
+    let variants: [(&str, String, usize); 6] = [
+        ("baseline", STEPS.to_string(), 1),
+        ("command only", cmd_only.to_string(), 1),
+        ("entrypoint only", with_entry, 1),
+        ("packages only", with_pkg.to_string(), 1),
+        // Restating the default provider is the same key: a hit.
+        ("default provider restated", restated, 0),
+        ("entrypoint value only", entry_only.to_string(), 1),
     ];
-    for (i, v) in variants.iter().enumerate() {
+    for (name, v, expect) in &variants {
         let cfg = write_cfg(work.path(), &with_base(v));
         let rt = runtime();
         build_with(&rt, &state, &cfg).unwrap();
-        // The last variant only restates the default provider: same key, a hit.
-        let expect = usize::from(i != 4);
-        assert_eq!(rt.count("start"), expect, "variant {i}");
+        assert_eq!(rt.count("start"), *expect, "variant {name}");
     }
+}
+
+fn exec_key(command: Option<&str>, entrypoint: &[&str]) -> String {
+    use super::build_image_exec::{hash_exec_inputs, ExecDecl};
+    let decl = ExecDecl {
+        provider: "apt".to_string(),
+        packages: vec!["jq".to_string()],
+        command: command.map(str::to_string),
+    };
+    let ep: Vec<String> = entrypoint.iter().map(|s| (*s).to_string()).collect();
+    let mut h = blake3::Hasher::new();
+    hash_exec_inputs(&mut h, Some(&decl), &ep);
+    h.finalize().to_hex().to_string()
+}
+
+#[test]
+fn the_exec_cache_key_covers_command_and_entrypoint_and_is_deterministic() {
+    let base = exec_key(Some("echo a"), &["/bin/a"]);
+    assert_eq!(base, exec_key(Some("echo a"), &["/bin/a"]), "same inputs");
+    assert_ne!(base, exec_key(Some("echo b"), &["/bin/a"]), "command only");
+    assert_ne!(base, exec_key(Some("echo a"), &["/bin/b"]), "entrypoint only");
+    assert_ne!(base, exec_key(Some("echo a"), &[]), "entrypoint dropped");
+    assert_ne!(base, exec_key(None, &["/bin/a"]), "command dropped");
 }
 
 #[test]
