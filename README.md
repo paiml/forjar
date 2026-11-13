@@ -564,7 +564,7 @@ cargo test --locked --doc
 bash scripts/dogfood/docs.sh
 ```
 
-The shape itself is graded nightly on `main` by the `readme-shape-lab` workflow (a LAB check, not a merge gate):
+No CI job runs the shape check yet: `pv-readme` is not on the runners. Until it is, these are run by hand:
 
 ```text
 pv-readme --check
