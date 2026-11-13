@@ -1,6 +1,6 @@
 # IMPL-PMAT-673 receipt
 
-## What changed (PR #914, forjar#673)
+## What changed (PR #914, forjar#673 and forjar#649)
 
 - `.github/workflows/stress.yml`: each matrix leg runs 3 passes of
   `cargo test --lib -- --test-threads=1` instead of 10, the stress step's
@@ -9,8 +9,9 @@
   workflow and asserts passes x 9 min + 10 min build <= the step timeout, and
   that `fail-fast: false` is present.
 - `tests/falsification_sec005_needs_a_token_boundary.rs` (new): `disk-watch`,
-  `ask-lane`, `desk-lamp` are not flagged SEC005; a real key-shaped literal
-  still is.
+  `ask-lane`, `desk-lamp` in quoted assignments (`X="ci-<word>.timer"`,
+  `U="https://x/<word>"`) are not flagged SEC005; a real key-shaped literal
+  still is. Red on bashrs 6.68.0, green on 7.4.2 (measured on t2yoga).
 - `docs/roadmaps/roadmap.yaml`: PMAT-673 row.
 - `CHANGELOG.md`: Unreleased entry for the stress lane.
 - This receipt.
@@ -73,7 +74,7 @@ These need their own tickets and owners; they are outside the scope of
 PMAT-673, and fixing them means editing src/ or main's workflows, a design
 decision.
 
-## Commands run (all on kfocus, ~/src/fc-pre/pr-914)
+## Commands run (all on a scratch checkout)
 
 - `cargo fmt --all -- --check`: exit 0
 - `cargo clippy --all-targets -- -D warnings`: exit 0

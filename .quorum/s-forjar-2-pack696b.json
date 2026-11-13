@@ -1,8 +1,8 @@
 {
   "kind": "code",
-  "issue": "PMAT-673 (forjar#914) — bound nightly stress.yml passes (seq 1 3) inside a 30-minute step timeout with strategy.fail-fast: false, plus SEC005 sk- token-boundary falsification test.",
+  "issue": "PMAT-673 (forjar#914) — bound weekly stress.yml passes (seq 1 3) inside a 45-minute step timeout with strategy.fail-fast: false, plus a SEC005 sk- token-boundary falsification test (forjar#649, quoted-assignment forms, red on bashrs 6.68.0).",
   "branch": "s-forjar-2/pack696b",
-  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted.",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted. After two Opus 5.5 lanes failed fcf4d172 on stale figures (30 min / 4 min per pass) and a vacuous SEC005 guard, the evidence prose and the SEC005 test were corrected to the shipped 45 min / 9 min per pass and quoted forms; those corrections have not been re-adjudicated by the agy lanes.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -36,7 +36,7 @@
       "Bazel test_timeout Categories (short/moderate/long/eternal): sizes iteration counts to fit deterministic tier ceilings instead of timing out mid-loop",
       "gitleaks / ripgrep word-boundary secret rules: anchors sk- prefixes at token boundaries so identifiers like task-1 or disk-budget never false-positive"
     ],
-    "verdict": "Sizing stress passes to 3 per leg under a 30-minute timeout with fail-fast: false eliminates deterministic timeout aborts while preserving 9 nightly stress passes across 3 isolated legs."
+    "verdict": "Sizing stress passes to 3 per leg under a 45-minute timeout (3 x 9 min + 10 min build = 37) with fail-fast: false eliminates deterministic timeout aborts while preserving 9 weekly stress passes across 3 isolated legs."
   },
   "agy_teamwork": {
     "ran": true,
