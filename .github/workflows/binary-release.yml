@@ -324,7 +324,7 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           # Strip the leading 'v': assets are forjar-<x.y.z>-<target>.tar.gz,
-          # matching release.yml, the homebrew checksum patching, and the
+          # matching release.yml and the
           # name install.sh resolves (VERSION_NUM="${TAG#v}").
           VERSION="${TAG#v}"
           TARGET="${{ matrix.target }}"

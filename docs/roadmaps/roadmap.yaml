@@ -7205,6 +7205,25 @@ roadmap:
   - orch-basis:state
   - release:v1.34.1
   notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests cannot pass: 10 single-threaded passes per leg never fit its 30-minute timeout'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T15:39:13Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch-basis:state
+  notes: 'PR #914; also pins the SEC005 token boundary (#649)'
+  epic: 696
 - id: PMAT-992
   github_issue: 992
   item_type: task
@@ -7388,3 +7407,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 915
+- id: PMAT-608
+  github_issue: 608
+  item_type: task
+  title: github_release prints its missing-asset message under pipefail and surfaces a curl failure as a curl failure (#608)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T16:26:30Z
+  updated: 2026-11-12T16:26:30Z
+  spec: null
+  acceptance_criteria:
+  - 'github_release asset lookup ends in || true so a missing asset reaches its no-asset message; a curl failure aborts and is reported as a curl failure (PR #910, closes #608)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696

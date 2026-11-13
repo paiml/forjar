@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Release workflow no longer publishes a Homebrew formula (PMAT-1014, #1014).**
+Noah's ruling of 2026-11-13: "drop homebrew support". `release.yml` loses its
+`homebrew` job (red on the last five tags: `HOMEBREW_TAP_TOKEN` has been undefined
+since #462), so the release run is green without it. `dist-artifacts` now passes
+`--installer --binstall --nix --github-action --deb --rpm` instead of `--all`, and
+`dist-forjar.yaml` drops its `homebrew:` block. The external tap repo is untouched.
+`forjar dist --homebrew` itself is unchanged. `HOMEBREW_TAP_TOKEN` is owned by Noah
+and left for him to delete.
+
 **`apply --check` resolves `{{secrets.*}}` through the manifest's `secrets:` provider (PMAT-1011, #1011).**
 `check` resolved each resource's templates with the default secrets config, so it
 read `FORJAR_SECRET_<NAME>` and failed `secret '<name>' not found` for any resource
@@ -120,6 +129,16 @@ It walked every machine directory under `--state-dir` and called every key the o
 stale, so a state dir shared by two stacks lost the other stack's entries. It now touches only the
 machines the config declares, and refuses, before writing anything, a machine another stack's stamp
 also lists.
+
+**The weekly Stress Tests lane can go green (PMAT-673, #673).** Each matrix leg
+ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a
+30-minute timeout, so no leg could finish, and the default fail-fast cancelled
+the sibling legs. The legs now run three passes under a 45-minute timeout with
+`fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
+pins that passes x 9 minutes + build fits the timeout.
+`tests/falsification_sec005_needs_a_token_boundary.rs` also pins the bashrs 7.4.2
+token boundary for SEC005 (#649): `disk-watch`, `ask-lane` and `desk-lamp` in
+quoted assignments are not flagged as API keys, which bashrs 6.68.0 did.
 
 **drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
 `forjar drift` with an empty state dir (no lock for any machine) is now treated
