@@ -6064,18 +6064,24 @@ roadmap:
   github_issue: 667
   item_type: task
   title: 'disk_budget reaper deletes in-use dirs: cargo_target finder skips the in-use check; open-path scan ignores exe/maps'
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-12T01:13:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - The reaper loop runs one in-use check on every candidate of every ReclaimKind, before the idle check and before rm; the per-finder copies are gone.
+  - The open-path scan reads /proc/*/exe and the file paths in /proc/*/maps as well as cwd and fd.
+  - A cargo_target dir whose binary is running survives a pass; a dormant sibling is reclaimed.
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
-  notes: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'PR #944 (branch lane-944); worker lane, unpushed'
   release: backlog
 - id: GH-668
   github_issue: 668
@@ -6098,18 +6104,24 @@ roadmap:
   github_issue: 669
   item_type: task
   title: 'disk_budget: an unreachable target turns the reaper into a TTL sweep of every idle candidate'
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-12T01:13:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Before deleting anything the reaper sums what every eligible candidate could free and compares it with the bytes the target needs.
+  - When the target cannot be reached it logs UNREACHABLE and the shortfall, deletes nothing, and still exits 1.
+  - An unmeasured walk or du decides nothing; an empty or unreadable /proc scan fails closed.
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
-  notes: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'PR #944 (branch lane-944); worker lane, unpushed'
   release: backlog
 - id: GH-670
   github_issue: 670
