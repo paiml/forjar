@@ -72,6 +72,20 @@ fn in_this_run(name: &str, machine_filter: Option<&str>, scope: Option<&[String]
     scope.is_none_or(|declared| declared.iter().any(|m| m == name))
 }
 
+/// forjar#852: whether the state directory holds NO lock for ANY machine, in or
+/// out of this config. An empty directory is as lockless as an absent one; a
+/// directory that holds another stack's locks is not, so a machine of THIS
+/// config that was never applied there stays "no state yet" (forjar#488) and
+/// is not turned into a `declined` run.
+pub(super) fn holds_no_lock(state_dir: &Path) -> bool {
+    match machine_state_dirs(state_dir, None, None) {
+        Ok(Some(names)) => !names
+            .iter()
+            .any(|n| state::lock_file_path(state_dir, n).exists()),
+        _ => true,
+    }
+}
+
 /// `(machine_name, lock)` pairs from the state directory, or `None` when the
 /// state directory is absent.
 pub(super) fn collect_machine_locks(
