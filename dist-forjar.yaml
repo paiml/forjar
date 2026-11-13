@@ -47,10 +47,4 @@ dist:
   post_install: |
     echo "forjar installed successfully"
     echo "Run 'forjar init' to get started"
-  homebrew:
-    tap: paiml/tap
-    dependencies: []
-    caveats: |
-      To get started, run:
-        forjar init
   nix: {}

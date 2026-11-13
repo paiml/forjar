@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Release workflow no longer publishes a Homebrew formula (PMAT-1014, #1014).**
+Noah's ruling of 2026-11-13: "drop homebrew support". `release.yml` loses its
+`homebrew` job (red on the last five tags: `HOMEBREW_TAP_TOKEN` has been undefined
+since #462), so the release run is green without it. `dist-artifacts` now passes
+`--installer --binstall --nix --github-action --deb --rpm` instead of `--all`, and
+`dist-forjar.yaml` drops its `homebrew:` block. The external tap repo is untouched.
+`forjar dist --homebrew` itself is unchanged. `HOMEBREW_TAP_TOKEN` is owned by Noah
+and left for him to delete.
+
 **`apply --check` resolves `{{secrets.*}}` through the manifest's `secrets:` provider (PMAT-1011, #1011).**
 `check` resolved each resource's templates with the default secrets config, so it
 read `FORJAR_SECRET_<NAME>` and failed `secret '<name>' not found` for any resource
