@@ -270,33 +270,32 @@ fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
 #[test]
 fn rule10_a_fixed_tmp_directory_is_cleared_before_it_is_written() {
     let text = read(".github/workflows/release.yml");
-    for (job, clear, write) in [(
+    let (job, clear, write) = (
         "dist-artifacts",
         "rm -rf /tmp/dist-output",
         "--output-dir /tmp/dist-output",
-    )] {
-        // Comment lines are dropped first: this rule's own explanation quotes
-        // `git clone`, and a marker found inside a comment is not the step.
-        let block: String = non_comment_lines(job_block(&text, job))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let c = block.find(clear).unwrap_or_else(|| {
-            panic!(
-                "PMAT-230 rule 10: release.yml's {job} job writes into a fixed /tmp \
-                 directory on a runner that is not ephemeral and never clears it. \
-                 `{clear}` is missing, so the previous release's files are still there \
-                 when this one runs — the shape the `checksums` job's own staging-\
-                 directory comment records from v1.18.0."
-            )
-        });
-        let w = block
-            .find(write)
-            .unwrap_or_else(|| panic!("PMAT-230 rule 10: {job} no longer contains `{write}`"));
-        assert!(
-            c < w,
-            "PMAT-230 rule 10: release.yml's {job} job clears its fixed directory AFTER \
-             it writes into it (`{clear}` appears after `{write}`); a clear that runs \
-             after the write is not a guard"
-        );
-    }
+    );
+    // Comment lines are dropped first: this rule's own explanation quotes
+    // `git clone`, and a marker found inside a comment is not the step.
+    let block: String = non_comment_lines(job_block(&text, job))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let c = block.find(clear).unwrap_or_else(|| {
+        panic!(
+            "PMAT-230 rule 10: release.yml's {job} job writes into a fixed /tmp \
+             directory on a runner that is not ephemeral and never clears it. \
+             `{clear}` is missing, so the previous release's files are still there \
+             when this one runs — the shape the `checksums` job's own staging-\
+             directory comment records from v1.18.0."
+        )
+    });
+    let w = block
+        .find(write)
+        .unwrap_or_else(|| panic!("PMAT-230 rule 10: {job} no longer contains `{write}`"));
+    assert!(
+        c < w,
+        "PMAT-230 rule 10: release.yml's {job} job clears its fixed directory AFTER \
+         it writes into it (`{clear}` appears after `{write}`); a clear that runs \
+         after the write is not a guard"
+    );
 }
