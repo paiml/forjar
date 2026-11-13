@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-659 / PMAT-661 (forjar#902) \u2014 forjar check classifies SSH exit 255 and transport errors as unmeasured (exit 4) instead of fail (exit 1), and lock-prune -f scopes to declared machines and refuses machines shared with another stack.",
+  "branch": "forjar-cop/packB",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (transport exit contract, lock-prune atomicity, falsifiers/revert kill) at head 2a3ac2e3; 3/3 PASS with 4 claims confirmed and 2 refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 2a3ac2e3 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Transport Exit-Code Classification & Exit Precedence): PASS",
+      "round 1, head 2a3ac2e3 \u2014 agy Gemini 4 Carbon (High) Lane 2 (lock-prune Pre-Write Atomicity & Stack Ownership Guard): PASS",
+      "round 1, head 2a3ac2e3 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Kill & JSON Schema): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 separated host-environment test noise from PR targets and R2 proved full lock_core.rs revert discrimination after single-line filter perturbation stayed green.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: docs/audits/impl-PMAT-659-receipt.md marked verdict: PARTIAL over 10 host-sensitive test binaries on a busy dev box, whereas all PR falsifiers (6/6) and ci.yml dogfood-guards (9/9) pass rc=0.",
+      "R2: Stripping only .filter(|n| config.machines.contains_key(n)) in lock_prune_scope.rs:25 stayed green (rc=0) because shared-machine refusal fired first; reverting src/cli/lock_core.rs to origin/main drove prune_from_one_stack_leaves_the_other_stacks_locks_alone RED (FJ_902_REVERT_RC=101)."
+    ]
+  },
+  "falsification": {
+    "test": "Revert src/cli/lock_core.rs to origin/main on <host> (<SCRATCH>) and run cargo test --test falsification_661_lock_prune_scoped_to_config.",
+    "test_file": "tests/falsification_661_lock_prune_scoped_to_config.rs",
+    "cargo_test_target": "falsification_661_lock_prune_scoped_to_config",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting src/cli/lock_core.rs (! cmp -s verified) failed prune_from_one_stack_leaves_the_other_stacks_locks_alone (FJ_902_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "Nagios / Icinga plugin return codes (0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN): separates unreachable/unobservable transport failures (UNKNOWN) from confirmed resource failure (CRITICAL)",
+      "OpenSSH exit status 255 contract: ssh reserves 255 for connection/auth errors distinct from remote command exit statuses",
+      "Pulumi / Terraform state workspaces: refuses cross-stack state pruning when resources on a shared target belong to a different stack stamp"
+    ],
+    "verdict": "Separating SSH unreachability (exit 4 unmeasured) from confirmed drift (exit 1 fail) and refusing cross-stack lock-prune eliminates false-positive drift pages and multi-stack state corruption."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes at head 2a3ac2e3",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 2a3ac2e3 (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-659",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + falsification_659 (4/4) + falsification_661 (2/2) + revert kills on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "6af35e419b0e421253601ad0bea6a14645eeab90",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-659-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "492ac2e7302ddbfc34ee6ace2a01c9e7c85c0d62",
+        "sha256": "721612f711336096c7179b866c563dfb97287145b8d167126f108220ea88255e",
+        "bytes": 2128
+      },
+      {
+        "path": ".quorum/evidence/PMAT-659-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "9a9882895f46471867e53129813952f4580b6de9",
+        "sha256": "7f604a4f26b8037f07cb6ddeb406ab6b13ac179d71faeaf5500d440b085dcb11",
+        "bytes": 1165
+      },
+      {
+        "path": ".quorum/evidence/PMAT-659-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "65fb456875c0935e32301f7dabdbcca48d502f5a",
+        "sha256": "85fc518659c555564ef6e59c60a759e534a3e3be626fba7069b56f0a62b33a55",
+        "bytes": 3087
+      },
+      {
+        "path": ".quorum/evidence/PMAT-659-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "7890dff36ad671724ab92d180d774b1f04e7b061",
+        "sha256": "b28521476262b9fc8383ad3122a3d786644b462cac56cb59c49061acb62377e5",
+        "bytes": 636
+      }
+    ],
+    "total_bytes": 7016,
+    "claims_digest": ".quorum/evidence/PMAT-659-judges.md"
+  }
+}

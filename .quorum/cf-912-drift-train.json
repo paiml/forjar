@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-912 (forjar#961: #852, #613, #694): an empty state dir takes the lockless drift path (tests_drift_empty_state.rs); the plan version-pin pass has function-level tests (plan_version_pins.rs); a blank package completion_check adds no assertion and the check script includes the presence checks and completion_check for apt, cargo, uv and brew (tests_package_d.rs).",
+  "branch": "cf/912-drift-train",
+  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @b23462d4 3/3 FAIL -> round 2 @a7c9ce1c 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 1 @b23462d4 -> round 2 @a7c9ce1c \u2014 agy Gemini 4 Carbon (High) Lane 1 (Lockless Drift Disambiguation & Multi-Stack Scoping): PASS",
+      "round 1 @b23462d4 -> round 2 @a7c9ce1c \u2014 agy Gemini 4 Carbon (High) Lane 2 (Shell Generation Hygiene & Blank completion_check Guard): PASS",
+      "round 1 @b23462d4 -> round 2 @a7c9ce1c \u2014 agy Gemini 4 Carbon (High) Lane 3 (Drift Integration Matrix & Revert Falsification): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review lanes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "Past-review record: round 1 reported the multi-stack scan_lockless regression (pinned now by f852_state_dir_with_another_stacks_lock_is_not_lockless and falsification_drift_scopes_to_the_config_it_was_given, the latter with its fixture repaired for GH-880) and the blank completion_check hazard (pinned now by gh694_blank_completion_check_adds_no_assertion).",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: at round 1 (b23462d4) falsification_drift_scopes_to_the_config_it_was_given was RED; fixed in c22b5be0 via holds_no_lock(state_dir); pinned by f852_state_dir_with_another_stacks_lock_is_not_lockless.",
+      "R2: at round 1 a blank completion_check was reported as an empty shell condition; fixed in c22b5be0; pinned by gh694_blank_completion_check_adds_no_assertion."
+    ]
+  },
+  "falsification": {
+    "test": "Flip the holds_no_lock result in src/cli/drift_state.rs and run cargo test --lib cli::tests_drift_empty_state; past measurement, see observed_failure.",
+    "test_file": "src/cli/tests_drift_empty_state.rs",
+    "cargo_test_target": "tests_drift_empty_state",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on t2yoga: perturbing holds_no_lock in src/cli/drift_state.rs (! cmp -s verified) failed 3 of 4 tests in cli::tests_drift_empty_state (FJ_961_REVERT_RC=101). At the final head, removing the `!holds_no_lock(state_dir)` arm from drift.rs fails a_declared_machine_with_no_state_yet_is_not_an_error in falsification_drift_scopes_to_the_config_it_was_given (fixture repaired for GH-880: it now creates its state dir)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform plan / refresh-only vs empty state",
+      "Debian dpkg -s / apt-policy version pinning",
+      "Chef / Puppet package verify_command and unless guards"
+    ],
+    "verdict": "Comparison only; not a claim about this tree. The behaviours of this PR are pinned by f852_empty_state_dir_pin_mismatch_is_drift, f852_state_dir_with_another_stacks_lock_is_not_lockless and gh694_blank_completion_check_adds_no_assertion."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (@b23462d4 -> @a7c9ce1c)",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 0/3 PASS at b23462d4; round 2: 3/3 PASS at a7c9ce1c (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-912",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + 8/8 falsification_drift_* (42/42) + tests_drift_empty_state (4/4) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "84618575",
+  "base_commit": "8461857524b5bc4fd0852569ecd18a18e0fb4484",
+  "diff_sha256": "36da6facc1ba3cb3315a9784f73d1ca1fad9cc1c",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-912-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "da4787d6154cd60ed7d1928a711802440e0a87dd",
+        "sha256": "65a341d6e046d8af5b393c0bb1f67e031b71248609d427db2618cb2f74996921",
+        "bytes": 1294
+      },
+      {
+        "path": ".quorum/evidence/PMAT-912-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "1e4a4da6d8421207d19892c21f99550e5345bfb5",
+        "sha256": "ab38595c7ea3d91f45c23c1ac3d5cf4e5709e88d29270209a688e53ecf343641",
+        "bytes": 604
+      },
+      {
+        "path": ".quorum/evidence/PMAT-912-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "9423f23cc32ab78d0e91bfbe286148da7ebbf63c",
+        "sha256": "9891636926a4bd96e081e7731cd724a5481013ca2e01bc3e86554f585ab7c695",
+        "bytes": 954
+      },
+      {
+        "path": ".quorum/evidence/PMAT-912-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "57735d6033f4ba7e9715dee5d47e310c2df07cf9",
+        "sha256": "19dc06428f891d7906b9f43ef93584579c3f298d6517e19f75e57e20de1d97c7",
+        "bytes": 351
+      }
+    ],
+    "total_bytes": 3203,
+    "claims_digest": ".quorum/evidence/PMAT-912-judges.md"
+  }
+}

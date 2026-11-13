@@ -70,6 +70,31 @@ let tiers = plan.tier_plan();
 // Tier 3: Store derivations (copy from store)
 ```
 
+Declared in YAML, `forjar build` layers the base named by `image:` and executes
+`packages` and `command` into one extra layer on top of it:
+
+```yaml
+resources:
+  app:
+    type: image
+    name: myapp
+    version: "1.0"
+    image: debian:bookworm-slim      # base layout in state/images/debian_bookworm-slim
+    packages: [jq]                   # installed into the executed layer
+    command: "echo built > /etc/marker"   # a build step, run after the packages
+    entrypoint: ["/usr/local/bin/myapp"]  # the image's entrypoint (not `command`)
+```
+
+- `packages` and `command` need a declared `image:` base; without one the build fails.
+- They run in a container (`docker` or `podman`) started from that base; the
+  changes are captured as a layer with epoch mtimes and root (0:0) ownership.
+- If the runtime's copy of the base differs from the layout, the build fails and
+  prints how to fetch the exact base (`docker pull <ref>` or
+  `docker save <ref> | tar -x -C <dir>`).
+- `command` used to be the image entrypoint; it is now a build step. Use
+  `entrypoint:` for the entrypoint.
+- `--sandbox` builds are unchanged and ignore the base, `packages` and `command`.
+
 ## Determinism
 
 All layer builds are deterministic by default:
