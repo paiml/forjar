@@ -91,8 +91,13 @@ pub(super) fn check_one(
         check_runner(ctx, config, resource_id, resource, tally);
         return Ok(());
     }
-    let resolved =
-        resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+    // forjar#1011: the manifest's `secrets:` provider, as `apply` resolves it.
+    let resolved = resolver::resolve_resource_templates_with_secrets(
+        resource,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    )?;
     match check_script_or_skip(resource_id, resource, &resolved, ctx.json) {
         Some(script) => check_resource_machines(ctx, resource, resource_id, &script, tally),
         None => tally.skip += 1,

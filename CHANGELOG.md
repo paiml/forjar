@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`apply --check` resolves `{{secrets.*}}` through the manifest's `secrets:` provider (PMAT-1011, #1011).**
+`check` resolved each resource's templates with the default secrets config, so it
+read `FORJAR_SECRET_<NAME>` and failed `secret '<name>' not found` for any resource
+using a `sops`, `op` or `file` provider, while `apply` and `--dry-run` resolved it.
+`check` now passes the manifest's `secrets:` block, as `apply` does (infra#4181).
+`forjar test` has the same call and is not changed here.
+
 **A file resource stages to a per-run name, not a fixed one (PMAT-638, #638).**
 The atomic replace staged every write at `<path>.forjar-new`, a name any writer
 in the same directory could open between the `rm -f` and the `mv -f`. The script

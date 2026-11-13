@@ -7369,3 +7369,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 697
+- id: PMAT-1011
+  github_issue: 1011
+  item_type: task
+  title: 'P0: apply --check ignores manifest secrets provider (infra#4181)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-11-13T07:40:41Z
+  updated: 2026-11-13T07:40:41Z
+  spec: null
+  acceptance_criteria:
+  - apply --check fails secret not found; apply/--dry-run resolve via secrets provider. infra#4181
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 915
