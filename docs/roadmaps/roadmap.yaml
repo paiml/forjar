@@ -5767,7 +5767,7 @@ roadmap:
   github_issue: 989
   item_type: task
   title: 'IMG-001 (3/N): forjar build layers its declared base and executes packages/command into a layer'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-11T10:03:19Z
@@ -5780,7 +5780,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: split from PMAT-756
+  - orch:fable
+  - orch-basis:state
+  notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command executed into a layer on the declared base, entrypoint field, BuildRuntime) done on the same branch; F1 digest equal and F2 jq present measured with container-test (docs/audits/impl-PMAT-989-receipt.md); sandbox with steps refused (not run); setuid/setgid stripped for non-root-owned entries; CI run of the falsifier and uid/gid capture open'
   epic: 765
 - id: PMAT-920
   github_issue: 920

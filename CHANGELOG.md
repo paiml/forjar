@@ -23,6 +23,40 @@ old checkout's `contracts/` and panicked. It now reads the variable at run time
 and re-runs when it changes. The CI step that runs the vendored `forjar-contracts`
 suite (#452) is not part of this change and is not measured by CI.
 
+**`forjar build` layers the base image its config declares, and fails when it is absent (PMAT-989, #989, IMG-001).**
+An image resource with `image: <base>` used to read the base layout only to print
+its summary and then build a scratch image, exiting 0. The build now loads the
+layout at `state/images/<base with ':' and '/' as '_'>`, puts the base layers
+first in the manifest, copies their blobs into the output, and includes the
+base's identity in the build-cache key. A declared base that is absent,
+unreadable or missing blobs is now an error that names the reference, the
+directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies
+it, and nothing is written. `--json` gains `base` and `base_layers`, and
+`layer_count` counts the manifest's layers (base + built). The `--sandbox` path is not
+part of this change.
+
+**`forjar build` executes `packages` and `command` into a layer on the declared base (PMAT-989, #989, IMG-001 3/N).**
+An image resource's `packages` and `command` were never run: the layers held only
+the declared `path:` files (or a marker file). The build now starts a container
+from the declared base, installs the packages with the script `forjar apply`
+uses, runs `command`, captures the filesystem changes as one extra layer
+(sorted, epoch mtime, runtime-volatile paths normalised, whiteouts for deletes)
+and appends it after the base layers. Packages or command without `image:`
+fail the build. The base's diff_ids are checked against the runtime's copy. The
+cache key covers the steps; `--json` gains an `exec` object. Limits: the layer
+is owned by 0:0 (so setuid/setgid bits are stripped from entries the container did not
+own as root, with a warning in the report and `exec.setid_stripped` in `--json`), package
+versions are unpinned, and `--sandbox` with `packages:` or `command:` is refused
+(it would otherwise drop them). Falsifiers
+F1/F2 are in `tests/falsification_image_exec.rs` (`--features container-test`,
+needs Docker; not run by CI). On a containerd-image-store daemon, `--load`ed
+images do not resolve by tag (run by id). A base reference is refused unless it uses only
+`[A-Za-z0-9._-/:@]` and is not `.` or `..`; an image with no `path:`, `packages:` or non-blank
+`command:` fails validation as an image.
+
+**Changed: `command:` on `type: image` is now a build step, not the entrypoint.** The new
+`entrypoint: [..]` field sets the image entrypoint.
+
 **`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
 About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
 
