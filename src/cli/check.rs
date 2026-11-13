@@ -419,8 +419,13 @@ pub(crate) fn cmd_check_selected(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        // forjar#1011: the manifest's `secrets:` provider, as `apply` resolves it.
+        let resolved = resolver::resolve_resource_templates_with_secrets(
+            resource,
+            &config.params,
+            &config.machines,
+            &config.secrets,
+        )?;
 
         let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
         else {
