@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-11-13
+
+Patch release for the `--resource-timeout` fix below (PMAT-992), which the
+v1.34.0 clean-room run on `rust:1.95-slim` found. It is cut from `main`, so it
+also carries everything merged after the v1.34.0 tag, listed after the fix.
+Two of those entries change behaviour a script may depend on: `forjar secrets
+encrypt` no longer takes the secret as an argument (PMAT-893, #895), and
+`command:` on `type: image` is now a build step, not the entrypoint (PMAT-989).
+
+**`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
+The timeout path killed the script's process group by spawning the external
+`kill` program and discarded the error. An image without procps
+(`rust:1.95-slim`) has no such program, so nothing was killed and a 2 s timeout
+waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
+the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
+refused.
+
 **`apply --check` resolves `{{secrets.*}}` through the manifest's `secrets:` provider (PMAT-1011, #1011).**
 `check` resolved each resource's templates with the default secrets config, so it
 read `FORJAR_SECRET_<NAME>` and failed `secret '<name>' not found` for any resource
@@ -121,16 +138,6 @@ stale, so a state dir shared by two stacks lost the other stack's entries. It no
 machines the config declares, and refuses, before writing anything, a machine another stack's stamp
 also lists.
 
-**The weekly Stress Tests lane can go green (PMAT-673, #673).** Each matrix leg
-ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a
-30-minute timeout, so no leg could finish, and the default fail-fast cancelled
-the sibling legs. The legs now run three passes under a 45-minute timeout with
-`fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
-pins that passes x 9 minutes + build fits the timeout.
-`tests/falsification_sec005_needs_a_token_boundary.rs` also pins the bashrs 7.4.2
-token boundary for SEC005 (#649): `disk-watch`, `ask-lane` and `desk-lamp` in
-quoted assignments are not flagged as API keys, which bashrs 6.68.0 did.
-
 **drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
 `forjar drift` with an empty state dir (no lock for any machine) is now treated
 as lockless: a declared pin is compared against the live binary, offline too,
@@ -155,20 +162,6 @@ time-to-live sweep. An empty or timed-out `/proc` scan is NOT MEASURED and
 proves nothing dead; byte sums are exact above 2^31 and counted once across
 overlapping rules.
 
-## [1.34.1] - 2026-11-12
-
-Patch release for the `--resource-timeout` fix below (PMAT-992), which the
-v1.34.0 clean-room run on `rust:1.95-slim` found. It is cut from `main`, so it
-also carries what merged after the v1.34.0 tag; those are listed after the fix.
-
-**`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
-The timeout path killed the script's process group by spawning the external
-`kill` program and discarded the error. An image without procps
-(`rust:1.95-slim`) has no such program, so nothing was killed and a 2 s timeout
-waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
-the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
-refused.
-
 Also merged since v1.34.0, one line each from the merge subjects:
 
 - `apply --only-machine X` with `-m Y` (disjoint) is refused by name instead of converging nothing at rc=0 (#471, #950).
@@ -182,6 +175,8 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - CI only: same-job `cargo test` steps run as one invocation (infra#3828, #978).
 - CI only: 26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner; `ci.yml` and `lint.yml` build without debug info or incremental state. No job is added, removed or skipped (PMAT-913, infra#3828, #972).
 - Repository only: the dead `pmat_split.py` and `split_files.py` are deleted; no shipped code changes (PMAT-896, #958, #959).
+- CI only: each weekly Stress Tests leg ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a 30-minute timeout, so no leg could finish and fail-fast cancelled the others; legs now run three passes under 45 minutes with `fail-fast: false`, pinned by `tests/falsification_stress_workflow_fits_its_timeout.rs` (PMAT-673, #673, #914).
+- Tests only: `tests/falsification_sec005_needs_a_token_boundary.rs` pins the bashrs 7.4.2 SEC005 token boundary: `disk-watch`, `ask-lane` and `desk-lamp` in quoted assignments are not flagged as API keys, which bashrs 6.68.0 did (#649, #914).
 
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
