@@ -81,6 +81,7 @@ machines the config declares, and refuses, before writing anything, a machine an
 also lists.
 
 - CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492).
+
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
 The reaper loop runs one in-use check on every candidate of every reclaim kind,
 before the idle check and before `rm`, so a `cargo_target` whose binary is
