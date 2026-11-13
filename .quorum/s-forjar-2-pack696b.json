@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-673 (forjar#914) \u2014 bound weekly stress.yml passes (seq 1 3) inside a 45-minute step timeout with strategy.fail-fast: false, plus a SEC005 sk- token-boundary falsification test (forjar#649, quoted-assignment forms, red on bashrs 6.68.0).",
+  "branch": "s-forjar-2/pack696b",
+  "recorded_at": "Not an agy round. Lane verdicts for head 9b4df9da are the non-author Claude Opus 5.5 lane files /mnt/nvme-raid0/cop-inbox/handoff/agy/review-forjar-914-9b4df9d-lane{1,2,3}.md (lane1 PASS, lane3 PASS, lane2 FAIL on evidence text, fixed in this commit, not re-adjudicated at the final head). Earlier agy reports at 7c609178 are excluded.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "Opus 5.5 lane 1, head 9b4df9da (review-forjar-914-9b4df9d-lane1.md): PASS; not adjudicated at the final rebound head",
+      "Opus 5.5 lane 2, head 9b4df9da (review-forjar-914-9b4df9d-lane2.md): FAIL on evidence text, fixed in this commit; not re-adjudicated",
+      "Opus 5.5 lane 3, head 9b4df9da (review-forjar-914-9b4df9d-lane3.md): PASS; not adjudicated at the final rebound head"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "Three non-author Claude Opus 5.5 lanes reviewed head 9b4df9da; none has reviewed the final head. Earlier agy reports are excluded.",
+    "kill_rule": "claims C1..C4 and R1..R2 are the author's record checked against the diff; R1 is not resolved (the receipt still ends verdict: partial) and R2 audited the bundled SEC005 test target.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: docs/audits/impl-PMAT-673-receipt.md recorded verdict: partial after an overloaded host run crashed rustdoc's linker; not resolved, the receipt still ends verdict: partial.",
+      "R2: Receipt headline named only PMAT-673 (stress.yml) while pack branch s-forjar-2/pack696b also adds tests/falsification_sec005_needs_a_token_boundary.rs:10; verified 2/2 passing with zero src/ edits."
+    ]
+  },
+  "falsification": {
+    "test": "Revert .github/workflows/stress.yml to origin/main on <host> (<SCRATCH>) and run cargo test --test falsification_stress_workflow_fits_its_timeout.",
+    "test_file": "tests/falsification_stress_workflow_fits_its_timeout.rs",
+    "cargo_test_target": "falsification_stress_workflow_fits_its_timeout",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting .github/workflows/stress.yml (! cmp -s verified) failed both passes_per_leg_fit_the_timeout and a_red_leg_does_not_cancel_its_siblings (0 passed; 2 failed, FJ_914_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "GitHub Actions step timeout-minutes + strategy.fail-fast: false: worst-case pass_count * max_pass_duration must stay below timeout-minutes with contention headroom while sibling matrix legs run to completion",
+      "Bazel test_timeout Categories (short/moderate/long/eternal): sizes iteration counts to fit deterministic tier ceilings instead of timing out mid-loop",
+      "gitleaks / ripgrep word-boundary secret rules: anchors sk- prefixes at token boundaries so identifiers like task-1 or disk-budget never false-positive"
+    ],
+    "verdict": "Sizing stress passes to 3 per leg under a 45-minute timeout (3 x 9 min + 10 min build = 37) with fail-fast: false eliminates deterministic timeout aborts while preserving 9 weekly stress passes across 3 isolated legs."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "agy reports at 7c609178 exist but are excluded as evidence: they describe code not in that tree; lanes are the Opus files in quorum.lanes",
+    "rounds": 0,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "not adjudicated: no agy verdict counted for this head."
+  },
+  "pmat": {
+    "ticket": "PMAT-673",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + falsification_stress_workflow_fits_its_timeout (2/2) + falsification_sec005 (2/2) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "70bf3d2e",
+  "base_commit": "70bf3d2e3d8f0bc86d10d94eb99ebfdb55ee9ce1",
+  "diff_sha256": "e6e5b39869d2feee5e46c206175ac51306a0b535",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-673-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "47afb2e1737d1ba7013ebd8ca192be8985124c96",
+        "sha256": "547e6bffce1595f0f61e2e1cba74e07cd0c847b8412fd072da82e10c547fc728",
+        "bytes": 2471
+      },
+      {
+        "path": ".quorum/evidence/PMAT-673-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "eda76f5c7d8a1059bae4ae07dc41a8a726becd28",
+        "sha256": "cc707fd33b288add10a646763ce8e550042d96e88ccc6ba723d135463d1fc3a4",
+        "bytes": 856
+      },
+      {
+        "path": ".quorum/evidence/PMAT-673-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "20024604052309f1a4d31ff229e44bfc57a828bc",
+        "sha256": "f085fb6742cb26e5f731ce64b749129a9d794bfa9971c5e2790f9e6ea1c585f8",
+        "bytes": 3171
+      },
+      {
+        "path": ".quorum/evidence/PMAT-673-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "c7025e548834b93ff68813f23fc8082a69df80fb",
+        "sha256": "68730fa6abf9f94b10bc91df7f2c385c33a1e1c0c482d89f3dcb6583e804508f",
+        "bytes": 573
+      }
+    ],
+    "total_bytes": 7071,
+    "claims_digest": ".quorum/evidence/PMAT-673-judges.md"
+  }
+}

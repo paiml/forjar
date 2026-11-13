@@ -7205,6 +7205,25 @@ roadmap:
   - orch-basis:state
   - release:v1.34.1
   notes: 'Refs #749, #752, #958 (train branch cf/896-python-ban-train, PR #959)'
+- id: PMAT-673
+  github_issue: 673
+  item_type: task
+  title: 'Stress Tests cannot pass: 10 single-threaded passes per leg never fit its 30-minute timeout'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-10-05T15:39:13Z
+  updated: 2026-11-11T18:40:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - orch-basis:state
+  notes: 'PR #914; also pins the SEC005 token boundary (#649)'
+  epic: 696
 - id: PMAT-992
   github_issue: 992
   item_type: task
@@ -7351,6 +7370,25 @@ roadmap:
   - kind:code
   notes: null
   epic: 913
+- id: PMAT-1011
+  github_issue: 1011
+  item_type: task
+  title: 'P0: apply --check ignores manifest secrets provider (infra#4181)'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-11-13T07:40:41Z
+  updated: 2026-11-13T07:40:41Z
+  spec: null
+  acceptance_criteria:
+  - apply --check fails secret not found; apply/--dry-run resolve via secrets provider. infra#4181
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 915
 - id: PMAT-995
   github_issue: 995
   item_type: task
