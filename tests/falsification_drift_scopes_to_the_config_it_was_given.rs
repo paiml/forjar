@@ -47,6 +47,9 @@ impl Fleet {
         let dir = std::env::temp_dir().join(format!("forjar-488-{name}"));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("files")).expect("sandbox");
+        // GH-880: `plan` refuses a state dir that does not exist, so the sandbox
+        // creates the (empty) one the fixture passes with --state-dir.
+        fs::create_dir_all(dir.join("state")).expect("state dir");
         Self { dir }
     }
 

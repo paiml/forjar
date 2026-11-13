@@ -5767,7 +5767,7 @@ roadmap:
   github_issue: 989
   item_type: task
   title: 'IMG-001 (3/N): forjar build layers its declared base and executes packages/command into a layer'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-11T10:03:19Z
@@ -5780,7 +5780,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  notes: split from PMAT-756
+  - orch:fable
+  - orch-basis:state
+  notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command executed into a layer on the declared base, entrypoint field, BuildRuntime) done on the same branch; F1 digest equal and F2 jq present measured with container-test (docs/audits/impl-PMAT-989-receipt.md); sandbox with steps refused (not run); setuid/setgid stripped for non-root-owned entries; CI run of the falsifier and uid/gid capture open'
   epic: 765
 - id: PMAT-920
   github_issue: 920
@@ -6891,22 +6893,28 @@ roadmap:
   - release:v1.34.1
   notes: null
   release: 1.35.0
-- id: GH-912
+- id: PMAT-912
   github_issue: 912
   item_type: task
   title: 'Train: drift/plan compare live against the declaration'
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-11T21:30:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'drift with an empty state dir (no lock for any machine) compares a declared pin against the live version, offline too, instead of inspecting 0 resources and exiting 0 (forjar#852).'
+  - 'the plan version-pin pass (plan_version_pins::measure) reports a live version that is not the declared pin, discloses the skipped upstream leg offline, and reads NOT CHECKED for an undeclared machine (forjar#613).'
+  - 'a blank completion_check adds no assertion to a package check script, and the check script includes both the presence checks and completion_check (no order pinned) for apt, cargo, uv and brew (forjar#694, already on main).'
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
-  notes: null
+  labels:
+  - kind:code
+  - orch:fable
+  - orch-basis:state
+  notes: 'PR #961 on branch cf/912-drift-train; receipt docs/audits/impl-PMAT-912-receipt.md'
   release: 1.35.0
 - id: PMAT-913
   github_issue: 913
