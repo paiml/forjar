@@ -178,6 +178,8 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - CI only: each weekly Stress Tests leg ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a 30-minute timeout, so no leg could finish and fail-fast cancelled the others; legs now run three passes under 45 minutes with `fail-fast: false`, pinned by `tests/falsification_stress_workflow_fits_its_timeout.rs` (PMAT-673, #673, #914).
 - Tests only: `tests/falsification_sec005_needs_a_token_boundary.rs` pins the bashrs 7.4.2 SEC005 token boundary: `disk-watch`, `ask-lane` and `desk-lamp` in quoted assignments are not flagged as API keys, which bashrs 6.68.0 did (#649, #914).
 - Release workflow only: no Homebrew formula is published. Noah's ruling of 2026-11-13: "drop homebrew support". `release.yml` loses its `homebrew` job (red on the last five tags: `HOMEBREW_TAP_TOKEN` undefined since #462); `dist-artifacts` passes `--installer --binstall --nix --github-action --deb --rpm` instead of `--all`; `dist-forjar.yaml` drops its `homebrew:` block. `forjar dist --homebrew` is unchanged, and the external tap repo is untouched (PMAT-1014, #1016).
+- `github_release` prints its missing-asset message under `pipefail` instead of aborting silently, and a curl failure is reported as a curl failure (PMAT-608, #910).
+- The inode-pressure gate probes BSD/macOS with `df -i` and fails closed on output it cannot parse, so `apply` on a macOS host is no longer refused by the Linux-only probe (PMAT-995, #1003).
 
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;

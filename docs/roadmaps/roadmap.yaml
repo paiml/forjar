@@ -7417,6 +7417,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 911
 - id: PMAT-608
@@ -7436,5 +7437,46 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 696
+- id: PMAT-1014
+  github_issue: 1014
+  item_type: task
+  title: 'release.yml: homebrew job red on the last 5 tags (HOMEBREW_TAP_TOKEN undefined since #462); remove it'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-11-13T10:45:00Z
+  updated: 2026-11-13T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - release.yml has no job that needs HOMEBREW_TAP_TOKEN (tests/falsification_release_has_no_homebrew.rs)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.1
+  notes: 'merged as #1016 (6f68219e); Noah ruling 2026-11-13 10:41Z "drop homebrew support"'
+- id: PMAT-1015
+  github_issue: 1015
+  item_type: task
+  title: 'release: cut v1.34.1 (PMAT-992 kill fix + 136 commits since v1.34.0)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-13T10:50:00Z
+  updated: 2026-11-13T10:50:00Z
+  spec: null
+  acceptance_criteria:
+  - CHANGELOG [Unreleased] folded into [1.34.1] - 2026-11-13; docs/audits/crux-1.34.1.md passes gate H; PMAT-992 completed; release:v1.34.1 labels synced (release-goal.sh sync --check rc=0)
+  - infra clean-room-forjar green (B2 included) at the sha to be tagged; main CI, behavior, convergence, proofs green there
+  - v1.34.1 tagged on that sha; release.yml un-drafts; release-check.sh GATE R PASS; releases.yaml books v1.34.1
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  - release:v1.34.1
+  notes: 'homebrew job removal landed separately as #1016 (PMAT-1014) before the tag'
