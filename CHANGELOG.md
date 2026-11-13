@@ -180,6 +180,8 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - Release workflow only: no Homebrew formula is published. Noah's ruling of 2026-11-13: "drop homebrew support". `release.yml` loses its `homebrew` job (red on the last five tags: `HOMEBREW_TAP_TOKEN` undefined since #462); `dist-artifacts` passes `--installer --binstall --nix --github-action --deb --rpm` instead of `--all`; `dist-forjar.yaml` drops its `homebrew:` block. `forjar dist --homebrew` is unchanged, and the external tap repo is untouched (PMAT-1014, #1016).
 - `github_release` prints its missing-asset message under `pipefail` instead of aborting silently, and a curl failure is reported as a curl failure (PMAT-608, #910).
 - The inode-pressure gate probes BSD/macOS with `df -i` and fails closed on output it cannot parse, so `apply` on a macOS host is no longer refused by the Linux-only probe (PMAT-995, #1003).
+- `forjar --version` names the build commit (#639).
+- A resource that fails is recorded as `action: failed` in the run log instead of being counted as converged (PMAT-688, #688).
 
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
