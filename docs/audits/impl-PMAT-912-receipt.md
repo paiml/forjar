@@ -12,7 +12,7 @@ verdict: PARTIAL — the code, the drift suites and the dogfood-guards are green
 
 1. `drift` with a config and a state dir that holds NO lock for any machine (empty, or absent) takes the lockless path, so a declared pin is compared against the live binary, offline too (#852). A state dir that holds another stack's locks is not empty: a machine of this config that was never applied there keeps its old meaning, `no state yet`, and is not an error (forjar#488, `falsification_drift_scopes_to_the_config_it_was_given`). With no config an empty lock set keeps its old meaning.
 2. `plan` names a live version that is not the pin (verdict DRIFTED, detail names the DOWNGRADE), discloses the skipped upstream leg when offline, and reads NOT CHECKED for an undeclared machine (#613).
-3. `package_check::check_script` appends the declared `completion_check` as its own assertion for apt, cargo, uv and brew (#694). A blank or whitespace-only `completion_check` adds no assertion (as an `if` condition it is a shell syntax error).
+3. `package_check::check_script` appends the declared `completion_check` as its own assertion for apt, cargo, uv and brew (#694). It is read by the check path only; apply does not run it, and an unsupported provider still reads diverged. A blank or whitespace-only `completion_check` adds no assertion (as an `if` condition it is a shell syntax error).
 
 Falsifiers (all in the PR): `src/cli/tests_drift_empty_state.rs` (incl. `f852_state_dir_with_another_stacks_lock_is_not_lockless`, `f852_holds_no_lock_tells_empty_from_populated`), `src/resources/tests_package_d.rs::gh694_blank_completion_check_adds_no_assertion`, `src/cli/plan_version_pins.rs::tests` (three cases), `src/resources/tests_package_d.rs`.
 

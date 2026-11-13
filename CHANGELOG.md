@@ -121,8 +121,10 @@ the live binary, offline too, instead of inspecting 0 resources and exiting 0.
 `forjar plan` names a live version that is not the pin, discloses the skipped
 upstream leg when offline, and reads NOT CHECKED for an undeclared machine.
 A package resource's declared `completion_check` is now run by the check script
-for every provider (apt, cargo, uv, brew) beside the presence checks; a blank
-`completion_check` adds no assertion. A state dir that holds another stack's
+of the four providers that have presence checks (apt, cargo, uv, brew) beside
+those checks; a blank `completion_check` adds no assertion. Only the check path
+reads it: apply does not run it, and an unsupported provider still
+reads diverged. A state dir that holds another stack's
 locks is not treated as empty, so a never-applied machine still reads `no state yet`.
 
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**

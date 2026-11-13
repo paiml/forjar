@@ -133,8 +133,14 @@ fn gh694_completion_check_reaches_the_check_script() {
 /// forjar#694: without a `completion_check` nothing is added.
 #[test]
 fn gh694_no_completion_check_adds_nothing() {
-    let r = make_apt_resource(&["jre"]);
-    assert!(!check_script(&r).contains("task=pending"));
+    for provider in ["apt", "cargo", "uv", "brew"] {
+        let mut r = make_apt_resource(&["jre"]);
+        r.provider = Some(provider.to_string());
+        assert!(
+            !check_script(&r).contains("task=pending"),
+            "{provider} adds an assertion with no completion_check"
+        );
+    }
 }
 
 /// forjar#694: the verdict follows the declared check. dpkg is stubbed to say
