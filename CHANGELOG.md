@@ -121,6 +121,16 @@ stale, so a state dir shared by two stacks lost the other stack's entries. It no
 machines the config declares, and refuses, before writing anything, a machine another stack's stamp
 also lists.
 
+**The weekly Stress Tests lane can go green (PMAT-673, #673).** Each matrix leg
+ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a
+30-minute timeout, so no leg could finish, and the default fail-fast cancelled
+the sibling legs. The legs now run three passes under a 45-minute timeout with
+`fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
+pins that passes x 9 minutes + build fits the timeout.
+`tests/falsification_sec005_needs_a_token_boundary.rs` also pins the bashrs 7.4.2
+token boundary for SEC005 (#649): `disk-watch`, `ask-lane` and `desk-lamp` in
+quoted assignments are not flagged as API keys, which bashrs 6.68.0 did.
+
 **drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
 `forjar drift` with an empty state dir (no lock for any machine) is now treated
 as lockless: a declared pin is compared against the live binary, offline too,
