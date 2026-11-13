@@ -4,7 +4,7 @@
   "branch": "feat/989-image-base-and-exec",
   "base": "2cc18c46",
   "base_commit": "2cc18c468d43a8ef8bcd455619daf7a9cfbe2c87",
-  "diff_sha256": "48cb5dc658ceede61238b65fd5cb69726577aecc",
+  "diff_sha256": "eb6914f7de4939c247f5de1dadc33243c2175a23",
   "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (security/base-ref, parser/exec-layer, contracts/docs/hygiene) across 3 rounds, passing 3/3 at head 2be85af3 against origin/main c4ce3a2c with 5 claims confirmed and 2 refuted.",
   "quorum": {
     "rounds": 4,
