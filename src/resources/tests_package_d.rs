@@ -127,6 +127,10 @@ fn gh694_completion_check_reaches_the_check_script() {
             "{provider}: {script}"
         );
         assert!(script.contains("task=pending"), "{provider}: {script}");
+        assert!(
+            script.contains("missing:jre"),
+            "{provider}: presence check dropped: {script}"
+        );
     }
 }
 

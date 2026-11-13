@@ -114,17 +114,18 @@ stale, so a state dir shared by two stacks lost the other stack's entries. It no
 machines the config declares, and refuses, before writing anything, a machine another stack's stamp
 also lists.
 
-**drift and plan compare the live version against the declared pin (PMAT-912, #852, #613, #694).**
+**drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
 `forjar drift` with an empty state dir (no lock for any machine) is now treated
-as lockless, as an absent one already was: a declared pin is compared against
-the live binary, offline too, instead of inspecting 0 resources and exiting 0.
-`forjar plan` names a live version that is not the pin, discloses the skipped
-upstream leg when offline, and reads NOT CHECKED for an undeclared machine.
-A package resource's declared `completion_check` is now run by the check script
-of the four providers that have presence checks (apt, cargo, uv, brew) beside
-those checks; a blank `completion_check` adds no assertion. The post-apply
-host verification (`verify_against_host`) asks the same check script. A state dir that holds another stack's
-locks is not treated as empty, so a never-applied machine still reads `no state yet`.
+as lockless: a declared pin is compared against the live binary, offline too,
+instead of inspecting 0 resources and exiting 0. A state dir that holds another
+stack's locks is not treated as empty, so a machine of this config that was never
+applied there is not an error. The plan version-pin pass (`plan_version_pins::measure`)
+is now covered by tests: a live version that is not the pin reads DRIFTED, the
+skipped upstream leg is disclosed offline, and an undeclared machine reads NOT CHECKED.
+For #694, which is already on main: a blank or whitespace-only package
+`completion_check` now adds no assertion (it was a shell syntax error), and tests
+pin that the check script keeps its presence checks beside `completion_check`
+for apt, cargo, uv and brew, and that `verify_against_host` asks that script.
 
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
 The reaper loop runs one in-use check on every candidate of every reclaim kind,
