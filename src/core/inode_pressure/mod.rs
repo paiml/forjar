@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 /// Default red line: inode use at or above this percentage is a finding.
 pub const DEFAULT_THRESHOLD_PCT: u8 = 90;
 
+/// The inode probe run on every target (forjar#995). GNU `df -i -P -T` prints
+/// a type column; BSD/macOS `df` reads `-T` as a type FILTER that needs an
+/// argument (exit 64), and its `-P` drops the inode columns, so BSD gets plain
+/// `df -i` (blocks, then iused / ifree / %iused, no type).
+pub const DF_INODES_CMD: &str = "case \"$(uname -s)\" in Darwin|FreeBSD|OpenBSD|NetBSD|DragonFly) df -i ;; *) df -i -P -T ;; esac";
+
 /// Declared inode-pressure policy (`inode_pressure:` in the config).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InodePressure {
@@ -40,12 +46,12 @@ pub struct WatchedMount {
     pub threshold_pct: Option<u8>,
 }
 
-/// One `df -i -P -T` row.
+/// One row of [`DF_INODES_CMD`] output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InodeReading {
     /// Mount point.
     pub mount: String,
-    /// Filesystem type.
+    /// Filesystem type (empty on BSD, whose `df -i` prints none).
     pub fstype: String,
     /// `IUse%`, or `None` where the filesystem has no inode accounting (`-`).
     pub iuse_pct: Option<u8>,
@@ -72,22 +78,48 @@ impl std::fmt::Display for InodeFinding {
     }
 }
 
-/// Parse `df -i -P -T` output (columns: fs, type, inodes, used, free, IUse%, mount).
+/// Parse the output of [`DF_INODES_CMD`]: GNU `df -i -P -T` (fs, type, inodes,
+/// used, free, IUse%, mount) or BSD `df -i` (fs, blocks, used, avail,
+/// capacity, iused, ifree, %iused, mount), told apart by the BSD `%iused`
+/// header.
 pub fn parse_df_i(out: &str) -> Vec<InodeReading> {
-    out.lines()
-        .skip(1)
+    let mut lines = out.lines();
+    let bsd = lines.next().is_some_and(|h| h.contains("%iused"));
+    lines
         .filter_map(|line| {
             let f: Vec<&str> = line.split_whitespace().collect();
-            if f.len() < 7 {
-                return None;
+            if bsd {
+                bsd_row(&f)
+            } else {
+                gnu_row(&f)
             }
-            Some(InodeReading {
-                mount: f[6..].join(" "),
-                fstype: f[1].to_string(),
-                iuse_pct: f[5].strip_suffix('%').and_then(|n| n.parse().ok()),
-            })
         })
         .collect()
+}
+
+fn pct(s: &str) -> Option<u8> {
+    s.strip_suffix('%').and_then(|n| n.parse().ok())
+}
+
+fn gnu_row(f: &[&str]) -> Option<InodeReading> {
+    (f.len() >= 7).then(|| InodeReading {
+        mount: f[6..].join(" "),
+        fstype: f[1].to_string(),
+        iuse_pct: pct(f[5]),
+    })
+}
+
+/// A BSD row. The filesystem name can hold spaces (`map auto_home`), so the
+/// columns are found from the first `Capacity` cell: three numbers then `N%`.
+fn bsd_row(f: &[&str]) -> Option<InodeReading> {
+    let num = |s: &str| s.parse::<u64>().is_ok();
+    let cap = (4..f.len())
+        .find(|&k| f[k].ends_with('%') && num(f[k - 1]) && num(f[k - 2]) && num(f[k - 3]))?;
+    (f.len() > cap + 4).then(|| InodeReading {
+        mount: f[cap + 4..].join(" "),
+        fstype: String::new(),
+        iuse_pct: pct(f[cap + 3]),
+    })
 }
 
 fn crossing(r: &InodeReading, pct: u8, threshold: u8) -> Option<InodeFinding> {
@@ -175,14 +207,14 @@ pub fn validate_config(cfg: &InodePressure) -> Vec<String> {
     errs
 }
 
-/// Run `df -i -P -T` on this host.
+/// Run [`DF_INODES_CMD`] on this host.
 ///
 /// # Errors
 ///
 /// A `df` that cannot run or exits non-zero is NOT MEASURED.
 pub fn host_df() -> Result<String, String> {
-    let out = std::process::Command::new("df")
-        .args(["-i", "-P", "-T"])
+    let out = std::process::Command::new("sh")
+        .args(["-c", DF_INODES_CMD])
         .output()
         .map_err(|e| format!("not measured: cannot run df: {e}"))?;
     // GNU df exits 1 when it could not stat one mount but still prints the rest.
@@ -198,3 +230,5 @@ pub fn host_df() -> Result<String, String> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod tests_bsd;
