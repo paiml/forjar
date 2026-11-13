@@ -1,14 +1,14 @@
 {
   "kind": "code",
-  "issue": "PMAT-673 (forjar#914) \u2014 bound nightly stress.yml passes (seq 1 3) inside a 30-minute step timeout with strategy.fail-fast: false, plus SEC005 sk- token-boundary falsification test.",
+  "issue": "PMAT-673 (forjar#914) — bound nightly stress.yml passes (seq 1 3) inside a 30-minute step timeout with strategy.fail-fast: false, plus SEC005 sk- token-boundary falsification test.",
   "branch": "s-forjar-2/pack696b",
   "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted.",
   "quorum": {
     "rounds": 1,
     "lanes": [
-      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Worst-Case Runtime Budget vs Step Timeout Invariant): PASS",
-      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Matrix fail-fast Isolation & SEC005 Boundary Test): PASS",
-      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Kill & Traceability): PASS"
+      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 1 (Worst-Case Runtime Budget vs Step Timeout Invariant): PASS",
+      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 2 (Matrix fail-fast Isolation & SEC005 Boundary Test): PASS",
+      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Kill & Traceability): PASS"
     ],
     "lane_errors": 0,
     "judges": 3,
@@ -56,9 +56,9 @@
     "vacuous_tests_in_touched_paths": 0,
     "accepted": []
   },
-  "base": "2cc18c46",
-  "base_commit": "2cc18c468d43a8ef8bcd455619daf7a9cfbe2c87",
-  "diff_sha256": "29ff5868660569ccb8b0f18dbd1b0f67382d5459",
+  "base": "70bf3d2e",
+  "base_commit": "70bf3d2e3d8f0bc86d10d94eb99ebfdb55ee9ce1",
+  "diff_sha256": "aa9018d1e44d210dd72275e3dce256121493ea3b",
   "evidence": {
     "files": [
       {
