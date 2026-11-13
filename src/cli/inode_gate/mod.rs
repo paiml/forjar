@@ -1,6 +1,8 @@
 //! forjar#847: the inode-pressure gate shared by drift, validate and apply.
 
-use crate::core::inode_pressure::{evaluate, host_df, parse_df_i, unmeasured_mounts, InodeFinding};
+use crate::core::inode_pressure::{
+    evaluate, host_df, parse_df_i, unmeasured_mounts, InodeFinding, DF_INODES_CMD,
+};
 use crate::core::types::{ForjarConfig, Machine};
 
 #[cfg(test)]
@@ -84,7 +86,7 @@ fn container_running(machine: &Machine) -> bool {
         .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
 }
 
-/// `df -i -P -T` on a machine, through ITS transport (local, ssh, container,
+/// [`DF_INODES_CMD`] on a machine, through ITS transport (local, ssh, container,
 /// pepita) — the controller's own inodes say nothing about a remote target.
 fn measure(machine: &Machine) -> Result<String, String> {
     // `apply` creates a container only after its pre-checks, so a container
@@ -95,7 +97,7 @@ fn measure(machine: &Machine) -> Result<String, String> {
             machine.container_name()
         ));
     }
-    let out = crate::transport::query(machine, "df -i -P -T")
+    let out = crate::transport::query(machine, DF_INODES_CMD)
         .map_err(|e| format!("not measured: cannot run df: {e}"))?;
     // GNU df exits 1 when it could not stat one mount but still prints the rest.
     if out.stdout.lines().count() < 2 {
@@ -255,6 +257,8 @@ pub(crate) fn local_pre_check(cfg: &ForjarConfig) -> Result<(), String> {
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod tests_darwin;
 #[cfg(test)]
 mod tests_machines;
 #[cfg(test)]
