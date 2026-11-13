@@ -231,8 +231,11 @@ fn scan_machines_for_drift(
         return scan_lockless(state_dir, machine_filter, config, scan_opts);
     };
 
+    let lock_files = super::drift_lock_names::resolved_lock_files(state_dir, &machine_locks);
     if machine_locks.len() <= 1 {
-        return scan_sequential(state_dir, &machine_locks, config, scan_opts);
+        let mut scan = scan_sequential(state_dir, &machine_locks, config, scan_opts)?;
+        scan.lock_files = lock_files;
+        return Ok(scan);
     }
 
     // Parallel: check each machine in its own thread
@@ -257,6 +260,7 @@ fn scan_machines_for_drift(
     for part in parts {
         scan.absorb(part);
     }
+    scan.lock_files = lock_files;
     Ok(scan)
 }
 
@@ -275,6 +279,9 @@ pub(super) struct DriftScan {
     /// are reported like any drift and never remediated: re-applying a pin
     /// that is behind the live binary is the downgrade itself.
     pub(super) version_drift: usize,
+    /// forjar#585: the resolved absolute lock files this verdict was read from.
+    /// Empty when no lock was found (the verdict then names the state dir).
+    pub(super) lock_files: Vec<String>,
 }
 
 impl DriftScan {
@@ -283,6 +290,7 @@ impl DriftScan {
         self.total_drift += part.total_drift;
         self.total_unmeasured += part.total_unmeasured;
         self.version_drift += part.version_drift;
+        self.lock_files.append(&mut part.lock_files);
         self.findings.append(&mut part.findings);
         self.unmeasured.append(&mut part.unmeasured);
         self.censuses.append(&mut part.censuses);

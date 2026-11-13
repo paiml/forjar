@@ -66,6 +66,8 @@ mod tests_triggers;
 mod tests_unknown_fields;
 #[cfg(test)]
 mod tests_validation;
+#[cfg(test)]
+mod tests_validation_image;
 
 use super::recipe;
 use super::types::*;

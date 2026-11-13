@@ -90,6 +90,7 @@ tree roughly in half — 360 crates to 191, measured with
 | `cli` | yes | the `forjar` binary, the MCP server and the verb registry — clap, clap_complete, pforge, tokio, async-trait, schemars, and (through them) rustls and `aws-lc-sys`. Implies `db` and `tls`. |
 | `db` | via `cli` | `core::store::{db,query,ingest}` — `rusqlite` with bundled SQLite. |
 | `tls` | via `cli` | a direct `openssl` dependency, so `vendored-openssl` can reach `openssl-sys` for cross-compiled targets. |
+| `encryption` | yes | `age` encryption for `forjar secrets` and state; `cargo install forjar` includes it, `default-features = false` drops it. |
 
 ```toml
 # the binary, everything on
@@ -193,8 +194,8 @@ forjar init my-infra && cd my-infra
 
 # Edit forjar.yaml (see Configuration below)
 
-# Preview changes
-forjar plan -f forjar.yaml
+# Preview changes (plan refuses to run without a state directory; `init` created `state/`)
+forjar plan -f forjar.yaml --state-dir state
 
 # Apply
 forjar apply -f forjar.yaml
@@ -486,7 +487,7 @@ Tests: `test_fj007_heredoc_safe`
 
 ### C9: Lean dependency set
 30 direct runtime dependencies — 27 always-on plus 3 optional, feature-gated
-(`age` for encryption, `wasmi` for WASM plugins, `dhat` for heap profiling) —
+(`age` for encryption, on by default and dropped by `default-features = false`; `wasmi` for WASM plugins; `dhat` for heap profiling) —
 and 3 build dependencies. Single static binary output.
 Verify (counts all runtime deps, including the optional ones):
 `cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'` → `30`

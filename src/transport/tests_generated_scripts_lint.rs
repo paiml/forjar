@@ -74,6 +74,23 @@ fn corpus() -> Vec<(String, Resource)> {
         }),
     ));
 
+    // forjar#638: `state: file` with content or source takes the atomic-replace
+    // arm; `state: present` never reaches it.
+    out.push((
+        "file/state-file-content".to_string(),
+        res(ResourceType::File, Some("file"), |r| {
+            r.path = Some("/etc/forjar-lint-probe-file.conf".to_string());
+            r.content = Some("key = value\n".to_string());
+        }),
+    ));
+    out.push((
+        "file/state-file-source".to_string(),
+        res(ResourceType::File, Some("file"), |r| {
+            r.path = Some("/etc/forjar-lint-probe-src.conf".to_string());
+            r.source = Some("Cargo.toml".to_string());
+        }),
+    ));
+
     out.push((
         "service/running".to_string(),
         res(ResourceType::Service, Some("running"), |r| {

@@ -181,6 +181,12 @@ fn task_and_hooks(field: &str) -> Option<Observability> {
 /// `type: disk_budget`, `type: backup_sync`, `type: nas_archive`.
 fn storage(field: &str) -> Option<Observability> {
     Some(match field {
+        // PMAT-989: `type: image` entrypoint — a field of the OCI image config
+        // `forjar build` writes; no host holds it.
+        "entrypoint" => Observability::Unobservable(
+            "the entrypoint of the image `forjar build` writes; a build input, \
+             not state a host can report",
+        ),
         // disk_budget's query sha256s the deployed .timer unit, whose
         // OnCalendar line IS this value.
         "budget_schedule" => Observability::Observed { alt: "weekly" },

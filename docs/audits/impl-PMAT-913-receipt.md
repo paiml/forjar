@@ -131,4 +131,21 @@ Measured on lambda through the REST API: for each touched workflow, the longest 
 
 Every job with a timeout in this PR had at least one successful run in the sample; jobs whose longest run was under 3 minutes are not listed. Not measured: CI on this head.
 
+## PR #904 — softprops/action-gh-release 3.0.2 to 3.0.4
+
+Change: one line, `.github/workflows/nightly.yml:247` (`Create nightly release`), the pinned commit `3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2` becomes `8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4`. `git diff origin/main --shortstat` on the PR branch merged with main at dbd1ec3e: 1 file changed, 1 insertion, 1 deletion. It is the only `softprops/action-gh-release` call site in the file.
+
+Contract: the nightly release step runs the v3.0.4 action; no `with:` input changes.
+
+Evidence (read 2026-11-11, `gh api`, 2 read-only calls):
+
+- `repos/softprops/action-gh-release/git/ref/tags/v3.0.4` is an annotated tag (object 28ab305d0ffa26d60ec4bd614126329e26c7a0ec); `git/tags/28ab305d...` dereferences it to commit 8a0cd651e5b2365bd640854a3fa5dfc70e4875f3, which is the SHA the PR pins. The pin is the commit, not the tag object.
+- Pin style matches the file: every other `uses:` in `nightly.yml` is a 40-character commit SHA with a `# vX.Y.Z` comment (`actions/checkout`, `upload-artifact`, `download-artifact`); the one exception, `dtolnay/rust-toolchain@stable` (line 129), was already unpinned on main.
+
+Not measured: the nightly release step itself was not run on a host; the PR's CI run does not exercise it (it runs on schedule). Nothing was compiled for this section. Whether v3.0.4 changes release behaviour was not read from the upstream changelog.
+
+CHANGELOG: no Unreleased entry. The file lists no individual GitHub Action bump (the 1.34.0 "CI and release engineering" line names gate changes, not action pins), and `[Unreleased]` on main is empty.
+
+Quorum receipt: not written here. `.quorum/<slug>.json` is the reviewer's file, and the review round for #904 is the place it comes from.
+
 IMPL-PMAT-913-RECEIPT-END

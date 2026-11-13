@@ -25,7 +25,7 @@ jobs:
   # directions by tests/falsification_pr_lane_runs_what_the_change_can_break.rs.
   classify:
     timeout-minutes: 15
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: [self-hosted, gate-light]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:

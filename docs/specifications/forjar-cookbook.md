@@ -1963,7 +1963,7 @@ keygen → encrypt → deploy → verify → rotate → revoke
   │         │         │         │           re-apply, verify no plaintext in state
   │         │         │         └─ forjar drift: detect if decrypted file was tampered
   │         │         └─ forjar apply: ENC[age,...] → plaintext at deploy time
-  │         └─ forjar secrets encrypt "<value>" -r <public-key>
+  │         └─ forjar secrets encrypt -r <public-key> < value.txt
   └─ forjar secrets keygen > identity.txt
 ```
 
