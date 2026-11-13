@@ -5,12 +5,12 @@ verdict: PARTIAL — the code, the drift suites and the dogfood-guards are green
 ## Identity
 
 - ticket PMAT-912 (forjar#912, train "drift/plan compare live against the declaration"); kind: code; covers #852, #613, #694
-- PR #961, branch `cf/912-drift-train`, worked on local branch `lane-961`, merged with `origin/main` @ dbd1ec3e (0 commits behind main after the merge)
+- PR #961, branch `cf/912-drift-train`, worked on local branch `lane-961`, merged with `origin/main` @ dbd1ec3e at the time (later merges of main follow; the bundle base is the current one)
 - files: `src/cli/drift.rs`, `src/cli/drift_state.rs`, `src/cli/mod_test_decl.rs`, `src/cli/plan_version_pins.rs`, `src/cli/tests_drift_empty_state.rs` (new), `src/core/executor/output_verify.rs` (test only), `src/resources/package_check.rs`, `src/resources/tests_package_d.rs`, `CHANGELOG.md`, `docs/roadmaps/roadmap.yaml` (row `GH-912` renamed to `PMAT-912`, labels and acceptance criteria added, status inprogress), this receipt
 
 ## Contract
 
-1. `drift` with a config and a state dir that holds NO lock for any machine (empty) takes the lockless path, so a declared pin is compared against the live binary, offline too (#852). A state dir that holds another stack's locks is not empty: a machine of this config that was never applied there is not an error (exit 0) (forjar#488, `falsification_drift_scopes_to_the_config_it_was_given`). With no config an empty lock set keeps its old meaning.
+1. `drift` with a config and a state dir that holds NO lock for any machine (empty) takes the lockless path, so a declared pin is compared against the live binary, offline too (#852). A state dir that holds another stack's locks is not empty: a machine of this config that was never applied there is not an error (exit 0) (forjar#488; pinned by `f852_state_dir_with_another_stacks_lock_is_not_lockless` and `falsification_drift_scopes_to_the_config_it_was_given`, whose fixture creates its state dir since main's GH-880 made `plan` refuse a missing one). With no config an empty lock set keeps its old meaning.
 2. The plan version-pin pass, `plan_version_pins::measure` (tested at function level; the `forjar plan` CLI wiring is NOT pinned by a test), reports a live version that is not the pin as DRIFTED (detail names the DOWNGRADE), discloses the skipped upstream leg when offline, and reads NOT CHECKED for an undeclared machine (#613).
 3. #694 is already on main (5b1adb11); this PR adds only the blank guard and tests. `package_check::check_script` includes both its presence assertions and `completion_check` (no order is pinned) for apt, cargo, uv and brew (pinned by `gh694_completion_check_reaches_the_check_script`). `output_verify::verify_against_host` asks the same check script (test `a_failing_package_completion_check_fails_the_post_apply_verification`). A blank or whitespace-only `completion_check` adds no assertion (as an `if` condition it is a shell syntax error).
 
