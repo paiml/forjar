@@ -7401,6 +7401,25 @@ roadmap:
   - release:v1.34.1
   notes: null
   epic: 915
+- id: PMAT-1014
+  github_issue: 1014
+  item_type: task
+  title: 'release.yml: homebrew job red on the last 5 tags (HOMEBREW_TAP_TOKEN undefined since #462); remove it'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-11-13T10:45:00Z
+  updated: 2026-11-13T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - release.yml has no job that needs HOMEBREW_TAP_TOKEN (tests/falsification_release_has_no_homebrew.rs)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.1
+  notes: 'merged as #1016 (6f68219e); Noah ruling 2026-11-13 10:41Z "drop homebrew support"'
 - id: PMAT-1015
   github_issue: 1015
   item_type: task
@@ -7421,4 +7440,4 @@ roadmap:
   labels:
   - kind:docs
   - release:v1.34.1
-  notes: 'homebrew job removal lands separately (chore/drop-homebrew) before the tag'
+  notes: 'homebrew job removal landed separately as #1016 (PMAT-1014) before the tag'
