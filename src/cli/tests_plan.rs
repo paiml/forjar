@@ -183,6 +183,7 @@ resources:
         dispatch(
             Commands::Plan(PlanArgs {
                 offline: false,
+                params: vec![],
                 file: config,
                 machine: None,
                 resource: None,
@@ -229,9 +230,9 @@ resources:
 "#,
         )
         .unwrap();
-        // Plan with nonexistent state dir → everything shows as Create
+        // GH-880: a nonexistent state dir is refused by name, not planned as all-Create
         let missing = dir.path().join("no-state");
-        cmd_plan(
+        let err = cmd_plan(
             &config,
             &missing,
             None,
@@ -250,7 +251,9 @@ resources:
             false, // why,
             None,
         )
-        .unwrap();
+        .unwrap_err();
+        assert!(err.contains("no state at"), "{err}");
+        assert!(err.contains("--state-dir"), "{err}");
     }
 
     #[test]

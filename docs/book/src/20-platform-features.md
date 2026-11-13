@@ -23,7 +23,7 @@ resources:
     name: myapp
     version: "1.0.0"
     path: /opt/app/bin/server
-    command: "/opt/app/bin/server"
+    entrypoint: ["/opt/app/bin/server"]
     content: |
       #!/bin/sh
       exec /opt/app/bin/server

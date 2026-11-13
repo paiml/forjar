@@ -184,14 +184,15 @@ pub(crate) fn decode_written_file(script: &str, path: &str) -> Option<Vec<u8>> {
     // A file resource stages its bytes beside the target and renames them over
     // it (forjar#634), so what lands at `path` is what was written to the staged
     // path — but only if the script actually renames it there.
-    let staged = format!("{path}.forjar-new");
-    let renamed = format!("mv -f {} {}", sh_squote(&staged), sh_squote(path));
+    let staged = format!("{path}.forjar-new.");
+    let staged_q = format!("{}$$", sh_squote(&staged));
+    let renamed = format!("mv -f {} {}", staged_q, sh_squote(path));
     let dest = if script.lines().any(|l| l == renamed) {
-        staged.as_str()
+        staged_q.clone()
     } else {
-        path
+        sh_squote(path)
     };
-    let suffix = format!(" | base64 -d > {}", sh_squote(dest));
+    let suffix = format!(" | base64 -d > {dest}");
     let line = script.lines().find(|l| l.ends_with(&suffix))?;
     let b64 = line
         .strip_suffix(&suffix)?

@@ -1,0 +1,107 @@
+{
+  "kind": "code",
+  "issue": "PMAT-989 (forjar#989, IMG-001) \u2014 forjar build layers its declared OCI base image (failing closed when absent or invalid) and executes packages/command inside a container to append one deterministic layer.",
+  "branch": "feat/989-image-base-and-exec",
+  "base": "2cc18c46",
+  "base_commit": "2cc18c468d43a8ef8bcd455619daf7a9cfbe2c87",
+  "diff_sha256": "eb6914f7de4939c247f5de1dadc33243c2175a23",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (security/base-ref, parser/exec-layer, contracts/docs/hygiene) across 3 rounds, passing 3/3 at head 2be85af3 against origin/main c4ce3a2c with 5 claims confirmed and 2 refuted.",
+  "quorum": {
+    "rounds": 4,
+    "lanes": [
+      "round 3, head 2be85af3 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Security, CLI Base-Ref Validation & OCI Base Assembly): PASS",
+      "round 3, head 2be85af3 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Parser Parity, Exec Layer Determinism & Live Docker Falsifiers): PASS",
+      "round 3, head 2be85af3 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Contracts, Documentation & Repo Hygiene): PASS",
+      "round 4, head fa26fe21 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Main-Merge Delta & Base-Ref Invariants): PASS",
+      "round 4, head fa26fe21 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Main-Merge CHANGELOG Resolution & Falsifiers): PASS",
+      "round 4, head fa26fe21 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Gate E Bundle & Roadmap Parity): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C5 and R1..R2 was independently attacked across all 3 lanes; Round 1 caught check_base_ref traversal/metacharacters, parser command-trimming/(image) diagnostic mismatch, and CHANGELOG contradiction; Round 2 caught stray .orig backup; Round 3 verified 3/3 PASS.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 5,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: --sandbox image builds (src/cli/build_image.rs:145) remain unchanged in PMAT-989, captured exec layers normalize UID/GID ownership to 0:0 (src/core/store/exec_capture.rs:40), and packages: delegates to unpinned distribution repositories; disclosed in CHANGELOG.md:19,30.",
+      "R2: Live Docker falsifiers F1/F2 in tests/falsification_image_exec.rs:105,162 require --features container-test outside daemonless default CI and invoke loaded images by digest ID on containerd-image-store daemons; bounded by fake-runtime unit suites and verified 2/2 green on kfocus."
+    ]
+  },
+  "falsification": {
+    "test": "Revert Round-1 check_base_ref allowlist in src/cli/build_image_base.rs:24 and validate_file image/trim guard in src/core/parser/resource_types.rs:85, then run cargo test --lib -- tests_build_image_base tests_validation_image (plus live Docker cargo test --features container-test --test falsification_image_exec on kfocus).",
+    "test_file": "tests/falsification_image_exec_offline.rs",
+    "cargo_test_target": "falsification_image_exec_offline",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on gx10 and kfocus: reverting the Round-1 check_base_ref and validate_file fixes fails 2 unit assertions (tests_build_image_base::t8 and tests_validation_image), and reverting the setuid/setgid strip in exec_capture fails f3_setid_bits_of_non_root_entries_are_stripped_and_root_entries_kept (tests/falsification_image_exec_offline.rs, runs without a container runtime), while tampering with normalized layer capture breaks f1_the_same_spec_built_twice_has_the_same_manifest_digest."
+  },
+  "crux": {
+    "systems": [
+      "Buildah / Podman OCI layer builds: prepends verified base image layers from local OCI layout and commits container filesystem diff as a single layer",
+      "kaniko / ko deterministic tar layer writers: sorts tar headers, zeroes mtimes to the Unix epoch, strips volatile package-manager caches, and emits OCI .wh. whiteouts",
+      "skopeo / OCI distribution-spec reference grammar: enforces strict character allowlist on image references before filesystem path resolution or runtime CLI invocation"
+    ],
+    "verdict": "Combining strict check_base_ref validation on local skopeo OCI base layouts with diff_id-verified container step execution and epoch-normalized tar capture delivers deterministic layered images without adding network registry clients."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes (Security/Base-Ref, Parser/Exec-Layer, Contracts/Hygiene) across 3 rounds culminating at head 2be85af3",
+    "rounds": 4,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 4: 3/3 PASS at fa26fe21 (clean main merge from 2be85af3 onto 4a73376b)."
+  },
+  "pmat": {
+    "ticket": "PMAT-989",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo test on kfocus (/var/tmp/agy-forjar-989r2): clippy 0 warnings, orphan check 3/3, validation/base/exec unit suites green, live Docker falsification_image_exec F1/F2 2/2 passed in 47.26s"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-989-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "a0101981750c499ab211a3c29ff340b378d84564",
+        "sha256": "12a63d0b61909e5bdc6d3313b03f5754e8a6faac13c2905ae06faa1a9b8d82b9",
+        "bytes": 1958
+      },
+      {
+        "path": ".quorum/evidence/PMAT-989-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "d3c1177fa2b996cdd3d0f0638f8a3473d24cceb4",
+        "sha256": "46f0127ac309707ee7fbcd02b9e0f23e7a51fcb4989679973bb7f0d1e04c0ee3",
+        "bytes": 2864
+      },
+      {
+        "path": ".quorum/evidence/PMAT-989-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e146ff5536884ac6ff0d4ac4eb37b50e7df445e8",
+        "sha256": "0a2f5180d2b3b041444c94d59decacc46302bf8e1aac355a87088cedbf9203c6",
+        "bytes": 3671
+      },
+      {
+        "path": ".quorum/evidence/PMAT-989-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "734e16b7e63b3b6c972f46e0dc452367e60dc981",
+        "sha256": "25c18e359328ea5f1ced57467846784bb573d90066b52e5766a2b71732cce2c6",
+        "bytes": 1919
+      }
+    ],
+    "total_bytes": 10412,
+    "claims_digest": ".quorum/evidence/PMAT-989-judges.md"
+  }
+}
