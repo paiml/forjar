@@ -25,7 +25,7 @@ RED, the 28-case script against the unchanged guard (commit da03460f), `bash scr
 
 GREEN, with the new guard:
 
-- `bash scripts/apt-lock-timeout-guard-test.sh`: rc=0, "PASS apt-lock-timeout-guard (33 cases ...)".
+- `bash scripts/apt-lock-timeout-guard-test.sh`: rc=0, "PASS apt-lock-timeout-guard (71 cases ...)".
 - `bash scripts/apt-lock-timeout-guard.sh`: rc=0, "6 apt-get call(s) over 20 workflow file(s)".
 - `bash scripts/apt-lock-timeout-guard.sh --self-test`: rc=0.
 - `cargo fmt --all -- --check`: rc=0 (after `cargo fmt --all`, which reformatted the new test file).

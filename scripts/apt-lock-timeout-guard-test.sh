@@ -21,6 +21,15 @@ check() {
     fail=$((fail + 1))
   fi
 }
+# checkmsg <name> <dir> <fixed-text>: the guard output must name the call site.
+checkmsg() {
+  local name=$1 dir=$2 want=$3
+  n=$((n + 1))
+  if ! "$g" "$dir" 2>&1 | grep -qF -- "$want"; then
+    echo "FAIL $name: output lacks: $want"
+    fail=$((fail + 1))
+  fi
+}
 # fx <name> <printf-format-with-\n>: a dir holding one workflow file with that body.
 fx() {
   local d="$T/$1"
@@ -66,6 +75,43 @@ check printf-text-contains-apt-get-install 0 "$(fx pf "$HDR$GOOD      - run: pri
 check step-name-is-not-a-call 0 "$(fx sn "$HDR$GOOD      - name: apt-get install deps\n")"
 check command-v-probe-is-not-a-call 0 "$(fx cv "$HDR$GOOD      - run: command -v apt-get >/dev/null\n")"
 check space-in-dir-name-good 0 "$(d="$T/has space ok"; mkdir -p "$d"; printf '%b' "$HDR$GOOD" >"$d/w.yml"; echo "$d")"
+
+
+# Mutation-sweep cases: each pins one parser branch (deleting or inverting the branch turns one of these red).
+check abs-path-apt-get 1 "$(fx ap "$HDR      - run: sudo /usr/bin/apt-get install -y x\n")"
+check quoted-apt-get-dq 1 "$(fx qd "$HDR      - run: sudo \"apt-get\" install -y x\n")"
+check quoted-apt-get-sq 1 "$(fx qs "$HDR      - run: sudo 'apt-get' install -y x\n")"
+check second-apt-get-word-is-an-arg 1 "$(fx sw "$HDR      - run: sudo apt-get install -y apt-get\n")"
+check tab-separated-words 1 "$(fx tb "$HDR      - run: sudo apt-get\tinstall -y x\n")"
+check empty-quoted-arg-before-subcommand 1 "$(fx eq "$HDR      - run: sudo apt-get \"\" install -y x\n")"
+check opt-with-arg-c 1 "$(fx oc "$HDR      - run: sudo apt-get -c /etc/a.conf install -y x\n")"
+check opt-with-arg-t 1 "$(fx ot "$HDR      - run: sudo apt-get -t bookworm install -y x\n")"
+check opt-with-arg-a 1 "$(fx oa "$HDR      - run: sudo apt-get -a arm64 install -y x\n")"
+check opt-with-arg-o-other-key 1 "$(fx oo2 "$HDR      - run: sudo apt-get -o Acquire::Retries=3 install -y x\n")"
+check flag-before-subcommand 1 "$(fx fl "$HDR      - run: sudo apt-get -y install x\n")"
+check timeout-with-unit-suffix 1 "$(fx tu "$HDR      - run: sudo apt-get -o DPkg::Lock::Timeout=600s install -y x\n")"
+check timeout-word-with-prefix 1 "$(fx tp "$HDR      - run: sudo apt-get -o XDPkg::Lock::Timeout=600 install -y x\n")"
+check timeout-before-apt-get-does-not-count 1 "$(fx tb4 "$HDR      - run: -oDPkg::Lock::Timeout=600 sudo apt-get install -y x\n")"
+check subshell-close-paren-after-subcommand 1 "$(fx cp "$HDR      - run: (sudo apt-get update)\n")"
+check single-amp-second-call-bare 1 "$(fx am "$HDR      - run: sudo apt-get -o DPkg::Lock::Timeout=600 update & sudo apt-get install -y x\n")"
+check backtick-call-bare 1 "$(fx bt "$HDR      - run: echo \`sudo apt-get install -y x\`\n")"
+check colon-inside-run-body 1 "$(fx ci "$HDR      - run: |\n          X=\"a: b\"; sudo apt-get install -y x\n")"
+check trailing-space-after-backslash 1 "$(fx tsb "$HDR      - run: |\n          sudo apt-get \\\\ \n            install -y x\n")"
+check three-line-continuation-bare 1 "$(fx c3 "$HDR      - run: |\n          sudo apt-get \\\\\n            -y \\\\\n            install x\n")"
+check stale-continuation-does-not-vouch 1 "$(fx sv "$HDR      - run: |\n          sudo apt-get \\\\\n            -o DPkg::Lock::Timeout=600 install -y x\n          sudo apt-get update\n")"
+check eof-continuation-bare 1 "$(fx eo "$HDR      - run: sudo apt-get install -y x \\\\\n")"
+check eof-continuation-in-first-file 1 "$(d="$T/eof2"; mkdir -p "$d"; printf '%b' "${HDR}      - run: sudo apt-get install -y x \\\\\n" >"$d/a.yml"; printf '%b' "$HDR$GOOD" >"$d/b.yml"; echo "$d")"
+check first-file-continuation-does-not-vouch-for-next-file 1 "$(d="$T/eof3"; mkdir -p "$d"; printf '%b' "${HDR}      - run: sudo apt-get -o DPkg::Lock::Timeout=600 install -y x \\\\\n" >"$d/a.yml"; printf '%b' "      - run: sudo apt-get install -y y\n" >"$d/b.yml"; echo "$d")"
+check timeout-single-digit 0 "$(fx t1 "$HDR      - run: sudo apt-get -o DPkg::Lock::Timeout=6 install -y x\n")"
+check quoted-timeout-option 0 "$(fx qt "$HDR      - run: sudo apt-get -o \"DPkg::Lock::Timeout=600\" install -y x\n")"
+check hash-inside-word-is-not-a-comment 0 "$(fx hw "$HDR      - run: sudo apt-get install -y a#b -o DPkg::Lock::Timeout=600\n")"
+check key-with-digit-is-not-run 0 "$(fx kd "$HDR$GOOD      - name1: apt-get install deps\n")"
+check key-ending-in-run-is-not-run 0 "$(fx kr "$HDR$GOOD      - prerun: apt-get install deps\n")"
+for kw in then do else elif if while until '!'; do
+  check "echo-after-$kw" 0 "$(fx "ek$kw" "$HDR$GOOD      - run: $kw echo \"apt-get install x\"\n")"
+done
+
+checkmsg violation-names-first-line-of-continuation "$(fx ln "$HDR      - run: |\n          sudo apt-get \\\\\n            install -y x\n")" "w.yml:5:"
 
 # Not measured (rc=2): the guard says so rather than passing.
 check missing-dir 2 "$T/does-not-exist"

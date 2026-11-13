@@ -68,7 +68,7 @@ function judge(text, lineno,    t, key, nseg, segs, s, nw, w, i, k, sub_cmd, ok,
     print (ok ? "OK" : "BAD") "\t" FILENAME ":" lineno ": " text
   }
 }
-FNR == 1 { buf = ""; start = 0 }
+FNR == 1 { if (buf != "") judge(buf, start); buf = ""; start = 0 }
 {
   line = $0
   if (buf == "") start = FNR
