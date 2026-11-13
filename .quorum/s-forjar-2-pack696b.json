@@ -1,14 +1,14 @@
 {
   "kind": "code",
-  "issue": "PMAT-673 (forjar#914) — bound weekly stress.yml passes (seq 1 3) inside a 45-minute step timeout with strategy.fail-fast: false, plus a SEC005 sk- token-boundary falsification test (forjar#649, quoted-assignment forms, red on bashrs 6.68.0).",
+  "issue": "PMAT-673 (forjar#914) \u2014 bound weekly stress.yml passes (seq 1 3) inside a 45-minute step timeout with strategy.fail-fast: false, plus a SEC005 sk- token-boundary falsification test (forjar#649, quoted-assignment forms, red on bashrs 6.68.0).",
   "branch": "s-forjar-2/pack696b",
   "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted. After two Opus 5.5 lanes failed fcf4d172 on stale figures (30 min / 4 min per pass) and a vacuous SEC005 guard, the evidence prose and the SEC005 test were corrected to the shipped 45 min / 9 min per pass and quoted forms; those corrections have not been re-adjudicated by the agy lanes.",
   "quorum": {
     "rounds": 1,
     "lanes": [
-      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 1 (Worst-Case Runtime Budget vs Step Timeout Invariant): PASS",
-      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 2 (Matrix fail-fast Isolation & SEC005 Boundary Test): PASS",
-      "round 1, head 7c609178 — agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Kill & Traceability): PASS"
+      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Worst-Case Runtime Budget vs Step Timeout Invariant): PASS",
+      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Matrix fail-fast Isolation & SEC005 Boundary Test): PASS",
+      "round 1, head 7c609178 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Popperian Falsification, Revert Kill & Traceability): PASS"
     ],
     "lane_errors": 0,
     "judges": 3,
@@ -58,7 +58,7 @@
   },
   "base": "70bf3d2e",
   "base_commit": "70bf3d2e3d8f0bc86d10d94eb99ebfdb55ee9ce1",
-  "diff_sha256": "aa9018d1e44d210dd72275e3dce256121493ea3b",
+  "diff_sha256": "ab31e87de63da98822fc58222f76dbe9a1896124",
   "evidence": {
     "files": [
       {
@@ -66,27 +66,27 @@
         "roles": [
           "claims"
         ],
-        "blob": "7197d3868fe1dffb3697a390529e95ca4eedfa38",
-        "sha256": "5d2bde6167b91642eeaeafc082069804636e6aefc9f754e7d0dbe4aee49eaae3",
-        "bytes": 1846
+        "blob": "0b7879c8ef2019998cb5cbb6cf7dfa40ae92d8af",
+        "sha256": "ecbb4bfc92d1a681b98e8fc9d72cb3970d7af37a48e3cf3afd2f283a02025833",
+        "bytes": 2024
       },
       {
         "path": ".quorum/evidence/PMAT-673-lanes.md",
         "roles": [
           "lanes"
         ],
-        "blob": "5181d8047a3f6d4e9e79e3697c66b3c9c2bdfe1c",
-        "sha256": "82419fb142fb44584e4110cfdd9fa8f0cbb9066a6655607ddb76074feb09174a",
-        "bytes": 1013
+        "blob": "aa43f8cf296d90ee37b56f05fa15f9375409537f",
+        "sha256": "a0981d8ebf9f7f87225250b53f774b4366215b4027ab0d6e613a8ca17717630d",
+        "bytes": 1105
       },
       {
         "path": ".quorum/evidence/PMAT-673-judges.md",
         "roles": [
           "judges"
         ],
-        "blob": "627f000d3cc0355513c46138c7c9f27ca99d9775",
-        "sha256": "e3869bffcf7c630006a5e92fa6a646868d398614b48f768d4c8bec2319324d37",
-        "bytes": 2828
+        "blob": "e16afc1c050edbe65cd12c9901273a9bfa37f9ea",
+        "sha256": "4d9cf795a4905c89fddb0356bf6aa7f560cae0eec188b8dfa598a701c22c57fa",
+        "bytes": 2890
       },
       {
         "path": ".quorum/evidence/PMAT-673-agy.md",
@@ -98,7 +98,7 @@
         "bytes": 660
       }
     ],
-    "total_bytes": 6347,
+    "total_bytes": 6679,
     "claims_digest": ".quorum/evidence/PMAT-673-judges.md"
   }
 }
