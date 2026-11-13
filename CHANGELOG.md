@@ -182,8 +182,13 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - The inode-pressure gate probes BSD/macOS with `df -i` and fails closed on output it cannot parse, so `apply` on a macOS host is no longer refused by the Linux-only probe (PMAT-995, #1003).
 - `forjar --version` names the build commit (#639).
 - A resource that fails is recorded as `action: failed` in the run log instead of being counted as converged (PMAT-688, #688).
+- Fix: two concurrent applies can no longer both run. A racer could read an empty lock file, reap the live holder's lock and start a second apply; the lock is now published atomically with link(2) (FJ-LOCK-001 C1, #930).
+- Fix: the apply lock is held from before validate until after the post-actions and is released on drop, so it no longer leaks on an early return or a panic (FJ-LOCK-001 C2, #930).
+- `forjar drift` names the lock file(s) it read, or says none; `--json` gains `lock_files` (PMAT-585, #585).
+- `plan -t` closes over `depends_on` like `apply -t`, and `plan --param ... --out` is refused (PMAT-890).
+- CI only: git/bash-only jobs run on the `gate-light` runners (#1005); `softprops/action-gh-release` 3.0.2 to 3.0.4 (#904).
 
-**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C3-C5, #923 #924 #925; merged as #930).**
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C1-C5, #923 #924 #925; merged as #930).**
 The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
 `--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
 files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
