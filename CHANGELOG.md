@@ -124,7 +124,7 @@ is now covered by tests: a live version that is not the pin reads DRIFTED, the
 skipped upstream leg is disclosed offline, and an undeclared machine reads NOT CHECKED.
 For #694, which is already on main: a blank or whitespace-only package
 `completion_check` now adds no assertion (it was a shell syntax error), and tests
-pin that the check script keeps its presence checks beside `completion_check`
+pin that the check script includes both its presence checks and `completion_check`
 for apt, cargo, uv and brew, and that `verify_against_host` asks that script.
 
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**

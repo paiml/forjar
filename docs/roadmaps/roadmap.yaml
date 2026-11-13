@@ -6906,7 +6906,7 @@ roadmap:
   acceptance_criteria:
   - 'drift with an empty state dir (no lock for any machine) compares a declared pin against the live version, offline too, instead of inspecting 0 resources and exiting 0 (forjar#852).'
   - 'the plan version-pin pass (plan_version_pins::measure) reports a live version that is not the declared pin, discloses the skipped upstream leg offline, and reads NOT CHECKED for an undeclared machine (forjar#613).'
-  - 'a blank completion_check adds no assertion to a package check script, and the check script keeps its presence checks beside completion_check for apt, cargo, uv and brew (forjar#694, already on main).'
+  - 'a blank completion_check adds no assertion to a package check script, and the check script includes both the presence checks and completion_check (no order pinned) for apt, cargo, uv and brew (forjar#694, already on main).'
   phases: []
   subtasks: []
   estimated_effort: null
