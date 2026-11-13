@@ -354,7 +354,7 @@ mod tests {
     #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_keygen_succeeds() {
-        let result = cmd_secrets_keygen();
+        let result = cmd_secrets_keygen(None);
         assert!(result.is_ok(), "keygen should always succeed");
     }
 

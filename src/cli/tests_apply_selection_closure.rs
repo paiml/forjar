@@ -332,7 +332,7 @@ fn an_unknown_machine_is_an_error() {
 }
 
 #[test]
-fn an_unknown_tag_is_an_error_and_a_known_tag_prunes_nothing() {
+fn an_unknown_tag_is_an_error_and_a_known_tag_selects_its_closure() {
     let mut c = cfg();
     let err = resolve(
         &mut c,
@@ -354,9 +354,9 @@ fn an_unknown_tag_is_an_error_and_a_known_tag_prunes_nothing() {
         },
     )
     .expect("-t exists");
-    // -t stays a plan-level filter: it is existence-checked here, never pruned.
-    assert_eq!(ids(&c), vec!["a", "b", "c", "d"]);
-    assert_eq!(out.selected, 4);
+    // -t is a positive selector: the tagged resource plus its depends_on closure.
+    assert_eq!(ids(&c), vec!["a", "b"]);
+    assert_eq!(out.selected, 1); // matched by tag; b rides in via depends_on
 }
 
 #[test]

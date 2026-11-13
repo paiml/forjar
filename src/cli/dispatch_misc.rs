@@ -417,7 +417,7 @@ fn dispatch_misc_core(cmd: Commands, verbose: bool) -> Result<(), String> {
             )
         }
         Commands::Workspace(sub) => super::dispatch_misc_b::dispatch_workspace(sub),
-        Commands::Secrets(sub) => super::dispatch_misc_b::dispatch_secrets(sub),
+        Commands::Secrets(sub) => super::secrets::dispatch_secrets(sub),
         Commands::Snapshot(sub) => super::dispatch_misc_b::dispatch_snapshot(sub),
         Commands::Generation(sub) => super::dispatch_misc_b::dispatch_generation(sub),
         other => super::dispatch_analysis::dispatch_analysis_cmd(other),

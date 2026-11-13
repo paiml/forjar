@@ -9,7 +9,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(
     name = "forjar",
-    version,
+    version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("FORJAR_GIT_SHA"), ")"),
     about = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 )]
 struct Cli {
@@ -43,10 +43,42 @@ fn main() {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
 
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(exit_redacted);
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
     if let Err(e) = forjar::cli::dispatch_classified(cli.command, cli.verbose, no_color) {
         eprintln!("error: {e}");
         std::process::exit(e.exit_code());
     }
+}
+
+/// Exit on a usage error. clap quotes the offending argument in its message
+/// and "tip" line; a secret can be that argument. So the whole secrets family
+/// (subcommand word `secret*`), clap's built-in `help`, and an
+/// InvalidSubcommand error with a later secrets word get a fixed message that
+/// echoes nothing. Every other command keeps clap's own error.
+fn exit_redacted(e: clap::Error) -> Cli {
+    // args_os + lossy: `args()` panics on a non-UTF-8 value and prints it.
+    let argv: Vec<String> = std::env::args_os()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    if e.use_stderr() && forjar::cli::argv_is_secrets_encrypt(&argv) {
+        eprintln!(
+            "error: invalid arguments for `forjar secrets encrypt` (not shown: it may hold a \
+             secret). Usage: forjar secrets encrypt -r <RECIPIENT> [--from-file PATH]  \
+             (plaintext is read from stdin)"
+        );
+        std::process::exit(2);
+    }
+    if e.use_stderr() && forjar::cli::argv_is_help(&argv) {
+        eprintln!("error: invalid arguments for `forjar help` (not shown: it may hold a secret). See `forjar --help`");
+        std::process::exit(2);
+    }
+    let hidden_subcommand = e.kind() == clap::error::ErrorKind::InvalidSubcommand
+        && forjar::cli::argv_has_later_secrets_word(&argv);
+    if e.use_stderr() && (hidden_subcommand || forjar::cli::argv_mentions_secrets(&argv)) {
+        // A secret can be glued onto a subcommand word, which clap then quotes.
+        eprintln!("error: invalid arguments for `forjar secrets` (not shown: it may hold a secret). See `forjar secrets --help`");
+        std::process::exit(2);
+    }
+    e.exit()
 }

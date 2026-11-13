@@ -92,6 +92,35 @@ drift now runs it on whatever schedule you run drift on. `--no-task-checks`
 opts out for a run — and the census line below reports how many resources that
 silenced, so opting out is never invisible.
 
+**A `completion_check` asserts install state, never freshness.** The check
+answers "is the thing this task produces in place?", and it must answer the same
+way on the first run and on the hundredth. Do not require a *fresh log line*
+(a recent timestamp, a message written by this run, a heartbeat): on a first
+install the log does not exist yet, so the check can never pass, the task stays
+`pending`, and drift reports it forever. Freshness ("did it run lately?",
+"is it still healthy?") belongs to monitoring, not to the completion check.
+
+```yaml
+# Wrong: needs a log line from the last 5 minutes, which a first install
+# has not written yet, so this can never pass.
+runner-installed:
+  type: task
+  machine: gx10
+  command: /opt/runner/install.sh
+  completion_check: |
+    find /var/log/runner.log -mmin -5 | grep -q . &&
+      grep -q 'registered' /var/log/runner.log
+
+# Right: assert the install state. Alerting on a stale or silent runner
+# is a monitoring concern (your alerting / health probes), not this check.
+runner-installed:
+  type: task
+  machine: gx10
+  command: /opt/runner/install.sh
+  completion_check: |
+    test -x /opt/runner/bin/runner && test -f /opt/runner/.runner
+```
+
 ### The denominator
 
 Every drift run prints what it inspected and what it did not, drift or no

@@ -61,6 +61,13 @@ pub fn mk_cargo_registry(p: &Path) {
 
 /// Install a `df` shim that pops one "used_pct free_kb" line per invocation.
 pub fn install_df_stub(bin: &Path, sequence: &[(u32, u64)]) {
+    // 40 KiB filesystem: a 4 KiB candidate tree can plausibly reach the target.
+    install_df_stub_total(bin, sequence, 40);
+}
+
+/// As `install_df_stub`, with the filesystem size (1K-blocks) given. forjar#669:
+/// reachability is computed from this, so a test can build an unreachable target.
+pub fn install_df_stub_total(bin: &Path, sequence: &[(u32, u64)], total_kb: u64) {
     fs::create_dir_all(bin).unwrap();
     let state = bin.join("df.state");
     let mut s = String::new();
@@ -75,7 +82,7 @@ pub fn install_df_stub(bin: &Path, sequence: &[(u32, u64)]) {
          if [ \"$(wc -l <\"$S\")\" -gt 1 ]; then tail -n +2 \"$S\" >\"$S.tmp\" && mv \"$S.tmp\" \"$S\"; fi\n\
          set -- $L\n\
          echo 'Filesystem 1024-blocks Used Available Capacity Mounted on'\n\
-         echo \"/dev/stub 1000000000 1 $2 $1% /\"\n"
+         echo \"/dev/stub {total_kb} 1 $2 $1% /\"\n"
     );
     let p = bin.join("df");
     fs::write(&p, shim).unwrap();

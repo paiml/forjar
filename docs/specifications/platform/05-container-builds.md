@@ -336,7 +336,7 @@ resources:
 - [x] 6 integration tests with real Docker containers (create, apply, extract, assemble OCI layout)
 - **Note**: Pepita-specific integration deferred (binary not available). Container-based path provides equivalent functionality via Docker/Podman.
 
-### Phase 10: Image Resource Type (FJ-2104) — IMPLEMENTED
+### Phase 10: Image Resource Type (FJ-2104) — PARTIAL (base layering and package/command execution implemented, PMAT-989; sandbox path and CI falsifier run open)
 - [x] `ResourceType::Image` (enum variant exists)
 - [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
 - [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
@@ -347,7 +347,15 @@ resources:
 - [x] `build_image.rs` — CLI module with `build_plan_from_resource()`, `collect_layer_entries()`, `--push` via registry_push
 - [x] 10 tests in `tests_image_assembler.rs`
 - [x] Base image layer extraction: `extract_base_layers()`, `verify_base_blobs()`, `copy_base_blobs()` (`store/base_image.rs`)
-- [x] `build_plan_from_resource()` probes local base image layout when `image:` field present
-- **Remaining**: Integration test with `docker load` (requires Docker in CI)
+- [x] `forjar build` layers the declared base (PMAT-989 phase 1): the layout under `state/images/<ref with ':' and '/' as '_'>` is loaded with `extract_base_layers()`, checked with `verify_base_blobs()`, and passed to `assemble_image_with_base()`; base layers come first in the manifest and their blobs are copied into the output layout. The base's identity (layer digests, diff_ids, arch, os, runtime config, history) is part of the build-cache key.
+- [x] A declared base that is absent, unreadable or missing blobs is an error naming the reference, the directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies it (no registry pull in forjar); no image is written. Without `image:` the build is a scratch image as before.
+- [x] `forjar build` executes `packages` and `command` into a layer on the declared base (PMAT-989 phase 2). `packages`/`command` without `image:` is an error (there is no base to execute on). The steps run in one container started from the base (`BuildRuntime` trait, real `ContainerCli` = `docker`/`podman`): the base layers are made available to the runtime, packages are installed with the same script `forjar apply` generates for a `package` resource (`bash`), then `command` runs (`sh`). The upper-layer changes are captured as the executed layer.
+- [x] Capture: filesystem diff of the container (`docker diff`) plus an export of the changed paths; files are written in sorted order with epoch mtime. Whiteouts are emitted for deleted paths. Runtime-volatile paths are normalised away from the layer (one list in `store/exec_capture.rs`: package-manager caches and logs, `/var/lib/apt/lists`, `/var/cache`, `/tmp`, `/run`, ldconfig cache, `*.log` suffixes). A missing or special (fifo) changed path fails the build rather than being dropped.
+- [x] The base's `diff_ids` are checked against the runtime's copy of the base; a mismatch is an error naming both and the commands that supply the exact base (`docker pull <ref>`, or `docker save <ref> | tar -x -C <dir>`; `skopeo copy` as before).
+- [x] `entrypoint: [..]` is a new field on `type: image`. `command:` is no longer the entrypoint: it is a build step.
+- [x] Build-cache key includes the packages, the command, the shell choices and the base identity; `--json` gains an `exec` object (steps, files captured, whiteouts).
+- **Limits (measured or by construction)**: entries of the executed layer are owned by 0:0 (`LayerEntry` carries no uid/gid), so files installed with another owner lose it. Package versions are those the base's package manager resolves at build time (unpinned), so the digest is identical across builds only within one repository snapshot (measured identical across 3 rounds on one day). Falsifiers F1 (same spec built twice gives the same manifest digest) and F2 (declared package present in the loaded image) are in `tests/falsification_image_exec.rs` behind `--features container-test` and need Docker; no CI job runs them yet. On a daemon with the containerd image store, `forjar build --load` lists the image as `<tag>` but `docker run <tag>` does not resolve it (the assembler's `io.containerd.image.name` annotation, IMG-001 2/N); run it by image id.
+- [ ] `forjar build --sandbox` does not take the base layering or execution path (it builds in a container); unchanged by PMAT-989. `LayerStrategy::Packages` still has its marker arm, now unconstructed by `forjar build`.
+- **Remaining**: sandbox path; a CI job running the container-test falsifier; uid/gid capture; registry pull
 
 > **Convention note**: `[x]` in PARTIAL phases means "type or CLI wiring exists in code." PARTIAL means "end-to-end runtime flow not yet tested/integrated." See FALSIFICATION-REPORT.md § E8.

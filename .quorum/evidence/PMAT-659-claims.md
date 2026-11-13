@@ -1,0 +1,10 @@
+# Claims — `check` counts unreachable SSH hosts as `unmeasured` (exit 4) & `lock-prune` scopes to declared config (PMAT-659 / PMAT-661 / forjar#902)
+
+Extracted from PR `#902` (`forjar-cop/packB`, head `2a3ac2e3`) and attacked across all 3 review lanes:
+
+- **C1 (`forjar check` SSH exit 255 / transport error -> `unmeasured`, exit 4)**: `src/cli/check.rs:140` classifies SSH `exit_code == 255` (`transport::is_ssh_transport(machine)`) and transport `Err(_)` as `"unmeasured"` rather than `"fail"`, preserving `"fail"` (exit 1) for real remote drift and local exit 255 (`tests/falsification_659_check_unreachable_is_unmeasured.rs:45`).
+- **C2 (`forjar check --json` `unmeasured` accounting & exit precedence)**: `src/cli/check_json.rs:28` emits `"unmeasured"` count, sets `"all_passed": total_fail == 0 && unmeasured == 0`, and `src/core/error.rs:12` maps `CHECK_UNMEASURED_MARKER` to exit code `4` only when `total_fail == 0`.
+- **C3 (`lock-prune -f` scoped to config machines & shared-machine refusal)**: `src/cli/lock_core.rs:368` and `src/cli/lock_prune_scope.rs:15` restrict `lock-prune` to machines declared in `-f` and refuse before writing any lock when `global` lock stamps show another stack owns the machine (`tests/falsification_661_lock_prune_scoped_to_config.rs:42`).
+- **C4 (Documentation, `--check` help text & `CHANGELOG.md` traceability)**: `src/cli/commands/apply_args.rs:342` documents `exit 1 = changes needed, exit 4 = a host could not be reached` and `CHANGELOG.md:8` records both `#659` and `#661`.
+- **R1 (`impl-PMAT-659-receipt.md` host-load failures misattributed as `PARTIAL`)**: The author receipt marked `verdict: PARTIAL` over 10 test binaries without separating host-environment interference (`/tmp` at 95%, non-root `crontab`, `ulimit -u`) from clean-room suite status.
+- **R2 (`lock_prune_scope.rs` partial-filter mutation vs `lock_core.rs` revert)**: Mutating only `declared_machine_dirs`'s `.filter` in `src/cli/lock_prune_scope.rs:25` stays green because the shared-machine refusal fires first; full `src/cli/lock_core.rs` revert is required to prove red-on-revert (`FJ_902_REVERT_RC=101`).

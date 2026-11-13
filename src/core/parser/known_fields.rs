@@ -58,6 +58,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "max_age",
     "pattern",
     "command",
+    "entrypoint",
     "image",
     "ports",
     "environment",
