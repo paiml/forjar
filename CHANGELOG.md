@@ -185,7 +185,7 @@ Also merged since v1.34.0, one line each from the merge subjects:
 - Fix: two concurrent applies can no longer both run. A racer could read an empty lock file, reap the live holder's lock and start a second apply; the lock is now published atomically with link(2) (FJ-LOCK-001 C1, #930).
 - Fix: the apply lock is held from before validate until after the post-actions and is released on drop, so it no longer leaks on an early return or a panic (FJ-LOCK-001 C2, #930).
 - `forjar drift` names the lock file(s) it read, or says none; `--json` gains `lock_files` (PMAT-585, #585).
-- `plan -t` closes over `depends_on` like `apply -t`, and `plan --param ... --out` is refused (PMAT-890).
+- `plan -t` closes over `depends_on` like `apply -t`; `plan` gains `-p/--param KEY=VALUE`, and `plan --param ... --out` is refused (PMAT-890).
 - CI only: git/bash-only jobs run on the `gate-light` runners (#1005); `softprops/action-gh-release` 3.0.2 to 3.0.4 (#904).
 
 **State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C1-C5, #923 #924 #925; merged as #930).**
