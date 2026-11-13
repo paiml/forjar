@@ -122,9 +122,8 @@ the live binary, offline too, instead of inspecting 0 resources and exiting 0.
 upstream leg when offline, and reads NOT CHECKED for an undeclared machine.
 A package resource's declared `completion_check` is now run by the check script
 of the four providers that have presence checks (apt, cargo, uv, brew) beside
-those checks; a blank `completion_check` adds no assertion. The apply script
-does not run it, but apply's post-apply verification (FJ-2732) does, so a failing
-`completion_check` fails the apply. An unsupported provider still reads diverged. A state dir that holds another stack's
+those checks; a blank `completion_check` adds no assertion. The post-apply
+host verification (`verify_against_host`) asks the same check script. A state dir that holds another stack's
 locks is not treated as empty, so a never-applied machine still reads `no state yet`.
 
 **The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
