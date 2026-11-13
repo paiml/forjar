@@ -321,7 +321,7 @@ pub(crate) fn cmd_status_resources_by_type(
     let machines = collect_resources(state_dir, machine)?;
     for (m_name, resources) in &machines {
         for (name, rl) in resources {
-            let rtype = format!("{:?}", rl.resource_type);
+            let rtype = rl.resource_type.to_string();
             by_type.entry(rtype).or_default().push((
                 m_name.clone(),
                 name.clone(),

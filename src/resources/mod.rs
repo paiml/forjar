@@ -51,6 +51,10 @@ mod tests_cron_b;
 #[cfg(test)]
 mod tests_cron_exec;
 #[cfg(test)]
+mod tests_cron_exec_guard;
+#[cfg(test)]
+mod tests_cron_nosudo;
+#[cfg(test)]
 mod tests_docker;
 #[cfg(test)]
 mod tests_docker_b;
@@ -60,6 +64,8 @@ mod tests_file;
 mod tests_file_b;
 #[cfg(test)]
 mod tests_file_content_escape;
+#[cfg(test)]
+mod tests_file_staging;
 #[cfg(test)]
 mod tests_github_release_downgrade;
 #[cfg(test)]

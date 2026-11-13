@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod tests_build_image;
 #[cfg(test)]
+mod tests_build_image_base;
+#[cfg(test)]
+mod tests_build_image_exec;
+#[cfg(test)]
 mod tests_destroy_b;
 #[cfg(test)]
 mod tests_diff_cmd_b;
@@ -156,3 +160,5 @@ mod tests_gh_dogfood_p1;
 mod tests_plan_file_v1;
 mod tests_dogfood_observ;
 mod tests_dogfood_p4;
+#[cfg(test)]
+mod tests_check_secrets;

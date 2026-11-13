@@ -1,6 +1,6 @@
 [package]
 name = "forjar"
-version = "1.34.0"
+version = "1.34.1"
 edition.workspace = true
 rust-version = "1.89.0"
 authors = ["Pragmatic AI Labs"]
@@ -139,6 +139,11 @@ openssl = { version = "0.10", optional = true }
 # private CA would start failing on a host where it worked before.
 ureq = { version = "3.4", features = ["platform-verifier"] }
 
+# #992: the timeout path signals a process group by syscall (killpg), not through an
+# external `kill` binary. `unsafe` is forbidden here, so the safe wrapper is used.
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.31", default-features = false, features = ["signal"] }
+
 [build-dependencies]
 forjar-contracts = { path = "crates/forjar-contracts", version = "=0.31.2" }
 serde = { version = "1.0", features = ["derive"] }
@@ -185,7 +190,10 @@ required-features = ["cli"]
 # `copia`, `resources`, `transport` and `tripwire` with none of clap, pforge,
 # tokio, rusqlite or openssl. Before GH-237 there was no `default` key at all,
 # so `default-features = false` subtracted the empty set and removed nothing.
-default = ["cli"]
+# `encryption` (age) is in `default` since forjar#893: a binary that cannot run
+# `forjar secrets keygen` is not the shipped product. Library consumers who pass
+# `default-features = false` still get no age dependency.
+default = ["cli", "encryption"]
 
 # The binary and both server surfaces. ONE feature, not three: src/mcp/handlers.rs
 # calls crate::cli at three sites (strip_unrequested_phony_for_mcp, and

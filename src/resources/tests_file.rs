@@ -1,9 +1,10 @@
 use super::file::*;
+use super::tests_file_staging::has_staged_residue;
 use crate::core::shell_escape::decode_written_file;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 use base64::Engine;
 
-fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
+pub(super) fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
     Resource {
         phony: false,
         resource_type: ResourceType::File,
@@ -219,7 +220,7 @@ fn test_fj007_apply_file_owner_no_group() {
     let mut r = make_file_resource("/etc/test.conf", Some("data"));
     r.group = None;
     let script = apply_script(&r);
-    assert!(script.contains("chown 'root' '/etc/test.conf.forjar-new'"));
+    assert!(script.contains("chown 'root' '/etc/test.conf.forjar-new.'$$"));
     assert!(!script.contains("chown 'root:"));
 }
 
@@ -267,7 +268,7 @@ fn test_fj007_apply_file_at_root_no_mkdir() {
     let mut r = make_file_resource("/init", Some("boot script"));
     r.owner = None;
     let script = apply_script(&r);
-    assert!(script.contains("| base64 -d > '/init.forjar-new'"));
+    assert!(script.contains("| base64 -d > '/init.forjar-new.'$$"));
     assert!(!script.contains("mkdir -p '/'"));
 }
 
@@ -367,7 +368,7 @@ fn group_without_owner_is_actually_applied() {
     r.owner = None;
     let script = apply_script(&r);
     assert!(
-        script.contains("chgrp 'staff' '/etc/thing.conf.forjar-new'"),
+        script.contains("chgrp 'staff' '/etc/thing.conf.forjar-new.'$$"),
         "group declared without owner emitted NO ownership command:\n{script}"
     );
 
@@ -375,7 +376,7 @@ fn group_without_owner_is_actually_applied() {
     r.owner = Some("noah".to_string());
     let both = apply_script(&r);
     assert!(
-        both.contains("chown 'noah:staff' '/etc/thing.conf.forjar-new'"),
+        both.contains("chown 'noah:staff' '/etc/thing.conf.forjar-new.'$$"),
         "owner+group regressed:\n{both}"
     );
     assert!(
@@ -386,7 +387,7 @@ fn group_without_owner_is_actually_applied() {
     r.group = None;
     let owner_only = apply_script(&r);
     assert!(
-        owner_only.contains("chown 'noah' '/etc/thing.conf.forjar-new'"),
+        owner_only.contains("chown 'noah' '/etc/thing.conf.forjar-new.'$$"),
         "owner-only regressed:\n{owner_only}"
     );
 
@@ -436,10 +437,7 @@ fn fj634_a_parked_script_finishes_on_its_old_bytes() {
         std::fs::read_to_string(&target).unwrap(),
         "sleep 1\necho NEW >\"$1\"\n"
     );
-    assert!(
-        !dir.path().join("wrapper.sh.forjar-new").exists(),
-        "staged file left behind"
-    );
+    assert!(!has_staged_residue(dir.path()), "staged file left behind");
 }
 
 /// forjar#634: the rename must not drop an attribute the resource does not
@@ -513,9 +511,6 @@ fn fj634_an_unreadable_source_leaves_no_staged_file() {
         .status()
         .unwrap();
     assert!(!applied.success());
-    assert!(
-        !dir.path().join("conf.forjar-new").exists(),
-        "staged file left behind"
-    );
+    assert!(!has_staged_residue(dir.path()), "staged file left behind");
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "old\n");
 }

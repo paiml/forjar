@@ -4,6 +4,7 @@
 //! output is placed under a deterministic path derived from its inputs.
 
 pub mod base_image;
+pub mod build_runtime;
 pub mod cache;
 pub mod cache_exec;
 pub mod chunker;
@@ -22,6 +23,10 @@ pub mod coverage_persist;
 pub mod db;
 pub mod derivation;
 pub mod derivation_exec;
+pub mod exec_capture;
+pub mod exec_layer;
+#[cfg(test)]
+pub(crate) mod fake_build_runtime;
 pub mod far;
 pub mod gc;
 pub mod gc_exec;
@@ -98,6 +103,8 @@ mod tests_db_bench;
 mod tests_derivation;
 #[cfg(test)]
 mod tests_derivation_exec;
+#[cfg(test)]
+mod tests_exec_layer;
 #[cfg(test)]
 mod tests_falsify_spec_a;
 #[cfg(test)]
