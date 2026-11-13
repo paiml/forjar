@@ -7389,3 +7389,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 915
+- id: PMAT-608
+  github_issue: 608
+  item_type: task
+  title: github_release prints its missing-asset message under pipefail and surfaces a curl failure as a curl failure (#608)
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-12T16:26:30Z
+  updated: 2026-11-12T16:26:30Z
+  spec: null
+  acceptance_criteria:
+  - 'github_release asset lookup ends in || true so a missing asset reaches its no-asset message; a curl failure aborts and is reported as a curl failure (PR #910, closes #608)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 696
