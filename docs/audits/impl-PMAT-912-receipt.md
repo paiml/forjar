@@ -18,14 +18,16 @@ Falsifiers (all in the PR): `src/cli/tests_drift_empty_state.rs` (incl. `f852_st
 
 ## Review round 1 (three non-author lanes FAIL at b23462d4)
 
-1. Lane 1 and 3, `src/cli/drift.rs:233`: the first fix routed EVERY empty scoped lock set to `scan_lockless`, so a declared machine never applied, beside a state dir holding another stack's locks, was inspected 0 of 1 and ended `declined` (exit 1). Measured on t2yoga: `cargo test --test falsification_drift_scopes_to_the_config_it_was_given` is RED on b23462d4 (`a_declared_machine_with_no_state_yet_is_not_an_error`, 5 passed 1 failed) and GREEN on plain main dbd1ec3e (6 passed). So this PR broke it. Five whys: the PR wanted "no lock to walk" to mean lockless (#852); `collect_machine_locks` returns an empty list both for an empty dir and for a populated dir whose locks are all out of scope; the fix keyed on the empty list; the two cases need opposite answers; the receipt ran 5 of the 8 `falsification_drift_*` targets and missed this one. Fix: `drift_state::holds_no_lock` (no `state.lock.yaml` for any machine dir) gates the lockless path. RED commit 4ce10476, fix c22b5be0.
-2. Lane 2, `drift.rs`: with m1 applied and m2 never applied, `drift` and `drift -m m2` now agree (both walk locks and ignore m2; before the fix `-m m2` took the lockless path). The older blind spot, an unscoped `drift` never asking the host about an unapplied machine beside an applied one, exists on main and is NOT changed here. Closing it contradicts `a_declared_machine_with_no_state_yet_is_not_an_error`, so it is a design question left open (see below).
-3. Lane 2, `package_check.rs`: a blank `completion_check` reached `verdict::assert_block` as an empty `if` condition (`if\n  \nthen`). Fixed: blank is dropped; `gh694_blank_completion_check_adds_no_assertion` was RED on 4ce10476 and is green on c22b5be0. (The lane's cited line 338 and signature `finish(lines, resource)` do not match this tree; the hazard did.) The task resource's own check does not trim either; not changed.
-4. Lane 3, trailers: commits ab3df95b, 4b8bb126 and 5ff78c60 carry `Refs #` and no `Pmat-Ticket:` and are already pushed; fixing them needs a history rewrite, which this lane does not do. Open.
+Records of what was measured or reported then; they claim no behaviour of the current tree beyond the tests named.
 
-## CI red and root cause
+1. Lane 1 and 3, `src/cli/drift.rs`: at b23462d4 `cargo test --test falsification_drift_scopes_to_the_config_it_was_given` was RED (`a_declared_machine_with_no_state_yet_is_not_an_error`, 5 passed 1 failed) and GREEN on plain main dbd1ec3e (6 passed), measured on t2yoga. Fix: `drift_state::holds_no_lock` gates the lockless path; RED commit 4ce10476, fix c22b5be0. The receipt then ran 5 of the 8 `falsification_drift_*` targets and missed this one.
+2. Lane 2, `package_check.rs`: a blank `completion_check` was reported to reach the script as an empty `if` condition. Fix: blank is dropped; `gh694_blank_completion_check_adds_no_assertion` was RED on 4ce10476 and is green on c22b5be0.
+3. Lane 3, trailers: commits ab3df95b, 4b8bb126 and 5ff78c60 carry `Refs #` and no `Pmat-Ticket:` and are already pushed; fixing them needs a history rewrite, which this lane does not do. Open.
+4. Lane 2 also raised a design question about an unscoped `drift` and a machine that was never applied. It is not changed here and no test in this PR pins either behaviour; it is left open.
 
-CI on head 096226d: `dogfood-guards` failed (24 s) and `gate` failed (5 s) because it re-reads `dogfood-guards: failure` (read with `gh pr checks 961` and `gh run view 42866833348 --log-failed`, which printed only the gate step). The failing guard inside `dogfood-guards` was not identified from CI. On the merged tree, cloned WITH history, all nine guard targets pass (below). Cause of the first red: not identified; the likeliest explanation is the 12 main commits merged since, not measured. A run on a tree synced without `.git` fails `the_shipped_floor_is_the_commit_it_says_it_is`; that is a host artifact.
+## CI red
+
+CI on head 096226d: `dogfood-guards` failed and `gate` failed. The failing guard inside `dogfood-guards` was not identified from CI, and the cause of the first red is not identified. On a merged tree cloned WITH history, all nine guard targets passed (below).
 
 ## Evidence (t2yoga, wrapper `fc-pre.sh pr-961`, tree cloned from a bundle WITH history, 2026-11-11/12)
 

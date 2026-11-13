@@ -1,10 +1,8 @@
-# Claims — Empty-state lockless drift, plan version-pin tests & package `completion_check` (PMAT-912 / forjar#961)
+# Claims — PMAT-912 / forjar#961
 
-Extracted from PR `#961` (`cf/912-drift-train`, Round 1 `b23462d4` -> Round 2 `a7c9ce1c`) and attacked across 3 lanes:
+Each claim is stated only with the test that pins it.
 
-- **C1 (Empty state dir is lockless, while multi-stack state dirs stay scoped)**: `src/cli/drift_state.rs` (`holds_no_lock`) and `src/cli/drift.rs` route `forjar drift` into `scan_lockless` when `state_dir` holds zero `state.lock.yaml` files anywhere, comparing declared pins (`#852`) while preserving `no state yet` beside another stack's locks (`src/cli/tests_drift_empty_state.rs`).
-- **C2 (`forjar plan` version-pin mismatch, offline leg disclosure & undeclared machine notice)**: `src/cli/plan_version_pins.rs` verifies live version mismatch (`DRIFTED` / `DOWNGRADE`), offline upstream disclosure, and undeclared machine `NOT CHECKED` (`#613`).
-- **C3 (`package` `check_script` runs non-blank `completion_check` across providers)**: `src/resources/package_check.rs` includes non-empty `completion_check` assertions across `apt`, `cargo`, `uv`, and `brew` (`src/resources/tests_package_d.rs`, `#694`).
-- **C4 (Gate A receipt honesty & revert discrimination)**: `CHANGELOG.md` and `docs/audits/impl-PMAT-912-receipt.md` record the Round-1 regression, fix, and open follow-ups, and perturbing `holds_no_lock` fails `3/4` tests (`FJ_961_REVERT_RC=101`).
-- **R1 (Round-1 `b23462d4` broke multi-stack scoping in `falsification_drift_scopes_to_the_config_it_was_given`)**: Routing all `locks.is_empty()` cases to `scan_lockless` turned never-applied configs into `declined` (`exit 1`) when `state_dir` held another stack's locks.
-- **R2 (Round-1 `b23462d4` emitted invalid POSIX `sh` on whitespace-only `completion_check`)**: `finish` in `src/resources/package_check.rs` previously emitted unguarded whitespace `completion_check` strings.
+- **C1**: an empty state dir (no `state.lock.yaml` for any machine) takes the lockless path, so a declared pin is compared; a state dir holding another stack's locks is not empty and a never-applied machine is not an error. Pinned by `src/cli/tests_drift_empty_state.rs` and `falsification_drift_scopes_to_the_config_it_was_given`.
+- **C2**: `plan_version_pins::measure` reports DRIFTED with the DOWNGRADE detail, discloses the offline skipped leg, and reads NOT CHECKED for an undeclared machine. Pinned by the three tests in `src/cli/plan_version_pins.rs`. The `forjar plan` CLI wiring is not pinned.
+- **C3**: the package check script includes the presence assertions and `completion_check` for apt, cargo, uv and brew, and a blank or whitespace `completion_check` adds no assertion. Pinned by `gh694_completion_check_reaches_the_check_script` and `gh694_blank_completion_check_adds_no_assertion`.
+- **C4**: `verify_against_host` asks the same check script. Pinned by `a_failing_package_completion_check_fails_the_post_apply_verification`.
