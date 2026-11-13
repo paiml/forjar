@@ -5,7 +5,7 @@ verdict: PARTIAL — the workflow edits and the guard are measured on the build 
 ## Identity
 
 - ticket PMAT-492 (forjar#492, PR #951); kind: code (CI workflows and shell)
-- branch `seat-s3/492`, main merged in at `dbd1ec3e` (0 commits behind, `git rev-list --count HEAD..origin/main`)
+- branch `seat-s3/492`, main merged in at `2cc18c46` (#944) (0 commits behind, `git rev-list --count HEAD..origin/main`)
 - files: `.github/workflows/release.yml`, `.github/workflows/binary-release.yml`, `.github/workflows/nightly.yml`, `scripts/apt-lock-timeout-guard.sh` (new), `scripts/apt-lock-timeout-guard-test.sh` (new), `tests/falsification_492_apt_lock_guard.rs` (new), `CHANGELOG.md`, `docs/roadmaps/roadmap.yaml` (row PMAT-492 added)
 - diff of the three workflows against `origin/main`: 3 files, `-o DPkg::Lock::Timeout=600` added to 6 `apt-get update|install` calls
 
@@ -25,7 +25,7 @@ RED, the 28-case script against the unchanged guard (commit da03460f), `bash scr
 
 GREEN, with the new guard:
 
-- `bash scripts/apt-lock-timeout-guard-test.sh`: rc=0, "PASS apt-lock-timeout-guard (28 cases ...)".
+- `bash scripts/apt-lock-timeout-guard-test.sh`: rc=0, "PASS apt-lock-timeout-guard (33 cases ...)".
 - `bash scripts/apt-lock-timeout-guard.sh`: rc=0, "6 apt-get call(s) over 20 workflow file(s)".
 - `bash scripts/apt-lock-timeout-guard.sh --self-test`: rc=0.
 - `cargo fmt --all -- --check`: rc=0 (after `cargo fmt --all`, which reformatted the new test file).
