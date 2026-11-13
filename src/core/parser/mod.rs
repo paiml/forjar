@@ -195,6 +195,8 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     // FJ-035 QUORUM MUST-1: overlay addresses must be injective across all
     // present overlay_interface resources (plan-time duplicate-IP rejection).
     overlay_interface_validate::validate_overlay_ip_injective(config, &mut errors);
+    // forjar#1000: a github_runner seat identity is held by one resource only.
+    github_runner_validate::validate_github_runner_seats_unique(config, &mut errors);
 
     for (key, machine) in &config.machines {
         validation::validate_machine(key, machine, &mut errors);

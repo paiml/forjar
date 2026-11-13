@@ -81,3 +81,65 @@ pub(super) fn validate_github_runner(
         refuse("`sha256` must be exactly 64 hex characters");
     }
 }
+
+/// The identity GitHub gives a seat: its namespace (an org, or one repo) and
+/// its runner `name`. Owner, repo and runner names are compared without case,
+/// so two spellings GitHub may treat as one seat are refused, not trusted.
+///
+/// A templated field is resolved against the config's own params and machines
+/// first, so `name: "{{params.seat}}"` and the literal it expands to are one
+/// seat. A field that cannot be resolved here is compared as written.
+fn seat_identity(config: &ForjarConfig, resource: &Resource) -> Option<String> {
+    let field = |v: &Option<String>| -> Option<String> {
+        let raw = v.as_deref()?.trim();
+        let text = if raw.contains("{{") && !raw.contains("{{secrets.") {
+            crate::core::resolver::resolve_template(raw, &config.params, &config.machines)
+                .unwrap_or_else(|_| raw.to_string())
+        } else {
+            raw.to_string()
+        };
+        let text = text.trim().to_ascii_lowercase();
+        (!text.is_empty()).then_some(text)
+    };
+    let (owner, name) = (field(&resource.owner)?, field(&resource.name)?);
+    match field(&resource.runner.scope)?.as_str() {
+        "org" => Some(format!("org {owner}, runner `{name}`")),
+        "repo" => Some(format!(
+            "repo {owner}/{}, runner `{name}`",
+            field(&resource.repo)?
+        )),
+        _ => None,
+    }
+}
+
+/// forjar#1000: one seat identity, one resource. The seat's verdict is keyed
+/// on its identity alone, so a second resource holding the same identity, on
+/// another machine, under a second machine key for the same host, or from a
+/// `for_each`/`count`/recipe copy, would find the first one's runner listed and
+/// be reported adopted with nothing installed, or, declared `absent`, would
+/// deregister the first one's runner. Runs over the expanded config too.
+pub(super) fn validate_github_runner_seats_unique(
+    config: &ForjarConfig,
+    errors: &mut Vec<ValidationError>,
+) {
+    let mut seen: Vec<(String, &str)> = Vec::new();
+    for (id, resource) in &config.resources {
+        if resource.resource_type != ResourceType::GithubRunner {
+            continue;
+        }
+        let Some(identity) = seat_identity(config, resource) else {
+            continue;
+        };
+        if let Some((_, first)) = seen.iter().find(|(seat, _)| *seat == identity) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}' (github_runner): the seat ({identity}) is already declared \
+                     by resource '{first}'; a seat is one runner on one machine, give each \
+                     resource its own `name`"
+                ),
+            });
+        } else {
+            seen.push((identity, id.as_str()));
+        }
+    }
+}

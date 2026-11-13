@@ -10,7 +10,9 @@
 #![allow(dead_code)]
 
 mod files;
+mod listing;
 use files::{generate_key, make_shim, make_tarball};
+pub use listing::Listing;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -61,6 +63,7 @@ pub struct State {
     /// When true, the first remove-token request unlists every runner: the
     /// fake's model of "the seat ran `config.sh remove`".
     pub vanish_on_remove_token: bool,
+    pub listing: Listing,
 }
 
 pub struct FakeGithub {
@@ -226,10 +229,7 @@ fn route(st: &mut State, method: &str, path: &str, bearer: &str, page_two: bool)
             let r: Vec<_> = st.runners.iter().filter(|r| r.group == name).collect();
             runners_page(&r, page_two)
         }
-        ("GET", p) if p.ends_with("/actions/runners") => {
-            let r: Vec<_> = st.runners.iter().collect();
-            runners_page(&r, page_two)
-        }
+        ("GET", p) if p.ends_with("/actions/runners") => listing::body(st, page_two),
         _ => return (404, r#"{"message":"Not Found"}"#.into()),
     };
     (if method == "POST" { 201 } else { 200 }, body.to_string())
