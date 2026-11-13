@@ -376,6 +376,8 @@ mod tests_plan_review_fixes;
 #[cfg(test)]
 mod tests_plan_apply_same_set;
 
+#[cfg(test)]
+mod tests_1010;
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.
 #[cfg(test)]
