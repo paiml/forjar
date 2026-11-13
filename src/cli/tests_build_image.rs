@@ -19,7 +19,7 @@ resources:
     name: myapp
     version: "1.0.0"
     image: "ubuntu:22.04"
-    command: "/usr/local/bin/myapp"
+    entrypoint: ["/usr/local/bin/myapp"]
     path: /etc/app/config.yaml
 "#,
     )
