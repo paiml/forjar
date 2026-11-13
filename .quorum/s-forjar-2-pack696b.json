@@ -56,9 +56,9 @@
     "vacuous_tests_in_touched_paths": 0,
     "accepted": []
   },
-  "base": "de11cfb4",
-  "base_commit": "de11cfb47d2f4e4cf11f8cc8122e13507e12f2f5",
-  "diff_sha256": "7ec99470cfcb041e79c79ec7b4f5858faa95fb69",
+  "base": "2cc18c46",
+  "base_commit": "2cc18c468d43a8ef8bcd455619daf7a9cfbe2c87",
+  "diff_sha256": "29ff5868660569ccb8b0f18dbd1b0f67382d5459",
   "evidence": {
     "files": [
       {
