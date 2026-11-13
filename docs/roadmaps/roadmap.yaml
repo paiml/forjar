@@ -7288,8 +7288,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
   - orch-basis:state
-  notes: 'PR #914; also pins the SEC005 token boundary (#649)'
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-659
   github_issue: 659
@@ -7307,8 +7308,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
   - orch-basis:state
-  notes: 'PR #914; also pins the SEC005 token boundary (#649)'
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-638
   github_issue: 638
@@ -7326,8 +7328,9 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - orch:fable
   - orch-basis:state
-  notes: 'PR #914; also pins the SEC005 token boundary (#649)'
+  notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-639
   github_issue: 639

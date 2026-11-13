@@ -2,7 +2,7 @@
   "kind": "code",
   "issue": "PMAT-673 (forjar#914) \u2014 bound weekly stress.yml passes (seq 1 3) inside a 45-minute step timeout with strategy.fail-fast: false, plus a SEC005 sk- token-boundary falsification test (forjar#649, quoted-assignment forms, red on bashrs 6.68.0).",
   "branch": "s-forjar-2/pack696b",
-  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted. After two Opus 5.5 lanes failed fcf4d172 on stale figures (30 min / 4 min per pass) and a vacuous SEC005 guard, the evidence prose and the SEC005 test were corrected to the shipped 45 min / 9 min per pass and quoted forms; those corrections have not been re-adjudicated by the agy lanes.",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (timeout arithmetic, matrix isolation & SEC005 boundary, revert kill) at head 7c609178; 3/3 PASS with 4 claims confirmed and 2 refuted. After two Opus 5.5 lanes failed fcf4d172 on stale figures (30 min / 4 min per pass) and a vacuous SEC005 guard, the evidence prose and the SEC005 test were corrected to the shipped 45 min / 9 min per pass and quoted forms; those corrections, including the quoted-assignment SEC005 test (the agy round saw only the earlier unquoted form), have not been re-adjudicated by any agy lane.",
   "quorum": {
     "rounds": 1,
     "lanes": [
@@ -13,12 +13,12 @@
     "lane_errors": 0,
     "judges": 3,
     "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
-    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 resolved the overloaded-host partial note under load-gated preflight and R2 audited the bundled SEC005 test target.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 was not resolved (the receipt still ends verdict: partial) and R2 audited the bundled SEC005 test target.",
     "refuters_per_claim": 3,
     "claims_confirmed": 4,
     "claims_refuted": 2,
     "refuted_claims": [
-      "R1: docs/audits/impl-PMAT-673-receipt.md recorded verdict: partial after an overloaded host run crashed rustdoc's linker; re-verified clean (rc=0) under load1 <= nproc preflight on <host>.",
+      "R1: docs/audits/impl-PMAT-673-receipt.md recorded verdict: partial after an overloaded host run crashed rustdoc's linker; not resolved, the receipt still ends verdict: partial.",
       "R2: Receipt headline named only PMAT-673 (stress.yml) while pack branch s-forjar-2/pack696b also adds tests/falsification_sec005_needs_a_token_boundary.rs:10; verified 2/2 passing with zero src/ edits."
     ]
   },
@@ -45,7 +45,7 @@
     "lanes_per_round": 3,
     "sandbox": true,
     "writes": false,
-    "verdict": "round 1: 3/3 PASS at 7c609178 (4 claims confirmed, 2 claims refuted)."
+    "verdict": "round 1: 3/3 PASS at 7c609178 on the claims as they then stood (4 claims confirmed, 2 claims refuted); not re-run at the current head."
   },
   "pmat": {
     "ticket": "PMAT-673",
@@ -66,27 +66,27 @@
         "roles": [
           "claims"
         ],
-        "blob": "0b7879c8ef2019998cb5cbb6cf7dfa40ae92d8af",
-        "sha256": "ecbb4bfc92d1a681b98e8fc9d72cb3970d7af37a48e3cf3afd2f283a02025833",
-        "bytes": 2024
+        "blob": "82d6990515d6b0ff317a9b69ba501681a8c23205",
+        "sha256": "64c7974f16aab4bfa48207f614fe0ab3829e96f4ca30c2abdb144f0daf46e51d",
+        "bytes": 2442
       },
       {
         "path": ".quorum/evidence/PMAT-673-lanes.md",
         "roles": [
           "lanes"
         ],
-        "blob": "aa43f8cf296d90ee37b56f05fa15f9375409537f",
-        "sha256": "a0981d8ebf9f7f87225250b53f774b4366215b4027ab0d6e613a8ca17717630d",
-        "bytes": 1105
+        "blob": "66e18981727ff2a74d0b46e6e408cb35632870be",
+        "sha256": "abf6e47e09f16a98870c27874a52682ce587fca9326ee77814bdfa6751fce233",
+        "bytes": 1297
       },
       {
         "path": ".quorum/evidence/PMAT-673-judges.md",
         "roles": [
           "judges"
         ],
-        "blob": "e16afc1c050edbe65cd12c9901273a9bfa37f9ea",
-        "sha256": "4d9cf795a4905c89fddb0356bf6aa7f560cae0eec188b8dfa598a701c22c57fa",
-        "bytes": 2890
+        "blob": "a0f87939b5bb04400e2ff4fff8de62c27b35e372",
+        "sha256": "7e118bb2b1603e54daf721fbf14b03e4ee71df3350069f8554febeed6c6e9cb3",
+        "bytes": 3513
       },
       {
         "path": ".quorum/evidence/PMAT-673-agy.md",
@@ -98,7 +98,7 @@
         "bytes": 660
       }
     ],
-    "total_bytes": 6679,
+    "total_bytes": 7912,
     "claims_digest": ".quorum/evidence/PMAT-673-judges.md"
   }
 }
