@@ -1,6 +1,6 @@
 {
   "kind": "code",
-  "issue": "PMAT-912 (forjar#961: #852, #613, #694) \u2014 treat genuinely lockless empty state dirs as lockless for drift pin checks without breaking multi-stack scoping, test plan version-pin reporting, and run package completion_check across all providers.",
+  "issue": "PMAT-912 (forjar#961: #852, #613, #694) \u2014 treat genuinely lockless empty state dirs as lockless for drift pin checks without breaking multi-stack scoping, test plan version-pin reporting, and run package completion_check across the four providers apt, cargo, uv and brew.",
   "branch": "cf/912-drift-train",
   "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @b23462d4 3/3 FAIL -> round 2 @a7c9ce1c 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
   "quorum": {

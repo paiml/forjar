@@ -362,4 +362,23 @@ mod tests {
             assert_eq!(missing_outputs(&r, &machine), expected, "{why}");
         }
     }
+
+    /// forjar#694: apply's post-apply verification (FJ-2732) asks the host with
+    /// the package's check script, which carries the declared `completion_check`.
+    /// A failing one must show up here; it is `task=pending` and appears only
+    /// when `completion_check` is run, not in any presence assertion.
+    #[test]
+    fn a_failing_package_completion_check_fails_the_post_apply_verification() {
+        for provider in ["apt", "cargo", "uv", "brew"] {
+            let r = Resource {
+                resource_type: ResourceType::Package,
+                provider: Some(provider.to_string()),
+                packages: vec!["forjar-no-such-pkg".to_string()],
+                completion_check: Some("false".to_string()),
+                ..Default::default()
+            };
+            let got = verify_against_host(&r, &local()).unwrap_or_default();
+            assert!(got.contains("task=pending"), "{provider}: {got}");
+        }
+    }
 }
