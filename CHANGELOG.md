@@ -87,6 +87,17 @@ the sibling legs. The legs now run three passes under a 45-minute timeout with
 `fail-fast: false`; `tests/falsification_stress_workflow_fits_its_timeout.rs`
 pins that passes x 9 minutes + build fits the timeout.
 
+**The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
+The reaper loop runs one in-use check on every candidate of every reclaim kind,
+before the idle check and before `rm`, so a `cargo_target` whose binary is
+running is kept. The open-path scan reads `/proc/*/exe` and the file paths in
+`/proc/*/maps` as well as `cwd` and `fd`. When the target cannot be reached even
+by freeing every eligible candidate, the pass logs `UNREACHABLE` and the
+shortfall, deletes nothing and still exits 1, instead of turning into a
+time-to-live sweep. An empty or timed-out `/proc` scan is NOT MEASURED and
+proves nothing dead; byte sums are exact above 2^31 and counted once across
+overlapping rules.
+
 ## [1.34.1] - 2026-11-12
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the
