@@ -1,6 +1,6 @@
 {
   "kind": "code",
-  "issue": "PMAT-912 (forjar#961: #852, #613, #694) \u2014 treat genuinely lockless empty state dirs as lockless for drift pin checks without breaking multi-stack scoping, test plan version-pin reporting, and run package completion_check across the four providers apt, cargo, uv and brew.",
+  "issue": "PMAT-912 (forjar#961: #852, #613, #694): an empty state dir takes the lockless drift path (tests_drift_empty_state.rs); the plan version-pin pass has function-level tests (plan_version_pins.rs); a blank package completion_check adds no assertion and the check script includes the presence checks and completion_check for apt, cargo, uv and brew (tests_package_d.rs).",
   "branch": "cf/912-drift-train",
   "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 @b23462d4 3/3 FAIL -> round 2 @a7c9ce1c 3/3 PASS) with 4 claims confirmed and 2 claims refuted.",
   "quorum": {
@@ -13,17 +13,17 @@
     "lane_errors": 0,
     "judges": 3,
     "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review lanes per LANES=3 ruling, distinct from the Claude author model.",
-    "kill_rule": "every claim C1..C4 and R1..R2 met 3 independent refuters; round 1 caught both the multi-stack scan_lockless regression in drift.rs:233 and the blank completion_check POSIX sh syntax defect in package_check.rs.",
+    "kill_rule": "Past-review record: round 1 reported the multi-stack scan_lockless regression (pinned now by falsification_drift_scopes_to_the_config_it_was_given) and the blank completion_check hazard (pinned now by gh694_blank_completion_check_adds_no_assertion).",
     "refuters_per_claim": 3,
     "claims_confirmed": 4,
     "claims_refuted": 2,
     "refuted_claims": [
-      "R1: Round-1 src/cli/drift.rs:233 routed any empty collect_machine_locks vector into scan_lockless even when state_dir held another stack's locks, breaking falsification_drift_scopes_to_the_config_it_was_given; fixed in c22b5be0 via holds_no_lock(state_dir).",
-      "R2: Round-1 src/resources/package_check.rs emitted unguarded whitespace-only completion_check strings in generated POSIX sh scripts; fixed in c22b5be0 (.trim().is_empty() guard) with gh694_blank_completion_check_adds_no_assertion."
+      "R1: at round 1 (b23462d4) falsification_drift_scopes_to_the_config_it_was_given was RED; fixed in c22b5be0 via holds_no_lock(state_dir); pinned by f852_state_dir_with_another_stacks_lock_is_not_lockless.",
+      "R2: at round 1 a blank completion_check was reported as an empty shell condition; fixed in c22b5be0; pinned by gh694_blank_completion_check_adds_no_assertion."
     ]
   },
   "falsification": {
-    "test": "Flip !names to names in holds_no_lock (src/cli/drift_state.rs) on <host> (<SCRATCH>) and run cargo test --lib cli::tests_drift_empty_state.",
+    "test": "Flip the holds_no_lock result in src/cli/drift_state.rs and run cargo test --lib cli::tests_drift_empty_state; past measurement, see observed_failure.",
     "test_file": "src/cli/tests_drift_empty_state.rs",
     "cargo_test_target": "tests_drift_empty_state",
     "reverted": true,
@@ -32,11 +32,11 @@
   },
   "crux": {
     "systems": [
-      "Terraform plan / refresh-only vs empty state: distinguishes an uninitialized empty workspace from a workspace scoped beside sibling stacks",
-      "Debian dpkg -s / apt-policy version pinning: compares installed package version against declared pin offline without requiring upstream index refresh",
-      "Chef / Puppet package verify_command & unless guards: trims blank guard strings before emitting shell verification blocks"
+      "Terraform plan / refresh-only vs empty state",
+      "Debian dpkg -s / apt-policy version pinning",
+      "Chef / Puppet package verify_command and unless guards"
     ],
-    "verdict": "Restricting lockless drift fallback to state directories holding zero locks anywhere and guarding blank completion_check strings preserves both #852 empty-dir pin drift detection and #488 multi-stack isolation."
+    "verdict": "Comparison only; not a claim about this tree. The behaviours of this PR are pinned by f852_empty_state_dir_pin_mismatch_is_drift, f852_state_dir_with_another_stacks_lock_is_not_lockless and gh694_blank_completion_check_adds_no_assertion."
   },
   "agy_teamwork": {
     "ran": true,
