@@ -60,18 +60,51 @@ printf -- '- id: pmat-0\n  status: completed\n' > "$w/r/docs/roadmaps/fragments/
 [ "$(grep -ci '^- id: pmat-0$' "$rmy")" = 1 ] || bad "lowercase fragment did not replace the PMAT-0 row"
 ok "lowercase roadmap fragment replaces the existing row"
 
-# Review fix 2: this repo's own roadmap carries the PMAT-1008 row, ids unique.
+# Review b529e13 L2: a whitespace-only changelog fragment is empty; --check and
+# --consume both refuse it and the fragment survives.
+for body in '\n' '  \n\t\n'; do
+  fresh; printf "$body" > "$w/r/changelog.d/PMAT-3.md"
+  if "$asm" --check --root "$w/r" 2>"$w/e"; then bad "whitespace-only fragment passed --check"; fi
+  grep -q 'PMAT-3.md is empty' "$w/e" || bad "whitespace-only message missing"
+  if "$asm" --consume --root "$w/r" 2>/dev/null; then bad "whitespace-only fragment passed --consume"; fi
+  [ -e "$w/r/changelog.d/PMAT-3.md" ] && [ -e "$w/r/changelog.d/PMAT-1.md" ] || bad "--consume deleted fragments on a refused run"
+  diff -q "$fx/base/CHANGELOG.md" "$w/r/CHANGELOG.md" >/dev/null || bad "refused run wrote CHANGELOG.md"
+done
+ok "whitespace-only changelog fragment refused by --check and --consume, nothing deleted"
+
+# Review b529e13 L1: the dogfood registry (Gate A/T, release-goal) is roadmap.yaml
+# WITH its fragments: a fragment row is a row, and replaces a same-id row.
+reg() { # $1 repo, $2 ref -> "<ids>|<statuses>" as Gate A/T read them
+  ( cd "$1"; fail() { echo "FAIL: $*" >&2; exit 1; }; GH=:
+    # shellcheck source=scripts/dogfood/lib/window.sh
+    . "$here/../scripts/dogfood/lib/window.sh"
+    DOGFOOD_ROADMAP_REF="$2" dogfood_roadmap_rows
+    printf '%s|%s\n' "$(paste -sd, <<<"$DOGFOOD_ROW_IDS")" "$(paste -sd, <<<"$DOGFOOD_ROW_STATUSES")" )
+}
+want="PMAT-0,PMAT-1,PMAT-7|PMAT-0 completed,PMAT-1 planned,PMAT-7 inprogress"
+fresh; printf -- '- id: PMAT-7\n  status: inprogress\n' > "$w/r/docs/roadmaps/fragments/PMAT-7.yaml"
+printf -- '- id: PMAT-0\n  status: completed\n' > "$w/r/docs/roadmaps/fragments/PMAT-0.yaml"
+got="$(reg "$w/r" worktree)"; [ "$got" = "$want" ] || bad "worktree registry: $got"
+ok "registry (worktree) counts fragment rows and lets them replace same-id rows"
+git -C "$w/r" init -q && git -C "$w/r" add -A && git -C "$w/r" -c user.name=t -c user.email=t@t commit -qm t
+rm "${w:?}/r/docs/roadmaps/fragments/PMAT-7.yaml"   # the working tree is not HEAD
+got="$(reg "$w/r" HEAD)"; [ "$got" = "$want" ] || bad "HEAD registry: $got"
+ok "registry (HEAD) reads the committed fragments, not the working tree"
+fresh; rm -rf "${w:?}/r/docs/roadmaps/fragments"
+got="$(reg "$w/r" worktree)"; [ "$got" = "PMAT-0|PMAT-0 planned" ] || bad "no-fragments registry: $got"
+ok "registry without a fragments directory is roadmap.yaml alone"
+
+# This PR dogfoods its own scheme: PMAT-1008 is a fragment, NOT a roadmap.yaml
+# edit, and the registry Gate A reads still finds it.
 real="$here/.."
-[ "$(grep -c '^- id: PMAT-1008$' "$real/docs/roadmaps/roadmap.yaml")" = 1 ] || bad "roadmap.yaml lacks exactly one PMAT-1008 row"
+[ -f "$real/docs/roadmaps/fragments/PMAT-1008.yaml" ] || bad "PMAT-1008 roadmap fragment missing"
+[ -f "$real/changelog.d/PMAT-1008.md" ] || bad "PMAT-1008 changelog fragment missing"
+! grep -q '^- id: PMAT-1008$' "$real/docs/roadmaps/roadmap.yaml" || bad "roadmap.yaml carries PMAT-1008 directly; it must come from its fragment"
+grep -qE '(^|,)PMAT-1008(,|\|)' <<<"$(reg "$real" worktree)" || bad "registry does not list PMAT-1008"
 dups="$(sed -nE 's/^- id: *(.*[^ ]) *$/\1/p' "$real/docs/roadmaps/roadmap.yaml" | tr '[:lower:]' '[:upper:]' | sort | uniq -d)"
 [ -z "$dups" ] || bad "duplicate ids in roadmap.yaml: $dups"
 "$asm" --check --root "$real" >/dev/null || bad "this repo's fragments fail --check"
-ok "repo roadmap has the PMAT-1008 row, unique ids, fragments check"
-
-# Review fix 1: CI runs this file, in the required dogfood-guards job, with no soft-fail.
-job="$(awk '/^  dogfood-guards:/{on=1;next} on&&/^  [a-z][a-z_-]*:$/{exit} on' "$real/.github/workflows/ci.yml")"
-grep -q 'run: bash tests/changelog-fragments.sh$' <<<"$job" || bad "dogfood-guards does not run tests/changelog-fragments.sh"
-! grep -q 'continue-on-error' <<<"$job" || bad "dogfood-guards has continue-on-error"
-grep -q 'dogfood-guards' <(awk '/^  gate:/{on=1} on&&/needs:/{print;exit}' "$real/.github/workflows/ci.yml") || bad "gate does not need dogfood-guards"
-ok "CI dogfood-guards runs this falsifier"
+ok "PMAT-1008 comes from its fragment, the registry lists it, fragments check"
+# The CI wiring (dogfood-guards runs this file, no soft-fail, gate needs it) is
+# parsed as YAML in tests/falsification_changelog_fragments_run_in_ci.rs.
 echo "1..$n"

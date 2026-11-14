@@ -280,6 +280,7 @@ dogfood_roadmap_rows() {
   if [ -n "${DOGFOOD_ROW_IDS_LOADED:-}" ]; then
     return 0
   fi
+  local frags="" f names
   if [ "$ref" = "worktree" ]; then
     text="$(cat docs/roadmaps/roadmap.yaml)" || rc=$?
   else
@@ -287,6 +288,41 @@ dogfood_roadmap_rows() {
   fi
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/roadmap.yaml cannot be read at ${ref} (exit ${rc}): the ticket registry is unreadable, so no PR's ticket can be identified — UNMEASURED"
+  fi
+  # PMAT-1008: a PR adds its row as docs/roadmaps/fragments/<id>.yaml and never
+  # edits roadmap.yaml, so the registry is roadmap.yaml WITH its fragments, as
+  # scripts/assemble-changelog.sh will fold them: a fragment's id replaces the
+  # roadmap row of the same id (case-insensitively), else it is a new row.
+  if [ "$ref" = "worktree" ] && [ ! -d docs/roadmaps/fragments ]; then
+    names=""
+  elif [ "$ref" = "worktree" ]; then
+    names="$(find docs/roadmaps/fragments -maxdepth 1 -name '*.yaml' -type f | LC_ALL=C sort)" || rc=$?
+  else
+    names="$(git ls-tree --name-only "${ref}" docs/roadmaps/fragments/)" || rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    fail "docs/roadmaps/fragments cannot be listed at ${ref} (exit ${rc}) — UNMEASURED"
+  fi
+  while IFS= read -r f; do
+    case "$f" in *.yaml) ;; *) continue ;; esac
+    if [ "$ref" = "worktree" ]; then
+      frags+="$(cat "$f")"$'\n' || rc=$?
+    else
+      frags+="$(git show "${ref}:${f}")"$'\n' || rc=$?
+    fi
+    if [ "$rc" -ne 0 ]; then
+      fail "roadmap fragment ${f} cannot be read at ${ref} (exit ${rc}) — UNMEASURED"
+    fi
+  done <<< "$names"
+  if [ -n "$frags" ]; then
+    text="$(awk -v ids="$(sed -n 's/^- id: *\([^ ]*\) *$/\1/p' <<< "$frags")" '
+      BEGIN { n = split(ids, a, "\n"); for (i = 1; i <= n; i++) s[toupper(a[i])] = 1 }
+      /^- id:/  { x = $0; sub(/^- id: */, "", x); sub(/ *$/, "", x); skip = (toupper(x) in s) }
+      /^[^ -]/  { skip = 0 }
+      !skip' <<< "$text")"$'\n'"${frags%$'\n'}" || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      fail "awk exited ${rc} folding the roadmap fragments at ${ref} — UNMEASURED"
+    fi
   fi
   DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(PMAT-[0-9][0-9]*\)$/\1/p')"
   # `labels: []` opens a list that the next key closes; `labels:` followed by

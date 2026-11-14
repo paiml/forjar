@@ -98,6 +98,11 @@ END {
 # Edit row $2 (op $1) for label $3 -> prints one line saying what it did.
 edit_row() {
   local op="$1" ticket="$2" label="$3" path=docs/roadmaps/roadmap.yaml rc=0
+  # PMAT-1008: a row that lives in its fragment is edited there; assembly
+  # replaces the roadmap.yaml row with it, so an edit to roadmap.yaml is lost.
+  if [ -f "docs/roadmaps/fragments/${ticket}.yaml" ]; then
+    path="docs/roadmaps/fragments/${ticket}.yaml"
+  fi
   local tmp="${path}.release-goal.tmp"
   RG_OP="$op" RG_T="$ticket" RG_L="$label" RG_S="$STAMP" awk "$ROW_EDIT_AWK" "$path" >"$tmp" || rc=$?
   if [ "$rc" -ne 0 ]; then

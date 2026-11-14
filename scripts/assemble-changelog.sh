@@ -34,7 +34,10 @@ for f in changelog.d/*.md; do
   key="${id^^}"
   if [ -n "${seen_cl[$key]:-}" ]; then err "duplicate changelog id $key: ${seen_cl[$key]} and $f"; continue; fi
   seen_cl[$key]="$f"
-  [ -s "$f" ] || { err "$f is empty"; continue; }
+  # grep, not [ -s ]: a newline or whitespace-only file is empty too, and its
+  # trimmed text "" is a substring of every [Unreleased], so it would be
+  # skipped at assembly and then deleted by --consume.
+  grep -q "[^[:space:]]" "$f" || { err "$f is empty (whitespace only)"; continue; }
   cl_files+=("$f")
 done
 
@@ -64,6 +67,7 @@ if [ "${#cl_files[@]}" -gt 0 ]; then
   new=()
   for f in "${cl_files[@]}"; do
     frag="$(trim "$f")"
+    [ -n "$frag" ] || { echo "assemble-changelog: $f trimmed to nothing" >&2; exit 1; }
     [[ "$sec" == *"$frag"* ]] || new+=("$f")
   done
   if [ "${#new[@]}" -gt 0 ]; then

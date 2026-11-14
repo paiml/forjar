@@ -12,3 +12,11 @@ appended twice, so a run without `--consume` can be repeated.
 Roadmap rows work the same way: `docs/roadmaps/fragments/<PMAT-id>.yaml` holds one
 row, starting `- id: <PMAT-id>` at column 0. An id already in `roadmap.yaml`
 replaces that row at assembly; a new id is appended.
+
+The dogfood gates read the registry as it will be after assembly: Gate A, Gate T
+and `scripts/release-goal.sh` see `roadmap.yaml` with its fragments folded in
+(`dogfood_roadmap_rows` in `scripts/dogfood/lib/window.sh`), so a PR whose row is
+only a fragment is still on the roadmap. `release-goal.sh` edits a row in its
+fragment when one exists. A changelog fragment that is empty or whitespace only
+fails `make check-fragments`, and `make assemble-fragments` refuses it without
+deleting anything.
