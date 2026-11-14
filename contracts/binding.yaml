@@ -39,7 +39,7 @@ bindings:
 
   - contract: dag-ordering-v1.yaml
     equation: kahn_sort
-    module_path: "forjar::core::resolver::kahn_sort"
+    module_path: "forjar::core::resolver::dag::kahn_sort"
     function: kahn_sort
     signature: "fn kahn_sort(resource_ids: &[String], in_degree: &mut HashMap<String, usize>, adjacency: &mut HashMap<String, Vec<String>>) -> Vec<String>"
     status: implemented
@@ -81,7 +81,7 @@ bindings:
 
   - contract: recipe-determinism-v1.yaml
     equation: validate_input_type
-    module_path: "forjar::core::recipe::validate_input_type"
+    module_path: "forjar::core::recipe::validation_types::validate_input_type"
     function: validate_input_type
     signature: "fn validate_input_type(name: &str, type_name: &str, value: &Value, decl: &RecipeInput) -> Result<String, String>"
     status: implemented
@@ -131,9 +131,9 @@ bindings:
 
   - contract: plan-apply-equivalence-v1.yaml
     equation: noop_no_execution
-    module_path: "forjar::core::executor::apply_single_resource"
-    function: apply_single_resource
-    signature: "fn apply_single_resource(cfg: &ApplyConfig, change: &PlannedChange, machine: &Machine, ctx: &mut RecordCtx, converged_resources: &HashSet<String>) -> Result<ResourceOutcome, String>"
+    module_path: "forjar::core::executor::machine_b::classify_resource"
+    function: classify_resource
+    signature: "fn classify_resource(cfg: &ApplyConfig, change: &PlannedChange, machine: &Machine, converged_resources: &HashSet<String>) -> Option<ResourceOutcome>"
     status: implemented
     notes: "Private helper; planned NoOp without force/trigger short-circuits to Unchanged"
 
@@ -222,7 +222,7 @@ bindings:
 
   - contract: overlay-interface-v1.yaml
     equation: overlay_ip_injective
-    module_path: "forjar::core::parser::resource_types::validate_overlay_ip_injective"
+    module_path: "forjar::core::parser::overlay_interface_validate::validate_overlay_ip_injective"
     function: validate_overlay_ip_injective
     signature: "fn validate_overlay_ip_injective(config: &ForjarConfig, errors: &mut Vec<ValidationError>)"
     status: implemented
@@ -286,7 +286,7 @@ bindings:
   # contract exists to prevent.
   - contract: apply-receipt-v1.yaml
     equation: receipt_completeness
-    module_path: "forjar::core::executor::resource_ops::displaced_hash"
+    module_path: "forjar::tripwire::eventlog::displaced_hash"
     function: displaced_hash
     signature: "fn displaced_hash(previous: Option<ResourceLock>) -> Option<String>"
     status: implemented
