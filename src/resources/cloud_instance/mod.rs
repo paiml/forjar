@@ -260,6 +260,7 @@ pub fn apply_script(resource: &Resource) -> String {
          --image-id {ami} \
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
+         --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
          --user-data {ud} \
          --tag-specifications {tagspec}\n",
         kill = sh_squote(&kill),

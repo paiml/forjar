@@ -206,6 +206,8 @@ fn apply_creates_one_bounded_spot_instance_when_every_gate_passes() {
         "MaxPrice=0.20",
         "terminate",
         "shutdown -h +60",
+        "HttpTokens=required",
+        "HttpPutResponseHopLimit=1",
         DIGEST,
         "Key=pool,Value=spot-rmedia-pr",
     ] {
