@@ -90,7 +90,8 @@ raw=$(pmat comply check --format json 2>/dev/null || true)
 msgs=$(grep -oE '"message"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' <<<"$raw" || true)
 msg=$(grep -m 1 'below minimum grade' <<<"$msgs" || true)
 now=-1
-if [[ $msg =~ ([0-9]+)\ function ]]; then
+re='([0-9]+) function'
+if [[ $msg =~ $re ]]; then
   now="${BASH_REMATCH[1]}"
 fi
 

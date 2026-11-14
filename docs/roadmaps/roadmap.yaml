@@ -7521,3 +7521,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1044
+  github_issue: 1044
+  item_type: task
+  title: 'cloud_instance 1025 follow-ups: I8 lint, cb200 SC1020, templated uniqueness'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T21:13:28Z
+  updated: 2026-11-14T21:13:28Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 915

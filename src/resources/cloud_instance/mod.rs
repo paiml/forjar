@@ -37,6 +37,8 @@ mod tests;
 mod tests_b1;
 #[cfg(test)]
 mod tests_b4;
+#[cfg(test)]
+mod tests_lint;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -141,9 +143,25 @@ fn owner_of(s: &CloudInstance) -> String {
 /// since the name is what keeps their instances and their teardown apart.
 /// Values still holding a `{{` template are skipped (checked once resolved).
 pub fn validate_unique_names(config: &crate::core::types::ForjarConfig) -> Vec<String> {
+    unique_names(config.resources.iter())
+}
+
+/// Apply-time: the same check over the RESOLVED resources, so a `{{params.*}}`
+/// name or region that collides once filled in is refused too.
+pub fn validate_unique_names_resolved(config: &crate::core::types::ForjarConfig) -> Vec<String> {
+    let resolved = crate::core::resolver::resolve_all(
+        &config.resources,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
+    unique_names(resolved.iter())
+}
+
+fn unique_names<'a>(resources: impl Iterator<Item = (&'a String, &'a Resource)>) -> Vec<String> {
     let mut seen: std::collections::HashMap<(String, String), &str> = Default::default();
     let mut errors = Vec::new();
-    for (id, r) in &config.resources {
+    for (id, r) in resources {
         let (Some(name), Some(region)) = (&r.name, &r.cloud.region) else {
             continue;
         };
@@ -258,10 +276,14 @@ fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> 
 fn lookup_ids(var: &str, cmd: &str) -> String {
     format!(
         "{var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
-         for i in ${var}; do h=\"${{i#i-}}\"; case \"$i\" in i-*) ;; *) h='!';; esac; \
-         case \"$h\" in *[!0-9a-f]*) h='!';; esac; \
-         if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then \
-         echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1; fi; done\n"
+         for i in ${var}; do\n\
+         h=\"${{i#i-}}\"\n\
+         case \"$i\" in i-*) ;; *) h='!';; esac\n\
+         case \"$h\" in *[!0-9a-f]*) h='!';; esac\n\
+         if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then\n\
+         echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1\n\
+         fi\n\
+         done\n"
     )
 }
 
