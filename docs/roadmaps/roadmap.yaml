@@ -7503,3 +7503,21 @@ roadmap:
   - orch-basis:state
   notes: 'Opened by prq-run seat-s3; the proof that a shared runner now waits is a real CI run, not yet re-run'
   release: backlog
+- id: PMAT-861
+  github_issue: 861
+  item_type: task
+  title: 'cloud_instance resource: one declared AWS spot instance (FLOW-013)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-03T15:43:54Z
+  updated: 2026-11-03T15:43:54Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 765

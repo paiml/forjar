@@ -44,6 +44,20 @@ pub(super) fn validate_resource_type(
         }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
+        ResourceType::CloudInstance => {
+            let templated = [&resource.name, &resource.image, &resource.cloud.region]
+                .iter()
+                .any(|f| f.as_deref().is_some_and(|v| v.contains("{{")))
+                || resource.tags.iter().any(|t| t.contains("{{"));
+            if let (false, Err(e)) = (
+                templated,
+                crate::resources::cloud_instance::spec_of(resource),
+            ) {
+                errors.push(ValidationError {
+                    message: format!("resource '{id}' (cloud_instance): {e}"),
+                });
+            }
+        }
     }
 }
 

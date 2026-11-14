@@ -1,7 +1,8 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
 use super::backup_sync_types::BackupSpec;
-use super::disk_budget_types::ReclaimRule;
+use super::cloud_instance_types::CloudSpec;
+use super::disk_budget_types::DiskBudgetSpec;
 use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
@@ -466,27 +467,10 @@ pub struct Resource {
     #[serde(default)]
     pub overlay_firewall: Option<bool>,
 
-    // -- Disk budget fields (FJ-036: fleet disk budget + reclaim reaper) --
-    /// Used-% at or above which a reclaim pass is triggered (default 85).
-    #[serde(default)]
-    pub budget_high_watermark_pct: Option<u8>,
-
-    /// Free-% a reclaim pass must restore before it stops (default 20).
-    /// Must satisfy `100 - target_free_pct < high_watermark_pct` (hysteresis).
-    #[serde(default)]
-    pub budget_target_free_pct: Option<u8>,
-
-    /// Free-GiB below which the budget is CRITICAL — hard drift failure.
-    #[serde(default)]
-    pub budget_critical_free_gb: Option<u64>,
-
-    /// systemd `OnCalendar` cadence for the reaper (default "hourly").
-    #[serde(default)]
-    pub budget_schedule: Option<String>,
-
-    /// Ordered reclaim rules, most-disposable first.
-    #[serde(default)]
-    pub budget_reclaim: Vec<ReclaimRule>,
+    // -- Disk budget (FJ-036: fleet disk budget + reclaim reaper) --
+    /// Watermarks, cadence and reclaim rules. Flattened: YAML keys stay top level.
+    #[serde(flatten)]
+    pub budget: DiskBudgetSpec,
 
     // -- Backup sync (FJ-037) --
     /// Verified offsite copy. Flattened, so the YAML keys stay top level.
@@ -496,4 +480,8 @@ pub struct Resource {
     /// FJ-038: `nas_archive` declaration fields.
     #[serde(flatten)]
     pub archive: ArchiveSpec,
+
+    /// FJ-861: `cloud_instance` declaration fields.
+    #[serde(flatten)]
+    pub cloud: CloudSpec,
 }

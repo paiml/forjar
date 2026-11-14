@@ -78,19 +78,23 @@ pub fn budget_of(resource: &Resource) -> Result<DiskBudget, String> {
     DiskBudget::new(
         path,
         resource
-            .budget_high_watermark_pct
+            .budget
+            .high_watermark_pct
             .unwrap_or(DEFAULT_HIGH_WATERMARK_PCT),
         resource
-            .budget_target_free_pct
+            .budget
+            .target_free_pct
             .unwrap_or(DEFAULT_TARGET_FREE_PCT),
         resource
-            .budget_critical_free_gb
+            .budget
+            .critical_free_gb
             .unwrap_or(DEFAULT_CRITICAL_FREE_GB),
         resource
-            .budget_schedule
+            .budget
+            .schedule
             .as_deref()
             .unwrap_or(DEFAULT_SCHEDULE),
-        resource.budget_reclaim.clone(),
+        resource.budget.reclaim.clone(),
     )
 }
 

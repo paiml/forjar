@@ -195,6 +195,13 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     // present overlay_interface resources (plan-time duplicate-IP rejection).
     overlay_interface_validate::validate_overlay_ip_injective(config, &mut errors);
 
+    // FJ-861: two cloud_instance resources may not share a name and region.
+    errors.extend(
+        crate::resources::cloud_instance::validate_unique_names(config)
+            .into_iter()
+            .map(|message| ValidationError { message }),
+    );
+
     for (key, machine) in &config.machines {
         validation::validate_machine(key, machine, &mut errors);
     }
