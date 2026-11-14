@@ -26,6 +26,11 @@ mod apply_variants;
 mod bootstrap_cmd;
 mod build_distribution;
 mod build_image;
+mod build_image_base;
+mod build_image_cache;
+mod build_image_entries;
+mod build_image_exec;
+mod build_image_report;
 mod bundle;
 mod cbom;
 mod check;
@@ -371,6 +376,8 @@ mod tests_plan_review_fixes;
 #[cfg(test)]
 mod tests_plan_apply_same_set;
 
+#[cfg(test)]
+mod tests_1010;
 /// #446: unit tests for the pure parts of `exec`, `facts` and
 /// `doctor --machine` — quoting, transcript parsing, and thresholds.
 #[cfg(test)]

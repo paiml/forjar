@@ -3,7 +3,7 @@
 #
 # Flow: tag push → clean-room gate → package verify → trusted publish → GitHub Release
 #       → cross-compiled binaries (4 Linux + 2 macOS targets) → SHA256SUMS
-#       → distribution artifacts (installer, homebrew, nix, deb, rpm)
+#       → distribution artifacts (installer, nix, deb, rpm)
 #
 # Tag formats:
 #   v1.0.0              — single-crate repos
@@ -418,7 +418,7 @@ jobs:
             --repo "${{ github.repository }}" \
             --clobber
 
-  # ── Generate distribution artifacts (installer, homebrew, nix, deb, rpm) ──
+  # ── Generate distribution artifacts (installer, nix, deb, rpm) ──
   dist-artifacts:
     needs: [verify, checksums]
     if: needs.verify.outputs.has_binaries == 'true'
@@ -471,7 +471,7 @@ jobs:
 
       - name: Generate distribution artifacts
         run: |
-          # `dist --all` embeds real checksums into the homebrew formula and the
+          # `dist --nix` embeds real checksums into the
           # nix flake, so it REQUIRES the tag (placeholders are never emitted);
           # the v1.25.1 backfill failed here without it. `--checksums-file` is
           # the interface forjar's own error message names, and it is what keeps
@@ -483,7 +483,7 @@ jobs:
           rm -rf /tmp/dist-output
           cargo run --release -- dist \
             -f dist-forjar.yaml \
-            --all \
+            --installer --binstall --nix --github-action --deb --rpm \
             --version "$RELEASE_TAG" \
             --checksums-file /tmp/SHA256SUMS \
             --output-dir /tmp/dist-output
@@ -503,81 +503,6 @@ jobs:
           name: dist-artifacts
           path: /tmp/dist-output/
           retention-days: 30
-
-  # ── Publish Homebrew formula to tap ──────────────────────
-  homebrew:
-    needs: [verify, dist-artifacts]
-    if: needs.verify.outputs.has_binaries == 'true'
-    runs-on: [self-hosted, clean-room, X64]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
-      - name: Download dist artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: dist-artifacts
-          path: /tmp/dist-output
-
-      - name: Download release checksums
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # PMAT-230: same fixed-path hazard as dist-artifacts, same fix.
-          gh release download "$RELEASE_TAG" \
-            --pattern "SHA256SUMS" \
-            --clobber \
-            --dir /tmp/checksums \
-            --repo "${{ github.repository }}"
-
-      - name: Patch Homebrew formula with real checksums and version
-        run: |
-          VERSION="${{ needs.verify.outputs.version }}"
-          FORMULA="/tmp/dist-output/homebrew.rb"
-
-          # Replace VERSION placeholder
-          sed -i "s/version \"VERSION\"/version \"${VERSION}\"/" "$FORMULA"
-
-          # Replace PLACEHOLDER_CHECKSUM for each target
-          for TARGET_ASSET in \
-            "forjar-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
-            "forjar-${VERSION}-aarch64-unknown-linux-gnu.tar.gz" \
-            "forjar-${VERSION}-x86_64-apple-darwin.tar.gz" \
-            "forjar-${VERSION}-aarch64-apple-darwin.tar.gz"; do
-            CHECKSUM=$(grep "$TARGET_ASSET" /tmp/checksums/SHA256SUMS | awk '{print $1}' || echo "")
-            if [ -n "$CHECKSUM" ]; then
-              # Replace first occurrence of PLACEHOLDER_CHECKSUM
-              sed -i "0,/PLACEHOLDER_CHECKSUM/s/PLACEHOLDER_CHECKSUM/${CHECKSUM}/" "$FORMULA"
-            fi
-          done
-
-          echo "=== Patched formula ==="
-          cat "$FORMULA"
-
-      - name: Publish to Homebrew tap
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          VERSION="${{ needs.verify.outputs.version }}"
-          FORMULA="/tmp/dist-output/homebrew.rb"
-
-          # Clone the tap repo
-          # PMAT-230: /tmp/tap is a FIXED path on a runner that is not
-          # ephemeral, and `git clone` into an existing directory exits 128.
-          # Found by a quorum lane reviewing the --clobber fix: this step has
-          # never been reached, because the checksums download two steps above
-          # died first on the same class of defect (v1.27.0's homebrew job
-          # failed there).
-          rm -rf /tmp/tap
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/paiml/homebrew-tap.git" /tmp/tap
-          cp "$FORMULA" /tmp/tap/Formula/forjar.rb
-
-          cd /tmp/tap
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/forjar.rb
-          git commit -m "forjar ${VERSION}" || echo "No changes to commit"
-          git push
 
   # ── Publish: un-draft once every asset job has finished ───────
   publish-release:

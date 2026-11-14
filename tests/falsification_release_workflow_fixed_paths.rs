@@ -8,8 +8,8 @@
 //! either side of it did not, and the v1.28.0 release stopped there:
 //! ``/tmp/SHA256SUMS already exists (use `--clobber` to overwrite file or
 //! `--skip-existing` to skip file)``, leaving a draft release with thirteen
-//! assets and no installer, and `homebrew`'s `git clone` into `/tmp/tap` — two
-//! steps further on, and therefore never yet reached — waiting behind it.
+//! assets and no installer (a `homebrew` job that cloned into `/tmp/tap` waited behind
+//! it; PMAT-1014 removed that job).
 //!
 //! Two rules, both read from the workflow YAML at `env!("CARGO_MANIFEST_DIR")`,
 //! the same bytes GitHub Actions parses. The sibling binary
@@ -244,7 +244,8 @@ fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
         }
     }
     assert!(
-        sites >= 3,
+        // PMAT-1014: 3 -> 2, the homebrew job (one of the three sites) was removed.
+        sites >= 2,
         "PMAT-230 rule 9: found only {sites} `gh release download` call site(s); the \
          rule is meant to sweep every workflow, and a rule that matches nothing passes \
          for the wrong reason"
@@ -258,12 +259,10 @@ fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
 // runners are not ephemeral, and release.yml already carries the lesson in
 // its `checksums` job — "THE STAGING DIR IS A FIXED PATH ON A RUNNER THAT
 // IS NOT EPHEMERAL", written after v1.18.0 shipped a SHA256SUMS with ten
-// lines, four of them belonging to 1.17.0. Two more jobs write into fixed
-// /tmp paths: `dist-artifacts` generates into /tmp/dist-output and uploads
-// that whole directory as the release's artifact, and `homebrew` clones the
-// tap into /tmp/tap, which `git clone` refuses when it exists. The second
-// had never been reached, because the checksums download two steps above it
-// died first (v1.27.0's homebrew job failed exactly there).
+// lines, four of them belonging to 1.17.0. One more job writes into a fixed
+// /tmp path: `dist-artifacts` generates into /tmp/dist-output and uploads
+// that whole directory as the release's artifact. (A `homebrew` job that cloned a
+// tap into /tmp/tap was another; PMAT-1014 removed it, so it is no longer pinned.)
 //
 // Ordering, not merely presence: a clear that runs after the write is not a
 // guard.
@@ -271,36 +270,32 @@ fn rule9_every_release_download_overwrites_what_a_previous_release_left() {
 #[test]
 fn rule10_a_fixed_tmp_directory_is_cleared_before_it_is_written() {
     let text = read(".github/workflows/release.yml");
-    for (job, clear, write) in [
-        (
-            "dist-artifacts",
-            "rm -rf /tmp/dist-output",
-            "--output-dir /tmp/dist-output",
-        ),
-        ("homebrew", "rm -rf /tmp/tap", "git clone"),
-    ] {
-        // Comment lines are dropped first: this rule's own explanation quotes
-        // `git clone`, and a marker found inside a comment is not the step.
-        let block: String = non_comment_lines(job_block(&text, job))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let c = block.find(clear).unwrap_or_else(|| {
-            panic!(
-                "PMAT-230 rule 10: release.yml's {job} job writes into a fixed /tmp \
-                 directory on a runner that is not ephemeral and never clears it. \
-                 `{clear}` is missing, so the previous release's files are still there \
-                 when this one runs — the shape the `checksums` job's own staging-\
-                 directory comment records from v1.18.0."
-            )
-        });
-        let w = block
-            .find(write)
-            .unwrap_or_else(|| panic!("PMAT-230 rule 10: {job} no longer contains `{write}`"));
-        assert!(
-            c < w,
-            "PMAT-230 rule 10: release.yml's {job} job clears its fixed directory AFTER \
-             it writes into it (`{clear}` appears after `{write}`); a clear that runs \
-             after the write is not a guard"
-        );
-    }
+    let (job, clear, write) = (
+        "dist-artifacts",
+        "rm -rf /tmp/dist-output",
+        "--output-dir /tmp/dist-output",
+    );
+    // Comment lines are dropped first: this rule's own explanation quotes
+    // `git clone`, and a marker found inside a comment is not the step.
+    let block: String = non_comment_lines(job_block(&text, job))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let c = block.find(clear).unwrap_or_else(|| {
+        panic!(
+            "PMAT-230 rule 10: release.yml's {job} job writes into a fixed /tmp \
+             directory on a runner that is not ephemeral and never clears it. \
+             `{clear}` is missing, so the previous release's files are still there \
+             when this one runs — the shape the `checksums` job's own staging-\
+             directory comment records from v1.18.0."
+        )
+    });
+    let w = block
+        .find(write)
+        .unwrap_or_else(|| panic!("PMAT-230 rule 10: {job} no longer contains `{write}`"));
+    assert!(
+        c < w,
+        "PMAT-230 rule 10: release.yml's {job} job clears its fixed directory AFTER \
+         it writes into it (`{clear}` appears after `{write}`); a clear that runs \
+         after the write is not a guard"
+    );
 }
