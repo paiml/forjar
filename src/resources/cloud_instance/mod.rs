@@ -12,22 +12,31 @@
 //! an error (non-zero), never "absent".
 //!
 //! Known limits:
-//! - Ownership is `forjar-owner = <name>-<region>`. Two config files (or
+//! - Ownership is `forjar-owner = <name>@<region>`. Two config files (or
 //!   stacks) in one account that declare the same `name` in the same region
 //!   share it: one sees the other's box as its own, and its `state: absent`
 //!   terminates it. Uniqueness is enforced within one config only. Keep names
 //!   distinct across configs.
-//! - The instance key includes the image digest, so changing `image:` on a
-//!   running box launches a second box; the old one lives until its lifetime
-//!   ends or `state: absent`. The spend cap is per launch, not summed.
+//! - The instance key includes the image digest. Changing `image:` while the
+//!   old box is alive is refused (never a second launch); the old box lives
+//!   until its lifetime ends or `state: absent`. The spend cap is per launch,
+//!   not summed over a day.
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
+
+mod validate;
+use validate::{
+    field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
+    require,
+};
 
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_b1;
+#[cfg(test)]
+mod tests_b4;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,74 +120,6 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
     })
-}
-
-fn field(v: &Option<String>, name: &str) -> Result<String, String> {
-    match v.as_deref() {
-        Some(s) if !s.is_empty() => Ok(s.to_string()),
-        _ => Err(format!("cloud_instance requires `{name}`")),
-    }
-}
-
-fn require(ok: bool, msg: &str) -> Result<(), String> {
-    if ok {
-        Ok(())
-    } else {
-        Err(msg.to_string())
-    }
-}
-
-fn is_word(s: &str, extra: &str) -> bool {
-    !s.is_empty()
-        && s.chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || extra.contains(c))
-}
-
-fn is_ident(s: &str, max: usize) -> bool {
-    s.len() <= max
-        && s.starts_with(|c: char| c.is_ascii_alphanumeric())
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
-}
-
-fn image_name(image: &str) -> Option<&str> {
-    image.rsplit_once("@sha256:").map(|(n, _)| n)
-}
-
-fn is_image_name(n: &str) -> bool {
-    n.len() <= 255
-        && n.starts_with(|c: char| c.is_ascii_alphanumeric())
-        && n.chars()
-            .all(|c| c.is_ascii_alphanumeric() || "._/:-".contains(c))
-}
-
-fn is_positive_decimal(s: &str) -> bool {
-    // digits, optionally `digits.digits`; short enough that it can never
-    // overflow to infinity (inf > inf is false and would defeat the cap check).
-    let (int, frac) = s.split_once('.').unwrap_or((s, "0"));
-    let digits = |p: &str| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit());
-    digits(int)
-        && digits(frac)
-        && s.len() <= 12
-        && s.parse::<f64>().is_ok_and(|v| v.is_finite() && v > 0.0)
-}
-
-fn has_digest(image: &str) -> bool {
-    image.rsplit_once("@sha256:").is_some_and(|(name, hex)| {
-        !name.is_empty()
-            && hex.len() == 64
-            && hex.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'))
-    })
-}
-
-fn is_tag(t: &str) -> bool {
-    let plain = |s: &str| {
-        !s.is_empty()
-            && s.len() <= 128
-            && s.chars()
-                .all(|c| c.is_ascii_alphanumeric() || "-_.:/".contains(c))
-    };
-    t.split_once('=').is_some_and(|(k, v)| plain(k) && plain(v))
 }
 
 /// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
