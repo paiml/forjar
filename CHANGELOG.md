@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**PR Gate no longer runs on `pull_request_target` (PMAT-913, #935).**
+`pr-gate.yml` triggers on `pull_request` and runs only for a same-repository head. A new job,
+`no-pull-request-target`, fails a PR whose workflow files use the `pull_request_target` trigger, and runs
+again on every push to the PR. Falsifier: `tests/falsification_no_pull_request_target.rs`.
+
+- CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492).
+
 ## [1.34.1] - 2026-11-13
 
 Patch release for the `--resource-timeout` fix below (PMAT-992), which the

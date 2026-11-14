@@ -18,7 +18,16 @@ set -euo pipefail
 BASE="scripts/ratchets/cb200-baseline.json"
 [ -f "$BASE" ] || { echo "✗ no $BASE — the ceiling is undeclared"; exit 1; }
 
-ceiling=$(python3 -c "import json;print(json.load(open('$BASE'))['ceiling'])")
+# NO INTERPRETER BEYOND BASH. This ran `python3 -c 'json.load(...)'`, and the
+# burst-x64 runner image carries no python3: dogfood-guards died with
+# `python3: command not found` before measuring anything (paiml/forjar#1025).
+# The key is matched with its opening quote, so `"previous_ceiling"` cannot
+# answer for `"ceiling"`. An absent or non-numeric ceiling is undeclared.
+ceiling=""
+if [[ $(<"$BASE") =~ \"ceiling\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then
+  ceiling="${BASH_REMATCH[1]}"
+fi
+[ -n "$ceiling" ] || { echo "✗ $BASE declares no numeric ceiling — the ceiling is undeclared"; exit 1; }
 
 # REBUILD THE INDEX FIRST. CB-200 grades from `.pmat/context.db`, and when that
 # is older than the sources it reports PRE-CHANGE numbers while still printing a
@@ -73,27 +82,17 @@ fi
 raw=$(pmat comply check --format json 2>/dev/null || true)
 [ -n "$raw" ] || { echo "✗ CB-200 UNMEASURED: pmat comply produced no output"; exit 1; }
 
-now=$(printf '%s' "$raw" | python3 -c '
-import json, sys, re
-out = []
-def walk(o):
-    if isinstance(o, dict):
-        m = str(o.get("message", ""))
-        if "below minimum grade" in m:
-            n = re.search(r"(\d+) function", m)
-            if n:
-                out.append(int(n.group(1)))
-        for v in o.values():
-            walk(v)
-    elif isinstance(o, list):
-        for v in o:
-            walk(v)
-try:
-    walk(json.load(sys.stdin))
-except Exception:
-    pass
-print(out[0] if out else -1)
-')
+# The count is the first `N function` inside the first "message" string that
+# says "below minimum grade" — the same rule the python walker applied, read in
+# document order. Each "message" value is taken whole (escaped quotes included),
+# so a number in another field or another message cannot answer for it.
+# Here-strings, not pipes from printf (PMAT-240: no SIGPIPE under pipefail).
+msgs=$(grep -oE '"message"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' <<<"$raw" || true)
+msg=$(grep -m 1 'below minimum grade' <<<"$msgs" || true)
+now=-1
+if [[ $msg =~ ([0-9]+)\ function ]]; then
+  now="${BASH_REMATCH[1]}"
+fi
 
 # A count carried on a stale index is worse than no count: it reads as authority.
 # PMAT-240: a here-string, not a pipe — `grep -q` exits early and printf takes
