@@ -15,7 +15,7 @@ for t in uname grep head tail tr sed awk cat sh; do
   ln -s "$p" "$work/base/$t"
 done
 # Pull only the two detection functions out of install.sh (the script itself runs on source).
-awk '/^detect_os\(\) \{/,/^}/; /^detect_libc\(\) \{/,/^}/; /^_fj_glibc_/,/^}/' install.sh > "$work/detect.sh"
+awk '/^detect_os\(\) \{/,/^}/; /^detect_libc\(\) \{/,/^}/; /^FJ_GLIBC_MIN/; /^_fj_glibc_ok\(\) \{/,/^}/' install.sh > "$work/detect.sh"
 [ -s "$work/detect.sh" ] || { echo "FAIL: detection functions not found in install.sh"; exit 1; }
 bad=0
 # check <name> <expected> <ldd banner or NONE>

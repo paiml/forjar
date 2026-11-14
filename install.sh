@@ -80,6 +80,23 @@ detect_arch() {
   esac
 }
 
+# forjar#1032: the oldest glibc the gnu asset is known to load on. Hosts below
+# it, or whose glibc cannot be read, take the static musl asset instead.
+FJ_GLIBC_MIN_MAJOR=2
+FJ_GLIBC_MIN_MINOR=39
+
+# _fj_glibc_ok: succeed when `ldd --version` reports glibc >= the floor above.
+_fj_glibc_ok() {
+  _fjg_ver=$(ldd --version 2>&1 | head -n 1 | grep -Eo '[0-9]+\.[0-9]+' | tail -n 1)
+  [ -n "$_fjg_ver" ] || return 1
+  _fjg_major="${_fjg_ver%%.*}"
+  _fjg_minor="${_fjg_ver#*.}"
+  if [ "$_fjg_major" -gt "$FJ_GLIBC_MIN_MAJOR" ]; then
+    return 0
+  fi
+  [ "$_fjg_major" -eq "$FJ_GLIBC_MIN_MAJOR" ] && [ "$_fjg_minor" -ge "$FJ_GLIBC_MIN_MINOR" ]
+}
+
 detect_libc() {
   if [ "$(detect_os)" != "linux" ]; then
     echo "none"
@@ -87,7 +104,7 @@ detect_libc() {
   fi
   if ldd --version 2>&1 | grep -qi musl; then
     echo "musl"
-  elif command -v ldd >/dev/null 2>&1; then
+  elif command -v ldd >/dev/null 2>&1 && _fj_glibc_ok; then
     echo "gnu"
   else
     echo "musl"

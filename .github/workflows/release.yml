@@ -295,7 +295,7 @@ jobs:
               ;;
           esac
           case "${{ matrix.target }}" in
-            aarch64-*)
+            aarch64-*|x86_64-unknown-linux-gnu)
               if ! command -v cross &>/dev/null; then
                 cargo install cross --locked
               fi
@@ -314,7 +314,7 @@ jobs:
       - name: Build release binaries
         run: |
           case "${{ matrix.target }}" in
-            aarch64-unknown-linux-*)
+            aarch64-unknown-linux-*|x86_64-unknown-linux-gnu)
               cross build --release --features vendored-openssl --target "${{ matrix.target }}"
               ;;
             *)
