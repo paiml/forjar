@@ -56,6 +56,8 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::DiskBudget => ProofObligation::Convergent,
         // A second apply finds nothing older than max_age: idempotent.
         ResourceType::TmpReaper => ProofObligation::Idempotent,
+        // Apply refuses or finds the instance already present: idempotent.
+        ResourceType::CloudInstance => ProofObligation::Idempotent,
         // Convergent: repeated passes drive coverage toward the declared
         // threshold; the invariant is verified coverage, not a byte-identical
         // transfer set.
@@ -96,7 +98,8 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
-        | ResourceType::TmpReaper => ProofObligation::Convergent,
+        | ResourceType::TmpReaper
+        | ResourceType::CloudInstance => ProofObligation::Convergent,
     }
 }
 

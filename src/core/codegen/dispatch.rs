@@ -82,7 +82,8 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::DiskBudget
         | ResourceType::BackupSync
         | ResourceType::NasArchive
-        | ResourceType::TmpReaper => handlers_fleet(resource_type),
+        | ResourceType::TmpReaper
+        | ResourceType::CloudInstance => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
         ResourceType::Recipe => None,
@@ -122,6 +123,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::BackupSync
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
+        | ResourceType::CloudInstance
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -155,6 +157,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::BackupSync
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
+        | ResourceType::CloudInstance
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -171,6 +174,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         ResourceType::BackupSync => from_module!(resources::backup_sync),
         ResourceType::NasArchive => from_module!(resources::nas_archive),
         ResourceType::TmpReaper => from_module!(resources::tmp_reaper),
+        ResourceType::CloudInstance => from_module!(resources::cloud_instance),
 
         // Routed to a sibling group by `handlers`.
         ResourceType::Package

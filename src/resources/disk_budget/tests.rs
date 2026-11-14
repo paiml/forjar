@@ -1,19 +1,22 @@
 //! FJ-036: disk_budget handler tests.
 
 use super::*;
-use crate::core::types::{MachineTarget, ReclaimKind, ReclaimRule, ResourceType};
+use crate::core::types::{DiskBudgetSpec, MachineTarget, ReclaimKind, ReclaimRule, ResourceType};
 
 fn res() -> Resource {
     Resource {
         resource_type: ResourceType::DiskBudget,
         machine: MachineTarget::Single("lambda-labs".into()),
         path: Some("/".into()),
-        budget_reclaim: vec![ReclaimRule {
-            name: "idle-build-dirs".into(),
-            roots: vec!["/home/noah/src".into()],
-            kind: ReclaimKind::CargoTarget,
-            min_idle_minutes: 60,
-        }],
+        budget: DiskBudgetSpec {
+            reclaim: vec![ReclaimRule {
+                name: "idle-build-dirs".into(),
+                roots: vec!["/home/noah/src".into()],
+                kind: ReclaimKind::CargoTarget,
+                min_idle_minutes: 60,
+            }],
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -50,8 +53,11 @@ fn missing_path_is_rejected_not_defaulted() {
 #[test]
 fn incoherent_watermarks_are_rejected_at_codegen() {
     let r = Resource {
-        budget_high_watermark_pct: Some(85),
-        budget_target_free_pct: Some(10), // => 90% used, above trigger
+        budget: DiskBudgetSpec {
+            high_watermark_pct: Some(85),
+            target_free_pct: Some(10), // => 90% used, above trigger
+            ..res().budget
+        },
         ..res()
     };
     assert!(budget_of(&r).is_err());
@@ -171,20 +177,23 @@ fn generated_reaper_is_embedded_in_apply() {
 #[test]
 fn every_declared_rule_reaches_the_reaper() {
     let r = Resource {
-        budget_reclaim: vec![
-            ReclaimRule {
-                name: "scratch".into(),
-                roots: vec!["/tmp/claude-1000".into()],
-                kind: ReclaimKind::ClaudeScratchpad,
-                min_idle_minutes: 30,
-            },
-            ReclaimRule {
-                name: "worktrees".into(),
-                roots: vec!["/home/noah/src/aprender/.claude/worktrees".into()],
-                kind: ReclaimKind::AbandonedWorktree,
-                min_idle_minutes: 120,
-            },
-        ],
+        budget: DiskBudgetSpec {
+            reclaim: vec![
+                ReclaimRule {
+                    name: "scratch".into(),
+                    roots: vec!["/tmp/claude-1000".into()],
+                    kind: ReclaimKind::ClaudeScratchpad,
+                    min_idle_minutes: 30,
+                },
+                ReclaimRule {
+                    name: "worktrees".into(),
+                    roots: vec!["/home/noah/src/aprender/.claude/worktrees".into()],
+                    kind: ReclaimKind::AbandonedWorktree,
+                    min_idle_minutes: 120,
+                },
+            ],
+            ..Default::default()
+        },
         ..res()
     };
     let s = apply_script(&r);
@@ -199,12 +208,15 @@ fn every_declared_rule_reaches_the_reaper() {
 #[test]
 fn reaper_hands_the_guard_each_rules_declared_prefixes() {
     let r = Resource {
-        budget_reclaim: vec![ReclaimRule {
-            name: "tmp-targets".into(),
-            roots: vec!["/tmp/*-target".into(), "/tmp/target-*".into()],
-            kind: ReclaimKind::Glob,
-            min_idle_minutes: 240,
-        }],
+        budget: DiskBudgetSpec {
+            reclaim: vec![ReclaimRule {
+                name: "tmp-targets".into(),
+                roots: vec!["/tmp/*-target".into(), "/tmp/target-*".into()],
+                kind: ReclaimKind::Glob,
+                min_idle_minutes: 240,
+            }],
+            ..Default::default()
+        },
         ..res()
     };
     let s = apply_script(&r);
@@ -220,12 +232,15 @@ fn reaper_hands_the_guard_each_rules_declared_prefixes() {
 
 fn with_root(root: &str) -> Resource {
     Resource {
-        budget_reclaim: vec![ReclaimRule {
-            name: "r".into(),
-            roots: vec![root.into()],
-            kind: ReclaimKind::Glob,
-            min_idle_minutes: 60,
-        }],
+        budget: DiskBudgetSpec {
+            reclaim: vec![ReclaimRule {
+                name: "r".into(),
+                roots: vec![root.into()],
+                kind: ReclaimKind::Glob,
+                min_idle_minutes: 60,
+            }],
+            ..Default::default()
+        },
         ..res()
     }
 }
@@ -276,7 +291,7 @@ fn every_emitted_script_passes_the_purifier() {
     use crate::core::purifier::validate_script;
 
     let mut r = res();
-    r.budget_reclaim = vec![
+    r.budget.reclaim = vec![
         ReclaimRule {
             name: "scratchpads".into(),
             roots: vec!["/tmp/claude-1000".into()],

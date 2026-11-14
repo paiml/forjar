@@ -3,9 +3,44 @@
 name: PR Gate
 
 on:
-  pull_request_target:
-    types: [opened, reopened]
+  pull_request:
+    # synchronize: a push to an open PR runs no-pull-request-target again.
+    types: [opened, reopened, synchronize, ready_for_review]
+
+# A new push cancels the PR's superseded run. `authorize` runs on every event, so a
+# cancelled `opened` run is redone by the push that superseded it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   authorize:
+    # Fork PRs never run privileged steps (paiml accepts no fork contributions).
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      pull-requests: write
     uses: paiml/.github/.github/workflows/pr-gate.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0
+
+  no-pull-request-target:
+    # P0 guard: a workflow that reintroduces the privileged PR trigger fails here.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, gate-light]
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: allowlist from the base branch, never the PR's copy
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # A missing or unfetchable base allowlist is an empty one: stricter, never looser.
+        run: |
+          : > "$RUNNER_TEMP/allow.txt"
+          if git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/gate-base"; then
+            git show "refs/remotes/origin/gate-base:.github/pull-request-target-allowlist.txt" > "$RUNNER_TEMP/allow.txt" 2>/dev/null || : > "$RUNNER_TEMP/allow.txt"
+          fi
+      - name: guard and its fixture test
+        run: sh scripts/guards/test-no-pull-request-target-guard.sh && sh scripts/guards/no-pull-request-target-guard.sh .github/workflows "$RUNNER_TEMP/allow.txt"

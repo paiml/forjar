@@ -13,7 +13,7 @@ use super::*;
 
 fn reaper_with_all_kinds() -> String {
     let mut r = res();
-    r.budget_reclaim = vec![
+    r.budget.reclaim = vec![
         ReclaimRule {
             name: "targets".into(),
             roots: vec!["/home/x/src".into()],
@@ -148,6 +148,6 @@ fn default_cadence_is_hourly_and_not_every_fifteen_minutes() {
     assert_eq!(crate::core::types::DEFAULT_SCHEDULE, "hourly");
     // The old value stays reachable by declaration.
     let mut fast = res();
-    fast.budget_schedule = Some("*:0/15".into());
+    fast.budget.schedule = Some("*:0/15".into());
     assert!(apply_script(&fast).contains("OnCalendar=*:0/15"));
 }

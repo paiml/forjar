@@ -148,4 +148,17 @@ CHANGELOG: no Unreleased entry. The file lists no individual GitHub Action bump 
 
 Quorum receipt: not written here. `.quorum/<slug>.json` is the reviewer's file, and the review round for #904 is the place it comes from.
 
+
+
+## PR #935 — PR Gate on `pull_request`, and a guard against `pull_request_target`
+
+Not yet merged when this section was written. This PR changes what a gate accepts, so it carries a non-author sign-off round bound to its final commit.
+
+- Before: `pr-gate.yml` triggered on `pull_request_target` (`opened`, `reopened`), which runs in the base-repository context with a write token. No job checked the workflow files for that trigger.
+- After: `pr-gate.yml` triggers on `pull_request` (`opened`, `reopened`, `synchronize`, `ready_for_review`) with a per-PR `concurrency` block that cancels superseded runs. `authorize` runs for a same-repository head on every event, so a cancelled `opened` run is redone by the push that superseded it. The new job `no-pull-request-target` runs for a same-repository head on all four events: it runs the guard's fixture suite, then the guard over `.github/workflows`.
+- Review round 1 (2026-11-12, FAIL 3/3 at 122e3302) found that the trigger listed only `opened` and `reopened`, so a later push that added `pull_request_target` to an open PR was not checked. Fixed by listing `synchronize` and `ready_for_review`.
+- Falsifier: `tests/falsification_no_pull_request_target.rs` (12 tests, run by the `dogfood-guards` job in `ci.yml`). It runs both scripts, runs the guard against a workflow that carries the trigger (exit 1) and against an empty directory (exit 2), and reads the trigger types from `pr-gate.yml`. `the_pr_gate_runs_again_on_every_push` failed at 4a40b9fc (types `opened`, `reopened`) and passes with the fix.
+- Not measured: the `authorize` job's behaviour on a fork PR under `pull_request` (GitHub gives such a run a read-only token; no fork PR was opened to observe it). A PR from a fork skips both jobs by the `if:` condition, so the guard does not run on it; branch protection and the fork-PR closer are what stop that PR, not this workflow.
+- Review round 2 (2026-11-14, agy FAIL at f40b6468): `pr-gate.yml` had no `concurrency` block (`falsification_pr_workflows_cancel_superseded_runs` failed); `ci.yml` never ran the falsifier; the guard failed open on a `#` inside a quoted scalar, a YAML escape, mixed case, an unreadable file (`|| true`), and a PR-added allowlist (regex match, case-sensitive checkout check). Fixed: the block is added; `dogfood-guards` runs the falsifier; the guard strips nothing, matches case-insensitively, refuses `\x`/`\u`/`\U` escapes, exits 2 on any read error, matches the allowlist as fixed strings, refuses `run:` or any-case checkout in an allowlisted file, and the gate reads the allowlist from the base branch. A parser layer (`serde_yaml_ng`) checks every workflow's decoded trigger names. The fixture suite's 12 new cases fail on the f40b6468 guard and pass on this one.
+
 IMPL-PMAT-913-RECEIPT-END

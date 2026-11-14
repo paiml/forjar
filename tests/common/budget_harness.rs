@@ -13,7 +13,7 @@
 
 #![allow(dead_code)]
 
-use forjar::core::types::{MachineTarget, ReclaimRule, Resource, ResourceType};
+use forjar::core::types::{DiskBudgetSpec, MachineTarget, ReclaimRule, Resource, ResourceType};
 use forjar::resources::disk_budget;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -94,9 +94,12 @@ pub fn budget_resource(path: &Path, rules: Vec<ReclaimRule>) -> Resource {
         resource_type: ResourceType::DiskBudget,
         machine: MachineTarget::Single("test".into()),
         path: Some(path.to_string_lossy().into_owned()),
-        budget_high_watermark_pct: Some(85),
-        budget_target_free_pct: Some(20),
-        budget_reclaim: rules,
+        budget: DiskBudgetSpec {
+            high_watermark_pct: Some(85),
+            target_free_pct: Some(20),
+            reclaim: rules,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
