@@ -172,3 +172,17 @@ fn every_generated_script_passes_the_purifier() {
         }
     }
 }
+
+/// Known limit, same as the drift detector (`tripwire/drift/semver.rs`:
+/// "Pre-release and build suffixes are not compared"): an `-rc1` binary reads
+/// as converged against the GA tag, and a `-rc1` tag against the GA binary.
+#[test]
+fn pre_release_suffix_is_ignored_like_the_drift_detector() {
+    let d = tempfile::tempdir().unwrap();
+    install(d.path(), "ollama version 1.2.3-rc1");
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v1.2.3"))));
+    assert!(ok, "rc binary compares as its N.N.N: {out}");
+    install(d.path(), "ollama version 1.2.3");
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v1.2.3-rc1"))));
+    assert!(ok, "rc tag compares as its N.N.N: {out}");
+}
