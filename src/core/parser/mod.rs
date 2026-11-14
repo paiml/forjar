@@ -14,6 +14,7 @@ mod nas_archive_validate;
 mod overlay_interface_validate;
 mod unknown_policy;
 pub use unknown_policy::rejects_unknown;
+mod cron_network_validate;
 mod includes;
 mod known_fields;
 mod policy;
