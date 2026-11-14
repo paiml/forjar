@@ -1,0 +1,66 @@
+# forjar#1021 (part of #1017): README.md is a graded document. `pv-readme --check`
+# turns it into one readme:Readme node and validates it against the closed SHACL
+# shape in contracts/readme-root.yaml; tests/readme-shape-falsifier.sh plants four
+# defects and requires each to be refused.
+#
+# LAB, not GATE (C324): it cannot block a merge or a release, so it runs nightly
+# on main and never on a PR. It moves into ci.yml's `gate` only after three
+# green nights, with the operator's yes and one gate retired.
+#
+# WHY IT INSTALLS ITS OWN VERIFIER. The clean-room runners carry pv 0.65.2
+# (aprender-contracts-cli), which predates pv-readme; the first run of this
+# check died on `pv-readme: not installed`. Waiting on runner provisioning made
+# the check absent, and an absent verifier is a NO-GO, never a skip. So the job
+# installs the exact pinned crate itself (~64 s measured on t2yoga). If the
+# install fails, the job fails: there is no path where the check does not run
+# and the job is green.
+name: readme-shape-lab
+
+on:
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PV_README_CRATE: aprender-contracts-cli
+  PV_README_VERSION: 0.72.3
+
+jobs:
+  readme-shape:
+    name: readme-shape
+    runs-on: [self-hosted, clean-room, X64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Install pinned pv-readme
+        run: |
+          set -eu
+          root="$RUNNER_TEMP/pv-readme"
+          cargo install "${PV_README_CRATE}@=${PV_README_VERSION}" --locked \
+            --root "$root" --bin pv-readme
+          [ -x "$root/bin/pv-readme" ] || {
+            echo "::error::pv-readme did not install — README.md is unvalidatable, which is a NO-GO not a skip"
+            exit 1
+          }
+          echo "$root/bin" >> "$GITHUB_PATH"
+
+      - name: pv-readme is the pinned version
+        run: |
+          set -eu
+          v="$(pv-readme --version)"
+          echo "$v"
+          case "$v" in
+            "pv-readme ${PV_README_VERSION} "*) ;;
+            *) echo "::error::expected pv-readme ${PV_README_VERSION}, got: $v"; exit 1 ;;
+          esac
+
+      - name: README.md conforms to its readme:Readme shape
+        run: pv-readme --check
+
+      - name: A planted bad README must be refused
+        run: bash tests/readme-shape-falsifier.sh

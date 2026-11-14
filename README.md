@@ -564,7 +564,8 @@ cargo test --locked --doc
 bash scripts/dogfood/docs.sh
 ```
 
-No CI job runs the shape check yet: `pv-readme` is not on the runners. Until it is, these are run by hand:
+The shape check runs nightly on `main` in `.github/workflows/readme-shape-lab.yml`, which installs the pinned
+`pv-readme` itself. It is not yet on the merge path, so these are shown in a `text` fence:
 
 ```text
 pv-readme --check
