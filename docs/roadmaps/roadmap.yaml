@@ -7521,3 +7521,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1027
+  github_issue: 1027
+  item_type: task
+  title: release.yml jobs have no timeout-minutes; proofs.yml uses Python
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-14T21:00:10Z
+  updated: 2026-11-14T21:00:10Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
