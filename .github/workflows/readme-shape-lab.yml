@@ -33,31 +33,54 @@ jobs:
     name: readme-shape
     runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 20
+    # The fleet rule (tests/falsification_every_ci_job_runs_on_the_fleet): a
+    # self-hosted job that runs cargo keeps its registry to itself, outside the
+    # workspace, so infra#430's reaper never sweeps it under a live install.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Install pinned pv-readme
+      - name: Install pinned pv-readme and pv
         run: |
           set -eu
           root="$RUNNER_TEMP/pv-readme"
           cargo install "${PV_README_CRATE}@=${PV_README_VERSION}" --locked \
-            --root "$root" --bin pv-readme
-          [ -x "$root/bin/pv-readme" ] || {
-            echo "::error::pv-readme did not install — README.md is unvalidatable, which is a NO-GO not a skip"
-            exit 1
-          }
+            --root "$root" --bin pv-readme --bin pv
+          for b in pv-readme pv; do
+            [ -x "$root/bin/$b" ] || {
+              echo "::error::$b did not install — README.md is unvalidatable, which is a NO-GO not a skip"
+              exit 1
+            }
+          done
           echo "$root/bin" >> "$GITHUB_PATH"
 
-      - name: pv-readme is the pinned version
+      - name: pv-readme and pv are the pinned version
         run: |
           set -eu
-          v="$(pv-readme --version)"
-          echo "$v"
-          case "$v" in
-            "pv-readme ${PV_README_VERSION} "*) ;;
-            *) echo "::error::expected pv-readme ${PV_README_VERSION}, got: $v"; exit 1 ;;
-          esac
+          for b in pv-readme pv; do
+            v="$("$b" --version | head -n 1)"
+            echo "$v"
+            case "$v" in
+              "$b ${PV_README_VERSION} "*) ;;
+              *) echo "::error::expected $b ${PV_README_VERSION}, got: $v"; exit 1 ;;
+            esac
+          done
+
+      # pv-readme compares README.md with the COMMITTED census.json, never with
+      # contracts/ itself, so a stale census would let a false count through.
+      # The census is re-taken from contracts/ and must be byte-identical.
+      - name: contracts/census.json is the live census of contracts/
+        run: |
+          set -eu
+          live="$RUNNER_TEMP/census.live.json"
+          pv census --format json contracts >"$live"
+          cmp -s "$live" contracts/census.json || {
+            diff -u contracts/census.json "$live" | head -n 40 || true
+            echo "::error::contracts/census.json is stale: regenerate it with 'pv census --format json contracts > contracts/census.json'"
+            exit 1
+          }
 
       - name: README.md conforms to its readme:Readme shape
         run: pv-readme --check

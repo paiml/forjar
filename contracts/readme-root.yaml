@@ -12,7 +12,8 @@
 # The same shape and the same checker grade paiml/aprender's README (its contracts/readme-root.yaml).
 #
 # KIND: pattern. One shape over one focus node; the proof is tests/readme-shape-falsifier.sh, which plants a
-# bad README and requires exit 1.
+# bad README and requires exit 1, and tests/falsification_1022_readme_shape.rs, which needs no pv and
+# holds the shape, the census and the README count to one another on every cargo test.
 # ─────────────────────────────────────────────────────────────────────────────
 name: readme-root
 version: "1.0.0"
@@ -47,7 +48,7 @@ shape:
     - {path: readme:entrypoint, minCount: 1, resolves: path}
     - {path: readme:verifiedCommand, minCount: 1, resolves: ci-step}
     - {path: readme:section, minCount: 3}
-    - {path: readme:contractCount, maxCount: 1, resolves: census}
+    - {path: readme:contractCount, minCount: 1, maxCount: 1, resolves: census}
 
 equations:
   claim_resolves:
@@ -79,11 +80,30 @@ falsification_tests:
     prediction: >
       adding a bash fence to README.md whose command no workflow runs makes `pv-readme --check` exit 1 naming
       `readme:verifiedCommand unresolved: <cmd>`; relabelling it `text` makes it pass again
-    test: bash tests/readme-shape-falsifier.sh
+    test: cargo test --test falsification_1022_readme_shape
+    test_secondary: bash tests/readme-shape-falsifier.sh
     if_fails: the README can advertise a command nothing has ever run
   - id: FALSIFY-RDM-002
     rule: a README without its frontmatter is refused
     prediction: >
       removing the `kind:` line, or the whole frontmatter, makes `pv-readme --check` exit 1
-    test: bash tests/readme-shape-falsifier.sh
+    test: cargo test --test falsification_1022_readme_shape
+    test_secondary: bash tests/readme-shape-falsifier.sh
     if_fails: the README can drop the facts the shape grades and still pass
+  - id: FALSIFY-RDM-003
+    rule: a README without its contract count is refused
+    prediction: >
+      removing the `contract_count:` line makes `pv-readme --check` exit 1, because readme:contractCount is
+      minCount 1; without it RDM-INV-002 holds vacuously
+    test: cargo test --test falsification_1022_readme_shape
+    test_secondary: bash tests/readme-shape-falsifier.sh
+    if_fails: the README can drop the count RDM-INV-002 grades and still pass
+  - id: FALSIFY-RDM-004
+    rule: a stale census is refused
+    prediction: >
+      adding a contract to contracts/ without regenerating contracts/census.json makes
+      `pv census --format json contracts` differ from the committed bytes, and makes the census n_files differ
+      from the number of contract files under contracts/
+    test: cargo test --test falsification_1022_readme_shape
+    test_secondary: bash tests/readme-shape-falsifier.sh
+    if_fails: pv-readme grades the README against a census that no longer counts contracts/

@@ -2,18 +2,24 @@
 # readme-shape-falsifier — prove `pv-readme --check` can FAIL (forjar#1022).
 #
 # A check never shown capable of failing is not evidence. This script grades the
-# real README.md (must pass), then plants four defects in a copy and requires
+# real README.md (must pass), then plants five defects in a copy and requires
 # each to be refused with exit 1. It also plants the same unrun command in a
 # `text` fence, which must pass: a claim is decided by the fence's label.
+#
+# pv-readme reads the COMMITTED contracts/census.json, never contracts/ itself,
+# so the census is graded too: re-taken from contracts/ it must equal the
+# committed bytes, and a corpus with one contract more must not.
 #
 # Run from the repository root:  sh tests/readme-shape-falsifier.sh
 # Exit: 0 every case behaved; 1 a case did not; 2 it could not measure.
 set -u
 
-command -v pv-readme >/dev/null 2>&1 || {
-    echo "NO-GO readme-shape-falsifier: pv-readme is not installed" >&2
-    exit 2
-}
+for tool in pv-readme pv; do
+    command -v "$tool" >/dev/null 2>&1 || {
+        echo "NO-GO readme-shape-falsifier: $tool is not installed" >&2
+        exit 2
+    }
+done
 [ -f README.md ] && [ -f contracts/readme-root.yaml ] || {
     echo "NO-GO readme-shape-falsifier: run from the repository root" >&2
     exit 2
@@ -88,9 +94,54 @@ cmp -s README.md "$work/count.md" && {
 }
 expect 1 "" "a contract count that is not the census is refused" "$work/count.md"
 
+# 6. Frontmatter without `contract_count:` (readme:contractCount is minCount 1;
+#    without it RDM-INV-002 holds vacuously).
+grep -v '^contract_count:' README.md >"$work/nocount.md"
+cmp -s README.md "$work/nocount.md" && {
+    echo "NO-GO readme-shape-falsifier: the contract_count removal changed nothing" >&2
+    exit 2
+}
+expect 1 "readme/contractCount — has 0 value" "a README without contract_count: is refused" "$work/nocount.md"
+
+# census_matches <label> <want: same|differ> <contract-dir>
+census_matches() {
+    label=$1
+    want=$2
+    dir=$3
+    cases=$((cases + 1))
+    pv census --format json "$dir" >"$work/census.live.json" 2>"$work/census.err" || {
+        echo "FAIL  $label: pv census exited non-zero"
+        head -n 5 "$work/census.err"
+        failed=$((failed + 1))
+        return
+    }
+    if cmp -s "$work/census.live.json" contracts/census.json; then got=same; else got=differ; fi
+    if [ "$got" != "$want" ]; then
+        echo "FAIL  $label: the live census is $got, want $want"
+        diff -u contracts/census.json "$work/census.live.json" | head -n 10
+        failed=$((failed + 1))
+        return
+    fi
+    echo "ok    $label (census $got)"
+}
+
+# 7. The committed census is the live census of contracts/.
+census_matches "contracts/census.json is the live census" same contracts
+
+# 8. One contract more, census.json not regenerated: the census must differ.
+mkdir -p "$work/contracts" || exit 2
+cp contracts/*.yaml "$work/contracts/" || exit 2
+sed 's|^name: readme-root$|name: readme-root-falsifier-extra|' contracts/readme-root.yaml \
+    >"$work/contracts/readme-root-falsifier-extra.yaml"
+cmp -s contracts/readme-root.yaml "$work/contracts/readme-root-falsifier-extra.yaml" && {
+    echo "NO-GO readme-shape-falsifier: the extra-contract plant changed nothing" >&2
+    exit 2
+}
+census_matches "a contract added without regenerating census.json is caught" differ "$work/contracts"
+
 echo "readme-shape-falsifier: $cases case(s) run, $failed failed"
-[ "$cases" -eq 6 ] || {
-    echo "NO-GO readme-shape-falsifier: ran $cases case(s), want 6" >&2
+[ "$cases" -eq 9 ] || {
+    echo "NO-GO readme-shape-falsifier: ran $cases case(s), want 9" >&2
     exit 2
 }
 [ "$failed" -eq 0 ]
