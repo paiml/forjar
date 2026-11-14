@@ -5597,3 +5597,60 @@ roadmap:
   - kind:code
   notes: null
   epic: 696
+- id: PMAT-890
+  github_issue: 890
+  item_type: task
+  title: apply -t includes the depends_on closure
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-07T08:37:04Z
+  updated: 2026-11-07T08:37:04Z
+  spec: null
+  acceptance_criteria:
+  - 'FLEET-OPS-DELIVERY-001 §5 item 1 (PR #887)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 879
+- id: PMAT-891
+  github_issue: 891
+  item_type: task
+  title: plan gains --param
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-07T08:37:06Z
+  updated: 2026-11-07T08:37:06Z
+  spec: null
+  acceptance_criteria:
+  - 'FLEET-OPS-DELIVERY-001 §5 item 2 (PR #888)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 879
+- id: PMAT-892
+  github_issue: 892
+  item_type: task
+  title: 'docs: completion_check asserts install state, freshness is monitoring'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-07T08:37:08Z
+  updated: 2026-11-07T08:37:08Z
+  spec: null
+  acceptance_criteria:
+  - 'FLEET-OPS-DELIVERY-001 §5 item 3 (PR #889)'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  notes: null
+  epic: 764
