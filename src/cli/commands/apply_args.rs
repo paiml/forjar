@@ -73,7 +73,7 @@ pub struct ApplyArgs {
     #[arg(short = 'w', long)]
     pub workspace: Option<String>,
 
-    /// FJ-226: Run check scripts instead of apply scripts (exit 2 = changes needed) — honours every apply selector (--subset, --exclude, -g, --skip, -m) and exits 0 when only an unselected resource fails (#467)
+    /// FJ-226: Run check scripts instead of apply scripts (exit 1 = changes needed, exit 4 = a host could not be reached) — honours every apply selector (--subset, --exclude, -g, --skip, -m) and exits 0 when only an unselected resource fails (#467)
     #[arg(long)]
     pub check: bool,
 
@@ -81,9 +81,9 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub report: bool,
 
-    /// FJ-266: Force-remove stale state lock before apply
-    #[arg(long)]
-    pub force_unlock: bool,
+    /// FJ-LOCK-001 C3/C5: `--force-unlock [ID]` and `--lock-timeout <DUR>`
+    #[command(flatten)]
+    pub lock: super::ApplyLockArgs,
 
     /// FJ-270: Output mode — 'events' for newline-delimited JSON events
     #[arg(long)]

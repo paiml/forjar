@@ -90,10 +90,22 @@ fn check_kernel_headers(id: &str, resource: &Resource, errors: &mut Vec<Validati
 }
 
 fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
-    if resource.path.is_none() {
-        errors.push(ValidationError {
-            message: format!("resource '{id}' (file) has no path"),
-        });
+    // PMAT-989: an image built from `packages:` / `command:` needs no file path.
+    // A whitespace-only command is no build step (the build drops it), so it
+    // does not count.
+    let is_image = resource.resource_type == ResourceType::Image;
+    let has_command = resource
+        .command
+        .as_deref()
+        .is_some_and(|c| !c.trim().is_empty());
+    let builds_by_exec = is_image && (!resource.packages.is_empty() || has_command);
+    if resource.path.is_none() && !builds_by_exec {
+        let message = if is_image {
+            format!("resource '{id}' (image) has no path, packages or command")
+        } else {
+            format!("resource '{id}' (file) has no path")
+        };
+        errors.push(ValidationError { message });
     }
     if resource.content.is_some() && resource.source.is_some() {
         errors.push(ValidationError {

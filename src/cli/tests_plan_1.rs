@@ -119,6 +119,7 @@ resources:
     fn test_fj312_plan_cost_flag_parse() {
         let cmd = Commands::Plan(PlanArgs {
             offline: false,
+            params: vec![],
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -149,6 +150,7 @@ resources:
     fn test_fj333_plan_what_if_flag() {
         let cmd = Commands::Plan(PlanArgs {
             offline: false,
+            params: vec![],
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,

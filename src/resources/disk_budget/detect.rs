@@ -58,10 +58,23 @@ fb_is_idle() {
   fb_rc=$?
   if fb_timed_out "$fb_rc"; then
     FB_UNMEASURED=1
+    FB_IDLE_TO=1
     fb_log "  idle check timed out after ${FB_FIND_TIMEOUT}s, NOT MEASURED, keeping: $1"
     return 1
   fi
   [ -z "$fb_hit" ]
+}
+
+# Sum "<bytes><TAB><path>" lines, counting each path once and never a path that
+# sits under another counted path (overlapping rules: a cargo target inside an
+# abandoned worktree). printf %.0f, not print: mawk prints sums >= 2^31 in
+# exponent form, which `[ -lt ]` rejects.
+fb_sum_reach() {
+  awk '{ i = index($0, "\t"); if (i > 0) b[substr($0, i + 1)] = substr($0, 1, i - 1) + 0 }
+    END { for (p in b) { q = p; skip = 0
+            while (q != "") { n = match(q, /\/[^\/]*$/); if (n == 0) break; q = substr(q, 1, n - 1); if (q in b) { skip = 1; break } }
+            if (!skip) s += b[p] }
+          printf "%.0f", s }' "$1" 2>/dev/null || echo 0
 }
 
 # Size is accounting only; a timed-out du reports nothing (0 bytes).
@@ -80,7 +93,7 @@ fb_scan_open_paths() {
   : >"$FB_PROCRAW"
   FB_OPEN_OK=0
   fb_live_slugs=""
-  fb_bounded find /proc/*/cwd /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
+  fb_bounded find /proc/*/cwd /proc/*/exe /proc/*/fd -maxdepth 1 -type l -printf '%p\t%l\n' >"$FB_PROCRAW" 2>/dev/null
   fb_rc=$?
   if fb_timed_out "$fb_rc"; then
     FB_UNMEASURED=1
@@ -92,7 +105,31 @@ fb_scan_open_paths() {
     fb_log "  /proc scan saw no processes: NOT MEASURED, nothing proven dead"
     return 0
   fi
-  awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW" | sort -u >"$FB_OPEN"
+  # forjar#667: a mapped shared object or the running binary also pins its dir.
+  # cat, not awk: awk aborts at the first unreadable maps file (other users' pids).
+  # The dump is reduced to unique paths as it streams (never tens of MB on the
+  # disk under pressure); the path is everything from the first "/" so a mapped
+  # file under a directory with spaces is kept whole.
+  fb_mapawk='{ i = index($0, "/"); if (i > 0 && !seen[substr($0, i)]++) print substr($0, i) }'
+  fb_bounded sh -c 'cat /proc/[0-9]*/maps 2>/dev/null | awk "$1"' sh "$fb_mapawk" >"$FB_MAPS" 2>/dev/null
+  fb_rc=$?
+  if fb_timed_out "$fb_rc"; then
+    FB_UNMEASURED=1
+    fb_log "  /proc maps scan timed out after ${FB_FIND_TIMEOUT}s: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  # Every live process maps at least its own binary: an empty result is a failed scan.
+  if [ ! -s "$FB_MAPS" ]; then
+    FB_UNMEASURED=1
+    fb_log "  /proc maps scan produced nothing: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
+  { awk -F '\t' '$2 ~ /^\// {print $2}' "$FB_PROCRAW"; cat "$FB_MAPS"; } | sort -u >"$FB_OPEN"
+  if [ ! -s "$FB_OPEN" ]; then
+    FB_UNMEASURED=1
+    fb_log "  open-path list could not be written: NOT MEASURED, nothing proven dead"
+    return 0
+  fi
   FB_OPEN_OK=1
   # Sessions whose project has a live `claude` process (slug = cwd with / -> -).
   # comm is read with the `read` builtin; only a matching pid costs a launch.
@@ -147,7 +184,7 @@ fb_sweepable() {
       *) fb_log "  REFUSE too shallow (depth 2, not /tmp): $fb_p"; return 1 ;;
     esac
   fi
-  if [ -n "$HOME" ] && [ "$fb_p" = "$HOME" ]; then
+  if [ -n "${HOME:-}" ] && [ "$fb_p" = "${HOME:-}" ]; then
     fb_log "  REFUSE \$HOME itself: $fb_p"
     return 1
   fi

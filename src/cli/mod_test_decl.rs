@@ -51,6 +51,10 @@ mod tests_apply_1_c;
 #[cfg(test)]
 mod tests_apply_2;
 #[cfg(test)]
+mod tests_fj_lock_c2;
+#[cfg(test)]
+mod tests_fj_lock_c3_c5;
+#[cfg(test)]
 mod tests_apply_20;
 #[cfg(test)]
 mod tests_apply_20_b;
@@ -308,3 +312,5 @@ mod tests_image_android;
 mod tests_image_b;
 #[cfg(test)]
 mod tests_query_format;
+#[cfg(test)]
+mod tests_drift_empty_state;

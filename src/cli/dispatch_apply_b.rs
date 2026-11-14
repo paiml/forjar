@@ -174,6 +174,13 @@ fn apply_early_exits(args: &ApplyArgs) -> Option<Result<(), String>> {
         ));
     }
     if let Some(ref cm) = args.canary_machine {
+        // forjar#435: this exit returns above `apply_pre_checks`, so
+        // `--pre-script`, `--pre-flight`, `--webhook-before` and
+        // `--abort-on-drift` parsed, converged the canary AND the fleet, and
+        // never ran. Run them once for the invocation, before anything converges.
+        if let Err(e) = apply_pre_checks(args) {
+            return Some(Err(e));
+        }
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
         return Some(cmd_apply_canary_machine(
             &args.file,
@@ -302,17 +309,8 @@ fn apply_mode_exits(args: &ApplyArgs, verbose: bool) -> Option<Result<(), String
     }
     if args.refresh_only {
         let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
-        return Some(cmd_refresh_only(
-            &args.file,
-            &sd,
-            args.machine.as_deref(),
-            verbose,
-            args.timeout,
-            args.env_file.as_deref(),
-            args.workspace.as_deref(),
-            // Refs #368: the operator gate runs on this mode too; `None` here
-            // would resolve `$USER@$(hostname)` and refuse the typed operator.
-            args.operator.as_deref(),
+        return Some(super::dispatch_apply_check::cmd_apply_refresh_only(
+            args, &sd, verbose,
         ));
     }
     if let Some(ref pf) = args.plan_file {
@@ -339,6 +337,7 @@ fn apply_from_plan(
         args.force_tag.as_deref(),
     )?;
     let sd = resolve_state_dir(&args.state_dir, args.workspace.as_deref());
+    super::apply_lock_flags::prepare_state_lock(&args.lock, &sd)?;
     cmd_apply_from_plan(&PlanApplyRequest {
         file: &args.file,
         state_dir: &sd,
@@ -374,7 +373,7 @@ fn apply_from_plan(
 /// literal is not testable without running an apply.
 pub(super) fn knobs_from(args: &ApplyArgs) -> ApplyKnobs {
     ApplyKnobs {
-        force_unlock: args.force_unlock,
+        force_unlock: args.lock.force_unlock.is_some(),
         progress: args.progress,
         timeout_secs: args.timeout,
         retry: args.retry,
@@ -424,7 +423,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
             &args.file,
             &sd,
             args.machine.as_deref(),
-            args.tag.as_deref(),
+            None, // the tag + its closure is already in `sel`
             &sel,
             limit,
         )?;
@@ -434,6 +433,8 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
     if args.policy_check {
         super::apply_quality_gate::check_quality_gate(&args.file, &args.policy_dir, verbose)?;
     }
+
+    super::apply_lock_flags::prepare_state_lock(&args.lock, &sd)?;
 
     let result = cmd_apply_scoped(
         &args.file,
@@ -453,7 +454,7 @@ fn apply_execute(args: &ApplyArgs, verbose: bool) -> Result<(), String> {
         args.env_file.as_deref(),
         args.workspace.as_deref(),
         args.report,
-        args.force_unlock,
+        args.lock.force_unlock.is_some(),
         args.output.as_deref(),
         args.progress,
         args.timing,

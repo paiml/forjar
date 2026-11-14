@@ -266,6 +266,25 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
     Ok(in_declared_privilege_context(resource, script))
 }
 
+/// #685: the apply script of `resource` for LINTING, never for running.
+///
+/// `forjar lint` and the quality gate read the UNRESOLVED config, so a resource
+/// carrying `{{secrets.*}}` is refused by [`apply_script`] (the I8 chokepoint)
+/// and its apply script, the one script I8 actually gates, was never linted.
+/// Here each secret reference becomes a placeholder no secret rule can match,
+/// and the script is generated from that copy. Returns `Err` only when a script
+/// cannot be produced at all, so the caller can say so instead of skipping.
+pub fn apply_script_for_lint(resource: &Resource) -> Result<String, String> {
+    use crate::core::resolver::{has_unresolved_secret, with_secret_placeholders};
+    if !has_unresolved_secret(resource) {
+        return apply_script(resource);
+    }
+    let masked = with_secret_placeholders(resource).ok_or_else(|| {
+        "resource carries a secret reference that could not be masked".to_string()
+    })?;
+    apply_script(&masked)
+}
+
 /// FJ-1394 / FJ-29: run a generated script in the privilege context the
 /// resource DECLARES.
 ///
@@ -284,7 +303,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
 ///
 /// Uses a heredoc to pass the script to `sudo bash` — avoids the single-quote
 /// escaping that triggers bashrs SC2075 false positives.
-fn in_declared_privilege_context(resource: &Resource, script: String) -> String {
+pub(crate) fn in_declared_privilege_context(resource: &Resource, script: String) -> String {
     if !resource.sudo {
         return script;
     }
@@ -322,9 +341,10 @@ fn in_declared_privilege_context(resource: &Resource, script: String) -> String 
     //
     // The bare EXIT trap and the fixed variable name are safe UNSCOPED because
     // codegen never concatenates two wrapped scripts into one shell: this
-    // function is private, its only three callers are `apply_script`,
-    // `check_script` and `state_query_script`, each wraps one WHOLE generated
-    // script exactly once, and every consumer feeds one such script to one
+    // function is crate-private, its only callers are `apply_script`,
+    // `check_script`, `state_query_script` and (#927) the three copia scripts
+    // in `executor::helpers::copia_apply_file_via`, each wraps one WHOLE
+    // generated script exactly once, and every consumer feeds one such script to one
     // `bash` process (`transport::exec_script*` writes one script to one child;
     // `store::container_build::execute_scripts` runs one `exec -i ... bash` per
     // element of its `&[String]`, never a join). Should a future caller join

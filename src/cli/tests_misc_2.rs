@@ -309,6 +309,7 @@ resources:
     fn test_fj285_target_flag_parse() {
         let cmd = Commands::Plan(PlanArgs {
             offline: false,
+            params: vec![],
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,

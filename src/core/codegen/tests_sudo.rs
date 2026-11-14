@@ -55,6 +55,37 @@ mod tests {
         assert!(!script.contains("sudo bash"));
     }
 
+    /// #927: the copia scripts (staging write `<path>.forjar-new.$$`, parent mkdir, rename)
+    /// bypass `apply_script`, so they go through the same declared privilege context.
+    /// Anti-vacuity: `sudo: false` leaves the script untouched.
+    #[test]
+    fn test_927_copia_scripts_run_in_the_declared_privilege_context() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src.bin");
+        std::fs::write(&src, b"payload").unwrap();
+        let full = crate::copia::full_transfer_script(
+            "/opt/new/x",
+            src.to_str().unwrap(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let sig = crate::copia::signature_script("/opt/new/x");
+        for script in [full, sig] {
+            let elevated =
+                codegen::in_declared_privilege_context(&file_resource(true), script.clone());
+            assert_sudo_form(&elevated);
+            assert!(
+                elevated.contains(&script),
+                "the whole copia script must run inside the sudo heredoc"
+            );
+            let plain =
+                codegen::in_declared_privilege_context(&file_resource(false), script.clone());
+            assert_eq!(plain, script, "sudo: false must not wrap");
+        }
+    }
+
     #[test]
     fn test_fj1394_sudo_true_wraps_script() {
         let r = file_resource(true);

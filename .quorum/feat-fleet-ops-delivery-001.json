@@ -1,0 +1,105 @@
+{
+  "kind": "code",
+  "issue": "PMAT-890 / #688 / #880 / #585 (forjar#899) \u2014 fleet ops delivery train: close -t/--tag over depends_on across apply and plan, add plan --param with explicit --param --out refusal, record failed resources as ResourceAction::Failed (#688), refuse missing --state-dir (#880), and surface lock paths in drift (#585).",
+  "branch": "feat/fleet-ops-delivery-001",
+  "recorded_at": "two-round three-lane agy Gemini 4 Carbon (thinking=high) review (round 1 cf60cd9c 3/3 FAIL -> round 2 bc4e97f6 3/3 PASS); 4 claims confirmed and 2 round-1 claims refuted and fixed.",
+  "quorum": {
+    "rounds": 2,
+    "lanes": [
+      "round 1, head cf60cd9c \u2014 agy Gemini 4 Carbon (High) Lanes 1-3: FAIL (plan -t missing closure, plan --param --out hash mismatch, README:197 Gate D)",
+      "round 2, head bc4e97f6 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Selector Closure Parity & --param --out Refusal): PASS",
+      "round 2, head bc4e97f6 \u2014 agy Gemini 4 Carbon (High) Lane 2 (#688 Action::Failed, #880 Missing State & #585 Drift Locks): PASS",
+      "round 2, head bc4e97f6 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Falsification, Revert Kill & Gate D Traceability): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 was attacked across all 3 lanes; R1 (plan -t closure) and R2 (plan --param --out seal + README:197 Gate D) were killed in round 1 at cf60cd9c and verified fixed in round 2 at bc4e97f6.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Round 1 (cf60cd9c) left src/cli/plan_compute.rs:33 passing selectors.tag as a flat filter without depends_on closure while apply -t closed over depends_on; fixed in bc4e97f6 via plan_selector.rs:92 and tests_plan_review_fixes.rs:18.",
+      "R2: Round 1 (cf60cd9c) permitted plan --param --out to write sealed plans that failed PLAN_HASH_MISMATCH under apply --plan-file and broke Gate D at README.md:197; fixed in bc4e97f6 via plan.rs:150 refusal and README.md:197 --state-dir state."
+    ]
+  },
+  "falsification": {
+    "test": "Revert src/core/executor/machine_wave_record.rs to origin/main on <host> (<SCRATCH>) and run cargo test --test falsification_688_failed_resource_action_failed.",
+    "test_file": "tests/falsification_688_failed_resource_action_failed.rs",
+    "cargo_test_target": "falsification_688_failed_resource_action_failed",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting src/core/executor/machine_wave_record.rs (! cmp -s verified) failed failed_task_is_recorded_as_action_failed (FJ_899_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "Terraform plan -out / apply <planfile>: refuses parameter overrides not captured in the sealed plan artifact so previewed and executed graphs never diverge",
+      "Ansible --tags with dependency resolution vs Bazel target query closure: closing positive tag selectors over depends_on prevents partial execution without prerequisites",
+      "systemd unit result recording: records failed executions under a distinct Failed state rather than Converged+flag so audit queries cannot miscount failures as converged"
+    ],
+    "verdict": "Closing -t over depends_on in both plan and apply, refusing unverified --param --out seals, and recording failed tasks as ResourceAction::Failed eliminates three silent preview/audit mismatches."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes across 2 rounds (cf60cd9c -> bc4e97f6)",
+    "rounds": 2,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 2: 3/3 PASS at bc4e97f6 (4 claims confirmed, 2 round-1 claims refuted and fixed)."
+  },
+  "pmat": {
+    "ticket": "PMAT-890",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + falsification_688_failed_resource_action_failed (2/2) + tests_plan_review_fixes (3/3) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "e36b0a8386c7d1564b2c71c09f0d5483877d9d7a",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-890-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "7eb840bd53d26f8a4f39a7c053e9fd62384d3167",
+        "sha256": "9f4d3f1963cd2e59ca804f5d4fea7a58730764775ccb4a6e85ac7a5f704e7392",
+        "bytes": 2182
+      },
+      {
+        "path": ".quorum/evidence/PMAT-890-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "9b02906dfba7ae7d5558cd3aa7ad03b82bd8a7e2",
+        "sha256": "0fb9bbed1c513e0e4b8eb6e8e4879227ea475beae37afebbc7ba2098531e5e41",
+        "bytes": 1621
+      },
+      {
+        "path": ".quorum/evidence/PMAT-890-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "22b8c784e40952f9cd7ed8f63b7b4e9ed9837784",
+        "sha256": "cfeed54fa709c7d3a82ba23657ec6e07ce9274920082fc8745253a379a843a48",
+        "bytes": 3313
+      },
+      {
+        "path": ".quorum/evidence/PMAT-890-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "11c24e45dd49f3b8fdeeb173820d016d282de3c0",
+        "sha256": "fee6b6d96997a8da6f7732f7c1fa26283564b117bd610d7283f35c27502c391b",
+        "bytes": 924
+      }
+    ],
+    "total_bytes": 8040,
+    "claims_digest": ".quorum/evidence/PMAT-890-judges.md"
+  }
+}

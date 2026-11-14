@@ -178,7 +178,7 @@ pub(crate) fn dir_probe_script(dirs: &[String]) -> String {
     format!(
         r#"for probe_dir in {}; do
   if [ -d "$probe_dir" ]; then
-    probe_stat=$(stat -c '%U:%G:%a' "$probe_dir" 2>/dev/null || echo '?:?:?')
+    probe_stat=$(stat -c '%U:%G:%a' "$probe_dir" 2>/dev/null || stat -f '%Su:%Sg:%Lp' "$probe_dir" 2>/dev/null || echo '?:?:?')
     if [ -w "$probe_dir" ]; then
       probe_w=yes
     else

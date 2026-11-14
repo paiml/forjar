@@ -40,16 +40,14 @@ name: Proofs
 # (the org ruleset requires `gate`), so it never gated a merge anyway.
 on:
   push:
-    branches: [main]
+    branches: [main, "train/**"]
   schedule:
     - cron: '17 6 * * *'
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
-  group: proofs-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -67,7 +65,8 @@ jobs:
   # ledger defect — 34 minutes, the single most expensive job a PR pays for,
   # and it cannot be affected by a change that touches no code.
   classify:
-    runs-on: [self-hosted, clean-room, ARM64]
+    timeout-minutes: 15
+    runs-on: [self-hosted, gate-light]
     outputs:
       code: ${{ steps.class.outputs.code }}
     steps:
@@ -258,10 +257,11 @@ jobs:
 
   # Aggregator so branch protection can require one context for both.
   ledger-replay:
+    timeout-minutes: 30
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: ledger-replay
-    runs-on: [self-hosted, clean-room, ARM64]
+    runs-on: [self-hosted, clean-room, X64]
     # forjar#447 (second signature, measured on the host 2026-09-03): all 16
     # clean-room runners share ONE $HOME/.cargo registry, and two sweepers
     # delete extracted crate sources by age (the hourly ci-reaper's
@@ -309,6 +309,7 @@ jobs:
           FORJAR="$BIN" bash scripts/ledger-replay.sh
 
   contracts:
+    timeout-minutes: 30
     name: contracts
     runs-on: [self-hosted, clean-room, X64]
     # UNCONDITIONAL, unlike kani/lean. Those are label-gated because they cost
@@ -378,8 +379,9 @@ jobs:
       # here is what let the rule narrow without anyone deciding to narrow it.
 
   proofs:
+    timeout-minutes: 30
     name: proofs
-    runs-on: [self-hosted, clean-room, ARM64]
+    runs-on: [self-hosted, clean-room, X64]
     needs: [classify, kani, lean, contracts, ledger-replay]
     if: always()
     steps:

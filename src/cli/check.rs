@@ -109,6 +109,11 @@ fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
     println!("  FAIL {resource_id} ({machine_name}) — {detail}");
 }
 
+/// Print an unreachable target in text mode.
+fn print_unmeasured(resource_id: &str, machine_name: &str, detail: &str) {
+    println!("  UNMEASURED {resource_id} ({machine_name}) — {detail}");
+}
+
 /// Run a check script on one machine and record the result.
 fn run_single_check(
     machine: &types::Machine,
@@ -119,10 +124,10 @@ fn run_single_check(
 ) -> (CheckResult, bool) {
     if let Err(e) = ensure_container_if_needed(machine) {
         if !json {
-            print_check_failure(resource_id, machine_name, &e);
+            print_unmeasured(resource_id, machine_name, &e);
         }
         return (
-            make_check_result(resource_id, machine_name, "error", None, e),
+            make_check_result(resource_id, machine_name, "unmeasured", None, e),
             false,
         );
     }
@@ -134,17 +139,28 @@ fn run_single_check(
         // Neither a pass nor a failure — forjar cannot observe the state, and
         // claiming either would be a guess.
         Ok(out) if out.exit_code == 2 => ("skip", Some(2), out.stdout.trim().to_string(), true),
+        // forjar#659: ssh exits 255 when it could not connect (DNS, route, auth):
+        // nothing was observed, so this is not a verdict about the host. Same
+        // rule as the drift detectors (`tripwire::drift::unmeasured`).
+        Ok(out) if out.exit_code == 255 && transport::is_ssh_transport(machine) => (
+            "unmeasured",
+            Some(255),
+            out.stderr.trim().to_string(),
+            false,
+        ),
         Ok(out) => (
             "fail",
             Some(out.exit_code),
             out.stderr.trim().to_string(),
             false,
         ),
-        Err(e) => ("error", None, e, false),
+        Err(e) => ("unmeasured", None, e, false),
     };
 
     if !json {
-        if passed {
+        if status == "unmeasured" {
+            print_unmeasured(resource_id, machine_name, &detail);
+        } else if passed {
             println!("  ok {resource_id} ({machine_name})");
         } else {
             let msg = if let Some(code) = exit_code {
@@ -167,54 +183,9 @@ fn run_single_check(
     )
 }
 
-/// Format check results as JSON.
-pub(super) fn format_check_json(
-    config_name: &str,
-    results: &[CheckResult],
-    total_pass: usize,
-    total_fail: usize,
-    total_skip: usize,
-) -> Result<(), String> {
-    let json_results: Vec<_> = results
-        .iter()
-        .map(|r| {
-            let mut obj = serde_json::json!({
-                "resource": r.resource_id,
-                "machine": r.machine,
-                "status": r.status,
-            });
-            if let Some(code) = r.exit_code {
-                obj["exit_code"] = serde_json::json!(code);
-            }
-            if let Some(in_state) = r.in_state {
-                obj["in_state"] = serde_json::json!(in_state);
-            }
-            if !r.detail.is_empty() {
-                let key = if r.status == "error" {
-                    "error"
-                } else {
-                    "stderr"
-                };
-                obj[key] = serde_json::json!(r.detail);
-            }
-            obj
-        })
-        .collect();
-    let report = serde_json::json!({
-        "name": config_name,
-        "all_passed": total_fail == 0,
-        "total": total_pass + total_fail + total_skip,
-        "pass": total_pass,
-        "fail": total_fail,
-        "skip": total_skip,
-        "results": json_results,
-    });
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?
-    );
-    Ok(())
-}
+#[cfg(test)]
+pub(super) use super::check_json::format_check_json;
+pub(super) use super::check_json::format_check_json_with_locks;
 
 /// FJ-178: Per-machine state locks plus whether the state dir exists at all.
 pub(super) struct CheckState {
@@ -277,6 +248,7 @@ struct CheckTally {
     pass: usize,
     fail: usize,
     skip: usize,
+    unmeasured: usize,
     results: Vec<CheckResult>,
 }
 
@@ -340,6 +312,8 @@ fn check_resource_machines(
         report_unrecorded(result.in_state, resource_id, machine_name, ctx.json);
         if passed {
             tally.pass += 1;
+        } else if result.status == "unmeasured" {
+            tally.unmeasured += 1;
         } else {
             tally.fail += 1;
         }
@@ -370,14 +344,7 @@ pub(crate) fn cmd_check(
         ..Default::default()
     };
     super::apply_selection::resolve_selection(&mut config, &selectors, verbose)?;
-    cmd_check_selected(
-        &config,
-        machine_filter,
-        tag_filter,
-        state_dir,
-        json,
-        verbose,
-    )
+    cmd_check_selected(&config, machine_filter, None, state_dir, json, verbose)
 }
 
 /// PMAT-160 (#467): run the checks over a config that is ALREADY the selection.
@@ -392,6 +359,23 @@ pub(crate) fn cmd_check(
 /// `machine_filter` and `tag_filter` stay, unchanged and for the same reasons
 /// they stay in `apply`: `-m` picks the executor, `-t` is a per-resource filter
 /// the planner applies too.
+/// forjar#585: the lock file each checked machine was read from.
+fn check_lock_paths(
+    config: &types::ForjarConfig,
+    state: &CheckState,
+    state_dir: &Path,
+) -> std::collections::BTreeMap<String, String> {
+    config
+        .machines
+        .keys()
+        .filter(|m| state.locks.contains_key(*m))
+        .map(|m| {
+            let path = super::drift::resolved_lock_path(state_dir, m);
+            (m.clone(), path.display().to_string())
+        })
+        .collect()
+}
+
 pub(crate) fn cmd_check_selected(
     config: &types::ForjarConfig,
     machine_filter: Option<&str>,
@@ -435,8 +419,13 @@ pub(crate) fn cmd_check_selected(
             continue;
         }
 
-        let resolved =
-            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+        // forjar#1011: the manifest's `secrets:` provider, as `apply` resolves it.
+        let resolved = resolver::resolve_resource_templates_with_secrets(
+            resource,
+            &config.params,
+            &config.machines,
+            &config.secrets,
+        )?;
 
         let Some(check_script) = check_script_or_skip(resource_id, resource, &resolved, json)
         else {
@@ -451,21 +440,52 @@ pub(crate) fn cmd_check_selected(
         pass: total_pass,
         fail: total_fail,
         skip: total_skip,
+        unmeasured: total_unmeasured,
         results: check_results,
     } = tally;
 
+    let lock_paths = check_lock_paths(config, &ctx.state, state_dir);
+
+    let counts = (total_pass, total_fail, total_skip, total_unmeasured);
+    report_check(&config.name, &check_results, counts, &lock_paths, json)
+}
+
+/// Print the check report (JSON or text) and map the tally to the exit verdict.
+fn report_check(
+    name: &str,
+    check_results: &[CheckResult],
+    (total_pass, total_fail, total_skip, total_unmeasured): (usize, usize, usize, usize),
+    lock_paths: &std::collections::BTreeMap<String, String>,
+    json: bool,
+) -> Result<(), String> {
     if json {
-        format_check_json(
-            &config.name,
-            &check_results,
+        format_check_json_with_locks(
+            name,
+            check_results,
             total_pass,
             total_fail,
             total_skip,
+            lock_paths,
         )?;
     } else {
-        println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip");
+        let extra = if total_unmeasured > 0 {
+            format!(", {total_unmeasured} unmeasured")
+        } else {
+            String::new()
+        };
+        println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip{extra}");
+        for (m, p) in lock_paths {
+            println!("  lock ({m}): {p}");
+        }
     }
 
+    // forjar#659: a target that never answered outranks a drift verdict: exit 4.
+    if total_unmeasured > 0 {
+        return Err(format!(
+            "{}: {total_unmeasured} check(s) could not be measured ({total_fail} failed)",
+            crate::core::error::CHECK_UNMEASURED_MARKER
+        ));
+    }
     if total_fail > 0 {
         Err(format!("{total_fail} check(s) failed"))
     } else {

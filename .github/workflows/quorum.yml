@@ -7,9 +7,15 @@
 # see docs/specifications/quorum-spec.md, "A local hook enforces nothing on its own".
 name: Quorum
 
+# 2026-11-10 (Noah, infra#3457 / GATE-JUNK-001): this job no longer runs on pull_request.
+# Measured: it failed 23 of 26 open PRs with "receipt store ... is missing (UNMEASURED)". It runs on
+# [self-hosted, clean-room, ARM64] (gx10 pools), the receipt store lives on lambda, so the answer depended on
+# the host, and "cannot measure" was reported as FAIL. It also ran before any review could exist, so a new PR
+# was red by construction and reviewers skip red PRs. The receipt is enforced where it matters: the merge
+# train refuses a PR without the two-lane aggregate at the exact head (infra fleet/cops/merge-train.sh AGR_JQ).
+# Kept as a manual dispatch for audits; `gate` stays the one required check.
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 # Cancel a superseded run, matching ci.yml / bench.yml / behavior.yml.
 #
@@ -19,14 +25,15 @@ on:
 # from a run that was already obsolete is exactly how a gate gets reclassified as
 # noise and then ignored.
 concurrency:
-  group: quorum-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
   receipt:
+    timeout-minutes: 15
     name: quorum receipt
     runs-on: [self-hosted, clean-room, ARM64]
     # A CARGO_HOME private to this job, matching behavior.yml, convergence.yml,
@@ -71,7 +78,8 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} || git fetch origin main
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Show toolchain
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
 

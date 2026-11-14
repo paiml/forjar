@@ -33,9 +33,9 @@ use super::cron::*;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 use std::path::{Path, PathBuf};
 
-const CMD: &str = "/usr/local/bin/backup.sh";
+pub(super) const CMD: &str = "/usr/local/bin/backup.sh";
 
-fn cron(name: &str, schedule: &str, command: &str) -> Resource {
+pub(super) fn cron(name: &str, schedule: &str, command: &str) -> Resource {
     Resource {
         resource_type: ResourceType::Cron,
         machine: MachineTarget::Single("m1".to_string()),
@@ -47,13 +47,13 @@ fn cron(name: &str, schedule: &str, command: &str) -> Resource {
     }
 }
 
-fn absent(name: &str) -> Resource {
+pub(super) fn absent(name: &str) -> Resource {
     let mut r = cron(name, "0 3 * * *", CMD);
     r.state = Some("absent".to_string());
     r
 }
 
-fn write_exe(path: &Path, body: &str) {
+pub(super) fn write_exe(path: &Path, body: &str) {
     std::fs::write(path, body).expect("write fake binary");
     #[cfg(unix)]
     {
@@ -63,12 +63,12 @@ fn write_exe(path: &Path, body: &str) {
 }
 
 /// A hermetic crontab: fake `crontab`, `sudo` and `id` on PATH over one file.
-struct FakeCrontab {
+pub(super) struct FakeCrontab {
     dir: PathBuf,
 }
 
 impl FakeCrontab {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let dir =
             std::env::temp_dir().join(format!("forjar-cron-exec-{}-{}", tag, std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -80,7 +80,7 @@ impl FakeCrontab {
         fx
     }
 
-    fn bin(&self) -> PathBuf {
+    pub(super) fn bin(&self) -> PathBuf {
         self.dir.join("bin")
     }
 
@@ -88,16 +88,16 @@ impl FakeCrontab {
         self.dir.join("crontab.store")
     }
 
-    fn seed(&self, text: &str) {
+    pub(super) fn seed(&self, text: &str) {
         std::fs::write(self.store(), text).expect("seed crontab store");
     }
 
     /// The crontab as the fake `crontab -l` would print it.
-    fn read(&self) -> String {
+    pub(super) fn read(&self) -> String {
         std::fs::read_to_string(self.store()).unwrap_or_default()
     }
 
-    fn run(&self, script: &str) -> std::process::Output {
+    pub(super) fn run(&self, script: &str) -> std::process::Output {
         let path = format!(
             "{}:{}",
             self.bin().display(),
@@ -112,7 +112,7 @@ impl FakeCrontab {
             .expect("bash is available")
     }
 
-    fn apply(&self, r: &Resource) {
+    pub(super) fn apply(&self, r: &Resource) {
         let out = self.run(&apply_script(r));
         assert!(
             out.status.success(),
@@ -155,9 +155,9 @@ const FAKE_SUDO: &str = r#"#!/usr/bin/env bash
 [ "$1" = "-n" ] && shift
 printf 'LC_ALL=%s %s\n' "${LC_ALL:-}" "$*" >> "$FORJAR_TEST_CRON_STORE.sudolog"
 # A crontab-only sudoers rule: any other command (e.g. `env`) is refused.
-# `true` is the check guard's `sudo -n true` probe.
+# forjar#848: `true` is NOT allowed; the check guard must probe the read itself.
 case "$1" in
-  crontab|/usr/bin/crontab|true) ;;
+  crontab|/usr/bin/crontab) ;;
   *) echo "sudo: sorry, you are not allowed to execute '$1' as root" >&2; exit 1 ;;
 esac
 exec "$@"

@@ -4,7 +4,8 @@ use super::build_image::*;
 use crate::core::types::{ForjarConfig, ImageBuildPlan, LayerStrategy};
 
 fn make_config_with_image() -> ForjarConfig {
-    serde_yaml_ng::from_str(r#"
+    serde_yaml_ng::from_str(
+        r#"
 version: "1.0"
 name: test-stack
 machines:
@@ -18,15 +19,15 @@ resources:
     name: myapp
     version: "1.0.0"
     image: "ubuntu:22.04"
-    command: "/usr/local/bin/myapp"
+    entrypoint: ["/usr/local/bin/myapp"]
     path: /etc/app/config.yaml
-"#).unwrap()
+"#,
+    )
+    .unwrap()
 }
 
 fn minimal_config() -> ForjarConfig {
-    serde_yaml_ng::from_str(
-        "version: '1.0'\nname: test\nmachines: {}\nresources: {}\n"
-    ).unwrap()
+    serde_yaml_ng::from_str("version: '1.0'\nname: test\nmachines: {}\nresources: {}\n").unwrap()
 }
 
 #[test]
@@ -40,7 +41,8 @@ fn build_plan_sets_tag_and_base() {
 
 #[test]
 fn build_plan_default_tag() {
-    let config: ForjarConfig = serde_yaml_ng::from_str(r#"
+    let config: ForjarConfig = serde_yaml_ng::from_str(
+        r#"
 version: "1.0"
 name: test
 machines:
@@ -51,7 +53,9 @@ resources:
   img:
     type: image
     machine: m
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let res = config.resources.get("img").unwrap();
     let plan = test_build_plan_from_resource("img", res, &config).unwrap();
     assert_eq!(plan.tag, "img:latest");
@@ -67,7 +71,8 @@ fn build_plan_entrypoint() {
 
 #[test]
 fn build_plan_no_entrypoint() {
-    let config: ForjarConfig = serde_yaml_ng::from_str(r#"
+    let config: ForjarConfig = serde_yaml_ng::from_str(
+        r#"
 version: "1.0"
 name: test
 machines:
@@ -79,7 +84,9 @@ resources:
     type: image
     machine: m
     name: myapp
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let res = config.resources.get("img").unwrap();
     let plan = test_build_plan_from_resource("img", res, &config).unwrap();
     assert!(plan.entrypoint.is_none());
@@ -101,7 +108,9 @@ fn collect_entries_packages_strategy() {
     let plan = ImageBuildPlan {
         tag: "test:latest".into(),
         base_image: None,
-        layers: vec![LayerStrategy::Packages { names: vec!["curl".into(), "jq".into()] }],
+        layers: vec![LayerStrategy::Packages {
+            names: vec!["curl".into(), "jq".into()],
+        }],
         labels: vec![],
         entrypoint: None,
     };
@@ -132,7 +141,11 @@ fn cmd_build_resource_not_found() {
     std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  pkg:\n    type: package\n    machine: m\n    provider: apt\n    packages: [curl]\n").unwrap();
     let r = cmd_build(&path, "nonexistent", false, false, false, false, false);
     assert!(r.is_err(), "expected error, got: {:?}", r);
-    assert!(r.as_ref().unwrap_err().contains("not found"), "got: {:?}", r);
+    assert!(
+        r.as_ref().unwrap_err().contains("not found"),
+        "got: {:?}",
+        r
+    );
 }
 
 #[test]
@@ -286,7 +299,10 @@ fn collect_entries_build_strategy_missing_dir() {
     let config = minimal_config();
     let entries = test_collect_layer_entries(&plan, &config).unwrap();
     assert_eq!(entries.len(), 1);
-    assert!(entries[0].is_empty(), "missing dir should produce empty entries");
+    assert!(
+        entries[0].is_empty(),
+        "missing dir should produce empty entries"
+    );
 }
 
 #[test]
@@ -352,11 +368,20 @@ fn cmd_build_with_load_flag_no_runtime() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("forjar.yaml");
     std::fs::write(&path, "version: \"1.0\"\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  img:\n    type: image\n    machine: m\n    name: myapp\n    path: /app/bin\n").unwrap();
-    // --load requires docker or podman; may or may not be available in test env
-    let r = cmd_build(&path, "img", true, false, false, false, false);
-    // Either succeeds (docker/podman found) or errors with known message
-    if let Err(e) = &r {
-        assert!(e.contains("docker or podman"), "got: {:?}", r);
+    // forjar#503: the probe is injected, so "no runtime" is made true, not read from the host.
+    let _ = &path;
+    let r = crate::cli::build_distribution::cmd_build_load_with(dir.path(), |_| false);
+    assert_eq!(
+        r,
+        Err("--load requires docker or podman on PATH".to_string())
+    );
+    // A probe that finds a runtime never reports the no-runtime error.
+    let r = crate::cli::build_distribution::cmd_build_load_with(
+        std::path::Path::new("/nonexistent-oci-dir"),
+        |n| n == "podman",
+    );
+    if let Err(e) = r {
+        assert!(!e.contains("docker or podman"), "runtime was offered: {e}");
     }
 }
 
@@ -388,10 +413,7 @@ fn split_paths_no_configs() {
 
 #[test]
 fn split_paths_all_configs() {
-    let paths = vec![
-        "/etc/app.json".to_string(),
-        "/etc/db.env".to_string(),
-    ];
+    let paths = vec!["/etc/app.json".to_string(), "/etc/db.env".to_string()];
     let (configs, apps) = test_split_paths_by_type(&paths);
     assert_eq!(configs.len(), 2);
     assert!(apps.is_empty());
@@ -407,7 +429,8 @@ fn split_paths_empty() {
 
 #[test]
 fn build_plan_single_path_one_layer() {
-    let config: ForjarConfig = serde_yaml_ng::from_str(r#"
+    let config: ForjarConfig = serde_yaml_ng::from_str(
+        r#"
 version: "1.0"
 name: test
 machines:
@@ -422,7 +445,9 @@ resources:
     version: "1.0.0"
     command: "/app/server"
     path: /app/server
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     let res = config.resources.get("single-file-image").unwrap();
     let plan = test_build_plan_from_resource("single-file-image", res, &config).unwrap();
     // Single path → single layer (no split possible)

@@ -7,6 +7,197 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.1] - 2026-11-13
+
+Patch release for the `--resource-timeout` fix below (PMAT-992), which the
+v1.34.0 clean-room run on `rust:1.95-slim` found. It is cut from `main`, so it
+also carries everything merged after the v1.34.0 tag, listed after the fix.
+Two of those entries change behaviour a script may depend on: `forjar secrets
+encrypt` no longer takes the secret as an argument (PMAT-893, #895), and
+`command:` on `type: image` is now a build step, not the entrypoint (PMAT-989).
+
+**`--resource-timeout` bounds the apply on a host with no `kill` binary (PMAT-992, #992).**
+The timeout path killed the script's process group by spawning the external
+`kill` program and discarded the error. An image without procps
+(`rust:1.95-slim`) has no such program, so nothing was killed and a 2 s timeout
+waited out a 30 s script. The group is now signalled by syscall (`killpg`), as is
+the pepita namespace teardown. Group 0 (forjar's own) and PIDs 0 and 1 are
+refused.
+
+**`apply --check` resolves `{{secrets.*}}` through the manifest's `secrets:` provider (PMAT-1011, #1011).**
+`check` resolved each resource's templates with the default secrets config, so it
+read `FORJAR_SECRET_<NAME>` and failed `secret '<name>' not found` for any resource
+using a `sops`, `op` or `file` provider, while `apply` and `--dry-run` resolved it.
+`check` now passes the manifest's `secrets:` block, as `apply` does (infra#4181).
+`forjar test` has the same call and is not changed here.
+
+**A file resource stages to a per-run name, not a fixed one (PMAT-638, #638).**
+The atomic replace staged every write at `<path>.forjar-new`, a name any writer
+in the same directory could open between the `rm -f` and the `mv -f`. The script
+now stages at `<path>.forjar-new.$$` (the shell's PID). A PID is still guessable
+and an apply that dies before the `mv -f` leaves its `.forjar-new.<pid>` behind;
+both are accepted and stated in the code. A `completion_check` declared on a
+package resource is now part of its check verdict (#694). The generated-script
+lint corpus now exercises `state: file` with `content` and with `source`.
+
+**build.rs resolves `contracts/` when it runs, not when it was compiled (PMAT-194, #456).**
+`env!("CARGO_MANIFEST_DIR")` is expanded when the build script is compiled, so a
+reused build-script binary (same `CARGO_TARGET_DIR`, another checkout) read the
+old checkout's `contracts/` and panicked. It now reads the variable at run time
+and re-runs when it changes. The CI step that runs the vendored `forjar-contracts`
+suite (#452) is not part of this change and is not measured by CI.
+
+**`forjar build` layers the base image its config declares, and fails when it is absent (PMAT-989, #989, IMG-001).**
+An image resource with `image: <base>` used to read the base layout only to print
+its summary and then build a scratch image, exiting 0. The build now loads the
+layout at `state/images/<base with ':' and '/' as '_'>`, puts the base layers
+first in the manifest, copies their blobs into the output, and includes the
+base's identity in the build-cache key. A declared base that is absent,
+unreadable or missing blobs is now an error that names the reference, the
+directory and the `skopeo copy docker://<ref> oci:<dir>` command that supplies
+it, and nothing is written. `--json` gains `base` and `base_layers`, and
+`layer_count` counts the manifest's layers (base + built). The `--sandbox` path is not
+part of this change.
+
+**`forjar build` executes `packages` and `command` into a layer on the declared base (PMAT-989, #989, IMG-001 3/N).**
+An image resource's `packages` and `command` were never run: the layers held only
+the declared `path:` files (or a marker file). The build now starts a container
+from the declared base, installs the packages with the script `forjar apply`
+uses, runs `command`, captures the filesystem changes as one extra layer
+(sorted, epoch mtime, runtime-volatile paths normalised, whiteouts for deletes)
+and appends it after the base layers. Packages or command without `image:`
+fail the build. The base's diff_ids are checked against the runtime's copy. The
+cache key covers the steps; `--json` gains an `exec` object. Limits: the layer
+is owned by 0:0 (so setuid/setgid bits are stripped from entries the container did not
+own as root, with a warning in the report and `exec.setid_stripped` in `--json`), package
+versions are unpinned, and `--sandbox` with `packages:` or `command:` is refused
+(it would otherwise drop them). Falsifiers
+F1/F2 are in `tests/falsification_image_exec.rs` (`--features container-test`,
+needs Docker; not run by CI). On a containerd-image-store daemon, `--load`ed
+images do not resolve by tag (run by id). A base reference is refused unless it uses only
+`[A-Za-z0-9._-/:@]` and is not `.` or `..`; an image with no `path:`, `packages:` or non-blank
+`command:` fails validation as an image.
+
+**Changed: `command:` on `type: image` is now a build step, not the entrypoint.** The new
+`entrypoint: [..]` field sets the image entrypoint.
+
+**`ResourceType` prints in its serde spelling in the CLI; the cron check guard skips only on a sudo refusal (PMAT-916, #433, #848, #445).**
+About 50 CLI lines printed the Debug spelling (`WasmBundle`); they now print the snake_case spelling (`wasm_bundle`), and checks that compared the string with `"Service"`, `"Package"`, `"File"` or `"Mount"` compare with the new spelling. Lineage and provenance hash inputs keep the Debug spelling, pinned by golden tests. `cron` check probes the crontab read itself, so a crontab-only sudoers rule is observed; a missing sudo or a sudo refusal is a SKIP, and "no crontab" is `missing:`. `apply` refuses by name, leaving the crontab unchanged, when a forjar marker has lost its intact block, including a block whose entry line was deleted or commented out (the line after it is never taken for the entry).
+
+**Encryption is now a default feature (PMAT-893, #893).** `cargo install forjar` includes
+age: `forjar secrets keygen`, `secrets encrypt/decrypt` and state encryption work out of
+the box instead of failing with "compiled without encryption support". `secrets keygen -o`
+creates the identity file 0600 from the first syscall and refuses to overwrite.
+`default-features = false` still drops age.
+
+**BREAKING: `forjar secrets encrypt` no longer takes the secret as an argument; the `secrets` family never echoes one (PMAT-893, #895).**
+The positional `VALUE` is removed: an argv secret is visible in `ps` and
+`/proc/<pid>/cmdline`, and a value beginning with `-----BEGIN` (a PEM key) made clap print
+the whole key twice in its "unexpected argument" error and tip. The plaintext now comes
+from stdin (`forjar secrets encrypt -r R < key.pem`; `--stdin` is an
+explicit form of the default, and conflicts with `--from-file`) or `--from-file PATH`. A positional value, or `-` as
+an argv secret, is refused with a fixed message that does not contain it. Scripts that ran
+`forjar secrets encrypt -r R VALUE` must pipe the plaintext on stdin.
+Redaction scope: clap usage errors are replaced by a fixed message when the subcommand
+word is `secrets`, a case-insensitive `secret*` word (glued secrets: `secrets=S`, `secretsS`,
+`secret=S`) or `help`, and for an InvalidSubcommand error when a later word is a secrets
+word (`--verbose S secrets encrypt`). Leading flags with glued values (`--verbose=S`) are
+skipped when locating the subcommand word. `forjar apply -f secrets.yaml --bogus` keeps
+clap's real error. A non-UTF-8 argument no longer panics or prints. Also changed in this family:
+- a bad recipient reads `invalid recipient #N: not an age X25519 public key (value not shown)`
+  (an unset shell variable can slide the secret into the `-r` slot);
+- no path is echoed by `--from-file`, `keygen -o`, `decrypt -i`, `view -f`, `rekey` or
+  `rotate` errors or success lines, only the io error kind (`NotFound`, ...);
+- a failing stdout (full disk, closed pipe) is `cannot write to stdout` with exit 1, not a
+  panic;
+- stdin and `--from-file` plaintext is capped at 16 MiB (`plaintext exceeds the 16 MiB
+  limit`, exit 1), so input size alone cannot reach an out-of-memory abort.
+Known residual risk: forjar builds with `panic = "abort"` and does not disable core dumps or
+zero plaintext buffers, so a SIGABRT or OOM kill while a secret is in memory can write it to
+a core file. Run secrets commands under `ulimit -c 0`; `PR_SET_DUMPABLE`/`RLIMIT_CORE`
+hardening and zeroizing are tracked as a follow-up (no safe wrapper is a direct dependency,
+and `unsafe` is forbidden in this crate).
+
+### Changed
+
+- `forjar apply -t TAG` now runs the tagged resources together with their
+  `depends_on` closure, as `-r` does, so a tagged deploy no longer executes
+  against a prerequisite that carries no tag (PMAT-890).
+- `forjar plan` against a state directory that does not exist is refused,
+  naming `--state-dir`, instead of printing every resource as an add (#880).
+
+**`check` and `apply --check` count an unreachable host as unmeasured, exit 4 (PMAT-659, #659).**
+A host that never answered (ssh exit 255, or a transport error) was reported as `fail`, the same word
+as drift, so a dead host read as "changes needed". It is now `unmeasured`: the text report prints
+`UNMEASURED`, `--json` carries `"status": "unmeasured"`, `"unmeasured": N` and `all_passed: false`, and
+the run exits 4 ahead of a drift verdict. Same rule as the drift detectors.
+
+**`lock-prune -f` is scoped to the config it is given (PMAT-661, #661).**
+It walked every machine directory under `--state-dir` and called every key the one config lacked
+stale, so a state dir shared by two stacks lost the other stack's entries. It now touches only the
+machines the config declares, and refuses, before writing anything, a machine another stack's stamp
+also lists.
+
+**drift with an empty state dir compares the declared pin live (PMAT-912, #852, #613, #694).**
+`forjar drift` with an empty state dir (no lock for any machine) is now treated
+as lockless: a declared pin is compared against the live binary, offline too,
+instead of inspecting 0 resources and exiting 0. A state dir that holds another
+stack's locks is not treated as empty, so a machine of this config that was never
+applied there is not an error. The plan version-pin pass (`plan_version_pins::measure`)
+is now covered by tests: a live version that is not the pin reads DRIFTED, the
+skipped upstream leg is disclosed offline, and an undeclared machine reads NOT CHECKED.
+For #694, which is already on main: a blank or whitespace-only package
+`completion_check` now adds no assertion (it was a shell syntax error), and tests
+pin that the check script includes both its presence checks and `completion_check`
+for apt, cargo, uv and brew, and that `verify_against_host` asks that script.
+
+**The disk-budget reaper deletes only what it can prove dead (GH-667, GH-669, GH-936; #667, #669, #936).**
+The reaper loop runs one in-use check on every candidate of every reclaim kind,
+before the idle check and before `rm`, so a `cargo_target` whose binary is
+running is kept. The open-path scan reads `/proc/*/exe` and the file paths in
+`/proc/*/maps` as well as `cwd` and `fd`. When the target cannot be reached even
+by freeing every eligible candidate, the pass logs `UNREACHABLE` and the
+shortfall, deletes nothing and still exits 1, instead of turning into a
+time-to-live sweep. An empty or timed-out `/proc` scan is NOT MEASURED and
+proves nothing dead; byte sums are exact above 2^31 and counted once across
+overlapping rules.
+
+Also merged since v1.34.0, one line each from the merge subjects:
+
+- `apply --only-machine X` with `-m Y` (disjoint) is refused by name instead of converging nothing at rc=0 (#471, #950).
+- `apply`: refresh-only selection, canary pre-hooks and a plan-file drift notice (#911, #941).
+- `show` resolves `data:` sources before templates (#660, #934).
+- `store import docker` removes the container it created (#621, #933).
+- A timeout that fires before the child spawns still kills the child (infra#3590, #932).
+- `lint` masks secret references so apply scripts are linted (#903).
+- Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#945).
+- Tests only: the build test no longer depends on the host's docker or podman (#503, #948); a templated guard is pinned as seeded like a plain one (#590, #946).
+- CI only: same-job `cargo test` steps run as one invocation (infra#3828, #978).
+- CI only: 26 workflow jobs gain `timeout-minutes`, so a hung job frees its runner; `ci.yml` and `lint.yml` build without debug info or incremental state. No job is added, removed or skipped (PMAT-913, infra#3828, #972).
+- Repository only: the dead `pmat_split.py` and `split_files.py` are deleted; no shipped code changes (PMAT-896, #958, #959).
+- CI only: each weekly Stress Tests leg ran ten single-threaded `cargo test --lib` passes (6-9 minutes each) under a 30-minute timeout, so no leg could finish and fail-fast cancelled the others; legs now run three passes under 45 minutes with `fail-fast: false`, pinned by `tests/falsification_stress_workflow_fits_its_timeout.rs` (PMAT-673, #673, #914).
+- Tests only: `tests/falsification_sec005_needs_a_token_boundary.rs` pins the bashrs 7.4.2 SEC005 token boundary: `disk-watch`, `ask-lane` and `desk-lamp` in quoted assignments are not flagged as API keys, which bashrs 6.68.0 did (#649, #914).
+- Release workflow only: no Homebrew formula is published. Noah's ruling of 2026-11-13: "drop homebrew support". `release.yml` loses its `homebrew` job (red on the last five tags: `HOMEBREW_TAP_TOKEN` undefined since #462); `dist-artifacts` passes `--installer --binstall --nix --github-action --deb --rpm` instead of `--all`; `dist-forjar.yaml` drops its `homebrew:` block. `forjar dist --homebrew` is unchanged, and the external tap repo is untouched (PMAT-1014, #1016).
+- `github_release` prints its missing-asset message under `pipefail` instead of aborting silently, and a curl failure is reported as a curl failure (PMAT-608, #910).
+- The inode-pressure gate probes BSD/macOS with `df -i` and fails closed on output it cannot parse, so `apply` on a macOS host is no longer refused by the Linux-only probe (PMAT-995, #1003).
+- `forjar --version` names the build commit (#639).
+- A resource that fails is recorded as `action: failed` in the run log instead of being counted as converged (PMAT-688, #688).
+- Fix: two concurrent applies can no longer both run. A racer could read an empty lock file, reap the live holder's lock and start a second apply; the lock is now published atomically with link(2) (FJ-LOCK-001 C1, #930).
+- Fix: the apply lock is held from before validate until after the post-actions and is released on drop, so it no longer leaks on an early return or a panic (FJ-LOCK-001 C2, #930).
+- `forjar drift` names the lock file(s) it read, or says none; `--json` gains `lock_files` (PMAT-585, #585).
+- `plan -t` closes over `depends_on` like `apply -t`; `plan` gains `-p/--param KEY=VALUE`, and `plan --param ... --out` is refused (PMAT-890).
+- CI only: git/bash-only jobs run on the `gate-light` runners (#1005); `softprops/action-gh-release` 3.0.2 to 3.0.4 (#904).
+
+**State locks carry an owner id, are per machine, and can wait (FJ-LOCK-001 C1-C5, #923 #924 #925; merged as #930).**
+The lock records uuid id, host, boot id, pid and starttime; release only removes a lock this process owns;
+`--force-unlock <ID>` refuses a live local holder. Applies lock per machine plus a short global lock for shared
+files, so a hung machine no longer blocks the others. `--lock-timeout` waits in FIFO order and the refusal names the holder.
+
+## [1.34.0] - 2026-11-11
+
+Version bump: v1.33.0 is already tagged, so this release carries everything
+merged since. The entries below were listed under Unreleased.
+
 **A service declared `state: stopped` is stopped when it is `activating` (PMAT-708, #708).**
 The apply gated `systemctl stop` on `is-active`, which is false for a
 `Restart=always` unit waiting to restart (`activating`, SubState `auto-restart`)
@@ -79,6 +270,27 @@ under `timeout` (`FORJAR_BUDGET_FIND_TIMEOUT`, default 120 s), `-xdev`, `nice` a
 MEASURED and fails safe: nothing is proven dead and nothing is deleted. The
 default cadence stays `hourly`; a faster one (e.g. `*:0/15`) is an explicit
 `budget_schedule`.
+
+**A `copia` file transfer runs in the declared `sudo` context, so a source over
+1 MiB no longer fails (#927, #940).**
+
+Also merged since v1.33.0, one line each from the merge subjects:
+
+- `plan --refresh` consults the host before diffing, writes nothing, and says what it could not measure (#415, #684).
+- `plan --output-dir` honours `-r`/`-m`/`-g`/`-t` and never resolves a secret (#674, #675).
+- `apply -r <one> --cost-limit` counts only the selected resources (PMAT-829, #833).
+- A failing data source no longer fails the plan (PMAT-828, #830).
+- A secret is redacted from the failure excerpt in lock, events and stderr (#782).
+- `parse_config` reports the schema-free parse's error for a malformed document (PMAT-760, #786).
+- `--resource-timeout` bounds the apply script on the wave path (#777, #778).
+- `cron` with `state: absent` fails closed when the crontab cannot be read (#790).
+- A new inode-pressure check and a `tmp_reaper` resource (#847, #849).
+- `drift` names the resolved lock it read (#585, #957).
+- The `package` cargo check tolerates a silent helper and runs binaries in a scratch directory (#662, #956).
+- `is_local_addr` recognises addresses held by a local interface (#724).
+- A sandbox's `$out` is sealed in-process (#410, #682).
+- Dependencies: rusqlite 0.41 clears RUSTSEC-2026-0459 (#942); tokio 1.54.1 (#783); zip 9 (#715); webpki and rustls bumps (#711).
+- CI and release engineering: ARM64 clean-room gate jobs (#827), PR-number concurrency groups (#976), mutation runs on schedule only (#973), the quorum-receipt gate reads the receipt store (#874).
 
 ## [1.33.0] - 2026-09-28
 

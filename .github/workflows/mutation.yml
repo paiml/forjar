@@ -2,22 +2,18 @@
 # Runs mutation tests to verify detection coverage
 name: mutation
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "mutants.toml"
-      - ".cargo/config.toml"
-      - ".github/workflows/mutation.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "mutants.toml"
-  workflow_dispatch:
+  # infra#3828, operator ruling 2026-11-10 16:50Z: "NO build can do mutation
+  # outside of nightly; the end. FOREVER". `schedule` ONLY: no push, pull_request,
+  # merge_group, train/** or dispatch trigger, and nothing may `needs:` this job.
+  # The cron sits at the start of the night window so a late delivery still
+  # lands inside it: the run for the 03:17 UTC slot of 2026-11-11 was created
+  # by GitHub at 11:06 UTC (run 43009168778) and then sat queued by day.
+  schedule:
+    - cron: "17 0 * * *"
 
 concurrency:
-  group: mutation-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   mutation:
@@ -29,6 +25,9 @@ jobs:
     # matches, so without `intel` this job is a per-run lottery. `intel` is a
     # hostname standing in for a capability; remove it with the others when a
     # capability label exists or yoga's images converge (paiml/infra#813).
+    # 2026-11-11: the ARM64 clean-room containers were checked as a second
+    # home for this job (three of them): cargo-mutants is present, rsync is
+    # not, so the pin stays until rsync is in that image.
     runs-on: [self-hosted, clean-room, X64, intel]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
@@ -45,14 +44,35 @@ jobs:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Nightly only (infra#3828). A schedule event is delivered late when
+      # GitHub is busy, and this job can wait hours for its one host, so the
+      # clock is read when the job STARTS: outside 00:00-05:59 UTC every later
+      # step is skipped and the job ends at once. The next night's run measures.
+      - name: Night window (00:00-05:59 UTC) or stop
+        id: window
+        run: |
+          h=$(date -u +%-H)
+          if [ "$h" -lt 6 ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::mutation started at ${h}h UTC, outside 00:00-05:59; not run today"
+          fi
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        if: steps.window.outputs.run == 'true'
+
+      # Toolchain comes from rust-toolchain.toml (preinstalled in the runner image);
+      # no runtime fetch, no floating `@stable`.
+      - name: Show toolchain
+        if: steps.window.outputs.run == 'true'
+        run: rustc --version
 
       - uses: Swatinem/rust-cache@v2
+        if: steps.window.outputs.run == 'true'
 
-      - name: Install cargo-mutants
+      - name: Assert cargo-mutants is available
+        if: steps.window.outputs.run == 'true'
         run: |
           # forjar#566: a stale `rustup override set 1.89.0`, left in this
           # runner's workspace by the MSRV job before that job stopped writing
@@ -60,14 +80,18 @@ jobs:
           # and failed to build under it. Clear it so the pin applies.
           rustup override unset
           rustc --version
-          cargo install cargo-mutants
+          if ! command -v cargo-mutants >/dev/null 2>&1; then
+            echo "cargo-mutants is not on runner ${RUNNER_NAME:-unknown}: add it to the runner image; a PR gate makes no network fetch" >&2
+            exit 1
+          fi
 
       - name: Run mutation tests
+        if: steps.window.outputs.run == 'true'
         continue-on-error: true
         run: cargo mutants --timeout 120
 
       - name: Upload mutation report
-        if: always()
+        if: always() && steps.window.outputs.run == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: mutation-results

@@ -1,0 +1,104 @@
+{
+  "kind": "code",
+  "issue": "PMAT-638 (forjar#906 / #638) \u2014 stage regular-file writes at a per-run PID path (<path>.forjar-new.$$) with EXIT cleanup, pre-rename chown/chmod, shell_escape decoder parity, and I8 generated-script lint corpus coverage.",
+  "branch": "s-forjar-1/638",
+  "recorded_at": "three independent agy Gemini 4 Carbon (thinking=high) lanes (per-PID atomic staging, quoting/EXIT trap/I8 lint, pre-rename permissions & package checks) at head 1e5c9be8; 3/3 PASS with 4 claims confirmed and 2 refuted.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "round 1, head 1e5c9be8 \u2014 agy Gemini 4 Carbon (High) Lane 1 (Per-PID Staging Path & Concurrent Writer Isolation): PASS",
+      "round 1, head 1e5c9be8 \u2014 agy Gemini 4 Carbon (High) Lane 2 (Shell Single-Quoting, EXIT Trap Cleanup & I8 Gate Corpus): PASS",
+      "round 1, head 1e5c9be8 \u2014 agy Gemini 4 Carbon (High) Lane 3 (Pre-Rename Permissions, Decoder Parity & Revert Kill): PASS"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent agy Gemini 4 Carbon (thinking=high) review passes per LANES=3 ruling, distinct from the Claude author model.",
+    "kill_rule": "every claim C1..C4 and R1..R2 met 3 independent refuters; R1 refuted an earlier docstring overclaim that per-PID naming closed symlink/PID-prediction races, and R2 isolated stale-base/host-only failures from PR behavior.",
+    "refuters_per_claim": 3,
+    "claims_confirmed": 4,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "R1: Earlier branch docstring claimed .forjar-new.$$ closed the staging race completely; refuted by lane f20-i4 and corrected in 5b3bccad + impl-PMAT-638-receipt.md (PID is guessable and SIGKILL before mv -f leaves .forjar-new.<pid>).",
+      "R2: Initial CI red on dogfood-guards and 10 local integration failures on <host> looked like PR regressions; Five-Whys + plain origin/main control in impl-PMAT-638-receipt.md proved stale pre-merge workflow list + 10 identical main host failures."
+    ]
+  },
+  "falsification": {
+    "test": "Strip the .$$ per-run PID suffix in src/resources/file.rs on <host> (<SCRATCH>) and run cargo test --lib resources::tests_file_staging.",
+    "test_file": "src/resources/tests_file_staging.rs",
+    "cargo_test_target": "tests_file_staging",
+    "reverted": true,
+    "still_green_when_reverted": false,
+    "observed_failure": "Measured on <host> (<SCRATCH>): reverting per-PID staging in src/resources/file.rs (! cmp -s verified) failed resources::tests_file_staging::test_638_staging_name_is_per_run (0 passed; 1 failed, FJ_906_REVERT_RC=101)."
+  },
+  "crux": {
+    "systems": [
+      "rsync temporary receiver files (.filename.XXXXXX) & dpkg (.dpkg-new): stages writes in same-filesystem per-run sibling paths before atomic rename(2)",
+      "Ansible atomic_move: applies owner/group/mode on the staged temporary file prior to rename so the destination never appears with permissive default mode",
+      "POSIX sh parameter expansion ('path.'$$): single-quotes arbitrary user path bytes while leaving trailing $$ unquoted so each subshell expands its own PID"
+    ],
+    "verdict": "Per-PID '<path>.forjar-new.'$$ staging with EXIT cleanup and pre-rename chown/chmod eliminates concurrent apply collisions on fixed .forjar-new while honestly documenting residual PID predictability."
+  },
+  "agy_teamwork": {
+    "ran": true,
+    "mode": "three independent agy Gemini 4 Carbon (thinking=high) lanes at head 1e5c9be8",
+    "rounds": 1,
+    "lanes_per_round": 3,
+    "sandbox": true,
+    "writes": false,
+    "verdict": "round 1: 3/3 PASS at 1e5c9be8 (4 claims confirmed, 2 claims refuted)."
+  },
+  "pmat": {
+    "ticket": "PMAT-638",
+    "tools": [
+      "analyze_vacuous_tests",
+      "cargo fmt + clippy --all-targets -D warnings + tests_file_staging (1/1) + tests_generated_scripts_lint (4/4) + tests_package_d (12/12) + revert kill on <host>"
+    ],
+    "vacuous_tests_in_touched_paths": 0,
+    "accepted": []
+  },
+  "base": "dbd1ec3e",
+  "base_commit": "dbd1ec3e34bc39d6c4696c3b605569b312bddf96",
+  "diff_sha256": "951e10856f2d1d98f6b8a004076e320588d68e69",
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PMAT-638-claims.md",
+        "roles": [
+          "claims"
+        ],
+        "blob": "5563efdfedbccd496083080a822d2ff53cf8a96c",
+        "sha256": "d8d1bb49492128b63f3e89191c75fb6c31d1b73ae090d9ca6a247152a6dea51d",
+        "bytes": 1946
+      },
+      {
+        "path": ".quorum/evidence/PMAT-638-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "a38480913c7b434aa3bb13a8e42b8f6954c3d280",
+        "sha256": "99b2492a2592461a74111208caa291b1618fc92ab906f5f5211f0c6014d30a4c",
+        "bytes": 1005
+      },
+      {
+        "path": ".quorum/evidence/PMAT-638-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "976c2e118d68f39507a14e6ca98b9b28b9a39939",
+        "sha256": "dee0ad9a34e8097cc1e1ab9333f2b8c30ffe8ad770a202318feb4331389c7fa9",
+        "bytes": 2695
+      },
+      {
+        "path": ".quorum/evidence/PMAT-638-agy.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "0666d6c6da72c7061bb27f7f4857462ea75efd4b",
+        "sha256": "46c53f2b1a6fa974c4c68f6c6d30305822154b1322f8c06b1e0171fb764543cf",
+        "bytes": 537
+      }
+    ],
+    "total_bytes": 6183,
+    "claims_digest": ".quorum/evidence/PMAT-638-judges.md"
+  }
+}

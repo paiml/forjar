@@ -4,7 +4,7 @@ use super::apply_helpers::*;
 use super::apply_output::*;
 use super::apply_scope::ApplyScope;
 use super::apply_selection::*;
-use super::apply_summary::print_apply_summary;
+use super::apply_summary::print_apply_summary_with_locks;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
@@ -90,6 +90,7 @@ pub(crate) fn cmd_apply_scoped(
         goals,
         exclude,
         tag: tag_filter,
+        machine: machine_filter,
         ..Default::default()
     }
     .with_scope(scope);
@@ -112,21 +113,30 @@ pub(crate) fn cmd_apply_scoped(
     // drop the prerequisites the closure just pulled IN — the #466 dry run,
     // reintroduced one frame later — and `-r a` would once more probe, plan
     // and preview `a` without `b`. `-m` and `-t` stay: the machine picks the
-    // executor and the lock, and the tag is a plan-level filter.
+    // executor and the lock. `-t` is already resolved with its closure (fleetops-1).
     let gate_scope = super::apply_drift::GateScope {
         machine: machine_filter,
         resource: None,
-        tag: tag_filter,
+        tag: None,
         group: None,
     };
     let _ssh_mux =
         super::apply_mux::open_control_masters(&config, &gate_scope, force, dry_run, verbose);
 
+    // FJ-LOCK-001 C2: the drift gate, the generation, outputs and the global
+    // lock are all written below; hold the state lock across all of them.
+    let _state_lock = super::apply_lock_flags::hold_apply_locks(
+        &config,
+        state_dir,
+        machine_filter,
+        force_unlock,
+        dry_run,
+    )?;
     let observed_drift = super::apply_preflight::apply_pre_validate(
         &config,
         state_dir,
         machine_filter,
-        tag_filter,
+        None,
         // PMAT-160: already selected — see `gate_scope` above.
         None,
         None,
@@ -147,7 +157,7 @@ pub(crate) fn cmd_apply_scoped(
         // PMAT-160: the executor iterates `config.resources`, which IS the
         // selection. A second filter here could only narrow it further.
         resource_filter: None,
-        tag_filter,
+        tag_filter: None,
         group_filter: None,
         timeout_secs,
         force_unlock,
@@ -229,7 +239,18 @@ pub(crate) fn cmd_apply_scoped(
         return super::data_isolation::fail_if_any(&data_faults);
     }
 
-    print_apply_summary(
+    let lock_paths: std::collections::BTreeMap<String, String> = results
+        .iter()
+        .map(|r| {
+            (
+                r.machine.clone(),
+                super::drift::resolved_lock_path(state_dir, &r.machine)
+                    .display()
+                    .to_string(),
+            )
+        })
+        .collect();
+    print_apply_summary_with_locks(
         &config,
         &results,
         total_converged,
@@ -239,6 +260,7 @@ pub(crate) fn cmd_apply_scoped(
         &drift_repaired,
         dur_apply,
         json,
+        &lock_paths,
     )?;
 
     if report {

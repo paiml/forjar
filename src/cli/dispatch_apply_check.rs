@@ -42,8 +42,8 @@ pub(super) fn scope_of(args: &ApplyArgs) -> super::apply_scope::ApplyScope<'_> {
 
 /// Every resource-set selector the operator typed, as one value.
 ///
-/// `-m` is deliberately absent (it picks the executor, not the resource set);
-/// `-t` is carried so the resolver can existence-check it, and applied again
+/// `-m` is carried only so a contradiction with `--only-machine` / `--exclude-machine`
+/// is refused (#471), exactly as `apply` refuses it; it never prunes. `-t` is carried so the resolver can existence-check it, and applied again
 /// per resource by the check loop, exactly as the planner applies it.
 pub(super) fn selectors_of<'a>(
     args: &'a ApplyArgs,
@@ -54,6 +54,7 @@ pub(super) fn selectors_of<'a>(
         group: args.group.as_deref(),
         subset: args.subset.as_deref(),
         tag: args.tag.as_deref(),
+        machine: args.machine.as_deref(),
         ..Default::default()
     }
     .with_scope(scope)
@@ -74,9 +75,59 @@ pub(super) fn cmd_apply_check(
     super::check::cmd_check_selected(
         &config,
         args.machine.as_deref(),
-        args.tag.as_deref(),
+        None, // the tag + its closure is already the selection
         state_dir,
         args.json,
         verbose,
     )
+}
+
+/// forjar#470: `apply --refresh-only` takes the same selection as the apply.
+///
+/// Before this, `-r`, `-g`, `--subset`, `--exclude` and `--skip` were dropped on
+/// this path and a "scoped" refresh re-read every resource in the lock. The
+/// selection is the one `apply` and `--check` resolve (`selectors_of`), so the
+/// three modes cannot disagree about which resources a flag set names.
+pub(super) fn cmd_apply_refresh_only(
+    args: &ApplyArgs,
+    state_dir: &Path,
+    verbose: bool,
+) -> Result<(), String> {
+    let scope = scope_of(args);
+    let selectors = selectors_of(args, &scope);
+    super::apply_variants::cmd_refresh_only_with(
+        &args.file,
+        state_dir,
+        args.machine.as_deref(),
+        verbose,
+        args.timeout,
+        args.env_file.as_deref(),
+        args.workspace.as_deref(),
+        // Refs #368: the operator gate runs on this mode too; `None` here
+        // would resolve `$USER@$(hostname)` and refuse the typed operator.
+        args.operator.as_deref(),
+        |config| select_for_refresh(config, &selectors, args.tag.as_deref(), verbose),
+    )
+}
+
+/// The resources a `--refresh-only` run may re-read: the selector closure
+/// (`resolve_selection`), then narrowed by `-t/--tag` with the same rule the
+/// executor applies (`has_tag`: an exact match on one of the resource's tags).
+///
+/// `resolve_selection` only checks that `Selectors.tag` names an existing tag;
+/// it does not prune by it. So without this step `--refresh-only -t alpha`
+/// re-read every resource and rewrote lock entries the operator had scoped out.
+pub(super) fn select_for_refresh(
+    config: &mut crate::core::types::ForjarConfig,
+    selectors: &Selectors<'_>,
+    tag: Option<&str>,
+    verbose: bool,
+) -> Result<(), String> {
+    resolve_selection(config, selectors, verbose)?;
+    if let Some(tag) = tag {
+        config
+            .resources
+            .retain(|_, r| r.tags.iter().any(|t| t == tag));
+    }
+    Ok(())
 }

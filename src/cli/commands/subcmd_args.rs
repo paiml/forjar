@@ -400,8 +400,17 @@ pub struct StateRekeyArgs {
 pub enum SecretsCmd {
     /// Encrypt a value with age recipients
     Encrypt {
-        /// Plaintext value to encrypt
-        value: String,
+        /// Read the plaintext from this file (one trailing newline is removed).
+        /// Default: read it from stdin. The secret is never a positional
+        /// argument: argv is visible via `ps` and echoed by usage errors.
+        #[arg(long, value_name = "PATH")]
+        from_file: Option<PathBuf>,
+        /// Accepted for compatibility; stdin is already the default
+        #[arg(long, conflicts_with = "from_file")]
+        stdin: bool,
+        /// Refused if given (a secret on argv); never printed
+        #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
+        rest: Vec<String>,
         /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
@@ -415,7 +424,11 @@ pub enum SecretsCmd {
         identity: Option<PathBuf>,
     },
     /// Generate a new age identity (keypair)
-    Keygen,
+    Keygen {
+        /// Write the identity to this file, created 0600 (refuses to overwrite)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// Decrypt and display all secrets in a forjar.yaml
     View {
         /// Path to forjar.yaml

@@ -21,6 +21,7 @@ permissions:
 jobs:
   # ── Check for recent activity ────────────────────────────
   check-activity:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, X64]
     outputs:
       has_commits: ${{ steps.check.outputs.has_commits }}
@@ -68,6 +69,7 @@ jobs:
 
   # ── Build release binaries (7 targets, native runners) ───
   build:
+    timeout-minutes: 120
     needs: check-activity
     if: needs.check-activity.outputs.has_commits == 'true'
     strategy:
@@ -225,6 +227,7 @@ jobs:
 
   # ── Create/update nightly prerelease ─────────────────────
   release:
+    timeout-minutes: 120
     needs: build
     runs-on: [self-hosted, clean-room, X64]
     steps:
@@ -244,7 +247,7 @@ jobs:
           gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
 
       - name: Create nightly release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
         with:
           tag_name: nightly
           # Pin the tag to the commit this run BUILT. Unset, GitHub tags the default

@@ -64,11 +64,14 @@ fn resource_fields_has_no_stale_entries() {
     // when unset, so a default `Resource` does not show them — and that skip is
     // what keeps every existing resource's desired-state hash unchanged.
     // The seven `cloud_*` keys (FJ-861) skip serialising when unset for the same reason.
+    // `entrypoint` (PMAT-989) is the same: skipped when empty, so a default
+    // `Resource` does not show it and existing desired-state hashes are unchanged.
     const ALIASES: &[&str] = &[
         "type",
         "moved_from",
         "max_age",
         "pattern",
+        "entrypoint",
         "cloud_region",
         "cloud_instance_type",
         "cloud_max_price",
