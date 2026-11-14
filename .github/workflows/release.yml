@@ -36,8 +36,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # timeout-minutes (A10): about 2x the durations measured on run 43476512932
+  # (v-tag 2026-11-13), floor 10 min. verify 1m45s, create-release 23s,
+  # build-binaries slowest leg 34m44s (x86_64-unknown-linux-gnu), checksums
+  # 17s, dist-artifacts 6m16s, publish-release 8s. A hung job frees its
+  # clean-room seat instead of holding it for the 360 min default.
   # ── Verify: tag-version match + package tarball ─────────
   verify:
+    timeout-minutes: 15
     runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
@@ -138,6 +144,7 @@ jobs:
 
   # ── Create GitHub Release ─────────────────────────────
   create-release:
+    timeout-minutes: 10
     needs: verify
     runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -202,6 +209,7 @@ jobs:
 
   # ── Build cross-compiled binaries (4 Linux + 2 macOS targets) ────
   build-binaries:
+    timeout-minutes: 70
     needs: [verify, create-release]
     if: needs.verify.outputs.has_binaries == 'true'
     strategy:
@@ -345,6 +353,7 @@ jobs:
 
   # ── Generate checksums and upload to GitHub Release ─────
   checksums:
+    timeout-minutes: 10
     needs: [verify, create-release, build-binaries]
     if: needs.verify.outputs.has_binaries == 'true'
     runs-on: [self-hosted, clean-room, X64]
@@ -420,6 +429,7 @@ jobs:
 
   # ── Generate distribution artifacts (installer, nix, deb, rpm) ──
   dist-artifacts:
+    timeout-minutes: 15
     needs: [verify, checksums]
     if: needs.verify.outputs.has_binaries == 'true'
     runs-on: [self-hosted, clean-room, X64]
@@ -506,6 +516,7 @@ jobs:
 
   # ── Publish: un-draft once every asset job has finished ───────
   publish-release:
+    timeout-minutes: 10
     needs: [verify, create-release, build-binaries, checksums, dist-artifacts]
     if: >-
       always() &&
