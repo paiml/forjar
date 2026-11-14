@@ -7521,3 +7521,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1049
+  github_issue: 1049
+  item_type: task
+  title: github_release check asserts version and checksum (forjar#1049)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T21:58:51Z
+  updated: 2026-11-14T21:58:51Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

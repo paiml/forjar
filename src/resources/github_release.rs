@@ -39,23 +39,10 @@ fn reject_bad_repo(repo: &str) -> String {
 /// Checks:
 /// 1. Binary exists at `install_dir/binary`
 /// 2. Binary is executable
+/// 3. forjar#1049: a versioned `tag` equals the live version, and a declared
+///    `checksum` (sha256) equals the file's; see `github_release_check`.
 pub fn check_script(resource: &Resource) -> String {
-    let repo = resource.repo.as_deref().unwrap_or("unknown/unknown");
-    if !is_valid_repo(repo) {
-        return reject_bad_repo(repo);
-    }
-    let binary = resource.binary.as_deref().unwrap_or("unknown");
-    let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
-    let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
-
-    verdict::check_script_from(&[format!(
-        "if [ -x {bin_path} ]; then\n\
-         \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
-         \x20 echo \"installed:{repo}:$VER\"\n\
-         else\n\
-         \x20 echo 'missing:{repo}'; __fj_diverged=1\n\
-         fi"
-    )])
+    super::github_release_check::check_script(resource, reject_bad_repo)
 }
 
 /// Generate shell script to download a release asset and install the binary.

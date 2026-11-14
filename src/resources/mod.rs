@@ -14,6 +14,7 @@ pub mod docker;
 pub mod file;
 mod file_assert;
 pub mod github_release;
+pub mod github_release_check;
 pub mod gpu;
 pub mod model;
 pub mod mount;
@@ -67,6 +68,8 @@ mod tests_file_b;
 mod tests_file_content_escape;
 #[cfg(test)]
 mod tests_file_staging;
+#[cfg(test)]
+mod tests_github_release_check;
 #[cfg(test)]
 mod tests_github_release_downgrade;
 #[cfg(test)]
