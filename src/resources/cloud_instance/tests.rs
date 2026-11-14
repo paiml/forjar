@@ -1,16 +1,19 @@
 //! FJ-861 falsifiers for `cloud_instance`. The provider CLI is a PATH stub in a
-//! temp sandbox; no real `aws` is ever reachable (PATH is the sandbox + /usr/bin:/bin).
+//! temp sandbox. PATH is the sandbox `bin` ONLY (coreutils are symlinked in, `aws`
+//! never is), so a missing stub is `command not found`, never a real `aws`.
 
 use super::*;
 use crate::core::types::{CloudSpec, MachineTarget, ResourceType};
 use std::path::Path;
 use std::process::Command;
 
-const DIGEST: &str = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+pub(super) const DIGEST: &str =
+    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
-fn res() -> Resource {
+pub(super) fn res() -> Resource {
     Resource {
         resource_type: ResourceType::CloudInstance,
+        name: Some("ci-box-a".into()),
         machine: MachineTarget::Single("m".into()),
         provider: Some("aws".into()),
         image: Some(format!(
@@ -29,7 +32,7 @@ fn res() -> Resource {
 }
 
 /// `res()` plus the three apply gates, pointing into `dir`.
-fn gated(dir: &Path) -> Resource {
+pub(super) fn gated(dir: &Path) -> Resource {
     let mut r = res();
     r.cloud.budget_cap_usd_day = Some("5".into());
     r.cloud.kill_switch = Some(dir.join("KILL").to_str().unwrap().into());
@@ -37,53 +40,93 @@ fn gated(dir: &Path) -> Resource {
     r
 }
 
-struct Sandbox {
-    dir: tempfile::TempDir,
+pub(super) struct Sandbox {
+    pub(super) dir: tempfile::TempDir,
 }
 
+/// Fake `aws`. Refuses to run without STUB_LOG. With STUB_FIXTURE (lines of
+/// `id key owner sir`) `describe-instances` honours the tag filter and skips
+/// terminated ids, so ownership scoping is exercised, not assumed.
+const STUB: &str = r#"#!/bin/sh
+: "${STUB_LOG:?STUB_LOG unset: refusing to act as aws}"
+echo "$@" >> "$STUB_LOG"
+case "$*" in
+*describe-instances*)
+  if [ -n "${STUB_FIXTURE:-}" ]; then
+    want=$(printf '%s\n' "$*" | sed -n 's/.*Name=tag:\(forjar-[a-z]*\),Values=\([^ ]*\).*/\1 \2/p')
+    col=1; case "$*" in *SpotInstanceRequestId*) col=4;; esac
+    awk -v want="$want" -v col="$col" -v term="$STUB_LOG.term" '
+      BEGIN { split(want, w, " "); while ((getline l < term) > 0) t[l] = 1 }
+      { c = (w[1] == "forjar-key") ? 2 : 3
+        if ($c == w[2] && !($1 in t)) { printf "%s%s", sep, $col; sep = "\t" } }' "$STUB_FIXTURE"
+  else
+    printf '%s' "$STUB_IDS"
+  fi;;
+*terminate-instances*)
+  if [ ! -e "$STUB_LOG.noterm" ]; then
+    for a in "$@"; do case "$a" in i-*) echo "$a" >> "$STUB_LOG.term";; esac; done
+  fi;;
+*run-instances*) echo i-0stub;;
+esac
+"#;
+
+const TOOLS: [&str; 16] = [
+    "sh", "bash", "grep", "awk", "sed", "cat", "touch", "tr", "cut", "head", "sort", "dirname",
+    "basename", "mkdir", "rm", "wc",
+];
+
 impl Sandbox {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("bin");
         std::fs::create_dir(&bin).unwrap();
+        for t in TOOLS {
+            for d in ["/usr/bin", "/bin"] {
+                let src = Path::new(d).join(t);
+                if src.exists() {
+                    std::os::unix::fs::symlink(&src, bin.join(t)).unwrap();
+                    break;
+                }
+            }
+        }
         let stub = bin.join("aws");
-        std::fs::write(
-            &stub,
-            "#!/bin/sh\necho \"$@\" >> \"$STUB_LOG\"\n\
-             case \"$*\" in\n*describe-instances*) printf '%s' \"$STUB_IDS\";;\n\
-             *run-instances*) echo i-0stub;;\nesac\n",
-        )
-        .unwrap();
+        std::fs::write(&stub, STUB).unwrap();
         Command::new("chmod")
             .arg("755")
             .arg(&stub)
             .status()
             .unwrap();
+        assert!(stub.exists(), "the fake aws must exist");
         Sandbox { dir }
     }
-    fn path(&self) -> &Path {
+    pub(super) fn path(&self) -> &Path {
         self.dir.path()
     }
-    fn open_gate(&self) {
+    pub(super) fn open_gate(&self) {
         std::fs::write(self.path().join("gate"), "parity-gate: pass\n").unwrap();
     }
-    fn log(&self) -> String {
+    pub(super) fn log(&self) -> String {
         std::fs::read_to_string(self.path().join("calls.log")).unwrap_or_default()
     }
     /// Run `script` with only the stub `aws` reachable; `ids` is what describe returns.
-    fn run(&self, script: &str, ids: &str) -> (i32, String) {
-        let o = Command::new("bash")
-            .arg("-c")
+    pub(super) fn run(&self, script: &str, ids: &str) -> (i32, String) {
+        self.run_with(script, ids, None)
+    }
+    /// As `run`, but describe answers from a tagged fixture (`id key owner sir` lines).
+    pub(super) fn run_with(&self, script: &str, ids: &str, fixture: Option<&str>) -> (i32, String) {
+        let mut cmd = Command::new("/bin/bash");
+        cmd.arg("-c")
             .arg(script)
             .env_clear()
-            .env(
-                "PATH",
-                format!("{}:/usr/bin:/bin", self.path().join("bin").display()),
-            )
+            .env("PATH", self.path().join("bin"))
             .env("STUB_LOG", self.path().join("calls.log"))
-            .env("STUB_IDS", ids)
-            .output()
-            .unwrap();
+            .env("STUB_IDS", ids);
+        if let Some(f) = fixture {
+            let fx = self.path().join("fixture");
+            std::fs::write(&fx, f).unwrap();
+            cmd.env("STUB_FIXTURE", fx);
+        }
+        let o = cmd.output().unwrap();
         let mut s = String::from_utf8_lossy(&o.stdout).into_owned();
         s.push_str(&String::from_utf8_lossy(&o.stderr));
         (o.status.code().unwrap_or(-1), s)

@@ -11,10 +11,14 @@ use crate::core::types::Resource;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_b1;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudInstance {
+    /// The resource's own name (`name:`), unique per declared resource.
+    pub name: String,
     pub region: String,
     pub instance_type: String,
     pub max_price: String,
@@ -28,22 +32,33 @@ pub struct CloudInstance {
 /// # Errors
 ///
 /// Returns `Err` when the declaration is not aws, lacks a field, names an
-/// image without an `@sha256:<64 hex>` digest, or has a non-positive price or
-/// lifetime.
+/// image without an `@sha256:<64 hex>` digest, has a non-positive price or
+/// lifetime, or carries a value outside the strict allow-list (every value
+/// reaches a boot script or an `aws` command line).
 pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
     if resource.provider.as_deref() != Some("aws") {
         return Err("cloud_instance requires `provider: aws`".into());
     }
+    require(
+        matches!(resource.state.as_deref(), None | Some("present" | "absent")),
+        "state must be present or absent",
+    )?;
+    let name = field(&resource.name, "name")?;
+    require(
+        is_ident(&name, 63),
+        "name must be 1-63 characters of [A-Za-z0-9._-], starting alphanumeric",
+    )?;
     let region = field(&resource.cloud.region, "cloud_region")?;
     let instance_type = field(&resource.cloud.instance_type, "cloud_instance_type")?;
     let max_price = field(&resource.cloud.max_price, "cloud_max_price")?;
     let image = field(&resource.image, "image")?;
     require(
-        is_word(&region, "-"),
+        is_word(&region, "-") && region.starts_with(|c: char| c.is_ascii_alphanumeric()),
         "cloud_region has characters outside [a-z0-9-]",
     )?;
     require(
-        is_word(&instance_type, ".-"),
+        is_word(&instance_type, ".-")
+            && instance_type.starts_with(|c: char| c.is_ascii_alphanumeric()),
         "cloud_instance_type has unexpected characters",
     )?;
     require(
@@ -54,15 +69,26 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         has_digest(&image),
         "image must be pinned by @sha256:<64 hex digits>",
     )?;
+    require(
+        image_name(&image).is_some_and(is_image_name),
+        "image name must be 1-255 characters of [A-Za-z0-9._/:-], starting alphanumeric",
+    )?;
     let max_lifetime_min = resource.cloud.max_lifetime_min.filter(|m| *m > 0);
     let max_lifetime_min = max_lifetime_min.ok_or("cloud_max_lifetime_min must be set and > 0")?;
     for t in &resource.tags {
         require(
             is_tag(t),
-            &format!("tag '{t}' must be key=value of plain characters"),
+            &format!(
+                "tag '{t:.64}' must be key=value of [A-Za-z0-9_.:/-], at most 128 characters each"
+            ),
+        )?;
+        require(
+            !t.starts_with("forjar-key=") && !t.starts_with("forjar-owner="),
+            "tags forjar-key and forjar-owner are reserved for ownership",
         )?;
     }
     Ok(CloudInstance {
+        name,
         region,
         instance_type,
         max_price,
@@ -93,6 +119,24 @@ fn is_word(s: &str, extra: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || extra.contains(c))
 }
 
+fn is_ident(s: &str, max: usize) -> bool {
+    s.len() <= max
+        && s.starts_with(|c: char| c.is_ascii_alphanumeric())
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+}
+
+fn image_name(image: &str) -> Option<&str> {
+    image.rsplit_once("@sha256:").map(|(n, _)| n)
+}
+
+fn is_image_name(n: &str) -> bool {
+    n.len() <= 255
+        && n.starts_with(|c: char| c.is_ascii_alphanumeric())
+        && n.chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._/:-".contains(c))
+}
+
 fn is_positive_decimal(s: &str) -> bool {
     let plain = !s.is_empty() && s.chars().all(|c| c.is_ascii_digit() || c == '.');
     plain && s.matches('.').count() <= 1 && s.parse::<f64>().is_ok_and(|v| v > 0.0)
@@ -109,16 +153,50 @@ fn has_digest(image: &str) -> bool {
 fn is_tag(t: &str) -> bool {
     let plain = |s: &str| {
         !s.is_empty()
+            && s.len() <= 128
             && s.chars()
                 .all(|c| c.is_ascii_alphanumeric() || "-_.:/".contains(c))
     };
     t.split_once('=').is_some_and(|(k, v)| plain(k) && plain(v))
 }
 
-/// Idempotency key: region plus the first 12 hex digits of the image digest.
+/// Idempotency key: the resource's own name, its region and the first 12 hex
+/// digits of the image digest. Two declarations get the same key only if they
+/// share a name (refused by [`validate_unique_names`]).
 fn key_of(s: &CloudInstance) -> String {
     let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
-    format!("{}-{}", s.region, &digest[..12])
+    format!("{}-{}-{}", s.name, s.region, &digest[..12])
+}
+
+/// Ownership key for teardown: name plus region, stable across image changes.
+fn owner_of(s: &CloudInstance) -> String {
+    format!("{}-{}", s.name, s.region)
+}
+
+/// Plan-time: two `cloud_instance` resources may not share a name and region,
+/// since the name is what keeps their instances and their teardown apart.
+/// Values still holding a `{{` template are skipped (checked once resolved).
+pub fn validate_unique_names(config: &crate::core::types::ForjarConfig) -> Vec<String> {
+    let mut seen: std::collections::HashMap<(String, String), &str> = Default::default();
+    let mut errors = Vec::new();
+    for (id, r) in &config.resources {
+        let (Some(name), Some(region)) = (&r.name, &r.cloud.region) else {
+            continue;
+        };
+        if r.resource_type != crate::core::types::ResourceType::CloudInstance
+            || name.contains("{{")
+            || region.contains("{{")
+        {
+            continue;
+        }
+        if let Some(first) = seen.insert((name.clone(), region.clone()), id) {
+            errors.push(format!(
+                "resource '{id}' (cloud_instance): name '{name}' in {region} is already used by '{first}'; \
+                 each declared instance needs its own name"
+            ));
+        }
+    }
+    errors
 }
 
 /// The three apply gates a declaration must carry: (parity gate, budget cap, kill switch).
@@ -182,15 +260,31 @@ fn reject(msg: &str) -> String {
     format!("echo {} >&2; exit 1", sh_squote(&format!("REFUSED: {msg}")))
 }
 
-/// Read-only provider query printing the ids of live instances with our key.
-fn describe(s: &CloudInstance) -> String {
+/// Read-only provider query printing `query` for live instances whose
+/// `tag_key` tag equals `tag_val`.
+fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> String {
     format!(
         "aws ec2 describe-instances --region {region} \
          --filters {tag} 'Name=instance-state-name,Values=pending,running' \
-         --query 'Reservations[].Instances[].InstanceId' --output text",
+         --query {query} --output text",
         region = sh_squote(&s.region),
-        tag = sh_squote(&format!("Name=tag:forjar-key,Values={}", key_of(s))),
+        tag = sh_squote(&format!("Name=tag:{tag_key},Values={tag_val}")),
+        query = sh_squote(query),
     )
+}
+
+/// Instances of this exact declaration (key = name + region + image digest).
+fn describe(s: &CloudInstance) -> String {
+    describe_by(
+        s,
+        "forjar-key",
+        &key_of(s),
+        "Reservations[].Instances[].InstanceId",
+    )
+}
+
+fn is_absent(resource: &Resource) -> bool {
+    resource.state.as_deref() == Some("absent")
 }
 
 /// Script asking the provider whether the instance exists (read-only).
@@ -200,6 +294,21 @@ pub fn check_script(resource: &Resource) -> String {
         Err(e) => return reject(&e),
     };
     let key = key_of(&s);
+    if is_absent(resource) {
+        let owned = describe_by(
+            &s,
+            "forjar-owner",
+            &owner_of(&s),
+            "Reservations[].Instances[].InstanceId",
+        );
+        return crate::resources::verdict::check_script_from(&[
+            crate::resources::verdict::assert_that(
+                &format!("[ -z \"$({owned})\" ]"),
+                &format!("instance-absent:{key}"),
+                &format!("instance-still-owned:{key}"),
+            ),
+        ]);
+    }
     crate::resources::verdict::check_script_from(&[crate::resources::verdict::assert_that(
         &format!("[ -n \"$({})\" ]", describe(&s)),
         &format!("instance-present:{key}"),
@@ -219,6 +328,40 @@ pub fn state_query_script(resource: &Resource) -> String {
     )
 }
 
+/// `state: absent`: terminate ONLY the instances carrying this resource's own
+/// `forjar-owner` tag, cancel their spot requests, and report what is true.
+/// Never launches. Not gated: the kill switch exists to stop spend, and this
+/// only ever removes owned instances (none owned = a no-op success).
+fn destroy_script(s: &CloudInstance) -> String {
+    let region = sh_squote(&s.region);
+    let owner = owner_of(s);
+    let ids = describe_by(
+        s,
+        "forjar-owner",
+        &owner,
+        "Reservations[].Instances[].InstanceId",
+    );
+    let sirs = describe_by(
+        s,
+        "forjar-owner",
+        &owner,
+        "Reservations[].Instances[].SpotInstanceRequestId",
+    );
+    format!(
+        "set -eu\n\
+         ids=\"$({ids})\"\n\
+         if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
+         for i in $ids; do case \"$i\" in i-[0-9a-f]*) ;; *) echo \"REFUSED: unexpected instance id\" >&2; exit 1;; esac; done\n\
+         sirs=\"$({sirs})\"\n\
+         aws ec2 terminate-instances --region {region} --instance-ids $ids >/dev/null\n\
+         for r in $sirs; do case \"$r\" in sir-[0-9a-z]*) ;; *) continue;; esac; \
+         aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
+         left=\"$({ids})\"\n\
+         if [ -n \"$left\" ]; then echo \"NOT destroyed: still pending or running: $left\" >&2; exit 1; fi\n\
+         echo \"destroyed $ids\"\n",
+    )
+}
+
 /// Script that creates the instance, or refuses. Refuses WITHOUT touching the
 /// provider unless the parity gate says pass, the kill switch is absent, and a
 /// budget cap is declared.
@@ -227,6 +370,9 @@ pub fn apply_script(resource: &Resource) -> String {
         Ok(s) => s,
         Err(e) => return reject(&e),
     };
+    if is_absent(resource) {
+        return destroy_script(&s);
+    }
     let (gate, budget, kill) = match gates_of(resource) {
         Ok(g) => g,
         Err(missing) => {
@@ -236,11 +382,27 @@ pub fn apply_script(resource: &Resource) -> String {
             ))
         }
     };
+    // The lifetime bound comes first: nothing derived from user input can run
+    // before it, and every value is validated (`spec_of`) and quoted.
+    let worst_case_usd =
+        s.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(s.max_lifetime_min) / 60.0;
+    if budget
+        .parse::<f64>()
+        .map_or(true, |cap| worst_case_usd > cap)
+    {
+        return reject(&format!(
+            "worst-case spend {worst_case_usd:.4} USD (max_price x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
+        ));
+    }
     let user_data = format!(
-        "#!/bin/sh\nexport FORJAR_IMAGE={}\nshutdown -h +{}\n",
-        s.image, s.max_lifetime_min
+        "#!/bin/sh\nshutdown -h +{}\nexport FORJAR_IMAGE={}\n",
+        s.max_lifetime_min,
+        sh_squote(&s.image)
     );
-    let mut tags = vec![format!("{{Key=forjar-key,Value={}}}", key_of(&s))];
+    let mut tags = vec![
+        format!("{{Key=forjar-key,Value={}}}", key_of(&s)),
+        format!("{{Key=forjar-owner,Value={}}}", owner_of(&s)),
+    ];
     tags.extend(
         s.tags
             .iter()
@@ -249,8 +411,8 @@ pub fn apply_script(resource: &Resource) -> String {
     );
     format!(
         "set -eu\n\
-         if [ -e {kill} ]; then echo 'REFUSED: kill switch is thrown' >&2; exit 1; fi\n\
-         if ! {{ [ -f {gate} ] && grep -qx 'parity-gate: pass' {gate}; }}; then\n\
+         if [ -e {kill} ] || [ -L {kill} ]; then echo 'REFUSED: kill switch is thrown' >&2; exit 1; fi\n\
+         if ! {{ [ -f {gate} ] && grep -qx 'parity-gate: pass' {gate} && [ \"$(grep -c '^parity-gate:' {gate})\" = 1 ]; }}; then\n\
          \x20 echo 'REFUSED: parity gate has not passed' >&2; exit 1\n\
          fi\n\
          # budget cap declared: {budget_note}\n\

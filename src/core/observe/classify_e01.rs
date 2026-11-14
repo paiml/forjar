@@ -76,14 +76,15 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
              cache root is, so a moved cache is invisible",
         ),
         // cloud_instance (FJ-861): check and state query ask the provider for
-        // instances carrying a key derived from region + image digest only.
+        // instances carrying a key derived from name + region + image digest only.
         "cloud_region"
+        | "cloud_max_lifetime_min"
         | "cloud_instance_type"
         | "cloud_max_price"
         | "cloud_budget_cap_usd_day"
         | "cloud_kill_switch"
         | "cloud_parity_gate" => Observability::Unmigrated(
-            "#861 — the provider query keys on region and image digest; this field is \
+            "#861 — the provider query keys on name, region and image digest; this field is \
              applied by the create call and the gates but never read back",
         ),
         _ => return None,
