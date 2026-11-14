@@ -51,7 +51,7 @@ fn version_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String 
     };
     let want = format!("{}.{}.{}", pin.major, pin.minor, pin.patch);
     format!(
-        "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | tr -d '\\0' | \
+        "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | tr '\\0' ' ' | \
          LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
          head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' || true )\n\
          \x20 if [ \"$FJ_LIVE\" != '{want}' ]; then\n\

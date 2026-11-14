@@ -223,3 +223,15 @@ fn version_next_to_a_non_ascii_byte_is_read_bytewise() {
     let (ok, out) = run(&check_script(&resource(d.path(), Some("v0.34.2"))));
     assert!(ok, "{out}");
 }
+
+/// Review lane 3: a NUL byte is a token boundary, as in `parse_semver`; it must
+/// not be deleted (that would glue `tool` to `0.34.2`).
+#[test]
+fn version_after_a_nul_byte_is_read_like_parse_semver() {
+    let d = tempfile::tempdir().unwrap();
+    let p = d.path().join("ollama");
+    std::fs::write(&p, "#!/bin/sh\nprintf 'tool\\000 0.34.2\\n'\n").unwrap();
+    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v0.34.2"))));
+    assert!(ok, "{out}");
+}
