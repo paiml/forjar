@@ -95,7 +95,13 @@ while IFS= read -r f || [ -n "$f" ]; do
     docs/book/*) code=true ;;                      # the book is asserted against the live surface
     docs/mcp-schema.json) code=true ;;             # the checked-in-copy test names it
     .quorum/enforce.json) code=true ;;             # the quorum gate reads it
-    # The record: roadmap rows, the release ledger, receipts, logs, evidence
+    # Read by the dogfood-guards job: tests/changelog-fragments.sh runs
+    # scripts/assemble-changelog.sh --check over docs/roadmaps/fragments/ and
+    # folds them into docs/roadmaps/roadmap.yaml (PMAT-1008). A PR touching
+    # only a fragment must still run the job that validates it, so the whole
+    # docs/roadmaps/ prefix is code, not record.
+    docs/roadmaps/*) code=true ;;                  # the fragment assembler's check reads it
+    # The record: receipts, logs, evidence
     # and per-branch quorum artifacts. Nothing the PR lane runs reads any of
     # them, and a case in the falsification suite re-derives this exclusion
     # list from the tree so that it stays true as the suite grows.

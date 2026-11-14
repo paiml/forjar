@@ -80,6 +80,14 @@ fn the_paths_that_look_harmless_and_are_not() {
         "the book is asserted against the live surface",
     );
     assert_code(&[".quorum/enforce.json"], "the quorum gate reads it");
+    assert_code(
+        &["docs/roadmaps/fragments/PMAT-1008.yaml"],
+        "dogfood-guards runs the fragment assembler's --check over it",
+    );
+    assert_code(
+        &["docs/roadmaps/roadmap.yaml"],
+        "the fragment assembler folds rows into it",
+    );
 }
 
 /// THE RULE THAT KEEPS THE LIST TRUE.
@@ -166,14 +174,6 @@ fn record_literals(line: &str) -> Vec<String> {
 #[test]
 fn the_record_is_harmless() {
     assert_harmless(
-        &["docs/roadmaps/roadmap.yaml"],
-        "a roadmap row changes no behaviour",
-    );
-    assert_harmless(
-        &["docs/roadmaps/releases.yaml"],
-        "the release ledger changes no behaviour",
-    );
-    assert_harmless(
         &["docs/audits/impl-PMAT-237-receipt.md"],
         "a receipt changes no behaviour",
     );
@@ -183,7 +183,7 @@ fn the_record_is_harmless() {
     );
     assert_harmless(
         &[
-            "docs/roadmaps/roadmap.yaml",
+            "docs/audits/impl-PMAT-237-receipt.md",
             "docs/audits/logs/PMAT-237-x.log",
             ".quorum/evidence/x.md",
         ],
@@ -201,7 +201,7 @@ fn an_unclassified_path_is_code() {
     assert_code(&["rust-toolchain.toml"], "the toolchain is code");
     assert_code(&[".cargo/config.toml"], "cargo's own configuration is code");
     assert_code(
-        &["docs/roadmaps/roadmap.yaml", "src/lib.rs"],
+        &["docs/audits/logs/PMAT-237-x.log", "src/lib.rs"],
         "one code file among a hundred harmless ones is still code",
     );
 }
