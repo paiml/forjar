@@ -409,3 +409,19 @@ fn a_failed_lookup_in_apply_never_launches() {
     }
     assert_eq!(count(&sb.log(), "run-instances"), 0, "{}", sb.log());
 }
+
+#[test]
+fn a_templated_type_or_price_is_not_rejected_at_parse_time() {
+    let yaml = |it: &str, mp: &str| {
+        format!(
+            "version: \"1.0\"\nname: t\nparams:\n  it: c7a.xlarge\n  mp: \"0.2\"\nmachines:\n  m: {{hostname: m, addr: 127.0.0.1}}\nresources:\n  a:\n    type: cloud_instance\n    machine: m\n    provider: aws\n    name: boxa\n    \
+             image: img@{DIGEST}\n    cloud_region: eu-south-2\n    cloud_instance_type: \"{it}\"\n    \
+             cloud_max_price: \"{mp}\"\n    cloud_max_lifetime_min: 60\n"
+        )
+    };
+    let ok = crate::core::parser::parse_config(&yaml("{{params.it}}", "{{params.mp}}")).unwrap();
+    assert!(crate::core::parser::validate_config(&ok).is_empty());
+    // a literal bad value is still rejected at parse time
+    let bad = crate::core::parser::parse_config(&yaml("c7a.xlarge", "free")).unwrap();
+    assert!(!crate::core::parser::validate_config(&bad).is_empty());
+}

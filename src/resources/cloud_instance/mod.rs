@@ -253,11 +253,16 @@ fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> 
 /// A failed lookup (expired credentials, throttling, no `aws`) or a reply that
 /// is not a list of instance ids is an ERROR, never "absent": reading a failure
 /// as an empty answer would report success while a box may still be billing.
-/// Every token must be a whole instance id (`i-` + 8 to 17 hex digits). Works
+/// Pathname expansion is switched off and the C locale forced BEFORE any word
+/// splitting, the reply is normalised to single-space-separated tokens (a
+/// whitespace-only reply is empty = absent), and every token must be a whole
+/// instance id (`i-` + 8 to 17 hex digits; `*` and `?` are malformed). Works
 /// with or without `set -e`.
 fn lookup_ids(var: &str, cmd: &str) -> String {
     format!(
-        "{var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
+        "LC_ALL=C; export LC_ALL; set -f; unset IFS\n\
+         {var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
+         set -- ${var}; {var}=\"$*\"\n\
          for i in ${var}; do h=\"${{i#i-}}\"; case \"$i\" in i-*) ;; *) h='!';; esac; \
          case \"$h\" in *[!0-9a-f]*) h='!';; esac; \
          if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then \
@@ -365,7 +370,7 @@ fn destroy_script(s: &CloudInstance) -> String {
          sirs=\"$({sirs})\"\n\
          set -- $ids\n\
          aws ec2 terminate-instances --region {region} --instance-ids \"$@\" >/dev/null\n\
-         for r in $sirs; do case \"$r\" in sir-[0-9a-z]*) ;; *) continue;; esac; \
+         for r in $sirs; do case \"$r\" in sir-*) h=\"${{r#sir-}}\"; case \"$h\" in ''|*[!0-9a-z]*) continue;; esac;; *) continue;; esac; \
          aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
          left=\"$({ids})\"\n\
          if [ -n \"$left\" ]; then echo \"NOT destroyed: still pending or running: $left\" >&2; exit 1; fi\n\
