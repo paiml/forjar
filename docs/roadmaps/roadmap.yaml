@@ -7521,3 +7521,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1028
+  github_issue: 1028
+  item_type: task
+  title: 'LAB: bashrs version pin skew check'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-14T21:00:25Z
+  updated: 2026-11-14T21:00:25Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
