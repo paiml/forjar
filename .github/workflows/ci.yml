@@ -364,6 +364,10 @@ jobs:
           persist-credentials: false
       - name: Guard tests
         run: cargo test --locked --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket
+      # PMAT-1008: the per-PR fragment assembler's falsifier and this tree's
+      # fragments. Bash only, seconds; a red here is a red guard.
+      - name: Changelog fragments
+        run: bash tests/changelog-fragments.sh
 
 
   gate:

@@ -5,7 +5,9 @@ would appear under `## [Unreleased]` in `CHANGELOG.md` (bold headline paragraph,
 then body). Do not edit `CHANGELOG.md` in a PR. The release cut runs
 `make assemble-fragments`, which appends the fragments to `[Unreleased]` in file
 name order and deletes them. Two fragments with the same ticket id fail
-`make check-fragments`.
+`make check-fragments`; ids compare case-insensitively (`pmat-12` is `PMAT-12`).
+Assembly is idempotent: a fragment already present in `[Unreleased]` is not
+appended twice, so a run without `--consume` can be repeated.
 
 Roadmap rows work the same way: `docs/roadmaps/fragments/<PMAT-id>.yaml` holds one
 row, starting `- id: <PMAT-id>` at column 0. An id already in `roadmap.yaml`

@@ -7481,3 +7481,23 @@ roadmap:
   - kind:docs
   - release:v1.34.1
   notes: 'homebrew job removal landed separately as #1016 (PMAT-1014) before the tag'
+- id: PMAT-1008
+  github_issue: 1007
+  item_type: task
+  title: 'changelog and roadmap per-PR fragments assembled at release (BUILD-FIRST R3)'
+  status: in_progress
+  priority: high
+  assigned_to: null
+  created: 2026-11-12T21:00:00Z
+  updated: 2026-11-12T21:00:00Z
+  spec: null
+  acceptance_criteria:
+  - A PR adds changelog.d/<id>.md and docs/roadmaps/fragments/<id>.yaml instead of editing CHANGELOG.md and roadmap.yaml.
+  - scripts/assemble-changelog.sh folds fragments into CHANGELOG.md and roadmap.yaml at the release cut and refuses duplicate ids (tests/changelog-fragments.sh).
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: 'Ticket id follows the issue title (PMAT-1008); the GitHub issue number is 1007. The first commit on this branch carries the placeholder trailer Pmat-Ticket: PMAT-913 (the master).'
+  epic: 913
