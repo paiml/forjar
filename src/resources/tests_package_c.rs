@@ -80,8 +80,8 @@ fn test_fj51_cargo_cache_key_latest_when_no_version() {
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("bat-latest-"),
-        "cache key must use 'latest' without version: {script}"
+        script.contains("bat-$_FJ_LATEST-"),
+        "cache key must use the resolved version (forjar#1048), never literal latest: {script}"
     );
 }
 
@@ -185,15 +185,15 @@ fn test_fj51_cargo_multi_package_separate_cache_keys() {
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("ripgrep-latest-"),
+        script.contains("ripgrep-$_FJ_LATEST-"),
         "each package gets own cache key: {script}"
     );
     assert!(
-        script.contains("fd-find-latest-"),
+        script.contains("fd-find-$_FJ_LATEST-"),
         "each package gets own cache key: {script}"
     );
     assert!(
-        script.contains("bat-latest-"),
+        script.contains("bat-$_FJ_LATEST-"),
         "each package gets own cache key: {script}"
     );
 }

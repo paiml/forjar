@@ -262,6 +262,24 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
     )
 }
 
+/// Shell snippet that resolves the newest published version of an unpinned
+/// crate into `_FJ_LATEST` (forjar#1048). On failure (offline, registry error,
+/// no exact match) it says so on stderr and sets `_FJ_NC=1` so the install
+/// builds without touching the cache; it never keys on a stale `latest`.
+fn latest_resolve_snippet(crate_name: &str) -> String {
+    let q = sh_squote(crate_name);
+    format!(
+        "_FJ_NC=\"${{FORJAR_NO_CARGO_CACHE:-}}\"\n\
+         _FJ_LATEST=$(cargo search --limit 10 {q} 2>/dev/null | \
+awk -v c={q} '$1 == c && $2 == \"=\" {{ gsub(/\"/, \"\", $3); print $3; exit }}' || true)\n\
+         if [ -z \"$_FJ_LATEST\" ]; then\n\
+           echo \"forjar: WARNING cannot resolve latest version of {crate_name}; building without cache\" >&2\n\
+           _FJ_NC=1\n\
+           _FJ_LATEST=unresolved\n\
+         fi\n"
+    )
+}
+
 /// Generate a cached cargo install script for a single crate.
 ///
 /// On cache hit: copy pre-built binaries from cache, skip compilation entirely.
@@ -297,7 +315,18 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
 /// fleet's macOS box. See `core::shell_install` for the full reasoning.
 fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
     let (crate_name, features) = parse_cargo_features(pkg);
-    let ver_tag = version.unwrap_or("latest");
+    // forjar#1048: an unpinned crate keys the cache on the version resolved at
+    // apply time, never the literal "latest" (which never changes, so a stale
+    // build would be reused after upstream publishes). A pinned version keeps
+    // its key and its script byte-for-byte.
+    let (ver_tag, nc_var, resolve) = match version {
+        Some(v) => (v.to_string(), "FORJAR_NO_CARGO_CACHE", String::new()),
+        None => (
+            "$_FJ_LATEST".to_string(),
+            "_FJ_NC",
+            latest_resolve_snippet(crate_name),
+        ),
+    };
     let install_arg = match version {
         Some(v) => sh_squote(&format!("{crate_name}@{v}")),
         None => sh_squote(crate_name),
@@ -313,9 +342,9 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
         format!("+{}", features.join(","))
     };
     format!(
-        "_CACHE_KEY=\"{crate_name}-{ver_tag}{cache_suffix}-$(uname -m)\"\n\
+        "{resolve}_CACHE_KEY=\"{crate_name}-{ver_tag}{cache_suffix}-$(uname -m)\"\n\
          _CACHE_DIR=\"${{FORJAR_CACHE_DIR:-$HOME/.forjar/cache/cargo}}/$_CACHE_KEY\"\n\
-         if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ] && \
+         if [ -z \"${{{nc_var}:-}}\" ] && \
             [ -d \"$_CACHE_DIR/bin\" ] && \
             ls \"$_CACHE_DIR/bin/\"* >/dev/null 2>&1 && \\\n\
             [ -f \"$_CACHE_DIR/.crates.toml\" ]; then\n\
@@ -331,7 +360,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
              rm -rf \"$_STAGING\"\n\
              exit 1\n\
            fi\n\
-           if [ -z \"${{FORJAR_NO_CARGO_CACHE:-}}\" ]; then\n\
+           if [ -z \"${{{nc_var}:-}}\" ]; then\n\
              mkdir -p \"$_CACHE_DIR\"\n\
              cp -a \"$_STAGING/bin\" \"$_CACHE_DIR/\"\n\
              cp -f \"$_STAGING/.crates.toml\" \"$_CACHE_DIR/.crates.toml\" 2>/dev/null || true\n\
