@@ -190,6 +190,9 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
         validation::validate_lifecycle(id, resource, &mut errors);
         resource_types::validate_resource_type(id, resource, &mut errors);
         check_sudo_inference(id, resource, config, &mut errors);
+        if resource.resource_type == ResourceType::GithubRunner {
+            github_runner_validate::validate_github_runner(config, id, resource, &mut errors);
+        }
     }
 
     // FJ-035 QUORUM MUST-1: overlay addresses must be injective across all

@@ -67,6 +67,29 @@ fn need(value: &Option<String>, field: &str, name: &str) -> Result<String, Strin
     }
 }
 
+/// A repo the scope does not use is refused, never dropped: an org seat
+/// carrying a `repo` would register across every repo in the org.
+fn seat_repo(r: &Resource, scope: Scope, name: &str) -> Result<Option<String>, String> {
+    match scope {
+        Scope::Repo => need(&r.repo, "repo", name).map(Some),
+        Scope::Org if r.repo.as_deref().is_some_and(|s| !s.trim().is_empty()) => Err(format!(
+            "github_runner `{name}`: `repo` must not be set when `scope` is `org`"
+        )),
+        Scope::Org => Ok(None),
+    }
+}
+
+/// Anything but `absent` is applied as present, so an unknown `state` (`removed`,
+/// `Absent`) is refused rather than registering a runner.
+fn check_state(r: &Resource, name: &str) -> Result<(), String> {
+    match r.state.as_deref() {
+        None | Some("present" | "absent") => Ok(()),
+        Some(other) => Err(format!(
+            "github_runner `{name}`: `state` is {other:?}, expected `present` or `absent`"
+        )),
+    }
+}
+
 impl Seat {
     fn from_resource(r: &Resource) -> Result<Self, String> {
         let name = need(&r.name, "name", "?")?;
@@ -90,6 +113,8 @@ impl Seat {
                 ))
             }
         };
+        let repo = seat_repo(r, scope, &name)?;
+        check_state(r, &name)?;
         let work_dir = spec
             .work_dir
             .clone()
@@ -97,7 +122,7 @@ impl Seat {
         Ok(Self {
             scope,
             owner: need(&r.owner, "owner", &name)?,
-            repo: r.repo.clone().filter(|_| scope == Scope::Repo),
+            repo,
             labels: spec.labels.clone(),
             group: r.group.clone().filter(|_| scope == Scope::Org),
             version: need(&r.version, "version", &name)?,

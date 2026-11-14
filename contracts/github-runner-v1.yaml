@@ -216,10 +216,10 @@ proof_obligations:
     notes: "F5. A tarball with one byte changed."
 
   - type: invariant
-    property: "C6 scope_is_validated: scope repo without repo, scope org with repo, an empty label list and a missing sha256 each fail `validate`, naming the field"
+    property: "C6 scope_is_validated: scope repo without repo, scope org with repo, an empty label list and a missing sha256 each fail `validate`, naming the field; a missing or unknown scope or state, too; a templated value is resolved against params and machines first and refused if it does not resolve, never skipped"
     formal: "invalid(r) ⟹ validate exit ≠ 0 ∧ output ∋ field; ¬invalid(r) ⟹ validate exit 0"
     applies_to: all
-    enforced_by: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused, f6_scope_org_with_repo_is_refused, f6_empty_label_list_is_refused, f6_missing_sha256_is_refused"
+    enforced_by: "tests/falsification_github_runner.rs::f6_scope_repo_without_repo_is_refused, f6_scope_org_with_repo_is_refused, f6_empty_label_list_is_refused, f6_missing_sha256_is_refused, f6_missing_scope_is_refused, f6_unknown_scope_is_refused, f6_scope_org_with_a_templated_repo_is_refused, f6_unknown_scope_beside_a_templated_repo_is_refused, f6_a_template_that_does_not_resolve_is_refused, f6_a_templated_sha256_is_judged_after_resolving, f6_unknown_state_is_refused"
     notes: "The two controls (f6_control_a_valid_seat_is_accepted, f6_control_a_repo_scoped_seat_with_a_repo_is_accepted) are what stop a blanket refusal discharging the four."
 
   - type: invariant

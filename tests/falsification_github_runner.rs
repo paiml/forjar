@@ -74,6 +74,7 @@ fn manifest(dir: &Path, edit: impl FnOnce(&mut Vec<String>)) -> String {
         format!(
             "version: '1.0'\n\
              name: github-runner-seat\n\
+             params:\n  repo: example-repo\n  scope: repo\n  bad_sha: abc123\n\
              secrets:\n  provider: file\n  path: \"{secrets}\"\n\
              machines:\n  local:\n    hostname: localhost\n    addr: localhost\n    transport: local\n\
              resources:\n  gate-seat-1:\n{seat}\n",
@@ -214,5 +215,113 @@ fn f6_sha256_must_be_64_hex_and_a_payload_never_runs() {
         assert_refused_naming(&out, ok, &["sha256"]);
         assert!(out.contains("64 hex"), "{out}");
         assert!(!marker.exists(), "the payload ran: {payload}");
+    }
+}
+
+#[test]
+fn f6_missing_scope_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| set(seat, "    scope:", None));
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["scope"]);
+    assert!(out.contains("required"), "{out}");
+}
+
+#[test]
+fn f6_unknown_scope_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        set(seat, "    scope:", Some("    scope: enterprise"));
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["scope"]);
+    assert!(out.contains("enterprise"), "{out}");
+}
+
+// A templated `repo` no longer switches the scope check off: an org seat with
+// `repo: "{{params.repo}}"` would register org-wide.
+#[test]
+fn f6_scope_org_with_a_templated_repo_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        seat.push("    repo: \"{{params.repo}}\"".to_string());
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["scope", "repo"]);
+}
+
+#[test]
+fn f6_unknown_scope_beside_a_templated_repo_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        set(seat, "    scope:", Some("    scope: enterprise"));
+        set(seat, "    group:", None);
+        seat.push("    repo: \"{{params.repo}}\"".to_string());
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["scope"]);
+}
+
+#[test]
+fn f6_a_template_that_does_not_resolve_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        set(seat, "    scope:", Some("    scope: repo"));
+        set(seat, "    group:", None);
+        seat.push("    repo: \"{{params.nope}}\"".to_string());
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["repo"]);
+    assert!(out.contains("does not resolve"), "{out}");
+}
+
+#[test]
+fn f6_a_templated_sha256_is_judged_after_resolving() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        set(
+            seat,
+            "    sha256:",
+            Some("    sha256: \"{{params.bad_sha}}\""),
+        );
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert_refused_naming(&out, ok, &["sha256"]);
+    assert!(out.contains("64 hex"), "{out}");
+}
+
+/// Control: templates that resolve to a valid repo seat are accepted, so the
+/// refusals above are about the values, not about templates.
+#[test]
+fn f6_control_templated_scope_and_repo_that_resolve_are_accepted() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = manifest(dir.path(), |seat| {
+        set(seat, "    scope:", Some("    scope: \"{{params.scope}}\""));
+        set(seat, "    group:", None);
+        seat.push("    repo: \"{{params.repo}}\"".to_string());
+    });
+    let (out, ok) = validate(dir.path(), &cfg);
+    assert!(ok, "templated values that resolve must pass:\n{out}");
+}
+
+// Anything but `absent` is applied as present, so an unknown state must not
+// pass validate and then register a runner.
+#[test]
+fn f6_unknown_state_is_refused() {
+    for bad in ["removed", "stopped", "Absent"] {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = manifest(dir.path(), |seat| {
+            seat.push(format!("    state: {bad}"));
+        });
+        let (out, ok) = validate(dir.path(), &cfg);
+        assert_refused_naming(&out, ok, &["state"]);
+    }
+    for good in ["present", "absent"] {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = manifest(dir.path(), |seat| {
+            seat.push(format!("    state: {good}"));
+        });
+        let (out, ok) = validate(dir.path(), &cfg);
+        assert!(ok, "state: {good} must pass:\n{out}");
     }
 }

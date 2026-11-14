@@ -495,3 +495,43 @@ fn test_fj036_load_recipe_file_missing() {
         "error should mention cannot read recipe: {err}"
     );
 }
+
+/// forjar#1000: a recipe seat's scope, repo and runner fields take its inputs,
+/// so the pass over the expanded config judges real values, not `{{inputs.*}}`.
+#[test]
+fn github_runner_seat_fields_take_recipe_inputs() {
+    use crate::core::types::{Resource, ResourceType, RunnerSpec};
+    let resource = Resource {
+        resource_type: ResourceType::GithubRunner,
+        repo: Some("{{inputs.repo}}".into()),
+        group: Some("{{inputs.group}}".into()),
+        runner: RunnerSpec {
+            scope: Some("{{inputs.scope}}".into()),
+            labels: vec!["gate-{{inputs.tier}}".into()],
+            sha256: Some("{{inputs.sha}}".into()),
+            work_dir: Some("/opt/{{inputs.repo}}".into()),
+            user: Some("{{inputs.user}}".into()),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let inputs: HashMap<String, String> = [
+        ("repo", "forjar"),
+        ("group", "gates"),
+        ("scope", "repo"),
+        ("tier", "fast"),
+        ("sha", "ab"),
+        ("user", "runner"),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect();
+    let r = resolve_resource_inputs(&resource, &inputs).unwrap();
+    assert_eq!(r.repo.as_deref(), Some("forjar"));
+    assert_eq!(r.group.as_deref(), Some("gates"));
+    assert_eq!(r.runner.scope.as_deref(), Some("repo"));
+    assert_eq!(r.runner.labels, vec!["gate-fast".to_string()]);
+    assert_eq!(r.runner.sha256.as_deref(), Some("ab"));
+    assert_eq!(r.runner.work_dir.as_deref(), Some("/opt/forjar"));
+    assert_eq!(r.runner.user.as_deref(), Some("runner"));
+}

@@ -130,6 +130,15 @@ pub(crate) fn resolve_resource_inputs(
     r.environment = resolve_vec(&r.environment, inputs)?;
     r.volumes = resolve_vec(&r.volumes, inputs)?;
 
+    // forjar#1000: github_runner seat fields (`owner`, `group`, `name`, `version`
+    // are above). Left unresolved, a recipe seat would skip C6 and seat checks.
+    r.repo = resolve_opt(&r.repo, inputs)?;
+    r.runner.scope = resolve_opt(&r.runner.scope, inputs)?;
+    r.runner.labels = resolve_vec(&r.runner.labels, inputs)?;
+    r.runner.sha256 = resolve_opt(&r.runner.sha256, inputs)?;
+    r.runner.work_dir = resolve_opt(&r.runner.work_dir, inputs)?;
+    r.runner.user = resolve_opt(&r.runner.user, inputs)?;
+
     Ok(r)
 }
 

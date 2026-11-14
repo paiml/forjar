@@ -329,3 +329,48 @@ fn base64_url_decode(s: &str) -> Vec<u8> {
     }
     out
 }
+
+// F1 (C1), `--trace`: the trace prints the seat script, and the script it
+// prints is the transcript form, the registration token as `<redacted>`.
+#[test]
+fn f1_trace_prints_the_seat_script_with_the_token_redacted() {
+    let rig = Rig::new(LABELS, true);
+    rig.fake
+        .appear_on_token(ListedRunner::new(&["fast", "gate"], "Default"));
+    let st = state(&rig, "st-trace");
+    let traced = rig.run(&st, &["apply", "--yes", "--trace"]);
+    assert!(traced.ok, "apply --trace must succeed: {}", traced.text);
+    // Positive control: the token really reached config.sh, so its absence
+    // from the trace below means it was redacted, not never minted.
+    assert_eq!(rig.token_seen_by_config(), REG_TOKEN);
+    assert!(
+        traced.stderr.contains("[TRACE] gate-seat-1 script:"),
+        "--trace must print the seat script:\n{}",
+        traced.stderr
+    );
+    assert!(
+        traced.stderr.contains("<redacted>"),
+        "the traced script must carry the placeholder:\n{}",
+        traced.stderr
+    );
+    let mut secrets = key_fragments(&rig);
+    secrets.extend([rig.fake.jwt_seen(), INSTALL_TOKEN.to_string()]);
+    secrets.push(REG_TOKEN.to_string());
+    assert_absent("apply --trace output", &traced.text, &secrets);
+}
+
+// C4, `check`: a declared seat GitHub does not list is pending, never a pass,
+// and asking costs no registration token and no seat command.
+#[test]
+fn f4_check_on_an_unlisted_seat_reports_pending_and_fails() {
+    let rig = Rig::new(LABELS, true);
+    let checked = rig.check(&state(&rig, "st-pending"));
+    assert!(
+        !checked.ok,
+        "check must fail on an unregistered seat:\n{}",
+        checked.text
+    );
+    assert!(checked.text.contains("pending"), "{}", checked.text);
+    assert_eq!(rig.fake.token_requests(), 0);
+    assert_eq!(rig.seat_commands(), 0, "seat saw: {:?}", rig.seat_scripts());
+}

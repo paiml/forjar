@@ -191,3 +191,48 @@ fn one_seat_control_one_name_in_two_repos_or_at_org_is_accepted() {
         seat("seat-c", &on("local-again"), "example-org", "host-gate-1"),
     ]);
 }
+
+// `{{item}}` in `name` is judged per copy, after expansion: two `for_each`
+// resources with disjoint items are two sets of seats, not one raw string.
+#[test]
+fn one_seat_control_disjoint_for_each_names_are_accepted() {
+    let a = format!("{}    for_each: [a, b]\n", on("local"));
+    let b = format!("{}    for_each: [c, d]\n", on("peer"));
+    accepted(&[
+        seat("seat-l", &a, "example-org", "runner-{{item}}"),
+        seat("seat-p", &b, "example-org", "runner-{{item}}"),
+    ]);
+}
+
+#[test]
+fn one_seat_overlapping_for_each_names_are_refused() {
+    let a = format!("{}    for_each: [a, b]\n", on("local"));
+    let b = format!("{}    for_each: [b, c]\n", on("peer"));
+    refused(
+        &[
+            seat("seat-l", &a, "example-org", "runner-{{item}}"),
+            seat("seat-p", &b, "example-org", "runner-{{item}}"),
+        ],
+        &["seat-l-b", "seat-p-b"],
+    );
+}
+
+// `repo: "{{item}}"` expands per copy: one name in two repos is two seats.
+#[test]
+fn one_seat_control_for_each_over_repos_is_accepted() {
+    let head =
+        "    machine: local\n    scope: repo\n    repo: \"{{item}}\"\n    for_each: [one, two]\n";
+    accepted(&[seat("seat", head, "example-org", "host-gate-1")]);
+}
+
+// An org seat must not carry a repo, templated per copy or not.
+#[test]
+fn one_seat_an_org_for_each_with_a_repo_is_refused() {
+    let head = format!(
+        "{}    repo: \"{{{{item}}}}\"\n    for_each: [one, two]\n",
+        on("local")
+    );
+    let (out, ok) = validate(&[seat("seat", &head, "example-org", "host-gate-1")]);
+    assert!(!ok, "an org seat with a repo must be refused:\n{out}");
+    assert!(out.contains("`repo` must not be set"), "{out}");
+}

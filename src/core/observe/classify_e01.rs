@@ -28,6 +28,7 @@ pub(super) fn classify(field: &str) -> Option<Observability> {
         .or_else(|| release_and_namespace(field))
         .or_else(|| task_and_hooks(field))
         .or_else(|| storage(field))
+        .or_else(|| github_runner(field))
 }
 
 /// `type: gpu` and `type: model`.
@@ -231,6 +232,38 @@ fn storage(field: &str) -> Option<Observability> {
         "archive_schedule" => Observability::Unmigrated(
             "#403 — nas_archive's query has no timer check at all, unlike \
              disk_budget's, so its cadence is unobserved",
+        ),
+        _ => return None,
+    })
+}
+
+/// forjar#1000: `type: github_runner`. `check` asks the GitHub listing, not the
+/// seat, so what the listing reports is observed and the rest is named.
+fn github_runner(field: &str) -> Option<Observability> {
+    Some(match field {
+        // The listing reports the seat's labels; a missing or extra one is drift.
+        "labels" => Observability::Observed {
+            alt: "forjar-alt-label",
+        },
+        "scope" => Observability::Unobservable(
+            "which namespace (an org or one repo) the seat is listed under; part of \
+             the seat's identity, not a property of it",
+        ),
+        "app" => Observability::Unobservable(
+            "the GitHub App forjar registers through, read on the control host; \
+             neither the seat nor the listing holds it",
+        ),
+        "sha256" => Observability::Unmigrated(
+            "forjar#1000 — the tarball pin is verified before install; the listing \
+             reports no digest and check never reads the seat's runner files",
+        ),
+        "work_dir" => Observability::Unmigrated(
+            "forjar#1000 — check asks the GitHub listing only; the seat's work \
+             directory is never stat'd",
+        ),
+        "user" => Observability::Unmigrated(
+            "forjar#1000 — check asks the GitHub listing only; the service unit's \
+             `User=` is never read",
         ),
         _ => return None,
     })

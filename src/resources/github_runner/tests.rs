@@ -65,3 +65,38 @@ fn the_plan_passes_only_custom_labels_and_defaults_the_work_dir() {
 fn redaction_removes_every_occurrence() {
     assert_eq!(redact("a TOK b TOK", "TOK"), "a <redacted> b <redacted>");
 }
+
+// The post-resolution pass refuses what validate refuses: an org seat with a
+// `repo` is never quietly widened to the whole org.
+#[test]
+fn an_org_seat_carrying_a_repo_is_refused_not_dropped() {
+    let err = Seat::from_resource(&resource("org", Some("forjar")))
+        .err()
+        .expect("an org seat with a repo must be refused");
+    assert!(err.contains("`repo` must not be set"), "{err}");
+    // Control: an org seat with a blank repo is still an org seat.
+    assert!(Seat::from_resource(&resource("org", Some("  "))).is_ok());
+}
+
+#[test]
+fn a_repo_seat_with_a_blank_repo_is_refused() {
+    for repo in [None, Some(""), Some("   ")] {
+        let err = Seat::from_resource(&resource("repo", repo)).err().unwrap();
+        assert!(err.contains("`repo` is required"), "{repo:?}: {err}");
+    }
+}
+
+#[test]
+fn an_unknown_state_is_refused_and_known_ones_pass() {
+    for bad in ["removed", "stopped", "Absent"] {
+        let mut r = resource("org", None);
+        r.state = Some(bad.into());
+        let err = Seat::from_resource(&r).err().expect(bad);
+        assert!(err.contains("`state`") && err.contains(bad), "{err}");
+    }
+    for good in [None, Some("present"), Some("absent")] {
+        let mut r = resource("org", None);
+        r.state = good.map(str::to_string);
+        assert!(Seat::from_resource(&r).is_ok(), "{good:?}");
+    }
+}

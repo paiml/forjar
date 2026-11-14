@@ -108,6 +108,16 @@ fn replace_template_in_resource(resource: &mut Resource, placeholder: &str, valu
     replace_in_list(&mut resource.packages, placeholder, value);
     replace_in_list(&mut resource.output_artifacts, placeholder, value);
     replace_in_list(&mut resource.depends_on, placeholder, value);
+    // forjar#1000: a `github_runner` copy carries its own seat, so its scope,
+    // repo, group and runner fields expand like its `name`.
+    replace_in_opt(&mut resource.repo, placeholder, value);
+    replace_in_opt(&mut resource.group, placeholder, value);
+    let spec = &mut resource.runner;
+    replace_in_opt(&mut spec.scope, placeholder, value);
+    replace_in_list(&mut spec.labels, placeholder, value);
+    replace_in_opt(&mut spec.sha256, placeholder, value);
+    replace_in_opt(&mut spec.work_dir, placeholder, value);
+    replace_in_opt(&mut spec.user, placeholder, value);
 }
 
 /// Rewrite dependency references: if a dep points to an expanded resource

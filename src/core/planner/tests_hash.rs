@@ -146,8 +146,11 @@ fn test_golden_hash_pinned_value() {
     // Repinned again for PMAT-560 (#560): `exec_start` / `exec_sha256`, the
     // service exec-parity fields, flattened in from `ExecParity`. Same
     // migration, same note in the changelog.
+    // Repinned for forjar#1000: the six `github_runner` fields (`RunnerSpec`)
+    // serialise when unset so the completeness gates see them. Same
+    // migration, same note in the changelog.
     assert_eq!(
-        hash, "blake3:d23f27010e87a5a3daa3d4549d58b821921742e94508e9bb6614e64b25aed042",
+        hash, "blake3:01579aae325480f0cf94d33d31983cedcec15293dcfb991f99eb98600e983834",
         "Golden hash changed — the canonical desired-state form moved. Read the \
          comment above before repinning: this is a fleet-wide re-converge."
     );

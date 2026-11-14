@@ -163,14 +163,18 @@ fn exec_prepared(
     }
     // forjar#1000: a github_runner needs the control-host API session, so it is
     // applied here, not by a seat script generator; the script it returns is the
-    // token-redacted transcript form.
+    // token-redacted transcript form, and that form is what `--trace` prints.
     if prep.resolved.resource_type == ResourceType::GithubRunner {
-        return crate::resources::github_runner::apply(
+        let (out, transcript) = crate::resources::github_runner::apply(
             machine,
             &prep.resolved,
             cfg.resource_timeout.or(cfg.timeout_secs),
             cfg.config.policy.ssh_retries,
         );
+        if cfg.trace && !transcript.is_empty() {
+            eprintln!("[TRACE] {} script:\n{}", prep.resource_id, transcript);
+        }
+        return (out, transcript);
     }
     let script = match codegen::apply_script(&prep.resolved) {
         Ok(script) => script,

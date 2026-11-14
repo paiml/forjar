@@ -2,7 +2,6 @@
 
 use super::backup_sync_validate::validate_backup_sync;
 use super::disk_budget_validate::validate_disk_budget;
-use super::github_runner_validate::validate_github_runner;
 use super::nas_archive_validate::validate_nas_archive;
 use super::overlay_interface_validate::validate_overlay_interface;
 use super::service_exec_validate::validate_service_exec;
@@ -45,7 +44,9 @@ pub(super) fn validate_resource_type(
         }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
-        ResourceType::GithubRunner => validate_github_runner(id, resource, errors),
+        // forjar#1000: judged in `validate_config` with the config in hand, so a
+        // `{{params.*}}` value is resolved before it is judged, never skipped.
+        ResourceType::GithubRunner => {}
     }
 }
 

@@ -5,9 +5,10 @@
 //!
 //! `owner`, `repo`, `name`, `group` and `version` are the `Resource` fields of
 //! those names (all `Option<String>`); only the fields no other resource type
-//! uses live here. Every field skips serialising when unset, so a resource of
-//! any other type serialises exactly as it did before these existed and no
-//! existing desired-state hash moves.
+//! uses live here. No `RunnerSpec` field skips serialising: the completeness
+//! gates reflect over the serialised `Resource`, and a skipped key is a field
+//! they never see. The cost is the one `planner::hashing` names for any new
+//! field: every recorded desired-state hash moves once.
 
 /// The `github_runner` fields that no other resource type shares.
 ///
@@ -17,27 +18,27 @@
 pub struct RunnerSpec {
     /// Where the seat registers: `org` or `repo`. A repo-scoped seat also needs
     /// `repo`; an org-scoped seat must not have one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub scope: Option<String>,
 
     /// Labels the seat carries. Compared as a set. Must not be empty.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub labels: Vec<String>,
 
     /// sha256 of the pinned runner tarball. Required: there is no unpinned path.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub sha256: Option<String>,
 
     /// Directory the runner works in (`_work`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub work_dir: Option<String>,
 
     /// Unix account the runner and its service unit run as.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub user: Option<String>,
 
     /// The GitHub App that mints registration tokens.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub app: Option<RunnerApp>,
 }
 
