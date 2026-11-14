@@ -5,6 +5,21 @@
 //! refuses outright unless a parity-gate file, a budget cap and a kill switch
 //! are all declared (and the gate file says pass, and the kill switch is
 //! absent). `plan_diff` is pure Rust: no process, no network.
+//!
+//! Reads (`check`, `state_query`, `state: absent`) run only read-only
+//! `describe-instances` and teardown of OWNED instances, and are not gated. A
+//! lookup that fails or returns something that is not a list of instance ids is
+//! an error (non-zero), never "absent".
+//!
+//! Known limits:
+//! - Ownership is `forjar-owner = <name>-<region>`. Two config files (or
+//!   stacks) in one account that declare the same `name` in the same region
+//!   share it: one sees the other's box as its own, and its `state: absent`
+//!   terminates it. Uniqueness is enforced within one config only. Keep names
+//!   distinct across configs.
+//! - The instance key includes the image digest, so changing `image:` on a
+//!   running box launches a second box; the old one lives until its lifetime
+//!   ends or `state: absent`. The spend cap is per launch, not summed.
 
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
@@ -273,6 +288,19 @@ fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> 
     )
 }
 
+/// Shell that sets `ids` from the provider query `cmd`, or EXITS NON-ZERO.
+///
+/// A failed lookup (expired credentials, throttling, no `aws`) or a reply that
+/// is not a list of instance ids is an ERROR, never "absent": reading a failure
+/// as an empty answer would report success while a box may still be billing.
+/// Works with or without `set -e`.
+fn lookup_ids(cmd: &str) -> String {
+    format!(
+        "ids=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
+         for i in $ids; do case \"$i\" in i-[0-9a-f]*) ;; *) echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1;; esac; done\n"
+    )
+}
+
 /// Instances of this exact declaration (key = name + region + image digest).
 fn describe(s: &CloudInstance) -> String {
     describe_by(
@@ -301,19 +329,29 @@ pub fn check_script(resource: &Resource) -> String {
             &owner_of(&s),
             "Reservations[].Instances[].InstanceId",
         );
-        return crate::resources::verdict::check_script_from(&[
-            crate::resources::verdict::assert_that(
-                &format!("[ -z \"$({owned})\" ]"),
-                &format!("instance-absent:{key}"),
-                &format!("instance-still-owned:{key}"),
-            ),
-        ]);
+        return format!(
+            "{lookup}{check}",
+            lookup = lookup_ids(&owned),
+            check = crate::resources::verdict::check_script_from(&[
+                crate::resources::verdict::assert_that(
+                    "[ -z \"$ids\" ]",
+                    &format!("instance-absent:{key}"),
+                    &format!("instance-still-owned:{key}"),
+                ),
+            ]),
+        );
     }
-    crate::resources::verdict::check_script_from(&[crate::resources::verdict::assert_that(
-        &format!("[ -n \"$({})\" ]", describe(&s)),
-        &format!("instance-present:{key}"),
-        &format!("instance-absent:{key}"),
-    )])
+    format!(
+        "{lookup}{check}",
+        lookup = lookup_ids(&describe(&s)),
+        check = crate::resources::verdict::check_script_from(&[
+            crate::resources::verdict::assert_that(
+                "[ -n \"$ids\" ]",
+                &format!("instance-present:{key}"),
+                &format!("instance-absent:{key}"),
+            )
+        ]),
+    )
 }
 
 /// Script reporting observed state (read-only provider query).
@@ -323,8 +361,8 @@ pub fn state_query_script(resource: &Resource) -> String {
         Err(e) => return reject(&e),
     };
     format!(
-        "ids=\"$({})\"\nif [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
-        describe(&s)
+        "{}if [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
+        lookup_ids(&describe(&s))
     )
 }
 
@@ -347,11 +385,11 @@ fn destroy_script(s: &CloudInstance) -> String {
         &owner,
         "Reservations[].Instances[].SpotInstanceRequestId",
     );
+    let lookup_ids = lookup_ids(&ids);
     format!(
         "set -eu\n\
-         ids=\"$({ids})\"\n\
+         {lookup_ids}\
          if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
-         for i in $ids; do case \"$i\" in i-[0-9a-f]*) ;; *) echo \"REFUSED: unexpected instance id\" >&2; exit 1;; esac; done\n\
          sirs=\"$({sirs})\"\n\
          aws ec2 terminate-instances --region {region} --instance-ids $ids >/dev/null\n\
          for r in $sirs; do case \"$r\" in sir-[0-9a-z]*) ;; *) continue;; esac; \
@@ -416,7 +454,7 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 echo 'REFUSED: parity gate has not passed' >&2; exit 1\n\
          fi\n\
          # budget cap declared: {budget_note}\n\
-         ids=\"$({describe})\"\n\
+         {lookup}\
          if [ -n \"$ids\" ]; then echo \"present $ids\"; exit 0; fi\n\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
@@ -428,7 +466,7 @@ pub fn apply_script(resource: &Resource) -> String {
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
-        describe = describe(&s),
+        lookup = lookup_ids(&describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
         ami = sh_squote("resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"),

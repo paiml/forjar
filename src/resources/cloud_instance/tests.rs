@@ -52,6 +52,7 @@ const STUB: &str = r#"#!/bin/sh
 echo "$@" >> "$STUB_LOG"
 case "$*" in
 *describe-instances*)
+  if [ -e "$STUB_LOG.descfail" ]; then echo "ExpiredToken" >&2; exit 255; fi
   if [ -n "${STUB_FIXTURE:-}" ]; then
     want=$(printf '%s\n' "$*" | sed -n 's/.*Name=tag:\(forjar-[a-z]*\),Values=\([^ ]*\).*/\1 \2/p')
     col=1; case "$*" in *SpotInstanceRequestId*) col=4;; esac
@@ -98,6 +99,10 @@ impl Sandbox {
             .unwrap();
         assert!(stub.exists(), "the fake aws must exist");
         Sandbox { dir }
+    }
+    /// Make every later `describe-instances` exit 255 (expired credentials).
+    pub(super) fn fail_describe(&self) {
+        std::fs::write(self.path().join("calls.log.descfail"), "").unwrap();
     }
     pub(super) fn path(&self) -> &Path {
         self.dir.path()

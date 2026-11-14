@@ -310,8 +310,97 @@ fn worst_case_spend_above_the_daily_cap_refuses() {
 fn a_failing_describe_stops_before_run_instances() {
     let sb = Sandbox::new();
     sb.open_gate();
-    std::fs::remove_file(sb.path().join("bin/aws")).unwrap();
-    let (rc, _) = sb.run(&apply_script(&gated(sb.path())), "");
-    assert_ne!(rc, 0);
-    assert_eq!(sb.log(), "");
+    sb.fail_describe();
+    let (rc, out) = sb.run(&apply_script(&gated(sb.path())), "");
+    assert_ne!(rc, 0, "{out}");
+    let log = sb.log();
+    assert_eq!(
+        count(&log, "describe-instances"),
+        1,
+        "describe was called: {log}"
+    );
+    assert_eq!(count(&log, "run-instances"), 0, "{log}");
+}
+
+/// Scripts that read the provider: absent check, present check, state query,
+/// and the absent apply (destroy).
+fn readers(sb: &Sandbox) -> Vec<(&'static str, String)> {
+    let r = gated(sb.path());
+    vec![
+        ("absent check", check_script(&absent(r.clone()))),
+        ("present check", check_script(&r)),
+        ("state query", state_query_script(&r)),
+        ("destroy", apply_script(&absent(r))),
+    ]
+}
+
+#[test]
+fn a_failed_lookup_is_an_error_never_absent() {
+    for (what, _) in readers(&Sandbox::new()) {
+        let sb = Sandbox::new();
+        let script = readers(&sb)
+            .into_iter()
+            .find(|(w, _)| *w == what)
+            .unwrap()
+            .1;
+        sb.fail_describe();
+        let (rc, out) = sb.run(&script, "");
+        assert_ne!(rc, 0, "{what}: {out}");
+        assert!(out.contains("lookup failed"), "{what}: {out}");
+        assert!(!out.contains("instance-absent"), "{what}: {out}");
+        assert!(!out.contains("absent: no owned"), "{what}: {out}");
+        assert!(!out.lines().any(|l| l.trim() == "absent"), "{what}: {out}");
+        assert!(
+            sb.log().contains("describe-instances"),
+            "{what}: {}",
+            sb.log()
+        );
+        assert_eq!(count(&sb.log(), "terminate-instances"), 0, "{what}");
+    }
+}
+
+#[test]
+fn an_empty_lookup_is_absent() {
+    let sb = Sandbox::new();
+    let r = gated(sb.path());
+    let (rc, out) = sb.run(&check_script(&absent(r.clone())), "");
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains("instance-absent:"), "{out}");
+    let (rc, out) = sb.run(&check_script(&r), "");
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("instance-absent:"), "{out}");
+    let (rc, out) = sb.run(&state_query_script(&r), "");
+    assert_eq!(rc, 0, "{out}");
+    assert_eq!(out.trim(), "absent");
+    let (rc, out) = sb.run(&apply_script(&absent(r)), "");
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains("absent: no owned instance"), "{out}");
+}
+
+#[test]
+fn a_garbage_lookup_is_an_error() {
+    for garbage in ["None", "<html>502</html>", "i-0a\tgarbage"] {
+        let sb = Sandbox::new();
+        for (what, script) in readers(&sb) {
+            let (rc, out) = sb.run(&script, garbage);
+            assert_ne!(rc, 0, "{what} / {garbage}: {out}");
+            assert!(
+                out.contains("not an instance id"),
+                "{what} / {garbage}: {out}"
+            );
+            assert!(!out.contains("instance-absent"), "{what}: {out}");
+        }
+        assert_eq!(count(&sb.log(), "terminate-instances"), 0);
+    }
+}
+
+#[test]
+fn a_failed_lookup_in_apply_never_launches() {
+    let sb = Sandbox::new();
+    sb.open_gate();
+    for garbage in ["None", "oops"] {
+        let (rc, out) = sb.run(&apply_script(&gated(sb.path())), garbage);
+        assert_ne!(rc, 0, "{out}");
+    }
+    assert_eq!(count(&sb.log(), "run-instances"), 0, "{}", sb.log());
 }
