@@ -288,8 +288,8 @@ jobs:
           case "${{ matrix.target }}" in
             *-musl)
               if command -v apt-get &>/dev/null; then
-                sudo apt-get update -qq
-                sudo apt-get install -y -qq musl-tools >/dev/null
+                sudo apt-get -o DPkg::Lock::Timeout=600 update -qq
+                sudo apt-get -o DPkg::Lock::Timeout=600 install -y -qq musl-tools >/dev/null
               fi
               rustup target add "${{ matrix.target }}" || true
               ;;
