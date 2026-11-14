@@ -51,8 +51,8 @@ fn version_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String 
     };
     let want = format!("{}.{}.{}", pin.major, pin.minor, pin.patch);
     format!(
-        "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | \
-         grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
+        "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | tr -d '\\0' | \
+         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
          head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' || true )\n\
          \x20 if [ \"$FJ_LIVE\" != '{want}' ]; then\n\
          \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_LIVE:-unreadable}}\"; __fj_diverged=1\n\
@@ -65,10 +65,11 @@ fn checksum_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String
     let Some(raw) = resource.checksum.as_deref() else {
         return String::new();
     };
-    let want = raw
-        .trim()
-        .trim_start_matches("sha256:")
-        .to_ascii_lowercase();
+    let lowered = raw.trim().to_ascii_lowercase();
+    let want = lowered
+        .strip_prefix("sha256:")
+        .unwrap_or(&lowered)
+        .to_string();
     // Hex only: the value is interpolated into the script.
     if want.len() != 64 || !want.bytes().all(|b| b.is_ascii_hexdigit()) {
         return format!(
@@ -76,7 +77,7 @@ fn checksum_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String
         );
     }
     format!(
-        "\x20 FJ_SUM=$( {{ sha256sum {bin_path} 2>/dev/null || shasum -a 256 {bin_path} 2>/dev/null; }} | cut -d ' ' -f 1 || true )\n\
+        "\x20 FJ_SUM=$( {{ sha256sum < {bin_path} 2>/dev/null || shasum -a 256 < {bin_path} 2>/dev/null; }} | cut -d ' ' -f 1 || true )\n\
          \x20 if [ \"$FJ_SUM\" != '{want}' ]; then\n\
          \x20\x20\x20 echo \"checksum-mismatch:{repo}:want {want}:have ${{FJ_SUM:-unreadable}}\"; __fj_diverged=1\n\
          \x20 fi\n"

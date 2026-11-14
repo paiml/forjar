@@ -46,7 +46,7 @@ fn run(script: &str) -> (bool, String) {
 
 fn sha256_of(path: &Path) -> String {
     let out = std::process::Command::new("sha256sum")
-        .arg(path)
+        .stdin(std::fs::File::open(path).unwrap())
         .output()
         .unwrap();
     String::from_utf8_lossy(&out.stdout)[..64].to_string()
@@ -185,4 +185,41 @@ fn pre_release_suffix_is_ignored_like_the_drift_detector() {
     install(d.path(), "ollama version 1.2.3");
     let (ok, out) = run(&check_script(&resource(d.path(), Some("v1.2.3-rc1"))));
     assert!(ok, "rc tag compares as its N.N.N: {out}");
+}
+
+/// Review lane 2: sha256sum prints a leading backslash for a path containing a
+/// backslash; the file is read from stdin so the hash line is never escaped.
+#[test]
+fn checksum_matches_when_the_install_path_contains_a_backslash() {
+    let d = tempfile::tempdir().unwrap();
+    let sub = d.path().join("a\\b");
+    std::fs::create_dir(&sub).unwrap();
+    install(&sub, "ollama version 0.34.2");
+    let mut r = resource(&sub, Some("v0.34.2"));
+    r.checksum = Some(sha256_of(&sub.join("ollama")));
+    let (ok, out) = run(&check_script(&r));
+    assert!(ok, "{out}");
+}
+
+/// Review lane 2: the prefix is stripped once and case-insensitively.
+#[test]
+fn checksum_prefix_is_stripped_once_and_case_insensitively() {
+    let d = tempfile::tempdir().unwrap();
+    install(d.path(), "ollama version 0.34.2");
+    let sum = sha256_of(&d.path().join("ollama"));
+    let mut r = resource(d.path(), None);
+    r.checksum = Some(format!("SHA256:{sum}"));
+    assert!(run(&check_script(&r)).0);
+    r.checksum = Some(format!("sha256:sha256:{sum}"));
+    let (ok, out) = run(&check_script(&r));
+    assert!(!ok && out.contains("checksum-invalid"), "{out}");
+}
+
+/// Review lane 2: a non-ASCII byte next to the version reads as in `parse_semver`.
+#[test]
+fn version_next_to_a_non_ascii_byte_is_read_bytewise() {
+    let d = tempfile::tempdir().unwrap();
+    install(d.path(), "ollama \u{e9}0.34.2");
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v0.34.2"))));
+    assert!(ok, "{out}");
 }
