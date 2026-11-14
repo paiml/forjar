@@ -264,14 +264,15 @@ pub(crate) fn apply_cargo_present(resource: &Resource) -> String {
 
 /// Shell snippet that resolves the newest published version of an unpinned
 /// crate into `_FJ_LATEST` (forjar#1048). On failure (offline, registry error,
-/// no exact match) it says so on stderr and sets `_FJ_NC=1` so the install
+/// no exact match, or a value that is not a plain version token) it says so on stderr and sets `_FJ_NC=1` so the install
 /// builds without touching the cache; it never keys on a stale `latest`.
 fn latest_resolve_snippet(crate_name: &str) -> String {
     let q = sh_squote(crate_name);
     format!(
         "_FJ_NC=\"${{FORJAR_NO_CARGO_CACHE:-}}\"\n\
-         _FJ_LATEST=$(cargo search --limit 10 {q} 2>/dev/null | \
-awk -v c={q} '$1 == c && $2 == \"=\" {{ gsub(/\"/, \"\", $3); print $3; exit }}' || true)\n\
+         _FJ_LATEST=$(cargo search --color never --limit 10 -- {q} 2>/dev/null | \
+awk -v c={q} '/^[^[:space:]]/ && $1 == c && $2 == \"=\" && $3 ~ /^\"[0-9A-Za-z._+-]+\"$/ {{ gsub(/\"/, \"\", $3); print $3; exit }}' || true)\n\
+         case \"$_FJ_LATEST\" in \"\"|*[!0-9A-Za-z._+-]*|*..*|-*) _FJ_LATEST='' ;; esac\n\
          if [ -z \"$_FJ_LATEST\" ]; then\n\
            echo \"forjar: WARNING cannot resolve latest version of {crate_name}; building without cache\" >&2\n\
            _FJ_NC=1\n\

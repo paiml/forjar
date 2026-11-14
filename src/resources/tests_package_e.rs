@@ -15,7 +15,7 @@ fn cargo_script(version: Option<&str>) -> String {
     apply_script(&r)
 }
 
-/// Run the resolve snippet and the `_CACHE_KEY=` line of `script` under `sh`
+/// Run the resolve snippet and the `_CACHE_KEY=` line of `script` under `bash`
 /// with `fake_cargo` as the body of a `cargo` executable; print key and flag.
 fn run_key(script: &str, fake_cargo: &str) -> String {
     let start = script.find("_FJ_NC=").expect("resolve snippet present");
@@ -32,8 +32,9 @@ fn run_key(script: &str, fake_cargo: &str) -> String {
     let bin = dir.path().join("cargo");
     std::fs::write(&bin, format!("#!/bin/sh\n{fake_cargo}\n")).unwrap();
     std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let out = std::process::Command::new("sh")
+    let out = std::process::Command::new("bash")
         .arg("-c")
+        .env_remove("FORJAR_NO_CARGO_CACHE")
         .arg(&body)
         .env("PATH", format!("{}:/usr/bin:/bin", dir.path().display()))
         .output()
@@ -102,4 +103,29 @@ fn fj1048_unpinned_and_pinned_scripts_pass_purifier() {
         crate::core::purifier::validate_script(&crate::transport::strip_data_payloads(&s))
             .unwrap_or_else(|e| panic!("purifier rejected {v:?}: {e}\n{s}"));
     }
+}
+
+/// A registry reply that is not a clean version token must never reach the
+/// cache path: an indented continuation line of another result's description,
+/// a traversal or whitespace in the version, or an unquoted value all bypass
+/// the cache instead (agy lane 1, forjar#1048).
+#[test]
+fn fj1048_hostile_resolved_version_bypasses_cache() {
+    let s = cargo_script(None);
+    for fake in [
+        "echo 'other = \"1.0.0\"'\necho '    ripgrep = \"99.9.9/../../../../tmp/evil\"'",
+        "echo 'ripgrep = \"1.0/../x\"'",
+        "echo 'ripgrep = \"1.0 evil\"'",
+        "echo 'ripgrep = 1.0.0'",
+    ] {
+        let out = run_key(&s, fake);
+        assert!(out.ends_with("|1"), "must bypass ({fake}): {out}");
+        assert!(!out.contains(".."), "{out}");
+    }
+    // An indented decoy ahead of the real, column-0 line is skipped, not used.
+    let out = run_key(
+        &s,
+        "echo '    ripgrep = \"6.6.6\"'\necho 'ripgrep = \"14.1.0\"'",
+    );
+    assert!(out.starts_with("ripgrep-14.1.0-"), "{out}");
 }
