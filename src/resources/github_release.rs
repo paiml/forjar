@@ -20,7 +20,6 @@
 
 use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::Resource;
-use crate::resources::verdict;
 
 /// Error script emitted when `repo` is not a valid `owner/repo` slug.
 ///

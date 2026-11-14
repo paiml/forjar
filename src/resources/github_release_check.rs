@@ -53,7 +53,7 @@ fn version_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String 
     format!(
         "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | \
          grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
-         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' || true )\n\
+         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' || true )\n\
          \x20 if [ \"$FJ_LIVE\" != '{want}' ]; then\n\
          \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_LIVE:-unreadable}}\"; __fj_diverged=1\n\
          \x20 fi\n"

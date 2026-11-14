@@ -70,6 +70,18 @@ fn pinned_tag_equal_to_installed_version_is_converged() {
     assert!(out.contains("installed:ollama/ollama"), "{out}");
 }
 
+/// Review lane 1: a zero-padded (CalVer) pin parses to 2024.8.6; the live
+/// `2024.08.06` must compare numerically, not as text.
+#[test]
+fn zero_padded_calver_pin_matches_the_same_live_version() {
+    let d = tempfile::tempdir().unwrap();
+    install(d.path(), "tool 2024.08.06");
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v2024.08.06"))));
+    assert!(ok, "{out}");
+    let (ok, out) = run(&check_script(&resource(d.path(), Some("v2024.08.07"))));
+    assert!(!ok, "{out}");
+}
+
 #[test]
 fn pinned_tag_with_unreadable_live_version_needs_apply() {
     let d = tempfile::tempdir().unwrap();
@@ -130,6 +142,18 @@ fn latest_nightly_and_no_tag_stay_presence_only() {
         assert!(ok, "{tag:?} must stay presence-only: {out}");
         assert!(!check_script(&r).contains("version-mismatch"), "{tag:?}");
     }
+}
+
+/// The invalid-checksum and invalid-repo branches emit scripts too.
+#[test]
+fn rejection_branch_scripts_pass_the_purifier() {
+    let d = tempfile::tempdir().unwrap();
+    let mut r = resource(d.path(), None);
+    r.checksum = Some("not-hex".to_string());
+    validate_script(&check_script(&r)).unwrap();
+    let mut r = resource(d.path(), None);
+    r.repo = Some("x/y$(reboot)".to_string());
+    validate_script(&check_script(&r)).unwrap();
 }
 
 #[test]
