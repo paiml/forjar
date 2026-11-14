@@ -141,39 +141,88 @@ fn rule1_binary_release_fires_only_on_workflow_dispatch() {
 }
 
 // ---------------------------------------------------------------------
-// Rule 2: release.yml is the only workflow whose on.push.tags contains 'v*'.
+// Rule 2: release.yml is the only workflow that creates or uploads a GitHub
+// release (or release assets) on a `v*` tag. Other workflows may trigger on
+// `v*` tags only as read-only consumers (PMAT-604: bench.yml, ci.yml and
+// coverage.yml run on tagged releases): no `gh release create/upload/edit`,
+// no release-upload action, no `contents: write`.
 // ---------------------------------------------------------------------
+
+/// Why a workflow's text is NOT a read-only consumer of a release, if it is not.
+/// Comment-only lines are ignored so prose cannot trip or hide a finding.
+fn release_write_findings(text: &str) -> Vec<String> {
+    const WRITERS: [&str; 6] = [
+        "gh release create",
+        "gh release upload",
+        "gh release edit",
+        "softprops/action-gh-release",
+        "actions/upload-release-asset",
+        "ncipollo/release-action",
+    ];
+    let mut found = Vec::new();
+    for line in text.lines() {
+        let code = line.split('#').next().unwrap_or("");
+        for w in WRITERS {
+            if code.contains(w) {
+                found.push(format!("`{w}`"));
+            }
+        }
+        let squeezed: String = code.split_whitespace().collect::<Vec<_>>().join(" ");
+        if squeezed.contains("contents: write") {
+            found.push("`contents: write`".to_string());
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+fn has_v_star_tag_trigger(doc: &serde_yaml_ng::Value) -> bool {
+    doc.get("on")
+        .and_then(|on| on.as_mapping())
+        .and_then(|m| m.get("push"))
+        .and_then(|push| push.as_mapping())
+        .and_then(|m| m.get("tags"))
+        .and_then(|tags| tags.as_sequence())
+        .is_some_and(|seq| seq.iter().any(|t| t.as_str() == Some("v*")))
+}
+
 #[test]
-fn rule2_release_yml_is_the_only_v_star_tag_push_producer() {
-    let mut owners: Vec<String> = Vec::new();
+fn rule2_release_yml_is_the_only_v_star_tag_release_producer() {
+    let mut triggered: Vec<String> = Vec::new();
+    let mut violations: Vec<String> = Vec::new();
     for path in all_workflow_files() {
         let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
         let doc: serde_yaml_ng::Value = match serde_yaml_ng::from_str(&text) {
             Ok(d) => d,
             Err(_) => continue,
         };
-        let has_v_star_tag = doc
-            .get("on")
-            .and_then(|on| on.as_mapping())
-            .and_then(|m| m.get("push"))
-            .and_then(|push| push.as_mapping())
-            .and_then(|m| m.get("tags"))
-            .and_then(|tags| tags.as_sequence())
-            .is_some_and(|seq| seq.iter().any(|t| t.as_str() == Some("v*")));
-        if has_v_star_tag {
-            owners.push(
-                path.file_name()
-                    .expect("workflow file has a name")
-                    .to_string_lossy()
-                    .to_string(),
-            );
+        if !has_v_star_tag_trigger(&doc) {
+            continue;
         }
+        let name = path
+            .file_name()
+            .expect("workflow file has a name")
+            .to_string_lossy()
+            .to_string();
+        if name != "release.yml" {
+            let f = release_write_findings(&text);
+            if !f.is_empty() {
+                violations.push(format!("{name}: {}", f.join(", ")));
+            }
+        }
+        triggered.push(name);
     }
-    assert_eq!(
-        owners,
-        vec!["release.yml".to_string()],
-        "PMAT-166 rule 2: release.yml must be the ONLY file under \
-         .github/workflows/ whose on.push.tags contains 'v*' — found {owners:?}"
+    assert!(
+        triggered.iter().any(|n| n == "release.yml"),
+        "PMAT-166 rule 2: release.yml must itself trigger on on.push.tags 'v*' — found {triggered:?}"
+    );
+    assert!(
+        violations.is_empty(),
+        "PMAT-166 rule 2: release.yml must be the ONLY workflow that creates or \
+         uploads a GitHub release on a 'v*' tag; other 'v*'-triggered workflows must \
+         be read-only consumers (no gh release create/upload/edit, no release-upload \
+         action, no `contents: write`) — found {violations:?}"
     );
 }
 
