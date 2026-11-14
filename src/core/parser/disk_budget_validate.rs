@@ -21,7 +21,7 @@ pub(super) fn validate_disk_budget(
     // A budget with no reclaim rules can observe pressure but never relieve it:
     // every triggered pass would fail its target and the unit would sit failed
     // forever. Refuse it at parse time rather than shipping a permanent alarm.
-    if resource.budget_reclaim.is_empty() {
+    if resource.budget.reclaim.is_empty() {
         errors.push(ValidationError {
             message: format!(
                 "resource '{id}' (disk_budget) declares no `budget_reclaim` rules — it could \
@@ -29,7 +29,7 @@ pub(super) fn validate_disk_budget(
             ),
         });
     }
-    for (i, rule) in resource.budget_reclaim.iter().enumerate() {
+    for (i, rule) in resource.budget.reclaim.iter().enumerate() {
         if rule.name.is_empty() {
             errors.push(ValidationError {
                 message: format!("resource '{id}' (disk_budget) reclaim rule #{i} has no name"),

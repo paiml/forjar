@@ -150,7 +150,7 @@ fn resolve_build_and_overlay_fields(
     // a cosmetic bug: the literal would simply never match and the rule would
     // silently reclaim nothing, which is the exact silent-inertness this
     // resource exists to prevent.
-    r.budget_schedule = resolve_opt(&r.budget_schedule, params, machines, secrets)?;
+    r.budget.schedule = resolve_opt(&r.budget.schedule, params, machines, secrets)?;
     // tmp_reaper: the age and glob decide what gets deleted.
     r.max_age = resolve_opt(&r.max_age, params, machines, secrets)?;
     // FJ-861: cloud_instance fields feed the provider call and the gates.
@@ -162,7 +162,7 @@ fn resolve_build_and_overlay_fields(
     r.cloud.kill_switch = resolve_opt(&r.cloud.kill_switch, params, machines, secrets)?;
     r.cloud.parity_gate = resolve_opt(&r.cloud.parity_gate, params, machines, secrets)?;
     r.pattern = resolve_opt(&r.pattern, params, machines, secrets)?;
-    for rule in &mut r.budget_reclaim {
+    for rule in &mut r.budget.reclaim {
         rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
     }
 

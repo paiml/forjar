@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 
 fn script_for(root: &str, kind: ReclaimKind) -> String {
     let mut r = res();
-    r.budget_reclaim = vec![ReclaimRule {
+    r.budget.reclaim = vec![ReclaimRule {
         name: "fixture".into(),
         roots: vec![root.to_string()],
         kind,
@@ -16,8 +16,8 @@ fn script_for(root: &str, kind: ReclaimKind) -> String {
     }];
     // Trigger at 2% used, demand 99% free: always triggered, never met, so
     // every provably-dead idle candidate is a deletion.
-    r.budget_high_watermark_pct = Some(2);
-    r.budget_target_free_pct = Some(99);
+    r.budget.high_watermark_pct = Some(2);
+    r.budget.target_free_pct = Some(99);
     reaper_script(&r).expect("script")
 }
 
