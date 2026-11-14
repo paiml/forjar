@@ -252,7 +252,11 @@ fn apply_creates_one_bounded_spot_instance_when_every_gate_passes() {
         "--region eu-south-2",
         "--instance-type c7a.xlarge",
         "MaxPrice=0.20",
-        "terminate",
+        "--count 1",
+        "MarketType=spot",
+        "SpotInstanceType=one-time",
+        "--instance-initiated-shutdown-behavior terminate",
+        "HttpEndpoint=enabled",
         "shutdown -h +60",
         "HttpTokens=required",
         "HttpPutResponseHopLimit=1",
@@ -267,7 +271,7 @@ fn apply_creates_one_bounded_spot_instance_when_every_gate_passes() {
 fn apply_is_idempotent_when_the_instance_already_exists() {
     let sb = Sandbox::new();
     sb.open_gate();
-    let (rc, out) = sb.run(&apply_script(&gated(sb.path())), "i-0live");
+    let (rc, out) = sb.run(&apply_script(&gated(sb.path())), "i-0123abcd");
     assert_eq!(rc, 0, "{out}");
     assert!(!sb.log().contains("run-instances"), "{}", sb.log());
 }
@@ -275,7 +279,7 @@ fn apply_is_idempotent_when_the_instance_already_exists() {
 #[test]
 fn check_asks_the_provider_and_fails_when_absent() {
     let sb = Sandbox::new();
-    let (rc, out) = sb.run(&check_script(&res()), "i-0live");
+    let (rc, out) = sb.run(&check_script(&res()), "i-0123abcd");
     assert_eq!(rc, 0, "{out}");
     assert!(sb.log().contains("describe-instances"), "{}", sb.log());
     let (rc, out) = sb.run(&check_script(&res()), "");

@@ -153,8 +153,14 @@ fn is_image_name(n: &str) -> bool {
 }
 
 fn is_positive_decimal(s: &str) -> bool {
-    let plain = !s.is_empty() && s.chars().all(|c| c.is_ascii_digit() || c == '.');
-    plain && s.matches('.').count() <= 1 && s.parse::<f64>().is_ok_and(|v| v > 0.0)
+    // digits, optionally `digits.digits`; short enough that it can never
+    // overflow to infinity (inf > inf is false and would defeat the cap check).
+    let (int, frac) = s.split_once('.').unwrap_or((s, "0"));
+    let digits = |p: &str| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit());
+    digits(int)
+        && digits(frac)
+        && s.len() <= 12
+        && s.parse::<f64>().is_ok_and(|v| v.is_finite() && v > 0.0)
 }
 
 fn has_digest(image: &str) -> bool {
@@ -175,17 +181,19 @@ fn is_tag(t: &str) -> bool {
     t.split_once('=').is_some_and(|(k, v)| plain(k) && plain(v))
 }
 
-/// Idempotency key: the resource's own name, its region and the first 12 hex
+/// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
 /// digits of the image digest. Two declarations get the same key only if they
 /// share a name (refused by [`validate_unique_names`]).
 fn key_of(s: &CloudInstance) -> String {
     let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
-    format!("{}-{}-{}", s.name, s.region, &digest[..12])
+    format!("{}@{}@{}", s.name, s.region, &digest[..12])
 }
 
 /// Ownership key for teardown: name plus region, stable across image changes.
+/// `@` joins the parts: neither the name nor the region allow-list can contain
+/// it, so two different (name, region) pairs never give the same string.
 fn owner_of(s: &CloudInstance) -> String {
-    format!("{}-{}", s.name, s.region)
+    format!("{}@{}", s.name, s.region)
 }
 
 /// Plan-time: two `cloud_instance` resources may not share a name and region,
@@ -216,7 +224,10 @@ pub fn validate_unique_names(config: &crate::core::types::ForjarConfig) -> Vec<S
 
 /// The three apply gates a declaration must carry: (parity gate, budget cap, kill switch).
 fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>> {
-    let abs = |v: &Option<String>| v.clone().filter(|p| p.starts_with('/'));
+    let abs = |v: &Option<String>| {
+        v.clone()
+            .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
+    };
     let budget = r
         .cloud
         .budget_cap_usd_day
@@ -271,6 +282,14 @@ pub fn plan_diff(resource: &Resource) -> String {
     )
 }
 
+/// Single-quote `s` for a shell word WITHOUT dropping newlines. `sh_squote`
+/// strips control characters, which welded user-data into one line
+/// (`#!/bin/shshutdown -h +60...`): no shebang and no lifetime bound. Only
+/// pass text built from validated values.
+fn squote_keep_newlines(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\"'\"'"))
+}
+
 fn reject(msg: &str) -> String {
     format!("echo {} >&2; exit 1", sh_squote(&format!("REFUSED: {msg}")))
 }
@@ -288,16 +307,20 @@ fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> 
     )
 }
 
-/// Shell that sets `ids` from the provider query `cmd`, or EXITS NON-ZERO.
+/// Shell that sets `var` from the provider query `cmd`, or EXITS NON-ZERO.
 ///
 /// A failed lookup (expired credentials, throttling, no `aws`) or a reply that
 /// is not a list of instance ids is an ERROR, never "absent": reading a failure
 /// as an empty answer would report success while a box may still be billing.
-/// Works with or without `set -e`.
-fn lookup_ids(cmd: &str) -> String {
+/// Every token must be a whole instance id (`i-` + 8 to 17 hex digits). Works
+/// with or without `set -e`.
+fn lookup_ids(var: &str, cmd: &str) -> String {
     format!(
-        "ids=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
-         for i in $ids; do case \"$i\" in i-[0-9a-f]*) ;; *) echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1;; esac; done\n"
+        "{var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
+         for i in ${var}; do h=\"${{i#i-}}\"; case \"$i\" in i-*) ;; *) h='!';; esac; \
+         case \"$h\" in *[!0-9a-f]*) h='!';; esac; \
+         if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then \
+         echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1; fi; done\n"
     )
 }
 
@@ -331,7 +354,7 @@ pub fn check_script(resource: &Resource) -> String {
         );
         return format!(
             "{lookup}{check}",
-            lookup = lookup_ids(&owned),
+            lookup = lookup_ids("ids", &owned),
             check = crate::resources::verdict::check_script_from(&[
                 crate::resources::verdict::assert_that(
                     "[ -z \"$ids\" ]",
@@ -343,7 +366,7 @@ pub fn check_script(resource: &Resource) -> String {
     }
     format!(
         "{lookup}{check}",
-        lookup = lookup_ids(&describe(&s)),
+        lookup = lookup_ids("ids", &describe(&s)),
         check = crate::resources::verdict::check_script_from(&[
             crate::resources::verdict::assert_that(
                 "[ -n \"$ids\" ]",
@@ -354,15 +377,23 @@ pub fn check_script(resource: &Resource) -> String {
     )
 }
 
-/// Script reporting observed state (read-only provider query).
+/// Script reporting observed state (read-only provider query), by OWNER: any
+/// live instance this resource owns counts, whatever image it was launched
+/// with. `state: absent` reads the same way as the absent check.
 pub fn state_query_script(resource: &Resource) -> String {
     let s = match spec_of(resource) {
         Ok(s) => s,
         Err(e) => return reject(&e),
     };
+    let owned = describe_by(
+        &s,
+        "forjar-owner",
+        &owner_of(&s),
+        "Reservations[].Instances[].InstanceId",
+    );
     format!(
         "{}if [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
-        lookup_ids(&describe(&s))
+        lookup_ids("ids", &owned)
     )
 }
 
@@ -385,13 +416,14 @@ fn destroy_script(s: &CloudInstance) -> String {
         &owner,
         "Reservations[].Instances[].SpotInstanceRequestId",
     );
-    let lookup_ids = lookup_ids(&ids);
+    let lookup = lookup_ids("ids", &ids);
     format!(
         "set -eu\n\
-         {lookup_ids}\
+         {lookup}\
          if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
          sirs=\"$({sirs})\"\n\
-         aws ec2 terminate-instances --region {region} --instance-ids $ids >/dev/null\n\
+         set -- $ids\n\
+         aws ec2 terminate-instances --region {region} --instance-ids \"$@\" >/dev/null\n\
          for r in $sirs; do case \"$r\" in sir-[0-9a-z]*) ;; *) continue;; esac; \
          aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
          left=\"$({ids})\"\n\
@@ -454,8 +486,14 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 echo 'REFUSED: parity gate has not passed' >&2; exit 1\n\
          fi\n\
          # budget cap declared: {budget_note}\n\
-         {lookup}\
-         if [ -n \"$ids\" ]; then echo \"present $ids\"; exit 0; fi\n\
+         {lookup_owned}\
+         {lookup_keyed}\
+         if [ -z \"$owned\" ]; then :; else\n\
+         \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
+         \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
+         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+         \x20 echo \"present $owned\"; exit 0\n\
+         fi\n\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
@@ -466,7 +504,8 @@ pub fn apply_script(resource: &Resource) -> String {
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
-        lookup = lookup_ids(&describe(&s)),
+        lookup_owned = lookup_ids("owned", &describe_by(&s, "forjar-owner", &owner_of(&s), "Reservations[].Instances[].InstanceId")),
+        lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
         ami = sh_squote("resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"),
@@ -474,7 +513,7 @@ pub fn apply_script(resource: &Resource) -> String {
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
         )),
-        ud = sh_squote(&user_data),
+        ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )
 }
