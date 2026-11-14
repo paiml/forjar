@@ -2778,7 +2778,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
-  updated: 2026-11-10T09:01:00.345747172+00:00
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -2788,6 +2788,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Clean-room builds start from a fresh checkout, so the release artifact is not affected; the hazard is local reuse of target/. Registered under the title "S2: build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — read it at run time so a reused build-script binary never reads another checkout''s contracts/ (GH #456, 1.27)". The title was synced to the issue''s under PMAT-594 to clear a CB-2115 DRIFT finding; the original is kept here because a pmat work title is the definition-of-done of the work it registers, so any approach or provenance it carried must not be lost to a sync.'
   release: backlog
 - id: PMAT-195
@@ -5498,7 +5499,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-11-07T00:00:00Z
-  updated: 2026-11-11T22:00:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - 'cargo install forjar carries age (keygen, encrypt/decrypt, state encryption work out of the box); keygen -o creates the identity 0600 from the first syscall and refuses to overwrite; secrets encrypt has no positional VALUE, reads stdin or --from-file, and no secrets-family usage error echoes an argument (subcommand-position redaction only; a non-UTF-8 argument must not panic); bad-recipient, --from-file, keygen, decrypt, view, rekey and rotate errors echo no value or path; a failing stdout is exit 1, not a panic; stdin/--from-file plaintext is capped at 16 MiB; core-dump hardening is a documented residual (ulimit -c 0) with a follow-up. Falsifiers: tests/falsification_893_secrets_encryption_default.rs, falsification_893_secrets_round3.rs, falsification_893_secrets_round4.rs, falsification_893_secrets_round5.rs spawn the built binary; falsification_default_features_trim.rs checks the manifest. PR #895.'
@@ -5509,6 +5510,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: null
   release: 1.34.1
 - id: PMAT-840
@@ -5771,7 +5773,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-11-11T10:03:19Z
-  updated: 2026-11-11T10:03:19Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - forjar build layers the base its config declares, and packages and command are executed into a layer (paiml/infra#2074 IMG-001 gaps 1-2)
@@ -5782,6 +5784,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'split from PMAT-756. Phase 1 (base layering, fail closed, cache key) done on branch feat/989-image-base-and-exec; phase 2 (packages/command executed into a layer on the declared base, entrypoint field, BuildRuntime) done on the same branch; F1 digest equal and F2 jq present measured with container-test (docs/audits/impl-PMAT-989-receipt.md); sandbox with steps refused (not run); setuid/setgid stripped for non-root-owned entries; CI run of the falsifier and uid/gid capture open'
   epic: 765
 - id: PMAT-920
@@ -6901,7 +6904,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-11T21:30:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - 'drift with an empty state dir (no lock for any machine) compares a declared pin against the live version, offline too, instead of inspecting 0 resources and exiting 0 (forjar#852).'
@@ -6914,6 +6917,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'PR #961 on branch cf/912-drift-train; receipt docs/audits/impl-PMAT-912-receipt.md'
   release: 1.35.0
 - id: PMAT-913
@@ -7213,7 +7217,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-10-05T15:39:13Z
-  updated: 2026-11-11T18:40:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -7222,17 +7226,18 @@ roadmap:
   labels:
   - kind:code
   - orch-basis:state
+  - release:v1.34.1
   notes: 'PR #914; also pins the SEC005 token boundary (#649)'
   epic: 696
 - id: PMAT-992
   github_issue: 992
   item_type: task
   title: '--resource-timeout does not bound the apply when no external kill binary exists (clean-room B2 red on v1.34.0)'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-11T20:12:00Z
-  updated: 2026-11-12T00:25:45Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - The timeout path signals the child's process group by syscall (killpg), so a host or image with no kill binary on PATH is bounded like any other.
@@ -7256,7 +7261,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-11T21:10:00Z
-  updated: 2026-11-11T21:45:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - No CLI line Debug-formats a resource_type; each prints the snake_case Display spelling (tests/resource_type_spelling.rs, tests/resource_type_cli_output.rs).
@@ -7270,6 +7275,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Gate A row added by the lane worker on lane-943; the issue number 916 follows the PMAT-n/#n pairing of neighbouring rows and was not read from GitHub. The branch commits before this one carry Pmat-Ticket: PMAT-198 (the #433 row).'
   release: 1.34.1
 - id: PMAT-890
@@ -7280,7 +7286,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-11-07T08:36:54Z
-  updated: 2026-11-11T18:40:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -7290,6 +7296,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-659
@@ -7300,7 +7307,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-04T02:38:22Z
-  updated: 2026-11-11T18:40:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -7310,6 +7317,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-638
@@ -7320,7 +7328,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-25T13:12:59Z
-  updated: 2026-11-11T18:40:00Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -7330,6 +7338,7 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
+  - release:v1.34.1
   notes: 'Noah 11 Nov: solo cop on Fable 5.2, dispatcher only; workers Sonnet'
   epic: 696
 - id: PMAT-639
@@ -7340,7 +7349,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-12T16:26:19Z
-  updated: 2026-11-12T16:26:19Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - 'build.rs embeds FORJAR_GIT_SHA; rerun when the branch ref moves (PR #908, closes #639)'
@@ -7349,6 +7358,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 915
 - id: PMAT-1004
@@ -7359,7 +7369,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-12T20:40:03Z
-  updated: 2026-11-12T20:40:03Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - git/bash-only jobs (classify x3, ci gate) to gate-light
@@ -7368,6 +7378,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 913
 - id: PMAT-1000
@@ -7396,7 +7407,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-11-13T07:40:41Z
-  updated: 2026-11-13T07:40:41Z
+  updated: 2026-11-13T10:44:15Z
   spec: null
   acceptance_criteria:
   - apply --check fails secret not found; apply/--dry-run resolve via secrets provider. infra#4181
@@ -7405,6 +7416,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 915
 - id: PMAT-995
@@ -7424,6 +7436,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 911
 - id: PMAT-608
@@ -7443,5 +7456,46 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.1
   notes: null
   epic: 696
+- id: PMAT-1014
+  github_issue: 1014
+  item_type: task
+  title: 'release.yml: homebrew job red on the last 5 tags (HOMEBREW_TAP_TOKEN undefined since #462); remove it'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-11-13T10:45:00Z
+  updated: 2026-11-13T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - release.yml has no job that needs HOMEBREW_TAP_TOKEN (tests/falsification_release_has_no_homebrew.rs)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.1
+  notes: 'merged as #1016 (6f68219e); Noah ruling 2026-11-13 10:41Z "drop homebrew support"'
+- id: PMAT-1015
+  github_issue: 1015
+  item_type: task
+  title: 'release: cut v1.34.1 (PMAT-992 kill fix + 136 commits since v1.34.0)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-13T10:50:00Z
+  updated: 2026-11-13T10:50:00Z
+  spec: null
+  acceptance_criteria:
+  - CHANGELOG [Unreleased] folded into [1.34.1] - 2026-11-13; docs/audits/crux-1.34.1.md passes gate H; PMAT-992 completed; release:v1.34.1 labels synced (release-goal.sh sync --check rc=0)
+  - infra clean-room-forjar green (B2 included) at the sha to be tagged; main CI, behavior, convergence, proofs green there
+  - v1.34.1 tagged on that sha; release.yml un-drafts; release-check.sh GATE R PASS; releases.yaml books v1.34.1
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:docs
+  - release:v1.34.1
+  notes: 'homebrew job removal landed separately as #1016 (PMAT-1014) before the tag'
