@@ -217,3 +217,16 @@ cb200-ratchet:
 	@# introduced none of it. The count is COMPARED, not merely printed: a target
 	@# that echoes a number is documentation, and documentation does not fail.
 	@bash scripts/cb200-ratchet.sh
+
+# LAB checks (C324): they cannot block a merge or a release, so they are wired
+# into NO PR, merge-queue or release job and no other target depends on them.
+# They run at night on an idle machine; a red updates its one ticket.
+#   make lab-bashrs-pin-skew INFRA_DIR=../infra    every bashrs pin vs newest tag (PMAT-1015)
+#   make lab-bashrs-pin-skew-test                  its offline case table
+.PHONY: lab-bashrs-pin-skew lab-bashrs-pin-skew-test
+lab-bashrs-pin-skew:
+	@test -n "$(INFRA_DIR)" || { echo "usage: make lab-bashrs-pin-skew INFRA_DIR=<paiml/infra checkout> [REV=origin/main]"; exit 2; }
+	bash scripts/lab/bashrs-pin-skew.sh --infra "$(INFRA_DIR)" $(if $(REV),--rev "$(REV)")
+
+lab-bashrs-pin-skew-test:
+	bash scripts/lab/bashrs-pin-skew-test.sh
