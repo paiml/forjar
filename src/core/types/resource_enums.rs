@@ -60,6 +60,8 @@ pub enum ResourceType {
     NasArchive,
     /// forjar#847: delete files older than `max_age` under a declared path.
     TmpReaper,
+    /// FJ-861: one declared cloud spot instance (inert until gated).
+    CloudInstance,
 }
 
 impl fmt::Display for ResourceType {
@@ -87,6 +89,7 @@ impl fmt::Display for ResourceType {
             Self::BackupSync => write!(f, "backup_sync"),
             Self::NasArchive => write!(f, "nas_archive"),
             Self::TmpReaper => write!(f, "tmp_reaper"),
+            Self::CloudInstance => write!(f, "cloud_instance"),
         }
     }
 }
@@ -217,6 +220,7 @@ mod tests {
             (ResourceType::NasArchive, "nas_archive"),
             (ResourceType::BackupSync, "backup_sync"),
             (ResourceType::TmpReaper, "tmp_reaper"),
+            (ResourceType::CloudInstance, "cloud_instance"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

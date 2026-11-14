@@ -67,6 +67,35 @@ impl std::fmt::Display for ReclaimKind {
     }
 }
 
+/// Declaration fields for a `disk_budget` resource.
+///
+/// Grouped into their own struct and `#[serde(flatten)]`-ed into `Resource`,
+/// as `BackupSpec` is: the YAML shape is unchanged (`budget_reclaim:` stays top
+/// level), and `src/core/types/resource.rs` stays under the 500-line limit.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiskBudgetSpec {
+    /// Used-% at or above which a reclaim pass is triggered (default 85).
+    #[serde(rename = "budget_high_watermark_pct", default)]
+    pub high_watermark_pct: Option<u8>,
+
+    /// Free-% a reclaim pass must restore before it stops (default 20).
+    /// Must satisfy `100 - target_free_pct < high_watermark_pct` (hysteresis).
+    #[serde(rename = "budget_target_free_pct", default)]
+    pub target_free_pct: Option<u8>,
+
+    /// Free-GiB below which the budget is CRITICAL — hard drift failure.
+    #[serde(rename = "budget_critical_free_gb", default)]
+    pub critical_free_gb: Option<u64>,
+
+    /// systemd `OnCalendar` cadence for the reaper (default "hourly").
+    #[serde(rename = "budget_schedule", default)]
+    pub schedule: Option<String>,
+
+    /// Ordered reclaim rules, most-disposable first.
+    #[serde(rename = "budget_reclaim", default)]
+    pub reclaim: Vec<ReclaimRule>,
+}
+
 /// One reclaim rule. Rules are applied in declaration order, most-disposable
 /// first, and each stops early once the target watermark is reached.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
