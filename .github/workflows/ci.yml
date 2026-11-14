@@ -205,6 +205,14 @@ jobs:
         env:
           FORJAR_REQUIRE_SUDO_TESTS: "1"
         run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
+      # FJ-861: the cloud_instance falsifiers are unit tests (src/resources/
+      # cloud_instance/tests*.rs: gates, kill switch, destroy by own tag, input
+      # allow-lists, ownership key). sovereign-ci's `test` job runs `--lib` only
+      # on the train, so on a PR nothing ran them. This step runs that module's
+      # tests on every code PR, in this already-required job. Offline: the
+      # provider CLI is a sandbox stub, and the sandbox PATH holds nothing else.
+      - name: cloud_instance unit falsifiers (FJ-861)
+        run: "cargo test --locked --lib resources::cloud_instance::"
 
   # Regression guard (#237): `default-features = false` must yield a LIBRARY that
   # compiles. tests/falsification_default_features_trim.rs pins the manifest's
