@@ -7557,6 +7557,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 913
+- id: PMAT-1048
+  github_issue: 1048
+  item_type: task
+  title: 'cargo provider: key unpinned cache on resolved upstream version'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T23:16:01Z
+  updated: 2026-11-14T23:16:01Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1059
   github_issue: 1059
   item_type: task
