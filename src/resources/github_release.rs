@@ -76,6 +76,7 @@ pub fn apply_script(resource: &Resource) -> String {
     // `$TMPDIR/<binary>` for tar/find: keep `$TMPDIR` live, append a quoted binary.
     let tmp_bin = format!("\"$TMPDIR/\"{binary_q}");
     let install_fn = crate::core::shell_install::atomic_install_fn();
+    let post = super::github_release_check::live_version_unguarded(&bin_path, false);
 
     match state {
         "absent" => format!(
@@ -146,8 +147,8 @@ pub fn apply_script(resource: &Resource) -> String {
              _fj_install_bin \"$SAFE_BIN\" {bin_path}\n\
              \n\
              # Verify\n\
-             VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'installed' )\n\
-             echo \"installed:{repo}:$VER\"",
+             {post}\
+             echo \"installed:{repo}:${{FJ_VERLINE:-installed}}\"",
             downgrade_guard(resource, &bin_path, repo),
             sh_squote(&format!("ERROR: binary {binary} not found in release asset"))
         ),
@@ -174,11 +175,8 @@ fn downgrade_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
     ));
     format!(
         "# forjar#613: never install a pin older than the live binary.\n\
-         if [ -x {bin_path} ]; then\n\
-         \x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | \
-         grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
-         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' || true )\n\
-         \x20 if [ -n \"$FJ_LIVE\" ]; then\n\
+         {reader}\
+         if [ -n \"$FJ_LIVE\" ]; then\n\
          \x20\x20\x20 FJ_MAJ=\"${{FJ_LIVE%%.*}}\"\n\
          \x20\x20\x20 FJ_REST=\"${{FJ_LIVE#*.}}\"\n\
          \x20\x20\x20 FJ_MIN=\"${{FJ_REST%%.*}}\"\n\
@@ -187,8 +185,8 @@ fn downgrade_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
          \x20\x20\x20\x20\x20 echo {refuse} \"$FJ_LIVE\" >&2\n\
          \x20\x20\x20\x20\x20 exit 1\n\
          \x20\x20\x20 fi\n\
-         \x20 fi\n\
          fi\n",
+        reader = super::github_release_check::live_version_unguarded(bin_path, true),
         maj = pin.major,
         min = pin.minor,
         pat = pin.patch,
@@ -208,10 +206,11 @@ pub fn state_query_script(resource: &Resource) -> String {
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
     let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
+    let reader = super::github_release_check::live_version_unguarded(&bin_path, false);
 
     format!(
-        "if [ -x {bin_path} ]; then\n\
-         \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
+        "{reader}if [ \"$FJ_PRESENT\" = 1 ]; then\n\
+         \x20 VER=\"${{FJ_VERLINE:-unknown}}\"\n\
          \x20 SIZE=$(stat -c%s {bin_path} 2>/dev/null || stat -f%z {bin_path} 2>/dev/null || echo '0')\n\
          \x20 echo \"github_release={repo}:$VER:$SIZE\"\n\
          else\n\
