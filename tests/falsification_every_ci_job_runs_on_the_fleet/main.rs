@@ -146,6 +146,123 @@ const ARCH_NEUTRAL_JOBS: [(&str, &str); 3] = [
     ("msrv.yml", "msrv"),
 ];
 
+/// The commit of paiml/.github that every delegated reusable workflow is pinned
+/// to (forjar#970).
+const REUSABLE_WORKFLOW_SHA: &str = "fbee3788a0ed92d09974ac21ea9bc97d373af6f0";
+
+/// Jobs on the `gate-light` pool (forjar#1005): the cheap classify/gate/authorize
+/// jobs. They run no cargo and build no artifact, so they name no architecture
+/// and are exempt from the `X64`/`ARM64` pin. Exempted by THIS exact list and not
+/// by `ARCH_NEUTRAL_JOBS`, whose entries the cache-key guard in
+/// `falsification_722_cache_key_arch.rs` treats as cargo jobs. The list is
+/// bounded in both directions: a listed job that stops being `gate-light` fails,
+/// and a `gate-light` job that is not listed fails.
+const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
+    ("bench.yml", "classify"),
+    ("ci.yml", "classify"),
+    ("ci.yml", "gate"),
+    ("pr-gate.yml", "no-pull-request-target"),
+    ("proofs.yml", "classify"),
+];
+
+/// Check one self-hosted job against `GATE_LIGHT_JOBS`. Marks a listed job as
+/// seen and returns a finding when the job is listed but not on `gate-light`,
+/// or on `gate-light` but not listed.
+fn gate_light_finding(
+    file: &str,
+    job_name: &str,
+    labels: &[String],
+    seen: &mut [bool; GATE_LIGHT_JOBS.len()],
+) -> Option<String> {
+    let on_pool = labels.iter().any(|l| l == "gate-light");
+    let listed = GATE_LIGHT_JOBS
+        .iter()
+        .position(|(f, j)| *f == file && *j == job_name);
+    if let Some(i) = listed {
+        seen[i] = true;
+    }
+    match (listed.is_some(), on_pool) {
+        (true, false) => Some(format!(
+            "  {file}  job `{job_name}` is listed in GATE_LIGHT_JOBS but runs-on {labels:?}"
+        )),
+        (false, true) => Some(format!(
+            "  {file}  job `{job_name}` runs on gate-light but is not in GATE_LIGHT_JOBS"
+        )),
+        _ => None,
+    }
+}
+
+/// `GATE_LIGHT_JOBS` entries that matched no self-hosted job.
+fn unseen_gate_light(seen: &[bool; GATE_LIGHT_JOBS.len()]) -> Vec<String> {
+    GATE_LIGHT_JOBS
+        .iter()
+        .zip(seen)
+        .filter(|(_, s)| !**s)
+        .map(|((f, j), _)| {
+            format!("  {f}  job `{j}` is listed in GATE_LIGHT_JOBS but is not a self-hosted job")
+        })
+        .collect()
+}
+/// Index of `(file, job)` in a `(file, job)` list.
+fn listed_at(list: &[(&str, &str)], file: &str, job: &str) -> Option<usize> {
+    list.iter().position(|(f, j)| *f == file && *j == job)
+}
+
+/// Accumulated findings of one pass over every self-hosted job.
+struct PinScan {
+    unpinned: Vec<String>,
+    neutral_seen: [bool; ARCH_NEUTRAL_JOBS.len()],
+    gate_light_seen: [bool; GATE_LIGHT_JOBS.len()],
+    gate_light_findings: Vec<String>,
+}
+
+impl PinScan {
+    fn visit(&mut self, file: &str, job_name: &str, labels: &[String]) {
+        let arches = ["X64", "ARM64"];
+        let neutral = listed_at(&ARCH_NEUTRAL_JOBS, file, job_name);
+        if let Some(i) = neutral {
+            self.neutral_seen[i] = true;
+        }
+        let listed = listed_at(&GATE_LIGHT_JOBS, file, job_name);
+        let finding = gate_light_finding(file, job_name, labels, &mut self.gate_light_seen);
+        self.gate_light_findings.extend(finding);
+        let exempt = listed.is_some() && labels.iter().any(|l| l == "gate-light");
+        let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
+        if !pinned && neutral.is_none() && !exempt {
+            self.unpinned
+                .push(format!("  {file}  job `{job_name}`  runs-on {labels:?}"));
+        }
+    }
+}
+
+/// Scan every self-hosted job: the ones that name no architecture, which
+/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job, and the `gate-light` findings: jobs on
+/// `gate-light` that `GATE_LIGHT_JOBS` does not list, and listed jobs that are
+/// absent or no longer `gate-light`.
+fn scan_architecture_pins_with_gate_light(
+) -> (Vec<String>, [bool; ARCH_NEUTRAL_JOBS.len()], Vec<String>) {
+    let mut scan = PinScan {
+        unpinned: Vec::new(),
+        neutral_seen: [false; ARCH_NEUTRAL_JOBS.len()],
+        gate_light_seen: [false; GATE_LIGHT_JOBS.len()],
+        gate_light_findings: Vec::new(),
+    };
+    for (file, doc) in workflows() {
+        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+            continue;
+        };
+        for (name, job) in jobs {
+            let labels = runner_labels(job);
+            if labels.iter().any(|l| l == "self-hosted") {
+                scan.visit(&file, name.as_str().unwrap_or("?"), &labels);
+            }
+        }
+    }
+    let missing = unseen_gate_light(&scan.gate_light_seen);
+    scan.gate_light_findings.extend(missing);
+    (scan.unpinned, scan.neutral_seen, scan.gate_light_findings)
+}
+
 /// A fleet job names the ARCHITECTURE it needs.
 ///
 /// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
@@ -162,40 +279,15 @@ const ARCH_NEUTRAL_JOBS: [(&str, &str); 3] = [
 ///
 /// Naming the architecture (`X64` or `ARM64`, deliberately) states the
 /// assumption instead of relying on someone not clicking the box.
-/// Scan every self-hosted job: the ones that name no architecture, and which
-/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job that exists.
-fn scan_architecture_pins() -> (Vec<String>, [bool; ARCH_NEUTRAL_JOBS.len()]) {
-    let arches = ["X64", "ARM64"];
-    let mut unpinned = Vec::new();
-    let mut neutral_seen = [false; ARCH_NEUTRAL_JOBS.len()];
-    for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let labels = runner_labels(job);
-            if !labels.iter().any(|l| l == "self-hosted") {
-                continue;
-            }
-            let job_name = name.as_str().unwrap_or("?");
-            let entry = ARCH_NEUTRAL_JOBS
-                .iter()
-                .position(|(f, j)| *f == file.as_str() && *j == job_name);
-            if let Some(i) = entry {
-                neutral_seen[i] = true;
-            }
-            let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
-            if !pinned && entry.is_none() {
-                unpinned.push(format!("  {file}  job `{job_name}`  runs-on {labels:?}"));
-            }
-        }
-    }
-    (unpinned, neutral_seen)
-}
-
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
-    let (mut unpinned, neutral_seen) = scan_architecture_pins();
+    let (mut unpinned, neutral_seen, gate_light_findings) =
+        scan_architecture_pins_with_gate_light();
+    assert!(
+        gate_light_findings.is_empty(),
+        "GATE_LIGHT_JOBS must list exactly the jobs on the gate-light pool:\n{}",
+        gate_light_findings.join("\n")
+    );
     let stale: Vec<_> = ARCH_NEUTRAL_JOBS
         .iter()
         .zip(neutral_seen)
@@ -249,11 +341,15 @@ fn the_jobs_that_delegate_their_runner_are_exactly_these() {
     }
     delegated.sort();
 
+    // forjar#970 pinned every reusable-workflow call to one commit of
+    // paiml/.github; `@main` would let another repository change what runs here.
+    let sha = REUSABLE_WORKFLOW_SHA;
     let expected = vec![
-        "ci.yml:ci -> paiml/.github/.github/workflows/sovereign-ci.yml@main".to_string(),
-        "nightly-bench.yml:bench -> paiml/.github/.github/workflows/sovereign-ci.yml@main"
-            .to_string(),
-        "pr-gate.yml:authorize -> paiml/.github/.github/workflows/pr-gate.yml@main".to_string(),
+        format!("ci.yml:ci -> paiml/.github/.github/workflows/sovereign-ci.yml@{sha}"),
+        format!(
+            "nightly-bench.yml:bench -> paiml/.github/.github/workflows/sovereign-ci.yml@{sha}"
+        ),
+        format!("pr-gate.yml:authorize -> paiml/.github/.github/workflows/pr-gate.yml@{sha}"),
     ];
     assert_eq!(
         delegated, expected,
@@ -324,6 +420,9 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         "intel",
         "gx10",
         "yoga",
+        // the light classify/gate pool (forjar#1005); which jobs may use it is
+        // pinned exactly by GATE_LIGHT_JOBS above
+        "gate-light",
         "gpu",
         "cuda",
         // the self-hosted mac (mini-m4) that the nightly darwin legs build on

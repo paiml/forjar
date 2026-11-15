@@ -225,6 +225,12 @@ pub(super) fn apply_config_gates(
 ) -> Result<(), String> {
     check_policy_violations(config)?;
     check_security_gate(config)?;
+    // #1025: names templated with `{{params.*}}` are skipped at parse time;
+    // check them resolved, since the name+region pair keys teardown.
+    let dup = crate::resources::cloud_instance::validate_unique_names_resolved(config);
+    if !dup.is_empty() {
+        return Err(dup.join("\n"));
+    }
     if let Some(ref hook) = config.policy.pre_apply {
         if !dry_run {
             run_hook("pre_apply", hook, verbose)?;

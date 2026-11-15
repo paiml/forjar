@@ -7521,6 +7521,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1044
+  github_issue: 1044
+  item_type: task
+  title: 'cloud_instance 1025 follow-ups: I8 lint, cb200 SC1020, templated uniqueness'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T21:13:28Z
+  updated: 2026-11-14T21:13:28Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 915
 - id: PMAT-1045
   github_issue: 1045
   item_type: task
@@ -7557,3 +7575,39 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1059
+  github_issue: 1059
+  item_type: task
+  title: workflow-shape rule 2 vs PMAT-604 v* tag triggers
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T23:27:25Z
+  updated: 2026-11-14T23:27:25Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
+- id: PMAT-1060
+  github_issue: 1060
+  item_type: task
+  title: fleet runs-on tests vs gate-light pool and sha pin
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T00:31:47Z
+  updated: 2026-11-15T00:31:47Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
