@@ -48,6 +48,8 @@ mod tests_b4;
 mod tests_lint;
 #[cfg(test)]
 mod tests_net;
+#[cfg(test)]
+mod tests_resolve;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
