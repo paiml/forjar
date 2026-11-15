@@ -100,7 +100,13 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let result = resolve_data_sources(&mut config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("file error"));
+    let err = result.unwrap_err();
+    assert!(err.contains("file error"));
+    assert_eq!(
+        crate::core::error::classify_untyped(&err).exit_code(),
+        1,
+        "an unreadable file is unclassified: ErrorClass::Other"
+    );
 }
 
 #[test]
@@ -269,7 +275,12 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let result = resolve_data_sources(&mut config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("state lock not found"));
+    let err = result.unwrap_err();
+    assert!(err.contains("state lock not found"));
+    // Declared class survives the String boundary: a bad declaration is exit 3.
+    let class = crate::core::error::classify_untyped(&err);
+    assert_eq!(class, crate::core::error::ErrorClass::Validation);
+    assert_eq!(class.exit_code(), 3);
 }
 
 #[test]

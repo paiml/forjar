@@ -1,10 +1,12 @@
-use crate::core::error::ForjarError;
+use crate::core::error::{ForjarError, DATA_SOURCE_INVALID_MARKER, DATA_SOURCE_UNREACHABLE_MARKER};
 use crate::core::types::*;
 
 /// Get the value field or return an error for data sources that require it.
 fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, ForjarError> {
     source.value.as_deref().ok_or_else(|| {
-        ForjarError::from_untyped(format!("data source '{key}' requires 'value' field"))
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}' requires 'value' field"
+        ))
     })
 }
 
@@ -13,9 +15,10 @@ fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, ForjarE
     std::fs::read_to_string(path)
         .map(|s| s.trim().to_string())
         .or_else(|e| {
-            source.default.clone().ok_or_else(|| {
-                ForjarError::from_untyped(format!("data source '{key}' file error: {e}"))
-            })
+            source
+                .default
+                .clone()
+                .ok_or_else(|| ForjarError::other(format!("data source '{key}' file error: {e}")))
         })
 }
 
@@ -25,14 +28,12 @@ fn resolve_command_source(key: &str, source: &DataSource) -> Result<String, Forj
         .arg("-c")
         .arg(cmd)
         .output()
-        .map_err(|e| {
-            ForjarError::from_untyped(format!("data source '{key}' command error: {e}"))
-        })?;
+        .map_err(|e| ForjarError::other(format!("data source '{key}' command error: {e}")))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         source.default.clone().ok_or_else(|| {
-            ForjarError::from_untyped(format!(
+            ForjarError::other(format!(
                 "data source '{}' command failed (exit {})",
                 key,
                 output.status.code().unwrap_or(-1)
@@ -51,12 +52,16 @@ fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, ForjarEr
                 Ok(addr.ip().to_string())
             } else {
                 source.default.clone().ok_or_else(|| {
-                    ForjarError::from_untyped(format!("data source '{key}' DNS: no addresses"))
+                    ForjarError::connection(format!(
+                        "{DATA_SOURCE_UNREACHABLE_MARKER} '{key}' DNS: no addresses"
+                    ))
                 })
             }
         }
         Err(e) => source.default.clone().ok_or_else(|| {
-            ForjarError::from_untyped(format!("data source '{key}' DNS error: {e}"))
+            ForjarError::connection(format!(
+                "{DATA_SOURCE_UNREACHABLE_MARKER} '{key}' DNS error: {e}"
+            ))
         }),
     }
 }
@@ -79,7 +84,9 @@ fn warn_if_state_is_stale(
         return Ok(());
     };
     let max_secs = super::staleness::parse_duration_secs(max_staleness).map_err(|e| {
-        ForjarError::from_untyped(format!("data source '{key}': invalid max_staleness: {e}"))
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}': invalid max_staleness: {e}"
+        ))
     })?;
     if super::staleness::is_stale(last_apply, max_secs) {
         eprintln!(
@@ -105,8 +112,9 @@ fn select_requested_output(
         }
     }
     source.default.clone().ok_or_else(|| {
-        ForjarError::from_untyped(format!(
-            "data source '{}': none of requested outputs ({}) found in state",
+        ForjarError::validation(format!(
+            "{} '{}': none of requested outputs ({}) found in state",
+            DATA_SOURCE_INVALID_MARKER,
             key,
             source.outputs.join(", ")
         ))
@@ -122,9 +130,8 @@ fn outputs_as_json(key: &str, outputs: &serde_yaml_ng::Mapping) -> Result<String
         .iter()
         .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
         .collect();
-    serde_json::to_string(&json_map).map_err(|e| {
-        ForjarError::from_untyped(format!("data source '{key}': serialize outputs: {e}"))
-    })
+    serde_json::to_string(&json_map)
+        .map_err(|e| ForjarError::other(format!("data source '{key}': serialize outputs: {e}")))
 }
 
 /// FJ-1260: Resolve forjar-state data source by reading outputs from another config's state.
@@ -136,19 +143,21 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
 
     if !lock_path.exists() {
         return source.default.clone().ok_or_else(|| {
-            ForjarError::from_untyped(format!(
-                "data source '{}': state lock not found at {} (no default)",
+            ForjarError::validation(format!(
+                "{} '{}': state lock not found at {} (no default)",
+                DATA_SOURCE_INVALID_MARKER,
                 key,
                 lock_path.display()
             ))
         });
     }
 
-    let content = std::fs::read_to_string(&lock_path).map_err(|e| {
-        ForjarError::from_untyped(format!("data source '{key}': read state lock: {e}"))
-    })?;
+    let content = std::fs::read_to_string(&lock_path)
+        .map_err(|e| ForjarError::other(format!("data source '{key}': read state lock: {e}")))?;
     let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content).map_err(|e| {
-        ForjarError::from_untyped(format!("data source '{key}': parse state lock: {e}"))
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}': parse state lock: {e}"
+        ))
     })?;
 
     // FJ-1270: Check staleness if max_staleness is configured
@@ -159,8 +168,8 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
         Some(serde_yaml_ng::Value::Mapping(m)) => m,
         _ => {
             return source.default.clone().ok_or_else(|| {
-                ForjarError::from_untyped(format!(
-                    "data source '{key}': state lock has no outputs section"
+                ForjarError::validation(format!(
+                    "{DATA_SOURCE_INVALID_MARKER} '{key}': state lock has no outputs section"
                 ))
             });
         }

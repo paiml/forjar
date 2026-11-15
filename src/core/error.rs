@@ -122,6 +122,14 @@ pub const DRIFT_DECLINED_MARKER: &str = "declined: inspected 0 of";
 /// Headline of a `check` run that could not reach a target (forjar#659): exit 4.
 pub const CHECK_UNMEASURED_MARKER: &str = "check unmeasured — the target did not answer";
 
+/// Headline of a data source whose own declaration is wrong (missing `value`,
+/// bad `max_staleness`, no matching output, unreadable state lock): exit 3.
+/// `src/core/resolver/data.rs`; reaches the CLI through `resolve_data_sources`.
+pub const DATA_SOURCE_INVALID_MARKER: &str = "invalid data source";
+
+/// Headline of a `dns` data source whose host did not resolve: exit 4.
+pub const DATA_SOURCE_UNREACHABLE_MARKER: &str = "unreachable data source";
+
 /// Markers a MIGRATED producer stamps into its message so that the class it
 /// DECLARED survives a not-yet-typed `Result<_, String>` boundary.
 ///
@@ -144,6 +152,9 @@ const DECLARED_MARKERS: &[(&str, ErrorClass)] = &[
     (DRIFT_DECLINED_MARKER, ErrorClass::Partial),
     // src/cli/check.rs::cmd_check_selected — a target never reached (forjar#659).
     (CHECK_UNMEASURED_MARKER, ErrorClass::Connection),
+    // src/core/resolver/data.rs — a data source declared wrongly / unresolvable.
+    (DATA_SOURCE_INVALID_MARKER, ErrorClass::Validation),
+    (DATA_SOURCE_UNREACHABLE_MARKER, ErrorClass::Connection),
 ];
 
 /// An error that knows what kind of failure it is.
