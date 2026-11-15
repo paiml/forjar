@@ -86,6 +86,8 @@ mod tests_package_c;
 #[cfg(test)]
 mod tests_package_d;
 #[cfg(test)]
+mod tests_package_e;
+#[cfg(test)]
 mod tests_user;
 #[cfg(test)]
 mod tests_user_authkeys_escape;

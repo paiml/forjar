@@ -453,7 +453,7 @@ fn test_cargo_install_features_cache_key() {
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("whisper-apr-latest+cli"),
+        script.contains("whisper-apr-$_FJ_LATEST+cli"),
         "cache key must include features suffix, got: {script}"
     );
 }
