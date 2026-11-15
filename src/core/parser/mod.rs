@@ -14,6 +14,7 @@ mod nas_archive_validate;
 mod overlay_interface_validate;
 mod unknown_policy;
 pub use unknown_policy::rejects_unknown;
+mod cloud_instance_validate;
 mod cron_network_validate;
 mod includes;
 mod known_fields;
@@ -26,6 +27,8 @@ mod validation;
 
 #[cfg(test)]
 mod tests_arch;
+#[cfg(test)]
+mod tests_cloud_instance_validate;
 #[cfg(test)]
 mod tests_core;
 #[cfg(test)]
