@@ -311,20 +311,50 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Build the artifact the surface gates measure
         run: cargo build --release --locked
-      - name: Gate C — surface from the built artifact
-        if: needs.classify.outputs.gate_c == 'true'
-        run: bash scripts/dogfood/surface.sh
       - name: Gate C — NOT-SELECTED
         if: needs.classify.outputs.gate_c != 'true'
         run: echo "GATE C NOT-SELECTED this change touches nothing gate C reads (the built binary, docs/audits/surface_audit.csv, scripts/dogfood/surface.sh) — measured in full by make dogfood-release before the tag"
       - name: Cookbook — clone paiml/forjar-cookbook (public) beside the workspace for gate D
         if: needs.classify.outputs.gate_d == 'true'
         run: git clone --quiet --depth 1 --branch master https://github.com/paiml/forjar-cookbook "$RUNNER_TEMP/forjar-cookbook"
-      - name: Gate D — documented invocations run against fixtures
-        if: needs.classify.outputs.gate_d == 'true'
-        run: bash scripts/dogfood/docs.sh
+      # #1092: gates C and D read the one built binary and neither writes
+      # anything the other reads (C binds a free loopback port and only
+      # validates a fixture; D works in its own mktemp sandbox and reads the
+      # committed surface_audit.csv that C only diffs against). They ran back
+      # to back and each took 5-16 min on a burst seat, so they now run
+      # concurrently. The verdict is unchanged: every selected gate must exit
+      # 0, each gate's own output is printed in full, and a failure of either
+      # fails the step. A gate that was not selected still says so by name in
+      # the NOT-SELECTED steps.
+      - name: Gates C and D — run concurrently against the built artifact
+        if: needs.classify.outputs.gate_c == 'true' || needs.classify.outputs.gate_d == 'true'
         env:
+          GATE_C: ${{ needs.classify.outputs.gate_c }}
+          GATE_D: ${{ needs.classify.outputs.gate_d }}
           COOKBOOK: ${{ runner.temp }}/forjar-cookbook
+        run: |
+          set -u
+          rc=0
+          pid_c=""; pid_d=""
+          if [ "$GATE_C" = "true" ]; then
+            bash scripts/dogfood/surface.sh >"$RUNNER_TEMP/gate-c.log" 2>&1 &
+            pid_c=$!
+          fi
+          if [ "$GATE_D" = "true" ]; then
+            bash scripts/dogfood/docs.sh >"$RUNNER_TEMP/gate-d.log" 2>&1 &
+            pid_d=$!
+          fi
+          if [ -n "$pid_c" ]; then
+            wait "$pid_c" || rc=1
+            echo "::group::Gate C output"; cat "$RUNNER_TEMP/gate-c.log"; echo "::endgroup::"
+            tail -n 1 "$RUNNER_TEMP/gate-c.log"
+          fi
+          if [ -n "$pid_d" ]; then
+            wait "$pid_d" || rc=1
+            echo "::group::Gate D output"; cat "$RUNNER_TEMP/gate-d.log"; echo "::endgroup::"
+            tail -n 1 "$RUNNER_TEMP/gate-d.log"
+          fi
+          exit "$rc"
       - name: Gate D — NOT-SELECTED
         if: needs.classify.outputs.gate_d != 'true'
         run: echo "GATE D NOT-SELECTED this change touches nothing gate D reads (the built binary, README.md, docs/audits/surface_audit.csv, scripts/dogfood/docs.sh) — measured in full by make dogfood-release before the tag"

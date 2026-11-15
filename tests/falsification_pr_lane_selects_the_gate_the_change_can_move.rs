@@ -408,3 +408,31 @@ fn an_absent_base_is_not_a_narrower_base() {
          rule is that no readable file list is not a licence to skip anything."
     );
 }
+
+/// #1092: gates C and D run concurrently on the one built binary, but the
+/// verdict must stay the conjunction: each selected gate is backgrounded,
+/// waited on, and a nonzero exit from either fails the step.
+#[test]
+fn gates_c_and_d_run_concurrently_and_either_failing_fails_the_step() {
+    let ci = workflow(".github/workflows/ci.yml");
+    for needle in [
+        "bash scripts/dogfood/surface.sh >\"$RUNNER_TEMP/gate-c.log\" 2>&1 &",
+        "bash scripts/dogfood/docs.sh >\"$RUNNER_TEMP/gate-d.log\" 2>&1 &",
+        "wait \"$pid_c\" || rc=1",
+        "wait \"$pid_d\" || rc=1",
+        "exit \"$rc\"",
+    ] {
+        assert!(ci.contains(needle), "#1092: ci.yml lost `{needle}`");
+    }
+    let start = ci
+        .find("\n  dogfood-surface:")
+        .expect("dogfood-surface job");
+    let job = &ci[start
+        ..ci[start..]
+            .find("\n  dogfood-guards:")
+            .map_or(ci.len(), |e| start + e)];
+    assert!(
+        !job.contains("continue-on-error"),
+        "#1092: continue-on-error is a third state on a gate path"
+    );
+}
