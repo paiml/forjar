@@ -7539,3 +7539,39 @@ roadmap:
   - kind:code
   notes: null
   epic: 913
+- id: PMAT-1059
+  github_issue: 1059
+  item_type: task
+  title: workflow-shape rule 2 vs PMAT-604 v* tag triggers
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T23:27:25Z
+  updated: 2026-11-14T23:27:25Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
+- id: PMAT-1060
+  github_issue: 1060
+  item_type: task
+  title: fleet runs-on tests vs gate-light pool and sha pin
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T00:31:47Z
+  updated: 2026-11-15T00:31:47Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
