@@ -188,7 +188,7 @@ fn has_v_star_tag_trigger(doc: &serde_yaml_ng::Value) -> bool {
 }
 
 #[test]
-fn rule2_release_yml_is_the_only_v_star_tag_release_producer() {
+fn rule2_release_yml_is_the_only_v_star_tag_push_producer() {
     let mut triggered: Vec<String> = Vec::new();
     let mut violations: Vec<String> = Vec::new();
     for path in all_workflow_files() {

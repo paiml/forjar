@@ -165,29 +165,6 @@ const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
     ("proofs.yml", "classify"),
 ];
 
-/// A fleet job names the ARCHITECTURE it needs.
-///
-/// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
-/// `clean-room` spans BOTH architectures. Group 1 "Default" holds sixteen
-/// `intel-clean-room-*`, every one `X64`; group 3 "gpu-nodes" holds four gx10
-/// boxes that also carry `clean-room` and are every one **ARM64**.
-///
-/// Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
-/// `[self-hosted, clean-room]` reaches only X64 boxes and nothing is currently
-/// wrong. That is an access-control accident, not a property of the label: the
-/// day forjar is added to `gpu-nodes` — one checkbox — a job building
-/// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
-/// it uploads would be wrong rather than absent.
-///
-/// Naming the architecture (`X64` or `ARM64`, deliberately) states the
-/// assumption instead of relying on someone not clicking the box.
-/// Scan every self-hosted job: the ones that name no architecture, and which
-/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job that exists.
-fn scan_architecture_pins() -> (Vec<String>, [bool; ARCH_NEUTRAL_JOBS.len()]) {
-    let (unpinned, neutral_seen, _) = scan_architecture_pins_with_gate_light();
-    (unpinned, neutral_seen)
-}
-
 /// Check one self-hosted job against `GATE_LIGHT_JOBS`. Marks a listed job as
 /// seen and returns a finding when the job is listed but not on `gate-light`,
 /// or on `gate-light` but not listed.
@@ -258,7 +235,8 @@ impl PinScan {
     }
 }
 
-/// As `scan_architecture_pins`, plus the `gate-light` findings: jobs on
+/// Scan every self-hosted job: the ones that name no architecture, which
+/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job, and the `gate-light` findings: jobs on
 /// `gate-light` that `GATE_LIGHT_JOBS` does not list, and listed jobs that are
 /// absent or no longer `gate-light`.
 fn scan_architecture_pins_with_gate_light(
@@ -285,6 +263,22 @@ fn scan_architecture_pins_with_gate_light(
     (scan.unpinned, scan.neutral_seen, scan.gate_light_findings)
 }
 
+/// A fleet job names the ARCHITECTURE it needs.
+///
+/// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
+/// `clean-room` spans BOTH architectures. Group 1 "Default" holds sixteen
+/// `intel-clean-room-*`, every one `X64`; group 3 "gpu-nodes" holds four gx10
+/// boxes that also carry `clean-room` and are every one **ARM64**.
+///
+/// Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
+/// `[self-hosted, clean-room]` reaches only X64 boxes and nothing is currently
+/// wrong. That is an access-control accident, not a property of the label: the
+/// day forjar is added to `gpu-nodes` — one checkbox — a job building
+/// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
+/// it uploads would be wrong rather than absent.
+///
+/// Naming the architecture (`X64` or `ARM64`, deliberately) states the
+/// assumption instead of relying on someone not clicking the box.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
     let (mut unpinned, neutral_seen, gate_light_findings) =
