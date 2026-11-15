@@ -63,7 +63,7 @@ fn an_owned_box_with_a_different_key_beside_a_same_key_box_still_refuses() {
     let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(&fx));
     assert_ne!(rc, 0, "{out}");
     assert!(
-        out.contains("i-00b2c3d4") && !out.contains("alive i-00a1b2c3"),
+        out.contains("i-00b2c3d4") && !out.contains("i-00a1b2c3"),
         "{out}"
     );
     assert_eq!(count(&sb.log(), "run-instances"), 0);
@@ -204,4 +204,88 @@ fn gate_and_kill_switch_paths_reject_control_characters() {
         assert!(out.contains("parity_gate"), "{out}");
     }
     assert_eq!(sb.log(), "");
+}
+
+// ---- lookup hardening: whitespace, globbing, spot-request tokens ----
+
+#[test]
+fn a_failed_second_lookup_in_apply_never_launches() {
+    let sb = Sandbox::new();
+    sb.open_gate();
+    sb.fail_describe_from_second();
+    let fx = old_image_box();
+    let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(&fx));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("lookup failed"), "{out}");
+    assert_eq!(count(&sb.log(), "describe-instances"), 2, "{}", sb.log());
+    assert_eq!(count(&sb.log(), "run-instances"), 0, "{}", sb.log());
+}
+
+#[test]
+fn a_whitespace_only_reply_is_absent_never_present() {
+    for ws in ["\t", " ", "\n", " \t\n \n"] {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let r = gated(sb.path());
+        let (rc, out) = sb.run(&state_query_script(&r), ws);
+        assert_eq!(rc, 0, "{ws:?}: {out}");
+        assert_eq!(out.trim(), "absent", "{ws:?}");
+        let (rc, out) = sb.run(&check_script(&r), ws);
+        assert_ne!(rc, 0, "{ws:?}: {out}");
+        assert!(out.contains("instance-absent:"), "{ws:?}: {out}");
+        let (rc, out) = sb.run(&apply_script(&absent(r.clone())), ws);
+        assert_eq!(rc, 0, "{ws:?}: {out}");
+        assert!(out.contains("absent: no owned instance"), "{ws:?}: {out}");
+        assert_eq!(count(&sb.log(), "terminate-instances"), 0, "{ws:?}");
+        let (rc, out) = sb.run(&apply_script(&r), ws);
+        assert_eq!(rc, 0, "{ws:?}: {out}");
+        assert!(!out.contains("present"), "{ws:?}: {out}");
+        assert_eq!(count(&sb.log(), "run-instances"), 1, "{ws:?}");
+    }
+}
+
+#[test]
+fn glob_characters_in_a_reply_are_malformed_not_expanded() {
+    // A file named like a valid id sits in the working directory: with
+    // pathname expansion on, `i-*` or `i-0123abc?` would turn into a valid id.
+    for bad in ["i-*", "i-0123abc?", "*", "?", "i-0123abcd *"] {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        std::fs::write(sb.path().join("i-0123abcd"), "").unwrap();
+        let cd = format!("cd '{}' && ", sb.path().display());
+        let r = gated(sb.path());
+        for (what, script) in [
+            ("state", state_query_script(&r)),
+            ("check", check_script(&r)),
+            ("destroy", apply_script(&absent(r.clone()))),
+            ("apply", apply_script(&r)),
+        ] {
+            let (rc, out) = sb.run(&format!("{cd}{script}"), bad);
+            assert_ne!(rc, 0, "{what} / {bad}: {out}");
+            assert!(out.contains("not an instance id"), "{what} / {bad}: {out}");
+        }
+        assert_eq!(count(&sb.log(), "run-instances"), 0, "{bad}");
+        assert_eq!(count(&sb.log(), "terminate-instances"), 0, "{bad}");
+    }
+}
+
+#[test]
+fn only_whole_spot_request_ids_are_cancelled() {
+    let sb = Sandbox::new();
+    let fx = format!(
+        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a\n\
+         i-00b2c3d4 {KEY_A} {OWN_A} sir-0B\n\
+         i-00c3d4e5 {KEY_A} {OWN_A} sir-0c!x\n\
+         i-00d4e5f6 {KEY_A} {OWN_A} sir-\n\
+         i-00e5f6a7 {KEY_A} {OWN_A} sir-1d\n"
+    );
+    let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+    assert_eq!(rc, 0, "{out}");
+    let log = sb.log();
+    let cancels: Vec<_> = log.lines().filter(|l| l.contains("cancel-spot")).collect();
+    assert_eq!(cancels.len(), 2, "{log}");
+    assert!(
+        cancels[0].ends_with("sir-0a") && cancels[1].ends_with("sir-1d"),
+        "{log}"
+    );
 }

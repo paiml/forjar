@@ -75,8 +75,9 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
             "#403 — the model state query stats `path`; nothing asks where the \
              cache root is, so a moved cache is invisible",
         ),
-        // cloud_instance (FJ-861): check and state query ask the provider for
-        // instances carrying a key derived from name + region + image digest only.
+        // cloud_instance (FJ-861): the state query asks the provider for instances
+        // carrying the forjar-owner tag (name + region); the check keys on name +
+        // region + image digest. Neither reads these fields back.
         "cloud_region"
         | "cloud_max_lifetime_min"
         | "cloud_instance_type"
@@ -84,7 +85,7 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_budget_cap_usd_day"
         | "cloud_kill_switch"
         | "cloud_parity_gate" => Observability::Unmigrated(
-            "#861 — the provider query keys on name, region and image digest; this field is \
+            "#861 — the provider query keys on name and region (check: plus image digest); this field is \
              applied by the create call and the gates but never read back",
         ),
         _ => return None,

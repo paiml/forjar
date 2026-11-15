@@ -53,6 +53,7 @@ echo "$@" >> "$STUB_LOG"
 case "$*" in
 *describe-instances*)
   if [ -e "$STUB_LOG.descfail" ]; then echo "ExpiredToken" >&2; exit 255; fi
+  if [ -e "$STUB_LOG.descfail2" ] && [ "$(grep -c describe-instances "$STUB_LOG")" -ge 2 ]; then echo "ExpiredToken" >&2; exit 255; fi
   if [ -n "${STUB_FIXTURE:-}" ]; then
     want=$(printf '%s\n' "$*" | sed -n 's/.*Name=tag:\(forjar-[a-z]*\),Values=\([^ ]*\).*/\1 \2/p')
     col=1; case "$*" in *SpotInstanceRequestId*) col=4;; esac
@@ -103,6 +104,10 @@ impl Sandbox {
     /// Make every later `describe-instances` exit 255 (expired credentials).
     pub(super) fn fail_describe(&self) {
         std::fs::write(self.path().join("calls.log.descfail"), "").unwrap();
+    }
+    /// Make `describe-instances` exit 255 from its SECOND call on (the first succeeds).
+    pub(super) fn fail_describe_from_second(&self) {
+        std::fs::write(self.path().join("calls.log.descfail2"), "").unwrap();
     }
     pub(super) fn path(&self) -> &Path {
         self.dir.path()
