@@ -396,4 +396,54 @@ resources:
         );
         assert!(result.is_err());
     }
+
+    // --- typed ForjarError at the image_cmd boundary (forjar#1074) ---
+
+    #[test]
+    fn test_storage_layout_unknown_disk_is_typed_error() {
+        let err = storage_layout_yaml("btrfs").unwrap_err();
+        assert_eq!(err.class(), crate::core::error::ErrorClass::Other);
+        assert_eq!(err.exit_code(), 1);
+        assert_eq!(
+            err.message(),
+            "unknown disk layout: btrfs (use auto-lvm, auto-zfs, or /dev/path)"
+        );
+    }
+
+    #[test]
+    fn test_extract_iso_missing_input_is_typed_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("absent.iso");
+        let err = extract_iso(&missing, dir.path()).unwrap_err();
+        assert_eq!(err.class(), crate::core::error::ErrorClass::Other);
+        assert!(
+            err.message().starts_with("run xorriso extract:")
+                || err.message() == "xorriso extraction failed",
+            "unexpected message: {}",
+            err.message()
+        );
+    }
+
+    #[test]
+    fn test_embed_forjar_binary_unwritable_is_typed_error() {
+        let dir = tempfile::tempdir().unwrap();
+        // A file where the work dir should be makes create_dir_all fail.
+        let blocker = dir.path().join("blocker");
+        std::fs::write(&blocker, "x").unwrap();
+        let err = embed_forjar_binary(&blocker).unwrap_err();
+        assert_eq!(err.class(), crate::core::error::ErrorClass::Other);
+        assert!(err.message().starts_with("create bin dir:"));
+    }
+
+    #[test]
+    fn test_ensure_xorriso_error_is_typed_when_missing() {
+        // Either xorriso is installed (Ok) or the typed message is exact.
+        if let Err(err) = ensure_xorriso() {
+            assert_eq!(err.class(), crate::core::error::ErrorClass::Other);
+            assert_eq!(
+                err.message(),
+                "xorriso not found — install with: sudo apt install xorriso"
+            );
+        }
+    }
 }

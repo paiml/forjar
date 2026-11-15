@@ -4,6 +4,7 @@
 //! and optionally repacks a base ISO with xorriso to produce a bootable image.
 
 use super::helpers::*;
+use crate::core::error::ForjarError;
 use std::path::Path;
 
 /// Generate autoinstall user-data YAML for a machine.
@@ -61,7 +62,7 @@ pub fn cmd_image_iso(
     if !base_iso.exists() {
         return Err(format!("base ISO not found: {}", base_iso.display()));
     }
-    ensure_xorriso()?;
+    ensure_xorriso().map_err(ForjarError::into_message)?;
 
     let user_data = generate_user_data(&name, machine, disk, locale, timezone)?;
 
@@ -84,7 +85,7 @@ pub fn cmd_image_iso(
 }
 
 /// Verify xorriso is installed and on PATH.
-fn ensure_xorriso() -> Result<(), String> {
+pub(crate) fn ensure_xorriso() -> Result<(), ForjarError> {
     let has_xorriso = std::process::Command::new("which")
         .arg("xorriso")
         .stdout(std::process::Stdio::null())
@@ -95,7 +96,9 @@ fn ensure_xorriso() -> Result<(), String> {
     if has_xorriso {
         Ok(())
     } else {
-        Err("xorriso not found — install with: sudo apt install xorriso".to_string())
+        Err(ForjarError::from_untyped(
+            "xorriso not found — install with: sudo apt install xorriso",
+        ))
     }
 }
 
@@ -108,7 +111,7 @@ fn stage_iso_workdir(
     file: &Path,
 ) -> Result<(), String> {
     // Extract base ISO
-    extract_iso(base_iso, work)?;
+    extract_iso(base_iso, work).map_err(ForjarError::into_message)?;
 
     // Write user-data and meta-data
     let nocloud = work.join("nocloud");
@@ -118,7 +121,7 @@ fn stage_iso_workdir(
     std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
 
     // Copy forjar binary into ISO
-    embed_forjar_binary(work)?;
+    embed_forjar_binary(work).map_err(ForjarError::into_message)?;
 
     // Copy forjar.yaml into ISO
     let iso_config_dir = work.join("forjar");
@@ -192,10 +195,11 @@ pub fn generate_user_data(
     let username = &machine.user;
 
     // Read SSH public key if specified
-    let ssh_keys = read_ssh_pub_key(machine.ssh_key.as_deref())?;
+    let ssh_keys =
+        read_ssh_pub_key(machine.ssh_key.as_deref()).map_err(ForjarError::into_message)?;
 
     // Determine storage layout
-    let storage_layout = storage_layout_yaml(disk)?;
+    let storage_layout = storage_layout_yaml(disk).map_err(ForjarError::into_message)?;
 
     let mut yaml = String::from("#cloud-config\nautoinstall:\n  version: 1\n");
     yaml.push_str(&format!("  locale: {locale}\n"));
@@ -259,21 +263,21 @@ pub fn generate_user_data(
 }
 
 /// Map the disk argument to an autoinstall storage layout YAML snippet.
-fn storage_layout_yaml(disk: &str) -> Result<String, String> {
+pub(crate) fn storage_layout_yaml(disk: &str) -> Result<String, ForjarError> {
     match disk {
         "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
         "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
         path if path.starts_with('/') => Ok(format!(
             "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
         )),
-        other => Err(format!(
+        other => Err(ForjarError::from_untyped(format!(
             "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
-        )),
+        ))),
     }
 }
 
 /// Read SSH public key file (tries .pub extension).
-pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, String> {
+pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, ForjarError> {
     let Some(key_path) = ssh_key else {
         return Ok(Vec::new());
     };
@@ -368,9 +372,10 @@ WantedBy=multi-user.target"#;
 }
 
 /// Extract a base ISO using xorriso.
-fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), String> {
+pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), ForjarError> {
     let extract_dir = work_dir.join("iso");
-    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create iso dir: {e}"))?;
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| ForjarError::from_untyped(format!("create iso dir: {e}")))?;
 
     let status = std::process::Command::new("xorriso")
         .args([
@@ -385,21 +390,22 @@ fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), String> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
-        .map_err(|e| format!("run xorriso extract: {e}"))?;
+        .map_err(|e| ForjarError::from_untyped(format!("run xorriso extract: {e}")))?;
 
     if !status.success() {
-        return Err("xorriso extraction failed".to_string());
+        return Err(ForjarError::from_untyped("xorriso extraction failed"));
     }
     Ok(())
 }
 
 /// Copy the current forjar binary into the ISO working directory.
-fn embed_forjar_binary(work_dir: &Path) -> Result<(), String> {
+pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
     let bin_dir = work_dir.join("iso").join("forjar").join("bin");
-    std::fs::create_dir_all(&bin_dir).map_err(|e| format!("create bin dir: {e}"))?;
+    std::fs::create_dir_all(&bin_dir)
+        .map_err(|e| ForjarError::from_untyped(format!("create bin dir: {e}")))?;
     if let Ok(exe) = std::env::current_exe() {
         std::fs::copy(&exe, bin_dir.join("forjar"))
-            .map_err(|e| format!("copy forjar binary: {e}"))?;
+            .map_err(|e| ForjarError::from_untyped(format!("copy forjar binary: {e}")))?;
     }
     Ok(())
 }
