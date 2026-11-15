@@ -36,7 +36,7 @@ mod tests {
     use super::super::tests::{gated, Sandbox};
     use super::super::tests_b1::count;
     use super::super::*;
-    use super::{checked, image_id, key_tail};
+    use super::checked;
 
     fn pinned(dir: &std::path::Path, ami: &str) -> Resource {
         let mut r = gated(dir);
