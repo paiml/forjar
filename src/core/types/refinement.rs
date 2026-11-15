@@ -28,7 +28,7 @@ impl Port {
     /// Create a validated port from a raw u16.
     pub fn new(value: u16) -> Result<Self, ForjarError> {
         if value == 0 {
-            return Err(ForjarError::from_untyped("port must be 1-65535, got 0"));
+            return Err(ForjarError::validation("port must be 1-65535, got 0"));
         }
         Ok(Port(value))
     }
@@ -63,7 +63,7 @@ impl FileMode {
     /// Create a validated file mode from a raw u16.
     pub fn new(value: u16) -> Result<Self, ForjarError> {
         if value > 0o777 {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "mode must be 0-0o777, got {value:#o}"
             )));
         }
@@ -74,7 +74,7 @@ impl FileMode {
     /// Parse a file mode from an octal string.
     pub fn from_str(s: &str) -> Result<Self, ForjarError> {
         let v = u16::from_str_radix(s, 8)
-            .map_err(|e| ForjarError::from_untyped(format!("invalid octal mode '{s}': {e}")))?;
+            .map_err(|e| ForjarError::validation(format!("invalid octal mode '{s}': {e}")))?;
         Self::new(v)
     }
 
@@ -120,19 +120,19 @@ impl SemVer {
     pub fn parse(s: &str) -> Result<Self, ForjarError> {
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 3 {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "expected X.Y.Z, got '{s}'"
             )));
         }
         let major = parts[0]
             .parse()
-            .map_err(|_| ForjarError::from_untyped(format!("invalid major: {}", parts[0])))?;
+            .map_err(|_| ForjarError::validation(format!("invalid major: {}", parts[0])))?;
         let minor = parts[1]
             .parse()
-            .map_err(|_| ForjarError::from_untyped(format!("invalid minor: {}", parts[1])))?;
+            .map_err(|_| ForjarError::validation(format!("invalid minor: {}", parts[1])))?;
         let patch = parts[2]
             .parse()
-            .map_err(|_| ForjarError::from_untyped(format!("invalid patch: {}", parts[2])))?;
+            .map_err(|_| ForjarError::validation(format!("invalid patch: {}", parts[2])))?;
         Ok(SemVer {
             major,
             minor,
@@ -168,17 +168,17 @@ pub struct Hostname(String);
 /// ASCII alphanumerics and dashes only, and never a leading or trailing dash.
 fn validate_hostname_label(label: &str) -> Result<(), ForjarError> {
     if label.is_empty() || label.len() > 63 {
-        return Err(ForjarError::from_untyped(format!(
+        return Err(ForjarError::validation(format!(
             "label length must be 1-63: '{label}'"
         )));
     }
     if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-        return Err(ForjarError::from_untyped(format!(
+        return Err(ForjarError::validation(format!(
             "invalid chars in label: '{label}'"
         )));
     }
     if label.starts_with('-') || label.ends_with('-') {
-        return Err(ForjarError::from_untyped(format!(
+        return Err(ForjarError::validation(format!(
             "label cannot start/end with dash: '{label}'"
         )));
     }
@@ -189,7 +189,7 @@ impl Hostname {
     /// Create a validated hostname from a string.
     pub fn new(s: &str) -> Result<Self, ForjarError> {
         if s.is_empty() || s.len() > 253 {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "hostname length must be 1-253, got {}",
                 s.len()
             )));
@@ -226,12 +226,12 @@ impl AbsPath {
     /// Create a validated absolute path from a string.
     pub fn new(s: &str) -> Result<Self, ForjarError> {
         if !s.starts_with('/') {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "path must be absolute: '{s}'"
             )));
         }
         if s.contains('\0') {
-            return Err(ForjarError::from_untyped("path cannot contain null bytes"));
+            return Err(ForjarError::validation("path cannot contain null bytes"));
         }
         Ok(AbsPath(s.to_string()))
     }
@@ -263,7 +263,7 @@ impl ResourceName {
     /// Create a validated resource name from a string.
     pub fn new(s: &str) -> Result<Self, ForjarError> {
         if s.is_empty() || s.len() > 128 {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "name length must be 1-128, got {}",
                 s.len()
             )));
@@ -272,7 +272,7 @@ impl ResourceName {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::validation(format!(
                 "name has invalid chars: '{s}'"
             )));
         }

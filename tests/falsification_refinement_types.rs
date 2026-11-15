@@ -28,7 +28,10 @@ fn port_valid_range() {
 
 #[test]
 fn port_zero_rejected() {
-    let err = Port::new(0).unwrap_err().to_string();
+    let typed = Port::new(0).unwrap_err();
+    assert_eq!(typed.class(), forjar::core::error::ErrorClass::Validation);
+    assert_eq!(typed.exit_code(), 3);
+    let err = typed.to_string();
     assert!(err.contains("port"));
     assert!(err.contains("0"));
 }
