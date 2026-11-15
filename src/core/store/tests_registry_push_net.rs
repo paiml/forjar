@@ -309,7 +309,7 @@ fn chunked_push_errors_when_registry_unreachable() {
         result.is_err(),
         "unreachable registry must produce Err, got {result:?}"
     );
-    let msg = result.unwrap_err();
+    let msg = result.unwrap_err().to_string();
     assert!(
         msg.contains("chunked upload"),
         "error should name the chunked-upload phase: {msg}"

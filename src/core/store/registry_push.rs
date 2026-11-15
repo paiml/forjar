@@ -6,6 +6,7 @@
 //! anywhere on this path.
 
 use super::registry_http;
+use crate::core::error::ForjarError;
 use crate::core::types::{OciIndex, OciManifest, PushKind, PushResult};
 use std::collections::HashSet;
 use std::path::Path;
@@ -45,20 +46,24 @@ pub struct BlobDescriptor {
 /// including a transport failure that produced no response at all — is an
 /// error, not an implicit "does not exist"; the old code read every failure as
 /// 404 and marched on to an upload it could not perform.
-pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<bool, String> {
+pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<bool, ForjarError> {
     let url =
         super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/{digest}"));
     let agent = registry_http::agent_for_url(&url);
     let response =
-        registry_http::send(&agent, "HEAD", &url, &[], registry_http::RequestBody::Empty)
-            .map_err(|e| format!("registry unreachable: no HTTP response from {url} ({e})"))?;
+        registry_http::send(&agent, "HEAD", &url, &[], registry_http::RequestBody::Empty).map_err(
+            |e| {
+                ForjarError::from_untyped(format!(
+                    "registry unreachable: no HTTP response from {url} ({e})"
+                ))
+            },
+        )?;
 
     match response.status {
         200 => Ok(true),
         404 => Ok(false),
-        code => Err(super::registry_push_http::describe_status(
-            &format!("HEAD {url}"),
-            code,
+        code => Err(ForjarError::from_untyped(
+            super::registry_push_http::describe_status(&format!("HEAD {url}"), code),
         )),
     }
 }
@@ -69,7 +74,10 @@ pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<boo
 /// 2. POST to initiate upload
 /// 3. For blobs < 64MB: monolithic PUT
 ///    For blobs >= 64MB: chunked PATCH + PUT (E14)
-pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<PushResult, String> {
+pub fn push_blob(
+    config: &RegistryPushConfig,
+    blob: &BlobDescriptor,
+) -> Result<PushResult, ForjarError> {
     let start = Instant::now();
 
     // Step 1: Check if blob already exists
@@ -91,7 +99,7 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
 
     // Step 3: Upload blob (monolithic or chunked based on size)
     if blob.size >= CHUNKED_UPLOAD_THRESHOLD {
-        push_blob_chunked(&upload_url, blob)?;
+        push_blob_chunked(&upload_url, blob).map_err(ForjarError::from_untyped)?;
     } else {
         push_blob_monolithic(&upload_url, blob)?;
     }
@@ -112,22 +120,28 @@ pub fn push_blob(config: &RegistryPushConfig, blob: &BlobDescriptor) -> Result<P
 /// its marketing site, and the old code took that redirect target as the
 /// session URL, PUT the blob at a web page, got 200, and reported a push.
 /// Only 202 Accepted opens a session.
-fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
+fn initiate_upload(registry: &str, name: &str) -> Result<String, ForjarError> {
     let url =
         super::registry_push_http::registry_url(registry, &format!("v2/{name}/blobs/uploads/"));
     let agent = registry_http::agent_for_url(&url);
     let response =
-        registry_http::send(&agent, "POST", &url, &[], registry_http::RequestBody::Empty)
-            .map_err(|e| format!("registry unreachable: no HTTP response to POST {url} ({e})"))?;
+        registry_http::send(&agent, "POST", &url, &[], registry_http::RequestBody::Empty).map_err(
+            |e| {
+                ForjarError::from_untyped(format!(
+                    "registry unreachable: no HTTP response to POST {url} ({e})"
+                ))
+            },
+        )?;
 
     if response.status != 202 {
-        return Err(super::registry_push_http::describe_status(
-            &format!("POST {url}"),
-            response.status,
+        return Err(ForjarError::from_untyped(
+            super::registry_push_http::describe_status(&format!("POST {url}"), response.status),
         ));
     }
     let location = response.location.ok_or_else(|| {
-        format!("POST {url} returned 202 with no Location header; no upload session to write to")
+        ForjarError::from_untyped(format!(
+            "POST {url} returned 202 with no Location header; no upload session to write to"
+        ))
     })?;
     Ok(super::registry_push_http::resolve_location(
         registry, &location,
@@ -141,7 +155,7 @@ fn initiate_upload(registry: &str, name: &str) -> Result<String, String> {
 /// as a successful push while the registry stored nothing; the guard used to be
 /// curl's `--fail-with-body`, and is now this explicit 2xx gate plus the
 /// registry's own body in the error.
-fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), String> {
+fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), ForjarError> {
     let url = super::registry_push_http::with_digest_query(upload_url, &blob.digest);
     let agent = registry_http::agent_for_url(&url);
     let response = registry_http::send(
@@ -151,14 +165,18 @@ fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), S
         &[("Content-Type", "application/octet-stream".to_string())],
         registry_http::RequestBody::File(&blob.path),
     )
-    .map_err(|e| format!("blob upload failed: no HTTP response from {url} ({e})"))?;
+    .map_err(|e| {
+        ForjarError::from_untyped(format!(
+            "blob upload failed: no HTTP response from {url} ({e})"
+        ))
+    })?;
 
     if !registry_http::is_success(response.status) {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "blob upload failed (HTTP {}): {}",
             response.status,
             registry_http::detail(&response)
-        ));
+        )));
     }
     Ok(())
 }
@@ -175,7 +193,7 @@ pub fn push_manifest(
     config: &RegistryPushConfig,
     manifest_json: &str,
     digest: &str,
-) -> Result<PushResult, String> {
+) -> Result<PushResult, ForjarError> {
     let start = Instant::now();
 
     let url = super::registry_push_http::registry_url(
@@ -193,14 +211,18 @@ pub fn push_manifest(
         )],
         registry_http::RequestBody::Bytes(manifest_json.as_bytes()),
     )
-    .map_err(|e| format!("manifest push failed: no HTTP response from {url} ({e})"))?;
+    .map_err(|e| {
+        ForjarError::from_untyped(format!(
+            "manifest push failed: no HTTP response from {url} ({e})"
+        ))
+    })?;
 
     if !registry_http::is_success(response.status) {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "manifest push failed (HTTP {}): {}",
             response.status,
             registry_http::detail(&response)
-        ));
+        )));
     }
 
     Ok(PushResult {
@@ -218,7 +240,10 @@ pub fn push_manifest(
 /// 1. Push layer blobs (skip existing via HEAD check)
 /// 2. Push config blob
 /// 3. Push manifest
-pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<PushResult>, String> {
+pub fn push_image(
+    oci_dir: &Path,
+    config: &RegistryPushConfig,
+) -> Result<Vec<PushResult>, ForjarError> {
     // GH-224 / GH-228: there is no longer a preflight probe here, because there
     // is no longer an external binary to probe for. The missing-curl failure
     // that #224 turned into an actionable message is now unreachable: every
@@ -226,18 +251,18 @@ pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<Pus
     // `forjar build --push` has no undeclared runtime dependency to be missing.
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "OCI blobs directory not found: {}",
             blobs_dir.display()
-        ));
+        )));
     }
 
     let index_path = oci_dir.join("index.json");
     if !index_path.exists() {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "OCI index.json not found: {}",
             index_path.display()
-        ));
+        )));
     }
 
     let blobs = discover_blobs(oci_dir)?;
@@ -249,18 +274,18 @@ pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<Pus
     // Refs #210: a push with no manifest PUT leaves the tag pointing wherever
     // it pointed before, so refuse rather than report a partial push.
     if manifests.is_empty() {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "no manifest found in OCI layout {}: index.json references none of the blobs present",
             oci_dir.display()
-        ));
+        )));
     }
     if manifests.len() > 1 {
-        return Err(format!(
+        return Err(ForjarError::from_untyped(format!(
             "OCI layout {} holds {} manifests (a multi-arch image index); \
              forjar cannot push an index to a single tag",
             oci_dir.display(),
             manifests.len()
-        ));
+        )));
     }
 
     let mut results = Vec::new();
@@ -276,8 +301,9 @@ pub fn push_image(oci_dir: &Path, config: &RegistryPushConfig) -> Result<Vec<Pus
     // Uploading the manifest bytes to /blobs/ (what this used to do) creates no
     // tag, so nothing could ever pull the image that was reported as pushed.
     let manifest = manifests[0];
-    let manifest_json = std::fs::read_to_string(&manifest.path)
-        .map_err(|e| format!("read manifest {}: {e}", manifest.path.display()))?;
+    let manifest_json = std::fs::read_to_string(&manifest.path).map_err(|e| {
+        ForjarError::from_untyped(format!("read manifest {}: {e}", manifest.path.display()))
+    })?;
     results.push(push_manifest(config, &manifest_json, &manifest.digest)?);
 
     Ok(results)
@@ -322,7 +348,7 @@ fn classify_digests_from_index(oci_dir: &Path) -> DigestClassification {
 ///
 /// Parses index.json → manifest → identifies config and layer digests.
 /// Blobs not referenced by any manifest default to Layer kind.
-pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, String> {
+pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, ForjarError> {
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
         return Ok(Vec::new());
@@ -330,10 +356,12 @@ pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, Stri
 
     let classification = classify_digests_from_index(oci_dir);
     let mut blobs = Vec::new();
-    let entries = std::fs::read_dir(&blobs_dir).map_err(|e| format!("read blobs dir: {e}"))?;
+    let entries = std::fs::read_dir(&blobs_dir)
+        .map_err(|e| ForjarError::from_untyped(format!("read blobs dir: {e}")))?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| format!("read blob entry: {e}"))?;
+        let entry =
+            entry.map_err(|e| ForjarError::from_untyped(format!("read blob entry: {e}")))?;
         let path = entry.path();
         if !path.is_file() {
             continue;

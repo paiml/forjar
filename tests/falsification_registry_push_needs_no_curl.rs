@@ -332,7 +332,8 @@ fn a_registry_that_rejects_the_manifest_is_a_failed_push() {
     let config = config_for(&registry, false);
 
     let err = push_manifest(&config, r#"{"schemaVersion":2}"#, "sha256:abc")
-        .expect_err("a 401 stored nothing; reporting that as a push is defect #154");
+        .expect_err("a 401 stored nothing; reporting that as a push is defect #154")
+        .to_string();
 
     assert!(err.contains("401"), "the status must be named: {err}");
     assert!(
@@ -378,7 +379,8 @@ fn a_301_on_the_upload_post_is_not_an_upload_session() {
     };
 
     let err = push_blob(&config_for(&registry, false), &blob)
-        .expect_err("a redirect is not an upload session — Refs #210");
+        .expect_err("a redirect is not an upload session — Refs #210")
+        .to_string();
 
     assert!(
         err.contains("registry-1.docker.io"),

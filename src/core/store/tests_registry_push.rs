@@ -173,7 +173,7 @@ fn push_image_missing_index() {
     };
     let result = push_image(dir.path(), &config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("index.json"));
+    assert!(result.unwrap_err().to_string().contains("index.json"));
 }
 
 #[test]
