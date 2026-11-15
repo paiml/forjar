@@ -133,7 +133,8 @@ pub(super) fn run_exec(
             steps: &steps,
         },
     )
-    .map_err(ForjarError::into_untyped)
+    // Text only: the class is not claimed across this `String` boundary.
+    .map_err(ForjarError::into_message)
 }
 
 /// What the build did about executed steps, for the report.

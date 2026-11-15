@@ -56,7 +56,7 @@ pub(crate) fn cmd_build_in(
 ) -> Result<(), String> {
     let real = || {
         ContainerCli::detect()
-            .map_err(ForjarError::into_untyped)
+            .map_err(ForjarError::into_message)
             .map(|c| Box::new(c) as Box<dyn BuildRuntime>)
     };
     cmd_build_rt(

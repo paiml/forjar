@@ -39,8 +39,12 @@ fn run_typed(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, ForjarE
     )
 }
 
+fn run_lowered(e: ForjarError) -> String {
+    e.into_message()
+}
+
 fn run(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, String> {
-    run_typed(rt).map_err(ForjarError::into_untyped)
+    run_typed(rt).map_err(run_lowered)
 }
 
 fn find<'a>(l: &'a super::exec_capture::ExecLayer, p: &str) -> Option<&'a LayerEntry> {
@@ -246,4 +250,34 @@ fn the_fetch_hint_has_both_skopeo_and_docker_save() {
     let h = base_fetch_hint("ubuntu:22.04", Path::new("d"));
     assert!(h.contains("skopeo copy docker://ubuntu:22.04 oci:d"));
     assert!(h.contains("docker save ubuntu:22.04 | tar -x -C d"));
+}
+
+/// A typed `Other` error whose message holds legacy prose words must cross the
+/// `String` boundary without tripping `into_untyped`'s debug assertion, and the
+/// message must arrive byte for byte.
+#[test]
+fn an_error_naming_legacy_prose_words_crosses_the_string_boundary_intact() {
+    let mut rt = rich_runtime();
+    rt.fail_on = Some("echo hi");
+    let ids = ids();
+    let steps = vec![ExecStep {
+        name: "connection-partial".into(),
+        shell: "sh".into(),
+        script: "echo hi > /etc/greeting".into(),
+    }];
+    let req = ExecRequest {
+        base_ref: "debian:bookworm-slim",
+        base_dir: Path::new("state/images/debian_bookworm-slim"),
+        base_diff_ids: &ids,
+        steps: &steps,
+    };
+    let typed = build_exec_layer(&rt, &req).unwrap_err();
+    assert_eq!(typed.class(), crate::core::error::ErrorClass::Other);
+    assert_eq!(typed.exit_code(), 1);
+    let msg = typed.clone().into_message();
+    assert!(
+        msg.contains("build step 'connection-partial' exited 1"),
+        "{msg}"
+    );
+    assert_eq!(run_lowered(typed), msg);
 }
