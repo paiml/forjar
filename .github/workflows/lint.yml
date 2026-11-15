@@ -41,18 +41,10 @@ jobs:
         # Windows excluded: openssl-sys vendored build requires Perl/NASM
         # which is unreliable on GH runners. Sovereign-ci handles lint on Linux.
         #
-        # The macOS legs build on the fleet's self-hosted mac (mini-m4, label
-        # mini-builder), so this file no longer asks GitHub for any runner. It
-        # runs on pull_request like the Linux legs above, which are self-hosted
-        # too, so the exposure to PR code is the one this file already has.
         include:
           - runner: [self-hosted, clean-room]
             features: ""
           - runner: [self-hosted, clean-room]
-            features: encryption
-          - runner: [self-hosted, macOS, mini-builder]
-            features: ""
-          - runner: [self-hosted, macOS, mini-builder]
             features: encryption
     runs-on: ${{ matrix.runner }}
     # infra#430, as on the fleet jobs above: the clean-room runners share one

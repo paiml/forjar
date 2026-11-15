@@ -6,7 +6,7 @@
 //! hours. The aarch64 smoke now runs in `nightly.yml`.
 //!
 //! The rule: in a PR-triggered workflow no job runner (`runs-on`, its matrix, a `with:`
-//! runner input) names an ARM architecture or a host label, bar [`KNOWN_HOST_PINS`].
+//! runner input) names an ARM architecture or a host label.
 
 use serde_yaml_ng::Value;
 use std::path::Path;
@@ -16,13 +16,6 @@ use std::path::Path;
 const HOST_LABELS: &str = "arm64 aarch64 gx10 intel yoga yoga-build mac-server t2yoga kfocus \
                            framework framework16 t2fw13 lambda mini mini-builder \
                            macos perf-solo ada blackwell gb10";
-
-/// (workflow, job, label): the macOS legs of `lint.yml` have one seat, the
-/// self-hosted mac. A reviewed exception; a stale entry fails the test.
-const KNOWN_HOST_PINS: [(&str, &str, &str); 2] = [
-    ("lint.yml", "clippy", "mini-builder"),
-    ("lint.yml", "clippy", "macos"),
-];
 
 fn pr_triggered(doc: &Value) -> bool {
     let on = doc.get("on").or_else(|| doc.get(Value::Bool(true)));
@@ -75,7 +68,7 @@ fn offending(labels: &[String]) -> Vec<String> {
 #[test]
 fn no_pull_request_job_names_arm64_or_a_host() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows");
-    let (mut pr_workflows, mut findings, mut pins_seen) = (0, Vec::new(), Vec::new());
+    let (mut pr_workflows, mut findings) = (0, Vec::new());
     for entry in std::fs::read_dir(&dir).expect("workflow directory is readable") {
         let path = entry.expect("readable entry").path();
         if !matches!(
@@ -99,13 +92,7 @@ fn no_pull_request_job_names_arm64_or_a_host() {
         {
             let job = job.as_str().unwrap_or("?");
             for label in offending(&labels_of(body)) {
-                match KNOWN_HOST_PINS
-                    .iter()
-                    .find(|p| **p == (name.as_str(), job, label.as_str()))
-                {
-                    Some(pin) => pins_seen.push(*pin),
-                    None => findings.push(format!("{name}:{job}: {label}")),
-                }
+                findings.push(format!("{name}:{job}: {label}"));
             }
         }
     }
@@ -116,12 +103,6 @@ fn no_pull_request_job_names_arm64_or_a_host() {
          to nightly.yml:\n{}",
         findings.join("\n")
     );
-    for pin in KNOWN_HOST_PINS {
-        assert!(
-            pins_seen.contains(&pin),
-            "stale KNOWN_HOST_PINS entry: {pin:?}"
-        );
-    }
 }
 
 #[test]
@@ -160,6 +141,10 @@ fn the_aarch64_smoke_runs_nightly_and_does_not_hold_the_release() {
     assert!(labels_of(smoke).iter().any(|l| l == "arm64"));
     let run = serde_yaml_ng::to_string(&smoke["steps"]).unwrap();
     assert!(run.contains("--test examples_validate"), "{run}");
+    // The macOS clippy legs (one seat) have their own nightly-only workflow.
+    let mac = Path::new(env!("CARGO_MANIFEST_DIR")).join(".github/workflows/lint-macos.yml");
+    let mac: Value = serde_yaml_ng::from_str(&std::fs::read_to_string(mac).unwrap()).unwrap();
+    assert!(!pr_triggered(&mac) && labels_of(&mac["jobs"]["clippy"]).contains(&"macos".into()));
     let needs = serde_yaml_ng::to_string(&doc["jobs"]["release"]["needs"]).unwrap();
     assert!(
         !needs.contains("arm64-smoke"),
