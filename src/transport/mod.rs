@@ -314,6 +314,18 @@ pub fn exec_script_retry(
     timeout_secs: Option<u64>,
     ssh_retries: u32,
 ) -> Result<ExecOutput, String> {
+    exec_script_retry_with(machine, ssh_retries, || {
+        exec_script_timeout(machine, script, timeout_secs)
+    })
+}
+
+/// Retry loop behind [`exec_script_retry`], with the transport call injected so
+/// the retry policy can be driven by a controlled result instead of a real ssh.
+pub(crate) fn exec_script_retry_with(
+    machine: &Machine,
+    ssh_retries: u32,
+    mut attempt_exec: impl FnMut() -> Result<ExecOutput, String>,
+) -> Result<ExecOutput, String> {
     let is_ssh = is_ssh_transport(machine);
     let max_attempts = if is_ssh { ssh_retries.clamp(1, 4) } else { 1 };
 
@@ -331,7 +343,7 @@ pub fn exec_script_retry(
             );
         }
 
-        match exec_script_timeout(machine, script, timeout_secs) {
+        match attempt_exec() {
             Ok(out) => return Ok(out),
             Err(e) => {
                 if attempt + 1 < max_attempts && is_transient_ssh_error(&e) {

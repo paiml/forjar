@@ -7728,6 +7728,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1093
+  github_issue: 1093
+  item_type: task
+  title: retry test must not depend on the host ssh behaviour (forjar#1093)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1067
   github_issue: 1067
   item_type: task
