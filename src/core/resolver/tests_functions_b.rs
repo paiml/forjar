@@ -153,7 +153,12 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let result = super::data::resolve_data_sources(&mut config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("DNS"));
+    let err = result.unwrap_err();
+    assert!(err.contains("DNS"), "{err}");
+    // The class DECLARED at the producer survives the String boundary via its marker.
+    let class = crate::core::error::classify_untyped(&err);
+    assert_eq!(class, crate::core::error::ErrorClass::Connection);
+    assert_eq!(class.exit_code(), 4);
 }
 
 #[test]

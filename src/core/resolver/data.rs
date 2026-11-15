@@ -199,7 +199,8 @@ fn resolve_one_source(key: &str, source: &DataSource) -> Result<String, ForjarEr
 /// Strict: the first failing source aborts. See [`resolve_data_sources_isolated`].
 pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
     for (key, source) in &config.data {
-        let value = resolve_one_source(key, source).map_err(ForjarError::into_untyped)?;
+        // Text only: an `Other` error carries no marker, so no class is claimed here.
+        let value = resolve_one_source(key, source).map_err(ForjarError::into_message)?;
         config.params.insert(
             format!("__data__{key}"),
             serde_yaml_ng::Value::String(value),
