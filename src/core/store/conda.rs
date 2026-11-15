@@ -45,7 +45,7 @@ pub fn read_conda(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, Fo
     } else if ext.ends_with(".tar.bz2") {
         read_conda_bz2(path, output_dir)
     } else {
-        Err(ForjarError::from_untyped(format!(
+        Err(ForjarError::validation(format!(
             "unknown conda format: {} (expected .conda or .tar.bz2)",
             path.display()
         )))
@@ -59,24 +59,24 @@ fn decompress_zst_entry(
 ) -> Result<Vec<u8>, ForjarError> {
     let mut entry = archive
         .by_name(name)
-        .map_err(|e| ForjarError::from_untyped(format!("zip entry {name}: {e}")))?;
+        .map_err(|e| ForjarError::other(format!("zip entry {name}: {e}")))?;
     let mut compressed = Vec::new();
     entry
         .read_to_end(&mut compressed)
-        .map_err(|e| ForjarError::from_untyped(format!("read {name}: {e}")))?;
+        .map_err(|e| ForjarError::other(format!("read {name}: {e}")))?;
     zstd::decode_all(compressed.as_slice())
-        .map_err(|e| ForjarError::from_untyped(format!("zstd {name}: {e}")))
+        .map_err(|e| ForjarError::other(format!("zstd {name}: {e}")))
 }
 
 /// Read a modern `.conda` file (ZIP containing tar.zst members).
 pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, ForjarError> {
     let file = std::fs::File::open(path)
-        .map_err(|e| ForjarError::from_untyped(format!("open {}: {e}", path.display())))?;
+        .map_err(|e| ForjarError::other(format!("open {}: {e}", path.display())))?;
     let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| ForjarError::from_untyped(format!("zip read {}: {e}", path.display())))?;
+        .map_err(|e| ForjarError::other(format!("zip read {}: {e}", path.display())))?;
 
     std::fs::create_dir_all(output_dir)
-        .map_err(|e| ForjarError::from_untyped(format!("mkdir {}: {e}", output_dir.display())))?;
+        .map_err(|e| ForjarError::other(format!("mkdir {}: {e}", output_dir.display())))?;
 
     let mut info: Option<CondaPackageInfo> = None;
     let mut all_files: Vec<CondaFileEntry> = Vec::new();
@@ -101,8 +101,7 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
         }
     }
 
-    let mut pkg =
-        info.ok_or_else(|| ForjarError::from_untyped("no index.json in conda package"))?;
+    let mut pkg = info.ok_or_else(|| ForjarError::validation("no index.json in conda package"))?;
     pkg.files = all_files;
     Ok(pkg)
 }
@@ -114,7 +113,7 @@ fn process_bz2_entry<R: std::io::Read>(
 ) -> Result<Option<(CondaFileEntry, Option<CondaPackageInfo>)>, ForjarError> {
     let path_buf = entry
         .path()
-        .map_err(|e| ForjarError::from_untyped(format!("entry path: {e}")))?
+        .map_err(|e| ForjarError::other(format!("entry path: {e}")))?
         .to_path_buf();
     let rel = path_buf.to_string_lossy().to_string();
     let size = entry.size();
@@ -122,7 +121,7 @@ fn process_bz2_entry<R: std::io::Read>(
     let dest = output_dir.join(&rel);
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| ForjarError::from_untyped(format!("mkdir {}: {e}", parent.display())))?;
+            .map_err(|e| ForjarError::other(format!("mkdir {}: {e}", parent.display())))?;
     }
     if !entry.header().entry_type().is_file() {
         return Ok(None);
@@ -131,7 +130,7 @@ fn process_bz2_entry<R: std::io::Read>(
     let mut buf = Vec::with_capacity(size as usize);
     entry
         .read_to_end(&mut buf)
-        .map_err(|e| ForjarError::from_untyped(format!("read {rel}: {e}")))?;
+        .map_err(|e| ForjarError::other(format!("read {rel}: {e}")))?;
 
     let index_info = if rel == "info/index.json" {
         Some(parse_conda_index(&String::from_utf8_lossy(&buf))?)
@@ -140,28 +139,28 @@ fn process_bz2_entry<R: std::io::Read>(
     };
 
     std::fs::write(&dest, &buf)
-        .map_err(|e| ForjarError::from_untyped(format!("write {}: {e}", dest.display())))?;
+        .map_err(|e| ForjarError::other(format!("write {}: {e}", dest.display())))?;
     Ok(Some((CondaFileEntry { path: rel, size }, index_info)))
 }
 
 /// Read a legacy `.tar.bz2` conda package.
 pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, ForjarError> {
     let file = std::fs::File::open(path)
-        .map_err(|e| ForjarError::from_untyped(format!("open {}: {e}", path.display())))?;
+        .map_err(|e| ForjarError::other(format!("open {}: {e}", path.display())))?;
     let decoder = bzip2::read::BzDecoder::new(file);
     let mut archive = tar::Archive::new(decoder);
 
     std::fs::create_dir_all(output_dir)
-        .map_err(|e| ForjarError::from_untyped(format!("mkdir {}: {e}", output_dir.display())))?;
+        .map_err(|e| ForjarError::other(format!("mkdir {}: {e}", output_dir.display())))?;
 
     let mut info: Option<CondaPackageInfo> = None;
     let mut files: Vec<CondaFileEntry> = Vec::new();
 
     for entry in archive
         .entries()
-        .map_err(|e| ForjarError::from_untyped(format!("tar entries: {e}")))?
+        .map_err(|e| ForjarError::other(format!("tar entries: {e}")))?
     {
-        let mut entry = entry.map_err(|e| ForjarError::from_untyped(format!("tar entry: {e}")))?;
+        let mut entry = entry.map_err(|e| ForjarError::other(format!("tar entry: {e}")))?;
         if let Some((file_entry, index_info)) = process_bz2_entry(&mut entry, output_dir)? {
             if let Some(pkg_info) = index_info {
                 info = Some(pkg_info);
@@ -170,7 +169,7 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
         }
     }
 
-    let mut pkg = info.ok_or_else(|| ForjarError::from_untyped("no info/index.json in tar.bz2"))?;
+    let mut pkg = info.ok_or_else(|| ForjarError::validation("no info/index.json in tar.bz2"))?;
     pkg.files = files;
     Ok(pkg)
 }
@@ -178,15 +177,15 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
 /// Parse conda `index.json` into `CondaPackageInfo`.
 pub fn parse_conda_index(json: &str) -> Result<CondaPackageInfo, ForjarError> {
     let val: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| ForjarError::from_untyped(format!("parse index.json: {e}")))?;
+        .map_err(|e| ForjarError::validation(format!("parse index.json: {e}")))?;
 
     let name = val["name"]
         .as_str()
-        .ok_or_else(|| ForjarError::from_untyped("index.json missing 'name'"))?
+        .ok_or_else(|| ForjarError::validation("index.json missing 'name'"))?
         .to_string();
     let version = val["version"]
         .as_str()
-        .ok_or_else(|| ForjarError::from_untyped("index.json missing 'version'"))?
+        .ok_or_else(|| ForjarError::validation("index.json missing 'version'"))?
         .to_string();
     let build = val
         .get("build")
@@ -230,17 +229,16 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
     let extract_dir = tmp.join("extracted");
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&extract_dir)
-        .map_err(|e| ForjarError::from_untyped(format!("create temp dir: {e}")))?;
+        .map_err(|e| ForjarError::other(format!("create temp dir: {e}")))?;
 
     // 1. Extract
     let info = read_conda(conda_path, &extract_dir)?;
 
     // 2. Store hash
-    let store_hash = hash_directory(&extract_dir).map_err(ForjarError::from_untyped)?;
+    let store_hash = hash_directory(&extract_dir).map_err(ForjarError::other)?;
 
     // 3. Chunk
-    let (chunks, file_entries) =
-        chunk_directory(&extract_dir).map_err(ForjarError::from_untyped)?;
+    let (chunks, file_entries) = chunk_directory(&extract_dir).map_err(ForjarError::other)?;
 
     // 4. Tree hash
     let th = tree_hash(&chunks);
@@ -278,9 +276,9 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
     let chunk_pairs: Vec<([u8; 32], Vec<u8>)> =
         chunks.into_iter().map(|c| (c.hash, c.data)).collect();
     let file = std::fs::File::create(far_output)
-        .map_err(|e| ForjarError::from_untyped(format!("create {}: {e}", far_output.display())))?;
+        .map_err(|e| ForjarError::other(format!("create {}: {e}", far_output.display())))?;
     let writer = std::io::BufWriter::new(file);
-    encode_far(&manifest, &chunk_pairs, writer).map_err(ForjarError::from_untyped)?;
+    encode_far(&manifest, &chunk_pairs, writer).map_err(ForjarError::other)?;
 
     // Remove the extraction staging directory
     let _ = std::fs::remove_dir_all(&tmp);
@@ -299,28 +297,26 @@ fn extract_tar_bytes(
 
     for entry in archive
         .entries()
-        .map_err(|e| ForjarError::from_untyped(format!("tar entries: {e}")))?
+        .map_err(|e| ForjarError::other(format!("tar entries: {e}")))?
     {
-        let mut entry = entry.map_err(|e| ForjarError::from_untyped(format!("tar entry: {e}")))?;
+        let mut entry = entry.map_err(|e| ForjarError::other(format!("tar entry: {e}")))?;
         let path_buf = entry
             .path()
-            .map_err(|e| ForjarError::from_untyped(format!("path: {e}")))?
+            .map_err(|e| ForjarError::other(format!("path: {e}")))?
             .to_path_buf();
         let rel = path_buf.to_string_lossy().to_string();
         let size = entry.size();
 
         let dest = output_dir.join(&rel);
         if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                ForjarError::from_untyped(format!("mkdir {}: {e}", parent.display()))
-            })?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| ForjarError::other(format!("mkdir {}: {e}", parent.display())))?;
         }
         if entry.header().entry_type().is_file() {
-            let mut out = std::fs::File::create(&dest).map_err(|e| {
-                ForjarError::from_untyped(format!("create {}: {e}", dest.display()))
-            })?;
+            let mut out = std::fs::File::create(&dest)
+                .map_err(|e| ForjarError::other(format!("create {}: {e}", dest.display())))?;
             std::io::copy(&mut entry, &mut out)
-                .map_err(|e| ForjarError::from_untyped(format!("write {}: {e}", dest.display())))?;
+                .map_err(|e| ForjarError::other(format!("write {}: {e}", dest.display())))?;
             files.push(CondaFileEntry { path: rel, size });
         }
     }
@@ -331,19 +327,19 @@ fn find_index_in_tar(tar_data: &[u8]) -> Result<Option<CondaPackageInfo>, Forjar
     let mut archive = tar::Archive::new(tar_data);
     for entry in archive
         .entries()
-        .map_err(|e| ForjarError::from_untyped(format!("tar entries: {e}")))?
+        .map_err(|e| ForjarError::other(format!("tar entries: {e}")))?
     {
-        let mut entry = entry.map_err(|e| ForjarError::from_untyped(format!("tar entry: {e}")))?;
+        let mut entry = entry.map_err(|e| ForjarError::other(format!("tar entry: {e}")))?;
         let path_buf = entry
             .path()
-            .map_err(|e| ForjarError::from_untyped(format!("path: {e}")))?
+            .map_err(|e| ForjarError::other(format!("path: {e}")))?
             .to_path_buf();
         let rel = path_buf.to_string_lossy().to_string();
         if rel == "index.json" || rel.ends_with("/index.json") {
             let mut content = String::new();
             entry
                 .read_to_string(&mut content)
-                .map_err(|e| ForjarError::from_untyped(format!("read index.json: {e}")))?;
+                .map_err(|e| ForjarError::other(format!("read index.json: {e}")))?;
             return Ok(Some(parse_conda_index(&content)?));
         }
     }

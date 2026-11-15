@@ -42,7 +42,10 @@ fn test_fj1348_parse_missing_name_error() {
     let json = r#"{"version": "1.0"}"#;
     let result = parse_conda_index(json);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("name"));
+    let err = result.unwrap_err();
+    assert_eq!(err.class(), crate::core::error::ErrorClass::Validation);
+    assert_eq!(err.exit_code(), 3);
+    assert!(err.to_string().contains("name"));
 }
 
 #[test]
