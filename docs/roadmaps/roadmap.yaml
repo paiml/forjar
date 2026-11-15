@@ -7665,6 +7665,15 @@ roadmap:
   assigned_to: null
   created: 2026-11-15T00:00:00Z
   updated: 2026-11-15T00:00:00Z
+- id: PMAT-1065
+  github_issue: 1065
+  item_type: task
+  title: github_release check asserts checksum before running the binary (forjar#1065)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T08:20:00Z
+  updated: 2026-11-15T08:20:00Z
   spec: null
   acceptance_criteria: []
   phases: []

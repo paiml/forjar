@@ -69,6 +69,8 @@ mod tests_file_content_escape;
 #[cfg(test)]
 mod tests_file_staging;
 #[cfg(test)]
+mod tests_github_release_checksum;
+#[cfg(test)]
 mod tests_github_release_downgrade;
 #[cfg(test)]
 mod tests_github_release_verified;
