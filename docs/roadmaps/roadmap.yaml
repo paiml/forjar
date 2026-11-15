@@ -4537,7 +4537,7 @@ roadmap:
   github_issue: 572
   item_type: task
   title: quorum.yml's receipt job builds against the shared ~/.cargo — the fleet test cannot see cargo run through a script
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-16T04:40:41Z

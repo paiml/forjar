@@ -178,9 +178,14 @@ pub(crate) fn fixture(yaml: &str) -> Value {
     serde_yaml_ng::from_str(yaml).expect("the fixture must parse")
 }
 
+/// Repository scripts that run cargo internally.
+const CARGO_SCRIPTS: [&str; 2] = ["scripts/quorum-gate.sh", "scripts/dogfood/"];
+
 /// Does any step of this job invoke cargo — directly, or through an action
 /// whose name says so? Read from `run:` and `uses:` together, because
-/// `cargo-llvm-cov` arrives as a `uses:` and compiles just the same.
+/// `cargo-llvm-cov` arrives as a `uses:` and compiles just the same. A step that
+/// names a repository script known to run cargo counts too: its text never says
+/// `cargo` (forjar#572).
 pub(crate) fn job_runs_cargo(job: &Value) -> bool {
     let Some(Value::Sequence(steps)) = job.get("steps") else {
         return false;
@@ -189,7 +194,7 @@ pub(crate) fn job_runs_cargo(job: &Value) -> bool {
         ["run", "uses"].iter().any(|k| {
             step.get(*k)
                 .and_then(Value::as_str)
-                .is_some_and(|v| v.contains("cargo"))
+                .is_some_and(|v| v.contains("cargo") || CARGO_SCRIPTS.iter().any(|s| v.contains(s)))
         })
     })
 }
