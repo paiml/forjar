@@ -142,7 +142,7 @@ impl BuildRuntime for FakeRuntime {
     }
     fn export(&self, _id: &str, dest: &Path) -> Result<(), ForjarError> {
         self.calls.borrow_mut().push("export".into());
-        std::fs::write(dest, self.tar_bytes()).map_err(|e| ForjarError::from_untyped(e.to_string()))
+        std::fs::write(dest, self.tar_bytes()).map_err(|e| ForjarError::other(e.to_string()))
     }
     fn remove(&self, id: &str) {
         self.calls.borrow_mut().push(format!("remove {id}"));

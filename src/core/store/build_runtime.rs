@@ -66,7 +66,7 @@ impl ContainerCli {
         super::convergence_container::detect_container_runtime()
             .map(|runtime| Self { runtime })
             .ok_or_else(|| {
-                ForjarError::from_untyped(
+                ForjarError::other(
                     "no container runtime (docker or podman) is available; a build with \
                  `packages:` or `command:` executes them in a container",
                 )
@@ -78,7 +78,7 @@ impl ContainerCli {
             .args(args)
             .output()
             .map_err(|e| {
-                ForjarError::from_untyped(format!(
+                ForjarError::other(format!(
                     "{} {}: {e}",
                     self.runtime,
                     args.first().unwrap_or(&"")
@@ -98,15 +98,15 @@ pub(super) fn parse_diff(text: &str) -> Result<Vec<DiffEntry>, ForjarError> {
     text.lines()
         .filter(|l| !l.trim().is_empty())
         .map(|line| {
-            let (kind, path) = line.split_once(' ').ok_or_else(|| {
-                ForjarError::from_untyped(format!("unparseable diff line: {line:?}"))
-            })?;
+            let (kind, path) = line
+                .split_once(' ')
+                .ok_or_else(|| ForjarError::other(format!("unparseable diff line: {line:?}")))?;
             let kind = match kind {
                 "A" => DiffKind::Added,
                 "C" => DiffKind::Changed,
                 "D" => DiffKind::Deleted,
                 other => {
-                    return Err(ForjarError::from_untyped(format!(
+                    return Err(ForjarError::other(format!(
                         "unknown diff kind {other:?} in line {line:?}"
                     )))
                 }
@@ -146,12 +146,12 @@ impl BuildRuntime for ContainerCli {
             image,
         ])?;
         if !out.status.success() {
-            return Err(ForjarError::from_untyped(
+            return Err(ForjarError::other(
                 String::from_utf8_lossy(&out.stderr).trim(),
             ));
         }
         serde_json::from_slice(&out.stdout).map_err(|e| {
-            ForjarError::from_untyped(format!(
+            ForjarError::other(format!(
                 "{} image inspect {image}: bad RootFS.Layers: {e}",
                 self.runtime
             ))
@@ -161,7 +161,7 @@ impl BuildRuntime for ContainerCli {
     fn start(&self, image: &str) -> Result<String, ForjarError> {
         let out = self.run(&start_args(image))?;
         if !out.status.success() {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::other(format!(
                 "{} run {image}: {}",
                 self.runtime,
                 String::from_utf8_lossy(&out.stderr).trim()
@@ -175,7 +175,7 @@ impl BuildRuntime for ContainerCli {
             .args(["exec", id, shell, "-c", script])
             .stdin(Stdio::null())
             .output()
-            .map_err(|e| ForjarError::from_untyped(format!("{} exec: {e}", self.runtime)))?;
+            .map_err(|e| ForjarError::other(format!("{} exec: {e}", self.runtime)))?;
         let stderr = String::from_utf8_lossy(&out.stderr);
         let text = if stderr.trim().is_empty() {
             String::from_utf8_lossy(&out.stdout).into_owned()
@@ -191,7 +191,7 @@ impl BuildRuntime for ContainerCli {
     fn diff(&self, id: &str) -> Result<Vec<DiffEntry>, ForjarError> {
         let out = self.run(&["diff", id])?;
         if !out.status.success() {
-            return Err(ForjarError::from_untyped(format!(
+            return Err(ForjarError::other(format!(
                 "{} diff failed: {}",
                 self.runtime,
                 String::from_utf8_lossy(&out.stderr).trim()
@@ -206,7 +206,7 @@ impl BuildRuntime for ContainerCli {
         if out.status.success() {
             return Ok(());
         }
-        Err(ForjarError::from_untyped(format!(
+        Err(ForjarError::other(format!(
             "{} export failed: {}",
             self.runtime,
             String::from_utf8_lossy(&out.stderr).trim()

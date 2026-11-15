@@ -69,7 +69,7 @@ fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), For
     let rt_name = rt.name();
     let hint = base_fetch_hint(req.base_ref, req.base_dir);
     let have = rt.image_diff_ids(req.base_ref).map_err(|e| {
-        ForjarError::from_untyped(format!(
+        ForjarError::other(format!(
             "{rt_name} does not have base image '{}' locally ({e}); executing the build \
              steps needs it, and forjar never pulls implicitly. Fetch it with: {hint}",
             req.base_ref
@@ -82,7 +82,7 @@ fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), For
         .find(|i| have.get(*i) != req.base_diff_ids.get(*i))
         .unwrap_or(0);
     let show = |v: &[String]| v.get(at).cloned().unwrap_or_else(|| "(none)".into());
-    Err(ForjarError::from_untyped(format!(
+    Err(ForjarError::other(format!(
         "{rt_name}'s '{}' is not the base layout in {}: it has {} layers, the layout {}; \
          first difference at layer {at}: {rt_name} {} vs layout {}. Make them the same \
          image: {hint}",
@@ -106,7 +106,7 @@ fn run_step(
     if out.code == 0 {
         return Ok(());
     }
-    Err(ForjarError::from_untyped(format!(
+    Err(ForjarError::other(format!(
         "build step '{name}' exited {}; no image was written. Last output:\n{}",
         out.code, out.tail
     )))
@@ -137,5 +137,5 @@ pub fn build_exec_layer(
     let diff = rt.diff(&id)?;
     let tar = TempFile(export_path());
     rt.export(&id, &tar.0)?;
-    capture(&diff, &tar.0).map_err(ForjarError::from_untyped)
+    capture(&diff, &tar.0).map_err(ForjarError::other)
 }
