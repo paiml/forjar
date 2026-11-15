@@ -70,9 +70,7 @@ jobs:
       # workflow share one seat. The reusable workflow's jobs (lint, security, provenance and
       # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
       # where #981 put them.
-      # 2026-11-15 (#881): back to X64. 26 jobs sat queued for hours on ARM64 (provenance, security)
-      # while X64 clean-room seats idled. runs_on is one input for every job of the reusable
-      # workflow (test, lint, security, provenance, gate); none builds an ARM artifact.
+      # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
       runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
@@ -134,9 +132,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    # forjar#1090: X64, like every other job a pull request triggers. The aarch64 smoke this
-    # job used to be runs nightly (nightly.yml `arm64-smoke`): a required PR job on ARM64
-    # queued every PR for hours on 2026-11-15, when no ARM64 runner was online.
+    # forjar#1090: X64, as every PR job. The aarch64 smoke is nightly.yml `arm64-smoke`.
     runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which

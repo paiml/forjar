@@ -226,11 +226,8 @@ jobs:
             forjar-${{ matrix.target }}.zip.sha256
 
   # ── aarch64 smoke (forjar#1090) ───────────────────────────
-  # Builds forjar on an aarch64 runner and runs the integration targets that are
-  # sensitive to the architecture, so an arch regression still shows. Until
-  # 2026-11-15 this ran on every pull request as `examples-validate`; with no
-  # ARM64 runner online it queued every PR, so it moved here. `release` does not
-  # need it: a missing ARM64 runner must not hold the nightly back.
+  # Builds forjar on aarch64 and runs the arch-sensitive integration targets (on every PR
+  # as `examples-validate` until 2026-11-15). `release` does not wait on it.
   arm64-smoke:
     name: arm64-smoke
     timeout-minutes: 60
