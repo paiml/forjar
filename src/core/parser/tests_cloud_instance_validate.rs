@@ -46,27 +46,29 @@ fn t() -> String {
 /// Parse-time errors expected as (field alone, field plus a bad literal sibling).
 /// The sibling is a missing `cloud_max_lifetime_min`, which no template can fill.
 type Seen = (bool, bool);
-/// Today: a templated field defers the whole check, so the bad sibling goes unseen.
-const HIDES: Seen = (false, false);
-/// The field is never deferred: it is rejected, and so is the sibling.
+/// Rejected by itself, and so is the sibling.
 const REJECTS: Seen = (true, true);
-/// Not checked by `spec_of`: accepted alone, the sibling is still caught.
+/// A template stands in for its own field only: accepted alone, the sibling is caught.
 const CHECKED: Seen = (false, true);
 
 fn table() -> Vec<(&'static str, Set, Seen)> {
     vec![
-        ("name", |r| r.name = Some(t()), HIDES),
-        ("image", |r| r.image = Some(t()), HIDES),
-        ("cloud_region", |r| r.cloud.region = Some(t()), HIDES),
+        ("name", |r| r.name = Some(t()), CHECKED),
+        ("image", |r| r.image = Some(t()), CHECKED),
+        ("cloud_region", |r| r.cloud.region = Some(t()), CHECKED),
         (
             "cloud_instance_type",
             |r| r.cloud.instance_type = Some(t()),
-            HIDES,
+            CHECKED,
         ),
-        ("cloud_max_price", |r| r.cloud.max_price = Some(t()), HIDES),
-        ("tags", |r| r.tags = vec![format!("k={}", t())], HIDES),
-        ("name_unclosed", |r| r.name = Some("a{{b".into()), HIDES),
-        ("tag_braced", |r| r.tags = vec!["k={{v}}".into()], HIDES),
+        (
+            "cloud_max_price",
+            |r| r.cloud.max_price = Some(t()),
+            CHECKED,
+        ),
+        ("tags", |r| r.tags = vec![format!("k={}", t())], REJECTS),
+        ("name_unclosed", |r| r.name = Some("a{{b".into()), REJECTS),
+        ("tag_braced", |r| r.tags = vec!["k={{v}}".into()], REJECTS),
         ("provider", |r| r.provider = Some(t()), REJECTS),
         ("state", |r| r.state = Some(t()), REJECTS),
         ("cloud_ami", |r| r.cloud.ami = Some(t()), REJECTS),
@@ -112,4 +114,39 @@ fn templated_vs_literal_fields_table() {
         r.cloud.max_lifetime_min = None;
         assert_eq!(!errs(&r).is_empty(), with_bad_sibling, "{label}: sibling");
     }
+}
+
+#[test]
+fn a_templated_field_does_not_hide_a_bad_literal_sibling() {
+    let mut r = valid();
+    r.name = Some(t());
+    r.cloud.region = Some("US East!".into());
+    let e = errs(&r);
+    assert_eq!(e.len(), 1, "{e:?}");
+    assert!(e[0].contains("cloud_region"), "{e:?}");
+    // a templated region keeps a literal zone's shape check
+    let mut r = valid();
+    r.cloud.region = Some(t());
+    r.cloud.availability_zone = Some("us-west-2a".into());
+    assert!(errs(&r).is_empty());
+    r.cloud.availability_zone = Some("us-west-2".into());
+    assert!(!errs(&r).is_empty());
+}
+
+#[test]
+fn an_unclosed_brace_pair_is_a_literal_and_is_checked() {
+    let mut r = valid();
+    r.cloud.instance_type = Some("m5.{{large".into());
+    assert!(errs(&r)[0].contains("cloud_instance_type"));
+    r.cloud.instance_type = Some("}}m5{{".into());
+    assert!(!errs(&r).is_empty());
+}
+
+#[test]
+fn a_tag_with_braces_is_rejected_because_tags_are_never_resolved() {
+    let mut r = valid();
+    r.tags = vec!["env={{params.env}}".into()];
+    let e = errs(&r);
+    assert_eq!(e.len(), 1, "{e:?}");
+    assert!(e[0].contains("tag"), "{e:?}");
 }
