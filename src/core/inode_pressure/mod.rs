@@ -130,6 +130,23 @@ fn crossing(r: &InodeReading, pct: u8, threshold: u8) -> Option<InodeFinding> {
     })
 }
 
+/// Whether the DEFAULT watch set (no `mounts:` listed) judges this row: `/` and
+/// every tmpfs, except tmpfs under the kernel pseudo trees `/proc` and `/sys`.
+/// Measured case (CI job 132836923777): a container masks `/proc/acpi`,
+/// `/sys/firmware` and friends with a read-only tmpfs that `df -i` reports at
+/// 100% IUse%; nobody creates files there, so it is not inode pressure. The
+/// prefix test is on a path boundary, so `/process` and `/sysroot` stay watched.
+/// A mount listed explicitly in `inode_pressure.mounts` never comes through here.
+fn default_watched(r: &InodeReading) -> bool {
+    let pseudo = |tree: &str| {
+        r.mount == tree
+            || r.mount
+                .strip_prefix(tree)
+                .is_some_and(|rest| rest.starts_with('/'))
+    };
+    r.mount == "/" || (r.fstype == "tmpfs" && !pseudo("/proc") && !pseudo("/sys"))
+}
+
 /// Judge readings against the policy.
 ///
 /// # Errors
@@ -145,7 +162,7 @@ pub fn evaluate(
         }
         return Ok(readings
             .iter()
-            .filter(|r| r.mount == "/" || r.fstype == "tmpfs")
+            .filter(|r| default_watched(r))
             .filter_map(|r| crossing(r, r.iuse_pct?, cfg.threshold_pct))
             .collect());
     }
@@ -171,7 +188,7 @@ pub fn evaluate(
 pub fn unmeasured_mounts(cfg: &InodePressure, readings: &[InodeReading]) -> Vec<String> {
     let watched = |r: &InodeReading| {
         if cfg.mounts.is_empty() {
-            r.mount == "/" || r.fstype == "tmpfs"
+            default_watched(r)
         } else {
             cfg.mounts.iter().any(|w| w.path == r.mount)
         }
