@@ -28,6 +28,11 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// Rule 2's scan helpers (kept out of this file for the 500-line ratchet).
+#[path = "common/release_write_scan.rs"]
+mod release_write_scan;
+use release_write_scan::{has_v_star_tag_trigger, release_write_findings};
+
 fn manifest_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -141,51 +146,9 @@ fn rule1_binary_release_fires_only_on_workflow_dispatch() {
 }
 
 // ---------------------------------------------------------------------
-// Rule 2: release.yml is the only workflow that creates or uploads a GitHub
-// release (or release assets) on a `v*` tag. Other workflows may trigger on
-// `v*` tags only as read-only consumers (PMAT-604: bench.yml, ci.yml and
-// coverage.yml run on tagged releases): no `gh release create/upload/edit`,
-// no release-upload action, no `contents: write`.
+// Rule 2: release.yml is the only workflow that creates or uploads a release
+// on a `v*` tag; other `v*`-triggered workflows (PMAT-604) are read-only.
 // ---------------------------------------------------------------------
-
-/// Why a workflow's text is NOT a read-only consumer of a release, if it is not.
-/// Comment-only lines are ignored so prose cannot trip or hide a finding.
-fn release_write_findings(text: &str) -> Vec<String> {
-    const WRITERS: [&str; 6] = [
-        "gh release create",
-        "gh release upload",
-        "gh release edit",
-        "softprops/action-gh-release",
-        "actions/upload-release-asset",
-        "ncipollo/release-action",
-    ];
-    let mut found = Vec::new();
-    for line in text.lines() {
-        let code = line.split('#').next().unwrap_or("");
-        for w in WRITERS {
-            if code.contains(w) {
-                found.push(format!("`{w}`"));
-            }
-        }
-        let squeezed: String = code.split_whitespace().collect::<Vec<_>>().join(" ");
-        if squeezed.contains("contents: write") {
-            found.push("`contents: write`".to_string());
-        }
-    }
-    found.sort();
-    found.dedup();
-    found
-}
-
-fn has_v_star_tag_trigger(doc: &serde_yaml_ng::Value) -> bool {
-    doc.get("on")
-        .and_then(|on| on.as_mapping())
-        .and_then(|m| m.get("push"))
-        .and_then(|push| push.as_mapping())
-        .and_then(|m| m.get("tags"))
-        .and_then(|tags| tags.as_sequence())
-        .is_some_and(|seq| seq.iter().any(|t| t.as_str() == Some("v*")))
-}
 
 #[test]
 fn rule2_release_yml_is_the_only_v_star_tag_push_producer() {
