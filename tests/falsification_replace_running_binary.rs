@@ -49,8 +49,8 @@ mod running_binary_probe;
 use running_binary_probe::{curl_stub, hold_running, sandbox, RunningBinary};
 
 /// A real executable we can copy, run, and later overwrite. Any ELF/Mach-O
-/// will do; `sleep` is on every host in the fleet and blocks without spinning.
-const LIVE_BIN: &str = "/bin/sleep";
+/// will do; `sh` is standalone (not a multi-call binary), blocks on `read`, and prints no version.
+const LIVE_BIN: &str = "/bin/sh";
 /// A DIFFERENT real executable, so "did the replacement land" is answerable by
 /// comparing bytes rather than by trusting an exit code.
 const NEW_BIN: &str = "/bin/cat";

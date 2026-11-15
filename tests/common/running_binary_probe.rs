@@ -58,9 +58,21 @@ pub fn hold_running(src: &str, dest: &Path) -> RunningBinary {
         child: spawn_retrying_etxtbsy(dest),
     };
     wait_until_busy(dest, guard.child.id());
+    let mut guard = guard;
+    assert!(
+        guard.child.try_wait().expect("poll fixture").is_none(),
+        "fixture exited at once: {src} did not stay running as {}",
+        dest.display()
+    );
     guard
 }
 
+/// The fixture is `sh -c 'read x'` with a piped stdin that stays open: a
+/// standalone binary that blocks without spinning and prints no version.
+/// `/bin/sleep` is not usable: on a host where it is a multi-call binary (uutils
+/// coreutils) a copy under another name exits at once ("unknown program"), so
+/// the file is never busy.
+///
 /// Start the fixture, retrying the kernel's own ETXTBSY race.
 ///
 /// This is a HARNESS artifact, not the defect: a Rust test binary runs its
@@ -73,8 +85,8 @@ fn spawn_retrying_etxtbsy(dest: &Path) -> Child {
     let mut last = String::new();
     for _ in 0..200 {
         match Command::new(dest)
-            .arg("600")
-            .stdin(Stdio::null())
+            .args(["-c", "read x"])
+            .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
