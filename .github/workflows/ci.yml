@@ -64,13 +64,14 @@ jobs:
       # ARM64 route-back (infra-cop 2026-11-10 18:25Z, ARM64 starvation): the 2026-10-27 move put
       # every gate job on ARM64 because ARM64 sat idle and X64 had 123 forjar jobs queued. On
       # 2026-11-10 ~18:26Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
-      # Back to X64; `examples-validate` stays on ARM64 as the one aarch64 smoke.
+      # Back to X64 (the aarch64 smoke is nightly.yml `arm64-smoke` since forjar#1090).
       # 2026-11-11 (infra-cop, measured after #981): this repository is public, and the X64
       # clean-room runner group does not serve public repositories, so the X64 jobs of this
       # workflow share one seat. The reusable workflow's jobs (lint, security, provenance and
       # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
       # where #981 put them.
-      runs_on: '["self-hosted","clean-room","ARM64"]'
+      # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
+      runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
       # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
@@ -131,9 +132,8 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    # The one ARM64 smoke (infra-cop 2026-11-10): builds forjar on aarch64 and runs the
-    # integration targets below there, so an arch regression stays visible.
-    runs-on: [self-hosted, clean-room, ARM64]
+    # forjar#1090: X64, as every PR job. The aarch64 smoke is nightly.yml `arm64-smoke`.
+    runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -181,30 +181,13 @@ jobs:
           --test falsification_nightly_windows_openssl_perl \
           --test falsification_683_cross_mounts_under_work_root \
           --test falsification_sudo_transport_closefrom_emulated \
-          --test falsification_version_matches_manifest
-      # And the LIVE half of the same falsifier. The emulated test fakes `sudo`,
-      # so it can show the transport surviving an emulated closefrom but never
-      # the host's real one with a real uid 0 on the other side.
-      # tests/falsification_sudo_transport_survives_closefrom.rs does exactly
-      # that, but every test in it is gated on `sudo -n true` and SKIPS where
-      # that is missing — and a skip is an absence of evidence: on a host
-      # without passwordless sudo that file was green against the fd-3 emitter
-      # too. FORJAR_REQUIRE_SUDO_TESTS=1 turns each of those skips into a panic
-      # naming the missing capability, so a green step here means the gated
-      # tests RAN, under real sudo, not that they declined to.
-      #
-      # PMAT-547 moved this job from ubuntu-latest to the fleet, and with it
-      # the only thing the old comment could offer: GitHub DOCUMENTS that a
-      # hosted runner's `runner` user is non-root with passwordless sudo, and
-      # documents nothing about ours. So the citation is gone and only the
-      # switch is left — which is the half that was ever load-bearing. If a
-      # fleet runner does not give this step passwordless sudo, the step fails
-      # loudly naming the missing capability instead of skipping silently.
-      # Unmeasured is not the same as satisfied, and this is how it says so.
-      - name: The sudo transport survives closefrom under real sudo (required, not skippable)
-        env:
-          FORJAR_REQUIRE_SUDO_TESTS: "1"
-        run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
+          --test falsification_version_matches_manifest \
+          --test falsification_pr_jobs_name_no_arm64_or_host
+      # The LIVE half of that falsifier (real sudo, required, not skippable) runs
+      # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
+      # have no passwordless sudo (measured 2026-11-15, run 43718157756). It
+      # returns to pull requests when the spot image has passwordless sudo
+      # (forjar#881); the emulated falsifier above stays on every pull request.
       # FJ-861: the cloud_instance falsifiers are unit tests (src/resources/
       # cloud_instance/tests*.rs: gates, kill switch, destroy by own tag, input
       # allow-lists, ownership key). sovereign-ci's `test` job runs `--lib` only
