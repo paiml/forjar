@@ -4,6 +4,7 @@
 //! is recorded and printed; only resources whose templates reference the
 //! source (and what `depends_on` them) are dropped from the run.
 
+use crate::core::error::ForjarError;
 use crate::core::{resolver, types};
 
 /// Resolve data sources without aborting. Drops affected resources from
@@ -29,13 +30,33 @@ pub(crate) fn resolve_isolated(config: &mut types::ForjarConfig) -> Vec<String> 
 
 /// Non-zero exit: any failed data source makes the run fail overall, after
 /// the unrelated resources have been planned/applied.
-pub(crate) fn fail_if_any(messages: &[String]) -> Result<(), String> {
+pub(crate) fn fail_if_any(messages: &[String]) -> Result<(), ForjarError> {
     if messages.is_empty() {
         Ok(())
     } else {
-        Err(format!(
+        Err(ForjarError::from_untyped(format!(
             "data source failure isolated; unrelated resources were processed: {}",
             messages.join("; ")
-        ))
+        )))
+    }
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+
+    #[test]
+    fn fail_if_any_is_ok_when_nothing_failed() {
+        assert!(fail_if_any(&[]).is_ok());
+    }
+
+    #[test]
+    fn fail_if_any_returns_a_typed_error_with_the_exact_message() {
+        let e = fail_if_any(&["a: x".to_string(), "b: y".to_string()]).unwrap_err();
+        assert_eq!(
+            e.message(),
+            "data source failure isolated; unrelated resources were processed: a: x; b: y"
+        );
+        assert_eq!(e.class(), ForjarError::from_untyped(e.message()).class());
     }
 }

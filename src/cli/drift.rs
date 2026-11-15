@@ -10,6 +10,7 @@ use super::drift_lockless::scan_lockless;
 use super::drift_report::{census_json, print_drift_summary, render_finding};
 use super::drift_state::{collect_machine_locks, holds_no_lock};
 use super::helpers::*;
+use crate::core::error::ForjarError;
 use crate::core::types;
 use crate::tripwire::drift;
 use std::path::Path;
@@ -444,7 +445,7 @@ pub(crate) fn cmd_drift_offline(
         follow.run(config.as_ref(), total_drift, version_drift)?;
     }
 
-    drift_verdict(total_drift, total_unmeasured)
+    drift_verdict(total_drift, total_unmeasured).map_err(ForjarError::into_untyped)
 }
 
 /// forjar#488: WHAT THIS RUN IS ABOUT.

@@ -75,7 +75,7 @@ pub(super) fn hash_exec_inputs(
 }
 
 /// The steps in execution order: packages first, then the command.
-pub(super) fn exec_steps(decl: &ExecDecl) -> Result<Vec<ExecStep>, String> {
+pub(super) fn exec_steps(decl: &ExecDecl) -> Result<Vec<ExecStep>, ForjarError> {
     let mut steps = Vec::new();
     if !decl.packages.is_empty() {
         let pkg = Resource {
@@ -87,7 +87,7 @@ pub(super) fn exec_steps(decl: &ExecDecl) -> Result<Vec<ExecStep>, String> {
         steps.push(ExecStep {
             name: "packages".into(),
             shell: "bash".into(),
-            script: crate::core::codegen::apply_script(&pkg)?,
+            script: crate::core::codegen::apply_script(&pkg).map_err(ForjarError::from_untyped)?,
         });
     }
     if let Some(c) = &decl.command {
@@ -123,7 +123,7 @@ pub(super) fn run_exec(
     base_ref: &str,
     base: &BaseLayout,
 ) -> Result<ExecLayer, String> {
-    let steps = exec_steps(decl)?;
+    let steps = exec_steps(decl).map_err(ForjarError::into_message)?;
     build_exec_layer(
         rt,
         &ExecRequest {
@@ -195,5 +195,34 @@ impl ExecReport {
             "whiteouts": self.whiteouts,
             "setid_stripped": self.stripped,
         })
+    }
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+
+    fn decl(provider: &str, packages: &[&str], command: Option<&str>) -> ExecDecl {
+        ExecDecl {
+            provider: provider.into(),
+            packages: packages.iter().map(|s| s.to_string()).collect(),
+            command: command.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn exec_steps_orders_packages_before_the_command() {
+        let steps = exec_steps(&decl("apt", &["curl"], Some("true"))).unwrap();
+        let names: Vec<&str> = steps.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["packages", "command"]);
+    }
+
+    #[test]
+    fn exec_steps_unsupported_provider_still_yields_the_failing_script() {
+        let steps = exec_steps(&decl("no-such-provider", &["curl"], None)).unwrap();
+        assert_eq!(steps.len(), 1);
+        assert!(steps[0]
+            .script
+            .contains("unsupported package declaration: provider=no-such-provider"));
     }
 }

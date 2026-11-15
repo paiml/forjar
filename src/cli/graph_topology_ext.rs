@@ -1,11 +1,13 @@
 //! Phase 102 — Resource Intelligence & Topology Insight: graph commands (FJ-1079, FJ-1082).
 
+use crate::core::error::ForjarError;
 use crate::core::types;
 use std::path::Path;
 
-fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
-    let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
-    serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())
+fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, ForjarError> {
+    let txt =
+        std::fs::read_to_string(file).map_err(|e| ForjarError::from_untyped(e.to_string()))?;
+    serde_yaml_ng::from_str(&txt).map_err(|e| ForjarError::from_untyped(e.to_string()))
 }
 
 fn build_undirected_adj(
@@ -27,7 +29,7 @@ pub(crate) fn cmd_graph_resource_topology_cluster_analysis(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate(file).map_err(ForjarError::into_message)?;
     let adj = build_undirected_adj(&config);
     let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut names: Vec<String> = adj.keys().cloned().collect();
@@ -86,7 +88,7 @@ pub(crate) fn cmd_graph_resource_dependency_island_detection(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let config = parse_and_validate(file).map_err(ForjarError::into_message)?;
     let mut has_outgoing: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut has_incoming: std::collections::HashSet<String> = std::collections::HashSet::new();
     for (name, resource) in &config.resources {
@@ -121,4 +123,28 @@ pub(crate) fn cmd_graph_resource_dependency_island_detection(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+
+    #[test]
+    fn parse_and_validate_read_failure_is_typed_with_the_io_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("absent.yaml");
+        let e = parse_and_validate(&path).unwrap_err();
+        assert_eq!(
+            e.message(),
+            std::fs::read_to_string(&path).unwrap_err().to_string()
+        );
+    }
+
+    #[test]
+    fn parse_and_validate_parse_failure_is_typed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.yaml");
+        std::fs::write(&path, "resources: [").unwrap();
+        assert!(parse_and_validate(&path).is_err());
+    }
 }
