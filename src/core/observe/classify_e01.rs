@@ -85,6 +85,7 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_budget_cap_usd_day"
         | "cloud_kill_switch"
         | "cloud_parity_gate"
+        | "cloud_ami"
         | "cloud_subnet_id"
         | "cloud_security_group_ids"
         | "cloud_availability_zone" => Observability::Unmigrated(

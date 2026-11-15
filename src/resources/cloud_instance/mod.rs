@@ -26,8 +26,11 @@
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
+mod ami;
+mod key;
 mod placement;
 mod validate;
+use key::{key_of, owner_of};
 use validate::{
     field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
     require,
@@ -53,6 +56,8 @@ pub struct CloudInstance {
     pub instance_type: String,
     pub max_price: String,
     pub image: String,
+    /// Pinned AMI id (`cloud_ami`); `None` = the default image.
+    pub ami: Option<String>,
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
@@ -104,6 +109,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         image_name(&image).is_some_and(is_image_name),
         "image name must be 1-255 characters of [A-Za-z0-9._/:-], starting alphanumeric",
     )?;
+    let ami = ami::checked(&resource.cloud.ami)?;
     let max_lifetime_min = resource.cloud.max_lifetime_min.filter(|m| *m > 0);
     let max_lifetime_min = max_lifetime_min.ok_or("cloud_max_lifetime_min must be set and > 0")?;
     for t in &resource.tags {
@@ -125,26 +131,11 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         instance_type,
         max_price,
         image,
+        ami,
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
     })
-}
-
-/// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
-/// digits of the image digest. Two declarations get the same key only if they
-/// share a name (refused by [`validate_unique_names`]).
-fn key_of(s: &CloudInstance) -> String {
-    let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
-    let key = format!("{}@{}@{}", s.name, s.region, &digest[..12]);
-    key + &s.placement.key_suffix()
-}
-
-/// Ownership key for teardown: name plus region, stable across image changes.
-/// `@` joins the parts: neither the name nor the region allow-list can contain
-/// it, so two different (name, region) pairs never give the same string.
-fn owner_of(s: &CloudInstance) -> String {
-    format!("{}@{}", s.name, s.region)
 }
 
 /// Plan-time: two `cloud_instance` resources may not share a name and region,
@@ -485,7 +476,7 @@ pub fn apply_script(resource: &Resource) -> String {
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
-        ami = sh_squote("resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"),
+        ami = sh_squote(&ami::image_id(&s.ami)),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price

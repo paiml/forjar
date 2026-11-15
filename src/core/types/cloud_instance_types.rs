@@ -66,6 +66,11 @@ pub struct CloudSpec {
     )]
     pub parity_gate: Option<String>,
 
+    /// Optional machine image pin: one whole AMI id (`ami-` + 8 or 17 hex).
+    /// Absent: apply launches the default image, exactly as before.
+    #[serde(rename = "cloud_ami", default, skip_serializing_if = "Option::is_none")]
+    pub ami: Option<String>,
+
     /// Subnet the instance lands in, a whole `subnet-<hex>` id (#1033).
     #[serde(
         rename = "cloud_subnet_id",
