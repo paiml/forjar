@@ -267,10 +267,29 @@ resources:
 
     #[test]
     fn test_exec_script_retry_ssh_fails_immediately_non_transient() {
-        // SSH to an unreachable host — non-transient error, should not retry
+        // A non-transient transport error must be returned after exactly one
+        // attempt. The transport is injected, so the verdict does not depend on
+        // the host's ssh, network or known_hosts.
         let machine = make_ssh_machine();
-        let result = transport::exec_script_retry(&machine, "echo hi", Some(2), 2);
+        let mut calls = 0u32;
+        let result = transport::exec_script_retry_with(&machine, 3, || {
+            calls += 1;
+            Err("ssh: Permission denied (publickey)".to_string())
+        });
         assert!(result.is_err());
+        assert_eq!(calls, 1, "non-transient error must not be retried");
+    }
+
+    #[test]
+    fn test_exec_script_retry_ssh_transient_is_retried() {
+        let machine = make_ssh_machine();
+        let mut calls = 0u32;
+        let result = transport::exec_script_retry_with(&machine, 2, || {
+            calls += 1;
+            Err("ssh: connect: Connection refused".to_string())
+        });
+        assert!(result.is_err());
+        assert_eq!(calls, 2, "transient error must use every attempt");
     }
 
     #[test]
