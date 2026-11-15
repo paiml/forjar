@@ -225,6 +225,37 @@ jobs:
             forjar-${{ matrix.target }}.zip
             forjar-${{ matrix.target }}.zip.sha256
 
+  # ── aarch64 smoke (forjar#1090) ───────────────────────────
+  # Builds forjar on aarch64 and runs the arch-sensitive integration targets (on every PR
+  # as `examples-validate` until 2026-11-15). `release` does not wait on it.
+  arm64-smoke:
+    name: arm64-smoke
+    timeout-minutes: 60
+    needs: check-activity
+    if: needs.check-activity.outputs.has_commits == 'true'
+    runs-on: [self-hosted, clean-room, ARM64]
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build and run the integration smoke on aarch64
+        run: |
+          test "$(uname -m)" = aarch64
+          cargo test --locked \
+          --test examples_validate \
+          --test falsification_722_cache_key_arch \
+          --test falsification_undo_actually_undoes \
+          --test falsification_sudo_transport_closefrom_emulated \
+          --test falsification_version_matches_manifest
+      # The live half of the sudo falsifier, moved here from ci.yml (forjar#1090).
+      # FORJAR_REQUIRE_SUDO_TESTS=1 turns a skip into a failure naming the
+      # missing capability, so green means the tests ran under real sudo.
+      - name: The sudo transport survives closefrom under real sudo (required, not skippable)
+        env:
+          FORJAR_REQUIRE_SUDO_TESTS: "1"
+        run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
+
   # ── Create/update nightly prerelease ─────────────────────
   release:
     timeout-minutes: 120
