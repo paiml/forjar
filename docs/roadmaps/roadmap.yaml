@@ -4537,7 +4537,7 @@ roadmap:
   github_issue: 572
   item_type: task
   title: quorum.yml's receipt job builds against the shared ~/.cargo — the fleet test cannot see cargo run through a script
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-16T04:40:41Z
@@ -7692,6 +7692,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-859
+  github_issue: 859
+  item_type: task
+  title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1065
   github_issue: 1065
   item_type: task
@@ -7728,12 +7746,12 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-859
-  github_issue: 859
+- id: PMAT-1078
+  github_issue: 1078
   item_type: task
-  title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
+  title: 'errors: typed ForjarError in registry_push (untyped-error ratchet, 6 sites)'
   status: planned
-  priority: medium
+  priority: high
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z

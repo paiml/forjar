@@ -381,7 +381,7 @@ fn a_301_on_the_upload_post_is_not_an_upload_session() {
         .expect_err("a redirect is not an upload session — Refs #210");
 
     assert!(
-        err.contains("registry-1.docker.io"),
+        err.message().contains("registry-1.docker.io"),
         "a 3xx on the upload POST must be reported as the wrong host: {err}"
     );
 }
