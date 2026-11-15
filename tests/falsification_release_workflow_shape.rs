@@ -28,6 +28,11 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// Rule 2's scan helpers (kept out of this file for the 500-line ratchet).
+#[path = "common/release_write_scan.rs"]
+mod release_write_scan;
+use release_write_scan::{has_v_star_tag_trigger, release_write_findings};
+
 fn manifest_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
@@ -141,39 +146,46 @@ fn rule1_binary_release_fires_only_on_workflow_dispatch() {
 }
 
 // ---------------------------------------------------------------------
-// Rule 2: release.yml is the only workflow whose on.push.tags contains 'v*'.
+// Rule 2: release.yml is the only workflow that creates or uploads a release
+// on a `v*` tag; other `v*`-triggered workflows (PMAT-604) are read-only.
 // ---------------------------------------------------------------------
+
 #[test]
 fn rule2_release_yml_is_the_only_v_star_tag_push_producer() {
-    let mut owners: Vec<String> = Vec::new();
+    let mut triggered: Vec<String> = Vec::new();
+    let mut violations: Vec<String> = Vec::new();
     for path in all_workflow_files() {
         let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
         let doc: serde_yaml_ng::Value = match serde_yaml_ng::from_str(&text) {
             Ok(d) => d,
             Err(_) => continue,
         };
-        let has_v_star_tag = doc
-            .get("on")
-            .and_then(|on| on.as_mapping())
-            .and_then(|m| m.get("push"))
-            .and_then(|push| push.as_mapping())
-            .and_then(|m| m.get("tags"))
-            .and_then(|tags| tags.as_sequence())
-            .is_some_and(|seq| seq.iter().any(|t| t.as_str() == Some("v*")));
-        if has_v_star_tag {
-            owners.push(
-                path.file_name()
-                    .expect("workflow file has a name")
-                    .to_string_lossy()
-                    .to_string(),
-            );
+        if !has_v_star_tag_trigger(&doc) {
+            continue;
         }
+        let name = path
+            .file_name()
+            .expect("workflow file has a name")
+            .to_string_lossy()
+            .to_string();
+        if name != "release.yml" {
+            let f = release_write_findings(&text);
+            if !f.is_empty() {
+                violations.push(format!("{name}: {}", f.join(", ")));
+            }
+        }
+        triggered.push(name);
     }
-    assert_eq!(
-        owners,
-        vec!["release.yml".to_string()],
-        "PMAT-166 rule 2: release.yml must be the ONLY file under \
-         .github/workflows/ whose on.push.tags contains 'v*' — found {owners:?}"
+    assert!(
+        triggered.iter().any(|n| n == "release.yml"),
+        "PMAT-166 rule 2: release.yml must itself trigger on on.push.tags 'v*' — found {triggered:?}"
+    );
+    assert!(
+        violations.is_empty(),
+        "PMAT-166 rule 2: release.yml must be the ONLY workflow that creates or \
+         uploads a GitHub release on a 'v*' tag; other 'v*'-triggered workflows must \
+         be read-only consumers (no gh release create/upload/edit, no release-upload \
+         action, no `contents: write`) — found {violations:?}"
     );
 }
 
