@@ -7521,6 +7521,33 @@ roadmap:
   - kind:code
   notes: null
   epic: 765
+- id: PMAT-1027
+  github_issue: 1027
+  item_type: task
+  title: release.yml jobs have no timeout-minutes; proofs.yml uses Python
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-14T21:00:10Z
+  updated: 2026-11-14T21:00:10Z
+- id: PMAT-1028
+  github_issue: 1028
+  item_type: task
+  title: 'LAB: bashrs version pin skew check'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-14T21:00:25Z
+  updated: 2026-11-14T21:00:25Z
+- id: PMAT-1032
+  github_issue: 1032
+  item_type: task
+  title: x86_64-gnu release asset requires GLIBC_2.39
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-14T21:00:47Z
+  updated: 2026-11-14T21:00:47Z
 - id: PMAT-1044
   github_issue: 1044
   item_type: task

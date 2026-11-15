@@ -303,7 +303,7 @@ jobs:
       - name: Every replayable ledger defect must stay fixed
         run: |
           TARGET_DIR=$(cargo metadata --format-version 1 --no-deps \
-            | python3 -c 'import sys,json; print(json.load(sys.stdin)["target_directory"])')
+            | jq -r '.target_directory')
           BIN="$TARGET_DIR/release/forjar"
           [ -x "$BIN" ] || { echo "::error::no binary at $BIN"; exit 1; }
           FORJAR="$BIN" bash scripts/ledger-replay.sh
