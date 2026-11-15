@@ -79,6 +79,7 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_budget_cap_usd_day",
         "cloud_kill_switch",
         "cloud_parity_gate",
+        "cloud_ami",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS
