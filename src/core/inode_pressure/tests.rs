@@ -188,3 +188,52 @@ fn unwatched_dash_rows_are_not_reported() {
     )
     .is_empty());
 }
+
+fn masked(shm: &str) -> String {
+    df(&[
+        "overlay overlay 1000 100 900 10% /",
+        "tmpfs tmpfs 1000 1000 0 100% /proc/acpi",
+        "tmpfs tmpfs 1000 1000 0 100% /sys/firmware",
+        &format!("tmpfs tmpfs 1000 100 900 {shm} /dev/shm"),
+    ])
+}
+
+#[test]
+fn default_watch_skips_proc_and_sys_masks() {
+    let f = findings(&InodePressure::default(), &masked("5%")).unwrap();
+    assert!(f.is_empty(), "{f:?}");
+}
+
+#[test]
+fn default_watch_still_judges_a_normal_tmpfs_beside_masks() {
+    let f = findings(&InodePressure::default(), &masked("95%")).unwrap();
+    let mounts: Vec<&str> = f.iter().map(|x| x.mount.as_str()).collect();
+    assert_eq!(mounts, ["/dev/shm"]);
+}
+
+#[test]
+fn explicit_mount_under_proc_is_still_judged() {
+    let cfg = InodePressure {
+        threshold_pct: 90,
+        mounts: vec![WatchedMount {
+            path: "/proc/acpi".into(),
+            threshold_pct: None,
+        }],
+    };
+    let f = findings(&cfg, &masked("5%")).unwrap();
+    assert_eq!(f.len(), 1, "{f:?}");
+    assert_eq!(f[0].mount, "/proc/acpi");
+}
+
+#[test]
+fn proc_and_sys_prefix_matches_on_a_path_boundary_only() {
+    let out = df(&[
+        "overlay overlay 1000 100 900 10% /",
+        "tmpfs tmpfs 1000 1000 0 100% /process",
+        "tmpfs tmpfs 1000 1000 0 100% /sysroot",
+        "tmpfs tmpfs 1000 1000 0 100% /proc",
+    ]);
+    let f = findings(&InodePressure::default(), &out).unwrap();
+    let mounts: Vec<&str> = f.iter().map(|x| x.mount.as_str()).collect();
+    assert_eq!(mounts, ["/process", "/sysroot"]);
+}
