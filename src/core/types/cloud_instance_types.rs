@@ -95,7 +95,9 @@ pub struct CloudSpec {
     )]
     pub availability_zone: Option<String>,
 
-    /// IAM instance profile NAME (not an ARN): 1..128 of `[A-Za-z0-9+=,.@_-]`.
+    /// IAM instance profile NAME (not an ARN): 1..128 of `[A-Za-z0-9+.@_-]`.
+    /// IAM also allows `,` and `=`, but forjar refuses them: they are separators in
+    /// the aws shorthand `Name=<value>`.
     #[serde(
         rename = "cloud_instance_profile",
         default,

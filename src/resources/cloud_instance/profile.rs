@@ -1,5 +1,7 @@
 //! `cloud_instance_profile`: optional IAM instance profile NAME for `cloud_instance`.
-//! Only 1..=128 characters of `[A-Za-z0-9+=,.@_-]` are accepted, so no shell text can pass.
+//! Only 1..=128 characters of `[A-Za-z0-9+.@_-]` are accepted, so no shell text can pass.
+//! IAM also allows `,` and `=`, but forjar refuses them: they are separators in the aws
+//! shorthand `Name=<value>`, so `a,Arn=..` would change the meaning of the argument.
 //! It is part of the instance key (a hash tail, only when declared), so changing it on a
 //! live instance is refused by the owner/key check in `apply_script`.
 
@@ -11,13 +13,13 @@ pub(super) fn checked(v: &Option<String>) -> Result<Option<String>, String> {
     let Some(s) = v else { return Ok(None) };
     let ok = (1..=128).contains(&s.len())
         && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || "+=,.@_-".contains(c));
+            .all(|c| c.is_ascii_alphanumeric() || "+.@_-".contains(c));
     if ok {
         Ok(Some(s.clone()))
     } else {
         Err(
             "cloud_instance_profile must be an IAM instance profile name: 1 to 128 characters of \
-             [A-Za-z0-9+=,.@_-] (a name, not an ARN)"
+             [A-Za-z0-9+.@_-] (a name, not an ARN)"
                 .into(),
         )
     }
@@ -66,7 +68,7 @@ mod tests {
     #[test]
     fn only_a_valid_profile_name_validates() {
         let long_ok = "a".repeat(128);
-        for ok in ["ci-box", "A", "a+b=c,d.e@f_g-h", long_ok.as_str()] {
+        for ok in ["ci-box", "A", "a+b.c@d_e-f", long_ok.as_str()] {
             assert_eq!(checked(&Some(ok.into())), Ok(Some(ok.into())), "{ok}");
         }
         assert_eq!(checked(&None), Ok(None));
@@ -75,6 +77,9 @@ mod tests {
             "",
             " ",
             "a b",
+            "a,Arn=x",
+            "a=b",
+            "a,b",
             " ci",
             "ci ",
             "ci\n",
@@ -174,6 +179,7 @@ mod tests {
             "$(touch pwned)",
             "x`touch pwned`",
             "x' ;touch pwned #",
+            "a,Arn=pwned",
         ] {
             let s = apply_script(&with(sb.path(), bad));
             assert!(!s.contains("pwned"), "{bad}: {s}");
