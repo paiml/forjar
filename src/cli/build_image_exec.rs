@@ -5,6 +5,7 @@
 //! of the base. This module decides WHAT runs and how it enters the cache key;
 //! the container work lives in the store module so it can be tested with a fake.
 
+use crate::core::error::ForjarError;
 use crate::core::store::build_runtime::BuildRuntime;
 use crate::core::store::exec_capture::ExecLayer;
 use crate::core::store::exec_layer::{build_exec_layer, ExecRequest, ExecStep};
@@ -132,6 +133,8 @@ pub(super) fn run_exec(
             steps: &steps,
         },
     )
+    // Text only: the class is not claimed across this `String` boundary.
+    .map_err(ForjarError::into_message)
 }
 
 /// What the build did about executed steps, for the report.

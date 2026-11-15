@@ -28,7 +28,10 @@ fn port_valid_range() {
 
 #[test]
 fn port_zero_rejected() {
-    let err = Port::new(0).unwrap_err();
+    let typed = Port::new(0).unwrap_err();
+    assert_eq!(typed.class(), forjar::core::error::ErrorClass::Validation);
+    assert_eq!(typed.exit_code(), 3);
+    let err = typed.to_string();
     assert!(err.contains("port"));
     assert!(err.contains("0"));
 }
@@ -54,7 +57,7 @@ fn filemode_valid() {
 
 #[test]
 fn filemode_overflow_rejected() {
-    let err = FileMode::new(0o1000).unwrap_err();
+    let err = FileMode::new(0o1000).unwrap_err().to_string();
     assert!(err.contains("mode"));
 }
 
@@ -107,7 +110,7 @@ fn semver_zero_version() {
 
 #[test]
 fn semver_invalid_too_few_parts() {
-    let err = SemVer::parse("1.2").unwrap_err();
+    let err = SemVer::parse("1.2").unwrap_err().to_string();
     assert!(err.contains("X.Y.Z"));
 }
 
@@ -146,26 +149,26 @@ fn hostname_valid_single_label() {
 
 #[test]
 fn hostname_empty_rejected() {
-    let err = Hostname::new("").unwrap_err();
+    let err = Hostname::new("").unwrap_err().to_string();
     assert!(err.contains("length"));
 }
 
 #[test]
 fn hostname_too_long_rejected() {
     let long = "a".repeat(254);
-    let err = Hostname::new(&long).unwrap_err();
+    let err = Hostname::new(&long).unwrap_err().to_string();
     assert!(err.contains("253"));
 }
 
 #[test]
 fn hostname_leading_dash_rejected() {
-    let err = Hostname::new("-invalid.com").unwrap_err();
+    let err = Hostname::new("-invalid.com").unwrap_err().to_string();
     assert!(err.contains("dash"));
 }
 
 #[test]
 fn hostname_trailing_dash_rejected() {
-    let err = Hostname::new("invalid-.com").unwrap_err();
+    let err = Hostname::new("invalid-.com").unwrap_err().to_string();
     assert!(err.contains("dash"));
 }
 
@@ -177,7 +180,7 @@ fn hostname_invalid_chars_rejected() {
 
 #[test]
 fn hostname_empty_label_rejected() {
-    let err = Hostname::new("example..com").unwrap_err();
+    let err = Hostname::new("example..com").unwrap_err().to_string();
     assert!(err.contains("label"));
 }
 
@@ -185,7 +188,7 @@ fn hostname_empty_label_rejected() {
 fn hostname_label_too_long_rejected() {
     let long_label = "a".repeat(64);
     let host = format!("{long_label}.com");
-    let err = Hostname::new(&host).unwrap_err();
+    let err = Hostname::new(&host).unwrap_err().to_string();
     assert!(err.contains("63"));
 }
 
@@ -207,13 +210,13 @@ fn abspath_root() {
 
 #[test]
 fn abspath_relative_rejected() {
-    let err = AbsPath::new("relative/path").unwrap_err();
+    let err = AbsPath::new("relative/path").unwrap_err().to_string();
     assert!(err.contains("absolute"));
 }
 
 #[test]
 fn abspath_null_byte_rejected() {
-    let err = AbsPath::new("/etc/bad\0path").unwrap_err();
+    let err = AbsPath::new("/etc/bad\0path").unwrap_err().to_string();
     assert!(err.contains("null"));
 }
 
@@ -235,14 +238,14 @@ fn resource_name_underscore() {
 
 #[test]
 fn resource_name_empty_rejected() {
-    let err = ResourceName::new("").unwrap_err();
+    let err = ResourceName::new("").unwrap_err().to_string();
     assert!(err.contains("length"));
 }
 
 #[test]
 fn resource_name_too_long_rejected() {
     let long = "a".repeat(129);
-    let err = ResourceName::new(&long).unwrap_err();
+    let err = ResourceName::new(&long).unwrap_err().to_string();
     assert!(err.contains("128"));
 }
 

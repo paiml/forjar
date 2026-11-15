@@ -1,14 +1,16 @@
+use crate::core::error::{ForjarError, DATA_SOURCE_INVALID_MARKER, DATA_SOURCE_UNREACHABLE_MARKER};
 use crate::core::types::*;
 
 /// Get the value field or return an error for data sources that require it.
-fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, String> {
-    source
-        .value
-        .as_deref()
-        .ok_or_else(|| format!("data source '{key}' requires 'value' field"))
+fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, ForjarError> {
+    source.value.as_deref().ok_or_else(|| {
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}' requires 'value' field"
+        ))
+    })
 }
 
-fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, ForjarError> {
     let path = require_value(key, source)?;
     std::fs::read_to_string(path)
         .map(|s| s.trim().to_string())
@@ -16,31 +18,31 @@ fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, String>
             source
                 .default
                 .clone()
-                .ok_or_else(|| format!("data source '{key}' file error: {e}"))
+                .ok_or_else(|| ForjarError::other(format!("data source '{key}' file error: {e}")))
         })
 }
 
-fn resolve_command_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_command_source(key: &str, source: &DataSource) -> Result<String, ForjarError> {
     let cmd = require_value(key, source)?;
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(cmd)
         .output()
-        .map_err(|e| format!("data source '{key}' command error: {e}"))?;
+        .map_err(|e| ForjarError::other(format!("data source '{key}' command error: {e}")))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
         source.default.clone().ok_or_else(|| {
-            format!(
+            ForjarError::other(format!(
                 "data source '{}' command failed (exit {})",
                 key,
                 output.status.code().unwrap_or(-1)
-            )
+            ))
         })
     }
 }
 
-fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, ForjarError> {
     use std::net::ToSocketAddrs;
     let host = require_value(key, source)?;
     let addr_str = format!("{host}:0");
@@ -49,16 +51,18 @@ fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> 
             if let Some(addr) = addrs.next() {
                 Ok(addr.ip().to_string())
             } else {
-                source
-                    .default
-                    .clone()
-                    .ok_or_else(|| format!("data source '{key}' DNS: no addresses"))
+                source.default.clone().ok_or_else(|| {
+                    ForjarError::connection(format!(
+                        "{DATA_SOURCE_UNREACHABLE_MARKER} '{key}' DNS: no addresses"
+                    ))
+                })
             }
         }
-        Err(e) => source
-            .default
-            .clone()
-            .ok_or_else(|| format!("data source '{key}' DNS error: {e}")),
+        Err(e) => source.default.clone().ok_or_else(|| {
+            ForjarError::connection(format!(
+                "{DATA_SOURCE_UNREACHABLE_MARKER} '{key}' DNS error: {e}"
+            ))
+        }),
     }
 }
 
@@ -72,15 +76,18 @@ fn warn_if_state_is_stale(
     key: &str,
     source: &DataSource,
     doc: &serde_yaml_ng::Value,
-) -> Result<(), String> {
+) -> Result<(), ForjarError> {
     let Some(max_staleness) = source.max_staleness.as_ref() else {
         return Ok(());
     };
     let Some(last_apply) = doc.get("last_apply").and_then(|v| v.as_str()) else {
         return Ok(());
     };
-    let max_secs = super::staleness::parse_duration_secs(max_staleness)
-        .map_err(|e| format!("data source '{key}': invalid max_staleness: {e}"))?;
+    let max_secs = super::staleness::parse_duration_secs(max_staleness).map_err(|e| {
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}': invalid max_staleness: {e}"
+        ))
+    })?;
     if super::staleness::is_stale(last_apply, max_secs) {
         eprintln!(
             "warning: data source '{key}' is stale (last_apply: {last_apply}, max_staleness: {max_staleness})"
@@ -98,18 +105,19 @@ fn select_requested_output(
     key: &str,
     source: &DataSource,
     outputs: &serde_yaml_ng::Mapping,
-) -> Result<String, String> {
+) -> Result<String, ForjarError> {
     for output_name in &source.outputs {
         if let Some(val) = outputs.get(serde_yaml_ng::Value::String(output_name.clone())) {
             return Ok(val.as_str().unwrap_or("").to_string());
         }
     }
     source.default.clone().ok_or_else(|| {
-        format!(
-            "data source '{}': none of requested outputs ({}) found in state",
+        ForjarError::validation(format!(
+            "{} '{}': none of requested outputs ({}) found in state",
+            DATA_SOURCE_INVALID_MARKER,
             key,
             source.outputs.join(", ")
-        )
+        ))
     })
 }
 
@@ -117,36 +125,40 @@ fn select_requested_output(
 ///
 /// This is the answer when a data source names no specific outputs. Entries
 /// whose key or value is not a string are dropped, as they always were.
-fn outputs_as_json(key: &str, outputs: &serde_yaml_ng::Mapping) -> Result<String, String> {
+fn outputs_as_json(key: &str, outputs: &serde_yaml_ng::Mapping) -> Result<String, ForjarError> {
     let json_map: std::collections::HashMap<String, String> = outputs
         .iter()
         .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
         .collect();
     serde_json::to_string(&json_map)
-        .map_err(|e| format!("data source '{key}': serialize outputs: {e}"))
+        .map_err(|e| ForjarError::other(format!("data source '{key}': serialize outputs: {e}")))
 }
 
 /// FJ-1260: Resolve forjar-state data source by reading outputs from another config's state.
 /// Reads the global lock (`forjar.lock.yaml`) in the given state directory and extracts
 /// stored output values. Falls back to `default` if the state is unavailable.
-fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String, ForjarError> {
     let state_dir = source.state_dir.as_deref().unwrap_or("state");
     let lock_path = std::path::Path::new(state_dir).join("forjar.lock.yaml");
 
     if !lock_path.exists() {
         return source.default.clone().ok_or_else(|| {
-            format!(
-                "data source '{}': state lock not found at {} (no default)",
+            ForjarError::validation(format!(
+                "{} '{}': state lock not found at {} (no default)",
+                DATA_SOURCE_INVALID_MARKER,
                 key,
                 lock_path.display()
-            )
+            ))
         });
     }
 
     let content = std::fs::read_to_string(&lock_path)
-        .map_err(|e| format!("data source '{key}': read state lock: {e}"))?;
-    let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
-        .map_err(|e| format!("data source '{key}': parse state lock: {e}"))?;
+        .map_err(|e| ForjarError::other(format!("data source '{key}': read state lock: {e}")))?;
+    let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content).map_err(|e| {
+        ForjarError::validation(format!(
+            "{DATA_SOURCE_INVALID_MARKER} '{key}': parse state lock: {e}"
+        ))
+    })?;
 
     // FJ-1270: Check staleness if max_staleness is configured
     warn_if_state_is_stale(key, source, &doc)?;
@@ -155,10 +167,11 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     let outputs = match doc.get("outputs") {
         Some(serde_yaml_ng::Value::Mapping(m)) => m,
         _ => {
-            return source
-                .default
-                .clone()
-                .ok_or_else(|| format!("data source '{key}': state lock has no outputs section"));
+            return source.default.clone().ok_or_else(|| {
+                ForjarError::validation(format!(
+                    "{DATA_SOURCE_INVALID_MARKER} '{key}': state lock has no outputs section"
+                ))
+            });
         }
     };
 
@@ -172,7 +185,7 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
 }
 
 /// Resolve one source by type.
-fn resolve_one_source(key: &str, source: &DataSource) -> Result<String, String> {
+fn resolve_one_source(key: &str, source: &DataSource) -> Result<String, ForjarError> {
     match source.source_type {
         DataSourceType::File => resolve_file_source(key, source),
         DataSourceType::Command => resolve_command_source(key, source),
@@ -186,7 +199,8 @@ fn resolve_one_source(key: &str, source: &DataSource) -> Result<String, String> 
 /// Strict: the first failing source aborts. See [`resolve_data_sources_isolated`].
 pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
     for (key, source) in &config.data {
-        let value = resolve_one_source(key, source)?;
+        // Text only: an `Other` error carries no marker, so no class is claimed here.
+        let value = resolve_one_source(key, source).map_err(ForjarError::into_message)?;
         config.params.insert(
             format!("__data__{key}"),
             serde_yaml_ng::Value::String(value),
@@ -210,9 +224,9 @@ pub fn resolve_data_sources_isolated(config: &mut ForjarConfig) -> Vec<DataSourc
     for (key, source) in &config.data {
         match resolve_one_source(key, source) {
             Ok(v) => resolved.push((key.clone(), v)),
-            Err(message) => failures.push(DataSourceFailure {
+            Err(e) => failures.push(DataSourceFailure {
                 key: key.clone(),
-                message,
+                message: e.into_message(),
             }),
         }
     }

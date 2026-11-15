@@ -3,6 +3,7 @@
 use super::exec_layer::{base_fetch_hint, build_exec_layer, ExecRequest, ExecStep};
 use super::fake_build_runtime::{FakeNode, FakeRuntime};
 use super::layer_builder::LayerEntry;
+use crate::core::error::ForjarError;
 use std::path::Path;
 
 fn ids() -> Vec<String> {
@@ -24,7 +25,7 @@ fn steps() -> Vec<ExecStep> {
     ]
 }
 
-fn run(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, String> {
+fn run_typed(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, ForjarError> {
     let ids = ids();
     let steps = steps();
     build_exec_layer(
@@ -36,6 +37,14 @@ fn run(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, String> {
             steps: &steps,
         },
     )
+}
+
+fn run_lowered(e: ForjarError) -> String {
+    e.into_message()
+}
+
+fn run(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, String> {
+    run_typed(rt).map_err(run_lowered)
 }
 
 fn find<'a>(l: &'a super::exec_capture::ExecLayer, p: &str) -> Option<&'a LayerEntry> {
@@ -143,7 +152,10 @@ fn a_base_the_runtime_does_not_hold_is_an_error_with_the_fetch_commands() {
     );
     assert_eq!(rt.count("start"), 0, "nothing is started on a mismatch");
 
-    rt.image_ids = Err("No such image".into());
+    rt.image_ids = Err(ForjarError::other("No such image"));
+    let typed = run_typed(&rt).unwrap_err();
+    assert_eq!(typed.class(), crate::core::error::ErrorClass::Other);
+    assert_eq!(typed.exit_code(), 1);
     let err = run(&rt).unwrap_err();
     assert!(
         err.contains("never pulls implicitly") && err.contains("docker pull"),
@@ -238,4 +250,34 @@ fn the_fetch_hint_has_both_skopeo_and_docker_save() {
     let h = base_fetch_hint("ubuntu:22.04", Path::new("d"));
     assert!(h.contains("skopeo copy docker://ubuntu:22.04 oci:d"));
     assert!(h.contains("docker save ubuntu:22.04 | tar -x -C d"));
+}
+
+/// A typed `Other` error whose message holds legacy prose words must cross the
+/// `String` boundary without tripping `into_untyped`'s debug assertion, and the
+/// message must arrive byte for byte.
+#[test]
+fn an_error_naming_legacy_prose_words_crosses_the_string_boundary_intact() {
+    let mut rt = rich_runtime();
+    rt.fail_on = Some("echo hi");
+    let ids = ids();
+    let steps = vec![ExecStep {
+        name: "connection-partial".into(),
+        shell: "sh".into(),
+        script: "echo hi > /etc/greeting".into(),
+    }];
+    let req = ExecRequest {
+        base_ref: "debian:bookworm-slim",
+        base_dir: Path::new("state/images/debian_bookworm-slim"),
+        base_diff_ids: &ids,
+        steps: &steps,
+    };
+    let typed = build_exec_layer(&rt, &req).unwrap_err();
+    assert_eq!(typed.class(), crate::core::error::ErrorClass::Other);
+    assert_eq!(typed.exit_code(), 1);
+    let msg = typed.clone().into_message();
+    assert!(
+        msg.contains("build step 'connection-partial' exited 1"),
+        "{msg}"
+    );
+    assert_eq!(run_lowered(typed), msg);
 }

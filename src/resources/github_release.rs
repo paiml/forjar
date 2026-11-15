@@ -76,7 +76,7 @@ pub fn apply_script(resource: &Resource) -> String {
     // `$TMPDIR/<binary>` for tar/find: keep `$TMPDIR` live, append a quoted binary.
     let tmp_bin = format!("\"$TMPDIR/\"{binary_q}");
     let install_fn = crate::core::shell_install::atomic_install_fn();
-    let post = super::github_release_check::live_version(&bin_path, false);
+    let post = super::github_release_check::live_version_unguarded(&bin_path, false);
 
     match state {
         "absent" => format!(
@@ -186,7 +186,7 @@ fn downgrade_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
          \x20\x20\x20\x20\x20 exit 1\n\
          \x20\x20\x20 fi\n\
          fi\n",
-        reader = super::github_release_check::live_version(bin_path, true),
+        reader = super::github_release_check::live_version_unguarded(bin_path, true),
         maj = pin.major,
         min = pin.minor,
         pat = pin.patch,
@@ -206,7 +206,7 @@ pub fn state_query_script(resource: &Resource) -> String {
     let binary = resource.binary.as_deref().unwrap_or("unknown");
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
     let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
-    let reader = super::github_release_check::live_version(&bin_path, false);
+    let reader = super::github_release_check::live_version_unguarded(&bin_path, false);
 
     format!(
         "{reader}if [ \"$FJ_PRESENT\" = 1 ]; then\n\

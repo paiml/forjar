@@ -4,6 +4,9 @@
 //!   live `--version` prints, or the check diverges;
 //! * `latest`, no tag, or a tag that names no version (`nightly`) is not
 //!   compared: presence-only, exactly as before.
+//! * `checksum:` (hex sha256 of the installed file, optional `sha256:` prefix)
+//!   must match the file on disk, whatever the tag; it is verified before the
+//!   binary is executed.
 
 use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::Resource;
@@ -29,7 +32,7 @@ pub(super) fn check_script(resource: &Resource, reject_bad_repo: fn(&str) -> Str
          else\n\
          \x20 echo 'missing:{repo}'; __fj_diverged=1\n\
          fi",
-        live_version(&bin_path, false),
+        checksum_guard(resource, &bin_path, repo) + &live_version(&bin_path, false),
         version_assertion(resource, repo),
     )])
 }
@@ -58,7 +61,7 @@ pub(super) fn live_version(bin_path: &str, permissive: bool) -> String {
          if [ -f {bin_path} ] && [ -x {bin_path} ]; then\n\
          \x20 FJ_PRESENT=1\n\
          \x20 FJ_OUT=$(mktemp) || FJ_OUT=''\n\
-         \x20 if {run}; then\n\
+         \x20 if [ \"$FJ_SUMOK\" = 1 ] && {{ {run}; }}; then\n\
          \x20\x20\x20 FJ_VERLINE=$( head -n 1 \"$FJ_OUT\" | tr '\\0' ' ' || true )\n\
          \x20\x20\x20 FJ_LIVE=$( head -n 20 \"$FJ_OUT\" | tr '\\0' ' ' | \
          LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
@@ -67,6 +70,14 @@ pub(super) fn live_version(bin_path: &str, permissive: bool) -> String {
          \x20 rm -f \"$FJ_OUT\"\n\
          fi\n"
     )
+}
+
+/// [`live_version`] for the apply side (post-install read, downgrade guard,
+/// state query): no `checksum:` guard runs there, so `FJ_SUMOK` is set to 1
+/// explicitly. The reader itself stays fail-closed (`FJ_SUMOK` unset or 0 never
+/// runs the binary), so a check script that forgot the guard cannot run one.
+pub(super) fn live_version_unguarded(bin_path: &str, permissive: bool) -> String {
+    format!("FJ_SUMOK=1\n{}", live_version(bin_path, permissive))
 }
 
 /// Diverge when the live version is not the pinned one. Empty for an unpinned
@@ -81,5 +92,35 @@ fn version_assertion(resource: &Resource, repo: &str) -> String {
          \x20 if [ \"$FJ_NORM\" != '{want}' ]; then\n\
          \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_NORM:-unreadable}}\"; __fj_diverged=1\n\
          \x20 fi\n"
+    )
+}
+
+/// Set `FJ_SUMOK` (1 unless a declared `checksum:` fails) before the binary is
+/// run. The hash fails closed: one tool reading the file on stdin, no fallback
+/// that could hash nothing. A malformed value never reaches the script.
+fn checksum_guard(resource: &Resource, bin_path: &str, repo: &str) -> String {
+    let Some(raw) = resource.checksum.as_deref() else {
+        return "FJ_SUMOK=1\n".to_string();
+    };
+    let lowered = raw.trim().to_ascii_lowercase();
+    let want = lowered.strip_prefix("sha256:").unwrap_or(&lowered);
+    if want.len() != 64 || !want.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return format!(
+            "FJ_SUMOK=0; echo 'checksum-invalid:{repo}:want 64 hex chars'; __fj_diverged=1\n"
+        );
+    }
+    format!(
+        "FJ_SUMOK=1; FJ_SUM=''\n\
+         if [ -f {bin_path} ]; then\n\
+         \x20 if command -v sha256sum >/dev/null 2>&1; then\n\
+         \x20\x20\x20 FJ_SUM=$( sha256sum < {bin_path} 2>/dev/null | cut -d ' ' -f 1 )\n\
+         \x20 elif command -v shasum >/dev/null 2>&1; then\n\
+         \x20\x20\x20 FJ_SUM=$( shasum -a 256 < {bin_path} 2>/dev/null | cut -d ' ' -f 1 )\n\
+         \x20 fi\n\
+         \x20 if [ \"$FJ_SUM\" != '{want}' ]; then\n\
+         \x20\x20\x20 FJ_SUMOK=0; __fj_diverged=1\n\
+         \x20\x20\x20 echo \"checksum-mismatch:{repo}:want {want}:have ${{FJ_SUM:-unreadable}}\"\n\
+         \x20 fi\n\
+         fi\n"
     )
 }

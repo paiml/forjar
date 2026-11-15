@@ -160,7 +160,7 @@ fn fj1067_apply_guard_reads_a_stderr_only_version_and_a_failed_run() {
     let read = |permissive: bool| {
         let script = format!(
             "{}printf '%s' \"$FJ_LIVE\"",
-            super::github_release_check::live_version(&q, permissive)
+            super::github_release_check::live_version_unguarded(&q, permissive)
         );
         let out = std::process::Command::new("bash")
             .arg("-c")
@@ -171,4 +171,31 @@ fn fj1067_apply_guard_reads_a_stderr_only_version_and_a_failed_run() {
     };
     assert_eq!(read(true), "0.34.2");
     assert_eq!(read(false), "");
+}
+
+#[test]
+fn fj1067_reader_is_fail_closed_without_the_checksum_guard_and_open_when_unguarded() {
+    // The raw reader never runs the binary unless FJ_SUMOK=1 (forjar#1065); the
+    // apply-side `live_version_unguarded` sets it, so the downgrade guard still
+    // reads the version (forjar#1067).
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("ollama");
+    exe(&bin, "echo 'ollama version is 0.34.2' >&2; exit 3");
+    let q = format!("'{}'", bin.display());
+    let read = |script: String| {
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(format!("{script}printf '%s' \"$FJ_LIVE\""))
+            .output()
+            .expect("bash runs");
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    for permissive in [true, false] {
+        let raw = super::github_release_check::live_version(&q, permissive);
+        assert_eq!(read(raw.clone()), "", "unset FJ_SUMOK ran the binary");
+        assert_eq!(read(format!("FJ_SUMOK=0\n{raw}")), "", "SUMOK=0 ran it");
+    }
+    let open = |p| read(super::github_release_check::live_version_unguarded(&q, p));
+    assert_eq!(open(true), "0.34.2");
+    assert_eq!(open(false), "");
 }
