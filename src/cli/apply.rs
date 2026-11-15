@@ -8,8 +8,7 @@ use super::apply_summary::print_apply_summary_with_locks;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
-use crate::core::error::ForjarError;
-use crate::core::{executor, state, types};
+use crate::core::{error::ForjarError, executor, state, types};
 use std::path::Path;
 
 pub(crate) use super::apply_scope::cmd_apply;

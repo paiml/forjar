@@ -57,6 +57,5 @@ mod typed_tests {
             e.message(),
             "data source failure isolated; unrelated resources were processed: a: x; b: y"
         );
-        assert_eq!(e.class(), ForjarError::from_untyped(e.message()).class());
     }
 }

@@ -225,4 +225,12 @@ mod typed_tests {
             .script
             .contains("unsupported package declaration: provider=no-such-provider"));
     }
+
+    #[test]
+    fn exec_steps_unresolved_secret_package_is_an_error_naming_the_cause() {
+        let e = exec_steps(&decl("apt", &["{{secrets.x}}"], None)).unwrap_err();
+        assert!(e
+            .message()
+            .contains("resource carries an unresolved secret template"));
+    }
 }

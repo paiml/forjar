@@ -145,6 +145,11 @@ mod typed_tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("bad.yaml");
         std::fs::write(&path, "resources: [").unwrap();
-        assert!(parse_and_validate(&path).is_err());
+        let e = parse_and_validate(&path).unwrap_err();
+        let want = serde_yaml_ng::from_str::<types::ForjarConfig>("resources: [")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(e.message(), want);
+        assert!(!want.is_empty());
     }
 }
