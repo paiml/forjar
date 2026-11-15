@@ -45,14 +45,55 @@ fn every_release_job_declares_a_timeout() {
     }
 }
 
+/// True when a workflow line runs or installs Python: any `python*` word
+/// (`python3`, `python`, `python3.12`, `setup-python`) or a `pip`/`pip3` word.
+/// A YAML comment is prose, not a step, so everything from a `#` that starts a
+/// line or follows whitespace is ignored.
+fn uses_python(line: &str) -> bool {
+    let mut code = line;
+    if let Some(i) = line.find(" #") {
+        code = &line[..i];
+    }
+    if code.trim_start().starts_with('#') {
+        return false;
+    }
+    code.to_ascii_lowercase()
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|w| w.starts_with("python") || w == "pip" || w == "pip3")
+}
+
 #[test]
 fn proofs_workflow_has_no_python() {
     let text = read(".github/workflows/proofs.yml");
     for (i, line) in text.lines().enumerate() {
         assert!(
-            !line.contains("python3") && !line.contains("python -"),
+            !uses_python(line),
             "proofs.yml:{} uses Python: {line}",
             i + 1
         );
+    }
+}
+
+#[test]
+fn the_python_detector_catches_every_form_and_skips_comments() {
+    for bad in [
+        "        run: python3 -c 'print(1)'",
+        "          python - <<'PY'",
+        "          python <<'PY'",
+        "          python script.py",
+        "          python3.12 tool.py",
+        "        uses: actions/setup-python@v5",
+        "          pip install pyyaml",
+        "          pip3 install x",
+        "          PYTHON=python3 make",
+    ] {
+        assert!(uses_python(bad), "detector missed: {bad}");
+    }
+    for ok in [
+        "      # This step used to be a Python heredoc",
+        "          jq -r '.target_directory' # was python3 -c",
+        "          cargo metadata --format-version 1 --no-deps",
+    ] {
+        assert!(!uses_python(ok), "detector false positive: {ok}");
     }
 }
