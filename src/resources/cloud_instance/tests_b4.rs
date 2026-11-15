@@ -14,7 +14,7 @@ fn with_image(mut r: Resource, digest: &str) -> Resource {
 }
 
 fn old_image_box() -> String {
-    format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a\n")
+    format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a0a0a0a\n")
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn nothing_owned_launches_exactly_once() {
     let sb = Sandbox::new();
     sb.open_gate();
     // another resource's box is alive; it is not ours
-    let fx = "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0o\n";
+    let fx = "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0o0o0o0o\n";
     let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(fx));
     assert_eq!(rc, 0, "{out}");
     assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
@@ -57,7 +57,7 @@ fn an_owned_box_with_a_different_key_beside_a_same_key_box_still_refuses() {
     let sb = Sandbox::new();
     sb.open_gate();
     let fx = format!(
-        "{}i-00b2c3d4 ci-box-a@eu-south-2@ffffffffffff {OWN_A} sir-0b\n",
+        "{}i-00b2c3d4 ci-box-a@eu-south-2@ffffffffffff {OWN_A} sir-0b0b0b0b\n",
         old_image_box()
     );
     let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(&fx));
@@ -153,7 +153,10 @@ fn only_whole_instance_ids_pass_the_lookup() {
 #[test]
 fn destroy_passes_the_validated_ids_as_separate_arguments() {
     let sb = Sandbox::new();
-    let fx = format!("{}i-00b2c3d4 {KEY_A} {OWN_A} sir-0b\n", old_image_box());
+    let fx = format!(
+        "{}i-00b2c3d4 {KEY_A} {OWN_A} sir-0b0b0b0b\n",
+        old_image_box()
+    );
     let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
     let log = sb.log();
@@ -273,11 +276,9 @@ fn glob_characters_in_a_reply_are_malformed_not_expanded() {
 fn only_whole_spot_request_ids_are_cancelled() {
     let sb = Sandbox::new();
     let fx = format!(
-        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a\n\
-         i-00b2c3d4 {KEY_A} {OWN_A} sir-0B\n\
-         i-00c3d4e5 {KEY_A} {OWN_A} sir-0c!x\n\
-         i-00d4e5f6 {KEY_A} {OWN_A} sir-\n\
-         i-00e5f6a7 {KEY_A} {OWN_A} sir-1d\n"
+        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a0a0a0a\n\
+         i-00b2c3d4 {KEY_A} {OWN_A} None\n\
+         i-00e5f6a7 {KEY_A} {OWN_A} sir-1d1d1d1d\n"
     );
     let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
@@ -285,7 +286,68 @@ fn only_whole_spot_request_ids_are_cancelled() {
     let cancels: Vec<_> = log.lines().filter(|l| l.contains("cancel-spot")).collect();
     assert_eq!(cancels.len(), 2, "{log}");
     assert!(
-        cancels[0].ends_with("sir-0a") && cancels[1].ends_with("sir-1d"),
+        cancels[0].ends_with("sir-0a0a0a0a") && cancels[1].ends_with("sir-1d1d1d1d"),
         "{log}"
     );
+}
+
+// ---- fail-closed destroy: lookups and spot request ids (#1095, #1096, #1098) ----
+
+const BAD_SIRS: [&str; 6] = [
+    "sir-0a1b2c3",
+    "sir-0a1b2c3d4",
+    "sir-0A1B2C3D",
+    "sir-*",
+    "sir-",
+    "xyz-0a1b2c3d",
+];
+
+fn destructive(log: &str) -> usize {
+    count(log, "terminate-instances") + count(log, "cancel-spot")
+}
+
+#[test]
+fn a_failed_lookup_after_terminate_is_an_error_never_destroyed() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.path().join("calls.log.descfailn"), "3").unwrap();
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n");
+    let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("lookup failed"), "{out}");
+    assert!(!out.contains("destroyed"), "{out}");
+    assert_eq!(count(&sb.log(), "describe-instances"), 3, "{}", sb.log());
+}
+
+#[test]
+fn a_successful_empty_lookup_after_terminate_is_destroyed() {
+    let sb = Sandbox::new();
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n");
+    let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains("destroyed i-00a1b2c3"), "{out}");
+    assert_eq!(count(&sb.log(), "describe-instances"), 3, "{}", sb.log());
+}
+
+#[test]
+fn a_failed_spot_request_lookup_stops_before_any_destructive_call() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.path().join("calls.log.descfailn"), "2").unwrap();
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n");
+    let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("lookup failed"), "{out}");
+    assert_eq!(destructive(&sb.log()), 0, "{}", sb.log());
+}
+
+#[test]
+fn one_malformed_spot_request_id_means_zero_destructive_calls() {
+    for bad in BAD_SIRS {
+        let sb = Sandbox::new();
+        let fx =
+            format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\ni-00b2c3d4 {KEY_A} {OWN_A} {bad}\n");
+        let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+        assert_ne!(rc, 0, "{bad}: {out}");
+        assert_eq!(destructive(&sb.log()), 0, "{bad}: {}", sb.log());
+        assert!(!out.contains("destroyed"), "{bad}: {out}");
+    }
 }

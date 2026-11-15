@@ -36,8 +36,8 @@ fn the_sandbox_never_falls_through_to_a_real_aws() {
 fn absent_terminates_exactly_the_owned_instance() {
     let sb = Sandbox::new();
     let fx = format!(
-        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0own\n\
-         i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0other\n\
+        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0own0own\n\
+         i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0other00\n\
          i-00c3d4e5 - - -\n"
     );
     let (rc, out) = sb.run_with(&apply_script(&absent(res())), "", Some(&fx));
@@ -66,7 +66,7 @@ fn absent_terminates_exactly_the_owned_instance() {
 fn absent_with_nothing_owned_is_a_noop_success_and_never_launches() {
     let sb = Sandbox::new();
     let fx =
-        "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0o\ni-00c3d4e5 - - -\n";
+        "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0o0o0o0o\ni-00c3d4e5 - - -\n";
     for r in [absent(res()), absent(gated(sb.path()))] {
         let (rc, out) = sb.run_with(&apply_script(&r), "", Some(fx));
         assert_eq!(rc, 0, "{out}");
@@ -82,7 +82,7 @@ fn absent_with_nothing_owned_is_a_noop_success_and_never_launches() {
 fn absent_reports_failure_while_an_owned_instance_is_still_running() {
     let sb = Sandbox::new();
     std::fs::write(sb.path().join("calls.log.noterm"), "").unwrap();
-    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0own\n");
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0own0own\n");
     let (rc, out) = sb.run_with(&apply_script(&absent(res())), "", Some(&fx));
     assert_ne!(rc, 0, "{out}");
     assert!(
@@ -94,7 +94,7 @@ fn absent_reports_failure_while_an_owned_instance_is_still_running() {
 #[test]
 fn absent_check_asserts_absence() {
     let sb = Sandbox::new();
-    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0own\n");
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0own0own\n");
     let r = absent(res());
     let (rc, _) = sb.run_with(&check_script(&r), "", Some(&fx));
     assert_ne!(rc, 0, "owned instance still there: not converged");
@@ -229,13 +229,13 @@ fn two_declared_boxes_get_two_keys_two_instances_and_independent_teardown() {
     );
     let (rc, out) = sb.run_with(&apply_script(&a), "", Some(""));
     assert_eq!(rc, 0, "{out}");
-    let fx = format!("i-0aaaaaaa {KEY_A} {OWN_A} sir-0a\n");
+    let fx = format!("i-0aaaaaaa {KEY_A} {OWN_A} sir-0a0a0a0a\n");
     let (rc, out) = sb.run_with(&apply_script(&b), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
     assert_eq!(count(&sb.log(), "run-instances"), 2, "{}", sb.log());
     let fx = format!(
-        "i-0aaaaaaa {KEY_A} {OWN_A} sir-0a\n\
-         i-0bbbbbbb ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0b\n"
+        "i-0aaaaaaa {KEY_A} {OWN_A} sir-0a0a0a0a\n\
+         i-0bbbbbbb ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0b0b0b0b\n"
     );
     let (rc, out) = sb.run_with(&apply_script(&absent(b.clone())), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
@@ -250,7 +250,10 @@ fn two_declared_boxes_get_two_keys_two_instances_and_independent_teardown() {
         "{log}"
     );
     let cancel: Vec<_> = log.lines().filter(|l| l.contains("cancel-spot")).collect();
-    assert!(cancel.len() == 1 && cancel[0].contains("sir-0b"), "{log}");
+    assert!(
+        cancel.len() == 1 && cancel[0].contains("sir-0b0b0b0b"),
+        "{log}"
+    );
 }
 
 #[test]

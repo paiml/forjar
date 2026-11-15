@@ -389,12 +389,19 @@ fn destroy_script(s: &CloudInstance) -> String {
         "set -eu\n\
          {lookup}\
          if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
-         sirs=\"$({sirs})\"\n\
+         sirs=\"$({sirs})\" || {{ echo 'spot-request-lookup-failed' >&2; echo 'ERROR: spot request lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
+         set -- $sirs; sirs=\"$*\"\n\
+         for r in $sirs; do\n\
+         h=\"${{r#sir-}}\"\n\
+         case \"$r\" in None) continue;; sir-*) ;; *) h='!';; esac\n\
+         case \"$h\" in *[!0-9a-z]*) h='!';; esac\n\
+         if [ \"${{#h}}\" -ne 8 ]; then echo 'spot-request-malformed' >&2; echo 'ERROR: spot request lookup returned something that is not a spot request id' >&2; exit 1; fi\n\
+         done\n\
          set -- $ids\n\
          aws ec2 terminate-instances --region {region} --instance-ids \"$@\" >/dev/null\n\
-         for r in $sirs; do case \"$r\" in sir-*) h=\"${{r#sir-}}\"; case \"$h\" in ''|*[!0-9a-z]*) continue;; esac;; *) continue;; esac; \
+         for r in $sirs; do case \"$r\" in None) continue;; esac; \
          aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
-         left=\"$({ids})\"\n\
+         left=\"$({ids})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: post-terminate instance lookup failed; destroy not confirmed' >&2; exit 1; }}\n\
          if [ -n \"$left\" ]; then echo \"NOT destroyed: still pending or running: $left\" >&2; exit 1; fi\n\
          echo \"destroyed $ids\"\n",
     )
