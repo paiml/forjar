@@ -2,6 +2,7 @@
 //! label set, seats, caps) to the actions the pool would take. No I/O, no clock
 //! read, nothing is executed; the caller decides what to do with the plan.
 
+use super::pool_reconcile::SCALE_UP_AGE_SECS;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,9 +105,6 @@ fn validate(s: &Snapshot) -> Result<(), PlanError> {
     Ok(())
 }
 
-/// Seconds a queued job may wait before the pool launches past idle seats.
-pub const SCALE_UP_AGE_SECS: u64 = 5 * 60;
-
 /// Decide what to do with one seat: retire, drain, or leave it.
 fn seat_action(seat: &Seat, queued: u32, c: &Caps) -> Option<Action> {
     let id = seat.id.clone();
@@ -125,24 +123,29 @@ fn seat_action(seat: &Seat, queued: u32, c: &Caps) -> Option<Action> {
     })
 }
 
-/// Count seats not retired, optionally for one label set and only idle ones.
-fn count_live(
-    s: &Snapshot,
-    retired: &BTreeSet<&str>,
-    labels: Option<&str>,
-    idle_only: bool,
-) -> u32 {
+/// Count idle seats of one label set that are not being retired this tick.
+fn count_idle_kept(s: &Snapshot, retired: &BTreeSet<&str>, labels: &str) -> u32 {
     s.seats
         .iter()
         .filter(|x| !retired.contains(x.id.as_str()))
+        .filter(|x| x.labels == labels && x.state == SeatState::Idle)
+        .count() as u32
+}
+
+/// Count seats that exist now (retirements do not free room until a later tick).
+fn count_existing(s: &Snapshot, labels: Option<&str>) -> u32 {
+    s.seats
+        .iter()
         .filter(|x| labels.is_none_or(|l| x.labels == l))
-        .filter(|x| !idle_only || x.state == SeatState::Idle)
         .count() as u32
 }
 
 /// Compute the plan. Order: retirements first, then launches by label set
-/// (sorted), so the result is deterministic. Launches never push live seats
-/// (after retirements) past `max_seats` or a label set past its per-label cap.
+/// (sorted), so the result is deterministic. Launches are clamped against the
+/// seats that exist now: a retirement may fail, so it frees no room until a
+/// later tick. Scale-up follows `pool_reconcile::decide()`: a label set scales
+/// up when queued jobs exceed its idle seats or its oldest job waited over
+/// `SCALE_UP_AGE_SECS`.
 pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
     validate(s)?;
     let queue: BTreeMap<&str, &QueueEntry> =
@@ -158,18 +161,18 @@ pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
             actions.push(a);
         }
     }
-    let mut total_live = count_live(s, &retired, None, false);
+    let mut total_live = count_existing(s, None);
     let mut budget = c.max_launch_per_tick;
     for (labels, q) in &queue {
-        let idle = count_live(s, &retired, Some(labels), true);
-        let due = q.queued > idle || (q.oldest_age_secs > SCALE_UP_AGE_SECS && idle == 0);
+        let idle = count_idle_kept(s, &retired, labels);
+        let due = q.queued > idle || q.oldest_age_secs > SCALE_UP_AGE_SECS;
         if q.queued == 0 || !due {
             continue;
         }
         let want = q.queued.saturating_sub(idle).max(1);
-        let room_label =
-            c.max_seats_per_labels
-                .saturating_sub(count_live(s, &retired, Some(labels), false));
+        let room_label = c
+            .max_seats_per_labels
+            .saturating_sub(count_existing(s, Some(labels)));
         let room_total = c.max_seats.saturating_sub(total_live);
         let count = want.min(room_label).min(room_total).min(budget);
         if count > 0 {
