@@ -36,3 +36,80 @@ fn moved_function_accepts_valid_and_reports_bad_region() {
     assert_eq!(e.len(), 1, "{e:?}");
     assert!(e[0].contains("cloud_region"), "{e:?}");
 }
+
+type Set = fn(&mut Resource);
+
+fn t() -> String {
+    "{{params.x}}".into()
+}
+
+/// Parse-time errors expected as (field alone, field plus a bad literal sibling).
+/// The sibling is a missing `cloud_max_lifetime_min`, which no template can fill.
+type Seen = (bool, bool);
+/// Today: a templated field defers the whole check, so the bad sibling goes unseen.
+const HIDES: Seen = (false, false);
+/// The field is never deferred: it is rejected, and so is the sibling.
+const REJECTS: Seen = (true, true);
+/// Not checked by `spec_of`: accepted alone, the sibling is still caught.
+const CHECKED: Seen = (false, true);
+
+fn table() -> Vec<(&'static str, Set, Seen)> {
+    vec![
+        ("name", |r| r.name = Some(t()), HIDES),
+        ("image", |r| r.image = Some(t()), HIDES),
+        ("cloud_region", |r| r.cloud.region = Some(t()), HIDES),
+        (
+            "cloud_instance_type",
+            |r| r.cloud.instance_type = Some(t()),
+            HIDES,
+        ),
+        ("cloud_max_price", |r| r.cloud.max_price = Some(t()), HIDES),
+        ("tags", |r| r.tags = vec![format!("k={}", t())], HIDES),
+        ("name_unclosed", |r| r.name = Some("a{{b".into()), HIDES),
+        ("tag_braced", |r| r.tags = vec!["k={{v}}".into()], HIDES),
+        ("provider", |r| r.provider = Some(t()), REJECTS),
+        ("state", |r| r.state = Some(t()), REJECTS),
+        ("cloud_ami", |r| r.cloud.ami = Some(t()), REJECTS),
+        (
+            "cloud_subnet_id",
+            |r| r.cloud.subnet_id = Some(t()),
+            REJECTS,
+        ),
+        (
+            "cloud_security_group_ids",
+            |r| r.cloud.security_group_ids = Some(vec![t()]),
+            REJECTS,
+        ),
+        (
+            "cloud_availability_zone",
+            |r| r.cloud.availability_zone = Some(t()),
+            REJECTS,
+        ),
+        (
+            "cloud_kill_switch",
+            |r| r.cloud.kill_switch = Some(t()),
+            CHECKED,
+        ),
+        (
+            "cloud_parity_gate",
+            |r| r.cloud.parity_gate = Some(t()),
+            CHECKED,
+        ),
+        (
+            "cloud_budget_cap_usd_day",
+            |r| r.cloud.budget_cap_usd_day = Some(t()),
+            CHECKED,
+        ),
+    ]
+}
+
+#[test]
+fn templated_vs_literal_fields_table() {
+    for (label, set, (alone, with_bad_sibling)) in table() {
+        let mut r = valid();
+        set(&mut r);
+        assert_eq!(!errs(&r).is_empty(), alone, "{label}: alone");
+        r.cloud.max_lifetime_min = None;
+        assert_eq!(!errs(&r).is_empty(), with_bad_sibling, "{label}: sibling");
+    }
+}
