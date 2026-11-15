@@ -8,6 +8,7 @@
 
 use super::build_runtime::BuildRuntime;
 use super::exec_capture::{capture, normalise_script, ExecLayer};
+use crate::core::error::ForjarError;
 use std::path::{Path, PathBuf};
 
 /// One command run in the container.
@@ -64,15 +65,15 @@ impl Drop for TempFile {
 }
 
 /// Fail unless the runtime holds the very base the layout holds.
-fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), String> {
+fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), ForjarError> {
     let rt_name = rt.name();
     let hint = base_fetch_hint(req.base_ref, req.base_dir);
     let have = rt.image_diff_ids(req.base_ref).map_err(|e| {
-        format!(
+        ForjarError::from_untyped(format!(
             "{rt_name} does not have base image '{}' locally ({e}); executing the build \
              steps needs it, and forjar never pulls implicitly. Fetch it with: {hint}",
             req.base_ref
-        )
+        ))
     })?;
     if have == req.base_diff_ids {
         return Ok(());
@@ -81,7 +82,7 @@ fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), Str
         .find(|i| have.get(*i) != req.base_diff_ids.get(*i))
         .unwrap_or(0);
     let show = |v: &[String]| v.get(at).cloned().unwrap_or_else(|| "(none)".into());
-    Err(format!(
+    Err(ForjarError::from_untyped(format!(
         "{rt_name}'s '{}' is not the base layout in {}: it has {} layers, the layout {}; \
          first difference at layer {at}: {rt_name} {} vs layout {}. Make them the same \
          image: {hint}",
@@ -91,7 +92,7 @@ fn require_same_base(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<(), Str
         req.base_diff_ids.len(),
         show(&have),
         show(req.base_diff_ids),
-    ))
+    )))
 }
 
 fn run_step(
@@ -100,15 +101,15 @@ fn run_step(
     name: &str,
     shell: &str,
     script: &str,
-) -> Result<(), String> {
+) -> Result<(), ForjarError> {
     let out = rt.exec(id, shell, script)?;
     if out.code == 0 {
         return Ok(());
     }
-    Err(format!(
+    Err(ForjarError::from_untyped(format!(
         "build step '{name}' exited {}; no image was written. Last output:\n{}",
         out.code, out.tail
-    ))
+    )))
 }
 
 /// A unique temp path for the export tar.
@@ -122,7 +123,10 @@ fn export_path() -> PathBuf {
 
 /// Run `req.steps` in a container from the declared base and capture the
 /// changes as one layer.
-pub fn build_exec_layer(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<ExecLayer, String> {
+pub fn build_exec_layer(
+    rt: &dyn BuildRuntime,
+    req: &ExecRequest,
+) -> Result<ExecLayer, ForjarError> {
     require_same_base(rt, req)?;
     let id = rt.start(req.base_ref)?;
     let _container = ContainerGuard { rt, id: id.clone() };
@@ -133,5 +137,5 @@ pub fn build_exec_layer(rt: &dyn BuildRuntime, req: &ExecRequest) -> Result<Exec
     let diff = rt.diff(&id)?;
     let tar = TempFile(export_path());
     rt.export(&id, &tar.0)?;
-    capture(&diff, &tar.0)
+    capture(&diff, &tar.0).map_err(ForjarError::from_untyped)
 }

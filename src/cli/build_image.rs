@@ -9,6 +9,7 @@ use super::build_image_entries::collect_layer_entries;
 use super::build_image_entries::split_paths_by_type;
 use super::build_image_exec::{exec_decl, exec_summary, run_exec, ExecDecl, ExecReport};
 use super::build_image_report::{print_build_json, print_build_report, record_build_metrics};
+use crate::core::error::ForjarError;
 use crate::core::store::build_runtime::{BuildRuntime, ContainerCli};
 use crate::core::store::image_assembler::BaseLayout;
 use crate::core::store::layer_builder::LayerEntry;
@@ -53,7 +54,11 @@ pub(crate) fn cmd_build_in(
     sandbox: bool,
     json: bool,
 ) -> Result<(), String> {
-    let real = || ContainerCli::detect().map(|c| Box::new(c) as Box<dyn BuildRuntime>);
+    let real = || {
+        ContainerCli::detect()
+            .map_err(ForjarError::into_untyped)
+            .map(|c| Box::new(c) as Box<dyn BuildRuntime>)
+    };
     cmd_build_rt(
         &real, state_dir, file, resource, load, push, far, sandbox, json,
     )

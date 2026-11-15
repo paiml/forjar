@@ -4,6 +4,7 @@
 //! logic is exercised against real tar bytes.
 
 use super::build_runtime::{BuildRuntime, DiffEntry, DiffKind, ExecOutcome};
+use crate::core::error::ForjarError;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
@@ -24,7 +25,7 @@ pub(crate) struct FakeRuntime {
     /// Every script `exec` was asked to run, in order.
     pub scripts: Rc<RefCell<Vec<String>>>,
     /// What the runtime reports for the base image; `Err` = image absent.
-    pub image_ids: Result<Vec<String>, String>,
+    pub image_ids: Result<Vec<String>, ForjarError>,
     /// A step whose script contains this text exits 1 with `boom` on stderr.
     pub fail_on: Option<&'static str>,
     pub diff: Vec<(char, &'static str)>,
@@ -103,15 +104,15 @@ impl BuildRuntime for FakeRuntime {
     fn name(&self) -> String {
         "fakecontainer".into()
     }
-    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, String> {
+    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, ForjarError> {
         self.calls.borrow_mut().push(format!("inspect {image}"));
         self.image_ids.clone()
     }
-    fn start(&self, image: &str) -> Result<String, String> {
+    fn start(&self, image: &str) -> Result<String, ForjarError> {
         self.calls.borrow_mut().push(format!("start {image}"));
         Ok("cid1".into())
     }
-    fn exec(&self, _id: &str, shell: &str, script: &str) -> Result<ExecOutcome, String> {
+    fn exec(&self, _id: &str, shell: &str, script: &str) -> Result<ExecOutcome, ForjarError> {
         self.calls.borrow_mut().push(format!("exec {shell}"));
         self.scripts.borrow_mut().push(script.to_string());
         let code = i32::from(self.fail_on.is_some_and(|f| script.contains(f)));
@@ -124,7 +125,7 @@ impl BuildRuntime for FakeRuntime {
             },
         })
     }
-    fn diff(&self, _id: &str) -> Result<Vec<DiffEntry>, String> {
+    fn diff(&self, _id: &str) -> Result<Vec<DiffEntry>, ForjarError> {
         self.calls.borrow_mut().push("diff".into());
         Ok(self
             .diff
@@ -139,9 +140,9 @@ impl BuildRuntime for FakeRuntime {
             })
             .collect())
     }
-    fn export(&self, _id: &str, dest: &Path) -> Result<(), String> {
+    fn export(&self, _id: &str, dest: &Path) -> Result<(), ForjarError> {
         self.calls.borrow_mut().push("export".into());
-        std::fs::write(dest, self.tar_bytes()).map_err(|e| e.to_string())
+        std::fs::write(dest, self.tar_bytes()).map_err(|e| ForjarError::from_untyped(e.to_string()))
     }
     fn remove(&self, id: &str) {
         self.calls.borrow_mut().push(format!("remove {id}"));

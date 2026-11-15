@@ -3,6 +3,7 @@
 use super::exec_layer::{base_fetch_hint, build_exec_layer, ExecRequest, ExecStep};
 use super::fake_build_runtime::{FakeNode, FakeRuntime};
 use super::layer_builder::LayerEntry;
+use crate::core::error::ForjarError;
 use std::path::Path;
 
 fn ids() -> Vec<String> {
@@ -36,6 +37,7 @@ fn run(rt: &FakeRuntime) -> Result<super::exec_capture::ExecLayer, String> {
             steps: &steps,
         },
     )
+    .map_err(ForjarError::into_untyped)
 }
 
 fn find<'a>(l: &'a super::exec_capture::ExecLayer, p: &str) -> Option<&'a LayerEntry> {
@@ -143,7 +145,7 @@ fn a_base_the_runtime_does_not_hold_is_an_error_with_the_fetch_commands() {
     );
     assert_eq!(rt.count("start"), 0, "nothing is started on a mismatch");
 
-    rt.image_ids = Err("No such image".into());
+    rt.image_ids = Err(ForjarError::from_untyped("No such image"));
     let err = run(&rt).unwrap_err();
     assert!(
         err.contains("never pulls implicitly") && err.contains("docker pull"),

@@ -4,6 +4,7 @@
 //! unit-tested with a fake. `ContainerCli` is the one real implementation: it
 //! shells out to `docker` or `podman` (see `detect_container_runtime`).
 
+use crate::core::error::ForjarError;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -41,15 +42,15 @@ pub trait BuildRuntime {
     /// Name used in messages (`docker`, `podman`).
     fn name(&self) -> String;
     /// `diff_ids` of the runtime's local copy of `image`, in order; `Err` when absent.
-    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, String>;
+    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, ForjarError>;
     /// Start a container from `image` that just sleeps; never pulls. Returns its id.
-    fn start(&self, image: &str) -> Result<String, String>;
+    fn start(&self, image: &str) -> Result<String, ForjarError>;
     /// Run `script` with `<shell> -c` in the container.
-    fn exec(&self, id: &str, shell: &str, script: &str) -> Result<ExecOutcome, String>;
+    fn exec(&self, id: &str, shell: &str, script: &str) -> Result<ExecOutcome, ForjarError>;
     /// Filesystem changes against the image.
-    fn diff(&self, id: &str) -> Result<Vec<DiffEntry>, String>;
+    fn diff(&self, id: &str) -> Result<Vec<DiffEntry>, ForjarError>;
     /// Write the container's full root filesystem as a tar to `dest`.
-    fn export(&self, id: &str, dest: &Path) -> Result<(), String>;
+    fn export(&self, id: &str, dest: &Path) -> Result<(), ForjarError>;
     /// Force-remove the container. Best effort: called from a drop guard.
     fn remove(&self, id: &str);
 }
@@ -61,21 +62,28 @@ pub struct ContainerCli {
 
 impl ContainerCli {
     /// Use whichever of docker / podman is installed.
-    pub fn detect() -> Result<Self, String> {
+    pub fn detect() -> Result<Self, ForjarError> {
         super::convergence_container::detect_container_runtime()
             .map(|runtime| Self { runtime })
             .ok_or_else(|| {
-                "no container runtime (docker or podman) is available; a build with \
-                 `packages:` or `command:` executes them in a container"
-                    .to_string()
+                ForjarError::from_untyped(
+                    "no container runtime (docker or podman) is available; a build with \
+                 `packages:` or `command:` executes them in a container",
+                )
             })
     }
 
-    fn run(&self, args: &[&str]) -> Result<std::process::Output, String> {
+    fn run(&self, args: &[&str]) -> Result<std::process::Output, ForjarError> {
         Command::new(&self.runtime)
             .args(args)
             .output()
-            .map_err(|e| format!("{} {}: {e}", self.runtime, args.first().unwrap_or(&"")))
+            .map_err(|e| {
+                ForjarError::from_untyped(format!(
+                    "{} {}: {e}",
+                    self.runtime,
+                    args.first().unwrap_or(&"")
+                ))
+            })
     }
 }
 
@@ -86,18 +94,22 @@ pub(super) fn last_lines(text: &str, n: usize) -> String {
 }
 
 /// Parse `<runtime> diff` output (`A /path`, `C /path`, `D /path`).
-pub(super) fn parse_diff(text: &str) -> Result<Vec<DiffEntry>, String> {
+pub(super) fn parse_diff(text: &str) -> Result<Vec<DiffEntry>, ForjarError> {
     text.lines()
         .filter(|l| !l.trim().is_empty())
         .map(|line| {
-            let (kind, path) = line
-                .split_once(' ')
-                .ok_or_else(|| format!("unparseable diff line: {line:?}"))?;
+            let (kind, path) = line.split_once(' ').ok_or_else(|| {
+                ForjarError::from_untyped(format!("unparseable diff line: {line:?}"))
+            })?;
             let kind = match kind {
                 "A" => DiffKind::Added,
                 "C" => DiffKind::Changed,
                 "D" => DiffKind::Deleted,
-                other => return Err(format!("unknown diff kind {other:?} in line {line:?}")),
+                other => {
+                    return Err(ForjarError::from_untyped(format!(
+                        "unknown diff kind {other:?} in line {line:?}"
+                    )))
+                }
             };
             Ok(DiffEntry {
                 kind,
@@ -125,7 +137,7 @@ impl BuildRuntime for ContainerCli {
         self.runtime.clone()
     }
 
-    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, String> {
+    fn image_diff_ids(&self, image: &str) -> Result<Vec<String>, ForjarError> {
         let out = self.run(&[
             "image",
             "inspect",
@@ -134,34 +146,36 @@ impl BuildRuntime for ContainerCli {
             image,
         ])?;
         if !out.status.success() {
-            return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+            return Err(ForjarError::from_untyped(
+                String::from_utf8_lossy(&out.stderr).trim(),
+            ));
         }
         serde_json::from_slice(&out.stdout).map_err(|e| {
-            format!(
+            ForjarError::from_untyped(format!(
                 "{} image inspect {image}: bad RootFS.Layers: {e}",
                 self.runtime
-            )
+            ))
         })
     }
 
-    fn start(&self, image: &str) -> Result<String, String> {
+    fn start(&self, image: &str) -> Result<String, ForjarError> {
         let out = self.run(&start_args(image))?;
         if !out.status.success() {
-            return Err(format!(
+            return Err(ForjarError::from_untyped(format!(
                 "{} run {image}: {}",
                 self.runtime,
                 String::from_utf8_lossy(&out.stderr).trim()
-            ));
+            )));
         }
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
-    fn exec(&self, id: &str, shell: &str, script: &str) -> Result<ExecOutcome, String> {
+    fn exec(&self, id: &str, shell: &str, script: &str) -> Result<ExecOutcome, ForjarError> {
         let out = Command::new(&self.runtime)
             .args(["exec", id, shell, "-c", script])
             .stdin(Stdio::null())
             .output()
-            .map_err(|e| format!("{} exec: {e}", self.runtime))?;
+            .map_err(|e| ForjarError::from_untyped(format!("{} exec: {e}", self.runtime)))?;
         let stderr = String::from_utf8_lossy(&out.stderr);
         let text = if stderr.trim().is_empty() {
             String::from_utf8_lossy(&out.stdout).into_owned()
@@ -174,29 +188,29 @@ impl BuildRuntime for ContainerCli {
         })
     }
 
-    fn diff(&self, id: &str) -> Result<Vec<DiffEntry>, String> {
+    fn diff(&self, id: &str) -> Result<Vec<DiffEntry>, ForjarError> {
         let out = self.run(&["diff", id])?;
         if !out.status.success() {
-            return Err(format!(
+            return Err(ForjarError::from_untyped(format!(
                 "{} diff failed: {}",
                 self.runtime,
                 String::from_utf8_lossy(&out.stderr).trim()
-            ));
+            )));
         }
         parse_diff(&String::from_utf8_lossy(&out.stdout))
     }
 
-    fn export(&self, id: &str, dest: &Path) -> Result<(), String> {
+    fn export(&self, id: &str, dest: &Path) -> Result<(), ForjarError> {
         let dest = dest.display().to_string();
         let out = self.run(&["export", "-o", &dest, id])?;
         if out.status.success() {
             return Ok(());
         }
-        Err(format!(
+        Err(ForjarError::from_untyped(format!(
             "{} export failed: {}",
             self.runtime,
             String::from_utf8_lossy(&out.stderr).trim()
-        ))
+        )))
     }
 
     fn remove(&self, id: &str) {
