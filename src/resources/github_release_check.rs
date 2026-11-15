@@ -30,17 +30,36 @@ pub fn check_script(resource: &Resource, reject_bad_repo: fn(&str) -> String) ->
     let install_dir = resource.install_dir.as_deref().unwrap_or("/usr/local/bin");
     let bin_path = sh_squote(&format!("{install_dir}/{binary}"));
 
+    // A regular executable file only: a directory or device is `missing`, so it
+    // can never converge. A declared checksum is verified BEFORE the binary is
+    // executed; a bad checksum means it is not run at all.
     verdict::check_script_from(&[format!(
-        "if [ -x {bin_path} ]; then\n\
-         \x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
-         \x20 echo \"installed:{repo}:$VER\"\n\
-         {}{}\
+        "if [ -f {bin_path} ] && [ -x {bin_path} ]; then\n\
+         \x20 FJ_RUN=1\n\
+         {}\
+         \x20 if [ \"$FJ_RUN\" = 1 ]; then\n\
+         \x20\x20\x20 VER=$( {bin_path} --version 2>/dev/null | head -1 || echo 'unknown' )\n\
+         \x20\x20\x20 echo \"installed:{repo}:$VER\"\n\
+         {}\
+         \x20 fi\n\
          else\n\
          \x20 echo 'missing:{repo}'; __fj_diverged=1\n\
          fi",
-        version_assertion(resource, &bin_path, repo),
         checksum_assertion(resource, &bin_path, repo),
+        version_assertion(resource, &bin_path, repo),
     )])
+}
+
+/// The live version of `bin_path`, as one shell pipeline: the first
+/// `N.N.N` at a token boundary in `--version`, read bytewise (`LC_ALL=C`, a
+/// NUL is a boundary), the way `parse_semver` reads it. Prints nothing when no
+/// version is readable. Shared by `check_script` and the #613 downgrade guard.
+pub(super) fn live_version_pipeline(bin_path: &str) -> String {
+    format!(
+        "{bin_path} --version 2>&1 | head -n 20 | tr '\\0' ' ' | \
+         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
+         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+'"
+    )
 }
 
 /// Diverge when the live version is not the pinned one. Empty for an unpinned
@@ -50,17 +69,18 @@ fn version_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String 
         return String::new();
     };
     let want = format!("{}.{}.{}", pin.major, pin.minor, pin.patch);
+    let read = live_version_pipeline(bin_path);
     format!(
-        "\x20 FJ_LIVE=$( {bin_path} --version 2>&1 | head -n 20 | tr '\\0' ' ' | \
-         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
-         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' || true )\n\
-         \x20 if [ \"$FJ_LIVE\" != '{want}' ]; then\n\
-         \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_LIVE:-unreadable}}\"; __fj_diverged=1\n\
-         \x20 fi\n"
+        "\x20\x20\x20 FJ_LIVE=$( {read} | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' || true )\n\
+         \x20\x20\x20 if [ \"$FJ_LIVE\" != '{want}' ]; then\n\
+         \x20\x20\x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_LIVE:-unreadable}}\"; __fj_diverged=1\n\
+         \x20\x20\x20 fi\n"
     )
 }
 
-/// Diverge when the installed file's sha256 differs from `checksum:`.
+/// Diverge when the installed file's sha256 differs from `checksum:`. Sets
+/// `FJ_RUN=0` so the binary is not executed. The hash step fails closed: one
+/// tool, reading the file on stdin, with no fallback that could hash nothing.
 fn checksum_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String {
     let Some(raw) = resource.checksum.as_deref() else {
         return String::new();
@@ -73,13 +93,19 @@ fn checksum_assertion(resource: &Resource, bin_path: &str, repo: &str) -> String
     // Hex only: the value is interpolated into the script.
     if want.len() != 64 || !want.bytes().all(|b| b.is_ascii_hexdigit()) {
         return format!(
-            "\x20 echo 'checksum-invalid:{repo}:checksum must be 64 hex chars of sha256'; __fj_diverged=1\n"
+            "\x20 echo 'checksum-invalid:{repo}:checksum must be 64 hex chars of sha256'; __fj_diverged=1; FJ_RUN=0\n"
         );
     }
     format!(
-        "\x20 FJ_SUM=$( {{ sha256sum < {bin_path} 2>/dev/null || shasum -a 256 < {bin_path} 2>/dev/null; }} | cut -d ' ' -f 1 || true )\n\
+        "\x20 if command -v sha256sum >/dev/null 2>&1; then\n\
+         \x20\x20\x20 FJ_SUM=$( sha256sum < {bin_path} 2>/dev/null | cut -d ' ' -f 1 )\n\
+         \x20 elif command -v shasum >/dev/null 2>&1; then\n\
+         \x20\x20\x20 FJ_SUM=$( shasum -a 256 < {bin_path} 2>/dev/null | cut -d ' ' -f 1 )\n\
+         \x20 else\n\
+         \x20\x20\x20 FJ_SUM=''\n\
+         \x20 fi\n\
          \x20 if [ \"$FJ_SUM\" != '{want}' ]; then\n\
-         \x20\x20\x20 echo \"checksum-mismatch:{repo}:want {want}:have ${{FJ_SUM:-unreadable}}\"; __fj_diverged=1\n\
+         \x20\x20\x20 echo \"checksum-mismatch:{repo}:want {want}:have ${{FJ_SUM:-unreadable}}\"; __fj_diverged=1; FJ_RUN=0\n\
          \x20 fi\n"
     )
 }

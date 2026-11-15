@@ -235,3 +235,55 @@ fn version_after_a_nul_byte_is_read_like_parse_semver() {
     let (ok, out) = run(&check_script(&resource(d.path(), Some("v0.34.2"))));
     assert!(ok, "{out}");
 }
+
+const EMPTY_SUM: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+/// Fix round 2 (a): a directory at the binary path never reads as converged,
+/// not even when `checksum:` is the sha256 of empty input.
+#[test]
+fn a_directory_at_the_binary_path_is_never_converged() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir(d.path().join("ollama")).unwrap();
+    for sum in [None, Some(EMPTY_SUM)] {
+        let mut r = resource(d.path(), Some("nightly"));
+        r.checksum = sum.map(str::to_string);
+        let (ok, out) = run(&check_script(&r));
+        assert!(!ok && out.contains("missing:"), "{sum:?}: {out}");
+    }
+}
+
+/// A binary that records that it ran, printing 0.34.2.
+fn install_marking(dir: &Path) -> std::path::PathBuf {
+    let mark = dir.join("ran");
+    let p = dir.join("ollama");
+    let body = format!(
+        "#!/bin/sh\ntouch '{}'\necho 'ollama version 0.34.2'\n",
+        mark.display()
+    );
+    std::fs::write(&p, body).unwrap();
+    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    mark
+}
+
+/// Fix round 2 (b): the checksum is verified before the binary is executed.
+#[test]
+fn a_wrong_or_invalid_checksum_means_the_binary_is_not_run() {
+    for bad in [OTHER_SUM, "not-hex"] {
+        let d = tempfile::tempdir().unwrap();
+        let mark = install_marking(d.path());
+        let mut r = resource(d.path(), Some("v0.34.2"));
+        r.checksum = Some(bad.to_string());
+        let (ok, out) = run(&check_script(&r));
+        assert!(!ok, "{bad}: {out}");
+        assert!(
+            !mark.exists(),
+            "{bad}: binary ran before its checksum was verified"
+        );
+    }
+    let d = tempfile::tempdir().unwrap();
+    let mark = install_marking(d.path());
+    let mut r = resource(d.path(), Some("v0.34.2"));
+    r.checksum = Some(sha256_of(&d.path().join("ollama")));
+    let (ok, out) = run(&check_script(&r));
+    assert!(ok && mark.exists(), "a matching checksum runs it: {out}");
+}

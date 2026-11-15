@@ -33,13 +33,25 @@ fn exe(path: &Path, body: &str) {
 /// Run the apply script with the live binary printing `version_output`.
 /// Returns (stderr, exit success, whether curl was reached).
 fn run(tag: &str, version_output: Option<&str>) -> (String, bool, bool) {
+    match version_output {
+        Some(out) => run_raw(tag, &format!("printf '%s\\n' '{out}'")),
+        None => run_with(tag, None),
+    }
+}
+
+/// Run the apply script with the live binary running the shell `body`.
+fn run_raw(tag: &str, body: &str) -> (String, bool, bool) {
+    run_with(tag, Some(body))
+}
+
+fn run_with(tag: &str, body: Option<&str>) -> (String, bool, bool) {
     let dir = tempfile::tempdir().unwrap();
     let bin_dir = dir.path().join("bin");
     let fake = dir.path().join("fake");
     std::fs::create_dir_all(&bin_dir).unwrap();
     std::fs::create_dir_all(&fake).unwrap();
-    if let Some(out) = version_output {
-        exe(&bin_dir.join("ollama"), &format!("printf '%s\\n' '{out}'"));
+    if let Some(body) = body {
+        exe(&bin_dir.join("ollama"), body);
     }
     let reached = dir.path().join("curl-reached");
     exe(
@@ -146,4 +158,24 @@ fn fj613_the_guarded_script_survives_forjars_own_bashrs_gate() {
     assert!(script.contains("refusing to downgrade"), "guard missing");
     crate::core::purifier::validate_script(&script)
         .unwrap_or_else(|e| panic!("bashrs refused the guarded apply script: {e}\n{script}"));
+}
+
+/// Fix round 2 (c): the guard reads the live version like `check_script`: a NUL
+/// is a token boundary and the read is bytewise.
+#[test]
+fn fj613_guard_reads_a_version_after_a_nul_byte() {
+    let (err, ok, reached) = run_raw("v0.33.2", "printf 'tool\\000 0.34.2\\n'");
+    assert!(
+        !ok && !reached,
+        "NUL output must still trip the guard:\n{err}"
+    );
+}
+
+#[test]
+fn fj613_guard_reads_a_version_next_to_a_non_ascii_byte() {
+    let (err, ok, reached) = run_raw("v0.33.2", "printf 'ollama \\303\\2510.34.2\\n'");
+    assert!(
+        !ok && !reached,
+        "non-ASCII output must still trip the guard:\n{err}"
+    );
 }
