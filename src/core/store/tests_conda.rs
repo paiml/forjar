@@ -42,7 +42,7 @@ fn test_fj1348_parse_missing_name_error() {
     let json = r#"{"version": "1.0"}"#;
     let result = parse_conda_index(json);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("name"));
+    assert!(result.unwrap_err().to_string().contains("name"));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_fj1348_parse_missing_version_error() {
     let json = r#"{"name": "foo"}"#;
     let result = parse_conda_index(json);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("version"));
+    assert!(result.unwrap_err().to_string().contains("version"));
 }
 
 #[test]
@@ -68,7 +68,10 @@ fn test_fj1348_detect_unknown_extension() {
 
     let result = read_conda(&fake, &out);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("unknown conda format"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("unknown conda format"));
 }
 
 #[test]
