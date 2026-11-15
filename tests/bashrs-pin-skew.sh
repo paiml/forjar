@@ -101,6 +101,96 @@ expect skew-fine-ok 1 'fine[[:space:]]+param[[:space:]]+7\.4\.3[[:space:]]+ok' -
 # forjar's own Cargo.toml requirement is a pin too (an exact `=` requirement reads the same).
 expect cargo-skew 1 'cargo-req[[:space:]]+7\.4\.2[[:space:]]+SKEW' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-old.toml"
 
+# Pin syntax variants (fix round 1). Every pin is read to its exact version or
+# reported CANNOT-PARSE; nothing is silently skipped, and a trailing comment can
+# never supply the version. Latest is 7.4.3 throughout.
+mk forms trail <<'EOF2'
+resources:
+  x:
+    command: cargo install bashrs@7.4.1 # latest is bashrs --version 7.4.3
+EOF2
+mk forms trail2 <<'EOF2'
+resources:
+  x:
+    command: cargo install bashrs --version 7.4.2   # bump to bashrs@7.4.3 later
+EOF2
+mk forms caret <<'EOF2'
+params:
+  bashrs_version: "^7.4.3"
+EOF2
+mk forms tilde <<'EOF2'
+params:
+  bashrs_version: "~7.4.2"
+EOF2
+mk forms ge <<'EOF2'
+params:
+  bashrs_version: ">=7.4.1"
+EOF2
+mk forms eq <<'EOF2'
+params:
+  bashrs_version: "=7.4.0"
+EOF2
+mk forms vpre <<'EOF2'
+params:
+  bashrs_version: v7.4.5
+EOF2
+mk forms single <<'EOF2'
+params:
+  bashrs_version: '7.4.6'
+EOF2
+mk forms rc <<'EOF2'
+params:
+  bashrs_version: "7.4.3-rc.1"
+EOF2
+mk forms inline <<'EOF2'
+params:
+  bashrs_version: "7.4.7" # was 7.4.3
+EOF2
+mk forms word <<'EOF2'
+params:
+  bashrs_version: latest
+EOF2
+mk forms shellvar <<'EOF2'
+resources:
+  x:
+    command: cargo install bashrs --version $BASHRS_VER
+EOF2
+mk forms query <<'EOF2'
+resources:
+  x:
+    command: bashrs --version | head -n 1
+EOF2
+printf '[dependencies]\nbashrs = { version = "7.4.1", features = ["x"] } # latest is 7.4.3\n' > "$tmp/cargo-brace-comment.toml"
+printf '[dependencies]\nbashrs = "~7.4.2"\n' > "$tmp/cargo-tilde.toml"
+printf '[dependencies]\nbashrs = "7.4.3-rc.1"\n' > "$tmp/cargo-rc.toml"
+printf '[dependencies]\nbashrs = ">=7.4.1, <8"\n' > "$tmp/cargo-range.toml"
+printf '[dependencies]\nbashrs = { path = "../bashrs" }\n' > "$tmp/cargo-path.toml"
+F=(--latest 7.4.3 --machines "$tmp/forms" --cargo "$tmp/cargo-ok.toml")
+expect form-trail 1 '^trail[[:space:]]+install[[:space:]]+7\.4\.1[[:space:]]+SKEW' -- "${F[@]}"
+expect form-trail2 1 '^trail2[[:space:]]+install[[:space:]]+7\.4\.2[[:space:]]+SKEW' -- "${F[@]}"
+expect form-caret 1 '^caret[[:space:]]+param[[:space:]]+7\.4\.3[[:space:]]+ok' -- "${F[@]}"
+expect form-tilde 1 '^tilde[[:space:]]+param[[:space:]]+7\.4\.2[[:space:]]+SKEW' -- "${F[@]}"
+expect form-ge 1 '^ge[[:space:]]+param[[:space:]]+7\.4\.1[[:space:]]+SKEW' -- "${F[@]}"
+expect form-eq 1 '^eq[[:space:]]+param[[:space:]]+7\.4\.0[[:space:]]+SKEW' -- "${F[@]}"
+expect form-vprefix 1 '^vpre[[:space:]]+param[[:space:]]+7\.4\.5[[:space:]]+SKEW' -- "${F[@]}"
+expect form-single-quote 1 '^single[[:space:]]+param[[:space:]]+7\.4\.6[[:space:]]+SKEW' -- "${F[@]}"
+expect form-prerelease 1 '^rc[[:space:]]+param[[:space:]]+7\.4\.3-rc\.1[[:space:]]+SKEW' -- "${F[@]}"
+expect form-inline-comment 1 '^inline[[:space:]]+param[[:space:]]+7\.4\.7[[:space:]]+SKEW' -- "${F[@]}"
+expect form-word-unparseable 1 '^word[[:space:]]+param[[:space:]]+UNPARSEABLE[[:space:]]+CANNOT-PARSE' -- "${F[@]}"
+expect form-shellvar-unparseable 1 '^shellvar[[:space:]]+install[[:space:]].*CANNOT-PARSE' -- "${F[@]}"
+expect form-version-query-skipped 1 'unparseable=2' -- "${F[@]}"
+mkdir -p "$tmp/only-query"; mk only-query q <<'EOF2'
+resources:
+  x:
+    command: bashrs --version | head -n 1
+EOF2
+expect form-query-is-no-pin 2 'NOT MEASURED: no bashrs pin' -- --latest 7.4.3 --machines "$tmp/only-query" --cargo "$tmp/cargo-ok.toml"
+expect cargo-brace-comment 1 'cargo-req[[:space:]]+7\.4\.1[[:space:]]+SKEW' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-brace-comment.toml"
+expect cargo-tilde 1 'cargo-req[[:space:]]+7\.4\.2[[:space:]]+SKEW' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-tilde.toml"
+expect cargo-prerelease 1 'cargo-req[[:space:]]+7\.4\.3-rc\.1[[:space:]]+SKEW' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-rc.toml"
+expect cargo-range-unparseable 1 'cargo-req[[:space:]].*CANNOT-PARSE' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-range.toml"
+expect cargo-path-only-not-measured 2 'no bashrs requirement' -- --latest 7.4.3 --machines "$tmp/aligned" --cargo "$tmp/cargo-path.toml"
+
 # Not measured is exit 2, never a pass.
 expect no-pins 2 'NOT MEASURED: no bashrs pin' -- --latest 7.4.3 --machines "$tmp/aligned/none" --cargo "$tmp/cargo-ok.toml"
 mkdir -p "$tmp/empty"

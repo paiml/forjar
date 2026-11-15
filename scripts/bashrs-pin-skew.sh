@@ -14,9 +14,13 @@
 #   stack-tool `version: "X"` inside the `stack-tool-bashrs:` resource
 #   pin-file   the first content line of the `fleet-bashrs-pin:` resource
 #   install    `bashrs --version X` or `bashrs@X` in a command
+# A pin may carry a comparator (= ^ ~ > <), a `v` prefix, single or double quotes,
+# a pre-release or build suffix, and an inline comment; the version is read from the
+# pin itself, never from a trailing comment. A pin that is not one X.Y.Z (a word, a
+# $VAR, a range) is reported CANNOT-PARSE and counts as skewed. Nothing is skipped.
 #
 # Usage: bashrs-pin-skew.sh --latest X.Y.Z --machines DIR [--cargo Cargo.toml]
-# Output: one TSV row per pin: source  form  version  ok|SKEW, then a summary.
+# Output: one TSV row per pin: source  form  version  ok|SKEW|CANNOT-PARSE, then a summary.
 # Exit: 0 every pin equals --latest; 1 at least one pin is skewed;
 #       2 not measured (bad arguments, missing input, or no pin found at all).
 #       A not-measured run is never a pass.
@@ -44,32 +48,53 @@ if [ ! -f "$cargo" ]; then
   echo "NOT MEASURED: Cargo.toml '$cargo' is missing" >&2; exit 2
 fi
 
+# Shared awk: parse() reduces one raw pin value to its exact version. It drops an
+# inline `# comment`, surrounding quotes (single or double), a leading comparator
+# (= ^ ~ > <) and a `v` prefix, then requires a whole X.Y.Z[-pre][+build]. Anything
+# else (a word, a $VAR, a range) is "UNPARSEABLE": reported, never skipped.
+AWK_PARSE='
+function parse(s) {
+  sub(/[[:space:]]+#.*$/, "", s)
+  gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+  gsub("^[\"" q "]+|[\"" q "]+$", "", s)
+  sub(/^[=^~<>]+[[:space:]]*/, "", s)
+  sub(/^v/, "", s)
+  if (s ~ /^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/) return s
+  return "UNPARSEABLE"
+}'
+
 # Prints "form<TAB>version" for every bashrs pin in one manifest.
 extract_pins() {
-  awk '
-    function ver(s) { if (match(s, /[0-9]+\.[0-9]+\.[0-9]+/)) return substr(s, RSTART, RLENGTH); return "" }
+  awk -v q="'" "$AWK_PARSE"'
     /^[[:space:]]*#/ { next }
     incontent {
       if ($0 ~ /^[[:space:]]*$/) next
-      v = ver($0); if (v != "") print "pin-file\t" v
+      print "pin-file\t" parse($0)
       incontent = 0
     }
     /^[^[:space:]]/ { key = "" }
-    /^[[:space:]]*bashrs_version:[[:space:]]*"?[0-9]/ { print "param\t" ver($0); next }
+    /^[[:space:]]*bashrs_version:/ { v = $0; sub(/^[[:space:]]*bashrs_version:/, "", v); print "param\t" parse(v); next }
     /^  [A-Za-z0-9_.-]+:[[:space:]]*(#.*)?$/ { key = $1; sub(/:$/, "", key); next }
-    key == "stack-tool-bashrs" && /^    version:/ { v = ver($0); if (v != "") print "stack-tool\t" v; next }
+    key == "stack-tool-bashrs" && /^    version:/ { v = $0; sub(/^    version:/, "", v); print "stack-tool\t" parse(v); next }
     key == "fleet-bashrs-pin" && /^    content:[[:space:]]*[|>]/ { incontent = 1; next }
-    /bashrs[[:space:]]+--version[[:space:]]+[0-9]|bashrs@[0-9]/ {
-      s = $0; sub(/.*bashrs([[:space:]]+--version[[:space:]]+|@)/, "", s)
-      v = ver(s); if (v != "") print "install\t" v
+    {
+      s = $0; sub(/[[:space:]]+#.*$/, "", s)
+      while (match(s, /bashrs[[:space:]]+--version(=|[[:space:]]+)[^[:space:]]+|bashrs@[^[:space:]]+/)) {
+        m = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
+        sub(/^bashrs([[:space:]]+--version(=|[[:space:]]+)|@)/, "", m)
+        sub(/[;&|)]+$/, "", m)
+        if (m != "") print "install\t" parse(m)
+      }
     }
   ' "$1"
 }
 
-total=0 skew=0
+total=0 skew=0 unparse=0
 row() { # source form version
   total=$((total + 1))
-  if [ "$3" = "$latest" ]; then
+  if [ "$3" = "UNPARSEABLE" ]; then
+    skew=$((skew + 1)); unparse=$((unparse + 1)); printf '%s\t%s\t%s\tCANNOT-PARSE\n' "$1" "$2" "$3"
+  elif [ "$3" = "$latest" ]; then
     printf '%s\t%s\t%s\tok\n' "$1" "$2" "$3"
   else
     skew=$((skew + 1)); printf '%s\t%s\t%s\tSKEW\n' "$1" "$2" "$3"
@@ -77,7 +102,17 @@ row() { # source form version
 }
 
 printf 'source\tform\tversion\tstatus\n'
-creq=$(grep -E '^bashrs[[:space:]]*=' "$cargo" | head -n 1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
+# The requirement is the `version = "..."` of a table form, else the bare string.
+creq=$(awk -v q="'" "$AWK_PARSE"'
+  /^bashrs[[:space:]]*=/ {
+    s = $0; sub(/^bashrs[[:space:]]*=[[:space:]]*/, "", s); sub(/[[:space:]]+#.*$/, "", s)
+    if (s ~ /^\{/) {
+      if (match(s, /version[[:space:]]*=[[:space:]]*("[^"]*"|\047[^\047]*\047)/)) {
+        s = substr(s, RSTART, RLENGTH); sub(/^version[[:space:]]*=[[:space:]]*/, "", s)
+      } else exit
+    }
+    print parse(s); exit
+  }' "$cargo")
 if [ -z "$creq" ]; then
   echo "NOT MEASURED: no bashrs requirement in $cargo" >&2; exit 2
 fi
@@ -94,6 +129,6 @@ done
 if [ "$total" -le 1 ]; then
   echo "NOT MEASURED: no bashrs pin found under $machines" >&2; exit 2
 fi
-echo "SUMMARY latest=$latest pins=$total skewed=$skew" >&2
+echo "SUMMARY latest=$latest pins=$total skewed=$skew unparseable=$unparse" >&2
 [ "$skew" -eq 0 ] || exit 1
 exit 0
