@@ -5,7 +5,7 @@
 //! Split out of `main.rs` when that file reached this repository's 500-line
 //! gate.
 
-use crate::scan::{fixture, hosted_in, linux_label};
+use crate::scan::{fixture, hosted_in, job_runs_cargo, linux_label};
 
 // ---------------------------------------------------------------------------
 // Controls. Every one of these is a shape a review lane claimed could hide a
@@ -145,4 +145,49 @@ fn a_mixed_case_linux_label_is_still_a_linux_label() {
         !linux_label("self-hosted"),
         "a fleet label must not be read as a hosted Linux one"
     );
+}
+
+/// forjar#572: a job whose only step is a repository script that runs cargo
+/// internally is a cargo job, even though the step text never says `cargo`.
+/// The receipt job in quorum.yml was invisible to the private-`CARGO_HOME`
+/// guard for exactly that reason.
+#[test]
+fn a_step_that_runs_a_cargo_script_makes_the_job_a_cargo_job() {
+    let doc = fixture(
+        r#"
+jobs:
+  receipt:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - run: ./scripts/quorum-gate.sh --remote-ref origin/main
+  surface:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - run: bash scripts/dogfood/surface.sh
+"#,
+    );
+    for job in ["receipt", "surface"] {
+        assert!(
+            job_runs_cargo(doc.get("jobs").and_then(|j| j.get(job)).unwrap()),
+            "job `{job}` runs a script that runs cargo, but job_runs_cargo did not see it"
+        );
+    }
+}
+
+/// And a job whose steps name neither cargo nor such a script is still not one.
+#[test]
+fn a_job_with_no_cargo_and_no_cargo_script_is_not_a_cargo_job() {
+    let doc = fixture(
+        r#"
+jobs:
+  plain:
+    runs-on: [self-hosted, clean-room]
+    steps:
+      - run: echo hello
+      - run: bash scripts/other.sh
+"#,
+    );
+    assert!(!job_runs_cargo(
+        doc.get("jobs").and_then(|j| j.get("plain")).unwrap()
+    ));
 }
