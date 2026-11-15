@@ -4,6 +4,7 @@
 //! and optionally repacks a base ISO with xorriso to produce a bootable image.
 
 use super::helpers::*;
+use crate::core::error::ForjarError;
 use std::path::Path;
 
 /// Generate autoinstall user-data YAML for a machine.
@@ -61,7 +62,7 @@ pub fn cmd_image_iso(
     if !base_iso.exists() {
         return Err(format!("base ISO not found: {}", base_iso.display()));
     }
-    ensure_xorriso()?;
+    ensure_xorriso().map_err(ForjarError::into_untyped)?;
 
     let user_data = generate_user_data(&name, machine, disk, locale, timezone)?;
 
@@ -74,7 +75,7 @@ pub fn cmd_image_iso(
     stage_iso_workdir(&work, base_iso, &user_data, file)?;
 
     // Repack ISO with xorriso
-    repack_iso(&work, output)?;
+    repack_iso(&work, output).map_err(ForjarError::into_untyped)?;
 
     // Clean up temp directory
     let _ = std::fs::remove_dir_all(&work);
@@ -84,7 +85,7 @@ pub fn cmd_image_iso(
 }
 
 /// Verify xorriso is installed and on PATH.
-fn ensure_xorriso() -> Result<(), String> {
+fn ensure_xorriso() -> Result<(), ForjarError> {
     let has_xorriso = std::process::Command::new("which")
         .arg("xorriso")
         .stdout(std::process::Stdio::null())
@@ -95,7 +96,9 @@ fn ensure_xorriso() -> Result<(), String> {
     if has_xorriso {
         Ok(())
     } else {
-        Err("xorriso not found — install with: sudo apt install xorriso".to_string())
+        Err(ForjarError::from_untyped(
+            "xorriso not found — install with: sudo apt install xorriso",
+        ))
     }
 }
 
@@ -108,7 +111,7 @@ fn stage_iso_workdir(
     file: &Path,
 ) -> Result<(), String> {
     // Extract base ISO
-    extract_iso(base_iso, work)?;
+    extract_iso(base_iso, work).map_err(ForjarError::into_untyped)?;
 
     // Write user-data and meta-data
     let nocloud = work.join("nocloud");
@@ -118,7 +121,7 @@ fn stage_iso_workdir(
     std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
 
     // Copy forjar binary into ISO
-    embed_forjar_binary(work)?;
+    embed_forjar_binary(work).map_err(ForjarError::into_untyped)?;
 
     // Copy forjar.yaml into ISO
     let iso_config_dir = work.join("forjar");
@@ -195,7 +198,7 @@ pub fn generate_user_data(
     let ssh_keys = read_ssh_pub_key(machine.ssh_key.as_deref())?;
 
     // Determine storage layout
-    let storage_layout = storage_layout_yaml(disk)?;
+    let storage_layout = storage_layout_yaml(disk).map_err(ForjarError::into_untyped)?;
 
     let mut yaml = String::from("#cloud-config\nautoinstall:\n  version: 1\n");
     yaml.push_str(&format!("  locale: {locale}\n"));
@@ -259,16 +262,16 @@ pub fn generate_user_data(
 }
 
 /// Map the disk argument to an autoinstall storage layout YAML snippet.
-fn storage_layout_yaml(disk: &str) -> Result<String, String> {
+fn storage_layout_yaml(disk: &str) -> Result<String, ForjarError> {
     match disk {
         "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
         "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
         path if path.starts_with('/') => Ok(format!(
             "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
         )),
-        other => Err(format!(
+        other => Err(ForjarError::from_untyped(format!(
             "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
-        )),
+        ))),
     }
 }
 
@@ -368,9 +371,10 @@ WantedBy=multi-user.target"#;
 }
 
 /// Extract a base ISO using xorriso.
-fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), String> {
+fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), ForjarError> {
     let extract_dir = work_dir.join("iso");
-    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create iso dir: {e}"))?;
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| ForjarError::from_untyped(format!("create iso dir: {e}")))?;
 
     let status = std::process::Command::new("xorriso")
         .args([
@@ -385,27 +389,28 @@ fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), String> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
-        .map_err(|e| format!("run xorriso extract: {e}"))?;
+        .map_err(|e| ForjarError::from_untyped(format!("run xorriso extract: {e}")))?;
 
     if !status.success() {
-        return Err("xorriso extraction failed".to_string());
+        return Err(ForjarError::from_untyped("xorriso extraction failed"));
     }
     Ok(())
 }
 
 /// Copy the current forjar binary into the ISO working directory.
-fn embed_forjar_binary(work_dir: &Path) -> Result<(), String> {
+fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
     let bin_dir = work_dir.join("iso").join("forjar").join("bin");
-    std::fs::create_dir_all(&bin_dir).map_err(|e| format!("create bin dir: {e}"))?;
+    std::fs::create_dir_all(&bin_dir)
+        .map_err(|e| ForjarError::from_untyped(format!("create bin dir: {e}")))?;
     if let Ok(exe) = std::env::current_exe() {
         std::fs::copy(&exe, bin_dir.join("forjar"))
-            .map_err(|e| format!("copy forjar binary: {e}"))?;
+            .map_err(|e| ForjarError::from_untyped(format!("copy forjar binary: {e}")))?;
     }
     Ok(())
 }
 
 /// Repack an extracted ISO directory into a bootable ISO using xorriso.
-fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
+fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), ForjarError> {
     let iso_dir = work_dir.join("iso");
 
     let status = std::process::Command::new("xorriso")
@@ -442,10 +447,10 @@ fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
-        .map_err(|e| format!("run xorriso repack: {e}"))?;
+        .map_err(|e| ForjarError::from_untyped(format!("run xorriso repack: {e}")))?;
 
     if !status.success() {
-        return Err("xorriso ISO repack failed".to_string());
+        return Err(ForjarError::from_untyped("xorriso ISO repack failed"));
     }
     Ok(())
 }
