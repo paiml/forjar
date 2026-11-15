@@ -14,11 +14,15 @@ use std::path::Path;
 /// Labels that select one machine (or two or three of one kind), not a pool.
 /// `.github/actionlint.yaml` documents them. Compared without case.
 const HOST_LABELS: &str = "arm64 aarch64 gx10 intel yoga yoga-build mac-server t2yoga kfocus \
-                           framework framework16 t2fw13 lambda mini mini-builder";
+                           framework framework16 t2fw13 lambda mini mini-builder \
+                           macos perf-solo ada blackwell gb10";
 
 /// (workflow, job, label): the macOS legs of `lint.yml` have one seat, the
 /// self-hosted mac. A reviewed exception; a stale entry fails the test.
-const KNOWN_HOST_PINS: [(&str, &str, &str); 1] = [("lint.yml", "clippy", "mini-builder")];
+const KNOWN_HOST_PINS: [(&str, &str, &str); 2] = [
+    ("lint.yml", "clippy", "mini-builder"),
+    ("lint.yml", "clippy", "macos"),
+];
 
 fn pr_triggered(doc: &Value) -> bool {
     let on = doc.get("on").or_else(|| doc.get(Value::Bool(true)));
