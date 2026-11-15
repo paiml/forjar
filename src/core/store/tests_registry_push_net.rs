@@ -340,3 +340,22 @@ fn chunked_push_fails_on_http_500() {
     let reqs = server.recorded();
     assert!(reqs.iter().any(|r| r.method == "PATCH"));
 }
+
+/// A registry that never answers is a connection failure (exit 4), declared by
+/// the producer and kept across the `String` boundary of the CLI.
+#[test]
+fn an_unresolvable_registry_is_a_connection_error() {
+    let err = super::registry_push::check_blob_exists(
+        "forjar-cov-registry.invalid",
+        "test/repo",
+        "sha256:00",
+    )
+    .expect_err("`.invalid` never resolves");
+    assert_eq!(err.class(), crate::core::error::ErrorClass::Connection);
+    assert_eq!(err.exit_code(), 4);
+    let lowered = err.into_untyped();
+    assert_eq!(
+        crate::core::error::classify_untyped(&lowered).exit_code(),
+        4
+    );
+}

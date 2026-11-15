@@ -173,7 +173,16 @@ fn push_image_missing_index() {
     };
     let result = push_image(dir.path(), &config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("index.json"));
+    let err = result.unwrap_err();
+    assert_eq!(err.class(), crate::core::error::ErrorClass::Validation);
+    assert_eq!(err.exit_code(), 3);
+    assert!(err.to_string().contains("index.json"));
+    // The declared class survives the String boundary the CLI still has.
+    let lowered = err.into_untyped();
+    assert_eq!(
+        crate::core::error::classify_untyped(&lowered).exit_code(),
+        3
+    );
 }
 
 #[test]

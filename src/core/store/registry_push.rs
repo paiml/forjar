@@ -53,7 +53,7 @@ pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<boo
     let response =
         registry_http::send(&agent, "HEAD", &url, &[], registry_http::RequestBody::Empty).map_err(
             |e| {
-                ForjarError::from_untyped(format!(
+                ForjarError::connection(format!(
                     "registry unreachable: no HTTP response from {url} ({e})"
                 ))
             },
@@ -62,7 +62,7 @@ pub fn check_blob_exists(registry: &str, name: &str, digest: &str) -> Result<boo
     match response.status {
         200 => Ok(true),
         404 => Ok(false),
-        code => Err(ForjarError::from_untyped(
+        code => Err(ForjarError::other(
             super::registry_push_http::describe_status(&format!("HEAD {url}"), code),
         )),
     }
@@ -99,7 +99,7 @@ pub fn push_blob(
 
     // Step 3: Upload blob (monolithic or chunked based on size)
     if blob.size >= CHUNKED_UPLOAD_THRESHOLD {
-        push_blob_chunked(&upload_url, blob).map_err(ForjarError::from_untyped)?;
+        push_blob_chunked(&upload_url, blob).map_err(ForjarError::other)?;
     } else {
         push_blob_monolithic(&upload_url, blob)?;
     }
@@ -127,19 +127,19 @@ fn initiate_upload(registry: &str, name: &str) -> Result<String, ForjarError> {
     let response =
         registry_http::send(&agent, "POST", &url, &[], registry_http::RequestBody::Empty).map_err(
             |e| {
-                ForjarError::from_untyped(format!(
+                ForjarError::connection(format!(
                     "registry unreachable: no HTTP response to POST {url} ({e})"
                 ))
             },
         )?;
 
     if response.status != 202 {
-        return Err(ForjarError::from_untyped(
+        return Err(ForjarError::other(
             super::registry_push_http::describe_status(&format!("POST {url}"), response.status),
         ));
     }
     let location = response.location.ok_or_else(|| {
-        ForjarError::from_untyped(format!(
+        ForjarError::other(format!(
             "POST {url} returned 202 with no Location header; no upload session to write to"
         ))
     })?;
@@ -166,13 +166,13 @@ fn push_blob_monolithic(upload_url: &str, blob: &BlobDescriptor) -> Result<(), F
         registry_http::RequestBody::File(&blob.path),
     )
     .map_err(|e| {
-        ForjarError::from_untyped(format!(
+        ForjarError::connection(format!(
             "blob upload failed: no HTTP response from {url} ({e})"
         ))
     })?;
 
     if !registry_http::is_success(response.status) {
-        return Err(ForjarError::from_untyped(format!(
+        return Err(ForjarError::other(format!(
             "blob upload failed (HTTP {}): {}",
             response.status,
             registry_http::detail(&response)
@@ -212,13 +212,13 @@ pub fn push_manifest(
         registry_http::RequestBody::Bytes(manifest_json.as_bytes()),
     )
     .map_err(|e| {
-        ForjarError::from_untyped(format!(
+        ForjarError::connection(format!(
             "manifest push failed: no HTTP response from {url} ({e})"
         ))
     })?;
 
     if !registry_http::is_success(response.status) {
-        return Err(ForjarError::from_untyped(format!(
+        return Err(ForjarError::other(format!(
             "manifest push failed (HTTP {}): {}",
             response.status,
             registry_http::detail(&response)
@@ -251,16 +251,16 @@ pub fn push_image(
     // `forjar build --push` has no undeclared runtime dependency to be missing.
     let blobs_dir = oci_dir.join("blobs").join("sha256");
     if !blobs_dir.is_dir() {
-        return Err(ForjarError::from_untyped(format!(
-            "OCI blobs directory not found: {}",
+        return Err(ForjarError::validation(format!(
+            "invalid OCI layout: blobs directory not found: {}",
             blobs_dir.display()
         )));
     }
 
     let index_path = oci_dir.join("index.json");
     if !index_path.exists() {
-        return Err(ForjarError::from_untyped(format!(
-            "OCI index.json not found: {}",
+        return Err(ForjarError::validation(format!(
+            "invalid OCI layout: index.json not found: {}",
             index_path.display()
         )));
     }
@@ -274,14 +274,14 @@ pub fn push_image(
     // Refs #210: a push with no manifest PUT leaves the tag pointing wherever
     // it pointed before, so refuse rather than report a partial push.
     if manifests.is_empty() {
-        return Err(ForjarError::from_untyped(format!(
-            "no manifest found in OCI layout {}: index.json references none of the blobs present",
+        return Err(ForjarError::validation(format!(
+            "invalid OCI layout: no manifest found in OCI layout {}: index.json references none of the blobs present",
             oci_dir.display()
         )));
     }
     if manifests.len() > 1 {
-        return Err(ForjarError::from_untyped(format!(
-            "OCI layout {} holds {} manifests (a multi-arch image index); \
+        return Err(ForjarError::validation(format!(
+            "invalid OCI layout: {} holds {} manifests (a multi-arch image index); \
              forjar cannot push an index to a single tag",
             oci_dir.display(),
             manifests.len()
@@ -302,7 +302,7 @@ pub fn push_image(
     // tag, so nothing could ever pull the image that was reported as pushed.
     let manifest = manifests[0];
     let manifest_json = std::fs::read_to_string(&manifest.path).map_err(|e| {
-        ForjarError::from_untyped(format!("read manifest {}: {e}", manifest.path.display()))
+        ForjarError::other(format!("read manifest {}: {e}", manifest.path.display()))
     })?;
     results.push(push_manifest(config, &manifest_json, &manifest.digest)?);
 
@@ -357,11 +357,10 @@ pub(crate) fn discover_blobs(oci_dir: &Path) -> Result<Vec<BlobDescriptor>, Forj
     let classification = classify_digests_from_index(oci_dir);
     let mut blobs = Vec::new();
     let entries = std::fs::read_dir(&blobs_dir)
-        .map_err(|e| ForjarError::from_untyped(format!("read blobs dir: {e}")))?;
+        .map_err(|e| ForjarError::other(format!("read blobs dir: {e}")))?;
 
     for entry in entries {
-        let entry =
-            entry.map_err(|e| ForjarError::from_untyped(format!("read blob entry: {e}")))?;
+        let entry = entry.map_err(|e| ForjarError::other(format!("read blob entry: {e}")))?;
         let path = entry.path();
         if !path.is_file() {
             continue;

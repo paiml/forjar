@@ -122,6 +122,15 @@ pub const DRIFT_DECLINED_MARKER: &str = "declined: inspected 0 of";
 /// Headline of a `check` run that could not reach a target (forjar#659): exit 4.
 pub const CHECK_UNMEASURED_MARKER: &str = "check unmeasured — the target did not answer";
 
+/// Headline of an OCI layout directory forjar cannot push (missing blobs dir or
+/// index.json, no or several manifests): bad input, exit 3.
+/// `src/core/store/registry_push.rs::push_image`.
+pub const OCI_LAYOUT_INVALID_MARKER: &str = "invalid OCI layout";
+
+/// A registry request that got no HTTP response at all: the target was not
+/// reached, exit 4. `src/core/store/registry_push.rs` (HEAD, POST, blob, manifest).
+pub const REGISTRY_NO_RESPONSE_MARKER: &str = "no HTTP response";
+
 /// Markers a MIGRATED producer stamps into its message so that the class it
 /// DECLARED survives a not-yet-typed `Result<_, String>` boundary.
 ///
@@ -144,6 +153,9 @@ const DECLARED_MARKERS: &[(&str, ErrorClass)] = &[
     (DRIFT_DECLINED_MARKER, ErrorClass::Partial),
     // src/cli/check.rs::cmd_check_selected — a target never reached (forjar#659).
     (CHECK_UNMEASURED_MARKER, ErrorClass::Connection),
+    // src/core/store/registry_push.rs — OCI layout rejected / registry silent.
+    (OCI_LAYOUT_INVALID_MARKER, ErrorClass::Validation),
+    (REGISTRY_NO_RESPONSE_MARKER, ErrorClass::Connection),
 ];
 
 /// An error that knows what kind of failure it is.
