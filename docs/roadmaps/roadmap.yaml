@@ -4537,7 +4537,7 @@ roadmap:
   github_issue: 572
   item_type: task
   title: quorum.yml's receipt job builds against the shared ~/.cargo — the fleet test cannot see cargo run through a script
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-16T04:40:41Z
@@ -7710,6 +7710,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1093
+  github_issue: 1093
+  item_type: task
+  title: retry test must not depend on the host ssh behaviour (forjar#1093)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1067
   github_issue: 1067
   item_type: task
@@ -7728,10 +7746,10 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-1093
-  github_issue: 1093
+- id: PMAT-1078
+  github_issue: 1078
   item_type: task
-  title: retry test must not depend on the host ssh behaviour (forjar#1093)
+  title: 'errors: typed ForjarError in registry_push (untyped-error ratchet, 6 sites)'
   status: planned
   priority: high
   assigned_to: null

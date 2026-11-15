@@ -2,6 +2,7 @@
 //!
 //! Split from `build_image.rs` to stay under 500-line limit.
 
+use crate::core::error::ForjarError;
 use std::path::Path;
 
 /// FJ-2106: Handle --load flag — tar OCI layout and pipe to docker/podman load.
@@ -175,7 +176,7 @@ pub(crate) fn cmd_build_push(image_reference: &str, oci_dir: &Path) -> Result<()
         registry_push_http::registry_url(iref.api_host(), &format!("v2/{}", iref.repository))
     );
 
-    let blobs = registry_push::discover_blobs(oci_dir)?;
+    let blobs = registry_push::discover_blobs(oci_dir).map_err(ForjarError::into_untyped)?;
     if blobs.is_empty() {
         return Err(format!(
             "nothing to push: no blobs in OCI layout {} (build the image first)",
@@ -184,7 +185,8 @@ pub(crate) fn cmd_build_push(image_reference: &str, oci_dir: &Path) -> Result<()
     }
     println!("  blobs: {} to push", blobs.len());
 
-    let results = registry_push::push_image(oci_dir, &push_config)?;
+    let results =
+        registry_push::push_image(oci_dir, &push_config).map_err(ForjarError::into_untyped)?;
 
     let manifest_digest = results
         .iter()
