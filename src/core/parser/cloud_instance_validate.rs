@@ -26,8 +26,8 @@ fn with_stand_ins(resource: &Resource) -> Resource {
     if is_template(&r.cloud.region) {
         // A literal zone is region plus one letter: keep that check alive.
         let from_zone = r.cloud.availability_zone.as_deref().and_then(|z| {
-            let (head, last) = z.split_at(z.len().checked_sub(1)?);
-            last.chars().all(|c| c.is_ascii_lowercase()).then_some(head)
+            z.strip_suffix(|c: char| c.is_ascii_lowercase())
+                .filter(|head| !head.is_empty())
         });
         r.cloud.region = Some(from_zone.unwrap_or("us-east-1").into());
     }

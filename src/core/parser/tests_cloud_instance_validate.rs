@@ -150,3 +150,15 @@ fn a_tag_with_braces_is_rejected_because_tags_are_never_resolved() {
     assert_eq!(e.len(), 1, "{e:?}");
     assert!(e[0].contains("tag"), "{e:?}");
 }
+
+#[test]
+fn a_non_ascii_or_empty_zone_with_a_templated_region_is_rejected_not_a_panic() {
+    for zone in ["us-east-1é", "é", "", "a"] {
+        let mut r = valid();
+        r.cloud.region = Some(t());
+        r.cloud.availability_zone = Some(zone.into());
+        let e = errs(&r);
+        assert_eq!(e.len(), 1, "{zone:?}: {e:?}");
+        assert!(e[0].contains("cloud_availability_zone"), "{zone:?}: {e:?}");
+    }
+}
