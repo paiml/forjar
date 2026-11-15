@@ -85,6 +85,13 @@ if [ "$last" != "bash" ]; then
 fi
 
 script=$(cat)
+printf '%s\n' "$script" >> "$FJ_SSH_LOG.scripts"
+case "$script" in
+  *"df -i"*)
+    printf 'Filesystem Type Inodes IUsed IFree IUse%% Mounted\n/dev/x ext4 100 1 99 1%% /\n'
+    exit 0
+    ;;
+esac
 if [ -n "$FJ_SSH_OVERLAP_LOG" ]; then
   case "$script" in
     *__DIR__*)
@@ -209,6 +216,7 @@ impl Fleet {
         Run {
             stderr: String::from_utf8_lossy(&out.stderr).to_string(),
             ssh: fs::read_to_string(&ssh_log).unwrap_or_default(),
+            scripts: fs::read_to_string(self.path("ssh.log.scripts")).unwrap_or_default(),
         }
     }
 }
@@ -217,6 +225,8 @@ struct Run {
     stderr: String,
     /// One line per `ssh` spawn, the argv joined by spaces.
     ssh: String,
+    /// Every remote script piped to `bash`, in spawn order.
+    scripts: String,
 }
 
 impl Run {
@@ -261,13 +271,26 @@ fn ssh_master_opens_before_any_gate_query() {
         run.ssh
     );
 
+    // The apply pre-check (inode pressure, #847) now sends its own `df -i`
+    // query first, so a query COUNT no longer maps to resources. The invariant
+    // is coverage: every locked resource's path is probed by some query, and
+    // (below) every one of those queries rides the master's socket.
     let remote = run.remote_commands();
     assert!(
-        remote.len() >= 4,
-        "expected one remote query per locked resource, got {}:\n{}",
-        remote.len(),
+        !remote.is_empty(),
+        "no remote query ran at all:\nstderr:\n{}\n{}",
+        run.stderr,
         run.ssh
     );
+    for id in ["a", "b", "c", "d"] {
+        let path = format!("/srv/{id}.txt");
+        assert!(
+            run.scripts.contains(&path),
+            "locked resource {path} was never queried by the drift gate.\nscripts:\n{}\nstderr:\n{}",
+            run.scripts,
+            run.stderr
+        );
+    }
     let fresh: Vec<&&str> = remote
         .iter()
         .filter(|l| !l.contains("ControlPath="))
