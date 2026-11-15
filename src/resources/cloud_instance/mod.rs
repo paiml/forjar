@@ -25,6 +25,8 @@
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
+mod destroy;
+use destroy::destroy_script;
 mod validate;
 use validate::{
     field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
@@ -362,41 +364,6 @@ pub fn state_query_script(resource: &Resource) -> String {
     format!(
         "{}if [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
         lookup_ids("ids", &owned)
-    )
-}
-
-/// `state: absent`: terminate ONLY the instances carrying this resource's own
-/// `forjar-owner` tag, cancel their spot requests, and report what is true.
-/// Never launches. Not gated: the kill switch exists to stop spend, and this
-/// only ever removes owned instances (none owned = a no-op success).
-fn destroy_script(s: &CloudInstance) -> String {
-    let region = sh_squote(&s.region);
-    let owner = owner_of(s);
-    let ids = describe_by(
-        s,
-        "forjar-owner",
-        &owner,
-        "Reservations[].Instances[].InstanceId",
-    );
-    let sirs = describe_by(
-        s,
-        "forjar-owner",
-        &owner,
-        "Reservations[].Instances[].SpotInstanceRequestId",
-    );
-    let lookup = lookup_ids("ids", &ids);
-    format!(
-        "set -eu\n\
-         {lookup}\
-         if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
-         sirs=\"$({sirs})\"\n\
-         set -- $ids\n\
-         aws ec2 terminate-instances --region {region} --instance-ids \"$@\" >/dev/null\n\
-         for r in $sirs; do case \"$r\" in sir-*) h=\"${{r#sir-}}\"; case \"$h\" in ''|*[!0-9a-z]*) continue;; esac;; *) continue;; esac; \
-         aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
-         left=\"$({ids})\"\n\
-         if [ -n \"$left\" ]; then echo \"NOT destroyed: still pending or running: $left\" >&2; exit 1; fi\n\
-         echo \"destroyed $ids\"\n",
     )
 }
 
