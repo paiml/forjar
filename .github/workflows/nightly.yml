@@ -225,6 +225,33 @@ jobs:
             forjar-${{ matrix.target }}.zip
             forjar-${{ matrix.target }}.zip.sha256
 
+  # ── aarch64 smoke (forjar#1090) ───────────────────────────
+  # Builds forjar on an aarch64 runner and runs the integration targets that are
+  # sensitive to the architecture, so an arch regression still shows. Until
+  # 2026-11-15 this ran on every pull request as `examples-validate`; with no
+  # ARM64 runner online it queued every PR, so it moved here. `release` does not
+  # need it: a missing ARM64 runner must not hold the nightly back.
+  arm64-smoke:
+    name: arm64-smoke
+    timeout-minutes: 60
+    needs: check-activity
+    if: needs.check-activity.outputs.has_commits == 'true'
+    runs-on: [self-hosted, clean-room, ARM64]
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build and run the integration smoke on aarch64
+        run: |
+          test "$(uname -m)" = aarch64
+          cargo test --locked \
+          --test examples_validate \
+          --test falsification_722_cache_key_arch \
+          --test falsification_undo_actually_undoes \
+          --test falsification_sudo_transport_closefrom_emulated \
+          --test falsification_version_matches_manifest
+
   # ── Create/update nightly prerelease ─────────────────────
   release:
     timeout-minutes: 120

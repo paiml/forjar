@@ -134,9 +134,10 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: examples-validate
-    # The one ARM64 smoke (infra-cop 2026-11-10): builds forjar on aarch64 and runs the
-    # integration targets below there, so an arch regression stays visible.
-    runs-on: [self-hosted, clean-room, ARM64]
+    # forjar#1090: X64, like every other job a pull request triggers. The aarch64 smoke this
+    # job used to be runs nightly (nightly.yml `arm64-smoke`): a required PR job on ARM64
+    # queued every PR for hours on 2026-11-15, when no ARM64 runner was online.
+    runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -184,7 +185,8 @@ jobs:
           --test falsification_nightly_windows_openssl_perl \
           --test falsification_683_cross_mounts_under_work_root \
           --test falsification_sudo_transport_closefrom_emulated \
-          --test falsification_version_matches_manifest
+          --test falsification_version_matches_manifest \
+          --test falsification_pr_jobs_name_no_arm64_or_host
       # And the LIVE half of the same falsifier. The emulated test fakes `sudo`,
       # so it can show the transport surviving an emulated closefrom but never
       # the host's real one with a real uid 0 on the other side.
