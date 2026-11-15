@@ -277,20 +277,11 @@ fn only_whole_spot_request_ids_are_cancelled() {
     let sb = Sandbox::new();
     let fx = format!(
         "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n\
-         i-00b2c3d4 {KEY_A} {OWN_A} sir-0A1B2C3D\n\
-         i-00c3d4e5 {KEY_A} {OWN_A} sir-0c!x\n\
-         i-00d4e5f6 {KEY_A} {OWN_A} sir-\n\
          i-00e5f6a7 {KEY_A} {OWN_A} sir-1d2e3f4a\n\
-         i-00f6a7b8 {KEY_A} {OWN_A} sir-0a1b2c3d4\n\
-         i-00a7b8c9 {KEY_A} {OWN_A} sir-0a1b2c3\n\
-         i-00b8c9d0 {KEY_A} {OWN_A} sir-*\n\
          i-00c9d0e1 {KEY_A} {OWN_A} None\n"
     );
     let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
-    // every owned box is terminated, but a spot request left uncancelled is not "destroyed"
-    assert_ne!(rc, 0, "{out}");
-    assert!(out.contains("spot request id"), "{out}");
-    assert!(!out.contains("destroyed i-"), "{out}");
+    assert_eq!(rc, 0, "{out}");
     let log = sb.log();
     assert_eq!(count(&log, "terminate-instances"), 1, "{log}");
     let cancels: Vec<_> = log.lines().filter(|l| l.contains("cancel-spot")).collect();
@@ -299,6 +290,30 @@ fn only_whole_spot_request_ids_are_cancelled() {
         cancels[0].ends_with(" sir-0a1b2c3d") && cancels[1].ends_with(" sir-1d2e3f4a"),
         "{log}"
     );
+}
+
+#[test]
+fn a_malformed_spot_request_id_stops_destroy_before_any_terminate() {
+    for bad in [
+        "sir-0A1B2C3D",
+        "sir-0c!x",
+        "sir-",
+        "sir-0a1b2c3d4",
+        "sir-0a1b2c3",
+        "sir-*",
+        "xx-0a1b2c3d",
+    ] {
+        let sb = Sandbox::new();
+        let fx =
+            format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\ni-00b2c3d4 {KEY_A} {OWN_A} {bad}\n");
+        let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+        assert_ne!(rc, 0, "{bad}: {out}");
+        assert!(out.contains("not a whole spot request id"), "{bad}: {out}");
+        assert!(!out.contains("destroyed"), "{bad}: {out}");
+        let log = sb.log();
+        assert_eq!(count(&log, "terminate-instances"), 0, "{bad}: {log}");
+        assert_eq!(count(&log, "cancel-spot"), 0, "{bad}: {log}");
+    }
 }
 
 #[test]
@@ -325,5 +340,6 @@ fn a_failed_post_terminate_lookup_is_an_error_never_destroyed() {
     assert_ne!(rc, 0, "{out}");
     assert!(out.contains("lookup failed"), "{out}");
     assert!(!out.contains("destroyed"), "{out}");
+    assert_eq!(count(&sb.log(), "terminate-instances"), 1, "{}", sb.log());
     assert_eq!(count(&sb.log(), "describe-instances"), 3, "{}", sb.log());
 }
