@@ -17,6 +17,9 @@
 //!   share it: one sees the other's box as its own, and its `state: absent`
 //!   terminates it. Uniqueness is enforced within one config only. Keep names
 //!   distinct across configs.
+//! - The instance key includes the image digest and, when declared, a hash of the
+//!   placement (subnet, security groups): a placement change on a live box is
+//!   refused like an image change.
 //! - The instance key includes the image digest. Changing `image:` while the
 //!   old box is alive is refused (never a second launch); the old box lives
 //!   until its lifetime ends or `state: absent`. The spend cap is per launch,
@@ -25,6 +28,7 @@
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
+mod placement;
 mod validate;
 use validate::{
     field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
@@ -39,6 +43,8 @@ mod tests_b1;
 mod tests_b4;
 #[cfg(test)]
 mod tests_lint;
+#[cfg(test)]
+mod tests_net;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +57,7 @@ pub struct CloudInstance {
     pub image: String,
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
+    pub placement: placement::Placement,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -113,6 +120,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
             "tags forjar-key and forjar-owner are reserved for ownership",
         )?;
     }
+    let placement = placement::Placement::of(&resource.cloud)?;
     Ok(CloudInstance {
         name,
         region,
@@ -121,6 +129,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         image,
         max_lifetime_min,
         tags: resource.tags.clone(),
+        placement,
     })
 }
 
@@ -129,7 +138,8 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
 /// share a name (refused by [`validate_unique_names`]).
 fn key_of(s: &CloudInstance) -> String {
     let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
-    format!("{}@{}@{}", s.name, s.region, &digest[..12])
+    let key = format!("{}@{}@{}", s.name, s.region, &digest[..12]);
+    key + &s.placement.key_suffix()
 }
 
 /// Ownership key for teardown: name plus region, stable across image changes.
@@ -467,6 +477,7 @@ pub fn apply_script(resource: &Resource) -> String {
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
+         {net}\
          --user-data {ud} \
          --tag-specifications {tagspec}\n",
         kill = sh_squote(&kill),
@@ -481,6 +492,7 @@ pub fn apply_script(resource: &Resource) -> String {
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
         )),
+        net = s.placement.args(),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )

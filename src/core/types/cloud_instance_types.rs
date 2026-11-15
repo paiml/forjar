@@ -65,4 +65,20 @@ pub struct CloudSpec {
         skip_serializing_if = "Option::is_none"
     )]
     pub parity_gate: Option<String>,
+
+    /// Subnet the instance lands in, a whole `subnet-<hex>` id (#1033).
+    #[serde(
+        rename = "cloud_subnet_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub subnet_id: Option<String>,
+
+    /// Security groups, 1 to 5 whole `sg-<hex>` ids (#1034).
+    #[serde(
+        rename = "cloud_security_group_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub security_group_ids: Option<Vec<String>>,
 }

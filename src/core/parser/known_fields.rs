@@ -158,6 +158,8 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_budget_cap_usd_day",
     "cloud_kill_switch",
     "cloud_parity_gate",
+    "cloud_subnet_id",
+    "cloud_security_group_ids",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",
