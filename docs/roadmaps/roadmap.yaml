@@ -7692,10 +7692,10 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-8941
-  github_issue: 894
+- id: PMAT-1115
+  github_issue: 1115
   item_type: task
-  title: 'pool: spot-interruption decision and orphan sweep, pure functions (forjar#894)'
+  title: 'pool: spot-interruption decision and orphan sweep, pure functions (forjar#1115)'
   status: planned
   priority: medium
   assigned_to: null
