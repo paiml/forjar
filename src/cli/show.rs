@@ -1,6 +1,7 @@
 //! Show, explain, compare, template.
 
 use super::helpers::*;
+use crate::core::error::ForjarError;
 use crate::core::{codegen, parser, resolver, types};
 use std::path::Path;
 
@@ -171,12 +172,12 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
     }
 
     // Text output — strip null/false/empty defaults for clean YAML
-    let raw_yaml = explain_yaml(resource)?;
+    let raw_yaml = explain_yaml(resource).map_err(ForjarError::into_message)?;
     println!("{}", bold("1. Raw Resource Definition"));
     println!("{}", dim("─────────────────────────────"));
     println!("{raw_yaml}");
 
-    let resolved_yaml = explain_yaml(&resolved)?;
+    let resolved_yaml = explain_yaml(&resolved).map_err(ForjarError::into_message)?;
     println!("{}", bold("2. After Template Resolution"));
     println!("{}", dim("─────────────────────────────"));
     if raw_yaml == resolved_yaml {
@@ -199,10 +200,11 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
 }
 
 /// Serialize a resource to YAML with null/false/empty defaults stripped.
-fn explain_yaml<T: serde::Serialize>(value: &T) -> Result<String, String> {
-    let mut val = serde_json::to_value(value).map_err(|e| format!("serialize error: {e}"))?;
+pub(crate) fn explain_yaml<T: serde::Serialize>(value: &T) -> Result<String, ForjarError> {
+    let mut val = serde_json::to_value(value)
+        .map_err(|e| ForjarError::other(format!("serialize error: {e}")))?;
     strip_defaults(&mut val);
-    serde_yaml_ng::to_string(&val).map_err(|e| format!("serialize error: {e}"))
+    serde_yaml_ng::to_string(&val).map_err(|e| ForjarError::other(format!("serialize error: {e}")))
 }
 
 fn print_explain_transport(config: &types::ForjarConfig, machine_name: &str, transport_type: &str) {
@@ -389,4 +391,35 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod explain_yaml_tests {
+    use super::*;
+    use crate::core::error::ErrorClass;
+
+    struct Unserializable;
+
+    impl serde::Serialize for Unserializable {
+        fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("planted failure"))
+        }
+    }
+
+    /// forjar#858: `explain_yaml` declares its class instead of crossing the
+    /// untyped boundary as a bare `String`.
+    #[test]
+    fn explain_yaml_failure_is_a_typed_error_with_the_same_message() {
+        let err = explain_yaml(&Unserializable).unwrap_err();
+        assert_eq!(err.class(), ErrorClass::Other);
+        assert_eq!(err.exit_code(), 1);
+        assert_eq!(err.message(), "serialize error: planted failure");
+    }
+
+    #[test]
+    fn explain_yaml_strips_defaults_and_succeeds() {
+        let out = explain_yaml(&serde_json::json!({"a": 1, "b": null})).unwrap();
+        assert!(out.contains("a: 1"), "{out}");
+        assert!(!out.contains("b:"), "{out}");
+    }
 }
