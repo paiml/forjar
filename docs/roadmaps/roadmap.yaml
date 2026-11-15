@@ -7728,3 +7728,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-859
+  github_issue: 859
+  item_type: task
+  title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
