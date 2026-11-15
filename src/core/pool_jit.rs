@@ -1,17 +1,29 @@
-//! Pool JIT runner configuration (#894, slice 2): a pure builder and validator
-//! for an ephemeral just-in-time runner configuration. No network call, no
-//! file write, no secret value.
+//! Pool JIT runner configuration (#894, slice 2): a pure validator for an
+//! ephemeral just-in-time runner configuration. [`validate`] is the only
+//! constructor of [`JitRunnerConfig`]; nothing here renders a request or a
+//! shell line, makes a network call, writes a file or holds a secret value.
 //!
-//! The configuration holds a reference NAME (an environment-variable style
-//! identifier) saying where the registration token will be read from at run
-//! time. It never holds a token, and it cannot name a path on disk for one.
-//! There is no secret in any field, so the derived `Debug` and the `Display`
-//! of [`JitConfigError`] have nothing secret to print.
+//! The configuration holds a reference NAME saying where the registration
+//! token will be read from at run time. The name must be an environment
+//! variable identifier (`^[A-Z_][A-Z0-9_]*$`, at most 64 bytes), so a pasted
+//! token, a path or a `$(...)` expression is refused. The errors for a bad
+//! token source never echo the value, so neither the derived `Debug` nor the
+//! `Display` of [`JitConfigError`] can print a token that was pasted by
+//! mistake.
+//!
+//! Labels are limited to ASCII letters, digits and `- _ . :`, at most 256
+//! bytes each, with no duplicates (case-insensitive), so a later caller can
+//! join them with `,` into a runner `--labels` list without quoting.
 
+use std::collections::HashSet;
 use std::fmt;
 
 /// Longest token lifetime the pool accepts: one hour.
 pub const MAX_TOKEN_TTL_SECS: u64 = 3600;
+/// Longest label GitHub accepts, in bytes.
+pub const MAX_LABEL_LEN: usize = 256;
+/// Longest token source name accepted, in bytes.
+pub const MAX_TOKEN_SOURCE_LEN: usize = 64;
 
 /// Unvalidated request for one ephemeral runner.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,17 +56,23 @@ impl JitRunnerConfig {
     }
 }
 
-/// Why a request was refused.
+/// Why a request was refused. Token source variants carry no value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JitConfigError {
     ZeroTtl,
     TtlTooLong { secs: u64 },
     EmptyLabelSet,
     BlankLabel,
-    HostNameLabel { label: String },
+    LabelHasComma { label: String },
+    LabelHasWhitespaceOrControl { label: String },
+    LabelForbiddenChar { label: String },
+    LabelTooLong { len: usize },
+    DuplicateLabel { label: String },
     NotEphemeral,
     MissingTokenSource,
-    TokenSourceIsPath { source: String },
+    TokenSourceIsPath,
+    TokenSourceTooLong { len: usize },
+    TokenSourceNotEnvName,
 }
 
 impl fmt::Display for JitConfigError {
@@ -66,13 +84,34 @@ impl fmt::Display for JitConfigError {
             }
             Self::EmptyLabelSet => write!(f, "label set is empty"),
             Self::BlankLabel => write!(f, "a label is blank"),
-            Self::HostNameLabel { label } => {
-                write!(f, "label '{label}' is a host name pattern")
+            Self::LabelHasComma { label } => write!(f, "label '{label}' contains a comma"),
+            Self::LabelHasWhitespaceOrControl { label } => {
+                write!(
+                    f,
+                    "label '{label}' contains whitespace or a control character"
+                )
             }
+            Self::LabelForbiddenChar { label } => {
+                write!(
+                    f,
+                    "label '{label}' contains a character outside [A-Za-z0-9-_.:]"
+                )
+            }
+            Self::LabelTooLong { len } => {
+                write!(f, "a label is {len} bytes, over {MAX_LABEL_LEN}")
+            }
+            Self::DuplicateLabel { label } => write!(f, "label '{label}' is repeated"),
             Self::NotEphemeral => write!(f, "runner is not ephemeral"),
             Self::MissingTokenSource => write!(f, "token source name is empty"),
-            Self::TokenSourceIsPath { source } => {
-                write!(f, "token source '{source}' names a path on disk")
+            Self::TokenSourceIsPath => write!(f, "token source names a path on disk"),
+            Self::TokenSourceTooLong { len } => {
+                write!(
+                    f,
+                    "token source is {len} bytes, over {MAX_TOKEN_SOURCE_LEN}"
+                )
+            }
+            Self::TokenSourceNotEnvName => {
+                write!(f, "token source is not an environment variable name")
             }
         }
     }
@@ -80,27 +119,21 @@ impl fmt::Display for JitConfigError {
 
 impl std::error::Error for JitConfigError {}
 
-/// A label is a host name pattern when it contains `.`, `*` or `?`, or ends in
-/// `-<digits>` (an instance ordinal such as `node-12`). Labels describe a
-/// capability; they must not pin a runner to one machine.
-pub fn is_host_name_label(label: &str) -> bool {
-    if label.contains(['.', '*', '?']) {
-        return true;
-    }
-    match label.rsplit_once('-') {
-        Some((head, tail)) => {
-            !head.is_empty() && !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit())
-        }
-        None => false,
-    }
-}
-
 /// A token source names a path when it holds a separator, starts with `.` or
 /// `~`, or carries a `file:` scheme.
 fn names_a_path(source: &str) -> bool {
     source.contains(['/', '\\'])
         || source.starts_with(['.', '~'])
         || source.to_ascii_lowercase().starts_with("file:")
+}
+
+fn is_env_name(s: &str) -> bool {
+    let mut bytes = s.bytes();
+    match bytes.next() {
+        Some(b) if b.is_ascii_uppercase() || b == b'_' => {}
+        _ => return false,
+    }
+    bytes.all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
 }
 
 fn check_ttl(secs: u64) -> Result<(), JitConfigError> {
@@ -112,11 +145,22 @@ fn check_ttl(secs: u64) -> Result<(), JitConfigError> {
 }
 
 fn check_label(l: &str) -> Result<(), JitConfigError> {
+    let label = || l.to_string();
     if l.trim().is_empty() {
         return Err(JitConfigError::BlankLabel);
     }
-    if is_host_name_label(l) {
-        return Err(JitConfigError::HostNameLabel { label: l.into() });
+    if l.contains(',') {
+        return Err(JitConfigError::LabelHasComma { label: label() });
+    }
+    if l.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err(JitConfigError::LabelHasWhitespaceOrControl { label: label() });
+    }
+    if l.len() > MAX_LABEL_LEN {
+        return Err(JitConfigError::LabelTooLong { len: l.len() });
+    }
+    let allowed = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':');
+    if !l.chars().all(allowed) {
+        return Err(JitConfigError::LabelForbiddenChar { label: label() });
     }
     Ok(())
 }
@@ -125,7 +169,14 @@ fn check_labels(labels: &[String]) -> Result<(), JitConfigError> {
     if labels.is_empty() {
         return Err(JitConfigError::EmptyLabelSet);
     }
-    labels.iter().try_for_each(|l| check_label(l))
+    let mut seen = HashSet::new();
+    for l in labels {
+        check_label(l)?;
+        if !seen.insert(l.to_ascii_lowercase()) {
+            return Err(JitConfigError::DuplicateLabel { label: l.clone() });
+        }
+    }
+    Ok(())
 }
 
 fn check_source(source: &str) -> Result<(), JitConfigError> {
@@ -133,9 +184,13 @@ fn check_source(source: &str) -> Result<(), JitConfigError> {
         return Err(JitConfigError::MissingTokenSource);
     }
     if names_a_path(source) {
-        return Err(JitConfigError::TokenSourceIsPath {
-            source: source.into(),
-        });
+        return Err(JitConfigError::TokenSourceIsPath);
+    }
+    if source.len() > MAX_TOKEN_SOURCE_LEN {
+        return Err(JitConfigError::TokenSourceTooLong { len: source.len() });
+    }
+    if !is_env_name(source) {
+        return Err(JitConfigError::TokenSourceNotEnvName);
     }
     Ok(())
 }
@@ -156,108 +211,5 @@ pub fn validate(r: &JitRunnerRequest) -> Result<JitRunnerConfig, JitConfigError>
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn req() -> JitRunnerRequest {
-        JitRunnerRequest {
-            labels: vec!["forjar-pool".into(), "linux-x64".into()],
-            ephemeral: true,
-            token_ttl_secs: MAX_TOKEN_TTL_SECS,
-            token_source: "RUNNER_JIT_TOKEN".into(),
-        }
-    }
-
-    #[test]
-    fn accepts_a_valid_ephemeral_request() {
-        let c = validate(&req()).expect("valid");
-        assert_eq!(c.labels().len(), 2);
-        assert_eq!(c.token_ttl_secs(), 3600);
-        assert_eq!(c.token_source(), "RUNNER_JIT_TOKEN");
-    }
-
-    #[test]
-    fn refuses_zero_ttl() {
-        let r = JitRunnerRequest {
-            token_ttl_secs: 0,
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::ZeroTtl));
-    }
-
-    #[test]
-    fn refuses_ttl_over_one_hour() {
-        let r = JitRunnerRequest {
-            token_ttl_secs: 3601,
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::TtlTooLong { secs: 3601 }));
-    }
-
-    #[test]
-    fn refuses_empty_label_set() {
-        let r = JitRunnerRequest {
-            labels: vec![],
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::EmptyLabelSet));
-    }
-
-    #[test]
-    fn refuses_blank_label() {
-        let r = JitRunnerRequest {
-            labels: vec!["  ".into()],
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::BlankLabel));
-    }
-
-    #[test]
-    fn refuses_host_name_labels() {
-        for bad in ["build.example.com", "node-12", "ip-10-0-0-1", "host*"] {
-            let r = JitRunnerRequest {
-                labels: vec![bad.into()],
-                ..req()
-            };
-            assert_eq!(
-                validate(&r),
-                Err(JitConfigError::HostNameLabel { label: bad.into() }),
-                "{bad}"
-            );
-        }
-        assert!(!is_host_name_label("linux-x64"));
-    }
-
-    #[test]
-    fn refuses_non_ephemeral_runner() {
-        let r = JitRunnerRequest {
-            ephemeral: false,
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::NotEphemeral));
-    }
-
-    #[test]
-    fn refuses_empty_token_source() {
-        let r = JitRunnerRequest {
-            token_source: String::new(),
-            ..req()
-        };
-        assert_eq!(validate(&r), Err(JitConfigError::MissingTokenSource));
-    }
-
-    #[test]
-    fn refuses_token_source_naming_a_path() {
-        for bad in ["/run/secrets/tok", "./tok", "~/tok", "a\\b", "file:tok"] {
-            let r = JitRunnerRequest {
-                token_source: bad.into(),
-                ..req()
-            };
-            assert_eq!(
-                validate(&r),
-                Err(JitConfigError::TokenSourceIsPath { source: bad.into() }),
-                "{bad}"
-            );
-        }
-    }
-}
+#[path = "pool_jit_tests.rs"]
+mod tests;
