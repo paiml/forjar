@@ -415,15 +415,6 @@ fn an_absent_base_is_not_a_narrower_base() {
 #[test]
 fn gates_c_and_d_run_concurrently_and_either_failing_fails_the_step() {
     let ci = workflow(".github/workflows/ci.yml");
-    for needle in [
-        "bash scripts/dogfood/surface.sh >\"$RUNNER_TEMP/gate-c.log\" 2>&1 &",
-        "bash scripts/dogfood/docs.sh >\"$RUNNER_TEMP/gate-d.log\" 2>&1 &",
-        "wait \"$pid_c\" || rc=1",
-        "wait \"$pid_d\" || rc=1",
-        "exit \"$rc\"",
-    ] {
-        assert!(ci.contains(needle), "#1092: ci.yml lost `{needle}`");
-    }
     let start = ci
         .find("\n  dogfood-surface:")
         .expect("dogfood-surface job");
@@ -434,5 +425,41 @@ fn gates_c_and_d_run_concurrently_and_either_failing_fails_the_step() {
     assert!(
         !job.contains("continue-on-error"),
         "#1092: continue-on-error is a third state on a gate path"
+    );
+    // The step runs when C OR D is selected, exactly.
+    assert!(
+        job.contains(
+            "        if: needs.classify.outputs.gate_c == 'true' || needs.classify.outputs.gate_d == 'true'\n"
+        ),
+        "#1092: the gate step's `if:` must be exactly (C selected OR D selected)"
+    );
+    for needle in [
+        "set -o pipefail",
+        "{ bash scripts/dogfood/surface.sh 2>&1 | sed -u 's/^/[gate C] /'; } &",
+        "{ bash scripts/dogfood/docs.sh 2>&1 | sed -u 's/^/[gate D] /'; } &",
+        "wait \"$pid_c\" || { s=$?; echo \"gate C exited $s\"; rc=1; }",
+        "wait \"$pid_d\" || { s=$?; echo \"gate D exited $s\"; rc=1; }",
+        "no gate selected inside the gate step",
+        "exit \"$rc\"",
+    ] {
+        assert!(
+            job.contains(needle),
+            "#1092: dogfood-surface lost `{needle}`"
+        );
+    }
+    // A guard that fails the step when nothing was launched.
+    let guard = job
+        .find("if [ -z \"$pid_c\" ] && [ -z \"$pid_d\" ]; then")
+        .expect("#1092: no-gate guard");
+    let guard_end = job[guard..].find("fi\n").expect("guard end") + guard;
+    assert!(
+        job[guard..guard_end].contains("exit 1"),
+        "#1092: the guard must exit non-zero"
+    );
+    // Nothing may reset the verdict after the first wait.
+    let first_wait = job.find("wait \"$pid_c\"").expect("first wait");
+    assert!(
+        !job[first_wait..].contains("rc=0"),
+        "#1092: `rc=0` after the first wait would erase a gate failure"
     );
 }

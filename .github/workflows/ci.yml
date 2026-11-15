@@ -323,7 +323,7 @@ jobs:
       # committed surface_audit.csv that C only diffs against). They ran back
       # to back and each took 5-16 min on a burst seat, so they now run
       # concurrently. The verdict is unchanged: every selected gate must exit
-      # 0, each gate's own output is printed in full, and a failure of either
+      # 0, each gate's output streams live with a [gate X] prefix, and a failure of either
       # fails the step. A gate that was not selected still says so by name in
       # the NOT-SELECTED steps.
       - name: Gates C and D — run concurrently against the built artifact
@@ -334,25 +334,33 @@ jobs:
           COOKBOOK: ${{ runner.temp }}/forjar-cookbook
         run: |
           set -u
+          set -o pipefail
           rc=0
           pid_c=""; pid_d=""
+          # Each gate runs inside a brace group, so the background job is a
+          # subshell whose exit status is the status of the pipeline inside it.
+          # With pipefail that status is the gate script's own whenever the
+          # gate fails (sed only exits non-zero on a write error), and a gate
+          # killed by a signal reports 128+N. `wait` therefore sees the gate's
+          # status and not sed's. sed -u prefixes each line live, so output is
+          # attributable and visible even if the job is killed at the limit.
           if [ "$GATE_C" = "true" ]; then
-            bash scripts/dogfood/surface.sh >"$RUNNER_TEMP/gate-c.log" 2>&1 &
+            { bash scripts/dogfood/surface.sh 2>&1 | sed -u 's/^/[gate C] /'; } &
             pid_c=$!
           fi
           if [ "$GATE_D" = "true" ]; then
-            bash scripts/dogfood/docs.sh >"$RUNNER_TEMP/gate-d.log" 2>&1 &
+            { bash scripts/dogfood/docs.sh 2>&1 | sed -u 's/^/[gate D] /'; } &
             pid_d=$!
           fi
+          if [ -z "$pid_c" ] && [ -z "$pid_d" ]; then
+            echo "::error::no gate selected inside the gate step"
+            exit 1
+          fi
           if [ -n "$pid_c" ]; then
-            wait "$pid_c" || rc=1
-            echo "::group::Gate C output"; cat "$RUNNER_TEMP/gate-c.log"; echo "::endgroup::"
-            tail -n 1 "$RUNNER_TEMP/gate-c.log"
+            wait "$pid_c" || { s=$?; echo "gate C exited $s"; rc=1; }
           fi
           if [ -n "$pid_d" ]; then
-            wait "$pid_d" || rc=1
-            echo "::group::Gate D output"; cat "$RUNNER_TEMP/gate-d.log"; echo "::endgroup::"
-            tail -n 1 "$RUNNER_TEMP/gate-d.log"
+            wait "$pid_d" || { s=$?; echo "gate D exited $s"; rc=1; }
           fi
           exit "$rc"
       - name: Gate D — NOT-SELECTED
