@@ -25,7 +25,10 @@ fn an_image_change_with_a_live_owned_instance_refuses_and_never_launches() {
     assert_ne!(key_of(&spec_of(&r).unwrap()), KEY_A);
     let (rc, out) = sb.run_with(&apply_script(&r), "", Some(&old_image_box()));
     assert_ne!(rc, 0, "{out}");
-    assert!(out.contains("image changed while instance"), "{out}");
+    assert!(
+        out.contains("image or placement changed while instance"),
+        "{out}"
+    );
     assert!(out.contains("i-00a1b2c3"), "{out}");
     assert!(out.contains("state: absent"), "{out}");
     assert_eq!(count(&sb.log(), "run-instances"), 0, "{}", sb.log());

@@ -81,4 +81,12 @@ pub struct CloudSpec {
         skip_serializing_if = "Option::is_none"
     )]
     pub security_group_ids: Option<Vec<String>>,
+
+    /// Availability zone; must be `cloud_region` plus one letter (#1035).
+    #[serde(
+        rename = "cloud_availability_zone",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub availability_zone: Option<String>,
 }

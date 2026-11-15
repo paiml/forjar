@@ -18,9 +18,7 @@
 //!   terminates it. Uniqueness is enforced within one config only. Keep names
 //!   distinct across configs.
 //! - The instance key includes the image digest and, when declared, a hash of the
-//!   placement (subnet, security groups): a placement change on a live box is
-//!   refused like an image change.
-//! - The instance key includes the image digest. Changing `image:` while the
+//!   placement (subnet, security groups, zone). Changing `image:` while the
 //!   old box is alive is refused (never a second launch); the old box lives
 //!   until its lifetime ends or `state: absent`. The spend cap is per launch,
 //!   not summed over a day.
@@ -120,7 +118,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
             "tags forjar-key and forjar-owner are reserved for ownership",
         )?;
     }
-    let placement = placement::Placement::of(&resource.cloud)?;
+    let placement = placement::Placement::of(&resource.cloud, &region)?;
     Ok(CloudInstance {
         name,
         region,
@@ -469,7 +467,7 @@ pub fn apply_script(resource: &Resource) -> String {
          if [ -z \"$owned\" ]; then :; else\n\
          \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
          \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \

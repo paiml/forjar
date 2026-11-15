@@ -160,6 +160,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_parity_gate",
     "cloud_subnet_id",
     "cloud_security_group_ids",
+    "cloud_availability_zone",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",

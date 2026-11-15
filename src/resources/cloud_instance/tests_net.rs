@@ -1,4 +1,4 @@
-//! #1033-#1034 falsifiers: subnet and security groups, asserted on the fake aws call log.
+//! #1033-#1035 falsifiers: subnet, security groups and zone, asserted on the fake aws call log.
 
 use super::tests::{gated, res, Sandbox};
 use super::*;
@@ -106,10 +106,37 @@ fn only_whole_distinct_security_group_ids_pass() {
         let mut r = res();
         r.cloud.security_group_ids = Some(bad.clone());
         assert!(spec_of(&r).is_err(), "{bad:?}");
+        let (rc, _, log) = launch_log(&r, None);
+        assert_ne!(rc, 0, "{bad:?}");
+        assert_eq!(log, "", "nothing may reach the provider for {bad:?}");
     }
     let mut r = res();
     r.cloud.security_group_ids = Some((0..5).map(|i| format!("sg-0000000{i}")).collect());
     assert!(spec_of(&r).is_ok());
+}
+
+#[test]
+fn zone_is_passed_as_placement_and_must_belong_to_the_region() {
+    let mut r = res();
+    r.cloud.availability_zone = Some("eu-south-2b".into());
+    let (rc, out, log) = launch_log(&r, None);
+    assert_eq!(rc, 0, "{out}");
+    assert!(
+        run_line(&log).contains("--placement AvailabilityZone=eu-south-2b "),
+        "{log}"
+    );
+    for bad in [
+        "us-east-1a",
+        "eu-south-2",
+        "eu-south-2B",
+        "eu-south-2bb",
+        "eu-south-2;",
+        "eu-south-22",
+    ] {
+        let mut r = res();
+        r.cloud.availability_zone = Some(bad.into());
+        assert!(spec_of(&r).is_err(), "{bad}");
+    }
 }
 
 #[test]
@@ -124,8 +151,7 @@ fn a_changed_placement_on_a_live_instance_refuses_and_never_launches() {
     assert_ne!(rc, 0, "{out}");
     assert!(out.contains("REFUSED"), "{out}");
     assert_eq!(log.matches("run-instances").count(), 0, "{log}");
-    let mut same = moved.clone();
-    same.cloud.security_group_ids = None;
+    let same = moved.clone();
     let k2 = key_of(&spec_of(&same).unwrap());
     let (rc, out, log) = launch_log(&same, Some(&format!("i-0aaaaaaa {k2} {own} sir-0a\n")));
     assert_eq!(rc, 0, "{out}");
@@ -138,4 +164,40 @@ fn security_group_order_does_not_change_the_key() {
     a.cloud.security_group_ids = Some(vec![SG1.into(), SG2.into()]);
     b.cloud.security_group_ids = Some(vec![SG2.into(), SG1.into()]);
     assert_eq!(key_of(&spec_of(&a).unwrap()), key_of(&spec_of(&b).unwrap()));
+}
+
+#[test]
+fn each_placement_field_changes_the_key() {
+    let base = key_of(&spec_of(&res()).unwrap());
+    let edits: [fn(&mut Resource); 3] = [
+        |r| r.cloud.subnet_id = Some(SUBNET.into()),
+        |r| r.cloud.security_group_ids = Some(vec![SG2.into()]),
+        |r| r.cloud.availability_zone = Some("eu-south-2a".into()),
+    ];
+    let keys: Vec<String> = edits
+        .iter()
+        .map(|e| {
+            let mut r = res();
+            e(&mut r);
+            key_of(&spec_of(&r).unwrap())
+        })
+        .collect();
+    assert!(
+        keys.iter().all(|k| *k != base && k.starts_with(&base)),
+        "{keys:?}"
+    );
+    assert_eq!(
+        keys.iter().collect::<std::collections::BTreeSet<_>>().len(),
+        3
+    );
+}
+
+#[test]
+fn two_zones_give_two_keys() {
+    let key = |z: &str| {
+        let mut r = res();
+        r.cloud.availability_zone = Some(z.into());
+        key_of(&spec_of(&r).unwrap())
+    };
+    assert_ne!(key("eu-south-2a"), key("eu-south-2b"));
 }

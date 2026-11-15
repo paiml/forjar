@@ -1,4 +1,4 @@
-//! #1033-#1035: where a `cloud_instance` lands (subnet, security groups).
+//! #1033-#1035: where a `cloud_instance` lands (subnet, security groups, zone).
 //! Every value is a whole token, validated here and quoted where it is used.
 
 use crate::core::shell_escape::sh_squote;
@@ -9,6 +9,7 @@ use crate::core::types::CloudSpec;
 pub struct Placement {
     subnet: Option<String>,
     groups: Vec<String>,
+    zone: Option<String>,
 }
 
 /// `<prefix>` + 8 or 17 lowercase hex digits.
@@ -18,30 +19,47 @@ fn is_aws_id(s: &str, prefix: &str) -> bool {
     })
 }
 
+fn check_subnet(s: &str) -> Result<(), String> {
+    if is_aws_id(s, "subnet-") {
+        return Ok(());
+    }
+    Err("cloud_subnet_id must be subnet- plus 8 or 17 lowercase hex digits".into())
+}
+
+fn check_groups(groups: &[String]) -> Result<(), String> {
+    let uniq: std::collections::BTreeSet<_> = groups.iter().collect();
+    if groups.is_empty() || groups.len() > 5 || uniq.len() != groups.len() {
+        return Err("cloud_security_group_ids needs 1 to 5 distinct ids".into());
+    }
+    if !groups.iter().all(|g| is_aws_id(g, "sg-")) {
+        return Err(
+            "cloud_security_group_ids entries must be sg- plus 8 or 17 lowercase hex digits".into(),
+        );
+    }
+    Ok(())
+}
+
+fn check_zone(z: &str, region: &str) -> Result<(), String> {
+    let letter = z.strip_prefix(region).filter(|l| l.len() == 1);
+    if letter.is_some_and(|l| l.chars().all(|c| c.is_ascii_lowercase())) {
+        return Ok(());
+    }
+    Err("cloud_availability_zone must be cloud_region plus one lowercase letter".into())
+}
+
 impl Placement {
-    pub(super) fn of(c: &CloudSpec) -> Result<Self, String> {
+    pub(super) fn of(c: &CloudSpec, region: &str) -> Result<Self, String> {
         let subnet = c.subnet_id.clone();
-        if let Some(s) = &subnet {
-            if !is_aws_id(s, "subnet-") {
-                return Err(
-                    "cloud_subnet_id must be subnet- plus 8 or 17 lowercase hex digits".into(),
-                );
-            }
-        }
-        let groups = c.security_group_ids.clone().unwrap_or_default();
-        if c.security_group_ids.is_some() {
-            let uniq: std::collections::BTreeSet<_> = groups.iter().collect();
-            if groups.is_empty() || groups.len() > 5 || uniq.len() != groups.len() {
-                return Err("cloud_security_group_ids needs 1 to 5 distinct ids".into());
-            }
-            if !groups.iter().all(|g| is_aws_id(g, "sg-")) {
-                return Err(
-                    "cloud_security_group_ids entries must be sg- plus 8 or 17 lowercase hex digits"
-                        .into(),
-                );
-            }
-        }
-        Ok(Self { subnet, groups })
+        let zone = c.availability_zone.clone();
+        let groups = c.security_group_ids.clone();
+        subnet.as_deref().map_or(Ok(()), check_subnet)?;
+        groups.as_deref().map_or(Ok(()), check_groups)?;
+        zone.as_deref().map_or(Ok(()), |z| check_zone(z, region))?;
+        Ok(Self {
+            subnet,
+            groups: groups.unwrap_or_default(),
+            zone,
+        })
     }
 
     /// Flags for `run-instances`, each followed by a space; empty if nothing declared.
@@ -53,6 +71,12 @@ impl Placement {
         if !self.groups.is_empty() {
             let g: Vec<String> = self.groups.iter().map(|g| sh_squote(g)).collect();
             a += &format!("--security-group-ids {} ", g.join(" "));
+        }
+        if let Some(z) = &self.zone {
+            a += &format!(
+                "--placement {} ",
+                sh_squote(&format!("AvailabilityZone={z}"))
+            );
         }
         a
     }
@@ -66,9 +90,10 @@ impl Placement {
         let mut g = self.groups.clone();
         g.sort();
         let canon = format!(
-            "subnet={};sg={}",
+            "subnet={};sg={};az={}",
             self.subnet.as_deref().unwrap_or(""),
-            g.join(",")
+            g.join(","),
+            self.zone.as_deref().unwrap_or("")
         );
         let h = crate::tripwire::hasher::hash_string(&canon);
         format!("@p{}", &h["blake3:".len()..][..12])
