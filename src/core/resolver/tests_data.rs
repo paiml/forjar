@@ -100,7 +100,13 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let result = resolve_data_sources(&mut config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("file error"));
+    let err = result.unwrap_err();
+    assert!(err.contains("file error"));
+    assert_eq!(
+        crate::core::error::classify_untyped(&err).exit_code(),
+        1,
+        "an unreadable file is unclassified: ErrorClass::Other"
+    );
 }
 
 #[test]
@@ -269,7 +275,12 @@ data:
     let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
     let result = resolve_data_sources(&mut config);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("state lock not found"));
+    let err = result.unwrap_err();
+    assert!(err.contains("state lock not found"));
+    // Declared class survives the String boundary: a bad declaration is exit 3.
+    let class = crate::core::error::classify_untyped(&err);
+    assert_eq!(class, crate::core::error::ErrorClass::Validation);
+    assert_eq!(class.exit_code(), 3);
 }
 
 #[test]
@@ -452,5 +463,31 @@ fn test_reference_match_respects_hyphenated_keys() {
     assert!(
         !dep.contains_key("uses_other"),
         "data.foo-bar is not data.foo"
+    );
+}
+
+/// An unmarked (`Other`) data-source error whose key holds legacy prose words
+/// must cross the `String` boundary without tripping `into_untyped`'s debug
+/// assertion; the message arrives intact.
+#[test]
+fn an_unmarked_error_for_a_key_with_prose_words_does_not_panic() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  connection-partial:
+    type: file
+    value: /nonexistent/forjar/connection-partial
+"#;
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let err = resolve_data_sources(&mut config).unwrap_err();
+    assert!(
+        err.contains("data source 'connection-partial' file error"),
+        "{err}"
     );
 }
