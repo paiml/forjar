@@ -6,6 +6,8 @@
 //!
 //! Each refined type wraps a primitive and enforces invariants at construction.
 
+use crate::core::error::ForjarError;
+
 /// A validated TCP/UDP port number (1-65535).
 ///
 /// # Examples
@@ -24,9 +26,9 @@ pub struct Port(u16);
 
 impl Port {
     /// Create a validated port from a raw u16.
-    pub fn new(value: u16) -> Result<Self, String> {
+    pub fn new(value: u16) -> Result<Self, ForjarError> {
         if value == 0 {
-            return Err("port must be 1-65535, got 0".to_string());
+            return Err(ForjarError::validation("port must be 1-65535, got 0"));
         }
         Ok(Port(value))
     }
@@ -59,17 +61,20 @@ pub struct FileMode(u16);
 
 impl FileMode {
     /// Create a validated file mode from a raw u16.
-    pub fn new(value: u16) -> Result<Self, String> {
+    pub fn new(value: u16) -> Result<Self, ForjarError> {
         if value > 0o777 {
-            return Err(format!("mode must be 0-0o777, got {value:#o}"));
+            return Err(ForjarError::validation(format!(
+                "mode must be 0-0o777, got {value:#o}"
+            )));
         }
         Ok(FileMode(value))
     }
 
     #[allow(clippy::should_implement_trait)]
     /// Parse a file mode from an octal string.
-    pub fn from_str(s: &str) -> Result<Self, String> {
-        let v = u16::from_str_radix(s, 8).map_err(|e| format!("invalid octal mode '{s}': {e}"))?;
+    pub fn from_str(s: &str) -> Result<Self, ForjarError> {
+        let v = u16::from_str_radix(s, 8)
+            .map_err(|e| ForjarError::validation(format!("invalid octal mode '{s}': {e}")))?;
         Self::new(v)
     }
 
@@ -112,20 +117,22 @@ pub struct SemVer {
 
 impl SemVer {
     /// Parse a semantic version from a string.
-    pub fn parse(s: &str) -> Result<Self, String> {
+    pub fn parse(s: &str) -> Result<Self, ForjarError> {
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 3 {
-            return Err(format!("expected X.Y.Z, got '{s}'"));
+            return Err(ForjarError::validation(format!(
+                "expected X.Y.Z, got '{s}'"
+            )));
         }
         let major = parts[0]
             .parse()
-            .map_err(|_| format!("invalid major: {}", parts[0]))?;
+            .map_err(|_| ForjarError::validation(format!("invalid major: {}", parts[0])))?;
         let minor = parts[1]
             .parse()
-            .map_err(|_| format!("invalid minor: {}", parts[1]))?;
+            .map_err(|_| ForjarError::validation(format!("invalid minor: {}", parts[1])))?;
         let patch = parts[2]
             .parse()
-            .map_err(|_| format!("invalid patch: {}", parts[2]))?;
+            .map_err(|_| ForjarError::validation(format!("invalid patch: {}", parts[2])))?;
         Ok(SemVer {
             major,
             minor,
@@ -159,24 +166,33 @@ pub struct Hostname(String);
 
 /// Validate one dot-separated hostname label against RFC 1123: 1-63 characters,
 /// ASCII alphanumerics and dashes only, and never a leading or trailing dash.
-fn validate_hostname_label(label: &str) -> Result<(), String> {
+fn validate_hostname_label(label: &str) -> Result<(), ForjarError> {
     if label.is_empty() || label.len() > 63 {
-        return Err(format!("label length must be 1-63: '{label}'"));
+        return Err(ForjarError::validation(format!(
+            "label length must be 1-63: '{label}'"
+        )));
     }
     if !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-        return Err(format!("invalid chars in label: '{label}'"));
+        return Err(ForjarError::validation(format!(
+            "invalid chars in label: '{label}'"
+        )));
     }
     if label.starts_with('-') || label.ends_with('-') {
-        return Err(format!("label cannot start/end with dash: '{label}'"));
+        return Err(ForjarError::validation(format!(
+            "label cannot start/end with dash: '{label}'"
+        )));
     }
     Ok(())
 }
 
 impl Hostname {
     /// Create a validated hostname from a string.
-    pub fn new(s: &str) -> Result<Self, String> {
+    pub fn new(s: &str) -> Result<Self, ForjarError> {
         if s.is_empty() || s.len() > 253 {
-            return Err(format!("hostname length must be 1-253, got {}", s.len()));
+            return Err(ForjarError::validation(format!(
+                "hostname length must be 1-253, got {}",
+                s.len()
+            )));
         }
         for label in s.split('.') {
             validate_hostname_label(label)?;
@@ -208,12 +224,14 @@ pub struct AbsPath(String);
 
 impl AbsPath {
     /// Create a validated absolute path from a string.
-    pub fn new(s: &str) -> Result<Self, String> {
+    pub fn new(s: &str) -> Result<Self, ForjarError> {
         if !s.starts_with('/') {
-            return Err(format!("path must be absolute: '{s}'"));
+            return Err(ForjarError::validation(format!(
+                "path must be absolute: '{s}'"
+            )));
         }
         if s.contains('\0') {
-            return Err("path cannot contain null bytes".to_string());
+            return Err(ForjarError::validation("path cannot contain null bytes"));
         }
         Ok(AbsPath(s.to_string()))
     }
@@ -243,15 +261,20 @@ pub struct ResourceName(String);
 
 impl ResourceName {
     /// Create a validated resource name from a string.
-    pub fn new(s: &str) -> Result<Self, String> {
+    pub fn new(s: &str) -> Result<Self, ForjarError> {
         if s.is_empty() || s.len() > 128 {
-            return Err(format!("name length must be 1-128, got {}", s.len()));
+            return Err(ForjarError::validation(format!(
+                "name length must be 1-128, got {}",
+                s.len()
+            )));
         }
         if !s
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(format!("name has invalid chars: '{s}'"));
+            return Err(ForjarError::validation(format!(
+                "name has invalid chars: '{s}'"
+            )));
         }
         Ok(ResourceName(s.to_string()))
     }
