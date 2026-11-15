@@ -147,3 +147,28 @@ fn fj613_the_guarded_script_survives_forjars_own_bashrs_gate() {
     crate::core::purifier::validate_script(&script)
         .unwrap_or_else(|e| panic!("bashrs refused the guarded apply script: {e}\n{script}"));
 }
+
+#[test]
+fn fj1067_apply_guard_reads_a_stderr_only_version_and_a_failed_run() {
+    // forjar#1067: the shared reader's permissive mode keeps stderr and a
+    // non-zero exit, so a downgrade cannot slip past a tool that prints its
+    // version on stderr. The check's strict mode must NOT see it.
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("ollama");
+    exe(&bin, "echo 'ollama version is 0.34.2' >&2; exit 3");
+    let q = format!("'{}'", bin.display());
+    let read = |permissive: bool| {
+        let script = format!(
+            "{}printf '%s' \"$FJ_LIVE\"",
+            super::github_release_check::live_version(&q, permissive)
+        );
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(&script)
+            .output()
+            .expect("bash runs");
+        String::from_utf8_lossy(&out.stdout).to_string()
+    };
+    assert_eq!(read(true), "0.34.2");
+    assert_eq!(read(false), "");
+}

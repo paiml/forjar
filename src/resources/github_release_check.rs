@@ -29,7 +29,7 @@ pub(super) fn check_script(resource: &Resource, reject_bad_repo: fn(&str) -> Str
          else\n\
          \x20 echo 'missing:{repo}'; __fj_diverged=1\n\
          fi",
-        live_version(&bin_path),
+        live_version(&bin_path, false),
         version_assertion(resource, repo),
     )])
 }
@@ -39,17 +39,26 @@ pub(super) fn check_script(resource: &Resource, reject_bad_repo: fn(&str) -> Str
 /// `FJ_LIVE` (its first `N.N.N` at a token boundary, read bytewise the way
 /// `parse_semver` reads it).
 ///
+/// `permissive` (the apply-side downgrade guard, forjar#613/#1067) merges stderr
+/// and parses a non-zero exit too: a tool that prints its version on stderr or
+/// after a warning must not slip a downgrade through. Check stays strict.
+///
 /// stderr is discarded and the output is read only from a run that exited 0,
 /// so a failed run leaves `FJ_LIVE` empty ("version unknown") and the shell's
 /// own exec error is never parsed: a path like `.../tool-0.34.2/bin/tool`
 /// cannot supply a version.
-fn live_version(bin_path: &str) -> String {
+pub(super) fn live_version(bin_path: &str, permissive: bool) -> String {
+    let run = if permissive {
+        format!("{bin_path} --version >\"$FJ_OUT\" 2>&1 || true")
+    } else {
+        format!("{bin_path} --version >\"$FJ_OUT\" 2>/dev/null")
+    };
     format!(
         "FJ_PRESENT=0; FJ_LIVE=''; FJ_VERLINE=''\n\
          if [ -f {bin_path} ] && [ -x {bin_path} ]; then\n\
          \x20 FJ_PRESENT=1\n\
          \x20 FJ_OUT=$(mktemp) || FJ_OUT=''\n\
-         \x20 if {bin_path} --version >\"$FJ_OUT\" 2>/dev/null; then\n\
+         \x20 if {run}; then\n\
          \x20\x20\x20 FJ_VERLINE=$( head -n 1 \"$FJ_OUT\" | tr '\\0' ' ' || true )\n\
          \x20\x20\x20 FJ_LIVE=$( head -n 20 \"$FJ_OUT\" | tr '\\0' ' ' | \
          LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
