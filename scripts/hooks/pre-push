@@ -39,7 +39,10 @@ echo "🔍 forjar pre-push"
 echo "=================="
 
 # Policy (#859): a local check blocks only if fast, deterministic, auto-fixable and
-# mirrored by a required CI check. That is `cargo fmt` alone. Everything else runs
+# and WARNS. What enforces the rest: clippy (which compiles what `cargo check` does)
+# runs in the `lint` job behind the required `gate` check on every PR; `cargo test --lib`
+# runs in CI on train/batch heads and on pushes, not on an ordinary PR; the quorum
+# receipt is checked at merge time, not by a PR job in this repository.
 # and WARNS; CI (`gate`, `workspace-test`, the quorum workflow) is the enforcer.
 FAILED=0
 WARNED=""
@@ -112,7 +115,7 @@ fi
 
 if [ -n "$WARNED" ]; then
     echo ""
-    echo "WARN: non-blocking checks failed (CI enforces them):"
+    echo "WARN: non-blocking checks failed (fix before merge; a push is not blocked):"
     printf '%b' "$WARNED"
 fi
 
