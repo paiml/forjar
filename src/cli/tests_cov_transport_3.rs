@@ -114,21 +114,6 @@ resources:
         }
     }
 
-    fn make_ssh_machine() -> types::Machine {
-        types::Machine {
-            hostname: "remote".to_string(),
-            addr: "10.99.99.99".to_string(),
-            user: "deploy".to_string(),
-            arch: "x86_64".to_string(),
-            ssh_key: None,
-            roles: vec![],
-            transport: None,
-            container: None,
-            pepita: None,
-            cost: 0,
-            allowed_operators: vec![],
-        }
-    }
 
     // ===================================================================
     // core/parser/resource_types.rs — validate_model
@@ -263,14 +248,6 @@ resources:
         assert!(result.is_ok());
         let out = result.unwrap();
         assert_ne!(out.exit_code, 0);
-    }
-
-    #[test]
-    fn test_exec_script_retry_ssh_fails_immediately_non_transient() {
-        // SSH to an unreachable host — non-transient error, should not retry
-        let machine = make_ssh_machine();
-        let result = transport::exec_script_retry(&machine, "echo hi", Some(2), 2);
-        assert!(result.is_err());
     }
 
     #[test]

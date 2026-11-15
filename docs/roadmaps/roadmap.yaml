@@ -7710,6 +7710,24 @@ roadmap:
   notes: null
   epic: 764
   epic: 764
+- id: PMAT-859
+  github_issue: 859
+  item_type: task
+  title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1065
   github_issue: 1065
   item_type: task
@@ -7728,6 +7746,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1093
+  github_issue: 1093
+  item_type: task
+  title: retry test must not depend on the host ssh behaviour (forjar#1093)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1067
   github_issue: 1067
   item_type: task
@@ -7737,6 +7773,24 @@ roadmap:
   assigned_to: null
   created: 2026-11-15T09:00:00Z
   updated: 2026-11-15T09:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1074
+  github_issue: 1074
+  item_type: task
+  title: 'errors: typed ForjarError in src/cli/image_cmd.rs (untyped-error ratchet, 5 sites)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria: []
   phases: []
