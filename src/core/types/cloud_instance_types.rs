@@ -94,4 +94,12 @@ pub struct CloudSpec {
         skip_serializing_if = "Option::is_none"
     )]
     pub availability_zone: Option<String>,
+
+    /// IAM instance profile NAME (not an ARN): 1..128 of `[A-Za-z0-9+=,.@_-]`.
+    #[serde(
+        rename = "cloud_instance_profile",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub instance_profile: Option<String>,
 }

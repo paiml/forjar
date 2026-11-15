@@ -88,7 +88,8 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_ami"
         | "cloud_subnet_id"
         | "cloud_security_group_ids"
-        | "cloud_availability_zone" => Observability::Unmigrated(
+        | "cloud_availability_zone"
+        | "cloud_instance_profile" => Observability::Unmigrated(
             "#861 — the provider query keys on name and region (check: plus image digest); this field is \
              applied by the create call and the gates but never read back",
         ),
