@@ -9,6 +9,7 @@
 //! properties they guarded are still pinned.
 
 use super::registry_push::*;
+use crate::core::error::{ErrorClass, ForjarError};
 use crate::core::types::{PushKind, PushResult};
 
 #[test]
@@ -158,7 +159,9 @@ fn push_image_missing_oci_dir() {
         check_existing: true,
     };
     let result = push_image(std::path::Path::new("/nonexistent/oci"), &config);
-    assert!(result.is_err());
+    let err: ForjarError = result.unwrap_err();
+    assert!(err.message().contains("OCI blobs directory not found"));
+    assert_eq!(err.class(), ErrorClass::Other);
 }
 
 #[test]
@@ -172,8 +175,9 @@ fn push_image_missing_index() {
         check_existing: false,
     };
     let result = push_image(dir.path(), &config);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("index.json"));
+    let err: ForjarError = result.unwrap_err();
+    assert!(err.message().contains("index.json"));
+    assert_eq!(err.class(), ErrorClass::Other);
 }
 
 #[test]
@@ -320,4 +324,13 @@ fn large_blob_uses_chunked() {
         kind: PushKind::Layer,
     };
     assert!(blob.size >= CHUNKED_UPLOAD_THRESHOLD);
+}
+
+#[test]
+fn unreachable_registry_is_a_typed_error() {
+    // Port 1 on loopback refuses the connection: no HTTP response at all.
+    let err: ForjarError = check_blob_exists("127.0.0.1:1", "app", "sha256:abc").unwrap_err();
+    assert!(err.message().starts_with("registry unreachable"));
+    // Class is unchanged from the prose fallback (exit 1), by design of this slice.
+    assert_eq!(err.class(), ErrorClass::Other);
 }
