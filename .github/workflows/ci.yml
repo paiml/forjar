@@ -183,29 +183,11 @@ jobs:
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest \
           --test falsification_pr_jobs_name_no_arm64_or_host
-      # And the LIVE half of the same falsifier. The emulated test fakes `sudo`,
-      # so it can show the transport surviving an emulated closefrom but never
-      # the host's real one with a real uid 0 on the other side.
-      # tests/falsification_sudo_transport_survives_closefrom.rs does exactly
-      # that, but every test in it is gated on `sudo -n true` and SKIPS where
-      # that is missing — and a skip is an absence of evidence: on a host
-      # without passwordless sudo that file was green against the fd-3 emitter
-      # too. FORJAR_REQUIRE_SUDO_TESTS=1 turns each of those skips into a panic
-      # naming the missing capability, so a green step here means the gated
-      # tests RAN, under real sudo, not that they declined to.
-      #
-      # PMAT-547 moved this job from ubuntu-latest to the fleet, and with it
-      # the only thing the old comment could offer: GitHub DOCUMENTS that a
-      # hosted runner's `runner` user is non-root with passwordless sudo, and
-      # documents nothing about ours. So the citation is gone and only the
-      # switch is left — which is the half that was ever load-bearing. If a
-      # fleet runner does not give this step passwordless sudo, the step fails
-      # loudly naming the missing capability instead of skipping silently.
-      # Unmeasured is not the same as satisfied, and this is how it says so.
-      - name: The sudo transport survives closefrom under real sudo (required, not skippable)
-        env:
-          FORJAR_REQUIRE_SUDO_TESTS: "1"
-        run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
+      # The LIVE half of that falsifier (real sudo, required, not skippable) runs
+      # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
+      # have no passwordless sudo (measured 2026-11-15, run 43718157756). It
+      # returns to pull requests when the spot image has passwordless sudo
+      # (forjar#881); the emulated falsifier above stays on every pull request.
       # FJ-861: the cloud_instance falsifiers are unit tests (src/resources/
       # cloud_instance/tests*.rs: gates, kill switch, destroy by own tag, input
       # allow-lists, ownership key). sovereign-ci's `test` job runs `--lib` only

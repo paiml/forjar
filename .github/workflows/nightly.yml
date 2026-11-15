@@ -248,6 +248,13 @@ jobs:
           --test falsification_undo_actually_undoes \
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest
+      # The live half of the sudo falsifier, moved here from ci.yml (forjar#1090).
+      # FORJAR_REQUIRE_SUDO_TESTS=1 turns a skip into a failure naming the
+      # missing capability, so green means the tests ran under real sudo.
+      - name: The sudo transport survives closefrom under real sudo (required, not skippable)
+        env:
+          FORJAR_REQUIRE_SUDO_TESTS: "1"
+        run: cargo test --locked --test falsification_sudo_transport_survives_closefrom
 
   # ── Create/update nightly prerelease ─────────────────────
   release:
