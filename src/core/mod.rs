@@ -31,6 +31,7 @@ pub mod plugin_runtime;
 pub mod policy_boundary;
 pub mod policy_coverage;
 pub mod pool_interruption;
+pub mod pool_jit;
 pub mod pool_orphans;
 pub mod pool_reconcile;
 pub mod promotion;

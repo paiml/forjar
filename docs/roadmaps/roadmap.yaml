@@ -7656,6 +7656,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1114
+  github_issue: 1114
+  item_type: task
+  title: 'pool: pure ephemeral JIT runner config validator (forjar#894 slice 2)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-894
   github_issue: 894
   item_type: task
