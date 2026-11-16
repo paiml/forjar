@@ -55,7 +55,7 @@ fn nothing_declared_is_byte_identical_to_today() {
 fn root_volume_emits_mapping_gp3_40() {
     let l = run_line(&with(|c| c.root_volume_gb = Some(40)));
     assert!(
-        l.contains("--block-device-mappings DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true} --user-data"),
+        l.contains("--block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true} --user-data"),
         "{l}"
     );
     let l = run_line(&with(|c| {
@@ -67,7 +67,7 @@ fn root_volume_emits_mapping_gp3_40() {
         "{l}"
     );
     let s = apply_script(&gated(std::path::Path::new("/t")));
-    assert!(!s.contains("sda1"));
+    assert!(!s.contains("sda1") && !s.contains("describe-images"));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn data_volume_mapping_800_6000_500() {
         c.root_volume_gb = Some(40);
         good_data(c);
     }));
-    let want = "--block-device-mappings DeviceName=/dev/sda1,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true} DeviceName=/dev/sdf,Ebs={VolumeSize=800,VolumeType=gp3,Iops=6000,Throughput=500,DeleteOnTermination=true} --user-data";
+    let want = "--block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=40,VolumeType=gp3,DeleteOnTermination=true} DeviceName=/dev/sdf,Ebs={VolumeSize=800,VolumeType=gp3,Iops=6000,Throughput=500,DeleteOnTermination=true} --user-data";
     assert!(l.contains(want), "{l}");
     let l = run_line(&with(|c| c.data_volume_gb = Some(100)));
     assert!(
@@ -85,7 +85,7 @@ fn data_volume_mapping_800_6000_500() {
         ),
         "{l}"
     );
-    assert!(!l.contains("Iops") && !l.contains("sda1"), "{l}");
+    assert!(!l.contains("Iops") && !l.contains("xvda"), "{l}");
     let s = apply_script(&gated(std::path::Path::new("/t")));
     assert!(!s.contains("sdf"));
 }
@@ -303,4 +303,122 @@ fn a_changed_volume_is_part_of_the_key_and_is_refused_live() {
     let (rc, out) = sb.run_with(&apply_script(&r), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
     assert!(out.contains("present"), "{out}");
+}
+
+fn root_40() -> Resource {
+    with(|c| c.root_volume_gb = Some(40))
+}
+
+/// Run a gated root-volume apply against a fake aws whose root-device reply is set by `f`.
+fn root_run(r: &Resource, f: impl Fn(&Sandbox)) -> (i32, String, String) {
+    let sb = Sandbox::new();
+    sb.open_gate();
+    f(&sb);
+    let mut r = r.clone();
+    r.cloud.kill_switch = gated(sb.path()).cloud.kill_switch;
+    r.cloud.parity_gate = gated(sb.path()).cloud.parity_gate;
+    r.cloud.budget_cap_usd_day = Some("5".into());
+    let (rc, out) = sb.run_with(&apply_script(&r), "", Some(""));
+    (rc, out, sb.log())
+}
+
+#[test]
+fn root_device_is_read_from_the_image_before_run_instances() {
+    let s = apply_script(&gated(std::path::Path::new("/t")));
+    assert!(!s.contains("describe-images"));
+    let mut r = gated(std::path::Path::new("/t"));
+    r.cloud.root_volume_gb = Some(40);
+    let s = apply_script(&r);
+    let at = s.find("describe-images").expect("lookup emitted");
+    assert!(at < s.find("aws ec2 run-instances").unwrap(), "{s}");
+    assert!(s.contains("--query 'Images[0].RootDeviceName' --output text"));
+    assert!(
+        !s.contains("/dev/sda1") && s.contains("\"$rootdev\""),
+        "{s}"
+    );
+    // default image: resolved through SSM first, then the same id is launched
+    assert!(
+        s.contains("aws ssm get-parameter --region 'eu-south-2'"),
+        "{s}"
+    );
+    assert!(s.contains("--image-id \"$img\" "), "{s}");
+}
+
+#[test]
+fn root_device_comes_from_the_image_not_a_constant() {
+    for dev in ["/dev/xvda", "/dev/sda1", "/dev/nvme0n1"] {
+        let (rc, out, log) = root_run(&root_40(), |sb| sb.set_root_device(&format!("{dev}\n")));
+        assert_eq!(rc, 0, "{dev}: {out}");
+        assert!(
+            log.contains(&format!("DeviceName={dev},Ebs={{VolumeSize=40")),
+            "{log}"
+        );
+        let (d, r) = (log.find("describe-images"), log.find("run-instances"));
+        assert!(d.unwrap() < r.unwrap(), "{log}");
+        assert!(log.contains("--image-id ami-0123456789abcdef0"), "{log}");
+    }
+}
+
+#[test]
+fn pinned_image_is_looked_up_directly_without_ssm() {
+    let (rc, out, log) = root_run(
+        &with(|c| {
+            c.root_volume_gb = Some(40);
+            c.ami = Some("ami-0123abcd".into());
+        }),
+        |_| {},
+    );
+    assert_eq!(rc, 0, "{out}");
+    assert!(
+        log.contains("describe-images --region eu-south-2 --image-ids ami-0123abcd"),
+        "{log}"
+    );
+    assert!(!log.contains("ssm"), "{log}");
+}
+
+#[test]
+fn bad_or_failed_root_device_lookup_refuses_and_never_launches() {
+    for bad in [
+        "None\n",
+        "\n",
+        "",
+        "/dev/\n",
+        "/dev/a\n",
+        "sda1\n",
+        "/dev/SDA1\n",
+        "/dev/sda1;x\n",
+        "/dev/abcdefghijklm\n",
+        "/dev/xv da\n",
+        "/dev/xvda\n/dev/sdb\n",
+        "/dev/xvda/\n",
+        "\"/dev/xvda\"\n",
+    ] {
+        let (rc, out, log) = root_run(&root_40(), |sb| sb.set_root_device(bad));
+        assert_ne!(rc, 0, "{bad:?}: {out}");
+        assert!(out.contains("REFUSED"), "{bad:?}: {out}");
+        assert!(!log.contains("run-instances"), "{bad:?}: {log}");
+    }
+    let (rc, out, log) = root_run(&root_40(), |sb| sb.fail_images());
+    assert_ne!(rc, 0, "{out}");
+    assert!(
+        out.contains("REFUSED") && !log.contains("run-instances"),
+        "{out}{log}"
+    );
+    let (rc, out, log) = root_run(&root_40(), |sb| sb.fail_ssm());
+    assert_ne!(rc, 0, "{out}");
+    assert!(
+        out.contains("REFUSED") && !log.contains("describe-images"),
+        "{out}{log}"
+    );
+    assert!(!log.contains("run-instances"), "{log}");
+}
+
+#[test]
+fn data_volume_alone_needs_no_image_lookup() {
+    let (rc, out, log) = root_run(&with(|c| c.data_volume_gb = Some(100)), |_| {});
+    assert_eq!(rc, 0, "{out}");
+    assert!(
+        !log.contains("describe-images") && !log.contains("get-parameter"),
+        "{log}"
+    );
 }

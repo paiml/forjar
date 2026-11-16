@@ -431,9 +431,10 @@ pub fn apply_script(resource: &Resource) -> String {
          if [ -z \"$owned\" ]; then :; else\n\
          \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
          \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
+         {rootdev}\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
@@ -449,7 +450,8 @@ pub fn apply_script(resource: &Resource) -> String {
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
-        ami = sh_squote(&ami::image_id(&s.ami)),
+        rootdev = s.storage.root_lookup(&sh_squote(&s.region), &s.ami),
+        ami = s.storage.image_arg(&s.ami),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price

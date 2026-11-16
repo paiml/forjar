@@ -7,6 +7,8 @@ use crate::core::shell_escape::sh_squote;
 use crate::core::types::CloudSpec;
 
 const TYPES: [&str; 2] = ["gp2", "gp3"];
+/// Marker device of the root volume: the real name is read from the image at apply time.
+const ROOT: &str = "<root>";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Volume {
@@ -49,7 +51,7 @@ fn root(c: &CloudSpec) -> Result<Option<Volume>, String> {
     range("cloud_root_volume_gb", gb, 1, 16384)?;
     let kind = kind_of("cloud_root_volume_type", &c.root_volume_type)?;
     Ok(Some(Volume {
-        device: "/dev/sda1",
+        device: ROOT,
         gb,
         kind,
         iops: None,
@@ -57,6 +59,8 @@ fn root(c: &CloudSpec) -> Result<Option<Volume>, String> {
     }))
 }
 
+/// The gp3 limits here are the older, lower AWS figures (checked 2026-11-16): deliberately
+/// conservative refusals; a larger valid request is refused, never passed through.
 fn data(c: &CloudSpec) -> Result<Option<Volume>, String> {
     let Some(gb) = c.data_volume_gb else {
         let stray = c.data_volume_type.is_some()
@@ -110,6 +114,58 @@ impl Storage {
         })
     }
 
+    fn has_root(&self) -> bool {
+        self.volumes.iter().any(|v| v.device == ROOT)
+    }
+
+    /// The `--image-id` value: today's quoted literal, or the validated `$img` when a
+    /// root volume needs the image's own root device name.
+    pub(super) fn image_arg(&self, ami: &Option<String>) -> String {
+        if self.has_root() {
+            return "\"$img\"".into();
+        }
+        sh_squote(&super::ami::image_id(ami))
+    }
+
+    /// Shell run after the gate and owner checks and BEFORE `run-instances`: sets `img`
+    /// (the resolved image id) and `rootdev` (that image's `RootDeviceName`), or EXITS
+    /// NON-ZERO with REFUSED. Empty when no root volume is declared. Every reply must be
+    /// a whole token (`ami-` + 8 or 17 hex; `/dev/` + 2 to 12 of a-z0-9); anything else,
+    /// `None` and a failed call included, refuses before any launch.
+    pub(super) fn root_lookup(&self, region: &str, ami: &Option<String>) -> String {
+        if !self.has_root() {
+            return String::new();
+        }
+        let id = super::ami::image_id(ami);
+        let get = match id.strip_prefix("resolve:ssm:") {
+            Some(p) => format!(
+                "aws ssm get-parameter --region {region} --name {} --query Parameter.Value --output text",
+                sh_squote(p)
+            ),
+            None => format!("echo {}", sh_squote(&id)),
+        };
+        let fail = |what: &str| {
+            format!(
+                "echo {} >&2; exit 1",
+                sh_squote(&format!("REFUSED: {what}"))
+            )
+        };
+        format!(
+            "img=\"$({get})\" || {{ {f1}; }}\n\
+             case \"$img\" in ami-*) h=\"${{img#ami-}}\";; *) h='!';; esac\n\
+             case \"$h\" in *[!0-9a-f]*) h='!';; esac\n\
+             if [ \"${{#h}}\" -ne 8 ] && [ \"${{#h}}\" -ne 17 ]; then {f2}; fi\n\
+             rootdev=\"$(aws ec2 describe-images --region {region} --image-ids \"$img\" --query 'Images[0].RootDeviceName' --output text)\" || {{ {f3}; }}\n\
+             case \"$rootdev\" in /dev/*) h=\"${{rootdev#/dev/}}\";; *) h='!';; esac\n\
+             case \"$h\" in *[!a-z0-9]*) h='!';; esac\n\
+             if [ \"${{#h}}\" -lt 2 ] || [ \"${{#h}}\" -gt 12 ]; then {f4}; fi\n",
+            f1 = fail("image id lookup failed; nothing was launched"),
+            f2 = fail("image id lookup returned something that is not a whole AMI id"),
+            f3 = fail("root device lookup failed; nothing was launched"),
+            f4 = fail("root device lookup returned something that is not a device name; nothing was launched"),
+        )
+    }
+
     fn mapping(v: &Volume) -> String {
         let mut ebs = format!("VolumeSize={},VolumeType={}", v.gb, v.kind);
         if let Some(i) = v.iops {
@@ -118,10 +174,15 @@ impl Storage {
         if let Some(t) = v.throughput {
             ebs += &format!(",Throughput={t}");
         }
-        sh_squote(&format!(
-            "DeviceName={},Ebs={{{ebs},DeleteOnTermination=true}}",
-            v.device
-        ))
+        let tail = format!("Ebs={{{ebs},DeleteOnTermination=true}}");
+        if v.device == ROOT {
+            // the validated `rootdev`, spliced between two single-quoted halves
+            return format!(
+                "'DeviceName='\"$rootdev\"{}",
+                sh_squote(&format!(",{tail}"))
+            );
+        }
+        sh_squote(&format!("DeviceName={},{tail}", v.device))
     }
 
     /// `run-instances` flag, followed by a space; empty if no volume is declared.
