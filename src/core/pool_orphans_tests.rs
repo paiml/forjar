@@ -26,35 +26,6 @@ fn complete(v: Vec<Runner>) -> RunnerListing {
 }
 
 #[test]
-fn one_sweep_leaves_no_orphans_on_a_synthetic_set() {
-    let runners = vec![
-        r("r1", "h1", false),
-        r("r2", "gone", false),
-        r("r3", "zzz", false),
-        r("r4", "h2", true),
-    ];
-    let hosts = vec![h("h1", 0), h("h2", 9999), h("h3", 600), h("h4", 700)];
-    let s = sweep(&complete(runners.clone()), &hosts).unwrap();
-    assert_eq!(s.deregister_runners, vec!["r2", "r3"]);
-    assert_eq!(s.terminate_hosts, vec!["h3", "h4"]);
-    let runners: Vec<Runner> = runners
-        .into_iter()
-        .filter(|x| !s.deregister_runners.contains(&x.name))
-        .collect();
-    let hosts: Vec<Host> = hosts
-        .into_iter()
-        .filter(|x| !s.terminate_hosts.contains(&x.id))
-        .collect();
-    assert_eq!(sweep(&complete(runners), &hosts), Ok(Sweep::default()));
-}
-
-#[test]
-fn busy_runner_is_never_selected_nor_its_host() {
-    let l = complete(vec![r("busy", "h1", true), r("busy-ghost", "zzz", true)]);
-    assert_eq!(sweep(&l, &[h("h1", 99_999)]), Ok(Sweep::default()));
-}
-
-#[test]
 fn host_with_an_idle_runner_is_kept() {
     let s = sweep(&complete(vec![r("r", "h1", false)]), &[h("h1", 99_999)]).unwrap();
     assert!(s.terminate_hosts.is_empty());
@@ -109,9 +80,9 @@ fn duplicate_host_ids_are_refused() {
 
 #[test]
 fn duplicate_runner_names_are_refused() {
-    let l = complete(vec![r("n", "zzz", false), r("n", "yyy", false)]);
+    let l = complete(vec![r("n", "a", false), r("n", "b", false)]);
     assert_eq!(
-        sweep(&l, &[h("a", 0)]),
+        sweep(&l, &[h("a", 0), h("b", 0)]),
         Err(SweepError::DuplicateRunnerName("n".into()))
     );
 }
@@ -134,66 +105,12 @@ fn grace_boundary_is_inclusive() {
 }
 
 #[test]
-fn case_only_host_id_mismatch_is_refused_not_guessed() {
-    let l = complete(vec![r("x", "I-ABC", true)]);
-    assert_eq!(
-        sweep(&l, &[h("i-abc", 99_999)]),
-        Err(SweepError::NearMatchHostId {
-            runner: "x".into(),
-            host: "i-abc".into()
-        })
-    );
-}
-
-#[test]
-fn prefix_host_id_mismatch_is_refused_in_both_directions() {
-    let a = complete(vec![r("x", "forjar-i-abc", true)]);
-    assert!(matches!(
-        sweep(&a, &[h("forjar", 99_999)]),
-        Err(SweepError::NearMatchHostId { .. })
-    ));
-    let b = complete(vec![r("x", "i-ab", true)]);
-    assert!(matches!(
-        sweep(&b, &[h("i-abc", 99_999)]),
-        Err(SweepError::NearMatchHostId { .. })
-    ));
-}
-
-#[test]
 fn exact_match_is_not_a_near_match() {
     let l = complete(vec![r("x", "i-abc", true)]);
     assert_eq!(
         sweep(&l, &[h("i-abc", 99_999), h("i-abcd", 0)]),
         Ok(Sweep::default())
     );
-}
-
-#[test]
-fn outputs_are_deduplicated() {
-    // Reachable only via push_unique; pin it directly.
-    let mut v = vec![];
-    push_unique(&mut v, "a");
-    push_unique(&mut v, "a");
-    push_unique(&mut v, "b");
-    assert_eq!(v, vec!["a", "b"]);
-}
-
-#[test]
-fn suffix_and_inner_host_id_mismatch_is_refused_in_both_directions() {
-    for (runner, host) in [
-        ("forjar-i-abc", "i-abc"),
-        ("i-abc", "forjar-i-abc"),
-        ("x-i-abc-y", "i-abc"),
-    ] {
-        let l = complete(vec![r("x", runner, true)]);
-        assert!(
-            matches!(
-                sweep(&l, &[h(host, 99_999)]),
-                Err(SweepError::NearMatchHostId { .. })
-            ),
-            "{runner} vs {host}"
-        );
-    }
 }
 
 #[test]
@@ -211,4 +128,115 @@ fn host_with_busy_runner_is_never_terminated_even_when_old_and_idle() {
     let l = complete(vec![r("b", "a", true)]);
     let s = sweep(&l, &[ha("a", 99_999, 99_999)]).unwrap();
     assert!(s.terminate_hosts.is_empty());
+}
+
+fn unknown(runner: &str, host: &str) -> Result<Sweep, SweepError> {
+    Err(SweepError::UnknownRunnerHost {
+        runner: runner.into(),
+        host: host.into(),
+    })
+}
+
+#[test]
+fn busy_runner_on_an_unlisted_host_id_is_refused_whatever_it_looks_like() {
+    let hosts = [ha("i-0abc", 99_999, 99_999)];
+    for bad in ["ip-10-0-0-5", "zzz", "I-0ABC", "i-0ab"] {
+        let l = complete(vec![r("b", bad, true)]);
+        assert_eq!(sweep(&l, &hosts), unknown("b", bad), "{bad}");
+    }
+}
+
+#[test]
+fn idle_runner_on_an_unlisted_host_id_is_refused() {
+    let l = complete(vec![r("i", "gone", false)]);
+    assert_eq!(sweep(&l, &[h("i-0abc", 99_999)]), unknown("i", "gone"));
+}
+
+#[test]
+fn host_ids_equal_ignoring_case_are_duplicates() {
+    let l = complete(vec![r("b", "i-0abc", true)]);
+    let hosts = [ha("i-0abc", 1, 99_999), ha("I-0ABC", 99_999, 99_999)];
+    assert!(matches!(
+        sweep(&l, &hosts),
+        Err(SweepError::DuplicateHostId(_))
+    ));
+}
+
+#[test]
+fn ids_with_whitespace_or_control_characters_are_refused() {
+    for bad in [
+        "i-0abc\n",
+        " i-0abc",
+        "i-0abc ",
+        "i-0 abc",
+        "i-0\tabc",
+        "i-0\u{0}abc",
+    ] {
+        let hosts = [h(bad, 99_999)];
+        assert_eq!(
+            sweep(&complete(vec![]), &hosts),
+            Err(SweepError::MalformedId(bad.into())),
+            "host {bad:?}"
+        );
+        let l = complete(vec![r("x", bad, true)]);
+        assert_eq!(
+            sweep(&l, &[h("i-0abc", 0)]),
+            Err(SweepError::MalformedRunnerHostId {
+                runner: "x".into(),
+                host: bad.into()
+            }),
+            "runner host {bad:?}"
+        );
+    }
+}
+
+#[test]
+fn one_sweep_leaves_no_orphans_on_a_synthetic_set() {
+    let runners = vec![
+        r("r1", "h1", false),
+        r("r4", "h2", true),
+        r("r5", "h5", false),
+    ];
+    let hosts = vec![
+        h("h1", 0),
+        h("h2", 9999),
+        h("h3", 600),
+        h("h4", 700),
+        h("h5", 0),
+    ];
+    let s = sweep(&complete(runners.clone()), &hosts).unwrap();
+    assert_eq!(s.terminate_hosts, vec!["h3", "h4"]);
+    let hosts: Vec<Host> = hosts
+        .into_iter()
+        .filter(|x| !s.terminate_hosts.contains(&x.id))
+        .collect();
+    assert_eq!(sweep(&complete(runners), &hosts), Ok(Sweep::default()));
+}
+
+#[test]
+fn busy_runner_keeps_its_host() {
+    let l = complete(vec![r("busy", "h1", true)]);
+    assert_eq!(sweep(&l, &[h("h1", 99_999)]), Ok(Sweep::default()));
+}
+
+#[test]
+fn exact_match_with_a_longer_sibling_id_is_fine() {
+    let l = complete(vec![r("x", "i-abc", true)]);
+    let s = sweep(&l, &[h("i-abc", 99_999), h("i-abcd", 99_999)]).unwrap();
+    assert_eq!(s.terminate_hosts, vec!["i-abcd"]);
+}
+
+#[test]
+fn busy_and_idle_runners_on_a_host_id_with_inner_whitespace_are_refused() {
+    let hosts = [ha("i-0abc", 99_999, 99_999)];
+    for busy in [true, false] {
+        let l = complete(vec![r("b", "i-0 abc", busy)]);
+        assert_eq!(
+            sweep(&l, &hosts),
+            Err(SweepError::MalformedRunnerHostId {
+                runner: "b".into(),
+                host: "i-0 abc".into()
+            })
+        );
+    }
 }

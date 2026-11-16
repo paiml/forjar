@@ -37,11 +37,9 @@ pub struct Host {
     pub age_secs: u64,
 }
 
-/// What one sweep removes. Both lists keep input order, without duplicates.
+/// What one sweep removes. The list keeps input order, without duplicates.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Sweep {
-    /// Names of runners to deregister (their host is gone).
-    pub deregister_runners: Vec<String>,
     /// Ids of hosts to terminate (idle past the rule, no registered runner,
     /// past the registration grace).
     pub terminate_hosts: Vec<String>,
@@ -58,29 +56,45 @@ pub enum SweepError {
     EmptyRunnerHostId {
         runner: String,
     },
+    /// Two host ids are equal ignoring ASCII case.
     DuplicateHostId(String),
     DuplicateRunnerName(String),
     /// A host reports more idle seconds than its age: inconsistent input.
     IdleExceedsAge(String),
-    /// A runner's host id matches a host only by case or containment
-    /// (prefix, suffix): a naming mismatch, refused rather than guessed.
-    NearMatchHostId {
+    /// A runner's host id equals no listed host id. Whatever it looks like,
+    /// the runner's real host cannot be known, so nothing is guessed.
+    UnknownRunnerHost {
+        runner: String,
+        host: String,
+    },
+    /// A host id has whitespace or control characters.
+    MalformedId(String),
+    /// A runner's host id has whitespace or control characters.
+    MalformedRunnerHostId {
         runner: String,
         host: String,
     },
 }
 
-fn first_duplicate<'a>(items: impl Iterator<Item = &'a str>) -> Option<String> {
+fn first_duplicate(items: impl Iterator<Item = String>) -> Option<String> {
     let mut seen = std::collections::HashSet::new();
-    items
-        .into_iter()
-        .find(|s| !seen.insert(*s))
-        .map(String::from)
+    items.into_iter().find(|s| !seen.insert(s.clone()))
 }
 
-fn push_unique(out: &mut Vec<String>, s: &str) {
-    if !out.iter().any(|x| x == s) {
-        out.push(s.to_string());
+fn well_formed(id: &str) -> bool {
+    !id.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
+fn check_well_formed(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
+    if let Some(h) = hosts.iter().find(|h| !well_formed(&h.id)) {
+        return Err(SweepError::MalformedId(h.id.clone()));
+    }
+    match runners.iter().find(|r| !well_formed(&r.host_id)) {
+        Some(r) => Err(SweepError::MalformedRunnerHostId {
+            runner: r.name.clone(),
+            host: r.host_id.clone(),
+        }),
+        None => Ok(()),
     }
 }
 
@@ -93,32 +107,12 @@ fn check_ids(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
             runner: r.name.clone(),
         });
     }
-    if let Some(d) = first_duplicate(hosts.iter().map(|h| h.id.as_str())) {
+    check_well_formed(runners, hosts)?;
+    if let Some(d) = first_duplicate(hosts.iter().map(|h| h.id.to_ascii_lowercase())) {
         return Err(SweepError::DuplicateHostId(d));
     }
-    match first_duplicate(runners.iter().map(|r| r.name.as_str())) {
+    match first_duplicate(runners.iter().map(|r| r.name.clone())) {
         Some(d) => Err(SweepError::DuplicateRunnerName(d)),
-        None => Ok(()),
-    }
-}
-
-fn is_near(a: &str, b: &str) -> bool {
-    a != b && (a.eq_ignore_ascii_case(b) || a.contains(b) || b.contains(a))
-}
-
-fn check_near(r: &Runner, hosts: &[Host]) -> Result<(), SweepError> {
-    if hosts.iter().any(|h| h.id == r.host_id) {
-        return Ok(());
-    }
-    let lower = r.host_id.to_ascii_lowercase();
-    match hosts
-        .iter()
-        .find(|h| is_near(&h.id, &r.host_id) || is_near(&h.id.to_ascii_lowercase(), &lower))
-    {
-        Some(h) => Err(SweepError::NearMatchHostId {
-            runner: r.name.clone(),
-            host: h.id.clone(),
-        }),
         None => Ok(()),
     }
 }
@@ -128,34 +122,39 @@ fn validate(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
     if let Some(h) = hosts.iter().find(|h| h.idle_secs > h.age_secs) {
         return Err(SweepError::IdleExceedsAge(h.id.clone()));
     }
-    runners.iter().try_for_each(|r| check_near(r, hosts))
+    match runners
+        .iter()
+        .find(|r| !hosts.iter().any(|h| h.id == r.host_id))
+    {
+        Some(r) => Err(SweepError::UnknownRunnerHost {
+            runner: r.name.clone(),
+            host: r.host_id.clone(),
+        }),
+        None => Ok(()),
+    }
 }
 
-/// Compute one sweep. A busy runner is never deregistered and its host is
-/// never terminated; a busy runner on a vanished host is left for the next
-/// sweep, once the forge reports it idle (the forge can keep an offline runner
-/// busy until its job timeout, so this can linger).
+/// Compute one sweep: the hosts to terminate. Every runner, busy or not, must
+/// sit on a listed host (an unknown host id is refused, not deregistered), so
+/// a busy runner's host is never terminated. With zero runners and a
+/// `Complete` listing, every host idle past the rule and older than the grace
+/// is returned: that is the issue's "0 instances within 15 min of an empty
+/// queue".
 pub fn sweep(listing: &RunnerListing, hosts: &[Host]) -> Result<Sweep, SweepError> {
     let RunnerListing::Complete(runners) = listing else {
         return Err(SweepError::IncompleteListing);
     };
     validate(runners, hosts)?;
-    let mut out = Sweep::default();
-    for r in runners {
-        if !r.busy && !hosts.iter().any(|h| h.id == r.host_id) {
-            push_unique(&mut out.deregister_runners, &r.name);
-        }
-    }
-    for h in hosts {
-        let registered = runners.iter().any(|r| r.host_id == h.id);
-        if !registered
-            && h.idle_secs >= SCALE_DOWN_QUIET_SECS
-            && h.age_secs >= REGISTRATION_GRACE_SECS
-        {
-            push_unique(&mut out.terminate_hosts, &h.id);
-        }
-    }
-    Ok(out)
+    let terminate_hosts = hosts
+        .iter()
+        .filter(|h| {
+            h.idle_secs >= SCALE_DOWN_QUIET_SECS
+                && h.age_secs >= REGISTRATION_GRACE_SECS
+                && !runners.iter().any(|r| r.host_id == h.id)
+        })
+        .map(|h| h.id.clone())
+        .collect();
+    Ok(Sweep { terminate_hosts })
 }
 
 #[cfg(test)]
