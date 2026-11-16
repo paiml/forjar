@@ -31,6 +31,8 @@ use destroy::destroy_script;
 mod ami;
 mod key;
 mod placement;
+mod profile;
+pub use profile::misplaced as profile_misplaced;
 mod validate;
 use key::{key_of, owner_of};
 use validate::{
@@ -65,6 +67,8 @@ pub struct CloudInstance {
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
+    /// IAM instance profile name (`cloud_instance_profile`); `None` = none attached.
+    pub profile: Option<String>,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -129,6 +133,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         )?;
     }
     let placement = placement::Placement::of(&resource.cloud, &region)?;
+    let profile = profile::checked(&resource.cloud.instance_profile)?;
     Ok(CloudInstance {
         name,
         region,
@@ -139,6 +144,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
+        profile,
     })
 }
 
@@ -438,7 +444,7 @@ pub fn apply_script(resource: &Resource) -> String {
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
-         {net}\
+         {net}{prof}\
          --user-data {ud} \
          --tag-specifications {tagspec}\n",
         kill = sh_squote(&kill),
@@ -454,6 +460,7 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
+        prof = profile::args(&s.profile),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )
