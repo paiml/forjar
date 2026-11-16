@@ -2,7 +2,7 @@
 //! The fake `aws` here replaces the shared stub: its `run-instances` and
 //! client-token lookups are scripted by files in the sandbox.
 
-use super::launch_io::{day_of, token, token_input, token_on, CAPACITY_EXIT};
+use super::launch_io::{day_of, token, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res, Sandbox};
 use super::*;
 
@@ -44,7 +44,7 @@ pub(super) type Run<'a> = (i32, &'a str, &'a str);
 /// call gets the Nth reply, later calls the last one), `tok` (the client-token
 /// lookup reply, or None for a failing lookup) and the instance states
 /// (`(id, state)`, default `running`; `state_fail` makes the state read fail).
-fn launch_with(
+pub(super) fn launch_with(
     runs: &[Run],
     tok: Option<&str>,
     states: &[(&str, &str)],
@@ -203,7 +203,7 @@ fn apply_last_line_is_launched_id() {
         Some(format!("launched {ID}").as_str())
     );
     assert!(
-        log.contains("--query Instances[0].InstanceId --output text"),
+        log.contains("--query Instances[0].[InstanceId,LaunchTime] --output text"),
         "{log}"
     );
     // a warning after the id hides it from the parse: the token lookup still finds the box

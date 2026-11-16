@@ -116,7 +116,7 @@ if [ "$src" -eq 0 ]; then case "$st" in ''|None) cls=nf;; *) cls=ok;; esac
 else case "$st" in *'An error occurred (InvalidInstanceID.NotFound)'*) cls=nf;; esac; fi
 if [ "$cls" = ok ]; then break; fi
 if [ "$cls" = nf ]; then
-now="$(date -u +%s 2>/dev/null)" || now=0
+now="$(date -u +%s 2>/dev/null)" || now=0 # bashrs disable-line=DET002
 case "$now" in ''|*[!0-9]*) now=0;; esac
 if [ $((now - lte)) -gt @AGE@ ]; then old=1; break; fi
 fi
