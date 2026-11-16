@@ -7836,3 +7836,57 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1122
+  github_issue: 1122
+  item_type: task
+  title: 'copia: generated patch copy op must not take SIGPIPE under pipefail'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1124
+  github_issue: 1124
+  item_type: task
+  title: 'tests: lock writer stamp compared with version output carrying a sha suffix'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1125
+  github_issue: 1125
+  item_type: task
+  title: 'tests: executable written then exec'd must tolerate ETXTBSY under parallel tests'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

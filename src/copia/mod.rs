@@ -186,9 +186,12 @@ pub fn patch_script(
     for op in &delta.ops {
         match op {
             DeltaOp::Copy { offset, len } => {
-                // POSIX byte-range copy from the basis (1-based for `tail -c +N`).
+                // POSIX byte-range copy from the basis. `head` is the producer and
+                // `tail` reads to EOF, so no writer is ever closed early (the old
+                // `tail | head` form took SIGPIPE, exit 141, under `pipefail`).
                 lines.push(format!(
-                    "tail -c +{} \"$DEST\" | head -c {len} >> \"$TMPFILE\"",
+                    "head -c {} \"$DEST\" | tail -c +{} >> \"$TMPFILE\"",
+                    *offset + u64::from(*len),
                     offset + 1
                 ));
             }

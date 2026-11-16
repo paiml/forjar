@@ -151,8 +151,8 @@ fn patch_script_hardening() {
     d.push_copy(0, 5);
     d.push_literal(b"hello");
     let script = patch_script("/etc/secret", &d, "b3hex", Some("root"), None, Some("0600"));
-    // byte-range copy via tail|head, literal via heredoc (no echo argv)
-    assert!(script.contains("tail -c +1 \"$DEST\" | head -c 5"));
+    // byte-range copy via head|tail, literal via heredoc (no echo argv)
+    assert!(script.contains("head -c 5 \"$DEST\" | tail -c +1"));
     assert!(script.contains("base64 -d >> \"$TMPFILE\" <<'FORJAR_B64'"));
     // integrity verify + trap
     assert!(
