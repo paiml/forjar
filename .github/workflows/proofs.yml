@@ -78,26 +78,28 @@ jobs:
 
   kani:
     name: kani
-    # forjar#598 / forjar#1086 -- NO HOST PIN. History, so nobody re-adds one
+    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
     # blind:
     #
-    # 2026-09-20: `[self-hosted, clean-room, X64]` matched the intel runners
-    # (bare metal, tools present) AND the yoga-build* runners (ephemeral
-    # containers; lean + kani + rsync ABSENT by inventory). The job was
-    # deterministic per runner and a coin flip per run: on commit 537252d3 four
-    # runs went fail/pass/fail/pass purely by which runner picked it up. The
-    # interim answer was a fourth label, `intel`: a HOSTNAME standing in for a
-    # CAPABILITY (PMAT-547), to be removed once the X64 clean-room pool
-    # carried the prover stack.
+    # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
+    # prover tools and seats that did not. The job was deterministic per seat
+    # and a coin flip per run: on commit 537252d3 four runs went
+    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
+    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
+    # (PMAT-547).
     #
-    # 2026-11-15: that condition is measured, not assumed. The X64 clean-room
-    # pool is now spot seats built from one image, and Proofs run 43739295778
-    # (workflow_dispatch on the branch that removed the pin) ran kani and lean
-    # green on two of them. The pin had meanwhile become the fault: one host
-    # for two jobs left them queued for over two hours on main.
+    # 2026-11-15: that pin left kani and lean queued for hours on main, because
+    # only a few seats carried the label and all were busy. It is removed. This
+    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
+    # was NOT measured on every such seat. What was measured: Proofs run
+    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
+    # this job green on one seat and the other proof job on a second seat; the
+    # tool assertion below passed on both.
     #
-    # If a seat without the tools ever joins this pool, the assertion step
-    # below fails the job by name. Fix that seat's image; do not pin a host.
+    # Safety does not rest on the label: the assertion step below fails this job
+    # by seat name if the tool is absent, so a seat without it turns the run
+    # red rather than passing or skipping. Fix that seat's image; do not add a
+    # host label. A test pins that this job names no host-specific label.
     runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
@@ -206,26 +208,28 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    # forjar#598 / forjar#1086 -- NO HOST PIN. History, so nobody re-adds one
+    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
     # blind:
     #
-    # 2026-09-20: `[self-hosted, clean-room, X64]` matched the intel runners
-    # (bare metal, tools present) AND the yoga-build* runners (ephemeral
-    # containers; lean + kani + rsync ABSENT by inventory). The job was
-    # deterministic per runner and a coin flip per run: on commit 537252d3 four
-    # runs went fail/pass/fail/pass purely by which runner picked it up. The
-    # interim answer was a fourth label, `intel`: a HOSTNAME standing in for a
-    # CAPABILITY (PMAT-547), to be removed once the X64 clean-room pool
-    # carried the prover stack.
+    # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
+    # prover tools and seats that did not. The job was deterministic per seat
+    # and a coin flip per run: on commit 537252d3 four runs went
+    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
+    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
+    # (PMAT-547).
     #
-    # 2026-11-15: that condition is measured, not assumed. The X64 clean-room
-    # pool is now spot seats built from one image, and Proofs run 43739295778
-    # (workflow_dispatch on the branch that removed the pin) ran kani and lean
-    # green on two of them. The pin had meanwhile become the fault: one host
-    # for two jobs left them queued for over two hours on main.
+    # 2026-11-15: that pin left kani and lean queued for hours on main, because
+    # only a few seats carried the label and all were busy. It is removed. This
+    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
+    # was NOT measured on every such seat. What was measured: Proofs run
+    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
+    # this job green on one seat and the other proof job on a second seat; the
+    # tool assertion below passed on both.
     #
-    # If a seat without the tools ever joins this pool, the assertion step
-    # below fails the job by name. Fix that seat's image; do not pin a host.
+    # Safety does not rest on the label: the assertion step below fails this job
+    # by seat name if the tool is absent, so a seat without it turns the run
+    # red rather than passing or skipping. Fix that seat's image; do not add a
+    # host label. A test pins that this job names no host-specific label.
     runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 30
     steps:
