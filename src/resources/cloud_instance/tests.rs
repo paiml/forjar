@@ -51,6 +51,7 @@ const STUB: &str = r#"#!/bin/sh
 : "${STUB_LOG:?STUB_LOG unset: refusing to act as aws}"
 echo "$@" >> "$STUB_LOG"
 case "$*" in
+*describe-instances*--instance-ids*) echo running;;
 *describe-instances*)
   if [ -e "$STUB_LOG.descfail" ]; then echo "ExpiredToken" >&2; exit 255; fi
   if [ -e "$STUB_LOG.descfail2" ] && [ "$(grep -c describe-instances "$STUB_LOG")" -ge 2 ]; then echo "ExpiredToken" >&2; exit 255; fi
@@ -73,9 +74,24 @@ case "$*" in
 esac
 "#;
 
-const TOOLS: [&str; 16] = [
-    "sh", "bash", "grep", "awk", "sed", "cat", "touch", "tr", "cut", "head", "sort", "dirname",
-    "basename", "mkdir", "rm", "wc",
+const TOOLS: [&str; 17] = [
+    "sh",
+    "bash",
+    "grep",
+    "awk",
+    "sed",
+    "cat",
+    "touch",
+    "tr",
+    "cut",
+    "head",
+    "sort",
+    "dirname",
+    "basename",
+    "mkdir",
+    "rm",
+    "wc",
+    "sha256sum",
 ];
 
 impl Sandbox {
