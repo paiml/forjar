@@ -1,6 +1,6 @@
 //! Instance key and ownership key for `cloud_instance`.
 
-use super::{ami, CloudInstance};
+use super::{ami, profile, CloudInstance};
 
 /// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
 /// digits of the image digest, then the `cloud_ami` and placement tails when declared. Two declarations
@@ -8,7 +8,7 @@ use super::{ami, CloudInstance};
 pub(super) fn key_of(s: &CloudInstance) -> String {
     let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
     let head = format!("{}@{}@{}", s.name, s.region, &digest[..12]);
-    head + &ami::key_tail(&s.ami) + &s.placement.key_suffix()
+    head + &ami::key_tail(&s.ami) + &s.placement.key_suffix() + &profile::key_tail(&s.profile)
 }
 
 /// Ownership key for teardown: name plus region, stable across image changes.
