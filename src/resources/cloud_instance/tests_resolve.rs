@@ -60,6 +60,7 @@ fn params(bad: &str) -> HashMap<String, serde_yaml_ng::Value> {
 #[test]
 fn a_template_resolving_to_a_bad_value_produces_no_provider_command() {
     let sb = Sandbox::new();
+    assert!(spec_of(&gated(sb.path())).is_ok(), "baseline must be valid");
     let machines = indexmap::IndexMap::new();
     let bad_values = ["x y", "a;rm -rf /", "$(id)", "../x", "", "{{params.bad}}"];
     // syntactically valid for most fields, bad for one
@@ -72,13 +73,8 @@ fn a_template_resolving_to_a_bad_value_produces_no_provider_command() {
         for bad in bad_values.into_iter().chain(extra(field)) {
             let mut r = gated(sb.path());
             set(&mut r, "{{params.bad}}");
-            let r = crate::core::resolver::resolve_resource_templates(&r, &params(bad), &machines);
-            // a resolver error leaves the raw template, which must be refused too
-            let r = r.unwrap_or_else(|_| {
-                let mut raw = gated(sb.path());
-                set(&mut raw, "{{params.bad}}");
-                raw
-            });
+            let r = crate::core::resolver::resolve_resource_templates(&r, &params(bad), &machines)
+                .expect("the param is defined, so resolution succeeds");
             assert_refused_everywhere(&r, &format!("{field}={bad:?}"));
         }
     }
@@ -121,6 +117,7 @@ fn an_unresolved_template_reaching_codegen_is_refused() {
 fn the_dispatcher_refuses_what_the_generators_refuse() {
     use crate::core::codegen as cg;
     let sb = Sandbox::new();
+    let mut inspected = 0;
     for (field, set) in RESOLVED.iter().chain(UNTOUCHED.iter()) {
         for state in [None, Some("absent")] {
             let mut r = gated(sb.path());
@@ -133,10 +130,41 @@ fn the_dispatcher_refuses_what_the_generators_refuse() {
             ];
             // an Err is a refusal too; an Ok script must say REFUSED
             for script in outs.into_iter().flatten() {
+                inspected += 1;
                 let label = format!("{field}/{state:?}: {script}");
                 assert!(script.contains("REFUSED"), "{label}");
                 assert!(!script.contains("aws ec2"), "{label}");
             }
+        }
+    }
+    assert!(
+        inspected > 0,
+        "every dispatcher result was an Err: nothing was inspected"
+    );
+}
+
+/// Gate fields: a template left in a gate path or the budget must refuse the
+/// launch. Only apply (present) reads the gates; check, state_query and the
+/// absent/destroy script never launch and never read them.
+#[test]
+fn an_unresolved_template_in_a_gate_is_refused_never_an_absent_kill_switch() {
+    let sb = Sandbox::new();
+    sb.open_gate();
+    let setters: [(&str, Setter); 3] = [
+        ("kill_switch", |r, v| r.cloud.kill_switch = Some(v.into())),
+        ("parity_gate", |r, v| r.cloud.parity_gate = Some(v.into())),
+        ("budget", |r, v| r.cloud.budget_cap_usd_day = Some(v.into())),
+    ];
+    let (rc, _) = sb.run(&apply_script(&gated(sb.path())), "");
+    assert_eq!(rc, 0, "baseline launches");
+    for (field, set) in setters {
+        for bad in ["/run/{{params.k}}", "{{params.k}}", "/run/}}x", "/run/{{"] {
+            let mut r = gated(sb.path());
+            set(&mut r, bad);
+            let script = apply_script(&r);
+            let label = format!("{field}={bad}: {script}");
+            assert!(script.contains("REFUSED"), "{label}");
+            assert!(!script.contains("aws ec2"), "{label}");
         }
     }
 }
