@@ -6,7 +6,7 @@ use super::launch_io::{day_of, token, token_input, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res, Sandbox};
 use super::*;
 
-const ID: &str = "i-0123456789abcdef0";
+pub(super) const ID: &str = "i-0123456789abcdef0";
 
 const STUB: &str = r#"#!/bin/sh
 echo "$@" >> "$STUB_LOG"
@@ -14,24 +14,31 @@ d=$(dirname "$STUB_LOG")
 case "$*" in
 *run-instances*)
   n=$(grep -c run-instances "$STUB_LOG")
+  t=$(printf '%s\n' "$*" | sed -n 's/.*--client-token \([^ ]*\).*/\1/p')
   for k in out err; do
-    f="$d/run.$k"; [ -e "$d/run.$k.$n" ] && f="$d/run.$k.$n"
+    f="$d/run.$k"; [ -e "$d/run.$k.$n" ] && f="$d/run.$k.$n"; [ -e "$d/rt.$t.$k" ] && f="$d/rt.$t.$k"
     if [ "$k" = out ]; then [ -e "$f" ] && cat "$f"; else [ -e "$f" ] && cat "$f" >&2; fi
   done
-  f="$d/run.rc"; [ -e "$d/run.rc.$n" ] && f="$d/run.rc.$n"
+  f="$d/run.rc"; [ -e "$d/run.rc.$n" ] && f="$d/run.rc.$n"; [ -e "$d/rt.$t.rc" ] && f="$d/rt.$t.rc"
   exit "$(cat "$f" 2>/dev/null || echo 0)";;
 *describe-instances*--instance-ids*)
   if [ -e "$d/state.fail" ]; then echo ExpiredToken >&2; exit 255; fi
   id=$(for a in "$@"; do case "$a" in i-*) echo "$a";; esac; done)
-  if [ -e "$d/state.$id" ]; then cat "$d/state.$id"; else echo running; fi; exit 0;;
+  k=$(grep -c -- "--instance-ids $id" "$STUB_LOG")
+  for f in "$d/statefail.$id.$k" "$d/statefail.$id"; do
+    if [ -e "$f" ]; then cat "$f" >&2; exit 254; fi
+  done
+  if [ -e "$d/state.$id.$k" ]; then cat "$d/state.$id.$k"
+  elif [ -e "$d/state.$id" ]; then cat "$d/state.$id"; else echo running; fi; exit 0;;
 *Name=client-token*)
   if [ -e "$d/tok.fail" ]; then echo ExpiredToken >&2; exit 255; fi
-  cat "$d/tok.ids" 2>/dev/null; exit 0;;
+  t=$(printf '%s\n' "$*" | sed -n 's/.*Name=client-token,Values=\([^ ]*\).*/\1/p')
+  if [ -e "$d/tok.$t" ]; then cat "$d/tok.$t"; else cat "$d/tok.ids" 2>/dev/null; fi; exit 0;;
 esac
 exit 0
 "#;
 
-type Run<'a> = (i32, &'a str, &'a str);
+pub(super) type Run<'a> = (i32, &'a str, &'a str);
 
 /// Apply a gated declaration with `run-instances` scripted per call (the Nth
 /// call gets the Nth reply, later calls the last one), `tok` (the client-token
@@ -43,6 +50,18 @@ fn launch_with(
     states: &[(&str, &str)],
     state_fail: bool,
 ) -> (i32, String, String) {
+    let (sb, script) = fixture(runs, tok, states, state_fail);
+    let (rc, out) = sb.run(&script, "");
+    (rc, out, sb.log())
+}
+
+/// The sandbox and the apply script of `launch_with`, not yet run.
+pub(super) fn fixture(
+    runs: &[Run],
+    tok: Option<&str>,
+    states: &[(&str, &str)],
+    state_fail: bool,
+) -> (Sandbox, String) {
     use std::os::unix::fs::PermissionsExt;
     let sb = Sandbox::new();
     sb.open_gate();
@@ -74,22 +93,45 @@ fn launch_with(
     r.cloud.kill_switch = gated(sb.path()).cloud.kill_switch;
     r.cloud.parity_gate = gated(sb.path()).cloud.parity_gate;
     r.cloud.budget_cap_usd_day = Some("5".into());
-    let (rc, out) = sb.run(&apply_script(&r), "");
-    (rc, out, sb.log())
+    let script = apply_script(&r);
+    (sb, script)
 }
 
-fn launch(run: Run, tok: Option<&str>) -> (i32, String, String) {
+pub(super) fn launch(run: Run, tok: Option<&str>) -> (i32, String, String) {
     launch_with(&[run], tok, &[], false)
 }
 
 /// The client tokens of the `run-instances` calls in an aws log, in order.
-fn run_tokens(log: &str) -> Vec<String> {
+pub(super) fn run_tokens(log: &str) -> Vec<String> {
     // the logged command spans lines (user-data), so split the whole log
     log.split(" --client-token ")
         .skip(1)
         .filter_map(|r| r.split(' ').next())
         .map(String::from)
         .collect()
+}
+
+/// `ago` seconds before now as an EC2 launch time (`date` renders it).
+pub(super) fn iso(ago: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let o = std::process::Command::new("date")
+        .args([
+            "-u",
+            "-d",
+            &format!("@{}", now - ago),
+            "+%Y-%m-%dT%H:%M:%S+00:00",
+        ])
+        .output()
+        .unwrap();
+    String::from_utf8(o.stdout).unwrap().trim().to_string()
+}
+
+/// A well-formed `run-instances` reply: the id and a launch time one minute ago.
+pub(super) fn rep(id: &str) -> String {
+    format!("{id}\t{}\n", iso(60))
 }
 
 /// A token is today's if it equals the one computed before the run or the one
@@ -99,7 +141,7 @@ fn is_todays(t: &str, before: &str) -> bool {
 }
 
 /// `first 64 hex of sha256(a + b)` through the same tools the script uses.
-fn next_token(a: &str, b: &str) -> String {
+pub(super) fn next_token(a: &str, b: &str) -> String {
     let o = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
@@ -110,7 +152,7 @@ fn next_token(a: &str, b: &str) -> String {
     String::from_utf8(o.stdout).unwrap().trim().to_string()
 }
 
-fn err(code: &str) -> String {
+pub(super) fn err(code: &str) -> String {
     format!("An error occurred ({code}) when calling the RunInstances operation: nope\n")
 }
 
@@ -145,7 +187,7 @@ fn the_day_number_turns_over_at_utc_midnight() {
 #[test]
 fn run_instances_carries_the_client_token() {
     let before = token(&spec_of(&res()).unwrap());
-    let (rc, out, log) = launch((0, &format!("{ID}\n"), ""), Some(""));
+    let (rc, out, log) = launch((0, &rep(ID), ""), Some(""));
     assert_eq!(rc, 0, "{out}");
     let toks = run_tokens(&log);
     assert!(toks.len() == 1 && is_todays(&toks[0], &before), "{log}");
@@ -154,7 +196,7 @@ fn run_instances_carries_the_client_token() {
 
 #[test]
 fn apply_last_line_is_launched_id() {
-    let (rc, out, log) = launch((0, &format!("{ID}\n"), ""), Some(""));
+    let (rc, out, log) = launch((0, &rep(ID), ""), Some(""));
     assert_eq!(rc, 0, "{out}");
     assert_eq!(
         out.trim_end().lines().last(),
@@ -165,7 +207,7 @@ fn apply_last_line_is_launched_id() {
         "{log}"
     );
     // a warning after the id hides it from the parse: the token lookup still finds the box
-    let (rc, out, _) = launch((0, &format!("{ID}\n"), "warning: x\n"), Some(ID));
+    let (rc, out, _) = launch((0, &rep(ID), "warning: x\n"), Some(ID));
     assert_eq!(rc, 0, "{out}");
     assert!(out.contains(&format!("adopted {ID}")), "{out}");
 }
@@ -207,7 +249,7 @@ fn failed_or_malformed_adopt_lookup_is_an_error_never_no_instance() {
 
 #[test]
 fn a_launch_without_a_usable_id_is_not_success() {
-    let (rc, out, _) = launch((0, "i-0stub\n", ""), Some(""));
+    let (rc, out, _) = launch((0, &rep("i-0stub"), ""), Some(""));
     assert_eq!(rc, 1, "{out}");
     assert!(!out.contains("launched"), "{out}");
     let (rc, out, _) = launch((0, "None\n", ""), Some(""));
@@ -218,12 +260,12 @@ fn a_launch_without_a_usable_id_is_not_success() {
         "i-0123456789abcdeg0",
         "x-0123456789abcdef0",
     ] {
-        let (rc, out, _) = launch((0, &format!("{bad}\n"), ""), Some(""));
+        let (rc, out, _) = launch((0, &rep(bad), ""), Some(""));
         assert_eq!(rc, 1, "{bad}: {out}");
         assert!(!out.contains("launched"), "{bad}: {out}");
     }
     // a failed launch is never success, even if an id was printed
-    let (rc, out, _) = launch((255, &format!("{ID}\n"), ""), Some(""));
+    let (rc, out, _) = launch((255, &rep(ID), ""), Some(""));
     assert_eq!(rc, 255, "{out}");
     assert!(!out.contains("launched"), "{out}");
     // but if the token finds the box, adopt it
@@ -258,150 +300,5 @@ fn capacity_codes_exit_75_other_errors_keep_their_code() {
     ] {
         let (rc, out, _) = launch((254, "", &e), Some(""));
         assert_eq!(rc, 254, "{e}: {out}");
-    }
-}
-
-const ID2: &str = "i-0fedcba9876543210";
-const DEAD: [&str; 4] = ["shutting-down", "terminated", "stopping", "stopped"];
-
-fn ok(id: &str) -> Run<'static> {
-    (0, Box::leak(format!("{id}\n").into_boxed_str()), "")
-}
-
-#[test]
-fn the_script_reads_the_state_and_walks_a_bounded_chain() {
-    let s = apply_script(&gated(std::path::Path::new("/nonexistent")));
-    assert!(
-        s.contains("describe-instances --region 'eu-south-2' --instance-ids \"$new\"")
-            && s.contains("Reservations[0].Instances[0].State.Name"),
-        "{s}"
-    );
-    assert!(s.contains("sha256sum | cut -c1-64"), "{s}");
-    assert!(s.contains("-ge 5 ]"), "{s}");
-    assert!(s.contains("launch-token-chain-exhausted"), "{s}");
-}
-
-#[test]
-fn a_dead_box_spends_the_token_and_the_next_token_relaunches() {
-    for dead in DEAD {
-        let (rc, out, log) = launch_with(&[ok(ID), ok(ID2)], Some(""), &[(ID, dead)], false);
-        assert_eq!(rc, 0, "{dead}: {out}");
-        assert_eq!(
-            out.trim_end().lines().last(),
-            Some(format!("launched {ID2}").as_str()),
-            "{dead}: {out}"
-        );
-        let t = run_tokens(&log);
-        assert_eq!(t.len(), 2, "{dead}: exactly two launches: {log}");
-        assert_eq!(t[1], next_token(&t[0], ID), "{dead}: {log}");
-        assert_ne!(t[0], t[1]);
-        // a retried apply walks the same chain
-        let (rc, _, log2) = launch_with(&[ok(ID), ok(ID2)], Some(""), &[(ID, dead)], false);
-        assert_eq!(rc, 0);
-        let t2 = run_tokens(&log2);
-        assert_eq!(t2[1], next_token(&t2[0], ID), "{dead}");
-        if t2[0] == t[0] {
-            assert_eq!(t2, t, "{dead}: same tokens");
-        }
-    }
-}
-
-#[test]
-fn a_live_box_is_launched_with_one_call() {
-    for live in ["pending", "running"] {
-        let (rc, out, log) = launch_with(&[ok(ID)], Some(""), &[(ID, live)], false);
-        assert_eq!(rc, 0, "{live}: {out}");
-        assert!(out.contains(&format!("launched {ID}\n")), "{live}: {out}");
-        assert_eq!(run_tokens(&log).len(), 1, "{log}");
-    }
-}
-
-#[test]
-fn five_dead_boxes_in_a_row_exhaust_the_chain() {
-    let ids = [
-        "i-00000001",
-        "i-00000002",
-        "i-00000003",
-        "i-00000004",
-        "i-00000005",
-        "i-00000006",
-    ];
-    let runs: Vec<Run> = ids.iter().map(|i| ok(i)).collect();
-    let states: Vec<(&str, &str)> = ids.iter().map(|i| (*i, "terminated")).collect();
-    let (rc, out, log) = launch_with(&runs, Some(""), &states, false);
-    assert_ne!(rc, 0, "{out}");
-    assert!(
-        out.contains("REFUSED: launch-token-chain-exhausted"),
-        "{out}"
-    );
-    assert!(!out.contains("launched"), "{out}");
-    let t = run_tokens(&log);
-    assert_eq!(t.len(), 5, "at most five generations: {log}");
-    for k in 1..5 {
-        assert_eq!(t[k], next_token(&t[k - 1], ids[k - 1]), "gen {k}");
-    }
-}
-
-#[test]
-fn a_failed_or_unknown_state_read_is_an_error_never_launched() {
-    let (rc, out, log) = launch_with(&[ok(ID)], Some(""), &[], true);
-    assert_eq!(rc, 1, "{out}");
-    assert!(
-        out.contains("instance-state-failed") && !out.contains("launched"),
-        "{out}"
-    );
-    assert_eq!(run_tokens(&log).len(), 1, "{log}");
-    for weird in ["", "None", "runningx", "Running"] {
-        let (rc, out, log) = launch_with(&[ok(ID)], Some(""), &[(ID, weird)], false);
-        assert_eq!(rc, 1, "{weird:?}: {out}");
-        assert!(out.contains("instance-state-unknown"), "{weird:?}: {out}");
-        assert!(!out.contains("launched"), "{weird:?}: {out}");
-        assert_eq!(run_tokens(&log).len(), 1, "{log}");
-    }
-}
-
-#[test]
-fn the_capacity_classification_applies_to_every_call_of_the_chain() {
-    let runs = [
-        ok(ID),
-        (
-            254,
-            "",
-            Box::leak(err("InsufficientInstanceCapacity").into_boxed_str()) as &str,
-        ),
-    ];
-    let (rc, out, log) = launch_with(&runs, Some(""), &[(ID, "terminated")], false);
-    assert_eq!(rc, CAPACITY_EXIT, "{out}");
-    assert_eq!(run_tokens(&log).len(), 2, "{log}");
-}
-
-#[test]
-fn every_launch_parameter_the_resource_can_change_changes_the_token() {
-    let base = token_input(&spec_of(&res()).unwrap());
-    type Change = (&'static str, fn(&mut Resource));
-    let changed: [Change; 5] = [
-        ("instance_type", |r| {
-            r.cloud.instance_type = Some("c7a.2xlarge".into())
-        }),
-        ("max_price", |r| r.cloud.max_price = Some("0.30".into())),
-        ("max_lifetime_min", |r| r.cloud.max_lifetime_min = Some(90)),
-        ("labels", |r| r.tags.push("x=y".into())),
-        ("image name", |r| {
-            r.image = Some(format!(
-                "123456789012.dkr.ecr.eu-south-2.amazonaws.com/img002@{}",
-                super::tests::DIGEST
-            ));
-        }),
-    ];
-    for (what, f) in changed {
-        let mut r = res();
-        f(&mut r);
-        let s = spec_of(&r).unwrap();
-        assert_ne!(token_input(&s), base, "{what}");
-        assert_ne!(
-            token_on(&token_input(&s), 20400),
-            token_on(&base, 20400),
-            "{what}"
-        );
     }
 }

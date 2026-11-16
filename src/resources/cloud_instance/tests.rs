@@ -70,11 +70,11 @@ case "$*" in
   if [ ! -e "$STUB_LOG.noterm" ]; then
     for a in "$@"; do case "$a" in i-*) echo "$a" >> "$STUB_LOG.term";; esac; done
   fi;;
-*run-instances*) echo i-0a1b2c3d4;;
+*run-instances*) printf 'i-0a1b2c3d4\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)";;
 esac
 "#;
 
-const TOOLS: [&str; 17] = [
+const TOOLS: [&str; 18] = [
     "sh",
     "bash",
     "grep",
@@ -92,6 +92,7 @@ const TOOLS: [&str; 17] = [
     "rm",
     "wc",
     "sha256sum",
+    "date",
 ];
 
 impl Sandbox {
@@ -108,6 +109,10 @@ impl Sandbox {
                 }
             }
         }
+        // no real pauses: the script's state-read retry sleeps are only logged
+        let nap = bin.join("sleep");
+        std::fs::write(&nap, "#!/bin/sh\necho \"$@\" >> \"$STUB_LOG.sleep\"\n").unwrap();
+        Command::new("chmod").arg("755").arg(&nap).status().unwrap();
         let stub = bin.join("aws");
         std::fs::write(&stub, STUB).unwrap();
         Command::new("chmod")
