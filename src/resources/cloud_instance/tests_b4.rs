@@ -26,7 +26,7 @@ fn an_image_change_with_a_live_owned_instance_refuses_and_never_launches() {
     let (rc, out) = sb.run_with(&apply_script(&r), "", Some(&old_image_box()));
     assert_ne!(rc, 0, "{out}");
     assert!(
-        out.contains("image or placement changed while instance"),
+        out.contains("image, placement or storage changed while instance"),
         "{out}"
     );
     assert!(out.contains("i-00a1b2c3"), "{out}");

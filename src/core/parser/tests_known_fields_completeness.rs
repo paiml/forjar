@@ -84,6 +84,13 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_availability_zone",
         "cloud_instance_profile",
         "cloud_ami",
+        "cloud_root_volume_gb",
+        "cloud_root_volume_type",
+        "cloud_data_volume_gb",
+        "cloud_data_volume_type",
+        "cloud_data_volume_iops",
+        "cloud_data_volume_throughput",
+        "cloud_volume_tags",
         "cloud_user_data_file",
     ];
 

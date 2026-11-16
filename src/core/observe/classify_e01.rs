@@ -88,6 +88,13 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_ami"
         | "cloud_subnet_id"
         | "cloud_security_group_ids"
+        | "cloud_root_volume_gb"
+        | "cloud_root_volume_type"
+        | "cloud_data_volume_gb"
+        | "cloud_data_volume_type"
+        | "cloud_data_volume_iops"
+        | "cloud_data_volume_throughput"
+        | "cloud_volume_tags"
         | "cloud_user_data_file"
         | "cloud_availability_zone"
         | "cloud_instance_profile" => Observability::Unmigrated(
