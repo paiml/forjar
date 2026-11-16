@@ -7875,7 +7875,7 @@ roadmap:
 - id: PMAT-1125
   github_issue: 1125
   item_type: task
-  title: 'tests: executable written then exec'd must tolerate ETXTBSY under parallel tests'
+  title: 'tests: executable written then exec''d must tolerate ETXTBSY under parallel tests'
   status: planned
   priority: high
   assigned_to: null
