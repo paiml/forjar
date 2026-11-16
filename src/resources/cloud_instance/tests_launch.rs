@@ -2,7 +2,7 @@
 //! The fake `aws` here replaces the shared stub: its `run-instances` and
 //! client-token lookups are scripted by files in the sandbox.
 
-use super::launch_io::{token, token_on, CAPACITY_EXIT};
+use super::launch_io::{day_of, token, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res, Sandbox};
 use super::*;
 
@@ -73,6 +73,14 @@ fn client_token_is_derived_stable_and_valid() {
 }
 
 #[test]
+fn the_day_number_turns_over_at_utc_midnight() {
+    assert_eq!(day_of(0), 0);
+    assert_eq!(day_of(86_399), 0);
+    assert_eq!(day_of(86_400), 1);
+    assert_eq!(day_of(1_763_251_200), 20_408);
+}
+
+#[test]
 fn run_instances_carries_the_client_token() {
     let (rc, out, log) = launch((0, &format!("{ID}\n"), ""), Some(""));
     assert_eq!(rc, 0, "{out}");
@@ -140,6 +148,20 @@ fn a_launch_without_a_usable_id_is_not_success() {
     assert!(!out.contains("launched"), "{out}");
     let (rc, out, _) = launch((0, "None\n", ""), Some(""));
     assert_eq!(rc, 1, "{out}");
+    for bad in [
+        "i-0123456",
+        "i-0123456789abcdef01",
+        "i-0123456789abcdeg0",
+        "x-0123456789abcdef0",
+    ] {
+        let (rc, out, _) = launch((0, &format!("{bad}\n"), ""), Some(""));
+        assert_eq!(rc, 1, "{bad}: {out}");
+        assert!(!out.contains("launched"), "{bad}: {out}");
+    }
+    // a failed launch is never success, even if an id was printed
+    let (rc, out, _) = launch((255, &format!("{ID}\n"), ""), Some(""));
+    assert_eq!(rc, 255, "{out}");
+    assert!(!out.contains("launched"), "{out}");
     // but if the token finds the box, adopt it
     let (rc, out, _) = launch((0, "garbage\n", ""), Some(ID));
     assert_eq!(rc, 0, "{out}");

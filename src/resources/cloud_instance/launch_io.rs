@@ -27,12 +27,17 @@ pub(super) fn token_on(key: &str, day: u64) -> String {
     format!("fj-{}", &h["blake3:".len()..][..48])
 }
 
+/// UTC day number of a Unix time in seconds.
+pub(super) fn day_of(secs: u64) -> u64 {
+    secs / 86_400
+}
+
 /// Today's token for this declaration.
 pub(super) fn token(s: &CloudInstance) -> String {
-    let day = std::time::SystemTime::now()
+    let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs() / 86_400);
-    token_on(&super::key_of(s), day)
+        .map_or(0, |d| d.as_secs());
+    token_on(&super::key_of(s), day_of(now))
 }
 
 const TAIL: &str = r#" --client-token @TOKEN@ --query 'Instances[0].InstanceId' --output text 2>&1)" && rc=0 || rc=$?
