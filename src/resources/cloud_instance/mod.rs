@@ -30,6 +30,7 @@ mod destroy;
 use destroy::destroy_script;
 mod ami;
 mod key;
+mod launch;
 mod placement;
 mod storage;
 mod validate;
@@ -434,9 +435,10 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
          \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
          \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
-         \x20 echo \"present $owned\"; exit 0\n\
+         \x20 echo \"present $owned\"; {adopt}\
          fi\n\
          {rootdev}\
+         {pre}\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
@@ -444,8 +446,12 @@ pub fn apply_script(resource: &Resource) -> String {
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
          {net}{store}\
          --user-data {ud} \
-         --tag-specifications {tagspec}{voltags}\n",
+         --tag-specifications {tagspec}{voltags}{capture}{post}",
         kill = sh_squote(&kill),
+        pre = launch::PRE,
+        capture = launch::CAPTURE,
+        post = launch::POST,
+        adopt = launch::ADOPT,
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
         lookup_owned = lookup_ids("owned", &describe_by(&s, "forjar-owner", &owner_of(&s), "Reservations[].Instances[].InstanceId")),

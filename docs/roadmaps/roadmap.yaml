@@ -7800,3 +7800,39 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1137
+  github_issue: 1137
+  item_type: task
+  title: 'cloud_instance: capacity errors exit with their own code (75)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1136
+  github_issue: 1136
+  item_type: task
+  title: 'cloud_instance: apply prints the instance id in one fixed line'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
