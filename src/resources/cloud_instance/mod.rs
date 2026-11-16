@@ -48,6 +48,8 @@ mod tests_b4;
 mod tests_lint;
 #[cfg(test)]
 mod tests_net;
+#[cfg(test)]
+mod tests_resolve;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,6 +189,9 @@ fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>>
     let abs = |v: &Option<String>| {
         v.clone()
             .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
+            // an unresolved template is not a path: a kill switch at
+            // `/run/{{x}}` could never be thrown, so refuse it (fail closed)
+            .filter(|p| !p.contains("{{") && !p.contains("}}"))
     };
     let budget = r
         .cloud
@@ -381,7 +386,7 @@ pub fn apply_script(resource: &Resource) -> String {
         Ok(g) => g,
         Err(missing) => {
             return reject(&format!(
-                "cloud_instance apply needs declared: {}",
+                "cloud_instance apply needs declared (and fully resolved): {}",
                 missing.join(", ")
             ))
         }
