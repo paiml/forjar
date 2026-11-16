@@ -15,6 +15,11 @@ pub(super) fn validate_resource_type(
     resource: &Resource,
     errors: &mut Vec<ValidationError>,
 ) {
+    if let Some(e) = crate::resources::cloud_instance::profile_misplaced(resource) {
+        errors.push(ValidationError {
+            message: format!("resource '{id}': {e}"),
+        });
+    }
     match resource.resource_type {
         ResourceType::Package => validate_package(id, resource, errors),
         ResourceType::File => validate_file(id, resource, errors),

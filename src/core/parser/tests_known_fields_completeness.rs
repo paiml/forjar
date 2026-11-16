@@ -82,6 +82,7 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_subnet_id",
         "cloud_security_group_ids",
         "cloud_availability_zone",
+        "cloud_instance_profile",
         "cloud_ami",
         "cloud_user_data_file",
     ];
