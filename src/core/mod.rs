@@ -34,6 +34,7 @@ pub mod pool_interruption;
 pub mod pool_jit;
 pub mod pool_orphans;
 pub mod pool_reconcile;
+pub mod pool_runner_cleanup;
 pub mod promotion;
 pub mod promotion_events;
 pub mod prove;
