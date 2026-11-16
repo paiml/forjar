@@ -75,13 +75,15 @@ case "$*" in
 *ssm*get-parameter*)
   if [ -e "$STUB_LOG.ssmfail" ]; then echo ami-0123456789abcdef0; echo "AccessDenied" >&2; exit 255; fi
   echo ami-0123456789abcdef0;;
-*run-instances*) echo i-0stub;;
+*run-instances*)
+  if [ -e "$STUB_LOG.runerr" ]; then cat "$STUB_LOG.runerr" >&2; exit "$(cat "$STUB_LOG.runrc")"; fi
+  if [ -e "$STUB_LOG.runout" ]; then cat "$STUB_LOG.runout"; else echo i-0a1b2c3d4e5f60718; fi;;
 esac
 "#;
 
-const TOOLS: [&str; 16] = [
+const TOOLS: [&str; 17] = [
     "sh", "bash", "grep", "awk", "sed", "cat", "touch", "tr", "cut", "head", "sort", "dirname",
-    "basename", "mkdir", "rm", "wc",
+    "basename", "mkdir", "rm", "wc", "mktemp",
 ];
 
 impl Sandbox {
@@ -131,6 +133,15 @@ impl Sandbox {
     /// Make the SSM image-parameter lookup exit 255 AFTER printing a valid-looking reply.
     pub(super) fn fail_ssm(&self) {
         std::fs::write(self.path().join("calls.log.ssmfail"), "").unwrap();
+    }
+    /// Make `run-instances` fail with `stderr` text and exit code `rc`.
+    pub(super) fn fail_run(&self, stderr: &str, rc: i32) {
+        std::fs::write(self.path().join("calls.log.runerr"), stderr).unwrap();
+        std::fs::write(self.path().join("calls.log.runrc"), rc.to_string()).unwrap();
+    }
+    /// Make `run-instances` print exactly `reply` on stdout and succeed.
+    pub(super) fn set_run_output(&self, reply: &str) {
+        std::fs::write(self.path().join("calls.log.runout"), reply).unwrap();
     }
     pub(super) fn path(&self) -> &Path {
         self.dir.path()

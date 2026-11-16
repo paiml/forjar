@@ -46,6 +46,8 @@ mod tests_b1;
 #[cfg(test)]
 mod tests_b4;
 #[cfg(test)]
+mod tests_launch;
+#[cfg(test)]
 mod tests_lint;
 #[cfg(test)]
 mod tests_net;
