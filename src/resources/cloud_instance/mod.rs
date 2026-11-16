@@ -31,6 +31,7 @@ use destroy::destroy_script;
 mod ami;
 mod key;
 mod placement;
+mod storage;
 mod validate;
 use key::{key_of, owner_of};
 use validate::{
@@ -48,6 +49,8 @@ mod tests_b4;
 mod tests_lint;
 #[cfg(test)]
 mod tests_net;
+#[cfg(test)]
+mod tests_storage;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +66,7 @@ pub struct CloudInstance {
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
+    pub storage: storage::Storage,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -127,6 +131,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         )?;
     }
     let placement = placement::Placement::of(&resource.cloud, &region)?;
+    let storage = storage::Storage::of(&resource.cloud, &resource.tags)?;
     Ok(CloudInstance {
         name,
         region,
@@ -137,6 +142,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
+        storage,
     })
 }
 
@@ -433,9 +439,9 @@ pub fn apply_script(resource: &Resource) -> String {
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
-         {net}\
+         {net}{store}\
          --user-data {ud} \
-         --tag-specifications {tagspec}\n",
+         --tag-specifications {tagspec}{voltags}\n",
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
@@ -449,7 +455,9 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
+        store = s.storage.args(),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
+        voltags = s.storage.volume_tagspec(&s.tags),
     )
 }
