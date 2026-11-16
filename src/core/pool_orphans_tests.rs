@@ -240,3 +240,24 @@ fn busy_and_idle_runners_on_a_host_id_with_inner_whitespace_are_refused() {
         );
     }
 }
+
+#[test]
+fn non_ascii_ids_are_refused() {
+    for bad in ["i-0\u{200b}abc", "i-\u{456}-0abc"] {
+        let hosts = [h(bad, 99_999)];
+        assert_eq!(
+            sweep(&complete(vec![]), &hosts),
+            Err(SweepError::MalformedId(bad.into())),
+            "host {bad:?}"
+        );
+        let l = complete(vec![r("x", bad, true)]);
+        assert_eq!(
+            sweep(&l, &[h("i-0abc", 0)]),
+            Err(SweepError::MalformedRunnerHostId {
+                runner: "x".into(),
+                host: bad.into()
+            }),
+            "runner host {bad:?}"
+        );
+    }
+}

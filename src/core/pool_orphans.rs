@@ -3,6 +3,7 @@
 //!
 //! The output terminates instances, so the sweep fails closed: any input it
 //! cannot trust is refused with a [`SweepError`] and nothing is terminated.
+//! It returns hosts to terminate only; runner deregistration is not part of it.
 
 use super::pool_reconcile::SCALE_DOWN_QUIET_SECS;
 
@@ -67,9 +68,10 @@ pub enum SweepError {
         runner: String,
         host: String,
     },
-    /// A host id has whitespace or control characters.
+    /// A host id has a character outside printable ASCII (no whitespace,
+    /// control or non-ASCII characters).
     MalformedId(String),
-    /// A runner's host id has whitespace or control characters.
+    /// A runner's host id has a character outside printable ASCII.
     MalformedRunnerHostId {
         runner: String,
         host: String,
@@ -82,7 +84,7 @@ fn first_duplicate(items: impl Iterator<Item = String>) -> Option<String> {
 }
 
 fn well_formed(id: &str) -> bool {
-    !id.chars().any(|c| c.is_whitespace() || c.is_control())
+    id.chars().all(|c| c.is_ascii_graphic())
 }
 
 fn check_well_formed(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
@@ -134,12 +136,15 @@ fn validate(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
     }
 }
 
-/// Compute one sweep: the hosts to terminate. Every runner, busy or not, must
-/// sit on a listed host (an unknown host id is refused, not deregistered), so
-/// a busy runner's host is never terminated. With zero runners and a
-/// `Complete` listing, every host idle past the rule and older than the grace
-/// is returned: that is the issue's "0 instances within 15 min of an empty
-/// queue".
+/// Compute one sweep: the hosts to terminate. This slice returns only hosts
+/// to terminate; it does not deregister runners and does not deliver the
+/// parent's "0 orphaned runners" check. Every runner must sit on a listed
+/// host: a registered runner whose host is gone makes every sweep return
+/// `UnknownRunnerHost` (fail-safe: nothing is terminated, cost keeps
+/// running) until that runner is removed; orphaned-runner cleanup is a
+/// follow-up slice. `Runner.busy` is not read: any runner, busy or idle,
+/// protects its host. With zero runners and a `Complete` listing, every host
+/// idle past the rule and older than the grace is returned.
 pub fn sweep(listing: &RunnerListing, hosts: &[Host]) -> Result<Sweep, SweepError> {
     let RunnerListing::Complete(runners) = listing else {
         return Err(SweepError::IncompleteListing);
