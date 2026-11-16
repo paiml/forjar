@@ -38,7 +38,7 @@ pub fn load_lock(state_dir: &Path, machine: &str) -> Result<Option<StateLock>, S
 
 /// What this binary writes into `generator`: the writer's own name and version.
 ///
-/// PMAT-565: `forjar --version` prints exactly this, so the lock and the
+/// PMAT-565: `forjar --version` prints this, followed by ` (<sha>)`, so the lock and the
 /// binary that wrote it can be compared by eye and by `grep`.
 pub fn writer_stamp() -> String {
     format!("forjar {}", env!("CARGO_PKG_VERSION"))
