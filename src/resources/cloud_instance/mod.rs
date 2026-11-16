@@ -230,6 +230,7 @@ pub fn plan_diff(resource: &Resource) -> String {
          +   image: {image}\n\
          +   max_lifetime_min: {life}\n\
          +   labels: {labels}\n\
+         {ud}\
          - destroy: after {life} min (self-terminate) or when the kill switch exists\n\
          gates (apply refuses unless all declared):\n\
          \x20 parity_gate: {gate}\n\
@@ -241,6 +242,12 @@ pub fn plan_diff(resource: &Resource) -> String {
         image = s.image,
         life = s.max_lifetime_min,
         labels = s.tags.join(","),
+        ud = s.user_data_file.as_deref().map_or_else(String::new, |p| {
+            format!(
+                "+   user_data_file: {p} (replaces the built-in script; must contain '{}'; image is not delivered)\n",
+                userdata::required_line(s.max_lifetime_min)
+            )
+        }),
         gate = status(&c.parity_gate),
         budget = status(&c.budget_cap_usd_day),
         kill = status(&c.kill_switch),
@@ -391,7 +398,8 @@ pub fn apply_script(resource: &Resource) -> String {
             ))
         }
     };
-    // The lifetime bound comes first: nothing derived from user input can run
+    // The lifetime bound (a declared user-data file must carry it too: see userdata.rs)
+    // comes first: nothing derived from user input can run
     // before it, and every value is validated (`spec_of`) and quoted.
     let worst_case_usd =
         s.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(s.max_lifetime_min) / 60.0;
@@ -455,7 +463,7 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
-        ud_guard = userdata::guard(s.user_data_file.as_deref()),
+        ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )

@@ -8,6 +8,22 @@
 //! through `spec_of`), then single-quoted at use. The size and presence guard runs in the apply
 //! script before any `aws` call; a file that is gone after launch therefore blocks a re-apply
 //! of an already present box too (the wrapper keeps the file or drops the field).
+//!
+//! A declared file REPLACES the built-in script, which carries the instance's only lifetime
+//! bound (`shutdown -h +N`) and delivers `FORJAR_IMAGE`. Fail closed: the apply guard also
+//! refuses unless the file holds, as a whole line, exactly `shutdown -h +<max_lifetime_min>`
+//! (`grep -qxF`, output discarded: content is never printed), so the plan's "self-terminate"
+//! line and the budget gate (price x lifetime) stay true. `image:` stays required, so it cannot
+//! be refused alongside the file: it remains in the key and the plan, but is NOT delivered to
+//! the box; the file must set up its own workload. A changed file CONTENT or PATH is not
+//! detected: no drift, no plan line, and a present instance is never relaunched for it.
+//! `[ -f ]` follows symlinks (a link to a regular file passes; the declarant picks the path),
+//! and AWS CLI v2 reads `file://` as text, so gzip or other non-UTF-8 user-data is not supported.
+
+/// The line the declared file must contain: the same bound the built-in script sets.
+pub(super) fn required_line(life_min: u32) -> String {
+    format!("shutdown -h +{life_min}")
+}
 
 use crate::core::shell_escape::sh_squote;
 
@@ -43,7 +59,7 @@ pub(super) fn file_arg(path: &str) -> String {
 
 /// Apply-script lines refusing (before any provider call) a file that is missing, not a regular
 /// file, unreadable, empty or over the limit. Empty when no file is declared.
-pub(super) fn guard(path: Option<&str>) -> String {
+pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
     let Some(p) = path else { return String::new() };
     let refuse = |why: &str| format!("echo 'REFUSED: cloud_user_data_file {why}' >&2; exit 1");
     format!(
@@ -53,12 +69,18 @@ pub(super) fn guard(path: Option<&str>) -> String {
          ud_n=\"${{ud_n##* }}\"\n\
          case \"$ud_n\" in ''|*[!0-9]*) {unread} ;; esac\n\
          if [ \"$ud_n\" -eq 0 ]; then {empty}; fi\n\
-         if [ \"$ud_n\" -gt {MAX_BYTES} ]; then {big}; fi\n",
+         if [ \"$ud_n\" -gt {MAX_BYTES} ]; then {big}; fi\n\
+         if ! grep -qxF -- {line} \"$ud_file\" >/dev/null 2>&1; then {noline}; fi\n",
         p = sh_squote(p),
         missing = refuse("is missing or not a regular file"),
         unread = refuse("could not be read"),
         empty = refuse("is empty"),
         big = refuse(&format!("is larger than {MAX_BYTES} bytes")),
+        line = sh_squote(&required_line(life_min)),
+        noline = refuse(&format!(
+            "must contain the whole line [{}] (the lifetime bound the built-in script sets)",
+            required_line(life_min)
+        )),
     )
 }
 
@@ -70,10 +92,12 @@ mod tests {
     use super::checked;
 
     const MARKER: &str = "PRESIGNED-SECRET-MARKER-7f3a";
+    const REQ: &str = "shutdown -h +60";
 
     fn with_file(dir: &std::path::Path, body: &[u8]) -> (Resource, String) {
         let p = dir.join("ud.sh");
-        std::fs::write(&p, body).unwrap();
+        let full = [format!("#!/bin/sh\n{REQ}\n").as_bytes(), body].concat();
+        std::fs::write(&p, full).unwrap();
         let path = p.to_str().unwrap().to_string();
         let mut r = gated(dir);
         r.cloud.user_data_file = Some(path.clone());
@@ -130,7 +154,7 @@ mod tests {
             script.contains(&format!("--user-data 'file://{path}' ")),
             "{script}"
         );
-        assert!(!script.contains("shutdown -h"), "{script}");
+        assert!(!script.contains("#!/bin/sh\nshutdown"), "{script}");
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "{out}");
         let log = sb.log();
@@ -180,10 +204,60 @@ mod tests {
             );
             assert_eq!(sb.log(), "", "{what}: no aws call before the refusal");
         }
-        std::fs::write(&ud, vec![b'a'; 16000]).unwrap();
+        let mut exact = format!("{REQ}\n").into_bytes();
+        exact.resize(16000, b'a');
+        std::fs::write(&ud, exact).unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "16000 bytes is allowed: {out}");
         assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
+    }
+
+    #[test]
+    fn a_file_without_the_exact_shutdown_line_is_refused_before_any_aws_call() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (r, _) = with_file(sb.path(), b"");
+        let script = apply_script(&r);
+        let grep = script.find("grep -q").expect("shutdown guard present");
+        assert!(grep < script.find("aws ec2").unwrap(), "{script}");
+        let ud = sb.path().join("ud.sh");
+        let bad: [&str; 5] = [
+            "#!/bin/sh\necho hi\n",
+            "#!/bin/sh\nshutdown -h +61\n",
+            "#!/bin/sh\nshutdown -h +600\n",
+            "#!/bin/sh\n# shutdown -h +60\n",
+            "#!/bin/sh\nshutdown -h +6\n",
+        ];
+        for body in bad {
+            std::fs::write(&ud, format!("{body}{MARKER}\n")).unwrap();
+            let (rc, out) = sb.run(&script, "");
+            assert_eq!(rc, 1, "{body:?}: {out}");
+            assert!(
+                out.contains(
+                    "REFUSED: cloud_user_data_file must contain the whole line [shutdown -h +60]"
+                ),
+                "{body:?}: {out}"
+            );
+            assert!(!out.contains(MARKER), "{out}");
+            assert_eq!(sb.log(), "", "{body:?}: no aws call");
+        }
+        std::fs::write(&ud, format!("#!/bin/sh\necho hi\n{REQ}\n")).unwrap();
+        let (rc, out) = sb.run(&script, "");
+        assert_eq!(rc, 0, "{out}");
+        assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
+    }
+
+    #[test]
+    fn the_plan_shows_the_declared_path_and_never_the_content() {
+        let sb = Sandbox::new();
+        let (r, path) = with_file(sb.path(), MARKER.as_bytes());
+        let plan = plan_diff(&r);
+        assert!(plan.contains(&format!("user_data_file: {path} ")), "{plan}");
+        assert!(
+            plan.contains("shutdown -h +60") && !plan.contains(MARKER),
+            "{plan}"
+        );
+        assert!(!plan_diff(&gated(sb.path())).contains("user_data_file"));
     }
 
     #[test]
