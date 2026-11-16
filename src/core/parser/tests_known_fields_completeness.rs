@@ -84,6 +84,7 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_availability_zone",
         "cloud_instance_profile",
         "cloud_ami",
+        "cloud_user_data_file",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS
