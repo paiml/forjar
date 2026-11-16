@@ -2,6 +2,7 @@
 
 use super::helpers::*;
 use super::helpers_state::simple_glob_match;
+use crate::core::error::ForjarError;
 use crate::core::types;
 use std::collections::HashSet;
 use std::path::Path;
@@ -62,10 +63,10 @@ pub(crate) fn cmd_extract(
     if json {
         let out =
             serde_json::to_string_pretty(&extracted).map_err(|e| format!("JSON error: {e}"))?;
-        write_or_print(output, &out)?;
+        write_or_print(output, &out).map_err(ForjarError::into_message)?;
     } else {
         let out = serde_yaml_ng::to_string(&extracted).map_err(|e| format!("YAML error: {e}"))?;
-        write_or_print(output, &out)?;
+        write_or_print(output, &out).map_err(ForjarError::into_message)?;
     }
 
     eprintln!("Extracted: {count} resources, {machine_count} machines (filter: {filter_desc})");
@@ -99,13 +100,37 @@ fn build_filter_desc(tag: Option<&str>, group: Option<&str>, glob: Option<&str>)
 }
 
 /// Write content to a file or stdout.
-fn write_or_print(output: Option<&Path>, content: &str) -> Result<(), String> {
+fn write_or_print(output: Option<&Path>, content: &str) -> Result<(), ForjarError> {
     match output {
         Some(path) => {
-            std::fs::write(path, content).map_err(|e| format!("write {}: {e}", path.display()))?;
+            std::fs::write(path, content)
+                .map_err(|e| ForjarError::from_untyped(format!("write {}: {e}", path.display())))?;
             eprintln!("Written to {}", path.display());
         }
         None => print!("{content}"),
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+
+    #[test]
+    fn write_or_print_error_names_the_path_and_cause() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing-dir").join("out.yaml");
+        let e = write_or_print(Some(&path), "x").unwrap_err();
+        assert!(e
+            .message()
+            .starts_with(&format!("write {}: ", path.display())));
+    }
+
+    #[test]
+    fn write_or_print_writes_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("out.yaml");
+        write_or_print(Some(&path), "hello").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "hello");
+    }
 }

@@ -6,6 +6,7 @@ use super::helpers_state::*;
 pub(crate) use super::plan_version_pins::PlanVersionPins;
 use super::print_helpers::*;
 use super::workspace::*;
+use crate::core::error::ForjarError;
 use crate::core::plan_selectors::PlanSelectors;
 use crate::core::{planner, resolver, types};
 use std::path::Path;
@@ -220,6 +221,7 @@ pub(crate) fn cmd_plan_with_pins(
         // partial plan would hand out a file nothing can apply, so refuse.
         if !data_faults.is_empty() {
             return super::data_isolation::fail_if_any(&data_faults).map_err(|e| {
+                let e = e.into_message();
                 format!("{e} (no plan file written: `apply --plan-file` cannot apply a plan with a failed data source)")
             });
         }
@@ -233,7 +235,7 @@ pub(crate) fn cmd_plan_with_pins(
             out_path,
         )?;
         println!("Plan saved to {}", out_path.display());
-        return super::data_isolation::fail_if_any(&data_faults);
+        return super::data_isolation::fail_if_any(&data_faults).map_err(ForjarError::into_message);
     }
 
     if why {
@@ -258,7 +260,7 @@ pub(crate) fn cmd_plan_with_pins(
         refreshed.as_ref(),
     )?;
 
-    super::data_isolation::fail_if_any(&data_faults)
+    super::data_isolation::fail_if_any(&data_faults).map_err(ForjarError::into_message)
 }
 
 /// forjar#674: the scripts of the resources this plan selected, not of the
