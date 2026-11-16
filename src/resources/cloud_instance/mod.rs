@@ -30,6 +30,7 @@ mod destroy;
 use destroy::destroy_script;
 mod ami;
 mod key;
+mod launch_io;
 mod placement;
 mod validate;
 use key::{key_of, owner_of};
@@ -44,6 +45,8 @@ mod tests;
 mod tests_b1;
 #[cfg(test)]
 mod tests_b4;
+#[cfg(test)]
+mod tests_launch;
 #[cfg(test)]
 mod tests_lint;
 #[cfg(test)]
@@ -428,14 +431,14 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
-         aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
+         {run_open}aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
          {net}\
          --user-data {ud} \
-         --tag-specifications {tagspec}\n",
+         --tag-specifications {tagspec}{run_tail}",
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
@@ -449,6 +452,8 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
+        run_open = launch_io::OPEN,
+        run_tail = launch_io::tail(&s),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )

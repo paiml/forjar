@@ -69,7 +69,7 @@ case "$*" in
   if [ ! -e "$STUB_LOG.noterm" ]; then
     for a in "$@"; do case "$a" in i-*) echo "$a" >> "$STUB_LOG.term";; esac; done
   fi;;
-*run-instances*) echo i-0stub;;
+*run-instances*) echo i-0a1b2c3d4;;
 esac
 "#;
 
