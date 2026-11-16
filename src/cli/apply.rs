@@ -8,7 +8,7 @@ use super::apply_summary::print_apply_summary_with_locks;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
-use crate::core::{executor, state, types};
+use crate::core::{error::ForjarError, executor, state, types};
 use std::path::Path;
 
 pub(crate) use super::apply_scope::cmd_apply;
@@ -201,7 +201,7 @@ pub(crate) fn cmd_apply_scoped(
             json,
             executor::lockless_check::seeds(force, force_tag.is_some()),
         )?;
-        return super::data_isolation::fail_if_any(&data_faults);
+        return super::data_isolation::fail_if_any(&data_faults).map_err(ForjarError::into_message);
     }
 
     let (total_converged, total_unchanged, total_failed) = count_results(&results);
@@ -236,7 +236,7 @@ pub(crate) fn cmd_apply_scoped(
 
     if events_mode {
         print_events_output(&results)?;
-        return super::data_isolation::fail_if_any(&data_faults);
+        return super::data_isolation::fail_if_any(&data_faults).map_err(ForjarError::into_message);
     }
 
     let lock_paths: std::collections::BTreeMap<String, String> = results
@@ -299,7 +299,7 @@ pub(crate) fn cmd_apply_scoped(
         &t_total,
     )?;
 
-    super::data_isolation::fail_if_any(&data_faults)
+    super::data_isolation::fail_if_any(&data_faults).map_err(ForjarError::into_message)
 }
 
 /// GH-91: Warn that --sequential is not yet implemented.
