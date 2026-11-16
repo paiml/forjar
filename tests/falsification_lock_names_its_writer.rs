@@ -36,7 +36,8 @@ fn writer() -> String {
         .expect("forjar --version");
     let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
     assert!(v.starts_with("forjar "), "{v}");
-    v
+    // `--version` is `forjar X (<sha>)`; the writer stamp is `forjar X`.
+    v.split_whitespace().take(2).collect::<Vec<_>>().join(" ")
 }
 
 fn read_lock_text(state: &Path, machine: &str) -> String {

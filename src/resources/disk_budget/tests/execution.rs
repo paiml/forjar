@@ -21,6 +21,21 @@ fn script_for(root: &str, kind: ReclaimKind) -> String {
     reaper_script(&r).expect("script")
 }
 
+/// forjar#1125: a sibling test thread can fork while this one still holds the
+/// write fd, so an immediate exec fails with ETXTBSY. Probe-exec until the
+/// kernel stops refusing (a successful exec proves no writer is left).
+fn settle_exec(p: &std::path::Path) {
+    for _ in 0..500 {
+        match Command::new(p).arg("--version").output() {
+            Err(e) if e.raw_os_error() == Some(26) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            _ => return,
+        }
+    }
+    panic!("{} still busy (ETXTBSY) after 5 s", p.display());
+}
+
 fn mk_target(root: &std::path::Path, name: &str) -> std::path::PathBuf {
     let d = root.join(name);
     std::fs::create_dir_all(&d).unwrap();
@@ -178,6 +193,7 @@ fn a_cargo_target_whose_binary_is_running_survives() {
     let dead = mk_target(&root, "dead");
     let exe = live.join("served");
     std::fs::copy("/bin/sleep", &exe).unwrap();
+    settle_exec(&exe);
     let script = tmp.path().join("cargo-reaper.sh");
     std::fs::write(
         &script,

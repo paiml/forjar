@@ -5,6 +5,21 @@ use super::*;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
+/// forjar#1125: a sibling test thread can fork while this one still holds the
+/// write fd, so an immediate exec fails with ETXTBSY. Probe-exec until the
+/// kernel stops refusing (a successful exec proves no writer is left).
+fn settle_exec(p: &Path, probe_arg: &str) {
+    for _ in 0..500 {
+        match std::process::Command::new(p).arg(probe_arg).output() {
+            Err(e) if e.raw_os_error() == Some(26) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            _ => return,
+        }
+    }
+    panic!("{} still busy (ETXTBSY) after 5 s", p.display());
+}
+
 /// A runtime whose container is `state` ("true" running, "false" stopped,
 /// "missing" absent). Every `exec` is logged to `<dir>/exec.log`.
 fn runtime(dir: &Path, state: &str, root_pct: &str) -> PathBuf {
@@ -26,6 +41,7 @@ fn runtime(dir: &Path, state: &str, root_pct: &str) -> PathBuf {
     )
     .unwrap();
     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    settle_exec(&p, "inspect");
     p
 }
 
@@ -74,6 +90,7 @@ fn a_running_container_that_cannot_answer_still_fails_closed() {
         "#!/bin/sh\ncase \"$1\" in inspect) echo true; exit 0;; esac\nexit 1\n",
     )
     .unwrap();
+    settle_exec(&rt, "inspect");
     let c = cfg(&rt);
     let e = pre_check(&c, &collect(&c, None, false), "apply", false).unwrap_err();
     assert!(e.contains("not measured") && e.contains("box"), "{e}");
