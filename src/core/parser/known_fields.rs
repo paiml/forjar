@@ -163,6 +163,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_availability_zone",
     "cloud_instance_profile",
     "cloud_ami",
+    "cloud_user_data_file",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",
