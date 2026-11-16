@@ -64,7 +64,7 @@ pub(super) fn guard(path: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::super::tests::{gated, res, Sandbox};
+    use super::super::tests::{gated, res, Sandbox, DIGEST};
     use super::super::tests_b1::count;
     use super::super::*;
     use super::checked;
@@ -169,8 +169,13 @@ mod tests {
             }
             let (rc, out) = sb.run(&script, "");
             assert_eq!(rc, 1, "{what}: {out}");
+            let why = match what {
+                "empty" => "is empty",
+                "16001 bytes" => "is larger than 16000 bytes",
+                _ => "is missing or not a regular file",
+            };
             assert!(
-                out.contains("REFUSED: cloud_user_data_file"),
+                out.contains(&format!("REFUSED: cloud_user_data_file {why}")),
                 "{what}: {out}"
             );
             assert_eq!(sb.log(), "", "{what}: no aws call before the refusal");
@@ -215,5 +220,24 @@ mod tests {
         let (mut r2, _) = with_file(sb.path(), b"y");
         r2.cloud.user_data_file = Some("/tmp/other-ud.sh".into());
         assert_eq!(key_of(&spec_of(&r2).unwrap()), plain);
+    }
+
+    #[test]
+    fn the_path_is_validated_at_parse_time_and_templates_are_refused() {
+        let yaml = |f: &str| {
+            format!(
+                "version: \"1.0\"\nname: t\nmachines:\n  m: {{hostname: m, addr: 127.0.0.1}}\nresources:\n  a:\n    type: cloud_instance\n    machine: m\n    provider: aws\n    name: boxa\n    \
+                 image: img@{DIGEST}\n    cloud_region: eu-south-2\n    cloud_instance_type: c7a.xlarge\n    \
+                 cloud_max_price: \"0.2\"\n    cloud_max_lifetime_min: 60\n    cloud_user_data_file: \"{f}\"\n"
+            )
+        };
+        let errs = |f: &str| {
+            let c = crate::core::parser::parse_config(&yaml(f)).unwrap();
+            crate::core::parser::validate_config(&c)
+        };
+        assert!(errs("/tmp/ud.sh").is_empty());
+        for bad in ["rel/ud.sh", "/a/../b", "/a b", "/{{params.f}}"] {
+            assert!(!errs(bad).is_empty(), "{bad}");
+        }
     }
 }
