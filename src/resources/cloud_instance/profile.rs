@@ -164,11 +164,18 @@ mod tests {
         let s = apply_script(&gated(sb.path()));
         assert!(!s.contains("iam-instance-profile"), "{s}");
         assert!(s.contains("Value=ci-box-a@eu-south-2@0123456789ab}"), "{s}");
-        // with a profile, only the flag and the key tail differ from the unset script
+        // with a profile, only the flag, the key tail and the launch token
+        // (which hashes the key) differ from the unset script
         let flag = "--iam-instance-profile 'Name=ci-box' ";
         let tail = super::key_tail(&Some("ci-box".into()));
-        let w = apply_script(&with(sb.path(), "ci-box"));
-        assert_eq!(w.replace(flag, "").replace(&tail, ""), s);
+        let (r0, r1) = (gated(sb.path()), with(sb.path(), "ci-box"));
+        let tok0 = crate::resources::cloud_instance::launch_io::token(&spec_of(&r0).unwrap());
+        let tok1 = crate::resources::cloud_instance::launch_io::token(&spec_of(&r1).unwrap());
+        let w = apply_script(&r1);
+        assert_eq!(
+            w.replace(flag, "").replace(&tail, "").replace(&tok1, &tok0),
+            s
+        );
     }
 
     #[test]

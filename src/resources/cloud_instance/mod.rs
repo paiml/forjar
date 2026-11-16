@@ -30,6 +30,7 @@ mod destroy;
 use destroy::destroy_script;
 mod ami;
 mod key;
+mod launch_io;
 mod placement;
 mod profile;
 mod storage;
@@ -48,6 +49,10 @@ mod tests;
 mod tests_b1;
 #[cfg(test)]
 mod tests_b4;
+#[cfg(test)]
+mod tests_chain;
+#[cfg(test)]
+mod tests_launch;
 #[cfg(test)]
 mod tests_lint;
 #[cfg(test)]
@@ -460,14 +465,14 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
          {rootdev}\
-         aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
+         {run_open}aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
          {net}{store}{prof}\
          --user-data {ud} \
-         --tag-specifications {tagspec}{voltags}\n",
+         --tag-specifications {tagspec}{voltags}{run_tail}",
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
@@ -482,6 +487,8 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
+        run_open = launch_io::OPEN,
+        run_tail = launch_io::tail(&s),
         store = s.storage.args(),
         ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),

@@ -12,6 +12,13 @@ export FORJAR_IMAGE='"'"'123456789012.dkr.ecr.eu-south-2.amazonaws.com/img001@sh
 ' --tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]'
 "##;
 
+/// A script that ends with `body` (the run-instances arguments, minus their final newline)
+/// followed by the launch-I/O tail for `r`.
+fn ends_with_launch(script: &str, body: &str, r: &Resource) -> bool {
+    let tail = launch_io::tail(&spec_of(r).unwrap());
+    script.ends_with(&format!("{}{tail}", body.trim_end_matches('\n')))
+}
+
 fn run_line(r: &Resource) -> String {
     let sb = Sandbox::new();
     sb.open_gate();
@@ -42,13 +49,16 @@ fn good_data(c: &mut CloudSpec) {
 #[test]
 fn nothing_declared_is_byte_identical_to_today() {
     let s = apply_script(&gated(std::path::Path::new("/t")));
-    assert!(s.ends_with(TODAY_TAIL), "{s}");
+    assert!(
+        ends_with_launch(&s, TODAY_TAIL, &gated(std::path::Path::new("/t"))),
+        "{s}"
+    );
     assert_eq!(s.matches("block-device-mappings").count(), 0);
     assert!(!key_of(&spec_of(&res()).unwrap()).contains("@s"));
     // tags alone (volume_tags unset or false) never add a volume tag specification
     let mut r = gated(std::path::Path::new("/t"));
     r.cloud.volume_tags = Some(false);
-    assert!(apply_script(&r).ends_with(TODAY_TAIL));
+    assert!(ends_with_launch(&apply_script(&r), TODAY_TAIL, &r));
 }
 
 #[test]
@@ -94,7 +104,9 @@ fn data_volume_mapping_800_6000_500() {
 fn tagspec_has_volume_resource_with_declared_tags() {
     let l = run_line(&with(|c| c.volume_tags = Some(true)));
     assert!(
-        l.ends_with(" ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]"),
+        l.contains(
+            " ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}] --client-token fj-"
+        ),
         "{l}"
     );
     assert_eq!(l.matches("ResourceType=volume").count(), 1, "{l}");
@@ -107,7 +119,11 @@ fn tagspec_has_volume_resource_with_declared_tags() {
     // quoted in the generated script
     let mut r = gated(std::path::Path::new("/t"));
     r.cloud.volume_tags = Some(true);
-    assert!(apply_script(&r).ends_with("--tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]' 'ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]'\n"));
+    assert!(ends_with_launch(
+        &apply_script(&r),
+        "--tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]' 'ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]'",
+        &r
+    ));
 }
 
 fn refused(f: impl Fn(&mut CloudSpec), why: &str) {

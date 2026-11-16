@@ -51,6 +51,7 @@ const STUB: &str = r#"#!/bin/sh
 : "${STUB_LOG:?STUB_LOG unset: refusing to act as aws}"
 echo "$@" >> "$STUB_LOG"
 case "$*" in
+*describe-instances*--instance-ids*) echo running;;
 *describe-instances*)
   if [ -e "$STUB_LOG.descfail" ]; then echo "ExpiredToken" >&2; exit 255; fi
   if [ -e "$STUB_LOG.descfail2" ] && [ "$(grep -c describe-instances "$STUB_LOG")" -ge 2 ]; then echo "ExpiredToken" >&2; exit 255; fi
@@ -75,13 +76,29 @@ case "$*" in
 *ssm*get-parameter*)
   if [ -e "$STUB_LOG.ssmfail" ]; then echo ami-0123456789abcdef0; echo "AccessDenied" >&2; exit 255; fi
   echo ami-0123456789abcdef0;;
-*run-instances*) echo i-0stub;;
+*run-instances*) printf 'i-0a1b2c3d4\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)";;
 esac
 "#;
 
-const TOOLS: [&str; 16] = [
-    "sh", "bash", "grep", "awk", "sed", "cat", "touch", "tr", "cut", "head", "sort", "dirname",
-    "basename", "mkdir", "rm", "wc",
+const TOOLS: [&str; 18] = [
+    "sh",
+    "bash",
+    "grep",
+    "awk",
+    "sed",
+    "cat",
+    "touch",
+    "tr",
+    "cut",
+    "head",
+    "sort",
+    "dirname",
+    "basename",
+    "mkdir",
+    "rm",
+    "wc",
+    "sha256sum",
+    "date",
 ];
 
 impl Sandbox {
@@ -98,6 +115,10 @@ impl Sandbox {
                 }
             }
         }
+        // no real pauses: the script's state-read retry sleeps are only logged
+        let nap = bin.join("sleep");
+        std::fs::write(&nap, "#!/bin/sh\necho \"$@\" >> \"$STUB_LOG.sleep\"\n").unwrap();
+        Command::new("chmod").arg("755").arg(&nap).status().unwrap();
         let stub = bin.join("aws");
         std::fs::write(&stub, STUB).unwrap();
         Command::new("chmod")
