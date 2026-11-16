@@ -70,6 +70,12 @@ case "$*" in
   if [ ! -e "$STUB_LOG.noterm" ]; then
     for a in "$@"; do case "$a" in i-*) echo "$a" >> "$STUB_LOG.term";; esac; done
   fi;;
+*describe-images*)
+  if [ -e "$STUB_LOG.imgfail" ]; then echo /dev/xvda; echo "Throttling" >&2; exit 255; fi
+  if [ -e "$STUB_LOG.rootdev" ]; then cat "$STUB_LOG.rootdev"; else echo /dev/xvda; fi;;
+*ssm*get-parameter*)
+  if [ -e "$STUB_LOG.ssmfail" ]; then echo ami-0123456789abcdef0; echo "AccessDenied" >&2; exit 255; fi
+  echo ami-0123456789abcdef0;;
 *run-instances*) printf 'i-0a1b2c3d4\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)";;
 esac
 "#;
@@ -134,6 +140,18 @@ impl Sandbox {
     /// Make ONLY the n-th `describe-instances` call (1-based) exit 255.
     pub(super) fn fail_describe_nth(&self, n: usize) {
         std::fs::write(self.path().join("calls.log.descfailn"), n.to_string()).unwrap();
+    }
+    /// Make `describe-images` answer exactly `reply` (raw bytes, no newline added).
+    pub(super) fn set_root_device(&self, reply: &str) {
+        std::fs::write(self.path().join("calls.log.rootdev"), reply).unwrap();
+    }
+    /// Make `describe-images` exit 255 AFTER printing a valid-looking reply.
+    pub(super) fn fail_images(&self) {
+        std::fs::write(self.path().join("calls.log.imgfail"), "").unwrap();
+    }
+    /// Make the SSM image-parameter lookup exit 255 AFTER printing a valid-looking reply.
+    pub(super) fn fail_ssm(&self) {
+        std::fs::write(self.path().join("calls.log.ssmfail"), "").unwrap();
     }
     pub(super) fn path(&self) -> &Path {
         self.dir.path()

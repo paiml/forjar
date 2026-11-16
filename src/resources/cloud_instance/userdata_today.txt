@@ -29,7 +29,7 @@ done
 if [ -z "$owned" ]; then :; else
   set -- $keyed; keyed=" $* "; other=''
   for i in $owned; do case "$keyed" in *" $i "*) ;; *) other="$other $i";; esac; done
-  if [ -n "$other" ]; then echo "REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown" >&2; exit 1; fi
+  if [ -n "$other" ]; then echo "REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown" >&2; exit 1; fi
   echo "present $owned"; exit 0
 fi
 run_once() { aws ec2 run-instances --region 'eu-south-2' --count 1 --instance-type 'c7a.xlarge' --image-id 'resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64' --instance-market-options 'MarketType=spot,SpotOptions={MaxPrice=0.20,SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}' --instance-initiated-shutdown-behavior terminate --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' --user-data '#!/bin/sh

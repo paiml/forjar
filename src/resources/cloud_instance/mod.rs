@@ -33,6 +33,7 @@ mod key;
 mod launch_io;
 mod placement;
 mod profile;
+mod storage;
 mod userdata;
 pub use profile::misplaced as profile_misplaced;
 mod validate;
@@ -58,6 +59,8 @@ mod tests_lint;
 mod tests_net;
 #[cfg(test)]
 mod tests_resolve;
+#[cfg(test)]
+mod tests_storage;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,6 +76,7 @@ pub struct CloudInstance {
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
+    pub storage: storage::Storage,
     /// `cloud_user_data_file`: local file passed by path as user-data; `None` = built-in script.
     pub user_data_file: Option<String>,
     /// IAM instance profile name (`cloud_instance_profile`); `None` = none attached.
@@ -141,6 +145,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         )?;
     }
     let placement = placement::Placement::of(&resource.cloud, &region)?;
+    let storage = storage::Storage::of(&resource.cloud, &resource.tags)?;
     let user_data_file = userdata::checked(&resource.cloud.user_data_file)?;
     let profile = profile::checked(&resource.cloud.instance_profile)?;
     Ok(CloudInstance {
@@ -153,6 +158,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
+        storage,
         user_data_file,
         profile,
     })
@@ -455,17 +461,18 @@ pub fn apply_script(resource: &Resource) -> String {
          if [ -z \"$owned\" ]; then :; else\n\
          \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
          \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
+         {rootdev}\
          {run_open}aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
-         {net}{prof}\
+         {net}{store}{prof}\
          --user-data {ud} \
-         --tag-specifications {tagspec}{run_tail}",
+         --tag-specifications {tagspec}{voltags}{run_tail}",
         kill = sh_squote(&kill),
         gate = sh_squote(&gate),
         budget_note = budget.replace(|c: char| !(c.is_ascii_digit() || c == '.'), ""),
@@ -473,7 +480,8 @@ pub fn apply_script(resource: &Resource) -> String {
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
-        ami = sh_squote(&ami::image_id(&s.ami)),
+        rootdev = s.storage.root_lookup(&sh_squote(&s.region), &s.ami),
+        ami = s.storage.image_arg(&s.ami),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
@@ -481,9 +489,11 @@ pub fn apply_script(resource: &Resource) -> String {
         net = s.placement.args(),
         run_open = launch_io::OPEN,
         run_tail = launch_io::tail(&s),
+        store = s.storage.args(),
         ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),
         prof = profile::args(&s.profile),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
+        voltags = s.storage.volume_tagspec(&s.tags),
     )
 }

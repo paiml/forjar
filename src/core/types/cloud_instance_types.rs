@@ -95,6 +95,62 @@ pub struct CloudSpec {
     )]
     pub availability_zone: Option<String>,
 
+    /// Root volume size in GiB, 1 to 16384; absent keeps the image default.
+    #[serde(
+        rename = "cloud_root_volume_gb",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub root_volume_gb: Option<u32>,
+
+    /// Root volume type, `gp2` or `gp3` (gp3 when only a size is set).
+    #[serde(
+        rename = "cloud_root_volume_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub root_volume_type: Option<String>,
+
+    /// Optional data volume on /dev/sdf, size in GiB, 1 to 16384.
+    #[serde(
+        rename = "cloud_data_volume_gb",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_volume_gb: Option<u32>,
+
+    /// Data volume type, `gp2` or `gp3` (default gp3).
+    #[serde(
+        rename = "cloud_data_volume_type",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_volume_type: Option<String>,
+
+    /// Data volume provisioned IOPS (gp3: 3000 to 16000).
+    #[serde(
+        rename = "cloud_data_volume_iops",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_volume_iops: Option<u32>,
+
+    /// Data volume throughput in MiB/s (gp3: 125 to 1000).
+    #[serde(
+        rename = "cloud_data_volume_throughput",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_volume_throughput: Option<u32>,
+
+    /// When true, the declared `tags:` are also applied to the volumes at launch.
+    #[serde(
+        rename = "cloud_volume_tags",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub volume_tags: Option<bool>,
+
     /// Local FILE whose content is passed as the instance's user-data at apply
     /// time (absolute path, `[A-Za-z0-9._/-]`). Only the path is ever used by
     /// forjar; absent: the built-in two-line script.
