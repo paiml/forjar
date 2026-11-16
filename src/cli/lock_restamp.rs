@@ -8,7 +8,7 @@
 //! `generator` survived from 1.1.1 to 1.30.0. This walks the dir and writes
 //! each lock through the same writer, sidecar included, and says what moved.
 
-use crate::core::state::{load_lock, save_lock, stamped_for_write, writer_stamp};
+use crate::core::state::{load_lock, lock_file_path, save_lock, stamped_for_write, writer_stamp};
 use std::path::Path;
 
 fn resolved_dir(state_dir: &Path) -> String {
@@ -19,7 +19,10 @@ fn resolved_dir(state_dir: &Path) -> String {
 }
 
 fn resolved(state_dir: &Path, machine: &str) -> String {
-    resolved_dir(&state_dir.join(machine)) + "/state.lock.yaml"
+    let lock = lock_file_path(state_dir, machine);
+    let dir = lock.parent().map(resolved_dir).unwrap_or_default();
+    let name = lock.file_name().map(|n| n.to_string_lossy().into_owned());
+    format!("{dir}/{}", name.unwrap_or_default())
 }
 
 /// One lock's before/after, for the report.
@@ -129,6 +132,17 @@ fn report(
 mod tests {
     use super::*;
     use crate::core::state::new_lock;
+
+    #[test]
+    fn resolved_names_the_canonical_lock_path() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::create_dir(d.path().join("m")).unwrap();
+        let want = std::fs::canonicalize(d.path().join("m")).unwrap();
+        assert_eq!(
+            resolved(d.path(), "m"),
+            format!("{}/state.lock.yaml", want.display())
+        );
+    }
 
     #[test]
     fn a_dir_with_no_locks_reports_zero() {

@@ -4537,7 +4537,7 @@ roadmap:
   github_issue: 572
   item_type: task
   title: quorum.yml's receipt job builds against the shared ~/.cargo — the fleet test cannot see cargo run through a script
-  status: planned
+  status: inprogress
   priority: medium
   assigned_to: null
   created: 2026-09-16T04:40:41Z
@@ -7647,6 +7647,150 @@ roadmap:
   assigned_to: null
   created: 2026-11-14T21:58:51Z
   updated: 2026-11-15T08:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-894
+  github_issue: 894
+  item_type: task
+  title: 'forjar pool reconcile: queue-driven scale-up, scale-to-zero, JIT runners, spot interruption'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T00:00:00Z
+  updated: 2026-11-15T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-858
+  github_issue: 858
+  item_type: task
+  title: e02 ControlMaster-before-drift-gate test fixture answers the inode pre-check (forjar#858)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T09:00:00Z
+  updated: 2026-11-15T09:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-859
+  github_issue: 859
+  item_type: task
+  title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1065
+  github_issue: 1065
+  item_type: task
+  title: github_release check asserts checksum before running the binary (forjar#1065)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T08:20:00Z
+  updated: 2026-11-15T08:20:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1093
+  github_issue: 1093
+  item_type: task
+  title: retry test must not depend on the host ssh behaviour (forjar#1093)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1067
+  github_issue: 1067
+  item_type: task
+  title: github_release apply reads the live version with the check reader (forjar#1067)
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T09:00:00Z
+  updated: 2026-11-15T09:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1074
+  github_issue: 1074
+  item_type: task
+  title: 'errors: typed ForjarError in src/cli/image_cmd.rs (untyped-error ratchet, 5 sites)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1078
+  github_issue: 1078
+  item_type: task
+  title: 'errors: typed ForjarError in registry_push (untyped-error ratchet, 6 sites)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria: []
   phases: []

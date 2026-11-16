@@ -31,6 +31,7 @@
 //! The forced case is red against the reader without its `--force` bypass.
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -38,6 +39,25 @@ const FORJAR: &str = env!("CARGO_BIN_EXE_forjar");
 
 /// RFC 5737 TEST-NET-3: never routable, never this host.
 const REMOTE: &str = "203.0.113.7";
+
+/// An `ssh` that answers the inode gate's `df -i` probe (the gate measures a
+/// machine before apply may touch it, and refuses an unmeasured one) and fails
+/// every other call the way an unroutable host does. Without it the gate
+/// refuses first on a host with no route to TEST-NET and the run never reaches
+/// the cache decision this file is about.
+const UNREACHABLE_SSH: &str = "#!/bin/sh\n\
+    last=\"\"\n\
+    for a in \"$@\"; do last=\"$a\"; done\n\
+    if [ \"$last\" = bash ]; then\n\
+    \x20 script=$(cat)\n\
+    \x20 case \"$script\" in\n\
+    \x20\x20\x20 *\"df -i\"*)\n\
+    \x20\x20\x20\x20\x20 printf 'Filesystem Type Inodes IUsed IFree IUse%% Mounted\\n/dev/x ext4 100 1 99 1%% /\\n'\n\
+    \x20\x20\x20\x20\x20 exit 0 ;;\n\
+    \x20 esac\n\
+    fi\n\
+    echo \"ssh: connect to host 203.0.113.7 port 22: Connection timed out\" >&2\n\
+    exit 255\n";
 
 struct Sandbox {
     dir: PathBuf,
@@ -108,12 +128,23 @@ impl Sandbox {
     }
 
     fn apply_with(&self, extra: &[&str]) -> (i32, String) {
+        let bin = self.dir.join("shim-bin");
+        fs::create_dir_all(&bin).expect("shim dir");
+        let ssh = bin.join("ssh");
+        fs::write(&ssh, UNREACHABLE_SSH).expect("write ssh shim");
+        fs::set_permissions(&ssh, fs::Permissions::from_mode(0o755)).expect("chmod ssh shim");
+        let path = format!(
+            "{}:{}",
+            bin.display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
         let out = Command::new(FORJAR)
             .args(["apply", "--yes"])
             .args(extra)
             .arg("-f")
             .arg(self.cfg())
             .current_dir(&self.dir)
+            .env("PATH", path)
             .output()
             .expect("run forjar");
         let text = strip_ansi(&format!(

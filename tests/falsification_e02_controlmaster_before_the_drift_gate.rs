@@ -62,40 +62,7 @@ fn clear_sockets(base: u8, count: usize) {
 /// only for the drift gate's file query, which is identifiable by the `__DIR__`
 /// probe it pipes on stdin — brackets itself in an overlap log while holding
 /// the "connection" open.
-const SSH_SHIM: &str = r#"#!/bin/sh
-printf '%s\n' "$*" >> "$FJ_SSH_LOG"
-
-sock=""
-master=""
-for a in "$@"; do
-  case "$a" in
-    ControlPath=*) sock="${a#ControlPath=}" ;;
-    ControlMaster=yes) master=1 ;;
-  esac
-done
-if [ -n "$master" ] && [ -n "$sock" ]; then
-  : > "$sock"
-fi
-
-prev=""
-last=""
-for a in "$@"; do prev="$last"; last="$a"; done
-if [ "$last" != "bash" ]; then
-  exit 0
-fi
-
-script=$(cat)
-if [ -n "$FJ_SSH_OVERLAP_LOG" ]; then
-  case "$script" in
-    *__DIR__*)
-      printf 'S %s\n' "$prev" >> "$FJ_SSH_OVERLAP_LOG"
-      sleep 0.6
-      printf 'E %s\n' "$prev" >> "$FJ_SSH_OVERLAP_LOG"
-      ;;
-  esac
-fi
-exit 0
-"#;
+const SSH_SHIM: &str = include_str!("falsification_e02_ssh_shim.sh");
 
 struct Fleet {
     dir: tempfile::TempDir,
@@ -209,6 +176,7 @@ impl Fleet {
         Run {
             stderr: String::from_utf8_lossy(&out.stderr).to_string(),
             ssh: fs::read_to_string(&ssh_log).unwrap_or_default(),
+            scripts: fs::read_to_string(self.path("ssh.log.scripts")).unwrap_or_default(),
         }
     }
 }
@@ -217,6 +185,8 @@ struct Run {
     stderr: String,
     /// One line per `ssh` spawn, the argv joined by spaces.
     ssh: String,
+    /// Every remote script piped to `bash`, in spawn order.
+    scripts: String,
 }
 
 impl Run {
@@ -261,13 +231,26 @@ fn ssh_master_opens_before_any_gate_query() {
         run.ssh
     );
 
+    // The apply pre-check (inode pressure, #847) now sends its own `df -i`
+    // query first, so a query COUNT no longer maps to resources. The invariant
+    // is coverage: every locked resource's path is probed by some query, and
+    // (below) every one of those queries rides the master's socket.
     let remote = run.remote_commands();
     assert!(
-        remote.len() >= 4,
-        "expected one remote query per locked resource, got {}:\n{}",
-        remote.len(),
+        !remote.is_empty(),
+        "no remote query ran at all:\nstderr:\n{}\n{}",
+        run.stderr,
         run.ssh
     );
+    for id in ["a", "b", "c", "d"] {
+        let path = format!("/srv/{id}.txt");
+        assert!(
+            run.scripts.contains(&path),
+            "locked resource {path} was never queried by the drift gate.\nscripts:\n{}\nstderr:\n{}",
+            run.scripts,
+            run.stderr
+        );
+    }
     let fresh: Vec<&&str> = remote
         .iter()
         .filter(|l| !l.contains("ControlPath="))

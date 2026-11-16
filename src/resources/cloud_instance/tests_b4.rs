@@ -1,6 +1,6 @@
 //! FJ-861 round 4: ownership across an image change, and small hardening.
 
-use super::tests::{gated, Sandbox};
+use super::tests::{gated, res, Sandbox};
 use super::tests_b1::{absent, count, KEY_A, OWN_A};
 use super::*;
 
@@ -14,7 +14,7 @@ fn with_image(mut r: Resource, digest: &str) -> Resource {
 }
 
 fn old_image_box() -> String {
-    format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a\n")
+    format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a0a0a0a\n")
 }
 
 #[test]
@@ -25,7 +25,10 @@ fn an_image_change_with_a_live_owned_instance_refuses_and_never_launches() {
     assert_ne!(key_of(&spec_of(&r).unwrap()), KEY_A);
     let (rc, out) = sb.run_with(&apply_script(&r), "", Some(&old_image_box()));
     assert_ne!(rc, 0, "{out}");
-    assert!(out.contains("image changed while instance"), "{out}");
+    assert!(
+        out.contains("image or placement changed while instance"),
+        "{out}"
+    );
     assert!(out.contains("i-00a1b2c3"), "{out}");
     assert!(out.contains("state: absent"), "{out}");
     assert_eq!(count(&sb.log(), "run-instances"), 0, "{}", sb.log());
@@ -46,7 +49,7 @@ fn nothing_owned_launches_exactly_once() {
     let sb = Sandbox::new();
     sb.open_gate();
     // another resource's box is alive; it is not ours
-    let fx = "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0o\n";
+    let fx = "i-00b2c3d4 ci-box-b@eu-south-2@0123456789ab ci-box-b@eu-south-2 sir-0c3d4e5f\n";
     let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(fx));
     assert_eq!(rc, 0, "{out}");
     assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
@@ -57,7 +60,7 @@ fn an_owned_box_with_a_different_key_beside_a_same_key_box_still_refuses() {
     let sb = Sandbox::new();
     sb.open_gate();
     let fx = format!(
-        "{}i-00b2c3d4 ci-box-a@eu-south-2@ffffffffffff {OWN_A} sir-0b\n",
+        "{}i-00b2c3d4 ci-box-a@eu-south-2@ffffffffffff {OWN_A} sir-0b0b0b0b\n",
         old_image_box()
     );
     let (rc, out) = sb.run_with(&apply_script(&gated(sb.path())), "", Some(&fx));
@@ -153,7 +156,10 @@ fn only_whole_instance_ids_pass_the_lookup() {
 #[test]
 fn destroy_passes_the_validated_ids_as_separate_arguments() {
     let sb = Sandbox::new();
-    let fx = format!("{}i-00b2c3d4 {KEY_A} {OWN_A} sir-0b\n", old_image_box());
+    let fx = format!(
+        "{}i-00b2c3d4 {KEY_A} {OWN_A} sir-0b0b0b0b\n",
+        old_image_box()
+    );
     let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
     let log = sb.log();
@@ -273,19 +279,70 @@ fn glob_characters_in_a_reply_are_malformed_not_expanded() {
 fn only_whole_spot_request_ids_are_cancelled() {
     let sb = Sandbox::new();
     let fx = format!(
-        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a\n\
-         i-00b2c3d4 {KEY_A} {OWN_A} sir-0B\n\
-         i-00c3d4e5 {KEY_A} {OWN_A} sir-0c!x\n\
-         i-00d4e5f6 {KEY_A} {OWN_A} sir-\n\
-         i-00e5f6a7 {KEY_A} {OWN_A} sir-1d\n"
+        "i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n\
+         i-00e5f6a7 {KEY_A} {OWN_A} sir-1d2e3f4a\n\
+         i-00c9d0e1 {KEY_A} {OWN_A} None\n"
     );
     let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
     assert_eq!(rc, 0, "{out}");
     let log = sb.log();
+    assert_eq!(count(&log, "terminate-instances"), 1, "{log}");
     let cancels: Vec<_> = log.lines().filter(|l| l.contains("cancel-spot")).collect();
     assert_eq!(cancels.len(), 2, "{log}");
     assert!(
-        cancels[0].ends_with("sir-0a") && cancels[1].ends_with("sir-1d"),
+        cancels[0].ends_with(" sir-0a1b2c3d") && cancels[1].ends_with(" sir-1d2e3f4a"),
         "{log}"
     );
+}
+
+#[test]
+fn a_malformed_spot_request_id_stops_destroy_before_any_terminate() {
+    for bad in [
+        "sir-0A1B2C3D",
+        "sir-0c!x",
+        "sir-",
+        "sir-0a1b2c3d4",
+        "sir-0a1b2c3",
+        "sir-*",
+        "xx-0a1b2c3d",
+    ] {
+        let sb = Sandbox::new();
+        let fx =
+            format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\ni-00b2c3d4 {KEY_A} {OWN_A} {bad}\n");
+        let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
+        assert_ne!(rc, 0, "{bad}: {out}");
+        assert!(out.contains("not a whole spot request id"), "{bad}: {out}");
+        assert!(!out.contains("destroyed"), "{bad}: {out}");
+        let log = sb.log();
+        assert_eq!(count(&log, "terminate-instances"), 0, "{bad}: {log}");
+        assert_eq!(count(&log, "cancel-spot"), 0, "{bad}: {log}");
+    }
+}
+
+#[test]
+fn a_failed_spot_request_lookup_is_an_error_before_any_terminate() {
+    let sb = Sandbox::new();
+    sb.fail_describe_nth(2);
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n");
+    let (rc, out) = sb.run_with(&apply_script(&absent(res())), "", Some(&fx));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("spot request lookup failed"), "{out}");
+    assert!(!out.contains("destroyed"), "{out}");
+    let log = sb.log();
+    assert_eq!(count(&log, "describe-instances"), 2, "{log}");
+    assert_eq!(count(&log, "terminate-instances"), 0, "{log}");
+    assert_eq!(count(&log, "cancel-spot"), 0, "{log}");
+}
+
+#[test]
+fn a_failed_post_terminate_lookup_is_an_error_never_destroyed() {
+    let sb = Sandbox::new();
+    sb.fail_describe_nth(3);
+    let fx = format!("i-00a1b2c3 {KEY_A} {OWN_A} sir-0a1b2c3d\n");
+    let (rc, out) = sb.run_with(&apply_script(&absent(res())), "", Some(&fx));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("lookup failed"), "{out}");
+    assert!(!out.contains("destroyed"), "{out}");
+    assert_eq!(count(&sb.log(), "terminate-instances"), 1, "{}", sb.log());
+    assert_eq!(count(&sb.log(), "describe-instances"), 3, "{}", sb.log());
 }

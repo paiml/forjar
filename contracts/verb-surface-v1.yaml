@@ -133,7 +133,7 @@ proof_obligations:
     property: "An I8 validation failure is classified Validation, not Connection"
     formal: "classify('transport error: I8 violation — script failed bashrs validation') = 3"
     applies_to: error_taxonomy_is_total
-    enforced_by: "src/core/error.rs::the_measured_gx10_failure_is_validation_not_connection"
+    enforced_by: "src/core/tests_error.rs::the_measured_gx10_failure_is_validation_not_connection"
 
   - type: completeness
     property: "Every CLI leaf is in exactly one bucket"
@@ -181,7 +181,7 @@ falsification_tests:
   - id: FALSIFY-FVS-001
     rule: "exit codes come from a variant, not from prose"
     prediction: "an error containing the word 'transport' that is a validation failure exits 3, not 4"
-    test: "src/core/error.rs::a_declared_class_beats_the_prose_of_its_own_message"
+    test: "src/core/tests_error.rs::a_declared_class_beats_the_prose_of_its_own_message"
     if_fails: "CI retries a deterministic failure forever, which is what it did before this contract"
 
   - id: FALSIFY-FVS-002

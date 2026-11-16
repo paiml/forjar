@@ -17,7 +17,8 @@
 //!   share it: one sees the other's box as its own, and its `state: absent`
 //!   terminates it. Uniqueness is enforced within one config only. Keep names
 //!   distinct across configs.
-//! - The instance key includes the image digest. Changing `image:` while the
+//! - The instance key includes the image digest and, when declared, a hash of the
+//!   placement (subnet, security groups, zone). Changing `image:` while the
 //!   old box is alive is refused (never a second launch); the old box lives
 //!   until its lifetime ends or `state: absent`. The spend cap is per launch,
 //!   not summed over a day.
@@ -25,7 +26,13 @@
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
+mod destroy;
+use destroy::destroy_script;
+mod ami;
+mod key;
+mod placement;
 mod validate;
+use key::{key_of, owner_of};
 use validate::{
     field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
     require,
@@ -39,6 +46,8 @@ mod tests_b1;
 mod tests_b4;
 #[cfg(test)]
 mod tests_lint;
+#[cfg(test)]
+mod tests_net;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,8 +58,11 @@ pub struct CloudInstance {
     pub instance_type: String,
     pub max_price: String,
     pub image: String,
+    /// Pinned AMI id (`cloud_ami`); `None` = the default image.
+    pub ami: Option<String>,
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
+    pub placement: placement::Placement,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -99,6 +111,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         image_name(&image).is_some_and(is_image_name),
         "image name must be 1-255 characters of [A-Za-z0-9._/:-], starting alphanumeric",
     )?;
+    let ami = ami::checked(&resource.cloud.ami)?;
     let max_lifetime_min = resource.cloud.max_lifetime_min.filter(|m| *m > 0);
     let max_lifetime_min = max_lifetime_min.ok_or("cloud_max_lifetime_min must be set and > 0")?;
     for t in &resource.tags {
@@ -113,30 +126,18 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
             "tags forjar-key and forjar-owner are reserved for ownership",
         )?;
     }
+    let placement = placement::Placement::of(&resource.cloud, &region)?;
     Ok(CloudInstance {
         name,
         region,
         instance_type,
         max_price,
         image,
+        ami,
         max_lifetime_min,
         tags: resource.tags.clone(),
+        placement,
     })
-}
-
-/// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
-/// digits of the image digest. Two declarations get the same key only if they
-/// share a name (refused by [`validate_unique_names`]).
-fn key_of(s: &CloudInstance) -> String {
-    let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
-    format!("{}@{}@{}", s.name, s.region, &digest[..12])
-}
-
-/// Ownership key for teardown: name plus region, stable across image changes.
-/// `@` joins the parts: neither the name nor the region allow-list can contain
-/// it, so two different (name, region) pairs never give the same string.
-fn owner_of(s: &CloudInstance) -> String {
-    format!("{}@{}", s.name, s.region)
 }
 
 /// Plan-time: two `cloud_instance` resources may not share a name and region,
@@ -365,41 +366,6 @@ pub fn state_query_script(resource: &Resource) -> String {
     )
 }
 
-/// `state: absent`: terminate ONLY the instances carrying this resource's own
-/// `forjar-owner` tag, cancel their spot requests, and report what is true.
-/// Never launches. Not gated: the kill switch exists to stop spend, and this
-/// only ever removes owned instances (none owned = a no-op success).
-fn destroy_script(s: &CloudInstance) -> String {
-    let region = sh_squote(&s.region);
-    let owner = owner_of(s);
-    let ids = describe_by(
-        s,
-        "forjar-owner",
-        &owner,
-        "Reservations[].Instances[].InstanceId",
-    );
-    let sirs = describe_by(
-        s,
-        "forjar-owner",
-        &owner,
-        "Reservations[].Instances[].SpotInstanceRequestId",
-    );
-    let lookup = lookup_ids("ids", &ids);
-    format!(
-        "set -eu\n\
-         {lookup}\
-         if [ -z \"$ids\" ]; then echo 'absent: no owned instance'; exit 0; fi\n\
-         sirs=\"$({sirs})\"\n\
-         set -- $ids\n\
-         aws ec2 terminate-instances --region {region} --instance-ids \"$@\" >/dev/null\n\
-         for r in $sirs; do case \"$r\" in sir-*) h=\"${{r#sir-}}\"; case \"$h\" in ''|*[!0-9a-z]*) continue;; esac;; *) continue;; esac; \
-         aws ec2 cancel-spot-instance-requests --region {region} --spot-instance-request-ids \"$r\" >/dev/null; done\n\
-         left=\"$({ids})\"\n\
-         if [ -n \"$left\" ]; then echo \"NOT destroyed: still pending or running: $left\" >&2; exit 1; fi\n\
-         echo \"destroyed $ids\"\n",
-    )
-}
-
 /// Script that creates the instance, or refuses. Refuses WITHOUT touching the
 /// provider unless the parity gate says pass, the kill switch is absent, and a
 /// budget cap is declared.
@@ -459,7 +425,7 @@ pub fn apply_script(resource: &Resource) -> String {
          if [ -z \"$owned\" ]; then :; else\n\
          \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
          \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image or placement changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
          \x20 echo \"present $owned\"; exit 0\n\
          fi\n\
          aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
@@ -467,6 +433,7 @@ pub fn apply_script(resource: &Resource) -> String {
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
+         {net}\
          --user-data {ud} \
          --tag-specifications {tagspec}\n",
         kill = sh_squote(&kill),
@@ -476,11 +443,12 @@ pub fn apply_script(resource: &Resource) -> String {
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
         itype = sh_squote(&s.instance_type),
-        ami = sh_squote("resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"),
+        ami = sh_squote(&ami::image_id(&s.ami)),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
         )),
+        net = s.placement.args(),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )

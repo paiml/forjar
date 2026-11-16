@@ -233,6 +233,8 @@ mod tests_cov_transport_2;
 #[cfg(test)]
 mod tests_cov_transport_3;
 #[cfg(test)]
+mod tests_cov_transport_retry;
+#[cfg(test)]
 mod tests_cov_validate;
 #[cfg(test)]
 mod tests_cov_validate2;
