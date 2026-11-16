@@ -58,12 +58,15 @@ fn well_formed(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_graphic())
 }
 
+/// `<prefix>-<rest>` where `rest` is one alphanumeric token: a longer pool
+/// prefix that extends this one (`fj` vs `fj-gpu-1`) never matches.
 fn in_pool(r: &Registration, id: &PoolIdentity) -> bool {
     let rest = r
         .name
         .strip_prefix(id.prefix.as_str())
         .and_then(|t| t.strip_prefix('-'));
-    rest.is_some_and(|t| !t.is_empty()) && r.labels.contains(&id.label)
+    rest.is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric()))
+        && r.labels.contains(&id.label)
 }
 
 fn orphaned(r: &Registration, id: &PoolIdentity, live: &[String]) -> bool {
@@ -72,7 +75,7 @@ fn orphaned(r: &Registration, id: &PoolIdentity, live: &[String]) -> bool {
         && well_formed(&r.name)
         && well_formed(&r.host_id)
         && in_pool(r, id)
-        && !live.contains(&r.host_id)
+        && !live.iter().any(|h| h.eq_ignore_ascii_case(&r.host_id))
 }
 
 /// Plan the deregistration of orphaned runners: registered to this pool,
@@ -94,11 +97,15 @@ pub fn plan_cleanup(
     if let Some(h) = live.iter().find(|h| !well_formed(h)) {
         return Err(CleanupError::MalformedHostId(h.clone()));
     }
-    let all: Vec<String> = runners
-        .iter()
-        .filter(|r| orphaned(r, id, live))
-        .map(|r| r.name.clone())
-        .collect();
+    let mut all: Vec<String> = Vec::new();
+    for r in runners.iter().filter(|r| orphaned(r, id, live)) {
+        let twin_kept = runners
+            .iter()
+            .any(|o| o.name == r.name && !orphaned(o, id, live));
+        if !twin_kept && !all.contains(&r.name) {
+            all.push(r.name.clone());
+        }
+    }
     let deferred = all.len().saturating_sub(MAX_DEREGISTER_PER_SWEEP);
     let deregister = all.into_iter().take(MAX_DEREGISTER_PER_SWEEP).collect();
     Ok(CleanupPlan {

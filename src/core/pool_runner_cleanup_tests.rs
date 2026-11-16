@@ -142,3 +142,28 @@ fn property_busy_or_online_never_planned() {
         }
     }
 }
+
+#[test]
+fn nested_prefix_pool_runner_is_not_planned() {
+    let mut r = orphan("fj-gpu-1");
+    r.labels = vec!["forjar-pool".into()];
+    assert!(names(&plan_cleanup(&[r], &live(), &id())).is_empty());
+}
+
+#[test]
+fn host_id_case_difference_counts_as_live() {
+    let r = reg("fj-1", "H1", RunnerStatus::Offline, false);
+    assert!(names(&plan_cleanup(&[r], &live(), &id())).is_empty());
+}
+
+#[test]
+fn duplicate_names_are_counted_once() {
+    let p = plan_cleanup(&[orphan("fj-1"), orphan("fj-1")], &live(), &id()).unwrap();
+    assert_eq!(p.deregister, vec!["fj-1"]);
+}
+
+#[test]
+fn duplicate_name_with_a_busy_twin_is_not_planned() {
+    let busy = reg("fj-1", "gone", RunnerStatus::Offline, true);
+    assert!(names(&plan_cleanup(&[orphan("fj-1"), busy], &live(), &id())).is_empty());
+}

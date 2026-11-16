@@ -30,6 +30,7 @@ pub mod plugin_loader;
 pub mod plugin_runtime;
 pub mod policy_boundary;
 pub mod policy_coverage;
+pub mod pool_cleanup_sweep;
 pub mod pool_interruption;
 pub mod pool_jit;
 pub mod pool_orphans;
