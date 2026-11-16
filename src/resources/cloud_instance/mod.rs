@@ -32,6 +32,8 @@ mod ami;
 mod key;
 mod launch_io;
 mod placement;
+mod profile;
+pub use profile::misplaced as profile_misplaced;
 mod validate;
 use key::{key_of, owner_of};
 use validate::{
@@ -53,6 +55,8 @@ mod tests_launch;
 mod tests_lint;
 #[cfg(test)]
 mod tests_net;
+#[cfg(test)]
+mod tests_resolve;
 
 /// A validated `cloud_instance` declaration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +72,8 @@ pub struct CloudInstance {
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
+    /// IAM instance profile name (`cloud_instance_profile`); `None` = none attached.
+    pub profile: Option<String>,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -132,6 +138,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         )?;
     }
     let placement = placement::Placement::of(&resource.cloud, &region)?;
+    let profile = profile::checked(&resource.cloud.instance_profile)?;
     Ok(CloudInstance {
         name,
         region,
@@ -142,6 +149,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
+        profile,
     })
 }
 
@@ -192,6 +200,9 @@ fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>>
     let abs = |v: &Option<String>| {
         v.clone()
             .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
+            // an unresolved template is not a path: a kill switch at
+            // `/run/{{x}}` could never be thrown, so refuse it (fail closed)
+            .filter(|p| !p.contains("{{") && !p.contains("}}"))
     };
     let budget = r
         .cloud
@@ -386,7 +397,7 @@ pub fn apply_script(resource: &Resource) -> String {
         Ok(g) => g,
         Err(missing) => {
             return reject(&format!(
-                "cloud_instance apply needs declared: {}",
+                "cloud_instance apply needs declared (and fully resolved): {}",
                 missing.join(", ")
             ))
         }
@@ -438,7 +449,7 @@ pub fn apply_script(resource: &Resource) -> String {
          --instance-market-options {market} \
          --instance-initiated-shutdown-behavior terminate \
          --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' \
-         {net}\
+         {net}{prof}\
          --user-data {ud} \
          --tag-specifications {tagspec}{run_tail}",
         kill = sh_squote(&kill),
@@ -456,6 +467,7 @@ pub fn apply_script(resource: &Resource) -> String {
         net = s.placement.args(),
         run_open = launch_io::OPEN,
         run_tail = launch_io::tail(&s),
+        prof = profile::args(&s.profile),
         ud = squote_keep_newlines(&user_data),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )
