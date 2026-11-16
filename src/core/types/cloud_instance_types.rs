@@ -94,4 +94,14 @@ pub struct CloudSpec {
         skip_serializing_if = "Option::is_none"
     )]
     pub availability_zone: Option<String>,
+
+    /// Local FILE whose content is passed as the instance's user-data at apply
+    /// time (absolute path, `[A-Za-z0-9._/-]`). Only the path is ever used by
+    /// forjar; absent: the built-in two-line script.
+    #[serde(
+        rename = "cloud_user_data_file",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_data_file: Option<String>,
 }

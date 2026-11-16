@@ -31,6 +31,7 @@ use destroy::destroy_script;
 mod ami;
 mod key;
 mod placement;
+mod userdata;
 mod validate;
 use key::{key_of, owner_of};
 use validate::{
@@ -63,6 +64,8 @@ pub struct CloudInstance {
     pub max_lifetime_min: u32,
     pub tags: Vec<String>,
     pub placement: placement::Placement,
+    /// `cloud_user_data_file`: local file passed by path as user-data; `None` = built-in script.
+    pub user_data_file: Option<String>,
 }
 
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
@@ -127,6 +130,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         )?;
     }
     let placement = placement::Placement::of(&resource.cloud, &region)?;
+    let user_data_file = userdata::checked(&resource.cloud.user_data_file)?;
     Ok(CloudInstance {
         name,
         region,
@@ -137,6 +141,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         max_lifetime_min,
         tags: resource.tags.clone(),
         placement,
+        user_data_file,
     })
 }
 
@@ -420,6 +425,7 @@ pub fn apply_script(resource: &Resource) -> String {
          \x20 echo 'REFUSED: parity gate has not passed' >&2; exit 1\n\
          fi\n\
          # budget cap declared: {budget_note}\n\
+         {ud_guard}\
          {lookup_owned}\
          {lookup_keyed}\
          if [ -z \"$owned\" ]; then :; else\n\
@@ -449,7 +455,8 @@ pub fn apply_script(resource: &Resource) -> String {
             s.max_price
         )),
         net = s.placement.args(),
-        ud = squote_keep_newlines(&user_data),
+        ud_guard = userdata::guard(s.user_data_file.as_deref()),
+        ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),
         tagspec = sh_squote(&format!("ResourceType=instance,Tags=[{}]", tags.join(","))),
     )
 }
