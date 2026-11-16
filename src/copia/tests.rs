@@ -215,3 +215,32 @@ fn is_eligible_thresholds() {
     std::fs::write(&small, b"tiny").unwrap();
     assert!(!is_eligible(small.to_str().unwrap()));
 }
+
+/// forjar#1122: the copy op must not die of SIGPIPE (141) under `pipefail`
+/// when the range ends long before the basis does. Runs the generated script.
+#[test]
+fn patch_script_copy_never_sigpipes_on_a_large_basis() {
+    let dir = tempfile::tempdir().unwrap();
+    let basis = blob(7, 4 << 20);
+    let path = dir.path().join("basis.bin");
+    std::fs::write(&path, &basis).unwrap();
+    let mut d = copia::Delta::new(BLOCK_SIZE as u32, basis.len() as u64, 0);
+    d.push_copy(100, 10);
+    d.push_literal(b"tail");
+    d.push_copy(0, 1);
+    let mut want = basis[100..110].to_vec();
+    want.extend_from_slice(b"tail");
+    want.push(basis[0]);
+    let hex = blake3::hash(&want).to_hex().to_string();
+    let script = patch_script(&path.to_string_lossy(), &d, &hex, None, None, None);
+    for i in 0..25 {
+        std::fs::write(&path, &basis).unwrap();
+        let out = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(&script)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0), "run {i}: {:?}", out.status);
+        assert_eq!(std::fs::read(&path).unwrap(), want, "run {i}");
+    }
+}
