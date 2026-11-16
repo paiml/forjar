@@ -10,8 +10,9 @@
 #                                  thin) and DOGFOOD_STORE_WHY. Anything but `ok`
 #                                  is a refusal. Never fetches anything.
 #
-# Step 1 runs the UNCHANGED scripts/quorum-store-gate.sh, read from HEAD with
-# its allowlist, on `$QUORUM_STORE/quorum/$REPO/<pr>/<headRefOid>.json`; step 2,
+# Step 1 runs the UNCHANGED scripts/quorum-store-gate.sh, read from MERGE^1 (the
+# base the PR lands on, never HEAD, so a PR cannot edit its own judge) with its
+# allowlist, on `$QUORUM_STORE/quorum/$REPO/<pr>/<headRefOid>.json`; step 2,
 # only if step 1 passed, applies the UNCHANGED DOGFOOD_RECEIPT_JQ floors to that
 # same file. The test-only overrides the store gate honours are unset here.
 # shellcheck source=scripts/dogfood/lib/receipt.sh
@@ -24,22 +25,30 @@ dogfood_store_require() {
 }
 
 dogfood_store_check() {
-  local pr="$1" head="$2" merge="$3" base tmp out rc=0 file why
+  local pr="$1" head="$2" merge="$3" parent base tmp out rc=0 file why
   DOGFOOD_STORE_TOKEN=missing
   DOGFOOD_STORE_WHY=""
   if ! [[ "$head" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "${head}^{commit}" 2>/dev/null; then
     DOGFOOD_STORE_WHY="headRefOid '${head}' of PR #${pr} is missing, not 40 lowercase hex, or not in this checkout (run: git fetch origin '+refs/pull/*/head:refs/remotes/origin/pr/*')"
     return 0
   fi
-  base="$(git merge-base "${merge}^1" "$head" 2>/dev/null)" || {
+  if [ -z "${QUORUM_STORE:-}" ]; then
+    DOGFOOD_STORE_WHY="QUORUM_STORE is unset or empty (the gate's built-in default is never read)"
+    return 0
+  fi
+  parent="$(git rev-parse --verify -q "${merge}^1^{commit}" 2>/dev/null)" || {
+    DOGFOOD_STORE_WHY="cannot resolve ${merge}^1 for PR #${pr}, so the judge cannot be read from the base"
+    return 0
+  }
+  base="$(git merge-base "$parent" "$head" 2>/dev/null)" || {
     DOGFOOD_STORE_WHY="no merge base between ${merge}^1 and ${head} for PR #${pr}"
     return 0
   }
   tmp="$(mktemp -d)"
-  if ! { git show HEAD:scripts/quorum-store-gate.sh >"${tmp:?}/quorum-store-gate.sh" 2>/dev/null \
-    && git show HEAD:scripts/quorum-models.json >"${tmp:?}/quorum-models.json" 2>/dev/null; }; then
+  if ! { git show "${parent}:scripts/quorum-store-gate.sh" >"${tmp:?}/quorum-store-gate.sh" 2>/dev/null \
+    && git show "${parent}:scripts/quorum-models.json" >"${tmp:?}/quorum-models.json" 2>/dev/null; }; then
     rm -rf "${tmp:?}"
-    DOGFOOD_STORE_WHY="scripts/quorum-store-gate.sh or quorum-models.json is not committed at HEAD"
+    DOGFOOD_STORE_WHY="scripts/quorum-store-gate.sh or quorum-models.json is not committed at ${merge}^1"
     return 0
   fi
   out="$(env -u QUORUM_TEST_MODE -u PR_AUTHOR_MODELS QUORUM_REPO="$REPO" QUORUM_STORE="$QUORUM_STORE" \

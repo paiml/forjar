@@ -90,6 +90,17 @@ fn repo(trailer: &str) -> Repo {
 }
 
 impl Repo {
+    /// Commit `body` at `rel` on main and make that commit the merge under test.
+    fn merge_edit(&mut self, rel: &str, body: &str) {
+        write(&self.root, rel, body);
+        git(&self.root, &["add", "-A"]);
+        git(
+            &self.root,
+            &["commit", "-qm", "squash merge edits the judge (#77)"],
+        );
+        self.merge = stdout_of(&git(&self.root, &["rev-parse", "HEAD"]));
+    }
+
     fn put(&self, name: &str, body: &str) {
         write(
             &self.store,
@@ -213,7 +224,14 @@ fn a_waiver_in_the_store_receipt_is_refused() {
 fn an_absent_malformed_or_unknown_head_oid_is_refused_with_the_fetch_command() {
     let r = repo(AUTHOR);
     let upper = r.head.to_uppercase();
-    for bad in ["", "abc123", upper.as_str(), &"0".repeat(40)] {
+    let short = r.head[..7].to_string();
+    for bad in [
+        "",
+        "abc123",
+        short.as_str(),
+        upper.as_str(),
+        &"0".repeat(40),
+    ] {
         let out = r.check(bad, &[]);
         tok(&out, "missing");
         assert!(out.contains("git fetch origin"), "{out}");
@@ -249,7 +267,7 @@ fn a_commit_with_no_author_trailer_is_refused_and_test_overrides_do_not_rescue_i
 }
 
 #[test]
-fn the_store_gate_is_read_from_head_not_the_working_tree() {
+fn the_store_gate_is_read_from_the_base_not_the_working_tree() {
     let r = repo(AUTHOR);
     write(
         &r.root,
@@ -257,4 +275,86 @@ fn the_store_gate_is_read_from_head_not_the_working_tree() {
         "#!/usr/bin/env bash\nexit 0\n",
     );
     tok(&r.check(&r.head, &[]), "missing");
+}
+
+#[test]
+fn a_merge_that_adds_its_own_author_to_the_allowlist_is_refused() {
+    let mut r = repo("Co-Authored-By: Evil Bot <evil@example.com>");
+    let models = src("scripts/quorum-models.json")
+        .replace(r#""authors": {"#, r#""authors": {"Evil Bot": "evil-1","#);
+    assert!(models.contains("Evil Bot"), "fixture edit must apply");
+    r.merge_edit("scripts/quorum-models.json", &models);
+    r.put(&r.head, &receipt(&r.head, r#"["a","b","c"]"#, 3, "evil-1"));
+    let out = r.check(&r.head, &[]);
+    tok(&out, "missing");
+    assert!(out.contains("Evil Bot"), "{out}");
+}
+
+#[test]
+fn a_merge_that_rewrites_the_gate_to_always_pass_is_refused() {
+    let mut r = repo(AUTHOR);
+    r.merge_edit(
+        "scripts/quorum-store-gate.sh",
+        "#!/usr/bin/env bash\nexit 0\n",
+    );
+    tok(&r.check(&r.head, &[]), "missing");
+}
+
+#[test]
+fn a_base_lacking_the_gate_or_the_allowlist_is_refused() {
+    for rel in ["scripts/quorum-store-gate.sh", "scripts/quorum-models.json"] {
+        let mut r = repo(AUTHOR);
+        r.put(&r.head, &good(&r.head));
+        git(&r.root, &["rm", "-q", rel]);
+        git(&r.root, &["commit", "-qm", "base without the judge"]);
+        r.merge_edit(rel, &src(rel)); // the merge restores it; HEAD has it, merge^1 does not
+        let out = r.check(&r.head, &[]);
+        tok(&out, "missing");
+        assert!(out.contains("not committed at"), "{rel}: {out}");
+    }
+}
+
+#[test]
+fn an_unresolvable_merge_parent_is_refused() {
+    let r = repo(AUTHOR);
+    r.put(&r.head, &good(&r.head));
+    let root = git(&r.root, &["rev-list", "--max-parents=0", "HEAD"]);
+    let first = stdout_of(&root);
+    let script = r#"fail(){ echo "FAIL $1"; exit 1; }; REPO=paiml/forjar
+. scripts/dogfood/lib/store.sh
+dogfood_store_check 77 "$1" "$2"; echo "token=$DOGFOOD_STORE_TOKEN $DOGFOOD_STORE_WHY""#;
+    let o = Command::new("bash")
+        .args(["-c", script, "x", &r.head, &first])
+        .current_dir(&r.root)
+        .env("QUORUM_STORE", &r.store)
+        .output()
+        .unwrap();
+    tok(&String::from_utf8_lossy(&o.stdout), "missing");
+}
+
+#[test]
+fn the_check_itself_refuses_an_empty_store_variable_without_the_require_call() {
+    let r = repo(AUTHOR);
+    let script = r#"REPO=paiml/forjar
+. scripts/dogfood/lib/store.sh
+dogfood_store_check 77 "$1" "$2"; echo "token=$DOGFOOD_STORE_TOKEN $DOGFOOD_STORE_WHY""#;
+    let o = Command::new("bash")
+        .args(["-c", script, "x", &r.head, &r.merge])
+        .current_dir(&r.root)
+        .env("QUORUM_STORE", "")
+        .output()
+        .unwrap();
+    let out = String::from_utf8_lossy(&o.stdout);
+    tok(&out, "missing");
+    assert!(out.contains("QUORUM_STORE"), "{out}");
+}
+
+#[test]
+fn a_receipt_under_the_refuters_per_claim_floor_is_refused() {
+    let r = repo(AUTHOR);
+    r.put(
+        &r.head,
+        &good(&r.head).replace(r#""refuters_per_claim":3"#, r#""refuters_per_claim":1"#),
+    );
+    tok(&r.check(&r.head, &[]), "thin");
 }
