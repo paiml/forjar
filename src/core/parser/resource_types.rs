@@ -1,6 +1,7 @@
 //! Type-specific required-field validation for each resource type.
 
 use super::backup_sync_validate::validate_backup_sync;
+use super::cloud_instance_validate::validate_cloud_instance;
 use super::cron_network_validate::{validate_cron, validate_network};
 use super::disk_budget_validate::validate_disk_budget;
 use super::nas_archive_validate::validate_nas_archive;
@@ -14,6 +15,11 @@ pub(super) fn validate_resource_type(
     resource: &Resource,
     errors: &mut Vec<ValidationError>,
 ) {
+    if let Some(e) = crate::resources::cloud_instance::profile_misplaced(resource) {
+        errors.push(ValidationError {
+            message: format!("resource '{id}': {e}"),
+        });
+    }
     match resource.resource_type {
         ResourceType::Package => validate_package(id, resource, errors),
         ResourceType::File => validate_file(id, resource, errors),
@@ -45,26 +51,7 @@ pub(super) fn validate_resource_type(
         }
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
-        ResourceType::CloudInstance => {
-            let templated = [
-                &resource.name,
-                &resource.image,
-                &resource.cloud.region,
-                &resource.cloud.instance_type,
-                &resource.cloud.max_price,
-            ]
-            .iter()
-            .any(|f| f.as_deref().is_some_and(|v| v.contains("{{")))
-                || resource.tags.iter().any(|t| t.contains("{{"));
-            if let (false, Err(e)) = (
-                templated,
-                crate::resources::cloud_instance::spec_of(resource),
-            ) {
-                errors.push(ValidationError {
-                    message: format!("resource '{id}' (cloud_instance): {e}"),
-                });
-            }
-        }
+        ResourceType::CloudInstance => validate_cloud_instance(id, resource, errors),
     }
 }
 

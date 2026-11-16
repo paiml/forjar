@@ -161,6 +161,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_subnet_id",
     "cloud_security_group_ids",
     "cloud_availability_zone",
+    "cloud_instance_profile",
     "cloud_ami",
     "cloud_root_volume_gb",
     "cloud_root_volume_type",

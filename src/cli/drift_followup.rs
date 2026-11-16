@@ -3,6 +3,7 @@
 
 use super::drift::run_drift_remediation;
 use super::drift_report::{run_drift_alert, send_drift_notification};
+use crate::core::error::ForjarError;
 use crate::core::types;
 use std::path::Path;
 
@@ -62,20 +63,54 @@ impl DriftFollowUp<'_> {
 /// ask for the truth — the forjar#352 class, where the flag that makes the
 /// tool honest is opt-in. A drift finding is a reject (1); a remediated
 /// finding was still a finding.
-pub(super) fn drift_verdict(total_drift: usize, total_unmeasured: usize) -> Result<(), String> {
+pub(super) fn drift_verdict(
+    total_drift: usize,
+    total_unmeasured: usize,
+) -> Result<(), ForjarError> {
     if total_drift > 0 {
-        return Err(format!("{total_drift} drift finding(s)"));
+        return Err(ForjarError::from_untyped(format!(
+            "{total_drift} drift finding(s)"
+        )));
     }
     // forjar#549: DRIFT WINS when both are present, because a definite finding
     // is the stronger statement. Unmeasured alone is not a pass: it exits with
     // the connection class (4), because the question was never answered.
     if total_unmeasured > 0 {
-        return Err(crate::core::error::ForjarError::connection(format!(
+        return Err(ForjarError::connection(format!(
             "{}: {total_unmeasured} resource(s)",
             crate::core::error::DRIFT_UNMEASURED_MARKER
-        ))
-        .into_untyped());
+        )));
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+    use crate::core::error::ErrorClass;
+
+    #[test]
+    fn drift_verdict_clean_is_ok() {
+        assert!(drift_verdict(0, 0).is_ok());
+    }
+
+    #[test]
+    fn drift_wins_over_unmeasured_with_its_exact_message() {
+        let e = drift_verdict(2, 3).unwrap_err();
+        assert_eq!(e.message(), "2 drift finding(s)");
+    }
+
+    #[test]
+    fn unmeasured_alone_is_the_connection_class() {
+        let e = drift_verdict(0, 3).unwrap_err();
+        assert_eq!(e.class(), ErrorClass::Connection);
+        assert_eq!(
+            e.message(),
+            format!(
+                "{}: 3 resource(s)",
+                crate::core::error::DRIFT_UNMEASURED_MARKER
+            )
+        );
+    }
 }

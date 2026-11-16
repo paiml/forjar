@@ -32,8 +32,10 @@
 //! four; all three review lanes refuted that independently. Every arm now has
 //! its address in the file, where a reader of the test finds it.
 //!
-//! 1. Delete `, intel` from the `lean` job's `runs-on` in proofs.yml →
-//!    `every_tool_asserting_proof_job_runs_on_bare_metal` goes RED alone.
+//! 1. Add `, intel` to the `lean` job's `runs-on` in proofs.yml →
+//!    `every_tool_asserting_proof_job_names_no_host_label` goes RED alone.
+//!    (forjar#1086 removed the pin from kani and lean; this arm now guards
+//!    against it coming back.)
 //! 2. Delete `, intel` from `stress.yml`'s (or `mutation.yml`'s, or
 //!    `coverage.yml`'s) `runs-on` → `every_unfiltered_lib_test_job_runs_where_rsync_is`
 //!    goes RED alone.
@@ -81,7 +83,7 @@ fn tool_assertions(job: &Value) -> Vec<&Value> {
 }
 
 #[test]
-fn every_tool_asserting_proof_job_runs_on_bare_metal() {
+fn every_tool_asserting_proof_job_names_no_host_label() {
     let wf = workflow("proofs.yml");
     let jobs = wf
         .get("jobs")
@@ -95,11 +97,19 @@ fn every_tool_asserting_proof_job_runs_on_bare_metal() {
         }
         let id = id.as_str().unwrap_or("?");
         let labels = runs_on(job);
+        // forjar#1086: the job may land on any seat carrying the pool labels and
+        // the tool assertion fails it by name on a seat without the tool. A
+        // host-specific label (a hostname standing in for a capability) queued
+        // main's kani and lean for hours behind a few busy seats.
+        let host_specific: Vec<&String> = labels
+            .iter()
+            .filter(|l| !["self-hosted", "Linux", "clean-room", "X64"].contains(&l.as_str()))
+            .collect();
         assert!(
-            labels.iter().any(|l| l == BARE_METAL),
-            "proofs.yml job `{id}` asserts a tool is present but runs-on {labels:?} also matches \
-             yoga-build containers, where the provers are ABSENT by inventory — the job becomes a \
-             per-run lottery (forjar#598)"
+            host_specific.is_empty(),
+            "proofs.yml job `{id}` runs-on {labels:?} names host-specific label(s) \
+             {host_specific:?}; use only the pool labels and let the `Assert <tool> is available` \
+             step fail a seat without the tool (forjar#1086)"
         );
         checked.push(id.to_string());
     }

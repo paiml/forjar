@@ -78,23 +78,29 @@ jobs:
 
   kani:
     name: kani
-    # forjar#598 -- PINNED TO BARE METAL, AN INTERIM WITH A NAMED COUPLING.
+    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
+    # blind:
     #
-    # `[self-hosted, clean-room, X64]` matches the intel runners (bare metal,
-    # tools present) AND the yoga-build* runners (EPHEMERAL containers --
-    # yoga-build, -build2, -build3 all observed running these jobs on
-    # 2026-09-20; lean + kani + rsync ABSENT by inventory). So this job was deterministic per runner and
-    # a coin flip per run: on commit 537252d3 four runs went fail/pass/fail/pass
-    # purely by which runner picked it up. A re-run landing on intel is a green
-    # nobody can reconstruct.
+    # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
+    # prover tools and seats that did not. The job was deterministic per seat
+    # and a coin flip per run: on commit 537252d3 four runs went
+    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
+    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
+    # (PMAT-547).
     #
-    # `intel` here is a HOSTNAME standing in for a CAPABILITY, which this repo
-    # otherwise avoids (PMAT-547). Remove it when either lands: a capability
-    # label (`provers` / `bare-metal`) declared on the intel runners in infra's
-    # fleet declaration, asked for here instead; or yoga's images converging on
-    # the declared stack (paiml/infra#813). X64 already excludes gx10 (ARM64,
-    # also without the tools).
-    runs-on: [self-hosted, clean-room, X64, intel]
+    # 2026-11-15: that pin left kani and lean queued for hours on main, because
+    # only a few seats carried the label and all were busy. It is removed. This
+    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
+    # was NOT measured on every such seat. What was measured: Proofs run
+    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
+    # this job green on one seat and the other proof job on a second seat; the
+    # tool assertion below passed on both.
+    #
+    # Safety does not rest on the label: the assertion step below fails this job
+    # by seat name if the tool is absent, so a seat without it turns the run
+    # red rather than passing or skipping. Fix that seat's image; do not add a
+    # host label. A test pins that this job names no host-specific label.
+    runs-on: [self-hosted, clean-room, X64]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -202,23 +208,29 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    # forjar#598 -- PINNED TO BARE METAL, AN INTERIM WITH A NAMED COUPLING.
+    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
+    # blind:
     #
-    # `[self-hosted, clean-room, X64]` matches the intel runners (bare metal,
-    # tools present) AND the yoga-build* runners (EPHEMERAL containers --
-    # yoga-build, -build2, -build3 all observed running these jobs on
-    # 2026-09-20; lean + kani + rsync ABSENT by inventory). So this job was deterministic per runner and
-    # a coin flip per run: on commit 537252d3 four runs went fail/pass/fail/pass
-    # purely by which runner picked it up. A re-run landing on intel is a green
-    # nobody can reconstruct.
+    # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
+    # prover tools and seats that did not. The job was deterministic per seat
+    # and a coin flip per run: on commit 537252d3 four runs went
+    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
+    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
+    # (PMAT-547).
     #
-    # `intel` here is a HOSTNAME standing in for a CAPABILITY, which this repo
-    # otherwise avoids (PMAT-547). Remove it when either lands: a capability
-    # label (`provers` / `bare-metal`) declared on the intel runners in infra's
-    # fleet declaration, asked for here instead; or yoga's images converging on
-    # the declared stack (paiml/infra#813). X64 already excludes gx10 (ARM64,
-    # also without the tools).
-    runs-on: [self-hosted, clean-room, X64, intel]
+    # 2026-11-15: that pin left kani and lean queued for hours on main, because
+    # only a few seats carried the label and all were busy. It is removed. This
+    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
+    # was NOT measured on every such seat. What was measured: Proofs run
+    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
+    # this job green on one seat and the other proof job on a second seat; the
+    # tool assertion below passed on both.
+    #
+    # Safety does not rest on the label: the assertion step below fails this job
+    # by seat name if the tool is absent, so a seat without it turns the run
+    # red rather than passing or skipping. Fix that seat's image; do not add a
+    # host label. A test pins that this job names no host-specific label.
+    runs-on: [self-hosted, clean-room, X64]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7

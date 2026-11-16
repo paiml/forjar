@@ -5,6 +5,7 @@
 //! not usable is an error: building without it would publish an image that is
 //! not the one the config describes.
 
+use crate::core::error::ForjarError;
 use crate::core::store::base_image::{extract_base_layers, format_base_info, verify_base_blobs};
 use crate::core::store::exec_layer::base_fetch_hint;
 use crate::core::store::image_assembler::BaseLayout;
@@ -21,7 +22,7 @@ pub(super) fn base_layout_dir(state_dir: &Path, base_ref: &str) -> PathBuf {
 /// the image state dir, and is printed inside a shell command hint. So one the
 /// runtime could read as a flag, one that names `.` or `..`, or one holding a
 /// character outside the image-reference alphabet is refused before any lookup.
-fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), String> {
+fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), ForjarError> {
     let in_alphabet =
         |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '/' | ':' | '@');
     let why = if base_ref.is_empty() {
@@ -40,10 +41,10 @@ fn check_base_ref(resource: &str, base_ref: &str) -> Result<(), String> {
     } else {
         return Ok(());
     };
-    Err(format!(
+    Err(ForjarError::from_untyped(format!(
         "image '{resource}' declares base image {base_ref:?}, which is not a usable image \
          reference: {why}; refusing to build"
-    ))
+    )))
 }
 
 /// Load the declared base, or refuse: absent, unreadable and missing-blob
@@ -54,7 +55,7 @@ pub(super) fn load_declared_base(
     state_dir: &Path,
     base_ref: &str,
 ) -> Result<BaseLayout, String> {
-    check_base_ref(resource, base_ref)?;
+    check_base_ref(resource, base_ref).map_err(ForjarError::into_message)?;
     let dir = base_layout_dir(state_dir, base_ref);
     let refuse = |why: String| {
         format!(
@@ -111,5 +112,26 @@ pub(super) fn hash_base_identity(hasher: &mut blake3::Hasher, base: Option<&Base
 pub(super) fn print_base_line(base_ref: Option<&str>, base: Option<&BaseLayout>) {
     if let (Some(r), Some(b)) = (base_ref, base) {
         println!("  {}", format_base_info(r, &b.layers));
+    }
+}
+
+#[cfg(test)]
+mod typed_tests {
+    use super::*;
+
+    #[test]
+    fn check_base_ref_accepts_a_plain_reference() {
+        assert!(check_base_ref("img", "ubuntu:22.04").is_ok());
+    }
+
+    #[test]
+    fn check_base_ref_refusal_is_typed_with_the_exact_message() {
+        let e = check_base_ref("img", "-x").unwrap_err();
+        assert_eq!(
+            e.message(),
+            "image 'img' declares base image \"-x\", which is not a usable image reference: \
+             it starts with '-' and a container runtime would read it as an option; \
+             refusing to build"
+        );
     }
 }
