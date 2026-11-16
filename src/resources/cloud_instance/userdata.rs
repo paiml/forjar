@@ -11,9 +11,11 @@
 //!
 //! A declared file REPLACES the built-in script, which carries the instance's only lifetime
 //! bound (`shutdown -h +N`) and delivers `FORJAR_IMAGE`. Fail closed: the apply guard also
-//! refuses unless the file holds, as a whole line, exactly `shutdown -h +<max_lifetime_min>`
-//! (`grep -qxF`, output discarded: content is never printed), so the plan's "self-terminate"
-//! line and the budget gate (price x lifetime) stay true. `image:` stays required, so it cannot
+//! refuses unless line 1 of the file starts with `#!` and line 2 is exactly
+//! `shutdown -h +<max_lifetime_min>` (read with `sed`, compared whole, never printed), so the
+//! shutdown is scheduled as the file's first command, before any workload runs. The tool CHECKS
+//! that; it cannot guarantee the file's later commands do not cancel it (`shutdown -c`).
+//! `image:` stays required, so it cannot
 //! be refused alongside the file: it remains in the key and the plan, but is NOT delivered to
 //! the box; the file must set up its own workload. A changed file CONTENT or PATH is not
 //! detected: no drift, no plan line, and a present instance is never relaunched for it.
@@ -70,15 +72,19 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
          case \"$ud_n\" in ''|*[!0-9]*) {unread} ;; esac\n\
          if [ \"$ud_n\" -eq 0 ]; then {empty}; fi\n\
          if [ \"$ud_n\" -gt {MAX_BYTES} ]; then {big}; fi\n\
-         if ! grep -qxF -- {line} \"$ud_file\" >/dev/null 2>&1; then {noline}; fi\n",
+         ud_l1=\"$(sed -n 1p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
+         ud_l2=\"$(sed -n 2p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
+         case \"$ud_l1\" in '#!'*) ;; *) {noshebang} ;; esac\n\
+         if [ \"$ud_l2\" != {line} ]; then {noline}; fi\n",
         p = sh_squote(p),
         missing = refuse("is missing or not a regular file"),
         unread = refuse("could not be read"),
         empty = refuse("is empty"),
         big = refuse(&format!("is larger than {MAX_BYTES} bytes")),
         line = sh_squote(&required_line(life_min)),
+        noshebang = refuse("must start with #! on line 1"),
         noline = refuse(&format!(
-            "must contain the whole line [{}] (the lifetime bound the built-in script sets)",
+            "must have exactly [{}] as line 2 (the lifetime bound, first command)",
             required_line(life_min)
         )),
     )
@@ -204,7 +210,7 @@ mod tests {
             );
             assert_eq!(sb.log(), "", "{what}: no aws call before the refusal");
         }
-        let mut exact = format!("{REQ}\n").into_bytes();
+        let mut exact = format!("#!/bin/sh\n{REQ}\n").into_bytes();
         exact.resize(16000, b'a');
         std::fs::write(&ud, exact).unwrap();
         let (rc, out) = sb.run(&script, "");
@@ -213,38 +219,71 @@ mod tests {
     }
 
     #[test]
-    fn a_file_without_the_exact_shutdown_line_is_refused_before_any_aws_call() {
+    fn the_guard_sits_before_the_first_aws_call() {
+        let sb = Sandbox::new();
+        let (r, _) = with_file(sb.path(), b"");
+        let script = apply_script(&r);
+        let g = script.find("ud_l2=").expect("line-2 guard present");
+        assert!(g < script.find("aws ").unwrap(), "{script}");
+        assert!(script.contains("!= 'shutdown -h +60'"), "{script}");
+    }
+
+    #[test]
+    fn the_shutdown_must_be_line_two_after_a_shebang() {
         let sb = Sandbox::new();
         sb.open_gate();
         let (r, _) = with_file(sb.path(), b"");
         let script = apply_script(&r);
-        let grep = script.find("grep -q").expect("shutdown guard present");
-        assert!(grep < script.find("aws ec2").unwrap(), "{script}");
         let ud = sb.path().join("ud.sh");
-        let bad: [&str; 5] = [
+        let bad: [&str; 9] = [
+            "#!/bin/sh\n/opt/train.sh\nshutdown -h +60\n",
+            "#!/bin/sh\nset -e\nshutdown -h +60\n",
+            "shutdown -h +60\necho hi\n",
+            "echo hi\nshutdown -h +60\n",
             "#!/bin/sh\necho hi\n",
             "#!/bin/sh\nshutdown -h +61\n",
             "#!/bin/sh\nshutdown -h +600\n",
             "#!/bin/sh\n# shutdown -h +60\n",
-            "#!/bin/sh\nshutdown -h +6\n",
+            "#!/bin/sh\r\nshutdown -h +60\r\n",
         ];
         for body in bad {
             std::fs::write(&ud, format!("{body}{MARKER}\n")).unwrap();
             let (rc, out) = sb.run(&script, "");
             assert_eq!(rc, 1, "{body:?}: {out}");
             assert!(
-                out.contains(
-                    "REFUSED: cloud_user_data_file must contain the whole line [shutdown -h +60]"
-                ),
+                out.contains("REFUSED: cloud_user_data_file must "),
                 "{body:?}: {out}"
             );
             assert!(!out.contains(MARKER), "{out}");
             assert_eq!(sb.log(), "", "{body:?}: no aws call");
         }
-        std::fs::write(&ud, format!("#!/bin/sh\necho hi\n{REQ}\n")).unwrap();
+        std::fs::write(&ud, "no shebang\nshutdown -h +60\n").unwrap();
+        let (rc, out) = sb.run(&script, "");
+        assert_eq!(rc, 1, "{out}");
+        assert!(out.contains("must start with #! on line 1"), "{out}");
+        std::fs::write(&ud, "#!/bin/sh\nshutdown -h +60\n/opt/train.sh\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "{out}");
         assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
+    }
+
+    #[test]
+    fn the_required_n_comes_from_the_resource() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (mut r, _) = with_file(sb.path(), b"");
+        r.cloud.max_lifetime_min = Some(45);
+        let script = apply_script(&r);
+        assert!(script.contains("!= 'shutdown -h +45'"), "{script}");
+        let ud = sb.path().join("ud.sh");
+        std::fs::write(&ud, "#!/bin/sh\nshutdown -h +60\n").unwrap();
+        let (rc, out) = sb.run(&script, "");
+        assert_eq!(rc, 1, "{out}");
+        assert!(out.contains("[shutdown -h +45]"), "{out}");
+        assert_eq!(sb.log(), "");
+        std::fs::write(&ud, "#!/bin/sh\nshutdown -h +45\n").unwrap();
+        let (rc, out) = sb.run(&script, "");
+        assert_eq!(rc, 0, "{out}");
     }
 
     #[test]

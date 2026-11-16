@@ -244,7 +244,7 @@ pub fn plan_diff(resource: &Resource) -> String {
         labels = s.tags.join(","),
         ud = s.user_data_file.as_deref().map_or_else(String::new, |p| {
             format!(
-                "+   user_data_file: {p} (replaces the built-in script; must contain '{}'; image is not delivered)\n",
+                "+   user_data_file: {p} (replaces the built-in script; checked: line 1 is #!, line 2 is '{}'; later commands could cancel it; image is not delivered)\n",
                 userdata::required_line(s.max_lifetime_min)
             )
         }),
