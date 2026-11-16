@@ -38,11 +38,18 @@ done
 echo "🔍 forjar pre-push"
 echo "=================="
 
+# Policy (#859): a local check blocks only if fast, deterministic, auto-fixable and
+# mirrored by a required CI check. That is `cargo fmt` alone. Everything else runs
+# and WARNS. What enforces the rest: clippy (which compiles what `cargo check` does)
+# runs in the `lint` job behind the required `gate` check on every PR; `cargo test --lib`
+# runs in CI on train/batch heads and on pushes, not on an ordinary PR; the quorum
+# receipt is checked at merge time, not by a PR job in this repository.
 FAILED=0
+WARNED=""
 run_check() {
     local label="$1"; shift
     local log; log="$(mktemp)"
-    trap 'rm -f "$log"' RETURN
+    trap 'rm -f "${log:-}"' RETURN
     printf '  %s... ' "$label"
     if "$@" > "$log" 2>&1 < /dev/null; then
         echo "✅"; rm -f "$log"; return 0
@@ -55,10 +62,21 @@ run_check() {
     return 0
 }
 
+# Non-blocking: same output as run_check, but a failure is recorded as a warning.
+warn_check() {
+    local before=$FAILED
+    FAILED=0
+    run_check "$@"
+    if [ "$FAILED" -ne 0 ]; then
+        WARNED="${WARNED}  - $1\n"
+    fi
+    FAILED=$before
+}
+
 run_check "Format check"  cargo fmt --all -- --check
-run_check "Cargo check"   cargo check --all-targets
-run_check "Clippy"        cargo clippy --all-targets -- -D warnings
-run_check "Unit tests"    cargo test --lib --quiet
+warn_check "Cargo check"   cargo check --all-targets
+warn_check "Clippy"        cargo clippy --all-targets -- -D warnings
+warn_check "Unit tests"    cargo test --lib --quiet
 
 # THE QUORUM GATE.
 #
@@ -79,9 +97,9 @@ if [ -n "${pushed_refs}" ]; then
         if out="$(./scripts/quorum-gate.sh --remote-ref "$ref" --local-sha "$sha" 2>&1 < /dev/null)"; then
             echo "✅"
         else
-            echo "❌"
+            echo "⚠️  WARN"
             printf '%s\n' "$out" | sed 's/^/   | /'
-            FAILED=1
+            WARNED="${WARNED}  - Quorum gate (${ref#refs/heads/})\n"
         fi
     done <<< "${pushed_refs}"
 else
@@ -91,13 +109,19 @@ else
     if out="$(./scripts/quorum-gate.sh 2>&1 < /dev/null)"; then
         echo "✅"
     else
-        echo "❌"; printf '%s\n' "$out" | sed 's/^/   | /'; FAILED=1
+        echo "⚠️  WARN"; printf '%s\n' "$out" | sed 's/^/   | /'; WARNED="${WARNED}  - Quorum gate\n"
     fi
+fi
+
+if [ -n "$WARNED" ]; then
+    echo ""
+    echo "WARN: non-blocking checks failed (fix before merge; a push is not blocked):"
+    printf '%b' "$WARNED"
 fi
 
 if [ "$FAILED" -ne 0 ]; then
     echo ""
-    echo "❌ Pre-push gate FAILED"
+    echo "❌ Pre-push gate FAILED (format is the only blocking check)"
     echo "   Bypass (emergency, recorded): git push --no-verify"
     exit 1
 fi
