@@ -176,7 +176,10 @@ mod tests {
     fn unset_script_is_byte_identical_to_today() {
         let sb = Sandbox::new();
         let got = apply_script(&gated(sb.path()));
-        let want = include_str!("userdata_today.txt").replace("@DIR@", sb.path().to_str().unwrap());
+        let tok = super::super::launch_io::token(&spec_of(&gated(sb.path())).unwrap());
+        let want = include_str!("userdata_today.txt")
+            .replace("@DIR@", sb.path().to_str().unwrap())
+            .replace("@TOKEN@", &format!("'{tok}'"));
         assert_eq!(got, want);
     }
 
