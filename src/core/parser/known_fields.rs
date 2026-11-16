@@ -170,6 +170,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_data_volume_iops",
     "cloud_data_volume_throughput",
     "cloud_volume_tags",
+    "cloud_user_data_file",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",

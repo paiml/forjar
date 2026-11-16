@@ -7710,6 +7710,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1115
+  github_issue: 1115
+  item_type: task
+  title: 'pool: spot-interruption decision and orphan sweep, pure functions (forjar#1115)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1117
   github_issue: 1117
   item_type: task
@@ -7822,6 +7840,24 @@ roadmap:
   github_issue: 1078
   item_type: task
   title: 'errors: typed ForjarError in registry_push (untyped-error ratchet, 6 sites)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-876
+  github_issue: 876
+  item_type: task
+  title: 'quorum gates E and R: also require a head-bound store receipt (A1: lib/store.sh)'
   status: planned
   priority: high
   assigned_to: null

@@ -91,6 +91,7 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_data_volume_iops",
         "cloud_data_volume_throughput",
         "cloud_volume_tags",
+        "cloud_user_data_file",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS

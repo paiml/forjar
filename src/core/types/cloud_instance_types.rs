@@ -151,6 +151,15 @@ pub struct CloudSpec {
     )]
     pub volume_tags: Option<bool>,
 
+    /// Local FILE whose content is passed as the instance's user-data at apply
+    /// time (absolute path, `[A-Za-z0-9._/-]`). Only the path is ever used by
+    /// forjar; absent: the built-in two-line script.
+    #[serde(
+        rename = "cloud_user_data_file",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_data_file: Option<String>,
     /// IAM instance profile NAME (not an ARN): 1..128 of `[A-Za-z0-9+.@_-]`.
     /// IAM also allows `,` and `=`, but forjar refuses them: they are separators in
     /// the aws shorthand `Name=<value>`.

@@ -95,6 +95,7 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_data_volume_iops"
         | "cloud_data_volume_throughput"
         | "cloud_volume_tags"
+        | "cloud_user_data_file"
         | "cloud_availability_zone"
         | "cloud_instance_profile" => Observability::Unmigrated(
             "#861 — the provider query keys on name and region (check: plus image digest); this field is \
