@@ -63,7 +63,7 @@ fn in_pool(r: &Registration, id: &PoolIdentity) -> bool {
         .name
         .strip_prefix(id.prefix.as_str())
         .and_then(|t| t.strip_prefix('-'));
-    rest.is_some_and(|t| !t.is_empty()) && r.labels.iter().any(|l| *l == id.label)
+    rest.is_some_and(|t| !t.is_empty()) && r.labels.contains(&id.label)
 }
 
 fn orphaned(r: &Registration, id: &PoolIdentity, live: &[String]) -> bool {
@@ -72,7 +72,7 @@ fn orphaned(r: &Registration, id: &PoolIdentity, live: &[String]) -> bool {
         && well_formed(&r.name)
         && well_formed(&r.host_id)
         && in_pool(r, id)
-        && !live.iter().any(|h| *h == r.host_id)
+        && !live.contains(&r.host_id)
 }
 
 /// Plan the deregistration of orphaned runners: registered to this pool,
@@ -82,8 +82,29 @@ pub fn plan_cleanup(
     hosts: &LiveHosts,
     id: &PoolIdentity,
 ) -> Result<CleanupPlan, CleanupError> {
-    let _ = (runners, hosts, id);
-    Ok(CleanupPlan::default())
+    if !well_formed(&id.prefix) || !well_formed(&id.label) {
+        return Err(CleanupError::BadIdentity);
+    }
+    let LiveHosts::Complete(live) = hosts else {
+        return Err(CleanupError::HostListUnreadable);
+    };
+    if live.is_empty() {
+        return Err(CleanupError::EmptyHostList);
+    }
+    if let Some(h) = live.iter().find(|h| !well_formed(h)) {
+        return Err(CleanupError::MalformedHostId(h.clone()));
+    }
+    let all: Vec<String> = runners
+        .iter()
+        .filter(|r| orphaned(r, id, live))
+        .map(|r| r.name.clone())
+        .collect();
+    let deferred = all.len().saturating_sub(MAX_DEREGISTER_PER_SWEEP);
+    let deregister = all.into_iter().take(MAX_DEREGISTER_PER_SWEEP).collect();
+    Ok(CleanupPlan {
+        deregister,
+        deferred,
+    })
 }
 
 #[cfg(test)]
