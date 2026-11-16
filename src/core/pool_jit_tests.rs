@@ -268,3 +268,22 @@ fn token_source_errors_never_echo_the_value() {
         assert!(!format!("{e}").contains("XXXX"), "{e}");
     }
 }
+
+#[test]
+fn request_debug_redacts_the_token_source() {
+    let fake = format!("ghs_{}", "x".repeat(30));
+    let r = with_source(&fake);
+    let dbg = format!("{r:?}");
+    assert!(!dbg.contains("xxxx"), "{dbg}");
+    assert!(dbg.contains("<redacted>"), "{dbg}");
+    assert!(dbg.contains("forjar-pool"), "{dbg}");
+}
+
+#[test]
+fn label_with_leading_dash_is_refused() {
+    for l in ["--url", "-x", "-"] {
+        let e = validate(&with_labels(&["ok", l])).expect_err("refused");
+        assert!(format!("{e:?}").contains("LabelLeadingDash"), "{l}: {e:?}");
+    }
+    assert!(validate(&with_labels(&["a-b", "x-"])).is_ok());
+}

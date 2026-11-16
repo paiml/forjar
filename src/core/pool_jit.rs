@@ -26,13 +26,24 @@ pub const MAX_LABEL_LEN: usize = 256;
 pub const MAX_TOKEN_SOURCE_LEN: usize = 64;
 
 /// Unvalidated request for one ephemeral runner.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct JitRunnerRequest {
     pub labels: Vec<String>,
     pub ephemeral: bool,
     pub token_ttl_secs: u64,
     /// Name of the run-time source of the token, e.g. `RUNNER_JIT_TOKEN`.
     pub token_source: String,
+}
+
+impl fmt::Debug for JitRunnerRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JitRunnerRequest")
+            .field("labels", &self.labels)
+            .field("ephemeral", &self.ephemeral)
+            .field("token_ttl_secs", &self.token_ttl_secs)
+            .field("token_source", &"<redacted>")
+            .finish()
+    }
 }
 
 /// A validated configuration. Only [`validate`] builds one.
@@ -67,6 +78,7 @@ pub enum JitConfigError {
     LabelHasWhitespaceOrControl { label: String },
     LabelForbiddenChar { label: String },
     LabelTooLong { len: usize },
+    LabelLeadingDash { label: String },
     DuplicateLabel { label: String },
     NotEphemeral,
     MissingTokenSource,
@@ -99,6 +111,9 @@ impl fmt::Display for JitConfigError {
             }
             Self::LabelTooLong { len } => {
                 write!(f, "a label is {len} bytes, over {MAX_LABEL_LEN}")
+            }
+            Self::LabelLeadingDash { label } => {
+                write!(f, "label '{label}' starts with a dash")
             }
             Self::DuplicateLabel { label } => write!(f, "label '{label}' is repeated"),
             Self::NotEphemeral => write!(f, "runner is not ephemeral"),
@@ -161,6 +176,9 @@ fn check_label(l: &str) -> Result<(), JitConfigError> {
     let allowed = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':');
     if !l.chars().all(allowed) {
         return Err(JitConfigError::LabelForbiddenChar { label: label() });
+    }
+    if l.starts_with('-') {
+        return Err(JitConfigError::LabelLeadingDash { label: label() });
     }
     Ok(())
 }
