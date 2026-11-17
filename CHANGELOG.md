@@ -7,12 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.34.2] - 2026-11-17
+
+Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
+this release carries everything in them and everything merged since. The section below lists only what was merged
+after the v1.34.1 tag, one line per merged PR from its subject.
+
 **PR Gate no longer runs on `pull_request_target` (PMAT-913, #935).**
 `pr-gate.yml` triggers on `pull_request` and runs only for a same-repository head. A new job,
 `no-pull-request-target`, fails a PR whose workflow files use the `pull_request_target` trigger, and runs
 again on every push to the PR. Falsifier: `tests/falsification_no_pull_request_target.rs`.
 
-- CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492).
+- CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492, #951).
+
+Also merged since v1.34.1, one line each from the merge subjects:
+
+- `cloud_instance`: one declared AWS spot instance, inert and gated (PMAT-861, #1025); lookup hardened against blank, glob and loose spot-id replies (#1036); `lookup_ids` passes the I8 gate and resolved names are checked for uniqueness (#1044, #1063).
+- `cloud_instance`: `cloud_ami` pins the machine image (#1097); subnet, security groups and zone pin where the instance lands (#1101); root volume, data volume and volume tags (#1142); user-data from a declared file, passed by path (#1145); `cloud_instance_profile` attaches an IAM instance profile by name (#1127).
+- `cloud_instance`: `destroy` fails closed and checks spot request ids before terminate (#1102); a templated field no longer hides a bad literal sibling at parse time (#1120); an unresolved template in a gate path is refused, and resolved values are pinned by tests (#1126).
+- `cloud_instance`: `apply` passes a deterministic client token, adopts an instance found by that token, prints `launched <id>` / `adopted <id>`, and exits 75 on an AWS capacity error (#1134, #1135, #1136, #1137, #1146).
+- Runner pool: pure scale decision (#1071), validated JIT runner config request (#1114, #1138), pure reconcile plan (#1116, #1118), interruption grace and orphan-host sweep, fail-closed (#1115, #1140).
+- `github_release`: `check` asserts the pinned version against the live binary (#1049, #1066) and verifies a declared checksum before running the binary (#1068); `apply` reads the live version with the check reader (#1067, #1073).
+- Fix: a `copy` op cannot SIGPIPE; a lock-writer test and ETXTBSY in two tests (#1122, #1124, #1125, #1144).
+- Fix: unpinned cargo package cache is keyed on the resolved upstream version (#1048, #1058).
+- Fix: the default `inode_pressure` watch skips pseudo-filesystem masks under `/proc` and `/sys` (#847, #1094).
+- Errors: typed `ForjarError` with a declared class in `cli/image_cmd.rs` (#1104), registry push helpers (#1078, #1103), build runtime and exec layer (#1088), conda readers (#1084), refined-type constructors (#1085), data-source resolver helpers (#1089) and six untyped error sites typed, ratchet ceiling 778 to 776 (PMAT-1117, #1119).
+- Refactor: cron and network validation split out of `resource_types.rs` (PMAT-1045, #1054).
+- Tests only: retry test no longer depends on the host's ssh behaviour (#1105); host-independent fixtures for two integration tests (#858, #1107); the controlmaster falsifier answers the inode pre-check (#1072); the private `CARGO_HOME` guard sees cargo run through a script (#1106); unused test imports dropped in `ami.rs` (#1099, #1100).
+- CI only: release timeouts, glibc floor and pv binding fixes (#913, #1061); reusable CI jobs run on the X64 clean-room runners (#1091); opt-in burst-x64 runners for `pull_request` jobs, off by default (#1026); `kani` and `lean` proofs no longer pin the intel host (#1087); workflow-shape rule 2 and the fleet `runs-on` tests match the current rulings (PMAT-1059, #1062).
+- Repository only: the pre-push hook blocks only on `cargo fmt`, the other checks warn (#1108); the dogfood quorum store receipt, step A1, is added and not yet wired (#1148).
 
 ## [1.34.1] - 2026-11-13
 
