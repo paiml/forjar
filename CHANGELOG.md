@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
-this release carries everything in them and everything merged since. The section below covers the 45 PRs merged
+this release carries everything in them and everything merged since. The section below covers the 46 PRs merged
 after the v1.34.1 tag (`git log v1.34.1..origin/main --first-parent`). Numbers are marked: `PR #n` is a merged pull
 request, `issue #n` is an issue, and `PMAT-n` is a roadmap ticket. Behaviour changes have a paragraph and a row in
 `docs/audits/crux-1.34.2.md`; the rest are one line each.
@@ -26,12 +26,14 @@ machine image (`cloud_ami`, PR #1097), where the instance lands (subnet, securit
 volume, data volume and volume tags (PR #1142), user-data from a declared file passed by path (PR #1145), and an IAM
 instance profile by name (`cloud_instance_profile`, PR #1127).
 
-**`cloud_instance` `apply` launches with a deterministic client token, adopts, prints the id and exits 75 on capacity (PMAT-861; PR #1146; issues #1134, #1135, #1136, #1137).**
+**`cloud_instance` `apply` launches with a deterministic client token, adopts, prints the id; its generated script exits 75 on capacity (PMAT-861; PR #1146; issues #1134, #1135, #1136, #1137).**
 `apply` passes a client token derived from the launch parameters and the UTC day to `run-instances`, adopts an
 instance found by that token after a failed or unusable launch (a failed lookup is an error), reads the id's state
 before reporting it, spends the token of a dead or forgotten box and chains to the next token (at most 32 calls,
-then `REFUSED: launch-token-chain-exhausted`), prints `launched <id>` or `adopted <id>` as the last line, and exits
-75 on an AWS capacity error code. Other AWS errors keep their own exit code.
+then `REFUSED: launch-token-chain-exhausted`), prints `launched <id>` or `adopted <id>` as the last line, and the generated script exits
+75 on an AWS capacity error code. It is the script, not `forjar` itself, that exits 75; and `forjar apply`
+reports that resource as failed with `exit code 75 — the command FAILED` (`src/core/executor/failure_text.rs`). Other AWS
+errors keep their own exit code.
 
 **`cloud_instance` `destroy` fails closed and checks spot request ids before terminate (PMAT-861, PR #1102; issues #1095, #1096, #1098).**
 The spot-request lookup and the post-terminate re-lookup are checked: a failed query is an error, never
@@ -79,6 +81,7 @@ Also merged since v1.34.1, one line each from the merge subjects:
 - Refactor: cron and network validation split out of `resource_types.rs` (PMAT-1045, PR #1054).
 - Tests only: retry test no longer depends on the host's ssh behaviour (PR #1105); host-independent fixtures for two integration tests (PR #1107; issue #858); the controlmaster falsifier answers the inode pre-check (PR #1072); the private `CARGO_HOME` guard sees cargo run through a script (PR #1106); unused test imports dropped in `ami.rs` (PRs #1099, #1100).
 - CI only: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows passes `-o DPkg::Lock::Timeout=600`, with `scripts/apt-lock-timeout-guard.sh` checking for a bare call (PMAT-492, PR #951; issue #492); release timeouts, glibc floor and pv binding fixes (PR #1061; issue #913); reusable CI jobs run on the X64 clean-room runners (PR #1091); opt-in burst-x64 runners for `pull_request` jobs, off by default (PR #1026); `kani` and `lean` proofs no longer pin the intel host (PR #1087); workflow-shape rule 2 and the fleet `runs-on` tests match the current rulings (PMAT-1059, PR #1062).
+- CI only: the `ci / gate` roll-up job is pinned to a light gate seat by a `sovereign-ci.yml` pin bump (PMAT-1149, PR #1151); no behaviour change.
 - Repository only: the dogfood quorum store receipt, step A1 (`scripts/dogfood/lib/store.sh`), is added and wired to no gate, so gates E and R do not read it yet (PR #1148).
 
 ## [1.34.1] - 2026-11-13
