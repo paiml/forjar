@@ -7947,16 +7947,17 @@ roadmap:
 - id: PMAT-1150
   github_issue: 1150
   item_type: task
-  title: 'release: cut v1.34.2 (43 PRs merged since v1.34.1)'
+  title: 'release: cut v1.34.2 (45 PRs merged since v1.34.1)'
   status: inprogress
   priority: high
   assigned_to: null
-  created: 2026-11-17T08:00:00Z
-  updated: 2026-11-17T08:00:00Z
+  created: 2026-11-17T08:13:24Z
+  updated: 2026-11-17T09:02:36Z
   spec: null
   acceptance_criteria:
-  - CHANGELOG [Unreleased] folded into [1.34.2] - 2026-11-17; docs/audits/crux-1.34.2.md passes gate H
-  - clean-room green at the sha to be tagged; v1.34.2 tagged on that sha
+  - CHANGELOG [Unreleased] folded into [1.34.2] - 2026-11-17; docs/audits/crux-1.34.2.md passes gate H; release:v1.34.2 labels synced (release-goal.sh sync --check rc=0)
+  - infra clean-room-forjar green (B2 included) at the sha to be tagged; main CI, behavior, convergence, proofs green there
+  - v1.34.2 tagged on that sha; release.yml un-drafts; release-check.sh GATE R PASS; releases.yaml books v1.34.2
   phases: []
   subtasks: []
   estimated_effort: null

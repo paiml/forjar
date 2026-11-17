@@ -10,32 +10,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
-this release carries everything in them and everything merged since. The section below lists only what was merged
-after the v1.34.1 tag, one line per merged PR from its subject.
+this release carries everything in them and everything merged since. The section below covers the 45 PRs merged
+after the v1.34.1 tag (`git log v1.34.1..origin/main --first-parent`). Numbers are marked: `PR #n` is a merged pull
+request, `issue #n` is an issue, and `PMAT-n` is a roadmap ticket. Behaviour changes have a paragraph and a row in
+`docs/audits/crux-1.34.2.md`; the rest are one line each.
 
-**PR Gate no longer runs on `pull_request_target` (PMAT-913, #935).**
+**PR Gate no longer runs on `pull_request_target` (PMAT-913, PR #935).**
 `pr-gate.yml` triggers on `pull_request` and runs only for a same-repository head. A new job,
 `no-pull-request-target`, fails a PR whose workflow files use the `pull_request_target` trigger, and runs
 again on every push to the PR. Falsifier: `tests/falsification_no_pull_request_target.rs`.
 
-- CI: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows now passes `-o DPkg::Lock::Timeout=600`, so a shared runner waits for the apt lock instead of failing the leg; `scripts/apt-lock-timeout-guard.sh` checks every workflow for a bare call (PMAT-492, #492, #951).
+**`cloud_instance` declares one AWS spot instance, inert until gated, with image, placement, storage, user-data and profile pins (PMAT-861; PRs #1025, #1097, #1101, #1142, #1145, #1127).**
+`apply` refuses unless a parity-gate file, a budget cap and a kill switch are declared and pass. New fields pin the
+machine image (`cloud_ami`, PR #1097), where the instance lands (subnet, security groups, zone, PR #1101), the root
+volume, data volume and volume tags (PR #1142), user-data from a declared file passed by path (PR #1145), and an IAM
+instance profile by name (`cloud_instance_profile`, PR #1127).
+
+**`cloud_instance` `apply` launches with a deterministic client token, adopts, prints the id and exits 75 on capacity (PMAT-861; PR #1146; issues #1134, #1135, #1136, #1137).**
+`apply` passes a client token derived from the launch parameters and the UTC day to `run-instances`, adopts an
+instance found by that token after a failed or unusable launch (a failed lookup is an error), reads the id's state
+before reporting it, spends the token of a dead or forgotten box and chains to the next token (at most 32 calls,
+then `REFUSED: launch-token-chain-exhausted`), prints `launched <id>` or `adopted <id>` as the last line, and exits
+75 on an AWS capacity error code. Other AWS errors keep their own exit code.
+
+**`cloud_instance` `destroy` fails closed and checks spot request ids before terminate (PMAT-861, PR #1102; issues #1095, #1096, #1098).**
+The spot-request lookup and the post-terminate re-lookup are checked: a failed query is an error, never
+"destroyed". Every looked-up spot request id must be `None` or `sir-` plus exactly 8 lowercase alphanumerics
+before anything is terminated; a malformed id exits non-zero with no terminate and no cancel call.
+
+**`cloud_instance` refuses a bad or unresolved templated value before any provider command (PRs #1036, #1063, #1120, #1126; issue #1044).**
+Lookups are hardened against blank, glob and loose spot-id replies; `lookup_ids` passes the I8 gate and resolved
+names are checked for uniqueness; a templated field no longer hides a bad literal sibling at parse time; a template
+that resolves to a bad value, or is still unresolved at code generation, produces no provider command.
+
+**`github_release` `check` verifies a declared checksum and asserts the pinned version before running the binary (PRs #1068, #1066; issue #1049).**
+A declared `checksum:` (hex sha256, optional `sha256:` prefix) must match the installed file, whatever the tag, and
+is verified before the binary is executed; a malformed value diverges and never reaches the script. A pinned
+version must equal the version the live binary reports; a file that cannot run, or reports only on stderr, is not
+converged. With no pin or checksum the presence-only check is unchanged.
+
+**`github_release` `apply` refuses a pin older than the live binary, reading the version as `check` does (PR #1073; issue #1067).**
+`apply` reads the live version with the same reader `check` uses, so a stderr-only version or a failed run is
+handled the same way, and refuses to install a pin older than the binary on the box.
+
+**A `copy` op cannot SIGPIPE (PR #1144; issues #1122, #1124, #1125).**
+The delta-patch copy step read the basis as `tail | head`, which took SIGPIPE (exit 141) under `pipefail`. It is now
+`head | tail`, so no writer closes early. The same PR makes a lock-writer test and two ETXTBSY tests robust.
+
+**An unpinned cargo package is cached under its resolved upstream version (PR #1058; issue #1048).**
+The cache key used the literal `latest`, which never changes, so a stale build was reused after upstream published.
+The script now resolves the newest published version with `cargo search` and keys on it; if it cannot resolve one
+(offline, registry error, no exact match, an odd value) it warns on stderr and builds without the cache. A pinned
+version keeps its key and its script.
+
+**The default `inode_pressure` watch skips `/proc` and `/sys` pseudo-filesystem masks (PR #1094; issue #847).**
+With no `mounts:` listed, the watch judged `/` and every tmpfs, including the read-only tmpfs a container mounts
+over `/proc/acpi` and `/sys/firmware`, which `df -i` reports at 100%. Those are now skipped, on a path boundary
+(`/process` and `/sysroot` stay watched); a mount listed in `inode_pressure.mounts` is always judged.
+
+**The pre-push hook blocks only on `cargo fmt`; the other checks warn (PR #1108; issue #859).**
+`cargo check`, clippy, `cargo test --lib` and the quorum gate still run and print `WARN`, but a failure no longer
+blocks the push. Only a formatting failure does.
 
 Also merged since v1.34.1, one line each from the merge subjects:
 
-- `cloud_instance`: one declared AWS spot instance, inert and gated (PMAT-861, #1025); lookup hardened against blank, glob and loose spot-id replies (#1036); `lookup_ids` passes the I8 gate and resolved names are checked for uniqueness (#1044, #1063).
-- `cloud_instance`: `cloud_ami` pins the machine image (#1097); subnet, security groups and zone pin where the instance lands (#1101); root volume, data volume and volume tags (#1142); user-data from a declared file, passed by path (#1145); `cloud_instance_profile` attaches an IAM instance profile by name (#1127).
-- `cloud_instance`: `destroy` fails closed and checks spot request ids before terminate (#1102); a templated field no longer hides a bad literal sibling at parse time (#1120); an unresolved template in a gate path is refused, and resolved values are pinned by tests (#1126).
-- `cloud_instance`: `apply` passes a deterministic client token, adopts an instance found by that token, prints `launched <id>` / `adopted <id>`, and exits 75 on an AWS capacity error (#1134, #1135, #1136, #1137, #1146).
-- Runner pool: pure scale decision (#1071), validated JIT runner config request (#1114, #1138), pure reconcile plan (#1116, #1118), interruption grace and orphan-host sweep, fail-closed (#1115, #1140).
-- `github_release`: `check` asserts the pinned version against the live binary (#1049, #1066) and verifies a declared checksum before running the binary (#1068); `apply` reads the live version with the check reader (#1067, #1073).
-- Fix: a `copy` op cannot SIGPIPE; a lock-writer test and ETXTBSY in two tests (#1122, #1124, #1125, #1144).
-- Fix: unpinned cargo package cache is keyed on the resolved upstream version (#1048, #1058).
-- Fix: the default `inode_pressure` watch skips pseudo-filesystem masks under `/proc` and `/sys` (#847, #1094).
-- Errors: typed `ForjarError` with a declared class in `cli/image_cmd.rs` (#1104), registry push helpers (#1078, #1103), build runtime and exec layer (#1088), conda readers (#1084), refined-type constructors (#1085), data-source resolver helpers (#1089) and six untyped error sites typed, ratchet ceiling 778 to 776 (PMAT-1117, #1119).
-- Refactor: cron and network validation split out of `resource_types.rs` (PMAT-1045, #1054).
-- Tests only: retry test no longer depends on the host's ssh behaviour (#1105); host-independent fixtures for two integration tests (#858, #1107); the controlmaster falsifier answers the inode pre-check (#1072); the private `CARGO_HOME` guard sees cargo run through a script (#1106); unused test imports dropped in `ami.rs` (#1099, #1100).
-- CI only: release timeouts, glibc floor and pv binding fixes (#913, #1061); reusable CI jobs run on the X64 clean-room runners (#1091); opt-in burst-x64 runners for `pull_request` jobs, off by default (#1026); `kani` and `lean` proofs no longer pin the intel host (#1087); workflow-shape rule 2 and the fleet `runs-on` tests match the current rulings (PMAT-1059, #1062).
-- Repository only: the pre-push hook blocks only on `cargo fmt`, the other checks warn (#1108); the dogfood quorum store receipt, step A1, is added and not yet wired (#1148).
+- Runner pool: planning functions only, pure and not wired into any command or workflow (no caller outside `src/core/mod.rs`): scale decision (PR #1071), JIT runner config request (PRs #1138; issue #1114), reconcile plan (PR #1118; issue #1116), interruption grace and orphan-host sweep (PR #1140; issue #1115). They add no behaviour yet.
+- Errors: typed `ForjarError` with a declared class in `cli/image_cmd.rs` (PR #1104), registry push helpers (PR #1103; issue #1078), build runtime and exec layer (PR #1088), conda readers (PR #1084), refined-type constructors (PR #1085), data-source resolver helpers (PR #1089) and six untyped error sites typed, ratchet ceiling 778 to 776 (PMAT-1117, PR #1119).
+- Refactor: cron and network validation split out of `resource_types.rs` (PMAT-1045, PR #1054).
+- Tests only: retry test no longer depends on the host's ssh behaviour (PR #1105); host-independent fixtures for two integration tests (PR #1107; issue #858); the controlmaster falsifier answers the inode pre-check (PR #1072); the private `CARGO_HOME` guard sees cargo run through a script (PR #1106); unused test imports dropped in `ami.rs` (PRs #1099, #1100).
+- CI only: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows passes `-o DPkg::Lock::Timeout=600`, with `scripts/apt-lock-timeout-guard.sh` checking for a bare call (PMAT-492, PR #951; issue #492); release timeouts, glibc floor and pv binding fixes (PR #1061; issue #913); reusable CI jobs run on the X64 clean-room runners (PR #1091); opt-in burst-x64 runners for `pull_request` jobs, off by default (PR #1026); `kani` and `lean` proofs no longer pin the intel host (PR #1087); workflow-shape rule 2 and the fleet `runs-on` tests match the current rulings (PMAT-1059, PR #1062).
+- Repository only: the dogfood quorum store receipt, step A1 (`scripts/dogfood/lib/store.sh`), is added and wired to no gate, so gates E and R do not read it yet (PR #1148).
 
 ## [1.34.1] - 2026-11-13
 
