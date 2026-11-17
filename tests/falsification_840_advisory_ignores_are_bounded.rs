@@ -229,12 +229,12 @@ fn audit_ids() -> Vec<String> {
 fn every_ignore_line_is_counted_in_both_files() {
     assert_eq!(
         deny_ids().len(),
-        23,
-        "deny.toml ignore lines: 8 older + unsafe-libyaml + the 14 of PMAT-840"
+        24,
+        "deny.toml ignore lines: 8 older + unsafe-libyaml + the 14 of PMAT-840 + chrono"
     );
     assert_eq!(
         audit_ids().len(),
-        24,
+        25,
         "audit.toml ignore lines: the deny.toml set plus the legacy RUSTSEC-2026-0097"
     );
     let extra: Vec<String> = audit_ids()

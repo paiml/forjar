@@ -37,6 +37,7 @@ ignore = [
     { id = "RUSTSEC-2026-0405", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
     { id = "RUSTSEC-2026-0406", reason = "zstd 0.13.3/zstd-safe 7.2.4 reach forjar only via bashrs 7.4.2 -> batuta-common 0.1.0 (forjar's own zstd is 0.14.3); audited 2026-10-30, removed when bashrs#466/#468 ships and forjar bumps bashrs" },
     { id = "RUSTSEC-2026-0374", reason = "basic-toml 0.1.10: unmaintained; reaches forjar only via age -> i18n-embed-fl -> i18n-config, no direct use; audited 2026-10-30, removed when age's i18n chain drops it and Cargo.lock no longer locks it (#836; upstream: https://rustsec.org/advisories/RUSTSEC-2026-0374.html - basic-toml archived, successor toml; no cargo-i18n issue filed yet)" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono 0.4.45: unmaintained notice, no vulnerability, no fixed version (all versions affected); forjar has 0 chrono:: uses and reaches it only via bashrs 7.4.2 (non-optional dep) and pmcp 1.20.0 (non-optional dep, via default cli feature); audited 2026-11-17, removed when bashrs and pmcp both drop chrono (or forjar drops pmcp) and Cargo.lock no longer locks chrono (forjar#1155; bashrs#537)" },
 ]
 
 [licenses]

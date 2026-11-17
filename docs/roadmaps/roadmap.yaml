@@ -7980,3 +7980,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1155
+  github_issue: 1155
+  item_type: task
+  title: 'security: ignore RUSTSEC-2026-0543 (chrono unmaintained) with a bounded, dated row in deny.toml and audit.toml'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-17T00:00:00Z
+  updated: 2026-11-17T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
