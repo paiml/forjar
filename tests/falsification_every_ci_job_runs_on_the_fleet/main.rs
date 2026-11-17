@@ -150,6 +150,10 @@ const ARCH_NEUTRAL_JOBS: [(&str, &str); 3] = [
 /// to (forjar#970).
 const REUSABLE_WORKFLOW_SHA: &str = "fbee3788a0ed92d09974ac21ea9bc97d373af6f0";
 
+/// The commit `ci.yml` pins: one commit newer, whose `gate` roll-up job runs on
+/// the light gate seat. Every other delegated call stays on the commit above.
+const CI_WORKFLOW_SHA: &str = "8adbee1d793df71a31867eb875829b55e04a7c02";
+
 /// Jobs on the `gate-light` pool (forjar#1005): the cheap classify/gate/authorize
 /// jobs. They run no cargo and build no artifact, so they name no architecture
 /// and are exempt from the `X64`/`ARM64` pin. Exempted by THIS exact list and not
@@ -345,7 +349,7 @@ fn the_jobs_that_delegate_their_runner_are_exactly_these() {
     // paiml/.github; `@main` would let another repository change what runs here.
     let sha = REUSABLE_WORKFLOW_SHA;
     let expected = vec![
-        format!("ci.yml:ci -> paiml/.github/.github/workflows/sovereign-ci.yml@{sha}"),
+        format!("ci.yml:ci -> paiml/.github/.github/workflows/sovereign-ci.yml@{CI_WORKFLOW_SHA}"),
         format!(
             "nightly-bench.yml:bench -> paiml/.github/.github/workflows/sovereign-ci.yml@{sha}"
         ),
