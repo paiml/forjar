@@ -7983,7 +7983,7 @@ roadmap:
 - id: PMAT-1150
   github_issue: 1150
   item_type: task
-  title: 'release: cut v1.34.2 (46 PRs merged since v1.34.1)'
+  title: 'release: cut v1.34.2 (47 PRs merged since v1.34.1)'
   status: inprogress
   priority: high
   assigned_to: null
