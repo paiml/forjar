@@ -7944,3 +7944,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1149
+  github_issue: 1149
+  item_type: task
+  title: 'ci: move the ''ci / gate'' roll-up job to a light gate seat by bumping the sovereign-ci.yml pin'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
