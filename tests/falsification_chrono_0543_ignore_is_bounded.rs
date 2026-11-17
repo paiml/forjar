@@ -157,3 +157,79 @@ fn the_checks_fail_on_a_doctored_lock() {
     let extra = format!("{lock}\n[[package]]\nname = \"newcomer\"\nversion = \"1.0.0\"\ndependencies = [\n \"chrono\",\n]\n");
     assert!(!dependents_ok(&extra), "a new dependent must be detected");
 }
+
+/// The `review by YYYY-MM-DD` date in a reason, if it is well formed.
+fn review_by(reason: &str) -> Option<String> {
+    let rest = reason.split("review by ").nth(1)?;
+    let d: String = rest.chars().take(10).collect();
+    let b = d.as_bytes();
+    let ok = b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                *c == b'-'
+            } else {
+                c.is_ascii_digit()
+            }
+        });
+    ok.then_some(d)
+}
+
+/// Version of `name` in the lock text.
+fn locked_version(lock: &str, name: &str) -> Option<String> {
+    lock.split("[[package]]").skip(1).find_map(|block| {
+        let mut lines = block.lines().map(str::trim).filter(|l| !l.is_empty());
+        let n = lines.next()?.strip_prefix("name = ")?.trim_matches('"');
+        if n != name {
+            return None;
+        }
+        let v = lines.next()?.strip_prefix("version = ")?;
+        Some(v.trim_matches('"').to_string())
+    })
+}
+
+/// Reason text names `<crate> <version>`; true when each matches the lock.
+fn versions_ok(lock: &str, reason: &str) -> bool {
+    [CRATE, "bashrs", "pmcp"]
+        .iter()
+        .all(|c| locked_version(lock, c).is_some_and(|v| reason.contains(&format!("{c} {v}"))))
+}
+
+#[test]
+fn both_rows_carry_the_same_review_by_date() {
+    let d = review_by(&deny_reason().unwrap_or_default());
+    let a = review_by(&audit_reason().unwrap_or_default());
+    assert!(
+        d.is_some(),
+        "deny.toml {ID} reason lacks `review by YYYY-MM-DD`"
+    );
+    assert!(
+        a.is_some(),
+        ".cargo/audit.toml {ID} reason lacks `review by YYYY-MM-DD`"
+    );
+    assert_eq!(
+        d, a,
+        "review-by dates differ between deny.toml and audit.toml"
+    );
+}
+
+#[test]
+fn the_reason_versions_match_cargo_lock() {
+    let lock = read("Cargo.lock");
+    let r = deny_reason().unwrap_or_default();
+    assert!(
+        versions_ok(&lock, &r),
+        "reason names versions that differ from Cargo.lock (chrono/bashrs/pmcp): {r}"
+    );
+    // mutation: chrono bumped in the lock while the reason still says 0.4.45.
+    let v = locked_version(&lock, CRATE).expect("chrono locked");
+    let bumped = lock.replacen(
+        &format!("name = \"chrono\"\nversion = \"{v}\""),
+        "name = \"chrono\"\nversion = \"0.4.99\"",
+        1,
+    );
+    assert_ne!(bumped, lock, "mutation did not apply");
+    assert!(
+        !versions_ok(&bumped, &r),
+        "a chrono bump must make the reason stale"
+    );
+}

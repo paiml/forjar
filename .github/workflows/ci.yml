@@ -169,6 +169,7 @@ jobs:
           --test falsification_722_cache_key_arch \
           --test falsification_contract_citations_resolve \
           --test falsification_714_unsafe_libyaml_ignore_is_bounded \
+          --test falsification_chrono_0543_ignore_is_bounded \
           --test falsification_drift_unmeasured_is_not_drift \
           --test e2e_transport_absence_t \
           --test falsification_undo_actually_undoes \
