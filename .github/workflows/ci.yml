@@ -58,7 +58,9 @@ jobs:
   ci:
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    uses: paiml/.github/.github/workflows/sovereign-ci.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0
+    # Pinned to a commit whose `gate` roll-up job runs on the light gate seat (it only sums `needs` results);
+    # the other jobs of the reusable workflow still use the `runs_on` input below.
+    uses: paiml/.github/.github/workflows/sovereign-ci.yml@8adbee1d793df71a31867eb875829b55e04a7c02
     with:
       repo: ${{ github.event.repository.name }}
       # ARM64 route-back (infra-cop 2026-11-10 18:25Z, ARM64 starvation): the 2026-10-27 move put
