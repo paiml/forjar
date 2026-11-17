@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
-this release carries everything in them and everything merged since. The section below covers the 47 PRs merged
+this release carries everything in them and everything merged since. The section below covers the 48 PRs merged
 after the v1.34.1 tag (`git log v1.34.1..origin/main --first-parent`). Numbers are marked: `PR #n` is a merged pull
 request, `issue #n` is an issue, and `PMAT-n` is a roadmap ticket. Behaviour changes have a paragraph and a row in
 `docs/audits/crux-1.34.2.md`; the rest are one line each.
@@ -83,6 +83,7 @@ Also merged since v1.34.1, one line each from the merge subjects:
 - CI only: every `apt-get update` and `apt-get install` in the release, binary-release and nightly workflows passes `-o DPkg::Lock::Timeout=600`, with `scripts/apt-lock-timeout-guard.sh` checking for a bare call (PMAT-492, PR #951; issue #492); release timeouts, glibc floor and pv binding fixes (PR #1061; issue #913); reusable CI jobs run on the X64 clean-room runners (PR #1091); opt-in burst-x64 runners for `pull_request` jobs, off by default (PR #1026); `kani` and `lean` proofs no longer pin the intel host (PR #1087); workflow-shape rule 2 and the fleet `runs-on` tests match the current rulings (PMAT-1059, PR #1062).
 - CI only: the `ci / gate` roll-up job is pinned to a light gate seat by a `sovereign-ci.yml` pin bump (PMAT-1149, PR #1151); no behaviour change.
 - Security only: `Cargo.lock` takes quinn-proto 0.11.19 and quinn-udp 0.5.16, which clears three RUSTSEC advisories that `cargo audit` reported on the previous locked versions; no source change (PMAT-1153, PR #1154).
+- Security only: `deny.toml` and `.cargo/audit.toml` each gain one dated ignore row for RUSTSEC-2026-0543 (chrono is unmaintained; forjar calls no chrono API, the crate is locked only through two dependencies), with a review-by date and a new test that fails if the row, its date or the set of chrono dependents changes; no source change (PMAT-1155, PR #1156).
 - Repository only: the dogfood quorum store receipt, step A1 (`scripts/dogfood/lib/store.sh`), is added and wired to no gate, so gates E and R do not read it yet (PR #1148).
 
 ## [1.34.1] - 2026-11-13
