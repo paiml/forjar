@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1156: fix(audit): bounded ignore for RUSTSEC-2026-0543 (chrono) in deny.toml and audit.toml",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T14:24:28Z",
+  "head": "70e0105b6b6092d14b5be24956fdb22a8abc2739",
+  "merge_commit": "7f6035877a46bdc7f040e90d7f09dfe0d2a7a469",
+  "author_model": "Claude Haiku 5.5, Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 23 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 23 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 23 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Haiku 5.5 and Sonnet 5.5 authors (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 69,
+    "claims_confirmed": 68,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 2 claim 11: Body 'Removal is impossible inside this repo' is FALSE: forjar's pmcp edge is optional, removable at cost of cli | judges REFUTED 3 of 3: Lane says body claim \"Removal is impossible inside this repo\" is FALSE because forjar pmcp edge is optional (Cargo.toml:104). But Cargo.toml:94 `bashrs = \"7.4.2\"` is non-optional in forjar and bashrs-7.4.2 depends on chrono non-optionally (Cargo.lock:266 in bashrs block), so dropping pmcp/cli leaves chrono locked; Cargo.toml:223 records bashrs as \"NOT severable\" (invariant I8). deny.toml:40 condition is \"removed when bashrs and pmcp both drop chrono (or forjar drops pmcp) and Cargo.lock no longer locks chrono\" - bashrs upstream is required either way. Refuters 1 and 2 are right; refuter 3 relied on pmcp optional and missed bashrs. || Refuters 1,2 REFUTED, 3 SURVIVED; 1,2 are right. Cargo.toml:94 `bashrs = \"7.4.2\"` (no optional) and Cargo.toml:221-223 `NOT severable ... bashrs — backs invariant I8`; bashrs-7.4.2 depends on chrono non-optionally, so dropping the optional pmcp (Cargo.toml:104) still locks chrono. deny.toml:40 removal condition requires `bashrs and pmcp both drop chrono`. Refuter 3 only re-cited pmcp optionality, which does not remove chrono. Body claim holds; lane FALSE verdict is wrong. || Cargo.toml:94 `bashrs = \"7.4.2\"` is a non-optional forjar dep (Cargo.toml:221-224 `bashrs — backs invariant I8 ... NOT severable`) and bashrs-7.4.2 depends on chrono non-optionally (Cargo.lock:266), so the lane's route (drop optional pmcp, Cargo.toml:104) still leaves chrono locked; the body's `impossible inside this repo` stands. Refuters 1,2 REFUTED on this bashrs path; refuter 3 SURVIVED citing only the pmcp edge and the `(or forjar drops pmcp)` text, which does not remove chrono alone (deny.toml:40 `removed when bashrs and pmcp both drop chrono ... and Cargo.lock no longer locks chrono`). The lane's wording sub-point on the row parenthetical does not rescue its FALSE verdict. || Cargo.toml:94 `bashrs = \"7.4.2\"` (non-optional in forjar; :223 `bashrs — backs invariant I8`) and registry bashrs-7.4.2/Cargo.toml:729 `[dependencies.chrono]` (non-optional): dropping pmcp/cli still locks chrono via bashrs (Cargo.lock:266), so the lane's removal route does not remove chrono and the body statement stands || Cargo.toml:94 `bashrs = \"7.4.2\"` (non-optional in forjar, no `optional`); Cargo.lock:257/:266 bashrs block lists `\"chrono\",`; registry bashrs-7.4.2/Cargo.toml:729 `[dependencies.chrono]` non-optional. Dropping pmcp still leaves chrono locked via bashrs, so no in-repo change short of dropping bashrs (Cargo.toml:223-224 `bashrs — backs invariant I8`) removes it; the removal condition reads `bashrs and pmcp both drop chrono (or forjar drops pmcp)` i.e. bashrs upstream is always required. The body's claim holds; the lane's counter-argument is wrong."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1156-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e52beaee22082a2680f3e0379b775221b0f14411",
+        "sha256": "a170b86aab7cc5984d11fe8b21da02197cb67a8cd37dfe83694ff45199a2ee0b",
+        "bytes": 9981
+      },
+      {
+        "path": ".quorum/evidence/PR-1156-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "dcc9bab0b010db1e03445ac389b9e2f4e10a5b9d",
+        "sha256": "84f5fdeae56984c6bffa68c44623344842feca9aa740c27b7b1e80183cb57ef5",
+        "bytes": 9635
+      },
+      {
+        "path": ".quorum/evidence/PR-1156-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "ab5d456dd26fcb3c9714d627c98194337d45bfb9",
+        "sha256": "4dbc0afaa56b9e2d00ef9c80d9ae894cb33130c346f3e0bd3213ea463735b852",
+        "bytes": 12469
+      }
+    ],
+    "total_bytes": 32085,
+    "claims_digest": ".quorum/evidence/PR-1156-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

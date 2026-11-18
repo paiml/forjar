@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1101: feat(cloud_instance): subnet, security groups and zone pin where the instance lands",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T13:38:45Z",
+  "head": "822462ddbd38238f433d150c3e59d501a46395f2",
+  "merge_commit": "d665a9a92dc3cb4fa45aaf228d96f7068ae0add9",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 15 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 13 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 17 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 45,
+    "claims_confirmed": 43,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 1 claim 3: AZ = region + one letter, refused at validate time (TRUE) | judges REFUTED 3 of 3: src/core/parser/resource_types.rs:49-61 at d665a9a `let templated = [&resource.name, &resource.image, &resource.cloud.region, &resource.cloud.instance_type, &resource.cloud.max_price]...any(|f| ...contains(\"{{\")) || resource.tags...` then `if let (false, Err(e)) = (templated, ...spec_of(resource))`: any templated name/image/type/price/tag skips spec_of (and check_zone), and validate_config (parser/mod.rs:173,191) runs on the raw config, so a foreign-region zone is not refused at validate time in that case; the lane's unconditional TRUE is false. All 3 refuters agree. || All 3 refuters agree. src/core/parser/resource_types.rs:49-61 at d665a9a: 'let templated = [&resource.name, &resource.image, &resource.cloud.region, &resource.cloud.instance_type, &resource.cloud.max_price].iter().any(.. v.contains(\"{{\")) || resource.tags..' then 'if let (false, Err(e)) = (templated, ..spec_of(resource))': with any templated field, spec_of (and check_zone) is skipped, and l.61 is the only validate-time caller; a literal foreign-region zone is then refused only at codegen (mod.rs:215/310/351/406). The unconditional 'refused at validate time' TRUE is false for that case. || src/core/parser/resource_types.rs:49-61 at d665a9a: 'let templated = [&resource.name, &resource.image, &resource.cloud.region, &resource.cloud.instance_type, &resource.cloud.max_price]...any(|v| v.contains(\"{{\")) || tags..'; 'if let (false, Err(e)) = (templated, ...spec_of(resource))' - only validate-time caller of spec_of; a templated name/image/type/price/tag skips check_zone, so a literal foreign-region zone is not refused at validate time (only at codegen, mod.rs:215). All 3 refuters agree.",
+      "lane 3 claim 3: AZ in another region refused at validate time (TRUE) | judges REFUTED 3 of 3: src/core/parser/resource_types.rs:49-61 at d665a9a: spec_of (-> check_zone) runs at validate time only when `templated` is false (`if let (false, Err(e)) = (templated, ...spec_of(resource))`); any `{{` in name/image/region/instance_type/max_price/tags skips it, so 'refused at validate time' is not unconditionally TRUE. All 3 refuters agree. || All 3 refuters agree. src/core/parser/resource_types.rs:49-61: spec_of (Placement::of -> check_zone) runs at validate time only when 'templated' is false; any '{{' in name/image/region/instance_type/max_price/tags skips it, so a literal wrong-region zone is not refused at validate time. || src/core/parser/resource_types.rs:57-61 at d665a9a: templated check '.any(|f| ... v.contains(\"{{\")) || resource.tags.iter().any(..)' then 'if let (false, Err(e)) = (templated, spec_of(resource))': any templated name/image/type/price/tag skips spec_of -> check_zone, so a foreign-region zone passes validate. All 3 refuters agree."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1101-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "6030ddd2f3a26c2009bd7d406a8bc3d10d1f2d35",
+        "sha256": "094edbfe845d0a70cb3e25ca3ccac3f785b19ff3afe2a99e5e8e508054ca0dbf",
+        "bytes": 6999
+      },
+      {
+        "path": ".quorum/evidence/PR-1101-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "777c7ab7e8d74967e901b2a014a1004716a55579",
+        "sha256": "e4121f0386c23e7f137db535bc89cdb06a019749cc1859693c760194ef7be8ab",
+        "bytes": 6861
+      },
+      {
+        "path": ".quorum/evidence/PR-1101-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "8ea7d4b9db20e15b1fb80f6e2ded5eae41172b33",
+        "sha256": "fb326ebf8fc6e57d2c0a1231054486f99be79630d47cfc10501b1acee48f3eb9",
+        "bytes": 6852
+      }
+    ],
+    "total_bytes": 20712,
+    "claims_digest": ".quorum/evidence/PR-1101-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
