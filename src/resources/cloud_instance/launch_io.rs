@@ -50,20 +50,29 @@ pub(super) fn token_on(input: &str, day: u64) -> String {
 /// the instance key plus instance type, price, lifetime, image reference,
 /// the AMI reference (the pin or the default `resolve:ssm:` reference as
 /// written, NOT the id it resolves to) and labels (sorted `key=value`
-/// joined by U+001F, so declaration order does not matter). EC2 rejects a reused token whose parameters differ, so any
+/// joined by U+001F, so declaration order does not matter), the volume tag specification and a hash of the
+/// declared user-data file content (read here, only hashed, never kept). EC2 rejects a reused token whose parameters differ, so any
 /// of these changing must give a new token. The key stays as it is.
 pub(super) fn token_input(s: &CloudInstance) -> String {
     let mut sorted = s.tags.clone();
     sorted.sort();
     let labels = sorted.join("\u{1f}");
+    let ud = s.user_data_file.as_deref().map_or_else(String::new, |p| {
+        std::fs::read(p).map_or_else(
+            |_| "unreadable".into(),
+            |b| crate::tripwire::hasher::hash_string(&String::from_utf8_lossy(&b)),
+        )
+    });
     format!(
-        "{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
         super::key_of(s),
         s.instance_type,
         s.max_price,
         s.max_lifetime_min,
         s.image,
         super::ami::image_id(&s.ami),
+        s.storage.volume_tagspec(&sorted),
+        ud,
         labels
     )
 }

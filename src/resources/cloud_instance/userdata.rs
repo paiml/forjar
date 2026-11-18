@@ -1,6 +1,7 @@
 //! `cloud_user_data_file`: optional local FILE passed as the instance's user-data (#1131-#1133).
 //!
-//! Only the PATH is ever used. forjar never reads the content, so it cannot reach the plan,
+//! Only the PATH is ever used, except that `token_input` reads the content once to hash it into the client
+//! token (never printed). forjar never keeps the content, so it cannot reach the plan,
 //! the instance key, a generated script, a log or state: the fleet's user-data carries presigned
 //! URLs, which are secrets. The path is NOT part of the instance key: a per-launch temp path must
 //! not turn a live box into a "changed" refusal, and keys without the field stay byte for byte.
@@ -349,6 +350,25 @@ mod tests {
                 "output {i}: {s}"
             );
         }
+    }
+
+    #[test]
+    fn the_token_covers_the_user_data_content_and_volume_tags() {
+        let sb = Sandbox::new();
+        let tok = |r: &Resource| super::super::launch_io::token_input(&spec_of(r).unwrap());
+        let (mut r, _) = with_file(sb.path(), b"a");
+        r.tags.push("x=y".into());
+        let base = tok(&r);
+        with_file(sb.path(), b"b");
+        assert_ne!(tok(&r), base, "file content");
+        with_file(sb.path(), b"a");
+        assert_eq!(tok(&r), base, "same content, same token");
+        let mut v = r.clone();
+        v.cloud.volume_tags = Some(true);
+        assert_ne!(tok(&v), base, "volume tags");
+        let mut n = r.clone();
+        n.cloud.user_data_file = None;
+        assert_ne!(tok(&n), base, "no file");
     }
 
     #[test]
