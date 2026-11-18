@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1072: test(e02): controlmaster falsifier answers the inode pre-check and asserts per-resource coverage (#1072)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "e82b3aee78d0cb4e1101d477b63de89b2b3146e7",
+  "merge_commit": "406e336252ea77158ff9ff3b6b4eda76f862f399",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 12 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 11 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 10 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 33,
+    "claims_confirmed": 31,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 2 claim 6: kind=BODY (commit 2). \"The shim text is byte-identical; the test reads it with include_str!. No assertion changes.\" Verd | judges REFUTED 3 of 3: R2/R3 REFUTED, R1 SURVIVED. Own check: SSH_SHIM raw string in 1a5f1eb9ac01:tests/falsification_e02_controlmaster_before_the_drift_gate.rs:65 `cmp` IDENTICAL to 406e3362:tests/falsification_e02_ssh_shim.sh. Commit 2's message describes the move, which is byte-identical; the lane compared against the squash base, which is not what the commit claims. || Commit 2's 'byte-identical' describes its own move: the SSH_SHIM literal in 1a5f1eb9ac01 (commit 1) and tests/falsification_e02_ssh_shim.sh at 406e3362 both carry the `df -i`/`.scripts` lines (2 matches each), while 406e3362^ has 0. So the move is identical and the extra text came from commit 1. The lane's FALSE compares against the squash base, which the commit does not claim. Refuter 1's SURVIVED reads the same facts against that base; r2 and r3 measured cmp identical. || commit 2's claim is about the move: SSH_SHIM literal at 1a5f1eb9ac01 (commit 1, tests/falsification_e02_controlmaster_before_the_drift_gate.rs:65) diffs identical to 406e3362:tests/falsification_e02_ssh_shim.sh (measured, only the `#!/bin/sh` on the const line differs in extraction); the differences vs merge^ come from commit 1, so 'FALSE' misreads the commit (r2,r3 right; r1 compared to the squash base)",
+      "lane 3 claim 9: BODY UNVERIFIED. Commit 1 says \"Part of #858\"; the PR body says \"Closes #1070\" and the shim commit cites PMAT-1070. | judges REFUTED 3 of 3: R1 REFUTED, R2 notes 4e8e7554 `Refs #858` fixture fix. #858 is not typed-errors only: PR #1107 body `seven integration tests in #858 that stayed red`, fixed by test fixtures incl. the df -i inode shim. A red-test fixture fix is in #858's scope, so 'link unsupported' is false. || docs/roadmaps/roadmap.yaml:7659-7662 at 406e3362: `- id: PMAT-858` ... `title: e02 ControlMaster-before-drift-gate test fixture answers the inode pre-check (forjar#858)`. #858 is this exact fixture fix, so the 'Part of #858' link is supported. Refuters split: r1 REFUTED (scope covers red-test fixtures); r2 and r3 left it UNVERIFIED/SURVIVED without reading the roadmap row, which settles it. || the premise '#858 is the typed-error migration' is false: #1107 body (prs-raw.json) 'The last three of the seven integration tests in #858 that stayed red ... The other four already pass on current main'; this PR makes the red ssh_master_opens_before_any_gate_query integration test green, inside #858's scope; also 4e8e7554 test-fixture commit 'Refs #858' (r1 right; r2 notes the same evidence but left it)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1072-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "de68856e1ff584ec5c01751ec0fc3d91107fbb12",
+        "sha256": "c36f16b76061eb178b299bf6b7d5c5e2a94ed91273eb6dffb1801efb70bf353d",
+        "bytes": 4706
+      },
+      {
+        "path": ".quorum/evidence/PR-1072-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "fd6473263c3942c53e87d8b8eda34bc2a1f862ab",
+        "sha256": "977910ad6939d1933f22e2274682ab8227922a81135a3262194027ee0e68a777",
+        "bytes": 4949
+      },
+      {
+        "path": ".quorum/evidence/PR-1072-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "3fd88f30e3e75c84abb79bccf11286d9a2fe8f93",
+        "sha256": "e1268b160e32a1a5d9bd971cb5cfa805624c74e2e9d25b23258d6982760b8f4e",
+        "bytes": 4895
+      }
+    ],
+    "total_bytes": 14550,
+    "claims_digest": ".quorum/evidence/PR-1072-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
