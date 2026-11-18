@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1084: fix(conda): conda readers return ForjarError with a declared class (#1084)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "57130b8b666efa540770f7cb671b6f85eddcf0a2",
+  "merge_commit": "04878d248210275c62436e31405b6d5cf0034611",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 11 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 12 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 10 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 33,
+    "claims_confirmed": 32,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 2 claim 4: kind=DEFECT. Because the ceiling was not lowered, the ratchet gains 7 sites of slack: the rule says \"MAY ONLY SHRINK\" a | judges REFUTED 3 of 3: All three refuters measured fns=804 at 04878d24 against scripts/ratchets/untyped-error-sites.json `\"untyped_error_fns\": 778`; the test (`assert!( got <= max,`) is already red, so no 7-site slack exists and 7 new sites could not pass 'without the gate going red'. || scripts/ratchets/untyped-error-sites.json at 04878d24: `\"untyped_error_fns\": 778`; my own emulation of tests/falsification_untyped_error_sites_ratchet.rs measure() on the merge tree gives fns=804, already 26 over the ceiling, so `assert!( got <= max,` is red and no 7-site slack exists. All three refuters agree. || scripts/ratchets/untyped-error-sites.json:8 `\"untyped_error_fns\": 778` at 04878d24 while the count is above it (refuters: 804; my rough grep of Result<_, String> fn signatures: 846), so falsification_untyped_error_sites_ratchet.rs:152-153 `assert!( got <= max,` is already red; no 7-site slack exists (all 3 refuters agree)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1084-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "8e7e8efa9ef2f2cfb0ab94290e4a049b52118a95",
+        "sha256": "83f321dd1bad2b2466c65faafd50aec105078248910ab387ea45f661bc2ef619",
+        "bytes": 4734
+      },
+      {
+        "path": ".quorum/evidence/PR-1084-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "a4535ca31b394a5c91ca2f3ea7c0cef0f108cc3c",
+        "sha256": "63385b30084c8dc2b9bcb9d57c386da8d8854800efb19d6f7bbe05f7a93e59dd",
+        "bytes": 4728
+      },
+      {
+        "path": ".quorum/evidence/PR-1084-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "24f4c19d406e7f5ff1ab464028d18e22b7d3d96f",
+        "sha256": "bbe420246859ad72894739832997ddeb117eb3d48924ae99382fa33b80d60c55",
+        "bytes": 4710
+      }
+    ],
+    "total_bytes": 14172,
+    "claims_digest": ".quorum/evidence/PR-1084-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

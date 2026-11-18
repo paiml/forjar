@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1073: fix(github_release): apply reads the live version with the check reader (#1067) (#1073)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "c71c379d311527dec4618d8982296d61df66845a",
+  "merge_commit": "0eb20f4790df58ac4150c536104a3a8b9815ee5a",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 13 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 12 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 12 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 37,
+    "claims_confirmed": 35,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 1 claim 12: DEFECT (fail-open edge) — in permissive mode a failed `mktemp` (`FJ_OUT=''`, check.rs:63) makes the redirection | judges REFUTED 3 of 3: R1/R3 REFUTED, R2 SURVIVED. The guard-level skip is real (github_release_check.rs:63 `FJ_OUT=$(mktemp) || FJ_OUT=''`, :55 `|| true`), but 'proceeds with the install' is shown false: src/resources/github_release.rs:88 `set -euo pipefail`, guard at :89, then :90 `TMPDIR=$(mktemp -d)` fails on the same cause and set -e exits before curl/_fj_install_bin. || src/resources/github_release.rs:88-90 at 0eb20f47: `set -euo pipefail\\n` `{}` (downgrade_guard) `TMPDIR=$(mktemp -d)\\n`; a mktemp failure that empties FJ_OUT (github_release_check.rs:63 `FJ_OUT=$(mktemp) || FJ_OUT=''`) also fails :90 under set -e, so the script exits before the curl at :95; 'proceeds with the install' is false. r2's SURVIVED concedes this mitigation. || src/resources/github_release.rs:88 `set -euo pipefail`, guard at :89, then :90 `TMPDIR=$(mktemp -d)`: the same temp-file failure aborts under set -e before curl (:95) and `_fj_install_bin` (:147), so the install does not proceed (r1,r3 right; r2's 'mitigated' concedes the install stops)",
+      "lane 2 claim 11: kind=DEFECT (minor). The apply script now runs `live_version_unguarded` twice (downgrade guard, then post-install), each | judges REFUTED 3 of 3: All three refuters: github_release_check.rs:75-78 `[live_version] for the apply side (post-install read, downgrade guard, state query): no checksum: guard runs there, so FJ_SUMOK is set to 1 explicitly. The reader itself stays fail-closed` - the doc states the apply side is open by design; 'fail-closed' refers to live_version (:64 `[ \"$FJ_SUMOK\" = 1 ]`). No contradiction. || src/resources/github_release_check.rs:75-78: `[live_version] for the apply side (post-install read, downgrade guard, state query): no checksum: guard runs there, so FJ_SUMOK is set to 1 explicitly. The reader itself stays fail-closed (FJ_SUMOK unset or 0 never runs the binary)`; the doc states the apply side is open by design, and 'fail-closed' refers to the raw live_version. No contradiction. All three refuters agree. || src/resources/github_release_check.rs:75-78 `for the apply side ... FJ_SUMOK is set to 1 explicitly. The reader itself stays fail-closed` - 'reader itself' is live_version (:64 `[ \"$FJ_SUMOK\" = 1 ]`); the doc states the apply side is open, no contradiction (all 3 refuters agree)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1073-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "1083c12e5eeb1ba5447e33df5cbc9a940d3a2f4f",
+        "sha256": "05718e39820a046d0c4f007dede133d5821c04a11772697ae80c0f4867e1cba3",
+        "bytes": 5925
+      },
+      {
+        "path": ".quorum/evidence/PR-1073-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "2b1807ca286928a330dbbf4f4f0eb9423f058d49",
+        "sha256": "40507a789fec674094b586024816d01a234236a40b360eda1c3ae865305d6ccb",
+        "bytes": 6208
+      },
+      {
+        "path": ".quorum/evidence/PR-1073-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "634deae12723782c891ece6cb451461a5a57d099",
+        "sha256": "3765113bc00c0406cb75c45f79b6a0ea87f2cba5cde24d6c9cc3fc55f7ab1aea",
+        "bytes": 5714
+      }
+    ],
+    "total_bytes": 17847,
+    "claims_digest": ".quorum/evidence/PR-1073-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

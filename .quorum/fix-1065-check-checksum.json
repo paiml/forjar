@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1068: fix(github_release): check verifies a declared checksum before running the binary (#1068)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T09:30:20Z",
+  "head": "2d9e74935dca2ab122b97018977741ba81364bad",
+  "merge_commit": "9271576a39926b82ecc02b5b0aa1976204551720",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 14 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 11 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 14 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 39,
+    "claims_confirmed": 38,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 1 claim 11: DEFECT minor: doc says no fallback but code has sha256sum->shasum chain | judges REFUTED 3 of 3: Refuters split (r1,r2 SURVIVED citing the same lines without testing the quote; r3 REFUTED). At merge src/resources/github_release_check.rs:81-82 the comment reads 'one tool reading the file on stdin, no fallback that could hash nothing' -- it denies only a fallback that hashes nothing. :98-101 runs exactly one tool per run (sha256sum elif shasum, both hashing the same file on stdin) and with neither tool FJ_SUM='' fails closed. The lane's contradiction rests on a truncated quote ('no fallback'), so the asserted defect is false || r3 is right: src/resources/github_release_check.rs:82-83 reads `no fallback\\n/// that could hash nothing`, which restricts only a fallback that hashes nothing. The :100 `elif command -v shasum` branch hashes the same file, and with neither tool FJ_SUM='' mismatches (:103), which fails closed. The lane truncated the quote. r1/r2 matched the text without weighing the qualifier. || src/resources/github_release_check.rs:82-83 (at 9271576a) the comment reads `one tool reading the file on stdin, no fallback / that could hash nothing`; the lane truncated it to 'no fallback'. :98-101 run exactly one tool per run and the shasum branch hashes the same file (empty FJ_SUM still diverges), so code matches the comment. Agree with refuter-3; refuters 1-2 compared against the truncated quote."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1068-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "4571c98cacbc6f259f338c5890f16541b1160936",
+        "sha256": "b37154d32aa1eb0eb915cb6ff4f882c4bc56d39eaf837204386e0d946cf87869",
+        "bytes": 5515
+      },
+      {
+        "path": ".quorum/evidence/PR-1068-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "fdaa6feb9a17bf48b518ced463ff2362899f4fc5",
+        "sha256": "0a6b9c86ddff321da97f2e8c9b124b3ea72c9d41846ba701b7e52c7d160ccde7",
+        "bytes": 5265
+      },
+      {
+        "path": ".quorum/evidence/PR-1068-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "4221dc7600971ed98305d1bceea8a4804d42ca37",
+        "sha256": "e77dc4697ba0bc39867bdd119d7790683b4585f97d42c9a5bf2ab23d40fed2c8",
+        "bytes": 5291
+      }
+    ],
+    "total_bytes": 16071,
+    "claims_digest": ".quorum/evidence/PR-1068-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
