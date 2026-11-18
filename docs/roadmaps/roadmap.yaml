@@ -8145,3 +8145,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1195
+  github_issue: 1195
+  item_type: task
+  title: 'runner-name duplicate check is case-sensitive while host ids are case-insensitive'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

@@ -261,3 +261,19 @@ fn non_ascii_ids_are_refused() {
         );
     }
 }
+
+#[test]
+fn runner_names_differing_only_in_case_are_duplicates() {
+    let l = complete(vec![r("A", "a", false), r("a", "b", false)]);
+    let e = sweep(&l, &[h("a", 0), h("b", 0)]);
+    assert_eq!(e, Err(SweepError::DuplicateRunnerName("a".into())));
+}
+
+#[test]
+fn blank_runner_names_are_refused() {
+    for name in ["", "  "] {
+        let l = complete(vec![r(name, "a", false)]);
+        let e = sweep(&l, &[h("a", 0)]);
+        assert_eq!(e, Err(SweepError::EmptyRunnerName), "{name:?}");
+    }
+}

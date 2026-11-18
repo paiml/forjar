@@ -54,28 +54,23 @@ pub enum SweepError {
     /// A host has an empty id.
     EmptyHostId,
     /// A runner has an empty host id.
-    EmptyRunnerHostId {
-        runner: String,
-    },
+    EmptyRunnerHostId { runner: String },
     /// Two host ids are equal ignoring ASCII case.
     DuplicateHostId(String),
+    /// Two runner names are equal ignoring ASCII case (like host ids).
     DuplicateRunnerName(String),
+    /// A runner name is empty or only whitespace.
+    EmptyRunnerName,
     /// A host reports more idle seconds than its age: inconsistent input.
     IdleExceedsAge(String),
     /// A runner's host id equals no listed host id. Whatever it looks like,
     /// the runner's real host cannot be known, so nothing is guessed.
-    UnknownRunnerHost {
-        runner: String,
-        host: String,
-    },
+    UnknownRunnerHost { runner: String, host: String },
     /// A host id has a character outside printable ASCII (no whitespace,
     /// control or non-ASCII characters).
     MalformedId(String),
     /// A runner's host id has a character outside printable ASCII.
-    MalformedRunnerHostId {
-        runner: String,
-        host: String,
-    },
+    MalformedRunnerHostId { runner: String, host: String },
 }
 
 fn first_duplicate(items: impl Iterator<Item = String>) -> Option<String> {
@@ -113,7 +108,10 @@ fn check_ids(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
     if let Some(d) = first_duplicate(hosts.iter().map(|h| h.id.to_ascii_lowercase())) {
         return Err(SweepError::DuplicateHostId(d));
     }
-    match first_duplicate(runners.iter().map(|r| r.name.clone())) {
+    if runners.iter().any(|r| r.name.trim().is_empty()) {
+        return Err(SweepError::EmptyRunnerName);
+    }
+    match first_duplicate(runners.iter().map(|r| r.name.to_ascii_lowercase())) {
         Some(d) => Err(SweepError::DuplicateRunnerName(d)),
         None => Ok(()),
     }
