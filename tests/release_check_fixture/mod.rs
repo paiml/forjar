@@ -235,6 +235,13 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         "scripts/dogfood/lib/tags.sh must exist — release-check.sh and crux-reconcile.sh source it",
     );
     write(&root, "scripts/dogfood/lib/tags.sh", &tags_lib);
+    let page = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("scripts/dogfood/lib/prpage.sh");
+    write(
+        &root,
+        "scripts/dogfood/lib/prpage.sh",
+        &std::fs::read_to_string(page)
+            .expect("lib/prpage.sh must exist — release-check.sh sources it"),
+    );
     write(
         &root,
         "Cargo.toml",
@@ -341,6 +348,7 @@ pub(crate) fn published_fixture() -> Fixture {
         "scripts/dogfood/release-check.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/crux-reconcile.sh",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
