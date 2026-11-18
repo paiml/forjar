@@ -95,11 +95,16 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_data_volume_iops"
         | "cloud_data_volume_throughput"
         | "cloud_volume_tags"
-        | "cloud_user_data_file"
         | "cloud_availability_zone"
         | "cloud_instance_profile" => Observability::Unmigrated(
             "#861 — the provider query keys on name and region (check: plus image digest); this field is \
              applied by the create call and the gates but never read back",
+        ),
+        // `cloud_user_data_file` is not applied by the create call or the gates: only the
+        // apply guard (presence, size, header) and the run-instances call use it.
+        "cloud_user_data_file" => Observability::Unmigrated(
+            "#861 — the provider query keys on name and region (check: plus image digest); this field is \
+             applied only by the apply guard and the run-instances call, and is never read back",
         ),
         _ => return None,
     })

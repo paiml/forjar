@@ -109,3 +109,21 @@ fn every_observed_alt_actually_dirties_the_baseline() {
         );
     }
 }
+
+#[test]
+fn cloud_user_data_file_is_unmigrated_and_not_credited_to_the_create_call() {
+    // `cloud_user_data_file` is applied only by the apply guard and the
+    // run-instances call; the shared cloud_instance text credits "the create
+    // call and the gates", which is false for it (#1197).
+    let Some(Observability::Unmigrated(text)) = classify("cloud_user_data_file") else {
+        panic!(
+            "cloud_user_data_file must be Unmigrated: {:?}",
+            classify("cloud_user_data_file")
+        );
+    };
+    assert!(
+        text.contains("apply guard") && text.contains("run-instances"),
+        "{text}"
+    );
+    assert!(!text.contains("create call and the gates"), "{text}");
+}
