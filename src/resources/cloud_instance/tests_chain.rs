@@ -287,13 +287,11 @@ fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     std::fs::write(sb.path().join(format!("tok.{t2}")), ID2).unwrap();
     let (rc, out) = sb.run(&script, "");
     let log = sb.log();
-    if run_tokens(&log)[0] == t1 {
-        assert_eq!(rc, 0, "{out}");
-        assert!(out.contains(&format!("adopted {ID2}\n")), "{out}");
-        assert!(log.contains(&format!("client-token,Values={t2}")), "{log}");
-        assert!(!log.contains(&format!("client-token,Values={t1}")), "{log}");
-        assert_eq!(run_tokens(&log).len(), 2, "{log}");
-    }
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains(&format!("adopted {ID2}\n")), "{out}");
+    assert!(log.contains(&format!("client-token,Values={t2}")), "{log}");
+    assert!(!log.contains(&format!("client-token,Values={t1}")), "{log}");
+    assert_eq!(run_tokens(&log).len(), 2, "{log}");
     // a table keyed by token: a rerun walks the same chain to the same live id
     let (sb, script) = fixture(&[ok(ID)], Some(""), &[(ID, "terminated")], false);
     let w = |n: String, c: String| std::fs::write(sb.path().join(n), c).unwrap();
@@ -306,9 +304,6 @@ fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     for round in 1..=2 {
         let (rc, out) = sb.run(&script, "");
         let log = sb.log();
-        if run_tokens(&log)[0] != t1 {
-            return; // the run straddled UTC midnight
-        }
         assert_eq!(rc, 0, "{out}");
         assert!(out.contains(&format!("launched {ID2}\n")), "{out}");
         let t = run_tokens(&log);
