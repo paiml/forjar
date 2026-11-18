@@ -349,6 +349,7 @@ pub(crate) fn fixture_msg(
         "scripts/dogfood/harness.sh",
         "scripts/dogfood/quorum.sh",
         "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
     ] {
