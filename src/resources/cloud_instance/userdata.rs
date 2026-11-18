@@ -7,7 +7,8 @@
 //! not turn a live box into a "changed" refusal, and keys without the field stay byte for byte.
 //! The path is checked against a strict allow-list at parse time and again at codegen (both
 //! through `spec_of`), then single-quoted at use. The size and presence guard runs in the apply
-//! script before any `aws` call; a file that is gone after launch therefore blocks a re-apply
+//! script before any `aws` call, on a private copy (`mktemp`, removed on exit) that run-instances also
+//! reads, so a swap after the check is not launched; a file that is gone after launch therefore blocks a re-apply
 //! of an already present box too (the wrapper keeps the file or drops the field).
 //!
 //! A declared file REPLACES the built-in script, which carries the instance's only lifetime
@@ -57,9 +58,10 @@ pub(super) fn checked(v: &Option<String>) -> Result<Option<String>, String> {
     }
 }
 
-/// The `--user-data` value for a declared file: the path by reference, read by `aws` at apply time.
-pub(super) fn file_arg(path: &str) -> String {
-    sh_squote(&format!("file://{path}"))
+/// The `--user-data` value for a declared file: the private copy the guard checked (`$ud_file` after the
+/// guard), not the declared path, so a file swapped after the check is never launched.
+pub(super) fn file_arg(_path: &str) -> String {
+    "\"file://$ud_file\"".into()
 }
 
 /// Apply-script lines refusing (before any provider call) a file that is missing, not a regular
@@ -70,6 +72,10 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
     format!(
         "ud_file={p}\n\
          if [ ! -f \"$ud_file\" ]; then {missing}; fi\n\
+         ud_tmp=\"$(mktemp)\" || {{ {unread}; }}\n\
+         trap 'rm -f \"$ud_tmp\"' EXIT\n\
+         cat \"$ud_file\" > \"$ud_tmp\" 2>/dev/null || {{ {unread}; }}\n\
+         ud_file=\"$ud_tmp\"\n\
          ud_n=\"$(wc -c < \"$ud_file\")\" || {{ {unread}; }}\n\
          ud_n=\"${{ud_n##* }}\"\n\
          case \"$ud_n\" in ''|*[!0-9]*) {unread} ;; esac\n\
@@ -158,10 +164,10 @@ mod tests {
     fn user_data_file_passed_by_path_not_inlined() {
         let sb = Sandbox::new();
         sb.open_gate();
-        let (r, path) = with_file(sb.path(), MARKER.as_bytes());
+        let (r, _) = with_file(sb.path(), MARKER.as_bytes());
         let script = apply_script(&r);
         assert!(
-            script.contains(&format!("--user-data 'file://{path}' ")),
+            script.contains("--user-data \"file://$ud_file\" "),
             "{script}"
         );
         assert!(!script.contains("#!/bin/sh\nshutdown"), "{script}");
@@ -169,11 +175,7 @@ mod tests {
         assert_eq!(rc, 0, "{out}");
         let log = sb.log();
         assert_eq!(count(&log, "run-instances"), 1, "{log}");
-        assert_eq!(
-            count(&log, &format!("--user-data file://{path} ")),
-            1,
-            "{log}"
-        );
+        assert_eq!(count(&log, "--user-data file:///"), 1, "{log}");
     }
 
     #[test]
@@ -293,6 +295,28 @@ mod tests {
             std::fs::write(&ud, format!("{l1}\n{REQ}")).unwrap();
             assert_eq!(sb.run(&script, "").0, 0, "{l1}");
         }
+    }
+
+    #[test]
+    fn the_launch_reads_the_copy_the_guard_checked() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (r, path) = with_file(sb.path(), b"");
+        let bin = sb.path().join("bin");
+        std::fs::rename(bin.join("aws"), bin.join("aws.real")).unwrap();
+        // swaps the declared file on the first call, then records what run-instances is given
+        let wrap = format!(
+            "#!/bin/sh\na=\"$*\"\ncase \"$a\" in\n*describe-instances*) echo '#!/bin/sh' > '{path}';;\n*run-instances*) f=\"${{a#*--user-data file://}}\"; cat \"${{f%% *}}\" > \"$STUB_LOG.ud\";;\nesac\nexec \"$(dirname \"$0\")/aws.real\" \"$@\"\n"
+        );
+        std::fs::write(bin.join("aws"), wrap).unwrap();
+        std::process::Command::new("chmod")
+            .args(["755", bin.join("aws").to_str().unwrap()])
+            .status()
+            .unwrap();
+        let (rc, out) = sb.run(&apply_script(&r), "");
+        assert_eq!(rc, 0, "{out}");
+        let sent = std::fs::read_to_string(sb.path().join("calls.log.ud")).unwrap();
+        assert_eq!(sent, format!("#!/bin/sh\n{REQ}\n"), "swapped");
     }
 
     #[test]
