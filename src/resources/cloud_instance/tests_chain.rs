@@ -1,11 +1,11 @@
 //! Token chain after a launch (#1134-#1137): the state read, the chain past a
 //! dead or forgotten box, the bounded state-read retry and the launch-time check.
 //! The fake aws is the one of `tests_launch`; launch times are computed relative
-//! to now by the test (no wall-clock seam in the product script).
+//! to now by the test; the token's UTC day is injected (`DAY`).
 
-use super::launch_io::{token, token_input, token_on, CAPACITY_EXIT};
+use super::launch_io::{token_input, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res};
-use super::tests_launch::{err, fixture, iso, launch_with, next_token, run_tokens, Run, ID};
+use super::tests_launch::{err, fixture, iso, launch_with, next_token, run_tokens, tok, Run, ID};
 use super::*;
 
 const ID2: &str = "i-0fedcba9876543210";
@@ -276,7 +276,7 @@ fn the_accepted_launch_time_forms_are_launched() {
 #[test]
 fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     // generation 1 is dead; generation 2's launch is lost (rate limit) but its box exists
-    let t1 = token(&spec_of(&res()).unwrap());
+    let t1 = tok(&res());
     let t2 = next_token(&t1, ID);
     let lost: Run = (
         255,

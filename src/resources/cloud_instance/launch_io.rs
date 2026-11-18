@@ -16,6 +16,7 @@
 
 use super::{lookup_ids, CloudInstance};
 use crate::core::shell_escape::sh_squote;
+use crate::core::types::Resource;
 
 /// Exit code for "no capacity here, try the next candidate".
 pub(super) const CAPACITY_EXIT: i32 = 75;
@@ -73,12 +74,11 @@ pub(super) fn day_of(secs: u64) -> u64 {
     secs / 86_400
 }
 
-/// Today's token for this declaration.
-pub(super) fn token(s: &CloudInstance) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    token_on(&token_input(s), day_of(now))
+/// [`apply_script_on`](super::apply_script_on) for the current UTC day, the one
+/// place the wall clock is read.
+pub fn apply_script(resource: &Resource) -> String {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    super::apply_script_on(resource, day_of(now.map_or(0, |d| d.as_secs())))
 }
 
 /// EC2 answers a reused token with the ORIGINAL reply (id and launch time),
@@ -158,7 +158,7 @@ const CAPACITY_CODES: [&str; 4] = [
 
 /// Shell that follows the `run-instances` arguments: adds the token and the
 /// id-only output, then decides the outcome (see the module doc).
-pub(super) fn tail(s: &CloudInstance) -> String {
+pub(super) fn tail_on(s: &CloudInstance, day: u64) -> String {
     let region = sh_squote(&s.region);
     // `$tok` is the current token of the chain: `fj-` + hex, or 64 hex digits.
     let find = format!(
@@ -175,7 +175,7 @@ pub(super) fn tail(s: &CloudInstance) -> String {
     let codes = CAPACITY_CODES
         .map(|c| format!("*'An error occurred ({c})'*"))
         .join("|");
-    TAIL.replace("@TOKEN@", &sh_squote(&token(s)))
+    TAIL.replace("@TOKEN@", &sh_squote(&token_on(&token_input(s), day)))
         .replace("@STATE@", &state)
         .replace("@GENS@", &MAX_GENERATIONS.to_string())
         .replace("@AGE@", &FORGOTTEN_AFTER_SECS.to_string())

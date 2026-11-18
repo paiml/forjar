@@ -94,6 +94,7 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
 mod tests {
     use super::super::tests::{gated, res, Sandbox, DIGEST};
     use super::super::tests_b1::count;
+    use super::super::tests_launch::{tok, DAY};
     use super::super::*;
     use super::checked;
 
@@ -175,8 +176,8 @@ mod tests {
     #[test]
     fn unset_script_is_byte_identical_to_today() {
         let sb = Sandbox::new();
-        let got = apply_script(&gated(sb.path()));
-        let tok = super::super::launch_io::token(&spec_of(&gated(sb.path())).unwrap());
+        let got = apply_script_on(&gated(sb.path()), DAY);
+        let tok = tok(&gated(sb.path()));
         let want = include_str!("userdata_today.txt")
             .replace("@DIR@", sb.path().to_str().unwrap())
             .replace("@TOKEN@", &format!("'{tok}'"));
