@@ -1,0 +1,70 @@
+{
+  "kind": "code",
+  "issue": "PR #1145: feat(cloud_instance): user-data from a declared file, passed by path",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T13:38:45Z",
+  "head": "98c54bc69daf5827fc028dbb3027f1ac3261b537",
+  "merge_commit": "5125ca6fed9add001dda35b27dbde9bc8910e4c9",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 17 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 13 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 14 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 44,
+    "claims_confirmed": 41,
+    "claims_refuted": 3,
+    "refuted_claims": [
+      "lane 1 claim 8: Line1 #!, line2 exact shutdown; CRLF refused (bad[8] l.247) | judges REFUTED 3 of 3: Refuters split (R1 SURVIVED, R2/R3 REFUTED); R2/R3 are right. src/resources/cloud_instance/userdata.rs:75-78 at 5125ca6 `ud_l1=\"$(sed -n 1p ...)\"`, `ud_l2=\"$(sed -n 2p ...)\"`, `case \"$ud_l1\" in '#!'*) ;;`, `[ \"$ud_l2\" != {line} ]`: a CRLF file with no final terminator (`#!/bin/sh\\r\\nshutdown -h +60`) gives ud_l1 `#!/bin/sh\\r` (matches '#!'*) and ud_l2 without \\r, so it passes; 'CRLF files are refused' is not TRUE. The only CRLF test (l.247) ends line 2 with \\r\\n. R1 checked only that test. || 2 of 3 refuters REFUTED (r1 SURVIVED citing only the l.247 test). userdata.rs:76 'ud_l2=\"$(sed -n 2p \"$ud_file\" ...)\"' and :77 \"case \\\"$ud_l1\\\" in '#!'*)\": a CRLF file whose line 2 has no terminator ('#!/bin/sh\\r\\nshutdown -h +60') gives ud_l1='#!/bin/sh\\r' (matches '#!'*) and ud_l2='shutdown -h +60' (no \\r), so it passes; the only CRLF test (l.247) ends line 2 with \\r\\n plus a MARKER line. 'CRLF files are refused' is not true for every CRLF file. || Refuters split (r1 SURVIVED, r2/r3 REFUTED). userdata.rs:75-78 at 5125ca6: 'ud_l1=\"$(sed -n 1p ..)\"', 'ud_l2=\"$(sed -n 2p ..)\"', \"case \\\"$ud_l1\\\" in '#!'*)\", '[ \"$ud_l2\" != {line} ]': \\r is only caught on line 2. A CRLF file with no final terminator ('#!/bin/sh\\r\\nshutdown -h +60') gives ud_l1 '#!/bin/sh\\r' (matches '#!'*) and ud_l2 without \\r, so it passes. Only CRLF test (l.247) has \\r on line 2 and the test appends a MARKER line. 'CRLF files are refused' TRUE is not universal; r1 checked only the tested case.",
+      "lane 1 claim 16: Changed content/path invisible; no test pins it | judges REFUTED 3 of 3: Refuters split (R1/R2 REFUTED, R3 SURVIVED with no test cited). src/resources/cloud_instance/userdata.rs:327-335 at 5125ca6, test the_path_is_not_part_of_the_instance_key: `with_file(sb.path(), b\"x\")` and `with_file(sb.path(), b\"y\")` plus `user_data_file = Some(\"/tmp/other-ud.sh\")` each `assert_eq!(key_of(&spec_of(..).unwrap()), plain)`. Changed content and path are pinned to the same instance key, the key that decides present vs relaunch, so 'there is no test that pins it, so it is not falsifiable' is false. Only the plan-line half is untested. || 2 of 3 refuters REFUTED; r3 SURVIVED citing only the doc l.20-21. userdata.rs:327-335 the_path_is_not_part_of_the_instance_key: with_file(b\"x\") and with_file(b\"y\") with path '/tmp/other-ud.sh' both 'assert_eq!(key_of(&spec_of(..).unwrap()), plain)', which pins the key-invariance that makes changed content/path non-drift. 'no test that pins it' is false (plan-line half is untested, but the assertion as written is false). || Refuters split (r1/r2 REFUTED, r3 SURVIVED). userdata.rs:327-335 at 5125ca6 'fn the_path_is_not_part_of_the_instance_key': 'with_file(sb.path(), b\"x\")' and 'with_file(sb.path(), b\"y\")' plus 'r2.cloud.user_data_file = Some(\"/tmp/other-ud.sh\".into())' each 'assert_eq!(key_of(&spec_of(..).unwrap()), plain)'. Changed content and path are pinned to the same key, which is what check/apply match on, so 'no test that pins it, so it is not falsifiable' is false (plan-line half untested, but the claim's assertion is the absence of any pinning test). r3 cited only the doc lines.",
+      "lane 3 claim 9: CRLF refused via line 2 | judges REFUTED 3 of 3: Refuters split (R1 SURVIVED, R2/R3 REFUTED). userdata.rs:76-78 at 5125ca6: the \\r is caught only on line 2 (`sed -n 2p` then exact `!=`); line 1 is matched by `'#!'*`, which accepts `#!/bin/sh\\r`. A CRLF file without a terminator after line 2 has no \\r in ud_l2 and passes, so the lane's mechanism does not refuse every CRLF file. || 2 of 3 refuters REFUTED (r1 SURVIVED on the l.247 test). userdata.rs:76 'sed -n 2p' keeps \\r only when line 2 is CRLF-terminated; '#!/bin/sh\\r\\nshutdown -h +60' (no final terminator) gives ud_l2 equal to the required line and :77 '#!'* accepts '#!/bin/sh\\r', so the guard passes. The mechanism does not refuse every CRLF file. || Refuters split (r1 SURVIVED, r2/r3 REFUTED). userdata.rs:76-78 at 5125ca6: 'ud_l2=\"$(sed -n 2p \"$ud_file\" ..)\"' then '[ \"$ud_l2\" != {line} ]': a CRLF file without a final line terminator ('#!/bin/sh\\r\\nshutdown -h +60') has no \\r on line 2, and line 1 '#!/bin/sh\\r' matches \"'#!'*\", so it passes. The 'via line 2' mechanism does not refuse every CRLF file; r1 checked only the tested case (l.247)."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1145-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "d6c4157561dbdd8b7c6dc98e13c064a6eb0cf6c3",
+        "sha256": "eb600bca29bd247968a29f86dc8118ff5729d50d95d62ba353b5c61c27f4103f",
+        "bytes": 6833
+      },
+      {
+        "path": ".quorum/evidence/PR-1145-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "f1fb0bc4e6e2400e1b0a0bf8c528eb808299e38a",
+        "sha256": "fdd3ab89864f0b11966b6a2ad0d6d40c48c28f0294433efb9cc94a06d330e3de",
+        "bytes": 6659
+      },
+      {
+        "path": ".quorum/evidence/PR-1145-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e3b74e6af31e69e308499feb5852343675bcd322",
+        "sha256": "3e99a308a19f39b7b55b2252f8f95e6ebe6850700610f7952374fa86e88ebe19",
+        "bytes": 6959
+      }
+    ],
+    "total_bytes": 20451,
+    "claims_digest": ".quorum/evidence/PR-1145-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
