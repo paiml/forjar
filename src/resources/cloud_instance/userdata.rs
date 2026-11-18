@@ -11,7 +11,7 @@
 //!
 //! A declared file REPLACES the built-in script, which carries the instance's only lifetime
 //! bound (`shutdown -h +N`) and delivers `FORJAR_IMAGE`. Fail closed: the apply guard also
-//! refuses unless line 1 of the file starts with `#!` and line 2 is exactly
+//! refuses unless line 1 of the file is exactly a shell `#!` line (`SHELLS`) and line 2 is exactly
 //! `shutdown -h +<max_lifetime_min>` (read with `sed`, compared whole, never printed), so the
 //! shutdown is scheduled as the file's first command, before any workload runs. The tool CHECKS
 //! that; it cannot guarantee the file's later commands do not cancel it (`shutdown -c`).
@@ -32,6 +32,8 @@ use crate::core::shell_escape::sh_squote;
 /// EC2 takes 16 KB raw; the fleet's own limit is 16000.
 const MAX_BYTES: usize = 16000;
 const MAX_PATH: usize = 255;
+/// The only accepted line 1: a shell, so line 2 runs as a command. CR, args and other interpreters fail.
+const SHELLS: &str = "'#!/bin/sh'|'#!/bin/bash'|'#!/usr/bin/env sh'|'#!/usr/bin/env bash'";
 
 /// Validate the declared path: absent stays absent; anything outside the allow-list is refused.
 pub(super) fn checked(v: &Option<String>) -> Result<Option<String>, String> {
@@ -74,7 +76,7 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
          if [ \"$ud_n\" -gt {MAX_BYTES} ]; then {big}; fi\n\
          ud_l1=\"$(sed -n 1p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
          ud_l2=\"$(sed -n 2p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
-         case \"$ud_l1\" in '#!'*) ;; *) {noshebang} ;; esac\n\
+         case \"$ud_l1\" in {shells}) ;; *) {noshebang} ;; esac\n\
          if [ \"$ud_l2\" != {line} ]; then {noline}; fi\n",
         p = sh_squote(p),
         missing = refuse("is missing or not a regular file"),
@@ -82,7 +84,8 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
         empty = refuse("is empty"),
         big = refuse(&format!("is larger than {MAX_BYTES} bytes")),
         line = sh_squote(&required_line(life_min)),
-        noshebang = refuse("must start with #! on line 1"),
+        shells = SHELLS,
+        noshebang = refuse("must have line 1 exactly #!/bin/sh or #!/bin/bash"),
         noline = refuse(&format!(
             "must have exactly [{}] as line 2 (the lifetime bound, first command)",
             required_line(life_min)
@@ -263,11 +266,32 @@ mod tests {
         std::fs::write(&ud, "no shebang\nshutdown -h +60\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 1, "{out}");
-        assert!(out.contains("must start with #! on line 1"), "{out}");
+        assert!(out.contains("must have line 1 exactly"), "{out}");
         std::fs::write(&ud, "#!/bin/sh\nshutdown -h +60\n/opt/train.sh\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "{out}");
         assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
+    }
+
+    #[test]
+    fn line_one_must_name_a_shell() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (r, _) = with_file(sb.path(), b"");
+        let script = apply_script(&r);
+        let ud = sb.path().join("ud.sh");
+        let bad = ["#!/usr/bin/python3\n", "#!/nonexistent\n", "#!/bin/sh\r\n"];
+        for l1 in bad {
+            std::fs::write(&ud, format!("{l1}{REQ}")).unwrap();
+            let (rc, out) = sb.run(&script, "");
+            assert_eq!(rc, 1, "{l1:?}: {out}");
+            assert!(out.contains("REFUSED: cloud_user_data_file"), "{out}");
+            assert_eq!(sb.log(), "", "{l1:?}: no aws call");
+        }
+        for l1 in ["#!/bin/bash", "#!/usr/bin/env sh"] {
+            std::fs::write(&ud, format!("{l1}\n{REQ}")).unwrap();
+            assert_eq!(sb.run(&script, "").0, 0, "{l1}");
+        }
     }
 
     #[test]
