@@ -41,7 +41,7 @@
 # The receipt is read AT HEAD, never from the working tree: a gate that reads
 # uncommitted files reports on a tree no one else will ever have.
 #
-# UNMEASURED IS FAIL: a gh that cannot answer, a page that fills the limit or a
+# UNMEASURED IS FAIL: a gh that cannot answer, a window not read in full or a
 # receipt that is not parsable JSON each mean this gate does not know what it
 # checked, and it says so rather than printing the words of a check that ran.
 set -euo pipefail

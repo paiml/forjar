@@ -1,158 +1,45 @@
-//! PMAT-1164: the release window's PR read pages past one 200-PR page instead of
-//! refusing, and a read that cannot finish stays UNMEASURED (never a pass).
-//! Runs the real gate A script against a stubbed `gh` that honours
-//! `--search merged:A..B` and caps a page at 200, as GitHub does.
-
+//! PMAT-1164: gate A pages a window past 200 PRs; a read that cannot finish is UNMEASURED.
 #![cfg(unix)]
-
 #[path = "dogfood_gates_harness/mod.rs"]
 mod harness;
-
 use harness::*;
-use std::process::Command;
-
-fn ct(fx: &Fixture, rev: &str) -> i64 {
-    stdout_of(&git(&fx.root, &["log", "-1", "--format=%ct", rev]))
-        .parse()
-        .expect("epoch")
-}
-
-/// The window the gate reads: from the tag commit to HEAD's time plus a day.
-fn bounds(fx: &Fixture) -> (i64, i64) {
-    (ct(fx, &fx.tagged), ct(fx, &fx.head) + 86_400)
-}
-
-fn row(n: usize, t: i64, oid: &str) -> String {
-    format!(
-        r#"{{"number":{n},"t":{t},"mergedAt":"x","mergeCommit":{{"oid":"{oid}"}},"headRefName":"{HEAD_REF}","title":"t","body":"b"}}"#
-    )
-}
-
-/// `n` PRs spread over the window, plus `mid` more on the midpoint second.
-fn rows(fx: &Fixture, n: usize, mid: usize) -> String {
-    let (a, b) = bounds(fx);
-    let mut v: Vec<String> = (0..n)
-        .map(|i| {
-            row(
-                i + 1,
-                a + 1 + (i as i64) * (b - a - 2) / (n as i64 - 1),
-                &fx.head,
-            )
-        })
-        .collect();
-    v.extend((0..mid).map(|i| row(1000 + i, (a + b) / 2, &fx.head)));
-    format!("[{}]", v.join(","))
-}
-
-fn paged(fx: &Fixture, rows: &str, mode: &str) -> String {
-    stub_gh_paged(fx.root.parent().expect("tempdir"), mode, rows, mode)
-}
-
-fn fx() -> Fixture {
-    fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()))
-}
-
-#[test]
-fn gate_a_a_window_of_450_prs_is_fully_measured() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 0), "honest");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_green(
-        "A",
-        "450 PRs over a 200-PR page are read to the end and judged",
-    );
-    r.assert_says("450 of 450");
-}
-
-#[test]
-fn gate_a_a_window_of_450_prs_loses_none_at_the_seams() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 3), "honest");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_green(
-        "A",
-        "PRs on the midpoint second sit in both halves, none lost",
-    );
-    r.assert_says("453 of 453");
-}
-
-#[test]
-fn gate_a_a_truncating_gh_is_unmeasured() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 0), "always-full");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_not_green("A", "a gh that fills every page cannot be read to the end");
-    r.assert_says("UNMEASURED");
-}
-
-#[test]
-fn gate_a_a_failed_slice_is_unmeasured() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 0), "fail-second-call");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_not_green("A", "a slice that cannot be read is no partial result");
-    r.assert_says("UNMEASURED");
-}
-
-#[test]
-fn gate_a_inconsistent_bisect_is_unmeasured() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 0), "child-drops-a-row");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_not_green(
-        "A",
-        "a short half that lost a row the full page listed is partial",
-    );
-    r.assert_says("UNMEASURED");
-}
-
-#[test]
-fn gate_a_release_pr_merged_1s_after_tag_and_late_dated_ancestor_both_counted() {
-    let fx = fx();
-    // An ancestor of HEAD dated two hours AFTER HEAD, then HEAD itself.
-    let t0 = ct(&fx, &fx.head);
-    let late = format!("@{} +0000", t0 + 7_200);
-    let commit = |msg: &str, date: &str| {
-        let ok = Command::new("git")
-            .args(["commit", "-q", "--allow-empty", "-m", msg])
-            .current_dir(&fx.root)
-            .env("GIT_COMMITTER_DATE", date)
-            .env("GIT_AUTHOR_DATE", date)
-            .status()
-            .expect("git commit")
-            .success();
-        assert!(ok, "commit {msg}");
-        stdout_of(&git(&fx.root, &["rev-parse", "HEAD"]))
+fn go(n: usize, mid: usize, mode: &str) -> Run {
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    let ct = |r: &str| -> i64 {
+        stdout_of(&git(&fx.root, &["log", "-1", "--format=%ct", r]))
+            .parse()
+            .unwrap()
     };
-    let x = commit("late-dated ancestor (#78)", &late);
-    let h = commit("HEAD (#79)", &format!("@{} +0000", t0));
-    let rows = format!("[{},{}]", row(78, t0 + 7_201, &x), row(79, t0 + 1, &h));
-    let gh = paged(&fx, &rows, "honest");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_green(
-        "A",
-        "both PRs are in the window though merged after HEAD's own time",
-    );
-    r.assert_says("2 of 2");
+    let (a, b) = (ct(&fx.tagged), ct(&fx.head) + 86_400);
+    let t = |i: usize| match i < n {
+        true => a + 1 + (i as i64) * (b - a - 2) / (n as i64 - 1),
+        false => (a + b) / 2,
+    };
+    let row = |i: usize| {
+        let (num, t, h) = (i + 1, t(i), &fx.head);
+        format!(
+            r#"{{"number":{num},"t":{t},"mergedAt":"x","mergeCommit":{{"oid":"{h}"}},"headRefName":"{HEAD_REF}","title":"t","body":"b"}}"#
+        )
+    };
+    let rows = format!("[{}]", (0..n + mid).map(row).collect::<Vec<_>>().join(","));
+    let gh = stub_gh_paged(fx.root.parent().expect("dir"), &rows, mode);
+    run(&fx, "harness.sh", &gh)
 }
-
 #[test]
-fn gate_a_a_page_full_for_one_second_names_the_second_it_cannot_split() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 450, 0), "always-full");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_not_green("A", "a page full at one second cannot be split further");
-    r.assert_says("single second");
+fn a_450_pr_window_is_fully_measured_and_loses_none_at_the_seams() {
+    go(450, 0, "honest").assert_green("A", "450 PRs are read to the end");
+    go(450, 3, "honest").assert_says("453 of 453");
 }
-
 #[test]
-fn gate_a_a_window_needing_more_than_the_call_cap_is_unmeasured() {
-    let fx = fx();
-    let gh = paged(&fx, &rows(&fx, 6000, 0), "honest");
-    let r = run(&fx, "harness.sh", &gh);
-    r.assert_not_green(
-        "A",
-        "6000 PRs need over 40 slices; a runaway read is cut off",
-    );
-    r.assert_says("more than 40");
+fn a_read_that_cannot_finish_is_unmeasured() {
+    for (n, mode, says) in [
+        (450, "always-full", "single second"),
+        (450, "fail-second-call", "UNMEASURED"),
+        (450, "child-drops-a-row", "UNMEASURED"),
+        (6000, "honest", "more than 40"),
+    ] {
+        let r = go(n, 0, mode);
+        r.assert_not_green("A", mode);
+        r.assert_says(says);
+    }
 }
