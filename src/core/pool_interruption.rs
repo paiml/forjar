@@ -18,9 +18,10 @@ pub struct NoticeResponse {
     pub deregister: bool,
 }
 
-/// Respond to the 2-minute notice. The response never depends on how much of
-/// the notice is left: a late notice still drains and deregisters.
-pub fn on_notice() -> NoticeResponse {
+/// Respond to the 2-minute notice with `secs_left` seconds remaining. The
+/// response never depends on it: a late notice (even 0 s) still drains and
+/// deregisters.
+pub fn on_notice(_secs_left: u64) -> NoticeResponse {
     NoticeResponse {
         stop_accepting: true,
         deregister: true,
@@ -86,8 +87,16 @@ mod tests {
 
     #[test]
     fn notice_stops_accepting_and_deregisters() {
-        let r = on_notice();
+        let r = on_notice(120);
         assert!(r.stop_accepting && r.deregister);
+    }
+
+    #[test]
+    fn late_notice_still_drains_and_deregisters() {
+        for left in [0, 1, u64::MAX] {
+            let r = on_notice(left);
+            assert!(r.stop_accepting && r.deregister, "{left}");
+        }
     }
 
     #[test]
