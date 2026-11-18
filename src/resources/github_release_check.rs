@@ -12,7 +12,7 @@
 use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::Resource;
 use crate::resources::verdict;
-use crate::tripwire::drift::version_pin::{declared_pin, Pin};
+use crate::tripwire::drift::version_pin::{declared_pin, parse_semver_span, Pin};
 
 /// Check script: the binary is a regular executable file and a versioned pin
 /// equals the live version. The binary runs once, in [`live_version`].
@@ -99,20 +99,22 @@ fn version_assertion(resource: &Resource, repo: &str) -> String {
 }
 
 /// The pre-release suffix of a tag, `-rc1` for `v1.2.3-rc1`, or empty: the
-/// first `-` that follows a digit and precedes a letter, plus the
-/// `[A-Za-z0-9.-]` run after it. Matches what [`live_version`] stores in `FJ_LIVEPRE`.
+/// `-` directly after the `N.N.N` that `parse_semver` reads (when a letter
+/// follows it), plus the `[A-Za-z0-9.-]` run after it. Matches what
+/// [`live_version`] stores in `FJ_LIVEPRE`; a `-` before the version
+/// (`cli2-v1.2.3`) is not a suffix.
 fn pin_prerelease(tag: &str) -> String {
-    let b = tag.as_bytes();
-    let Some(i) = (1..b.len().saturating_sub(1))
-        .find(|&i| b[i] == b'-' && b[i - 1].is_ascii_digit() && b[i + 1].is_ascii_alphabetic())
-    else {
+    let Some((_, end)) = parse_semver_span(tag) else {
         return String::new();
     };
+    let rest = &tag[end..];
     let run = |c: &char| c.is_ascii_alphanumeric() || *c == '.' || *c == '-';
-    format!(
-        "-{}",
-        tag[i + 1..].chars().take_while(run).collect::<String>()
-    )
+    match rest.strip_prefix('-') {
+        Some(s) if s.starts_with(|c: char| c.is_ascii_alphabetic()) => {
+            format!("-{}", s.chars().take_while(run).collect::<String>())
+        }
+        _ => String::new(),
+    }
 }
 
 /// Set `FJ_SUMOK` (1 unless a declared `checksum:` fails) before the binary is
