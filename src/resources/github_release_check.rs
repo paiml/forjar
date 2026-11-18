@@ -1,7 +1,8 @@
 //! forjar#1049: the `github_release` check asserts the declared version, not
 //! just that an executable exists.
 //! * a tag that names a version (`v0.33.2`) must equal the first `N.N.N` the
-//!   live `--version` prints, or the check diverges;
+//!   live `--version` prints, or the check diverges; a pre-release suffix
+//!   (`-rc1`) on either side must equal the other side's;
 //! * `latest`, no tag, or a tag that names no version (`nightly`) is not
 //!   compared: presence-only, exactly as before.
 //! * `checksum:` (hex sha256 of the installed file, optional `sha256:` prefix)
@@ -40,7 +41,7 @@ pub(super) fn check_script(resource: &Resource, reject_bad_repo: fn(&str) -> Str
 /// The one reader of a binary's live version. Sets `FJ_PRESENT` (1 for a
 /// regular executable file), `FJ_VERLINE` (first line of `--version`) and
 /// `FJ_LIVE` (its first `N.N.N` at a token boundary, read bytewise the way
-/// `parse_semver` reads it).
+/// `parse_semver` reads it) and `FJ_LIVEPRE` (the `-rc1` suffix right after it).
 ///
 /// `permissive` (the apply-side downgrade guard, forjar#613/#1067) merges stderr
 /// and parses a non-zero exit too: a tool that prints its version on stderr or
@@ -57,15 +58,16 @@ pub(super) fn live_version(bin_path: &str, permissive: bool) -> String {
         format!("{bin_path} --version >\"$FJ_OUT\" 2>/dev/null")
     };
     format!(
-        "FJ_PRESENT=0; FJ_LIVE=''; FJ_VERLINE=''\n\
+        "FJ_PRESENT=0; FJ_LIVE=''; FJ_LIVEPRE=''; FJ_VERLINE=''\n\
          if [ -f {bin_path} ] && [ -x {bin_path} ]; then\n\
          \x20 FJ_PRESENT=1\n\
          \x20 FJ_OUT=$(mktemp) || FJ_OUT=''\n\
          \x20 if [ \"$FJ_SUMOK\" = 1 ] && {{ {run}; }}; then\n\
          \x20\x20\x20 FJ_VERLINE=$( head -n 1 \"$FJ_OUT\" | tr '\\0' ' ' || true )\n\
-         \x20\x20\x20 FJ_LIVE=$( head -n 20 \"$FJ_OUT\" | tr '\\0' ' ' | \
-         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+([^.0-9]|[.]([^0-9]|$)|$)' | \
-         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+' || true )\n\
+         \x20\x20\x20 FJ_FULL=$( head -n 20 \"$FJ_OUT\" | tr '\\0' ' ' | \
+         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+(-[A-Za-z][0-9A-Za-z.-]*)?([^.0-9]|[.]([^0-9]|$)|$)' | \
+         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+(-[A-Za-z][0-9A-Za-z.-]*)?' || true )\n\
+         \x20\x20\x20 FJ_LIVE=\"${{FJ_FULL%%-*}}\"; FJ_LIVEPRE=\"${{FJ_FULL#\"$FJ_LIVE\"}}\"\n\
          \x20 fi\n\
          \x20 rm -f \"$FJ_OUT\"\n\
          fi\n"
@@ -87,11 +89,29 @@ fn version_assertion(resource: &Resource, repo: &str) -> String {
         return String::new();
     };
     let want = format!("{}.{}.{}", pin.major, pin.minor, pin.patch);
+    let pre = pin_prerelease(resource.tag.as_deref().unwrap_or_default());
     format!(
         "\x20 FJ_NORM=$( printf '%s\\n' \"$FJ_LIVE\" | sed -E 's/(^|[.])0+([0-9])/\\1\\2/g' )\n\
-         \x20 if [ \"$FJ_NORM\" != '{want}' ]; then\n\
-         \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}:have ${{FJ_NORM:-unreadable}}\"; __fj_diverged=1\n\
+         \x20 if [ \"$FJ_NORM\" != '{want}' ] || [ \"$FJ_LIVEPRE\" != '{pre}' ]; then\n\
+         \x20\x20\x20 echo \"version-mismatch:{repo}:want {want}{pre}:have ${{FJ_NORM:-unreadable}}$FJ_LIVEPRE\"; __fj_diverged=1\n\
          \x20 fi\n"
+    )
+}
+
+/// The pre-release suffix of a tag, `-rc1` for `v1.2.3-rc1`, or empty: the
+/// first `-` that follows a digit and precedes a letter, plus the
+/// `[A-Za-z0-9.-]` run after it. Matches what [`live_version`] stores in `FJ_LIVEPRE`.
+fn pin_prerelease(tag: &str) -> String {
+    let b = tag.as_bytes();
+    let Some(i) = (1..b.len().saturating_sub(1))
+        .find(|&i| b[i] == b'-' && b[i - 1].is_ascii_digit() && b[i + 1].is_ascii_alphabetic())
+    else {
+        return String::new();
+    };
+    let run = |c: &char| c.is_ascii_alphanumeric() || *c == '.' || *c == '-';
+    format!(
+        "-{}",
+        tag[i + 1..].chars().take_while(run).collect::<String>()
     )
 }
 

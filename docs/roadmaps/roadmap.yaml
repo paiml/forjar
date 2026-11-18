@@ -8145,3 +8145,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1190
+  github_issue: 1190
+  item_type: task
+  title: 'github_release check distinguishes a pre-release pin from its final release'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

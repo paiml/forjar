@@ -79,3 +79,19 @@ fn no_pin_keeps_presence_only_behaviour() {
         assert!(converged(d.path(), tag), "{tag:?}");
     }
 }
+
+#[test]
+fn prerelease_pin_with_final_live_is_not_converged() {
+    let d = tempfile::tempdir().unwrap();
+    exe(d.path(), "#!/bin/sh\necho 'tool 1.2.3'\n");
+    assert!(!converged(d.path(), Some("v1.2.3-rc1")));
+}
+
+#[test]
+fn final_pin_with_prerelease_live_is_not_converged() {
+    let d = tempfile::tempdir().unwrap();
+    exe(d.path(), "#!/bin/sh\necho 'tool 1.2.3-rc1'\n");
+    assert!(!converged(d.path(), Some("v1.2.3")));
+    exe(d.path(), "#!/bin/sh\necho 'tool v1.2.3-rc1 (abc)'\n");
+    assert!(converged(d.path(), Some("v1.2.3-rc1")));
+}
