@@ -8150,3 +8150,57 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1176
+  github_issue: 1176
+  item_type: task
+  title: 'post-merge review receipts for merged PRs #1126 and #1120'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1177
+  github_issue: 1177
+  item_type: task
+  title: 'post-merge review receipts for merged PRs #1101 and #1140'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1178
+  github_issue: 1178
+  item_type: task
+  title: 'post-merge review receipts for merged PRs #1145 and #1156'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

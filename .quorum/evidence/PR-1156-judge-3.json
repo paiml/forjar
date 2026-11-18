@@ -1,0 +1,416 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 13,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 14,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 15,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 16,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 17,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 18,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 19,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 20,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 21,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 22,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 1,
+    "claim": 23,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 11,
+    "verdict": "REFUTED",
+    "reason": "Cargo.toml:94 `bashrs = \"7.4.2\"` is a non-optional forjar dep (Cargo.toml:221-224 `bashrs — backs invariant I8 ... NOT severable`) and bashrs-7.4.2 depends on chrono non-optionally (Cargo.lock:266), so the lane's route (drop optional pmcp, Cargo.toml:104) still leaves chrono locked; the body's `impossible inside this repo` stands. Refuters 1,2 REFUTED on this bashrs path; refuter 3 SURVIVED citing only the pmcp edge and the `(or forjar drops pmcp)` text, which does not remove chrono alone (deny.toml:40 `removed when bashrs and pmcp both drop chrono ... and Cargo.lock no longer locks chrono`). The lane's wording sub-point on the row parenthetical does not rescue its FALSE verdict."
+  },
+  {
+    "lane": 2,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 13,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 14,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 15,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 16,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 17,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 18,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 19,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 20,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 21,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 22,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 2,
+    "claim": 23,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 13,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 14,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 15,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 16,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 17,
+    "verdict": "SURVIVED",
+    "reason": "SURVIVED: core defect true, test.rs:111 `presence_ok(&read(\"Cargo.lock\"), deny_line().is_some())` reads only deny.toml and :155 `presence_ok(&without, true)` hard-codes true, so no test checks audit.toml presence against the lock. Refuter 2 REFUTED on the parenthetical `only deny_and_audit_... catches it (:129)`, which is indeed an undercount (:139-142, :198-202, :216-220 also fail with deny row absent), but that sub-remark is not the asserted defect; refuters 1,3 SURVIVED (3 notes the same undercount)."
+  },
+  {
+    "lane": 3,
+    "claim": 18,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 19,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 20,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 21,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 22,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  },
+  {
+    "lane": 3,
+    "claim": 23,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked against refuter evidence, not contradicted"
+  }
+]

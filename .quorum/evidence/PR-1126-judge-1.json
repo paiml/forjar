@@ -1,0 +1,200 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 12,
+    "verdict": "REFUTED",
+    "reason": "Refuter-3 right, refuters 1/2 missed it. The 'only via fallback' premise is false: src/core/resolver/template.rs:204-205 'result.replace_range(open..close, &value); start = open + value.len();' is single-pass, so a param whose value is '{{params.x}}' resolves Ok and leaves '{{' in kill_switch/parity_gate/budget (resolved at resolver/resource.rs:160-163); a '}}'-only path ('/run/}}x', tests_resolve.rs:161) never errors at all (loop at :195 keys on '{{'). Same Ok-with-'{{' shape the PR's own test uses: tests_resolve.rs:65,76-77."
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "Refuters split (1,2 REFUTED; 3 SURVIVED). Incidental wording is wrong: the_dispatcher_refuses_what_the_generators_refuse (tests_resolve.rs:117-144) is also text-only ('assert!(script.contains(\"REFUSED\"))' :135), and the gate test runs the Sandbox for its baseline (:158). Refuter-1's tests_b1.rs:70 absent(res()) shows absent needs no gates, but not that absent ignores a templated gate. The defect itself holds: the gate cases at tests_resolve.rs:160-168 check apply_script text only, state present only, no absent leg."
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted (3/3 SURVIVED); cited line not checked"
+  }
+]
