@@ -8019,3 +8019,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1167
+  github_issue: 1167
+  item_type: task
+  title: 'post-merge review receipts for the v1.34.2 window, batch 2 of 6'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
