@@ -8130,7 +8130,7 @@ roadmap:
 - id: PMAT-1184
   github_issue: 1184
   item_type: task
-  title: 'advisory-ignore expiry is compared with today's UTC date'
+  title: "advisory-ignore expiry is compared with today's UTC date"
   status: planned
   priority: high
   assigned_to: null
