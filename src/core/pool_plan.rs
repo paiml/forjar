@@ -140,6 +140,17 @@ fn count_existing(s: &Snapshot, labels: Option<&str>) -> u32 {
         .count() as u32
 }
 
+/// Reason a due label set got no launch: the first of per-label room, pool
+/// room, then the per-tick budget that is zero.
+fn blocked_by(labels: &str, queued: u32, room_label: u32, room_total: u32) -> String {
+    let cap = match (room_label, room_total) {
+        (0, _) => "max_seats_per_labels",
+        (_, 0) => "max_seats",
+        _ => "max_launch_per_tick",
+    };
+    format!("{queued} queued for {labels}, launch blocked by {cap}")
+}
+
 /// Compute the plan. Order: retirements first, then launches by label set
 /// (sorted), so the result is deterministic. Launches are clamped against the
 /// seats that exist now: a retirement may fail, so it frees no room until a
@@ -163,6 +174,7 @@ pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
     }
     let mut total_live = count_existing(s, None);
     let mut budget = c.max_launch_per_tick;
+    let mut blocked: Option<String> = None;
     for (labels, q) in &queue {
         let idle = count_idle_kept(s, &retired, labels);
         let due = q.queued > idle || q.oldest_age_secs > SCALE_UP_AGE_SECS;
@@ -175,6 +187,9 @@ pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
             .saturating_sub(count_existing(s, Some(labels)));
         let room_total = c.max_seats.saturating_sub(total_live);
         let count = want.min(room_label).min(room_total).min(budget);
+        if count == 0 {
+            blocked.get_or_insert_with(|| blocked_by(labels, q.queued, room_label, room_total));
+        }
         if count > 0 {
             total_live += count;
             budget -= count;
@@ -190,7 +205,7 @@ pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
     }
     if actions.is_empty() {
         actions.push(Action::Nothing {
-            reason: "queue served, no seat due for retirement".into(),
+            reason: blocked.unwrap_or_else(|| "queue served, no seat due for retirement".into()),
         });
     }
     Ok(actions)
