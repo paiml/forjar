@@ -1,0 +1,200 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "REFUTED",
+    "reason": "Commit 2's 'byte-identical' describes its own move: the SSH_SHIM literal in 1a5f1eb9ac01 (commit 1) and tests/falsification_e02_ssh_shim.sh at 406e3362 both carry the `df -i`/`.scripts` lines (2 matches each), while 406e3362^ has 0. So the move is identical and the extra text came from commit 1. The lane's FALSE compares against the squash base, which the commit does not claim. Refuter 1's SURVIVED reads the same facts against that base; r2 and r3 measured cmp identical."
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "REFUTED",
+    "reason": "docs/roadmaps/roadmap.yaml:7659-7662 at 406e3362: `- id: PMAT-858` ... `title: e02 ControlMaster-before-drift-gate test fixture answers the inode pre-check (forjar#858)`. #858 is this exact fixture fix, so the 'Part of #858' link is supported. Refuters split: r1 REFUTED (scope covers red-test fixtures); r2 and r3 left it UNVERIFIED/SURVIVED without reading the roadmap row, which settles it."
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  }
+]
