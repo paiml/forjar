@@ -1,8 +1,10 @@
 //! Pool orphan sweep (#894, slice 2): a pure function from the registered
 //! runners and the live hosts to the cleanups. No I/O; the caller applies it.
 //!
-//! The output terminates instances, so the sweep fails closed: any input it
-//! cannot trust is refused with a [`SweepError`] and nothing is terminated.
+//! The output terminates instances. Input it cannot trust is refused with a
+//! [`SweepError`] and nothing is terminated, except a runner whose host id
+//! equals no listed host: it is returned in `Sweep::unknown_runners`, and only
+//! a host whose id equals that host id ignoring ASCII case is kept.
 //! It returns hosts to terminate only; runner deregistration is not part of it.
 
 use super::pool_reconcile::SCALE_DOWN_QUIET_SECS;
