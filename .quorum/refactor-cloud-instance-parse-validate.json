@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1120: fix(cloud_instance): a templated field no longer hides a bad literal sibling at parse time (#1120)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T09:54:34Z",
+  "head": "1f74f1a82b0c69d0c06000a4d193dbd4f2e06e62",
+  "merge_commit": "7a66bead1af145f57228fc8e8cec4853b93de23c",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 13 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 12 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 15 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 40,
+    "claims_confirmed": 39,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 2 claim 6: provider/state/ami/subnet/sg/zone now always checked; correct because the resolver does not resolve them | judges REFUTED 2 of 3: Refuters split (1 REFUTED; 2,3 SURVIVED). The lane's aside is wrong: resolver/resource.rs:123-124 'r.state = resolve_opt(...)?; r.provider = resolve_opt(...)?;' resolves state and provider, so 'the resolver does not resolve them' is false for those two. The BODY claim and its TRUE verdict hold: cloud_instance_validate.rs:18-40 with_stand_ins replaces only name, image, region, instance_type and max_price, so provider/state/ami/subnet/sg/zone always reach spec_of (:50). || src/core/resolver/resource.rs:123-124 at 7a66bead1af1: `r.state = resolve_opt(&r.state, ...)?;` `r.provider = resolve_opt(&r.provider, ...)?;` in resolve_core_fields (:34, called :230). The lane's 'Correct, because the resolver does not resolve them ... resolves only cloud.*' is false for provider and state, so a resolvable templated provider/state is now rejected at parse time. Refuter-1 right; refuters 2/3 checked only :157-163 and missed :123-124. || Refuter 1 right, 2/3 wrong: the lane justifies the always-checked set with \"the resolver does not resolve them ... resolves only cloud.region...\", but src/core/resolver/resource.rs (resolve_core_fields) at 7a66bead1af1 has `r.state = resolve_opt(&r.state, ...)?;` `r.provider = resolve_opt(&r.provider, ...)?;`, so a templated provider/state is resolvable yet now rejected at parse; the claimed correctness is false (refuters 2/3 checked only the :157-163 cloud block)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1120-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "89a51a789f30dcd05a6bf9a4b6541651554d45a9",
+        "sha256": "d2f1a7dfe7fd7d042eca00912b4f0d345f8b60edb14f34b776dc7a9cb0bf457d",
+        "bytes": 6272
+      },
+      {
+        "path": ".quorum/evidence/PR-1120-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "5b87fcd43361a75b6aa421d9a22e72b807a3bac6",
+        "sha256": "b883e658d98bb9af6399473e2c80e28ea3d102425abfafdb2b4f25e8dd3eb552",
+        "bytes": 5785
+      },
+      {
+        "path": ".quorum/evidence/PR-1120-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "1ccdbebfff190f66161dd27c2bb8a5d87762bef3",
+        "sha256": "a29032835de65e5fddf10f8b89d7555992dbb6e94fa2b1e4d710865ec11fe74a",
+        "bytes": 5708
+      }
+    ],
+    "total_bytes": 17765,
+    "claims_digest": ".quorum/evidence/PR-1120-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

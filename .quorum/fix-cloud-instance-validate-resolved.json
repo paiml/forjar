@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1126: fix(cloud_instance): an unresolved template in a gate path is refused, and resolved values are pinned by tests (#1126)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T09:54:34Z",
+  "head": "062809df3899f6dca8f9795f188524cfeb25323c",
+  "merge_commit": "65cf98d30675c46a13ea7133937e3953126cce42",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 12 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 9 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 12 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 33,
+    "claims_confirmed": 31,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 1 claim 12: DEFECT (premise): unresolved {{ reaches gates only via resolve_or_fallback; no test drives fallback | judges REFUTED 3 of 3: Refuter-3 right, refuters 1/2 missed it. The 'only via fallback' premise is false: src/core/resolver/template.rs:204-205 'result.replace_range(open..close, &value); start = open + value.len();' is single-pass, so a param whose value is '{{params.x}}' resolves Ok and leaves '{{' in kill_switch/parity_gate/budget (resolved at resolver/resource.rs:160-163); a '}}'-only path ('/run/}}x', tests_resolve.rs:161) never errors at all (loop at :195 keys on '{{'). Same Ok-with-'{{' shape the PR's own test uses: tests_resolve.rs:65,76-77. || src/core/resolver/template.rs:204-205 at 65cf98d30675 `result.replace_range(open..close, &value); start = open + value.len();` is single-pass, so a defined param whose value holds `{{..}}` resolves Ok and leaves `{{` in the gate field; tests_resolve.rs:65/76-77 exercises exactly that (`\"{{params.bad}}\"` value, `.expect(\"the param is defined, so resolution succeeds\")`). So 'reaches the gate check only when resolution failed' is false. Refuter-3 right; refuters 1/2 verified the fallback exists, not that it is the only route. || Refuter 3 right, 1/2 checked only the fallback lines: src/core/resolver/template.rs:195-205 is single-pass (`result.replace_range(open..close, &value); start = open + value.len();`), so a param value holding {{..}} resolves successfully and leaves {{ in the gate; tests_resolve.rs:76-77 `.expect(\"the param is defined, so resolution succeeds\")` with bad value \"{{params.bad}}\"; and gate value \"/run/}}x\" (tests_resolve.rs gate test) never fails resolution. \"only when resolution failed\" is false",
+      "lane 2 claim 9: DEFECT: gate test checks text only, no sandbox run / log, present only, so 'absent never reads gates' pinned by no test | judges REFUTED 2 of 3: Refuters split (1,2 REFUTED; 3 SURVIVED). Incidental wording is wrong: the_dispatcher_refuses_what_the_generators_refuse (tests_resolve.rs:117-144) is also text-only ('assert!(script.contains(\"REFUSED\"))' :135), and the gate test runs the Sandbox for its baseline (:158). Refuter-1's tests_b1.rs:70 absent(res()) shows absent needs no gates, but not that absent ignores a templated gate. The defect itself holds: the gate cases at tests_resolve.rs:160-168 check apply_script text only, state present only, no absent leg. || src/resources/cloud_instance/tests_resolve.rs:117-144 at 65cf98d30675 (the_dispatcher_refuses_what_the_generators_refuse) also checks text only (`assert!(script.contains(\"REFUSED\"))`, no sb.run), and the gate test itself runs the Sandbox at :158 `let (rc, _) = sb.run(&apply_script(&gated(sb.path())), \"\");`, so 'unlike every other test in the file it never executes the script in the Sandbox' is false; tests_b1.rs:70 `for r in [absent(res()), absent(gated(sb.path()))]` with closed gates asserts rc==0 and no run-instances, so 'absent never reads the gates is not pinned by any test' is also false. Refuters 1/2 right; refuter-3 only checked the text-only half. || Refuters 1,2 right, 3 wrong: \"unlike every other test in the file\" is false (the_dispatcher_refuses_what_the_generators_refuse in tests_resolve.rs also asserts only `script.contains(\"REFUSED\")`/`!script.contains(\"aws ec2\")`, no sb.run), \"never executes the script in the Sandbox\" is false (gate test `let (rc, _) = sb.run(&apply_script(&gated(sb.path())), \"\");` baseline), and absent-with-gates is exercised in tests_b1.rs `for r in [absent(res()), absent(gated(sb.path()))]` with rc==0 and no run-instances. The narrower gap (bad gate values checked as text only) is real but the claim as written is false"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1126-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "f1c12849afe06cbe822157effa686ab567b2347f",
+        "sha256": "6ffaaa7e25a1abcd857232f29e75e0bc68af448b2806a0d6e2f7997bd4de55a7",
+        "bytes": 5601
+      },
+      {
+        "path": ".quorum/evidence/PR-1126-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "fb2fbd617209cdf40460eaa539de67f3e960bc32",
+        "sha256": "214e3b94b2ce293d2b593c12424c68ee991d77fa3ac755f0724c515929053626",
+        "bytes": 5280
+      },
+      {
+        "path": ".quorum/evidence/PR-1126-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "674939175ab9271eb5c2479d80d313bf542193c4",
+        "sha256": "33137bd5f13754318619327e56b8b6341014d5ea27b2af8a5ae650b17c1b5aca",
+        "bytes": 5200
+      }
+    ],
+    "total_bytes": 16081,
+    "claims_digest": ".quorum/evidence/PR-1126-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
