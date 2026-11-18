@@ -1,0 +1,218 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "REFUTED",
+    "reason": "src/cli/apply.rs:97 `resolve_selection(&mut config, &selectors, verbose)?;` runs before :135 `apply_pre_validate(&config,`; resolve_selection -> closure.rs:140 `prune(config, &keep);` -> :341 `config.resources.retain(|id, _| set.contains(id.as_str()));`, so under -r the gate sees a pruned config and the body's stated gap is real (all 3 refuters agree)"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  }
+]
