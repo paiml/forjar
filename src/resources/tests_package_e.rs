@@ -138,3 +138,12 @@ fn fj1189_underscore_declared_matches_hyphen_in_registry() {
     let out = run_key(&apply_script(&r), fake);
     assert!(out.starts_with("foo_bar-1.2.3-"), "{out}");
 }
+
+#[test]
+fn fj1189_hyphen_declared_matches_underscore_in_registry() {
+    let mut r = make_apt_resource(&["foo-bar"]);
+    r.provider = Some("cargo".to_string());
+    let fake = "echo 'foo_bar-extra = \"9.9.9\"'\necho 'foo_bar = \"1.2.3\"    # x'";
+    let out = run_key(&apply_script(&r), fake);
+    assert!(out.starts_with("foo-bar-1.2.3-"), "{out}");
+}
