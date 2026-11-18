@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1107: fix(tests): host-independent fixtures for two integration tests; two ratchet sites off the untyped path (Refs #858) (#1107)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "bf66dd9e1e97f57db3051b3bfc80b42989e14889",
+  "merge_commit": "4e8e7554d01dc8bc0f878befc962cab3d511cef4",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 15 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 13 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 15 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 43,
+    "claims_confirmed": 41,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 2 claim 3: kind=BODY. \"The untyped-error ratchet test (run by no CI job, so a green PR does not show it)\". Verdict: TRUE, and it also | judges REFUTED 3 of 3: R1 REFUTED, R2/R3 SURVIVED (they checked only ci.yml). Own reading: .github/workflows/coverage.yml:63-64 `push: tags: ['v*']` and :154 `run: cargo llvm-cov --summary-only --fail-under-lines 95` (header :16 `builds 242 integration test binaries`) runs every tests/*.rs target on release tags, the ratchet/replace/io_hash tests included. 'run by no CI job' is false; only the PR path omits them. || body says 'run by no CI job'; .github/workflows/coverage.yml at 4e8e7554 :63-64 `push: tags: ['v*']` and :154 `run: cargo llvm-cov --summary-only --fail-under-lines 95` (header :16 'builds 242 integration test binaries') runs every integration target incl. the ratchet test, so a CI job does run it (on tags). The lane's evidence only covers ci.yml's PR --test list. r1 REFUTED from this file; r2 and r3 grepped for the test name, which an all-targets job never names. || .github/workflows/coverage.yml:63-64 `push: tags: ['v*']`, :154 `run: cargo llvm-cov --summary-only --fail-under-lines 95` (no --test filter, job unconditional at :98) runs every tests/*.rs target incl. the ratchet; 'run by no CI job' is false, true only of the PR path ci.yml:164-185 (r1 right; r2,r3 grepped by name only)",
+      "lane 3 claim 14: BODY TRUE. \"The untyped-error ratchet test (run by no CI job)\". | judges REFUTED 3 of 3: R1 REFUTED, R2/R3 SURVIVED. Own reading: .github/workflows/coverage.yml:63-64 `tags: ['v*']`, :154 `cargo llvm-cov --summary-only --fail-under-lines 95` runs all integration targets including falsification_untyped_error_sites_ratchet; the lane's TRUE for 'run by no CI job' is false (holds only for the PR path, ci.yml:164-185). || same claim as lane 2#3: .github/workflows/coverage.yml:154 `cargo llvm-cov --summary-only --fail-under-lines 95` on `tags: ['v*']` (:63-64) builds and runs all integration test binaries, the ratchet among them; 'run by no CI job' holds only for the PR path (ci.yml:164-185). r2 and r3 checked only for a named --test. || .github/workflows/coverage.yml:63-64 `tags: ['v*']`, :154 `cargo llvm-cov --summary-only --fail-under-lines 95` runs all integration targets including falsification_untyped_error_sites_ratchet (no #[ignore]); a CI job does run it (r1 right; name-grep by r2,r3 misses an unfiltered cargo llvm-cov)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1107-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "f66d53971359c47c7faacb699682183d9cecf790",
+        "sha256": "49d38431558b72f09a25f51542b84fdd01f9b260081d1e6c2bab5e8778564b7d",
+        "bytes": 6288
+      },
+      {
+        "path": ".quorum/evidence/PR-1107-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "4e7ce0f4234655df65fc17d00279c858d43156b3",
+        "sha256": "ce5d783a4f465c4ddb26d0020ce1c93dccc8b924c089b5ef259d55d85f3c81a8",
+        "bytes": 6489
+      },
+      {
+        "path": ".quorum/evidence/PR-1107-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "bb045bdca16d0635689817dfb067f078c55088ec",
+        "sha256": "a8ceb01c5ea839c905652a5a241df79ff643a6564a4a6b15da7192e664d1bf47",
+        "bytes": 6161
+      }
+    ],
+    "total_bytes": 18938,
+    "claims_digest": ".quorum/evidence/PR-1107-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1104: errors: typed ForjarError in cli/image_cmd.rs (5 sites) (#1104)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "d100d92c4d6d72aea3695b9176afa193af0938ae",
+  "merge_commit": "d196fa7a8946c888218e70e95aed32fca20fd45e",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 17 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 16 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 14 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 47,
+    "claims_confirmed": 46,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 2 claim 6: kind=DEFECT. The ceiling is left at 778 while the count it guards moved 5 sites down, so the ratchet keeps 5 sites of sla | judges REFUTED 3 of 3: All three refuters measured the test's measure() at d196fa7a = 782, above scripts/ratchets/untyped-error-sites.json `\"untyped_error_fns\": 778`: the test is red and any new site keeps it red, so 'keeps 5 sites of slack' is false at merge; the commit body says the ceiling is lowered once the count is under it. || scripts/ratchets/untyped-error-sites.json `\"untyped_error_fns\": 778`; three independent refuter emulations of measure() give 782 at d196fa7a (787 at parent; my own emulation gives 787 at 4e8e7554 and 804 at 04878d24, so the method is consistent). The count is above the ceiling, the test is red, and there is no 5-site slack. || scripts/ratchets/untyped-error-sites.json:8 `\"untyped_error_fns\": 778` while the live count is above it (refuters measure 782; my rough git grep of Result<_, String> fn signatures at d196fa7a gives 824), so no slack exists and lowering to 773 would only deepen the red (all 3 refuters agree)"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1104-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "cf5ae5b08f700b1877b9d0379156c700875ed092",
+        "sha256": "aa77072fbc8e879f2434772568f6333733472420feecb7c36fd777d8e7f2ac07",
+        "bytes": 6429
+      },
+      {
+        "path": ".quorum/evidence/PR-1104-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "c2ba2a138a3b5f63c50124e9a7a64393d696f4ef",
+        "sha256": "97386b472dce5f54621251f57d060b0ba21e4500e8eef1daa5b66542ea8506cb",
+        "bytes": 6441
+      },
+      {
+        "path": ".quorum/evidence/PR-1104-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "9420606c3bfc69748b13ea09717034696f91b3c6",
+        "sha256": "e8bf7ba81270f407d4bdf05bbca1a203b17ac99b30ba2491930eb6d51447fbc8",
+        "bytes": 6377
+      }
+    ],
+    "total_bytes": 19247,
+    "claims_digest": ".quorum/evidence/PR-1104-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
