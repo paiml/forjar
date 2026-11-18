@@ -349,6 +349,7 @@ pub(crate) fn fixture_msg(
         "scripts/dogfood/harness.sh",
         "scripts/dogfood/quorum.sh",
         "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
     ] {
@@ -395,7 +396,7 @@ pub(crate) fn fixture_msg(
 /// PMAT-1164: a `gh` over `rows` (a JSON array of PRs, each with an epoch `t`)
 /// that honours `--search merged:A..B` (inclusive) and caps a page at 200, like
 /// GitHub. `mode`: `honest`; `always-full` (ignores the range, always 200 rows);
-/// `fail-second-call` (every call after the first exits 1); `child-drops-a-row`
+/// `fail-second-call` (every call after the first answers, then exits 1); `child-drops-a-row`
 /// (a short slice after the first call loses its first row).
 pub(crate) fn stub_gh_paged(dir: &Path, name: &str, rows: &str, mode: &str) -> String {
     let (rp, cp) = (
@@ -412,7 +413,7 @@ echo x >> '{c}'; n=$(wc -l < '{c}')
 f=$(jq -c --argjson a "$a" --argjson b "$b" '[.[]|select(.t>=$a and .t<=$b)]|.[0:200]' '{r}')
 case '{mode}' in
   always-full) jq -c '.[0:200]' '{r}';;
-  fail-second-call) [ "$n" -ge 2 ] && exit 1; echo "$f";;
+  fail-second-call) [ "$n" -ge 2 ] && {{ echo "$f"; exit 1; }}; echo "$f";;
   child-drops-a-row) [ "$n" -ge 2 ] && f=$(echo "$f" | jq -c 'if length < 200 then .[1:] else . end'); echo "$f";;
   *) echo "$f";;
 esac

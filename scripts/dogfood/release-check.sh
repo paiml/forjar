@@ -54,6 +54,8 @@ fail() {
 
 # shellcheck source=scripts/dogfood/lib/tags.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/tags.sh"
+# shellcheck source=scripts/dogfood/lib/prpage.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/prpage.sh"
 
 # `grep` exits 1 on "no match" and pipefail turns that into a silent death
 # mid-assignment. Where "none" is a legitimate answer, rc is captured so that
@@ -289,20 +291,14 @@ if [ -z "$prev_tag_date" ]; then
   fail "cannot read the commit date of ${prev_tag}, so the PR window has no lower bound — UNMEASURED"
 fi
 
-rc=0
-pr_json="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${prev_tag_date}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName 2>&1)" || rc=$?
-if [ "$rc" -ne 0 ]; then
-  fail "${GH} pr list exited ${rc} (${pr_json}) — the PRs in this release cannot be enumerated without GitHub, and an unenumerable window is UNMEASURED, which is not the same as a release with no PRs"
-fi
+# PMAT-1164: paged read (lib/prpage.sh); an unfinished read is UNMEASURED there.
+dogfood_pr_fetch "$prev_tag" HEAD number,mergedAt,mergeCommit,headRefName
 jrc=0
-pr_rows="$(printf '%s' "$pr_json" | jq -r '.[] | "\(.number) \(.mergeCommit.oid // "-") \(.headRefName // "-")"')" || jrc=$?
+pr_rows="$(printf '%s' "$DOGFOOD_PR_RAW" | jq -r '.[] | "\(.number) \(.mergeCommit.oid // "-") \(.headRefName // "-")"')" || jrc=$?
 if [ "$jrc" -ne 0 ]; then
-  fail "cannot parse what ${GH} pr list returned as JSON (jq exit ${jrc}): ${pr_json} — UNMEASURED"
+  fail "cannot parse what ${GH} pr list returned as JSON (jq exit ${jrc}) — UNMEASURED"
 fi
 n_returned="$(count_lines "$pr_rows")"
-if [ "$n_returned" -ge "$PR_PAGE_LIMIT" ]; then
-  fail "${GH} pr list returned ${n_returned} PR(s), which fills the --limit of ${PR_PAGE_LIMIT}: the window may be truncated and this arm would then check a subset while reporting the whole — UNMEASURED"
-fi
 
 # GitHub's window is a time range, so it also contains PRs merged after this
 # tree's HEAD. Membership of THIS release is decided by ancestry, on the merge
