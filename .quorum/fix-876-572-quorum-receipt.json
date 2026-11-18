@@ -1,0 +1,69 @@
+{
+  "kind": "code",
+  "issue": "PR #1106: test(ci): the private CARGO_HOME guard sees cargo run through a script (#1106)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T08:29:17Z",
+  "head": "12731db14180aa69349e9f1d6423a2457499de83",
+  "merge_commit": "ff530c6dd03eb8c5892b47b92879df742ce1f367",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 12 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 12 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 14 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 38,
+    "claims_confirmed": 36,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "lane 1 claim 4: DEFECT (false comment / over-inclusion): The prefix \"scripts/dogfood/\" is documented as \"Repository scripts that run car | judges REFUTED 2 of 3: scripts/dogfood/surface.sh:50 `BIN=\"$(bash \"$(dirname \"${BASH_SOURCE[0]}\")/lib/binary.sh\")\"` and scripts/dogfood/lib/binary.sh:52 `cargo build --release >&2` (runs unless FORJAR_DOGFOOD_BIN is set); docs.sh:62 calls the same lib. surface.sh and docs.sh do run cargo, so the fixture message controls.rs:172 is true for `surface` and the lane's 'stated reason is false' rests on a grep that misses the lib. Refuter 3 is right; refuters 1-2 did not open lib/binary.sh. (comply/harness/quorum/crux-reconcile.sh do have no cargo, so the prefix is somewhat broad, but the claim's evidence is false.) || refuters split (r1,r2 SURVIVED on grep -c cargo of surface.sh = 0; r3 REFUTED). r3 is right: scripts/dogfood/surface.sh:50 `BIN=\"$(bash \"$(dirname \"${BASH_SOURCE[0]}\")/lib/binary.sh\")\"` and lib/binary.sh:52 `cargo build --release >&2` (unconditional unless FORJAR_DOGFOOD_BIN set); docs.sh:62 and contracts.sh:83 call the same lib. So the fixture message for `surface` (\"runs a script that runs cargo\") and the scan.rs:181 comment are true for it, and the lane's 'docs.sh runs no cargo' is false; the grep missed the sourced lib.",
+      "lane 3 claim 3: [DEFECT] The `scripts/dogfood/` prefix is broader than \"scripts that run cargo internally\" (doc comment at scan.rs:181). | judges REFUTED 2 of 3: scripts/dogfood/surface.sh:50 calls lib/binary.sh, whose line 52 is `cargo build --release >&2`. The claim's exhibit, that the fixture message 'runs a script that runs cargo' (controls.rs:172) is false for surface.sh, is wrong. Refuter 3 is right; refuters 1-2 relied on `grep -c cargo surface.sh`. Some other dogfood scripts (comply, harness, quorum, crux-reconcile) have no cargo, but the named case is false. || refuters split (r1,r2 SURVIVED; r3 REFUTED). The lane's concrete case is false: surface.sh:50 calls lib/binary.sh, whose line 52 is `cargo build --release >&2`, so the fixture assertion at controls.rs:172 is true for surface.sh and a job running it does run cargo. That harness/quorum/crux-reconcile.sh may not run cargo does not rescue the stated defect, whose evidence and example are the surface fixture."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1106-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "ca681e6c0d3154f822ad02ac0a5be9f35d18110b",
+        "sha256": "f04c9e7376e53db00a47858f1dec868ac093057f39c47a4e1fe1d517fec4f280",
+        "bytes": 5800
+      },
+      {
+        "path": ".quorum/evidence/PR-1106-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "d7e6f53706920833422a814a62328b69ef951f3f",
+        "sha256": "3af8aaace3e8f77820daf624baa632d9a35a2f58936eeea7aed704a070163ba9",
+        "bytes": 5726
+      },
+      {
+        "path": ".quorum/evidence/PR-1106-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "a7d7680a8806d14f8c0597797a4eec87eed8ea15",
+        "sha256": "25db6c2ba35933fe6c61b46f911803da21fd7142aa7ba37c391b79b48d864e63",
+        "bytes": 5660
+      }
+    ],
+    "total_bytes": 17186,
+    "claims_digest": ".quorum/evidence/PR-1106-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
