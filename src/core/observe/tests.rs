@@ -111,10 +111,10 @@ fn every_observed_alt_actually_dirties_the_baseline() {
 }
 
 #[test]
-fn cloud_user_data_file_is_unmigrated_and_not_credited_to_the_create_call() {
-    // `cloud_user_data_file` is applied only by the apply guard and the
-    // run-instances call; the shared cloud_instance text credits "the create
-    // call and the gates", which is false for it (#1197).
+fn cloud_user_data_file_is_unmigrated_and_not_credited_to_the_gates() {
+    // `cloud_user_data_file` is checked only by the apply guard and passed by the
+    // run-instances (create) call; the gates never read it, so the shared
+    // cloud_instance text "the create call and the gates" is false for it (#1197).
     let Some(Observability::Unmigrated(text)) = classify("cloud_user_data_file") else {
         panic!(
             "cloud_user_data_file must be Unmigrated: {:?}",
