@@ -8127,3 +8127,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1194
+  github_issue: 1194
+  item_type: task
+  title: 'derived Debug on the validated JIT config prints the token source in clear'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
