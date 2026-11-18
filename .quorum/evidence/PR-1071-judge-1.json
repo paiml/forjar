@@ -1,0 +1,206 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "REFUTED",
+    "reason": "r2,r3 REFUTED, r1 SURVIVED (it read only the 3-vs-2 test). At merge src/core/pool_reconcile.rs:73-84 scales_up_when_oldest_job_over_5_min sets `queued_eligible: 1, idle_seats: 1` and with `oldest_queued_secs: Some(300)` asserts `PoolAction::Hold`; that is exactly queued_eligible == idle_seats, and `>` -> `>=` at :47 would make it ScaleUp. So 'none for the starved boundary' is false; the busy-past-TTL and TTL-1 gaps are real, but the claim as stated contains a false assertion"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line checked at merge commit"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  }
+]

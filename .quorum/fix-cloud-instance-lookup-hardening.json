@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1036: fix(cloud_instance): harden instance lookup against blank, glob and loose spot-id replies (PMAT-861) (#1036)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T09:30:20Z",
+  "head": "01c0779897c0e66170091a44b779cb294919585f",
+  "merge_commit": "94265b95599d60007add1aa8e11a93a2c674bee7",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 14 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 11 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 13 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 38,
+    "claims_confirmed": 37,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 2 claim 8: classify_e01 comment fix matches state_query_script and check (describe(&s) with key_of) | judges REFUTED 3 of 3: All 3 refuters agree; confirmed at merge: src/core/observe/classify_e01.rs:79-80 '// the check keys on name + region + image digest', but src/resources/cloud_instance/mod.rs check_script absent branch 'if is_absent(resource) { let owned = describe_by(&s, \"forjar-owner\", &owner_of(&s), ...' keys on owner tag only; describe(&s)/key_of applies only to the present branch, so the lane's unqualified 'matches check' is false || src/core/observe/classify_e01.rs:79-80 `the check keys on name + region + image digest`, but src/resources/cloud_instance/mod.rs:294-300 check_script for absent resources uses `describe_by(&s, \"forjar-owner\", &owner_of(&s), ...` (owner tag). The lane's unqualified 'matches ... check' is false for that branch. All 3 refuters agree. || src/core/observe/classify_e01.rs:78-80 `the check keys on name + region + image digest`, but src/resources/cloud_instance/mod.rs:294-300 (at 94265b95) check_script for state: absent uses `describe_by(&s, \"forjar-owner\", &owner_of(&s), ...` (owner tag only); the lane's unqualified 'matches ... check' is false for that branch. All three refuters agree."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1036-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "aa76662e84a195b8f2090b94cbae9b445dd55d1e",
+        "sha256": "46a1455ba1f77e12f9044ee9267700521ffa1c15f9df3edfa775b50d5c750e23",
+        "bytes": 5446
+      },
+      {
+        "path": ".quorum/evidence/PR-1036-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "fc04774e5530d7e30314d16a4a3eefec52d93c2b",
+        "sha256": "1d2e310a117eb2481cf2815b8a61b76e86c968e6c857d3b2bbde4afc35b7d87f",
+        "bytes": 5093
+      },
+      {
+        "path": ".quorum/evidence/PR-1036-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "48e8e9f837e1d147541486274028941bbe58af09",
+        "sha256": "99dc3d0d68c55622532b6a4641de9079dfa389295686d17b02409e4aa918dbf5",
+        "bytes": 5113
+      }
+    ],
+    "total_bytes": 15652,
+    "claims_digest": ".quorum/evidence/PR-1036-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}

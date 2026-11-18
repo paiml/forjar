@@ -1,0 +1,236 @@
+[
+  {
+    "lane": 1,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 11,
+    "verdict": "REFUTED",
+    "reason": "src/resources/github_release_check.rs:82-83 (at 9271576a) the comment reads `one tool reading the file on stdin, no fallback / that could hash nothing`; the lane truncated it to 'no fallback'. :98-101 run exactly one tool per run and the shasum branch hashes the same file (empty FJ_SUM still diverges), so code matches the comment. Agree with refuter-3; refuters 1-2 compared against the truncated quote."
+  },
+  {
+    "lane": 1,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 13,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 1,
+    "claim": 14,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 2,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 1,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 2,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 3,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 4,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 5,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 6,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 7,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 8,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 9,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 10,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 11,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 12,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 13,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  },
+  {
+    "lane": 3,
+    "claim": 14,
+    "verdict": "SURVIVED",
+    "reason": "no refuter refuted; cited line not checked"
+  }
+]

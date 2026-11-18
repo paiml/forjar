@@ -1,0 +1,68 @@
+{
+  "kind": "code",
+  "issue": "PR #1071: feat(pool): pure scale decision for the runner pool (#1071)",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-18T09:30:20Z",
+  "head": "bcbe11d3fce74e5b6d5c1fb730ef0f57a00fb994",
+  "merge_commit": "5f8c0caaec058c30445bdba2f74170b30c69d2e5",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "claude-opus-5-5",
+    "claude-opus-5-5",
+    "claude-opus-5-5"
+  ],
+  "degraded": "same-family",
+  "recorded_at": "post-merge review round on 2026-11-18: 3 Opus 5.5 reviewer lanes, 3 Opus 5.5 refuters per claim, 3 Opus 5.5 judges; a claim is refuted when at least 2 of 3 judges voted REFUTED. Reviewed after merge; no review ran before the merge.",
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "lane 1 claude-opus-5-5 (lane file lane-1.md, not committed): 11 claims",
+      "lane 2 claude-opus-5-5 (lane file lane-2.md, not committed): 11 claims",
+      "lane 3 claude-opus-5-5 (lane file lane-3.md, not committed): 12 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "judges_note": "three independent claude-opus-5-5 judges, same model family as the Sonnet 5.5 author (degraded: same-family); votes in the committed judge files",
+    "refuters_per_claim": 3,
+    "claims_total": 34,
+    "claims_confirmed": 33,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "lane 3 claim 6: DEFECT test gap: no busy-past-TTL, no TTL-1, no queued==idle test | judges REFUTED 2 of 3: r2,r3 REFUTED, r1 SURVIVED (it read only the 3-vs-2 test). At merge src/core/pool_reconcile.rs:73-84 scales_up_when_oldest_job_over_5_min sets `queued_eligible: 1, idle_seats: 1` and with `oldest_queued_secs: Some(300)` asserts `PoolAction::Hold`; that is exactly queued_eligible == idle_seats, and `>` -> `>=` at :47 would make it ScaleUp. So 'none for the starved boundary' is false; the busy-past-TTL and TTL-1 gaps are real, but the claim as stated contains a false assertion || src/core/pool_reconcile.rs:73-84 (at 5f8c0caa) `queued_eligible: 1, idle_seats: 1` with `oldest_queued_secs: Some(300)` asserts `PoolAction::Hold`; with :47 `s.queued_eligible > s.idle_seats` mutated to `>=` it returns ScaleUp, so the starved equality boundary IS tested and the claim's 'none for the starved boundary' is false (busy-past-TTL and TTL-1 gaps are real). Agree with refuters 2-3; refuter-1 checked only the 3-vs-2 test at :91-92."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1071-judge-1.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "1152d02a48c42a808e42bda936bfb079468c26c0",
+        "sha256": "62cd44a26f806b7b750293e3ab0b50e81228454f177a18cc56b7fb51d3c98d18",
+        "bytes": 4850
+      },
+      {
+        "path": ".quorum/evidence/PR-1071-judge-2.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e78a1d0bfe5a844c821a42d8b039f27c190bc5a0",
+        "sha256": "b04013b18f1ee82bfb4631057a02decf40b134145993dfde26199fffdecef392",
+        "bytes": 4646
+      },
+      {
+        "path": ".quorum/evidence/PR-1071-judge-3.json",
+        "roles": [
+          "judges"
+        ],
+        "blob": "a0c29757103880886babc55b4a09fac15a2ff943",
+        "sha256": "d1a7e3d4c3c110d5c6000cab732e1c0d0d2664cc6df5888f80e776460a008d42",
+        "bytes": 4694
+      }
+    ],
+    "total_bytes": 14190,
+    "claims_digest": ".quorum/evidence/PR-1071-judge-1.json",
+    "not_committed": "lane-1..3.md, refuter-1..3.json (kept outside the repository; the judge files cover every claim)"
+  }
+}
