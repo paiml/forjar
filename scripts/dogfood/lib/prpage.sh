@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PMAT-1164: read a release window's merged PRs past one 200-PR page.
 #
-# SOURCED, NOT RUN (by lib/window.sh and release-check.sh, after `fail()`, GH,
+# SOURCED, NOT RUN (by lib/window.sh, after `fail()`, GH,
 # REPO and PR_PAGE_LIMIT exist). Defines functions only. Results come back in
 # DOGFOOD_* globals, never on stdout (see window.sh for why).
 #
