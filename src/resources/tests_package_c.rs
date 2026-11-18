@@ -251,3 +251,38 @@ fn gh90_apt_absent_guard_greps_ii() {
         "absent guard must grep '^ii ': {script}"
     );
 }
+
+/// Runs the resolve, key and install lines of an unpinned script on a fake `cargo`.
+fn unpinned_cargo(found: &str) -> String {
+    let mut r = make_apt_resource(&["bat"]);
+    r.provider = Some("cargo".into());
+    let s = apply_script(&r);
+    let l: Vec<_> = s.lines().collect();
+    let a = l.iter().position(|x| x.starts_with("_FJ_NC=")).unwrap();
+    let b = l.iter().position(|x| x.starts_with("_CACHE_KEY=")).unwrap();
+    let k = "cargo install --force";
+    let i = l.iter().find(|x| x.contains(k)).unwrap();
+    let sh = format!(
+        "cargo() {{ [ \"$1\" = search ] && echo '{found}' || echo \"ARGS $*\"; }}\n\
+         _STAGING=/s\n{}\n{i}\necho \"KEY=$_CACHE_KEY\"",
+        l[a..=b].join("\n")
+    );
+    let o = std::process::Command::new("bash")
+        .args(["-c", &sh])
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&o.stdout).into_owned()
+}
+
+#[test]
+fn cargo_unpinned_install_is_pinned_to_the_version_in_the_cache_key() {
+    let o = unpinned_cargo("bat = \"0.24.0\"   # A cat clone");
+    assert!(
+        o.contains("--version =0.24.0 ") && o.contains("KEY=bat-0.24.0-"),
+        "{o}"
+    );
+    assert!(
+        !unpinned_cargo("").contains("--version"),
+        "unresolved must not pin"
+    );
+}
