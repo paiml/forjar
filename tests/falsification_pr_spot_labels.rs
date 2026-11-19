@@ -107,3 +107,99 @@ fn canary_with_other_runs_on_fails() {
     assert_ne!(canary(), m);
     assert!(!guard(&canary_dir("canary-runs-on", &m)));
 }
+
+fn ci_text() -> String {
+    fs::read_to_string(repo().join(".github/workflows/ci.yml")).unwrap()
+}
+
+const SPOT_JOB: &str = "on: pull_request\njobs:\n  j:\n    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}\n    permissions:\n      contents: read\n    steps: []\n";
+
+#[test]
+fn spot_job_template_passes() {
+    assert!(guard(&scratch("spot-ok", SPOT_JOB)));
+}
+
+#[test]
+fn spot_job_with_secret_fails() {
+    let m = SPOT_JOB.replace(
+        "steps: []",
+        "steps:\n      - run: x\n        env:\n          T: ${{ secrets.X }}",
+    );
+    assert_ne!(SPOT_JOB, m);
+    assert!(!guard(&scratch("spot-secret", &m)));
+}
+
+#[test]
+fn spot_job_with_write_all_fails() {
+    let m = SPOT_JOB.replace(
+        "permissions:\n      contents: read",
+        "permissions: write-all",
+    );
+    assert_ne!(SPOT_JOB, m);
+    assert!(!guard(&scratch("spot-write-all", &m)));
+}
+
+#[test]
+fn spot_job_with_write_scope_fails() {
+    for extra in ["pull-requests: write", "id-token: write", "contents: write"] {
+        let base = if extra.starts_with("contents") {
+            SPOT_JOB.replace("contents: read", extra)
+        } else {
+            SPOT_JOB.replace("contents: read", &format!("contents: read\n      {extra}"))
+        };
+        assert_ne!(SPOT_JOB, base);
+        assert!(!guard(&scratch("spot-scope", &base)), "{extra}");
+    }
+}
+
+#[test]
+fn spot_job_without_permissions_fails() {
+    let m = SPOT_JOB.replace("    permissions:\n      contents: read\n", "");
+    assert_ne!(SPOT_JOB, m);
+    assert!(!guard(&scratch("spot-noperm", &m)));
+}
+
+#[test]
+fn spot_job_on_non_pull_request_event_fails() {
+    for ev in [
+        "github.event_name != 'pull_request'",
+        "github.event_name == 'push'",
+        "true",
+    ] {
+        let m = SPOT_JOB.replace("github.event_name == 'pull_request'", ev);
+        assert_ne!(SPOT_JOB, m);
+        assert!(!guard(&scratch("spot-event", &m)), "{ev}");
+    }
+}
+
+#[test]
+fn canary_with_extra_job_fails() {
+    let m = format!(
+        "{}  extra:\n    runs-on: [self-hosted, pool-canary]\n    steps: []\n",
+        canary()
+    );
+    assert!(!guard(&canary_dir("canary-extra-job", &m)));
+}
+
+#[test]
+fn real_ci_spot_jobs_have_explicit_read_permissions() {
+    // every job on the PR_SPOT_OPTIN expression is named here; dropping its permissions block fails
+    let ci = ci_text();
+    let m = ci.replacen("    permissions:\n      contents: read\n", "", 1);
+    assert_ne!(ci, m);
+    assert!(!guard(&scratch("real-noperm", &m)));
+}
+
+#[test]
+fn ci_wires_the_guard_into_the_gate() {
+    let ci = ci_text();
+    assert!(
+        ci.contains("tests/pr-spot-labels-guard.sh"),
+        "ci.yml never runs the guard"
+    );
+    assert!(
+        ci.contains("falsification_pr_spot_labels"),
+        "ci.yml never runs the Rust test"
+    );
+    assert!(ci.contains("needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards, spot-labels-guard]"), "gate does not need the guard job");
+}
