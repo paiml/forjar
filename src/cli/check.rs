@@ -2,6 +2,7 @@
 
 pub(crate) use super::check_test::cmd_test;
 
+use super::check_marker::{pass_markers, print_check_outcome};
 use super::helpers::*;
 use crate::core::{codegen, resolver, state, types};
 use crate::transport;
@@ -105,17 +106,17 @@ pub(super) fn make_check_result(
 }
 
 /// Print check failure in text mode.
-fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
+pub(super) fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
     println!("  FAIL {resource_id} ({machine_name}) — {detail}");
 }
 
 /// Print an unreachable target in text mode.
-fn print_unmeasured(resource_id: &str, machine_name: &str, detail: &str) {
+pub(super) fn print_unmeasured(resource_id: &str, machine_name: &str, detail: &str) {
     println!("  UNMEASURED {resource_id} ({machine_name}) — {detail}");
 }
 
 /// Run a check script on one machine and record the result.
-fn run_single_check(
+pub(super) fn run_single_check(
     machine: &types::Machine,
     check_script: &str,
     resource_id: &str,
@@ -134,7 +135,7 @@ fn run_single_check(
 
     let output = transport::exec_script(machine, check_script);
     let (status, exit_code, detail, passed) = match output {
-        Ok(out) if out.success() => ("pass", Some(0), String::new(), true),
+        Ok(out) if out.success() => ("pass", Some(0), pass_markers(&out.stdout), true),
         // FJ-2720: exit 2 = NOT APPLICABLE on this host (no systemd, no docker).
         // Neither a pass nor a failure — forjar cannot observe the state, and
         // claiming either would be a guess.
@@ -158,23 +159,14 @@ fn run_single_check(
     };
 
     if !json {
-        if status == "unmeasured" {
-            print_unmeasured(resource_id, machine_name, &detail);
-        } else if passed {
-            println!("  ok {resource_id} ({machine_name})");
-        } else {
-            let msg = if let Some(code) = exit_code {
-                format!("exit {code}")
-            } else {
-                detail.clone()
-            };
-            print_check_failure(resource_id, machine_name, &msg);
-            if exit_code.is_some() {
-                for line in detail.lines().filter(|l| !l.is_empty()) {
-                    println!("       {line}");
-                }
-            }
-        }
+        print_check_outcome(
+            resource_id,
+            machine_name,
+            status,
+            passed,
+            exit_code,
+            &detail,
+        );
     }
 
     (
