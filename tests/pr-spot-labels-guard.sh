@@ -20,6 +20,15 @@ for f in "$dir"/*.yml; do
     END { flush(); exit bad }
   ' "$f") || { echo "FAIL $out"; bad=1; continue; }
 done
+# The pool canary workflow must have no secrets or id-token and only the workflow_dispatch trigger.
+c="$dir/pool-canary.yml"
+if [ -f "$c" ]; then
+  body=$(grep -v -E '^[[:space:]]*#' "$c")
+  if printf '%s\n' "$body" | grep -q -E 'secrets|id-token'; then echo "FAIL pool-canary.yml names secrets or id-token"; bad=1; fi
+  trig=$(printf '%s\n' "$body" | awk '/^on:/{o=1;next} o&&/^[^[:space:]]/{o=0} o&&/^  [A-Za-z_]+:/{sub(/:.*/,"");gsub(/ /,"");print}')
+  [ "$trig" = workflow_dispatch ] || { echo "FAIL pool-canary.yml triggers are '$(echo $trig)', not only workflow_dispatch"; bad=1; }
+  printf '%s\n' "$body" | grep -q 'runs-on: \[self-hosted, pool-canary\]' || { echo "FAIL pool-canary.yml runs-on is not [self-hosted, pool-canary]"; bad=1; }
+fi
 if [ "$n" -eq 0 ]; then echo "FAIL no workflow files in $dir, nothing was measured"; exit 1; fi
 [ "$bad" -eq 0 ] && echo "ok $n workflow file(s): no signing job or reusable runs_on resolves to a spot label"
 exit "$bad"

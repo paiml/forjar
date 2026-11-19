@@ -58,3 +58,52 @@ fn empty_dir_fails() {
     fs::create_dir_all(&d).unwrap();
     assert!(!guard(&d));
 }
+
+fn canary() -> String {
+    fs::read_to_string(repo().join(".github/workflows/pool-canary.yml")).unwrap()
+}
+
+fn canary_dir(name: &str, text: &str) -> PathBuf {
+    let d = scratch(name, "on: push\njobs: {}\n");
+    fs::write(d.join("pool-canary.yml"), text).unwrap();
+    d
+}
+
+#[test]
+fn canary_real_file_passes() {
+    assert!(guard(&canary_dir("canary-ok", &canary())));
+}
+
+#[test]
+fn canary_with_secret_fails() {
+    let m = canary().replace("IID: ${{ inputs.iid }}", "IID: ${{ secrets.TOKEN }}");
+    assert_ne!(canary(), m);
+    assert!(!guard(&canary_dir("canary-secret", &m)));
+}
+
+#[test]
+fn canary_with_id_token_fails() {
+    let m = canary().replace("contents: read", "contents: read\n  id-token: write");
+    assert_ne!(canary(), m);
+    assert!(!guard(&canary_dir("canary-idtoken", &m)));
+}
+
+#[test]
+fn canary_with_extra_trigger_fails() {
+    let m = canary().replace(
+        "on:\n  workflow_dispatch:",
+        "on:\n  pull_request:\n  workflow_dispatch:",
+    );
+    assert_ne!(canary(), m);
+    assert!(!guard(&canary_dir("canary-trigger", &m)));
+}
+
+#[test]
+fn canary_with_other_runs_on_fails() {
+    let m = canary().replace(
+        "[self-hosted, pool-canary]",
+        "[self-hosted, clean-room, X64]",
+    );
+    assert_ne!(canary(), m);
+    assert!(!guard(&canary_dir("canary-runs-on", &m)));
+}
