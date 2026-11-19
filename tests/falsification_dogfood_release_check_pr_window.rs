@@ -165,3 +165,53 @@ fn a_tag_that_exists_on_the_remote_is_never_pending() {
         r.text
     );
 }
+
+#[test]
+fn a_window_over_one_page_is_read_whole() {
+    for n in [200, 450] {
+        let fx = fixture(false, Some(good_receipt()));
+        let r = run(&fx, &stub_gh_release_paged(&fx, n, "honest"));
+        r.assert_green(&format!("a window of {n} PRs is read in full"));
+        r.assert_says(&format!("{n} PR(s)"));
+    }
+}
+
+#[test]
+fn a_truncated_or_failing_page_is_unmeasured() {
+    for (n, mode, says) in [
+        (450, "always-full", "single second"),
+        (450, "fail-second-call", "pr list exited"),
+        (450, "child-drops-a-row", "two halves"),
+        (6000, "honest", "more than 40"),
+    ] {
+        let fx = fixture(false, Some(good_receipt()));
+        let r = run(&fx, &stub_gh_release_paged(&fx, n, mode));
+        r.assert_not_green(mode);
+        r.assert_says(says);
+    }
+}
+
+#[test]
+fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
+    // exit 0 with these bodies: one read, then a verdict, never a bare abort or a storm
+    let bodies = [
+        "[1]",
+        r#"["err"]"#,
+        "",
+        "[] []",
+        r#"{"message":"x"}"#,
+        r#"[{"mergedAt":"x"}]"#,
+    ];
+    for (i, body) in bodies.into_iter().enumerate() {
+        let fx = fixture(false, Some(good_receipt()));
+        let (gh, log) = stub_gh_counting(fx.root.parent().expect("dir"), &format!("bad{i}"), body);
+        let r = run(&fx, &gh);
+        r.assert_not_green(body);
+        r.assert_says("one JSON array of PRs (jq exit 5)");
+        assert_eq!(
+            std::fs::read_to_string(&log).map_or(0, |s| s.lines().count()),
+            1,
+            "{body}"
+        );
+    }
+}

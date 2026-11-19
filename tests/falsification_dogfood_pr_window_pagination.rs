@@ -43,3 +43,16 @@ fn a_read_that_cannot_finish_is_unmeasured() {
         r.assert_says(says);
     }
 }
+#[test]
+fn a_page_that_is_not_an_array_of_prs_is_unmeasured() {
+    for (i, body) in ["[1]", "", "[] []", r#"{"m":1}"#].into_iter().enumerate() {
+        let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+        let r = run(
+            &fx,
+            "harness.sh",
+            &stub_gh(fx.root.parent().unwrap(), &format!("bad{i}"), body),
+        );
+        r.assert_not_green("A", body);
+        r.assert_says("one JSON array of PRs");
+    }
+}

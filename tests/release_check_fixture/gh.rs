@@ -101,3 +101,73 @@ pub(crate) fn stub_gh_published_api_empty(dir: &Path, head: &str) -> String {
         &stub_script(head, "false", "false", api),
     )
 }
+
+/// A commit dated `iso`, so the fixture tags sit days apart.
+pub(crate) fn commit_at(root: &Path, msg: &str, iso: &str) {
+    let mut c = std::process::Command::new("git");
+    c.args(["commit", "-qm", msg]).current_dir(root);
+    let ok = c.env("GIT_AUTHOR_DATE", iso).env("GIT_COMMITTER_DATE", iso);
+    assert!(ok.status().expect("git").success());
+}
+
+/// A `gh` answering every call with exactly `body`; returns it and its call log.
+pub(crate) fn stub_gh_counting(dir: &Path, name: &str, body: &str) -> (String, std::path::PathBuf) {
+    let (out, log) = (
+        dir.join(format!("{name}.out")),
+        dir.join(format!("{name}.log")),
+    );
+    std::fs::write(&out, body).expect("body");
+    let s = format!(
+        "#!/usr/bin/env bash\necho x >> '{}'\ncat '{}'\n",
+        log.display(),
+        out.display()
+    );
+    (install(dir, name, &s), log)
+}
+
+/// PMAT-1173: a `gh pr list` stub as real gh answers: `--search` (inclusive), `--limit` (30 if
+/// absent), newest first, only the `--json` fields asked for, 10 PRs outside the window.
+pub(crate) fn stub_gh_release_paged(fx: &super::Fixture, n: usize, mode: &str) -> String {
+    let ct = |r: &str| -> i64 {
+        let out = super::git(&fx.root, &["log", "-1", "--format=%ct", r]);
+        super::stdout_of(&out).parse().expect("commit time")
+    };
+    let (a, b) = (ct(PREV_TAG), ct(&fx.head) + 86_400);
+    let row = |num: usize, t: i64| {
+        let h = &fx.head;
+        format!(
+            r#"{{"number":{num},"t":{t},"mergeCommit":{{"oid":"{h}"}},"headRefName":"{}","title":"t","body":"b"}}"#,
+            super::HEAD_REF
+        )
+    };
+    let inside = (0..n).map(|i| row(i + 1, a + 1 + (i as i64) * (b - a - 2) / (n as i64 - 1)));
+    let outside = (0..5).flat_map(|k| {
+        let d = 3600 * (k as i64 + 1);
+        [row(100_001 + k, a - d), row(100_101 + k, b + d)]
+    });
+    let rows = format!("[{}]", inside.chain(outside).collect::<Vec<_>>().join(","));
+    let dir = fx.root.parent().expect("dir");
+    let (r, c) = (dir.join("rows"), dir.join("calls"));
+    std::fs::write(&r, rows).expect("rows");
+    let body = format!(
+        r#"#!/usr/bin/env bash
+s=; l=30; fl=; st=; bs=; rp=; [ "$1 $2" = "pr list" ] || {{ echo "unknown command" >&2; exit 1; }}
+while [ $# -gt 0 ]; do case "$1" in --search) s="$2";; --limit) l="$2";; --json) fl="$2";; --state) st="$2";; --base) bs="$2";; --repo) rp="$2";; esac; shift; done
+[ "$st" = merged ] && [ "$bs" = main ] && [ -n "$rp" ] || {{ echo "bad flags" >&2; exit 1; }}
+echo x >> '{c}'; s="${{s#merged:}}"
+case "$s" in
+  '>='*) a=$(date -u -d "${{s#>=}}" +%s); b=99999999999 ;;
+  *) a=$(date -u -d "${{s%%..*}}" +%s); b=$(date -u -d "${{s##*..}}" +%s) ;;
+esac
+sel='[.[]|select(.t>=$a and .t<=$b)]'
+[ '{mode}' = always-full ] && sel='.'
+f=$(jq -c --argjson a "$a" --argjson b "$b" --argjson l "$l" --arg fl "$fl" "$sel"'|sort_by(-.t)|.[0:$l]|map((. + {{mergedAt:(.t|todate)}}) as $r|($fl|split(",")|map(. as $k|if $r|has($k) then {{($k):$r[$k]}} else error("Unknown JSON field: "+$k) end)|add))' '{r}') || exit 1
+[ '{mode}' = fail-second-call ] && [ "$(wc -l < '{c}')" -ge 2 ] && {{ echo "$f"; exit 1; }}
+[ '{mode}' = child-drops-a-row ] && [ "$(wc -l < '{c}')" -ge 2 ] && f=$(echo "$f" | jq -c --argjson l "$l" 'if length < $l then .[1:] else . end')
+echo "$f"
+"#,
+        c = c.display(),
+        r = r.display(),
+    );
+    install(dir, "gh_paged", &body)
+}

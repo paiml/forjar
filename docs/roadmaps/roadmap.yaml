@@ -8529,3 +8529,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1173
+  github_issue: 1173
+  item_type: task
+  title: 'gate R Arm 5 reads its window through the paged reader'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-19T00:00:00Z
+  updated: 2026-11-19T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Arm 5 calls the paged reader; no second window reader remains in release-check.sh; a window over 200 PRs is read whole; a failed page fails the arm
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
