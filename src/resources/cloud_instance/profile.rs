@@ -55,6 +55,7 @@ pub(super) fn key_tail(p: &Option<String>) -> String {
 mod tests {
     use super::super::tests::{gated, res, Sandbox};
     use super::super::tests_b1::count;
+    use super::super::tests_launch::{tok, DAY};
     use super::super::*;
     use super::{checked, misplaced};
     use crate::core::types::ResourceType;
@@ -161,7 +162,7 @@ mod tests {
     #[test]
     fn without_a_profile_the_script_is_unchanged() {
         let sb = Sandbox::new();
-        let s = apply_script(&gated(sb.path()));
+        let s = apply_script_on(&gated(sb.path()), DAY);
         assert!(!s.contains("iam-instance-profile"), "{s}");
         assert!(s.contains("Value=ci-box-a@eu-south-2@0123456789ab}"), "{s}");
         // with a profile, only the flag, the key tail and the launch token
@@ -169,9 +170,8 @@ mod tests {
         let flag = "--iam-instance-profile 'Name=ci-box' ";
         let tail = super::key_tail(&Some("ci-box".into()));
         let (r0, r1) = (gated(sb.path()), with(sb.path(), "ci-box"));
-        let tok0 = crate::resources::cloud_instance::launch_io::token(&spec_of(&r0).unwrap());
-        let tok1 = crate::resources::cloud_instance::launch_io::token(&spec_of(&r1).unwrap());
-        let w = apply_script(&r1);
+        let (tok0, tok1) = (tok(&r0), tok(&r1));
+        let w = apply_script_on(&r1, DAY);
         assert_eq!(
             w.replace(flag, "").replace(&tail, "").replace(&tok1, &tok0),
             s

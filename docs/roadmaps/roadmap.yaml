@@ -8127,6 +8127,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1189
+  github_issue: 1189
+  item_type: task
+  title: 'cargo latest-version lookup treats _ and - in a crate name as equal'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1180
   github_issue: 1180
   item_type: task
@@ -8145,10 +8163,46 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1190
+  github_issue: 1190
+  item_type: task
+  title: 'github_release check distinguishes a pre-release pin from its final release'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1181
   github_issue: 1181
   item_type: task
   title: "cloud_instance client token omits cloud_user_data_file and cloud_volume_tags"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1198
+  github_issue: 1198
+  item_type: task
+  title: 'cloud_instance client token takes the UTC day as an input'
   status: planned
   priority: high
   assigned_to: null

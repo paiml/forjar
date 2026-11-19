@@ -38,6 +38,7 @@ mod userdata;
 pub use profile::misplaced as profile_misplaced;
 mod validate;
 use key::{key_of, owner_of};
+pub use launch_io::apply_script;
 use validate::{
     field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
     require,
@@ -399,8 +400,8 @@ pub fn state_query_script(resource: &Resource) -> String {
 
 /// Script that creates the instance, or refuses. Refuses WITHOUT touching the
 /// provider unless the parity gate says pass, the kill switch is absent, and a
-/// budget cap is declared.
-pub fn apply_script(resource: &Resource) -> String {
+/// budget cap is declared. The client token is for UTC day `day`.
+pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
     let s = match spec_of(resource) {
         Ok(s) => s,
         Err(e) => return reject(&e),
@@ -485,7 +486,7 @@ pub fn apply_script(resource: &Resource) -> String {
         )),
         net = s.placement.args(),
         run_open = launch_io::OPEN,
-        run_tail = launch_io::tail(&s),
+        run_tail = launch_io::tail_on(&s, day),
         store = s.storage.args(),
         ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),
