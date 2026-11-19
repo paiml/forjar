@@ -80,7 +80,8 @@ case "$*" in
 esac
 "#;
 
-const TOOLS: [&str; 18] = [
+const TOOLS: [&str; 19] = [
+    "mktemp",
     "sh",
     "bash",
     "grep",
