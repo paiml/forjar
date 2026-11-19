@@ -123,6 +123,13 @@ fn seat_action(seat: &Seat, queued: u32, c: &Caps) -> Option<Action> {
     })
 }
 
+/// `decide()` scales the whole pool to zero, not up, when it has hosts, none busy and the oldest
+/// is at the hard TTL (`max_age_secs`): a tick that retires every seat must not also launch.
+fn pool_at_ttl(s: &Snapshot, c: &Caps) -> bool {
+    s.seats.iter().all(|x| x.state == SeatState::Idle)
+        && s.seats.iter().any(|x| x.age_secs >= c.max_age_secs)
+}
+
 /// Count idle seats of one label set that are not being retired this tick.
 fn count_idle_kept(s: &Snapshot, retired: &BTreeSet<&str>, labels: &str) -> u32 {
     s.seats
@@ -156,7 +163,8 @@ fn blocked_by(labels: &str, queued: u32, room_label: u32, room_total: u32) -> St
 /// seats that exist now: a retirement may fail, so it frees no room until a
 /// later tick. Scale-up follows `pool_reconcile::decide()`: a label set scales
 /// up when queued jobs exceed its idle seats or its oldest job waited over
-/// `SCALE_UP_AGE_SECS`.
+/// `SCALE_UP_AGE_SECS`; idle seats retiring this tick still count as idle, and
+/// no label set launches in a tick where `decide()` scales to zero (`pool_at_ttl`).
 pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
     validate(s)?;
     let queue: BTreeMap<&str, &QueueEntry> =
@@ -173,11 +181,17 @@ pub fn plan(s: &Snapshot, c: &Caps) -> Result<Vec<Action>, PlanError> {
         }
     }
     let mut total_live = count_existing(s, None);
-    let mut budget = c.max_launch_per_tick;
     let mut blocked: Option<String> = None;
+    let mut budget = if pool_at_ttl(s, c) {
+        0
+    } else {
+        c.max_launch_per_tick
+    };
     for (labels, q) in &queue {
         let idle = count_idle_kept(s, &retired, labels);
-        let due = q.queued > idle || q.oldest_age_secs > SCALE_UP_AGE_SECS;
+        // `decide()` counts every idle seat, a retiring one included: replace it next tick.
+        let idle_all = count_idle_kept(s, &BTreeSet::new(), labels);
+        let due = q.queued > idle_all || q.oldest_age_secs > SCALE_UP_AGE_SECS;
         if q.queued == 0 || !due {
             continue;
         }
