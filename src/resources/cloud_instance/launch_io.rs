@@ -57,12 +57,10 @@ pub(super) fn token_input(s: &CloudInstance) -> String {
     let mut sorted = s.tags.clone();
     sorted.sort();
     let labels = sorted.join("\u{1f}");
-    let ud = s.user_data_file.as_deref().map_or_else(String::new, |p| {
-        std::fs::read(p).map_or_else(
-            |_| "unreadable".into(),
-            |b| crate::tripwire::hasher::hash_string(&String::from_utf8_lossy(&b)),
-        )
-    });
+    let ud = s
+        .user_data_file
+        .as_deref()
+        .map_or_else(String::new, user_data_hash);
     format!(
         "{}|{}|{}|{}|{}|{}|{}|{}|{}",
         super::key_of(s),
@@ -75,6 +73,19 @@ pub(super) fn token_input(s: &CloudInstance) -> String {
         ud,
         labels
     )
+}
+
+/// Hash of the declared user-data file BYTES, or the fixed word `unreadable` when the path is not a regular
+/// file, is over the guard's size limit or cannot be read (so `/dev/zero` or a FIFO is never read here).
+/// Every such file gives the same word; the apply guard refuses them before run-instances.
+fn user_data_hash(p: &str) -> String {
+    let path = std::path::Path::new(p);
+    let small = std::fs::metadata(path)
+        .is_ok_and(|m| m.is_file() && m.len() <= super::userdata::MAX_BYTES as u64);
+    if !small {
+        return "unreadable".into();
+    }
+    crate::tripwire::hasher::hash_file(path).unwrap_or_else(|_| "unreadable".into())
 }
 
 /// UTC day number of a Unix time in seconds.

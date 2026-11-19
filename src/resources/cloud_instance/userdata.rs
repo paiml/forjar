@@ -1,6 +1,6 @@
 //! `cloud_user_data_file`: optional local FILE passed as the instance's user-data (#1131-#1133).
 //!
-//! Only the PATH is ever used, except that `token_input` reads the content once to hash it into the client
+//! Only the PATH is ever used, except that `token_input` reads the content (bytes, regular files up to the size limit) to hash it into the client
 //! token (never printed). forjar never keeps the content, so it cannot reach the plan,
 //! the instance key, a generated script, a log or state: the fleet's user-data carries presigned
 //! URLs, which are secrets. The path is NOT part of the instance key: a per-launch temp path must
@@ -32,7 +32,7 @@ pub(super) fn required_line(life_min: u32) -> String {
 use crate::core::shell_escape::sh_squote;
 
 /// EC2 takes 16 KB raw; the fleet's own limit is 16000.
-const MAX_BYTES: usize = 16000;
+pub(super) const MAX_BYTES: usize = 16000;
 const MAX_PATH: usize = 255;
 /// The only accepted line 1: a shell, so line 2 runs as a command. CR, args and other interpreters fail.
 const SHELLS: &str = "'#!/bin/sh'|'#!/bin/bash'|'#!/usr/bin/env sh'|'#!/usr/bin/env bash'";
@@ -400,6 +400,24 @@ mod tests {
         let mut n = r.clone();
         n.cloud.user_data_file = None;
         assert_ne!(tok(&n), base, "no file");
+    }
+
+    #[test]
+    fn the_token_hashes_bytes_and_never_reads_a_device() {
+        let sb = Sandbox::new();
+        let tok = |r: &Resource| super::super::launch_io::token_input(&spec_of(r).unwrap());
+        let (r, _) = with_file(sb.path(), &[0xFE]);
+        let a = tok(&r);
+        with_file(sb.path(), &[0xFF]);
+        assert_ne!(tok(&r), a, "distinct non-UTF-8 bytes");
+        let mut d = r.clone();
+        d.cloud.user_data_file = Some("/dev/zero".into());
+        assert!(tok(&d).contains("|unreadable|"), "device is not read");
+        with_file(sb.path(), &vec![b'a'; 16001]);
+        assert!(
+            tok(&r).contains("|unreadable|"),
+            "over the limit is not read"
+        );
     }
 
     #[test]
