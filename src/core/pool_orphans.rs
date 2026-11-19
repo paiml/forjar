@@ -126,7 +126,7 @@ fn validate(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
 }
 
 /// Compute one sweep: the hosts to terminate. This slice returns only hosts
-/// to terminate; it does not deregister runners and does not deliver the
+/// to terminate and `unknown_runners`; it does not deregister runners and does not deliver the
 /// parent's "0 orphaned runners" check. `Runner.busy` is not read: any runner
 /// protects its host. With zero runners and a `Complete` listing, every host
 /// idle past the rule and older than the grace is returned.
