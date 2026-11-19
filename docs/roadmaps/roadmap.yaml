@@ -8082,14 +8082,14 @@ roadmap:
   github_issue: 1200
   item_type: task
   title: 'roadmap rows for shipped tickets still say planned with empty acceptance criteria'
-  status: completed
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-18T00:00:00Z
-  updated: 2026-11-18T00:00:00Z
+  updated: 2026-11-19T00:00:00Z
   spec: null
   acceptance_criteria:
-  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (set by PR #1202); no acceptance item is cut short by an unquoted comment marker; tests/falsification_1200_roadmap_rows_are_linted.rs fails when either regresses.'
+  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (set by PR #1202); no acceptance item is cut short by an unquoted comment marker; src/core/tests_roadmap_lint.rs fails when either regresses (it runs in the cargo test --lib job). The row stays inprogress until the PR merges and #1200 closes.'
   phases: []
   subtasks: []
   estimated_effort: null
