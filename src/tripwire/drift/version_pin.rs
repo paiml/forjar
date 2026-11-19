@@ -46,7 +46,7 @@ use super::DriftFinding;
 use crate::core::shell_escape::{is_valid_repo, sh_squote};
 use crate::core::types::{Machine, Resource, ResourceType};
 
-pub use super::semver::{parse_semver, Semver};
+pub use super::semver::{parse_semver, parse_semver_span, Semver};
 
 /// What the declaration pins the binary to.
 #[derive(Debug, Clone, PartialEq, Eq)]

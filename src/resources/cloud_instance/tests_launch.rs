@@ -2,11 +2,19 @@
 //! The fake `aws` here replaces the shared stub: its `run-instances` and
 //! client-token lookups are scripted by files in the sandbox.
 
-use super::launch_io::{day_of, token, token_on, CAPACITY_EXIT};
+use super::launch_io::{day_of, token_input, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res, Sandbox};
 use super::*;
 
 pub(super) const ID: &str = "i-0123456789abcdef0";
+
+/// The UTC day every script under test is generated for.
+pub(super) const DAY: u64 = 20_400;
+
+/// The client token `apply_script_on(r, DAY)` carries.
+pub(super) fn tok(r: &Resource) -> String {
+    token_on(&token_input(&spec_of(r).unwrap()), DAY)
+}
 
 const STUB: &str = r#"#!/bin/sh
 echo "$@" >> "$STUB_LOG"
@@ -93,7 +101,7 @@ pub(super) fn fixture(
     r.cloud.kill_switch = gated(sb.path()).cloud.kill_switch;
     r.cloud.parity_gate = gated(sb.path()).cloud.parity_gate;
     r.cloud.budget_cap_usd_day = Some("5".into());
-    let script = apply_script(&r);
+    let script = apply_script_on(&r, DAY);
     (sb, script)
 }
 
@@ -134,12 +142,6 @@ pub(super) fn rep(id: &str) -> String {
     format!("{id}\t{}\n", iso(60))
 }
 
-/// A token is today's if it equals the one computed before the run or the one
-/// computed after it (a run may straddle UTC midnight).
-fn is_todays(t: &str, before: &str) -> bool {
-    t == before || t == token(&spec_of(&res()).unwrap())
-}
-
 /// `first 64 hex of sha256(a + b)` through the same tools the script uses.
 pub(super) fn next_token(a: &str, b: &str) -> String {
     let o = std::process::Command::new("sh")
@@ -169,11 +171,10 @@ fn client_token_is_derived_stable_and_valid() {
     assert_ne!(t, token_on("other@eu-south-2@0123456789ab", 20400));
     assert_ne!(t, token_on(k, 20401), "a new UTC day is a new token");
     assert!(!t.contains("ci-box-a"), "no user text in the token: {t}");
-    let a = spec_of(&res()).unwrap();
-    assert_eq!(token(&a), token(&a));
+    assert_eq!(tok(&res()), tok(&res()));
     let mut r = res();
     r.name = Some("ci-box-b".into());
-    assert_ne!(token(&a), token(&spec_of(&r).unwrap()));
+    assert_ne!(tok(&res()), tok(&r));
 }
 
 #[test]
@@ -186,11 +187,9 @@ fn the_day_number_turns_over_at_utc_midnight() {
 
 #[test]
 fn run_instances_carries_the_client_token() {
-    let before = token(&spec_of(&res()).unwrap());
     let (rc, out, log) = launch((0, &rep(ID), ""), Some(""));
     assert_eq!(rc, 0, "{out}");
-    let toks = run_tokens(&log);
-    assert!(toks.len() == 1 && is_todays(&toks[0], &before), "{log}");
+    assert_eq!(run_tokens(&log), [tok(&res())], "{log}");
     assert_eq!(log.matches("run-instances").count(), 1, "{log}");
 }
 
