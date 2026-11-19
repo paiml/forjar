@@ -76,6 +76,9 @@ case "$*" in
 *ssm*get-parameter*)
   if [ -e "$STUB_LOG.ssmfail" ]; then echo ami-0123456789abcdef0; echo "AccessDenied" >&2; exit 255; fi
   echo ami-0123456789abcdef0;;
+*describe-volumes*)
+  f="$STUB_LOG.vols"; case "$*" in *Name=tag:*) f="$STUB_LOG.tagged";; esac
+  cat "$f";;
 *run-instances*) printf 'i-0a1b2c3d4\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)";;
 esac
 "#;
