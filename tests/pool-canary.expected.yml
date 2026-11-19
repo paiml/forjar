@@ -21,6 +21,8 @@ jobs:
   canary:
     runs-on: [self-hosted, pool-canary]
     timeout-minutes: 10
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - name: the seat is what it claims
         env:

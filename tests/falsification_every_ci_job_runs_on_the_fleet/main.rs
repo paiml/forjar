@@ -169,6 +169,10 @@ const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
     ("proofs.yml", "classify"),
 ];
 
+/// The seat probe: it runs on the one label `pool-canary`, which no real job carries, so it
+/// cannot name an architecture or a second pool. Exempt by this exact (file, job) AND that label.
+const SEAT_PROBE_JOBS: [(&str, &str); 1] = [("pool-canary.yml", "canary")];
+
 /// Check one self-hosted job against `GATE_LIGHT_JOBS`. Marks a listed job as
 /// seen and returns a finding when the job is listed but not on `gate-light`,
 /// or on `gate-light` but not listed.
@@ -231,6 +235,9 @@ impl PinScan {
         let finding = gate_light_finding(file, job_name, labels, &mut self.gate_light_seen);
         self.gate_light_findings.extend(finding);
         let exempt = listed.is_some() && labels.iter().any(|l| l == "gate-light");
+        let probe = listed_at(&SEAT_PROBE_JOBS, file, job_name).is_some()
+            && labels.iter().any(|l| l == "pool-canary");
+        let exempt = exempt || probe;
         let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
         if !pinned && neutral.is_none() && !exempt {
             self.unpinned
@@ -432,6 +439,8 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         // the self-hosted mac (mini-m4) that the nightly darwin legs build on
         "mini",
         "mini-builder",
+        // the seat probe (pool-canary.yml): one label no real job carries; SEAT_PROBE_JOBS pins which job
+        "pool-canary",
     ];
     let mut bare = Vec::new();
     for (file, doc) in workflows() {
