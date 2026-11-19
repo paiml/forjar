@@ -235,6 +235,14 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         "scripts/dogfood/lib/tags.sh must exist — release-check.sh and crux-reconcile.sh source it",
     );
     write(&root, "scripts/dogfood/lib/tags.sh", &tags_lib);
+    for rel in [
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
+    ] {
+        let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
+            .unwrap_or_else(|e| panic!("release-check.sh sources {rel}: {e}"));
+        write(&root, rel, &body);
+    }
     write(
         &root,
         "Cargo.toml",
@@ -264,7 +272,7 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
             &format!("docs/audits/crux-{VERSION}.md"),
         ],
     );
-    git(&root, &["commit", "-qm", "the previous release"]);
+    commit_at(&root, "the previous release", "2026-09-01T00:00:00Z");
     git(&root, &["tag", PREV_TAG]);
 
     write(&root, "shipped.txt", "work that reached this release\n");
@@ -273,7 +281,7 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         write(&root, &format!(".quorum/{}.json", slug()), body);
         git(&root, &["add", &format!(".quorum/{}.json", slug())]);
     }
-    git(&root, &["commit", "-qm", "squash-merged work (#77)"]);
+    commit_at(&root, "squash-merged work (#77)", "2026-09-10T00:00:00Z");
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
 
     if tag_on_origin {
@@ -341,6 +349,8 @@ pub(crate) fn published_fixture() -> Fixture {
         "scripts/dogfood/release-check.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/crux-reconcile.sh",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
