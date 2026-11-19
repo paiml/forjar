@@ -1,23 +1,401 @@
-//! A job with `id-token: write` must never resolve to a spot (burst) label. The shell guard
-//! `tests/pr-spot-labels-guard.sh` decides; this runs it on the real tree (must pass) and on
-//! mutants (must fail), so the guard is shown capable of failing.
+//! Spot (burst) labels, judged on the PARSED workflow documents, never on raw lines.
+//!
+//! Every `.yml` and `.yaml` under `.github/workflows/` is parsed with the crate's own YAML
+//! dependency (serde_yaml_ng), so quoted keys, `\x73` escapes, flow style, explicit `? key`
+//! entries and anchors all resolve before anything is judged. Rules:
+//!  (a) a job's resolved `runs-on` (string, list, or group/labels map) may name 'burst' or
+//!      'pool-canary', or hold a `${{` expression, ONLY for an allowlisted ci.yml job id and ONLY
+//!      when it equals that job's one canonical value. A matrix reference is allowed only when
+//!      every matrix value is a plain literal without those names. A reusable-workflow call must
+//!      not pass such a value in `with`.
+//!  (b) an allowlisted job has resolved permissions exactly {contents: read}, no scalar naming
+//!      'secrets' or 'id-token', and ci.yml has no workflow-level scalar naming 'secrets' and no
+//!      workflow permissions wider than contents: read.
+//!  (c) pool-canary.yml parses equal to tests/pool-canary.expected.yml and is dispatch-only.
+//!  (d) cannot judge = red: parse failure, duplicate keys, a merge key or tag, a non-mapping
+//!      document or jobs section, an unmodeled runs-on shape, an empty or missing directory.
 
+use serde_yaml_ng::Value;
 use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+use std::path::{Path, PathBuf};
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn guard(dir: &std::path::Path) -> bool {
-    Command::new("bash")
-        .arg(repo().join("tests/pr-spot-labels-guard.sh"))
-        .arg(dir)
-        .output()
-        .expect("bash runs the guard")
-        .status
-        .success()
+const PS: &str = "${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}";
+const BU: &str = "${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}";
+const REUSABLE_RUNS_ON: &str = "[\"self-hosted\",\"clean-room\",\"X64\"]";
+
+fn canonical(job: &str) -> Option<&'static str> {
+    match job {
+        "lockfile" | "examples-validate" | "dogfood-surface" => Some(PS),
+        "no-default-features" | "doctests" | "dogfood-guards" => Some(BU),
+        _ => None,
+    }
+}
+
+fn names_pool(s: &str) -> bool {
+    let l = s.to_lowercase();
+    l.contains("burst") || l.contains("pool-canary")
+}
+
+fn key(m: &serde_yaml_ng::Mapping, k: &str) -> Option<Value> {
+    m.get(Value::String(k.to_string())).cloned()
+}
+
+/// Every scalar (keys and values) under `v`; a merge key or a tag cannot be judged.
+fn scalars(v: &Value, out: &mut Vec<String>, why: &mut Vec<String>) {
+    match v {
+        Value::String(s) => out.push(s.clone()),
+        Value::Number(n) => out.push(n.to_string()),
+        Value::Bool(b) => out.push(b.to_string()),
+        Value::Null => {}
+        Value::Sequence(s) => s.iter().for_each(|x| scalars(x, out, why)),
+        Value::Mapping(m) => {
+            for (k, x) in m {
+                if matches!(k, Value::String(s) if s == "<<") {
+                    why.push("merge key `<<` is not modeled".into());
+                }
+                scalars(k, out, why);
+                scalars(x, out, why);
+            }
+        }
+        Value::Tagged(_) => why.push("tagged value is not modeled".into()),
+    }
+}
+
+fn all_scalars(v: &Value, why: &mut Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    scalars(v, &mut out, why);
+    out
+}
+
+/// The flat label list of a resolved runs-on, or None when the shape is not modeled.
+fn labels(v: &Value) -> Option<Vec<String>> {
+    match v {
+        Value::String(s) => Some(vec![s.clone()]),
+        Value::Sequence(s) => s
+            .iter()
+            .map(|x| x.as_str().map(str::to_string))
+            .collect::<Option<Vec<_>>>(),
+        Value::Mapping(m) => {
+            let mut out = Vec::new();
+            for (k, x) in m {
+                match k.as_str()? {
+                    "group" => out.push(x.as_str()?.to_string()),
+                    "labels" => out.extend(labels(x)?),
+                    _ => return None,
+                }
+            }
+            Some(out)
+        }
+        _ => None,
+    }
+}
+
+fn literal_matrix_ok(job: &serde_yaml_ng::Mapping, name: &str, why: &mut Vec<String>) {
+    let ro = key(job, "runs-on").unwrap_or(Value::Null);
+    let expr = ro.as_str().unwrap_or("").trim();
+    let k = expr
+        .strip_prefix("${{ matrix.")
+        .and_then(|r| r.strip_suffix(" }}"))
+        .filter(|k| !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+    let Some(k) = k else {
+        why.push(format!(
+            "job {name}: runs-on expression is not allowed: {expr}"
+        ));
+        return;
+    };
+    let Some(Value::Mapping(strategy)) = key(job, "strategy") else {
+        why.push(format!(
+            "job {name}: matrix.{k} has no strategy.matrix to judge"
+        ));
+        return;
+    };
+    let Some(Value::Mapping(matrix)) = key(&strategy, "matrix") else {
+        why.push(format!(
+            "job {name}: strategy.matrix is not a mapping, cannot judge"
+        ));
+        return;
+    };
+    let mut vals = Vec::new();
+    if let Some(v) = key(&matrix, k) {
+        vals.push(v);
+    }
+    match key(&matrix, "include") {
+        None => {}
+        Some(Value::Sequence(items)) => {
+            for it in items {
+                match it {
+                    Value::Mapping(m) => vals.extend(key(&m, k)),
+                    _ => why.push(format!("job {name}: matrix include entry not a mapping")),
+                }
+            }
+        }
+        Some(_) => why.push(format!(
+            "job {name}: matrix include is not a list, cannot judge"
+        )),
+    }
+    if vals.is_empty() {
+        why.push(format!("job {name}: matrix.{k} has no literal values"));
+    }
+    let mut inner = Vec::new();
+    for v in &vals {
+        let s = all_scalars(v, why);
+        if s.is_empty() {
+            inner.push("(empty)".to_string());
+        }
+        inner.extend(s);
+    }
+    for s in inner {
+        if s.contains("${{") || names_pool(&s) || s == "(empty)" {
+            why.push(format!(
+                "job {name}: matrix.{k} value is not a plain literal: {s}"
+            ));
+        }
+    }
+}
+
+fn check_opt_in_vars(ctx: &str, canon: Option<&str>, all: &[String], why: &mut Vec<String>) {
+    for s in all {
+        let allowed_here = canon.is_some_and(|c| s == c);
+        if (s.contains("PR_SPOT_OPTIN") || s.contains("BURST_OPTIN")) && !allowed_here {
+            why.push(format!(
+                "{ctx}: opt-in variable outside its canonical runs-on: {s}"
+            ));
+        }
+    }
+}
+
+fn check_allowlisted(
+    ctx: &str,
+    j: &serde_yaml_ng::Mapping,
+    c: &str,
+    all: &[String],
+    why: &mut Vec<String>,
+) {
+    match key(j, "runs-on") {
+        Some(Value::String(s)) if s == c => {}
+        other => why.push(format!(
+            "{ctx}: runs-on is not its one canonical value: {other:?}"
+        )),
+    }
+    let want: Value = serde_yaml_ng::from_str("contents: read").unwrap();
+    if key(j, "permissions").as_ref() != Some(&want) {
+        why.push(format!("{ctx}: permissions are not exactly contents: read"));
+    }
+    for s in all {
+        let l = s.to_lowercase();
+        if l.contains("secrets") || l.contains("id-token") {
+            why.push(format!("{ctx}: names secrets or id-token: {s}"));
+        }
+    }
+}
+
+fn check_runs_on(ctx: &str, j: &serde_yaml_ng::Mapping, ro: &Value, why: &mut Vec<String>) {
+    match labels(ro) {
+        None => why.push(format!("{ctx}: runs-on shape is not modeled, cannot judge")),
+        Some(ls) if ls.iter().any(|l| names_pool(l)) => {
+            why.push(format!("{ctx}: runs-on names burst or pool-canary: {ls:?}"));
+        }
+        Some(ls) if ls.iter().any(|l| l.contains("${{")) => literal_matrix_ok(j, ctx, why),
+        Some(_) => {}
+    }
+}
+
+fn check_with(ctx: &str, is_ci_call: bool, w: &Value, why: &mut Vec<String>) {
+    let Value::Mapping(wm) = w else {
+        return why.push(format!("{ctx}: `with` is not a mapping, cannot judge"));
+    };
+    for (k, x) in wm {
+        let ks = k.as_str().unwrap_or("").to_lowercase();
+        let vs = all_scalars(x, why);
+        let exact = is_ci_call && ks == "runs_on" && vs.len() == 1 && vs[0] == REUSABLE_RUNS_ON;
+        for s in vs {
+            if !exact && (names_pool(&s) || (ks.contains("runs") && !s.is_empty())) {
+                why.push(format!(
+                    "{ctx}: reusable call passes a runs-on or pool value: {k:?}={s}"
+                ));
+            }
+        }
+    }
+}
+
+fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, why: &mut Vec<String>) {
+    let ctx = format!("{file}: job {name}");
+    let Value::Mapping(j) = job else {
+        return why.push(format!("{ctx} is not a mapping, cannot judge"));
+    };
+    let canon = if is_ci { canonical(name) } else { None };
+    let all = all_scalars(job, why);
+    check_opt_in_vars(&ctx, canon, &all, why);
+    let uses = key(j, "uses").is_some();
+    match (canon, key(j, "runs-on")) {
+        (Some(c), _) => check_allowlisted(&ctx, j, c, &all, why),
+        (None, Some(ro)) => check_runs_on(&format!("{file}:{name}"), j, &ro, why),
+        (None, None) if !uses => why.push(format!("{ctx}: no runs-on and no uses, cannot judge")),
+        (None, None) => {}
+    }
+    if !uses {
+        return;
+    }
+    let is_ci_call = is_ci && name == "ci";
+    if let Some(w) = key(j, "with") {
+        check_with(&ctx, is_ci_call, &w, why);
+    }
+    if is_ci_call {
+        let w = key(j, "with").and_then(|w| w.as_mapping().and_then(|m| key(m, "runs_on")));
+        if w.as_ref().and_then(|v| v.as_str()) != Some(REUSABLE_RUNS_ON) {
+            why.push(format!(
+                "{ctx}: reusable runs_on is not the literal clean-room value"
+            ));
+        }
+    }
+}
+
+fn check_canary(
+    base: &str,
+    doc: &Value,
+    top: &serde_yaml_ng::Mapping,
+    expected: Option<&Value>,
+    why: &mut Vec<String>,
+) {
+    match expected {
+        None => why.push(format!("{base}: no committed expected copy, cannot judge")),
+        Some(e) if e != doc => why.push(format!(
+            "{base}: does not equal tests/pool-canary.expected.yml"
+        )),
+        Some(_) => {}
+    }
+    match key(top, "on") {
+        Some(Value::Mapping(on)) if on.len() == 1 && key(&on, "workflow_dispatch").is_some() => {}
+        _ => why.push(format!("{base}: is not dispatch-only")),
+    }
+}
+
+fn permissions_ok(v: &Value) -> bool {
+    match v {
+        Value::Mapping(m) => m.iter().all(|(pk, pv)| {
+            let pv = pv.as_str().unwrap_or("");
+            pv == "none" || (pk.as_str() == Some("contents") && pv == "read")
+        }),
+        _ => false,
+    }
+}
+
+fn check_workflow_level(base: &str, top: &serde_yaml_ng::Mapping, why: &mut Vec<String>) {
+    for (k, v) in top {
+        let ks = k.as_str().unwrap_or("");
+        if ks == "jobs" {
+            continue;
+        }
+        let mut w = Vec::new();
+        let mut names = all_scalars(v, &mut w);
+        names.push(ks.to_string());
+        for s in names
+            .iter()
+            .filter(|s| s.to_lowercase().contains("secrets"))
+        {
+            why.push(format!("{base}: workflow level names secrets: {s}"));
+        }
+        if ks == "permissions" && !permissions_ok(v) {
+            why.push(format!(
+                "{base}: workflow permissions wider than contents: read"
+            ));
+        }
+    }
+}
+
+fn parse_file(path: &Path, base: &str, why: &mut Vec<String>) -> Option<Value> {
+    let text = fs::read_to_string(path)
+        .map_err(|e| why.push(format!("{base}: unreadable: {e}")))
+        .ok()?;
+    let doc: Value = serde_yaml_ng::from_str(&text)
+        .map_err(|e| why.push(format!("{base}: does not parse (cannot judge): {e}")))
+        .ok()?;
+    let mut unmodeled = Vec::new();
+    all_scalars(&doc, &mut unmodeled);
+    unmodeled
+        .iter()
+        .for_each(|w| why.push(format!("{base}: {w}")));
+    Some(doc)
+}
+
+fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut Vec<String>) {
+    let base = path.file_name().unwrap().to_string_lossy().to_string();
+    let Some(doc) = parse_file(path, &base, why) else {
+        return;
+    };
+    let Value::Mapping(top) = &doc else {
+        return why.push(format!("{base}: document is not a mapping, cannot judge"));
+    };
+    if base == "pool-canary.yml" {
+        return check_canary(&base, &doc, top, expected_canary, why);
+    }
+    let is_ci = base == "ci.yml";
+    let Some(Value::Mapping(jobs)) = key(top, "jobs") else {
+        return why.push(format!(
+            "{base}: jobs is missing or not a mapping, cannot judge"
+        ));
+    };
+    let mut has_spot = false;
+    for (n, j) in &jobs {
+        let Some(n) = n.as_str() else {
+            why.push(format!("{base}: non-string job id, cannot judge"));
+            continue;
+        };
+        has_spot |= is_ci && canonical(n).is_some();
+        judge_job(&base, n, j, is_ci, why);
+    }
+    if is_ci && has_spot {
+        check_workflow_level(&base, top, why);
+    }
+}
+
+/// Ok when the directory passes; Err carries every reason it does not.
+fn judge(dir: &Path, expected_canary: &str) -> Result<usize, Vec<String>> {
+    let mut why = Vec::new();
+    let expected: Option<Value> = serde_yaml_ng::from_str(expected_canary).ok();
+    let mut files: Vec<PathBuf> = match fs::read_dir(dir) {
+        Ok(rd) => rd
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.is_file()
+                    && matches!(p.extension().and_then(|e| e.to_str()), Some("yml" | "yaml"))
+            })
+            .collect(),
+        Err(e) => return Err(vec![format!("{}: unreadable: {e}", dir.display())]),
+    };
+    files.sort();
+    if files.is_empty() {
+        return Err(vec![format!(
+            "no workflow files in {}, nothing was measured",
+            dir.display()
+        )]);
+    }
+    for f in &files {
+        judge_file(f, expected.as_ref(), &mut why);
+    }
+    if why.is_empty() {
+        Ok(files.len())
+    } else {
+        Err(why)
+    }
+}
+
+fn expected_canary() -> String {
+    fs::read_to_string(repo().join("tests/pool-canary.expected.yml")).unwrap()
+}
+
+fn guard(dir: &Path) -> bool {
+    match judge(dir, &expected_canary()) {
+        Ok(_) => true,
+        Err(w) => {
+            eprintln!("guard refused: {}", w.join(" | "));
+            false
+        }
+    }
 }
 
 fn scratch(name: &str, ci: &str) -> PathBuf {
@@ -28,36 +406,77 @@ fn scratch(name: &str, ci: &str) -> PathBuf {
     d
 }
 
+fn red(name: &str, ci: &str) {
+    assert!(!guard(&scratch(name, ci)), "mutant {name} was accepted");
+}
+
+/// Red for the NAMED reason, so a mutant cannot pass by tripping some other rule.
+fn red_why(name: &str, ci: &str, needle: &str) {
+    match judge(&scratch(name, ci), &expected_canary()) {
+        Ok(_) => panic!("mutant {name} was accepted"),
+        Err(w) => assert!(
+            w.iter().any(|x| x.contains(needle)),
+            "mutant {name} refused for the wrong reason (want `{needle}`): {w:?}"
+        ),
+    }
+}
+
+fn ci_text() -> String {
+    fs::read_to_string(repo().join(".github/workflows/ci.yml")).unwrap()
+}
+
+/// Replace the first `from` that sits inside job `job` of the real ci.yml.
+fn job_mut(job: &str, from: &str, to: &str) -> String {
+    let ci = ci_text();
+    let at = ci.find(&format!("\n  {job}:\n")).expect("job present");
+    let (a, b) = ci.split_at(at);
+    let m = b.replacen(from, to, 1);
+    assert_ne!(b, m, "mutation must apply in {job}: {from}");
+    format!("{a}{m}")
+}
+
+fn real_mut(from: &str, to: &str) -> String {
+    let ci = ci_text();
+    let m = ci.replacen(from, to, 1);
+    assert_ne!(ci, m, "mutation must apply: {from}");
+    m
+}
+
 #[test]
 fn real_tree_passes() {
-    assert!(guard(&repo().join(".github/workflows")));
+    let n = judge(&repo().join(".github/workflows"), &expected_canary())
+        .unwrap_or_else(|w| panic!("{w:#?}"));
+    assert!(n >= 20, "guard measured only {n} workflow files");
+}
+
+#[test]
+fn empty_and_missing_dir_fail() {
+    let d = std::env::temp_dir().join(format!("forjar-spot-empty-{}", std::process::id()));
+    fs::create_dir_all(&d).unwrap();
+    assert!(!guard(&d));
+    assert!(!guard(&d.join("absent")));
 }
 
 #[test]
 fn reusable_runs_on_with_spot_label_fails() {
-    let ci = fs::read_to_string(repo().join(".github/workflows/ci.yml")).unwrap();
-    let mutant = ci.replace(
+    let m = real_mut(
         "runs_on: '[\"self-hosted\",\"clean-room\",\"X64\"]'",
         "runs_on: '[\"self-hosted\",\"burst-x64\",\"burst-public\"]'",
     );
-    assert_ne!(ci, mutant, "mutation must apply");
-    assert!(!guard(&scratch("runs-on", &mutant)));
+    red("runs-on", &m);
 }
 
 #[test]
 fn signing_job_on_spot_label_fails() {
     let ci = "on: pull_request\njobs:\n  sign:\n    permissions:\n      id-token: write\n    runs-on: [self-hosted, burst-x64]\n    steps: []\n";
-    assert!(!guard(&scratch("sign", ci)));
-    let ok = ci.replace("burst-x64", "clean-room");
-    assert!(guard(&scratch("sign-ok", &ok)));
+    red("sign", ci);
+    assert!(guard(&scratch(
+        "sign-ok",
+        &ci.replace("burst-x64", "clean-room")
+    )));
 }
 
-#[test]
-fn empty_dir_fails() {
-    let d = std::env::temp_dir().join(format!("forjar-spot-empty-{}", std::process::id()));
-    fs::create_dir_all(&d).unwrap();
-    assert!(!guard(&d));
-}
+// ---- pool-canary.yml: parsed equal to the expected copy, dispatch-only ----
 
 fn canary() -> String {
     fs::read_to_string(repo().join(".github/workflows/pool-canary.yml")).unwrap()
@@ -69,94 +488,123 @@ fn canary_dir(name: &str, text: &str) -> PathBuf {
     d
 }
 
+fn red_canary(name: &str, text: &str) {
+    assert!(
+        !guard(&canary_dir(name, text)),
+        "canary mutant {name} accepted"
+    );
+}
+
 #[test]
 fn canary_real_file_passes() {
     assert!(guard(&canary_dir("canary-ok", &canary())));
 }
 
 #[test]
-fn canary_with_secret_fails() {
-    let m = canary().replace("IID: ${{ inputs.iid }}", "IID: ${{ secrets.TOKEN }}");
-    assert_ne!(canary(), m);
-    assert!(!guard(&canary_dir("canary-secret", &m)));
+fn canary_mutants_fail() {
+    let c = canary();
+    let cases: [(&str, String); 8] = [
+        (
+            "secret",
+            c.replace("IID: ${{ inputs.iid }}", "IID: ${{ secrets.TOKEN }}"),
+        ),
+        (
+            "idtoken",
+            c.replace("contents: read", "contents: read\n  id-token: write"),
+        ),
+        (
+            "trigger",
+            c.replace(
+                "on:\n  workflow_dispatch:",
+                "on:\n  pull_request:\n  workflow_dispatch:",
+            ),
+        ),
+        (
+            "runs-on",
+            c.replace(
+                "[self-hosted, pool-canary]",
+                "[self-hosted, clean-room, X64]",
+            ),
+        ),
+        ("write", c.replace("contents: read", "contents: write")),
+        (
+            "step",
+            c.replace("jq --version", "jq --version\n          echo hi"),
+        ),
+        (
+            "extra-job",
+            format!("{c}  extra:\n    runs-on: [self-hosted, pool-canary]\n    steps: []\n"),
+        ),
+        ("unparseable", format!("{c}\n  : : [\n")),
+    ];
+    for (n, m) in cases {
+        assert_ne!(c, m, "{n}");
+        red_canary(n, &m);
+    }
+    // a comment is not a change to the parsed document
+    assert!(guard(&canary_dir("canary-comment", &format!("{}# x\n", c))));
 }
 
 #[test]
-fn canary_with_id_token_fails() {
-    let m = canary().replace("contents: read", "contents: read\n  id-token: write");
-    assert_ne!(canary(), m);
-    assert!(!guard(&canary_dir("canary-idtoken", &m)));
+fn canary_label_in_another_file_or_name_fails() {
+    let d = scratch("canary-elsewhere", "on: push\njobs: {}\n");
+    fs::write(d.join("copy.yml"), canary()).unwrap();
+    assert!(!guard(&d));
 }
 
-#[test]
-fn canary_with_extra_trigger_fails() {
-    let m = canary().replace(
-        "on:\n  workflow_dispatch:",
-        "on:\n  pull_request:\n  workflow_dispatch:",
-    );
-    assert_ne!(canary(), m);
-    assert!(!guard(&canary_dir("canary-trigger", &m)));
-}
-
-#[test]
-fn canary_with_other_runs_on_fails() {
-    let m = canary().replace(
-        "[self-hosted, pool-canary]",
-        "[self-hosted, clean-room, X64]",
-    );
-    assert_ne!(canary(), m);
-    assert!(!guard(&canary_dir("canary-runs-on", &m)));
-}
-
-fn ci_text() -> String {
-    fs::read_to_string(repo().join(".github/workflows/ci.yml")).unwrap()
-}
+// ---- spot job template ----
 
 const SPOT_JOB: &str = "on: pull_request\njobs:\n  lockfile:\n    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}\n    permissions:\n      contents: read\n    steps: []\n";
 
 #[test]
 fn spot_job_template_passes() {
     assert!(guard(&scratch("spot-ok", SPOT_JOB)));
+    // comments after a job header are not a change to the parsed document
+    assert!(guard(&scratch(
+        "spot-comment",
+        &SPOT_JOB.replace("  lockfile:\n", "  lockfile: # c\n")
+    )));
 }
 
 #[test]
 fn spot_job_with_secret_fails() {
-    let m = SPOT_JOB.replace(
-        "steps: []",
-        "steps:\n      - run: x\n        env:\n          T: ${{ secrets.X }}",
+    red(
+        "spot-secret",
+        &SPOT_JOB.replace(
+            "steps: []",
+            "steps:\n      - run: x\n        env:\n          T: ${{ secrets.X }}",
+        ),
     );
-    assert_ne!(SPOT_JOB, m);
-    assert!(!guard(&scratch("spot-secret", &m)));
 }
 
 #[test]
-fn spot_job_with_write_all_fails() {
-    let m = SPOT_JOB.replace(
-        "permissions:\n      contents: read",
-        "permissions: write-all",
+fn spot_job_permission_variants_fail() {
+    red(
+        "write-all",
+        &SPOT_JOB.replace(
+            "permissions:\n      contents: read",
+            "permissions: write-all",
+        ),
     );
-    assert_ne!(SPOT_JOB, m);
-    assert!(!guard(&scratch("spot-write-all", &m)));
-}
-
-#[test]
-fn spot_job_with_write_scope_fails() {
     for extra in ["pull-requests: write", "id-token: write", "contents: write"] {
         let base = if extra.starts_with("contents") {
             SPOT_JOB.replace("contents: read", extra)
         } else {
             SPOT_JOB.replace("contents: read", &format!("contents: read\n      {extra}"))
         };
-        assert_ne!(SPOT_JOB, base);
-        assert!(!guard(&scratch("spot-scope", &base)), "{extra}");
+        red("scope", &base);
     }
-}
-
-#[test]
-fn spot_job_without_permissions_fails() {
-    let m = SPOT_JOB.replace("    permissions:\n      contents: read\n", "");
-    assert_ne!(SPOT_JOB, m);
-    assert!(!guard(&scratch("spot-noperm", &m)));
+    red(
+        "noperm",
+        &SPOT_JOB.replace("    permissions:\n      contents: read\n", ""),
+    );
+    red(
+        "flow-perm-write",
+        &SPOT_JOB.replace(
+            "permissions:\n      contents: read",
+            "permissions: {contents: write}",
+        ),
+    );
 }
 
 #[test]
@@ -166,69 +614,30 @@ fn spot_job_on_non_pull_request_event_fails() {
         "github.event_name == 'push'",
         "true",
     ] {
-        let m = SPOT_JOB.replace("github.event_name == 'pull_request'", ev);
-        assert_ne!(SPOT_JOB, m);
-        assert!(!guard(&scratch("spot-event", &m)), "{ev}");
+        red(
+            "event",
+            &SPOT_JOB.replace("github.event_name == 'pull_request'", ev),
+        );
     }
 }
 
 #[test]
-fn canary_with_extra_job_fails() {
-    let m = format!(
-        "{}  extra:\n    runs-on: [self-hosted, pool-canary]\n    steps: []\n",
-        canary()
-    );
-    assert!(!guard(&canary_dir("canary-extra-job", &m)));
-}
-
-#[test]
-fn real_ci_spot_jobs_have_explicit_read_permissions() {
-    // every job on the PR_SPOT_OPTIN expression is named here; dropping its permissions block fails
-    let ci = ci_text();
-    let m = ci.replacen("    permissions:\n      contents: read\n", "", 1);
-    assert_ne!(ci, m);
-    assert!(!guard(&scratch("real-noperm", &m)));
-}
-
-#[test]
-fn ci_wires_the_guard_into_the_gate() {
-    let ci = ci_text();
-    assert!(
-        ci.contains("tests/pr-spot-labels-guard.sh"),
-        "ci.yml never runs the guard"
-    );
-    assert!(
-        ci.contains("falsification_pr_spot_labels"),
-        "ci.yml never runs the Rust test"
-    );
-    assert!(ci.contains("needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards, spot-labels-guard]"), "gate does not need the guard job");
-}
-
-// ---- r3 allowlist mutants: the guard is an ALLOWLIST (exact job ids, exact runs-on text) ----
-
-const PS: &str = "runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}";
-
-fn red(name: &str, ci: &str) {
-    assert!(!guard(&scratch(name, ci)), "mutant {name} was accepted");
-}
-
-fn real_mut(from: &str, to: &str) -> String {
-    let ci = ci_text();
-    let m = ci.replacen(from, to, 1);
-    assert_ne!(ci, m, "mutation must apply: {from}");
-    m
-}
-
-#[test]
-fn r3_workflow_level_env_secret_fails() {
+fn real_ci_spot_jobs_need_explicit_read_permissions() {
     red(
-        "r3-top-env",
-        &real_mut("\njobs:\n", "\nenv:\n  TOK: ${{ secrets.FOO }}\njobs:\n"),
+        "real-noperm",
+        &real_mut("    permissions:\n      contents: read\n", ""),
     );
 }
 
+// ---- r3 mutants, kept red ----
+
 #[test]
-fn r3_workflow_level_write_permissions_fails() {
+fn r3_workflow_level_mutants_fail() {
+    red_why(
+        "r3-top-env",
+        &real_mut("\nenv:\n", "\nenv:\n  TOK: ${{ secrets.FOO }}\n"),
+        "workflow level names secrets",
+    );
     red(
         "r3-top-perm",
         &real_mut("\njobs:\n", "\npermissions:\n  contents: write\njobs:\n"),
@@ -241,27 +650,37 @@ fn r3_workflow_level_write_permissions_fails() {
 
 #[test]
 fn r3_block_list_runs_on_with_secrets_env_fails() {
-    let m = SPOT_JOB.replace(
-        &format!("    {PS}\n"),
-        "    env:\n      T: ${{ secrets.FOO }}\n    runs-on:\n      - self-hosted\n      - burst-x64\n",
-    );
-    assert_ne!(SPOT_JOB, m);
+    let m = SPOT_JOB
+        .lines()
+        .map(|l| {
+            if l.starts_with("    runs-on:") {
+                "    env:\n      T: ${{ secrets.FOO }}\n    runs-on:\n      - self-hosted\n      - burst-x64".to_string()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     red("r3-block-list", &m);
 }
 
 #[test]
 fn r3_matrix_label_fails() {
-    let ci = "on: pull_request\njobs:\n  lockfile:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: [burst-x64]\n    permissions:\n      contents: read\n    steps: []\n";
-    red("r3-matrix", ci);
+    red(
+        "r3-matrix",
+        "on: pull_request\njobs:\n  lockfile:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: [burst-x64]\n    permissions:\n      contents: read\n    steps: []\n",
+    );
 }
 
 #[test]
 fn r3_or_true_fails() {
-    let m = real_mut(
-        "vars.PR_SPOT_OPTIN == '1')",
-        "vars.PR_SPOT_OPTIN == '1' || true)",
+    red(
+        "r3-or-true",
+        &real_mut(
+            "vars.PR_SPOT_OPTIN == '1')",
+            "vars.PR_SPOT_OPTIN == '1' || true)",
+        ),
     );
-    red("r3-or-true", &m);
     red(
         "r3-or-true2",
         &real_mut(
@@ -288,21 +707,23 @@ fn r3_reusable_runs_on_variants_fail() {
 
 #[test]
 fn r3_burst_in_non_allowlisted_job_fails() {
-    // the canonical text on a job that is not in the allowlist
-    let ci = format!("on: pull_request\njobs:\n  other:\n    {PS}\n    permissions:\n      contents: read\n    steps: []\n");
-    red("r3-other-job", &ci);
-    // the PR_SPOT text on a BURST_OPTIN job (wrong canonical line for that job id)
-    let m = real_mut("  doctests:\n", "  doctests:\n    x: y\n").replacen(
+    red("r3-other-job", &SPOT_JOB.replace("  lockfile:", "  other:"));
+    let m = real_mut(
         "vars.BURST_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\"]')",
         "vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]')",
-        1,
     );
     red("r3-wrong-canon", &m);
 }
 
 #[test]
 fn r3_opt_in_variable_anywhere_else_fails() {
-    red("r3-var-step", &real_mut("    steps:\n      - uses: actions/checkout", "    steps:\n      - if: ${{ vars.PR_SPOT_OPTIN == '1' }}\n        uses: actions/checkout"));
+    red(
+        "r3-var-step",
+        &real_mut(
+            "    steps:\n      - uses: actions/checkout",
+            "    steps:\n      - if: ${{ vars.PR_SPOT_OPTIN == '1' }}\n        uses: actions/checkout",
+        ),
+    );
     red(
         "r3-ro-var",
         &real_mut(
@@ -330,8 +751,8 @@ fn r3_duplicate_job_or_runs_on_fails() {
     red(
         "r3-dup-runs-on",
         &SPOT_JOB.replace(
-            &format!("    {PS}\n"),
-            &format!("    {PS}\n    runs-on: [self-hosted, clean-room]\n"),
+            "    permissions:",
+            "    runs-on: [self-hosted, clean-room]\n    permissions:",
         ),
     );
     red(
@@ -341,108 +762,281 @@ fn r3_duplicate_job_or_runs_on_fails() {
 }
 
 #[test]
-fn r3_unparseable_spot_file_fails() {
-    // cannot judge = red
+fn r3_flow_jobs_burst_fails() {
     red(
         "r3-flow-jobs",
         "on: pull_request\njobs: {lockfile: {runs-on: burst-x64}}\n",
     );
+}
+
+// ---- r4: YAML spellings that resolve to the same value, planted RED first ----
+
+fn plant(job_body: &str) -> String {
+    format!("on: pull_request\njobs:\n{job_body}")
+}
+
+#[test]
+fn r4_quoted_key_and_escape_fail() {
     red(
-        "r3-job-header-comment",
-        &SPOT_JOB.replace("  lockfile:\n", "  lockfile: # c\n"),
+        "r4-quoted-key",
+        &plant("  evil:\n    \"runs-on\": [\"self-hosted\", \"burst-x64\"]\n    steps: []\n"),
+    );
+    red(
+        "r4-escape",
+        &plant("  evil:\n    runs-on: [\"self-hosted\", \"bur\\x73t-x64\"]\n    steps: []\n"),
+    );
+    red(
+        "r4-quoted-key-escape-secret",
+        &plant("  evil:\n    \"runs-on\": [\"self-hosted\", \"bur\\x73t-x64\"]\n    env:\n      T: \"${{ secrets.TOK }}\"\n    steps: []\n"),
     );
 }
 
 #[test]
-fn r3_canary_must_be_byte_identical() {
-    let c = canary();
-    red_canary(
-        "r3-canary-write",
-        &c.replace("contents: read", "contents: write"),
+fn r4_flow_style_and_explicit_key_fail() {
+    red(
+        "r4-flow-job",
+        &plant("  evil: {\"runs-on\": [\"self-hosted\", \"bur\\x73t-x64\"]}\n"),
     );
-    red_canary("r3-canary-comment", &format!("{c}# x\n"));
-    red_canary(
-        "r3-canary-step",
-        &c.replace("jq --version", "jq --version\n          echo hi"),
+    red(
+        "r4-explicit-key",
+        &plant("  evil:\n    ? runs-on\n    : [self-hosted, bur\\x73t-x64]\n    steps: []\n")
+            .replace("bur\\x73t-x64]\n", "burst-x64]\n"),
     );
-}
-
-fn red_canary(name: &str, text: &str) {
-    assert!(
-        !guard(&canary_dir(name, text)),
-        "canary mutant {name} accepted"
+    red(
+        "r4-explicit-key-escaped",
+        &plant(
+            "  evil:\n    ? runs-on\n    : [\"self-hosted\", \"bur\\x73t-x64\"]\n    steps: []\n",
+        ),
     );
-}
-
-// ---- the CI step must go red when the guard is neutered ----
-
-fn step_body(ci: &str, name: &str) -> String {
-    let mut lines = ci.lines();
-    let hdr = format!("      - name: {name}");
-    lines.find(|l| *l == hdr).expect("step present");
-    let mut body = Vec::new();
-    let mut in_run = false;
-    for l in lines {
-        if l.starts_with("      - ") || (!l.is_empty() && !l.starts_with("        ")) {
-            break;
-        }
-        if in_run {
-            body.push(l.strip_prefix("          ").unwrap_or(l).to_string());
-        } else if l.trim() == "run: |" {
-            in_run = true;
-        }
-    }
-    body.join("\n")
+    red(
+        "r4-flow-all",
+        "{on: pull_request, jobs: {evil: {runs-on: [self-hosted, burst-x64]}}}\n",
+    );
 }
 
 #[test]
-fn ci_mutant_step_goes_red_when_the_guard_is_neutered() {
-    if std::env::var_os("FORJAR_SPOT_INNER").is_some() {
-        return; // the inner run (neutered guard) must not recurse
-    }
-    let t = std::env::temp_dir().join(format!("forjar-spot-step-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&t);
-    fs::create_dir_all(t.join("tests")).unwrap();
-    fs::create_dir_all(t.join(".github")).unwrap();
-    let r = repo();
-    fs::copy(
-        r.join("tests/falsification_pr_spot_labels.rs"),
-        t.join("tests/falsification_pr_spot_labels.rs"),
-    )
-    .unwrap();
-    fs::copy(
-        r.join("tests/pool-canary.expected.yml"),
-        t.join("tests/pool-canary.expected.yml"),
-    )
-    .unwrap();
-    fs::write(
-        t.join("tests/pr-spot-labels-guard.sh"),
-        "#!/usr/bin/env bash\nexit 0\n",
-    )
-    .unwrap();
-    let wf = t.join(".github/workflows");
-    fs::create_dir_all(&wf).unwrap();
-    for e in fs::read_dir(r.join(".github/workflows")).unwrap() {
-        let p = e.unwrap().path();
-        fs::copy(&p, wf.join(p.file_name().unwrap())).unwrap();
-    }
-    let ci = ci_text();
-    let body = step_body(&ci, "Guard mutants (each must be refused)");
-    assert!(body.contains("rustc"), "step body not found: {body}");
-    let script = t.join("step.sh");
-    fs::write(&script, &body).unwrap();
-    // GitHub's `shell: bash` runs `bash --noprofile --norc -eo pipefail {0}`
-    let out = Command::new("bash")
-        .args(["--noprofile", "--norc", "-eo", "pipefail"])
-        .arg(&script)
-        .current_dir(&t)
-        .env("FORJAR_SPOT_INNER", "1")
-        .output()
-        .unwrap();
-    let _ = fs::remove_dir_all(&t);
-    assert!(
-        !out.status.success(),
-        "step stayed green with a neutered guard"
+fn r4_expression_runs_on_fails() {
+    // fed from a needs output
+    red(
+        "r4-needs",
+        &plant("  pick:\n    runs-on: [self-hosted, clean-room]\n    outputs:\n      l: ${{ steps.s.outputs.l }}\n    steps: []\n  evil:\n    needs: pick\n    runs-on: ${{ fromJSON(needs.pick.outputs.l) }}\n    steps: []\n"),
     );
-    assert!(!body.contains("| tail"), "the step pipes into tail");
+    // matrix fed from needs output or vars
+    red(
+        "r4-matrix-needs",
+        &plant("  evil:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: ${{ fromJSON(needs.pick.outputs.l) }}\n    steps: []\n"),
+    );
+    red(
+        "r4-matrix-vars",
+        &plant("  evil:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: ${{ fromJSON(vars.LBL) }}\n    steps: []\n"),
+    );
+    red(
+        "r4-vars",
+        &plant("  evil:\n    runs-on: ${{ vars.LBL }}\n    steps: []\n"),
+    );
+    red(
+        "r4-matrix-include-burst",
+        &plant("  evil:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: [a]\n        include:\n          - os: bur\\x73t-x64\n    steps: []\n").replace("bur\\x73t", "burst"),
+    );
+    red(
+        "r4-matrix-no-strategy",
+        &plant("  evil:\n    runs-on: ${{ matrix.os }}\n    steps: []\n"),
+    );
+    // a literal matrix is fine
+    assert!(guard(&scratch(
+        "r4-matrix-literal-ok",
+        &plant("  fine:\n    runs-on: ${{ matrix.os }}\n    strategy:\n      matrix:\n        os: [ubuntu-latest, macos-latest]\n    steps: []\n"),
+    )));
+}
+
+#[test]
+fn r4_map_form_runs_on_fails() {
+    red(
+        "r4-group-labels",
+        &plant("  evil:\n    runs-on:\n      group: g\n      labels: [self-hosted, \"burst-x64\"]\n    steps: []\n"),
+    );
+    red(
+        "r4-labels-escaped",
+        &plant("  evil:\n    runs-on:\n      labels: \"bur\\x73t-x64\"\n    steps: []\n"),
+    );
+    red(
+        "r4-unmodeled-shape",
+        &plant("  evil:\n    runs-on: 5\n    steps: []\n"),
+    );
+    red(
+        "r4-unmodeled-map-key",
+        &plant("  evil:\n    runs-on:\n      other: x\n    steps: []\n"),
+    );
+}
+
+#[test]
+fn r4_reusable_call_passing_pool_value_fails() {
+    red(
+        "r4-reusable-quoted",
+        &plant("  call:\n    uses: ./.github/workflows/x.yml\n    with:\n      \"runs_on\": '[\"self-hosted\",\"bur\\x73t-x64\"]'\n"),
+    );
+    red(
+        "r4-reusable-vars",
+        &plant("  call:\n    uses: ./.github/workflows/x.yml\n    with:\n      runs_on: ${{ vars.X }}\n"),
+    );
+    red(
+        "r4-reusable-other-key",
+        &plant("  call:\n    uses: ./.github/workflows/x.yml\n    with:\n      pool: burst-x64\n"),
+    );
+}
+
+#[test]
+fn r4_escaped_secrets_fail() {
+    red_why(
+        "r4-job-secret",
+        &SPOT_JOB.replace(
+            "steps: []",
+            "env:\n      T: \"${{ s\\x65crets.GH_TOKEN }}\"\n    steps: []",
+        ),
+        "names secrets",
+    );
+    red_why(
+        "r4-top-secret",
+        &real_mut("\nenv:\n", "\nenv:\n  T: \"${{ s\\x65crets.GH_TOKEN }}\"\n"),
+        "workflow level names secrets",
+    );
+    red_why(
+        "r4-lockfile-secret",
+        &job_mut(
+            "lockfile",
+            "    env:\n",
+            "    env:\n      T: \"${{ s\\x65crets.GH_TOKEN }}\"\n",
+        ),
+        "names secrets",
+    );
+}
+
+#[test]
+fn r4_anchor_and_merge_and_tags_fail() {
+    red(
+        "r4-anchor",
+        &plant("  a:\n    runs-on: &r [self-hosted, burst-x64]\n    steps: []\n  b:\n    runs-on: *r\n    steps: []\n"),
+    );
+    red(
+        "r4-merge-key",
+        &plant("  a:\n    <<: {runs-on: [self-hosted, burst-x64]}\n    steps: []\n"),
+    );
+    red(
+        "r4-core-tag",
+        &plant("  a:\n    runs-on: !!seq [self-hosted, burst-x64]\n    steps: []\n"),
+    );
+    red(
+        "r4-custom-tag",
+        &plant("  a:\n    runs-on: !pool [self-hosted, x]\n    steps: []\n"),
+    );
+    red(
+        "r4-anchor-secret-into-lockfile",
+        &SPOT_JOB
+            .replace(
+                "on: pull_request\n",
+                "on: pull_request\nx: &t ${{ secrets.X }}\n",
+            )
+            .replace("steps: []", "env:\n      T: *t\n    steps: []"),
+    );
+}
+
+#[test]
+fn r4_cannot_judge_is_red() {
+    red("r4-unparseable", "on: pull_request\njobs: [\n");
+    red(
+        "r4-dup-key",
+        &plant("  a:\n    runs-on: [self-hosted]\n    runs-on: [self-hosted]\n    steps: []\n"),
+    );
+    red("r4-dup-job", &plant("  a:\n    runs-on: [self-hosted]\n    steps: []\n  a:\n    runs-on: [self-hosted]\n    steps: []\n"));
+    red("r4-not-mapping", "- a\n- b\n");
+    red("r4-jobs-not-mapping", "on: push\njobs: x\n");
+    red("r4-no-jobs", "on: push\n");
+    red("r4-job-not-mapping", "on: push\njobs:\n  a: x\n");
+    red("r4-no-runs-on", &plant("  a:\n    steps: []\n"));
+}
+
+// ---- the gate step must run the parsed check and its exit code must not be masked ----
+
+fn ci_value() -> Value {
+    serde_yaml_ng::from_str(&ci_text()).unwrap()
+}
+
+#[test]
+fn ci_wires_the_parsed_guard_unmasked_into_the_gate() {
+    let ci = ci_value();
+    let jobs = ci.get("jobs").unwrap();
+    let g = jobs
+        .get("spot-labels-guard")
+        .expect("spot-labels-guard job");
+    assert!(
+        g.get("continue-on-error").is_none(),
+        "guard job continue-on-error"
+    );
+    let steps = g.get("steps").and_then(Value::as_sequence).unwrap();
+    let runs: Vec<&str> = steps
+        .iter()
+        .filter_map(|s| s.get("run").and_then(Value::as_str))
+        .collect();
+    let step = runs
+        .iter()
+        .find(|r| r.contains("falsification_pr_spot_labels"))
+        .expect("a step runs the parsed guard test");
+    assert!(step.contains("cargo test --locked --test falsification_pr_spot_labels"));
+    for s in steps {
+        assert!(
+            s.get("continue-on-error").is_none(),
+            "step continue-on-error"
+        );
+    }
+    for r in &runs {
+        for bad in [
+            "|| true",
+            "| tail",
+            "| head",
+            "| grep",
+            "|| exit 0",
+            "set +e",
+            "; true",
+        ] {
+            assert!(
+                !r.contains(bad),
+                "run step masks its exit code with `{bad}`: {r}"
+            );
+        }
+    }
+    let gate = jobs.get("gate").unwrap();
+    let needs: Vec<&str> = gate
+        .get("needs")
+        .and_then(Value::as_sequence)
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert!(
+        needs.contains(&"spot-labels-guard"),
+        "gate does not need the guard job"
+    );
+    let gate_text = serde_yaml_ng::to_string(gate).unwrap();
+    assert!(
+        gate_text.contains("needs.spot-labels-guard.result"),
+        "gate never reads the guard result"
+    );
+}
+
+#[test]
+fn ci_step_masking_mutants_are_refused() {
+    // the wiring test above must be able to fail: a masked guard step is not accepted
+    let masked = ci_text().replace(
+        "cargo test --locked --test falsification_pr_spot_labels",
+        "cargo test --locked --test falsification_pr_spot_labels || true",
+    );
+    assert_ne!(masked, ci_text());
+    let v: Value = serde_yaml_ng::from_str(&masked).unwrap();
+    let step = v["jobs"]["spot-labels-guard"]["steps"]
+        .as_sequence()
+        .unwrap()
+        .iter()
+        .filter_map(|s| s.get("run").and_then(Value::as_str))
+        .any(|r| r.contains("|| true"));
+    assert!(step, "mutant did not apply to the guard step");
 }

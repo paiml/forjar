@@ -73,7 +73,7 @@ jobs:
       # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
       # where #981 put them.
       # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
-      # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/pr-spot-labels-guard.sh.
+      # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/falsification_pr_spot_labels.rs (judges the parsed YAML).
       runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
@@ -369,24 +369,14 @@ jobs:
 
   # The spot-label guard: a red guard blocks the gate. Stays on clean-room, never on a spot label.
   spot-labels-guard:
-    timeout-minutes: 10
+    timeout-minutes: 45
     runs-on: [self-hosted, clean-room, X64]
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - name: Guard on the real tree
-        run: bash tests/pr-spot-labels-guard.sh
-      - name: Guard mutants (each must be refused)
-        shell: bash
-        run: |
-          set -euo pipefail
-          t="$(mktemp -d)"
-          CARGO_MANIFEST_DIR="$PWD" rustc --edition 2021 --test tests/falsification_pr_spot_labels.rs -o "$t/spot"
-          rc=0
-          CARGO_MANIFEST_DIR="$PWD" "$t/spot" > "$t/out" 2>&1 || rc=$?
-          tail -n 25 "$t/out"
-          exit "$rc"
+      - name: Parsed guard (judges the parsed workflows; exit code unmasked)
+        run: cargo test --locked --test falsification_pr_spot_labels
 
   gate:
     timeout-minutes: 15
