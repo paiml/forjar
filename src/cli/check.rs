@@ -105,11 +105,6 @@ pub(super) fn make_check_result(
     }
 }
 
-/// Print check failure in text mode.
-pub(super) fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
-    println!("  FAIL {resource_id} ({machine_name}) — {detail}");
-}
-
 /// Print an unreachable target in text mode.
 pub(super) fn print_unmeasured(resource_id: &str, machine_name: &str, detail: &str) {
     println!("  UNMEASURED {resource_id} ({machine_name}) — {detail}");
