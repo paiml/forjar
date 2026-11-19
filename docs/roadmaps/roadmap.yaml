@@ -8163,3 +8163,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1187
+  github_issue: 1187
+  item_type: task
+  title: "forjar check prints a warn line when a live instance's volumes drift from cloud_volume_tags"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-19T00:00:00Z
+  updated: 2026-11-19T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
