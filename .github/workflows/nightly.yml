@@ -67,7 +67,7 @@ jobs:
           [ "$missing" = "0" ] && echo "All v* tags have releases"
           exit "$missing"
 
-  # ── Roadmap lint (forjar#1200, LAB lane) ──────────────────
+  # ── Roadmap lint (forjar#1200, nightly-only check) ──────────────────
   # Nightly only: it blocks no merge and no release (nothing `needs` it). A red is the
   # roadmap's own defect; the owner fixes the row. No continue-on-error, no third state.
   roadmap-lint:
