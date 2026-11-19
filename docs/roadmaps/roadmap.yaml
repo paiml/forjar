@@ -8186,6 +8186,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1194
+  github_issue: 1194
+  item_type: task
+  title: 'derived Debug on the validated JIT config prints the token source in clear'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1189
   github_issue: 1189
   item_type: task
@@ -8222,6 +8240,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1195
+  github_issue: 1195
+  item_type: task
+  title: 'runner-name duplicate check is case-sensitive while host ids are case-insensitive'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1190
   github_issue: 1190
   item_type: task
@@ -8244,6 +8280,24 @@ roadmap:
   github_issue: 1181
   item_type: task
   title: "cloud_instance client token omits cloud_user_data_file and cloud_volume_tags"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1196
+  github_issue: 1196
+  item_type: task
+  title: '`on_notice` test cannot fail'
   status: planned
   priority: high
   assigned_to: null

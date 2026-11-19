@@ -287,3 +287,12 @@ fn label_with_leading_dash_is_refused() {
     }
     assert!(validate(&with_labels(&["a-b", "x-"])).is_ok());
 }
+
+#[test]
+fn config_debug_redacts_the_token_source() {
+    let c = validate(&with_source("SECRET_SRC_NAME")).expect("valid");
+    let dbg = format!("{c:?}");
+    assert!(!dbg.contains("SECRET_SRC_NAME"), "{dbg}");
+    assert!(dbg.contains("<redacted>"), "{dbg}");
+    assert!(dbg.contains("forjar-pool"), "{dbg}");
+}
