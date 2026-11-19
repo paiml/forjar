@@ -53,6 +53,16 @@ fn nothing_declared_is_byte_identical_to_today() {
         ends_with_launch(&s, TODAY_TAIL, &gated(std::path::Path::new("/t"))),
         "{s}"
     );
+    // the whole script, head included, against the golden captured from `apply_script` on main;
+    // the launch token hashes the UTC day, so it is held as `@TOKEN@` in the golden
+    let quoted = sh_squote(&launch_io::token(
+        &spec_of(&gated(std::path::Path::new("/t"))).unwrap(),
+    ));
+    assert_eq!(s.matches(&quoted).count(), 1, "{s}");
+    assert_eq!(
+        s.replace(&quoted, "@TOKEN@"),
+        include_str!("apply_today.golden")
+    );
     assert_eq!(s.matches("block-device-mappings").count(), 0);
     assert!(!key_of(&spec_of(&res()).unwrap()).contains("@s"));
     // tags alone (volume_tags unset or false) never add a volume tag specification
@@ -437,4 +447,33 @@ fn data_volume_alone_needs_no_image_lookup() {
         !log.contains("describe-images") && !log.contains("get-parameter"),
         "{log}"
     );
+}
+
+/// Run `check_script(r)` against a live instance whose volumes number `vols`, of which `tagged`
+/// carry every declared tag (the fake `describe-volumes` prints these two files verbatim).
+fn check_volumes(r: &Resource, ids: &str, vols: &str, tagged: &str) -> (i32, String, String) {
+    let sb = Sandbox::new();
+    std::fs::write(sb.path().join("calls.log.vols"), vols).unwrap();
+    std::fs::write(sb.path().join("calls.log.tagged"), tagged).unwrap();
+    let (rc, out) = sb.run(&check_script(r), ids);
+    (rc, out, sb.log())
+}
+
+#[test]
+fn check_reports_declared_volume_tags_missing_on_a_live_instance() {
+    let on = with(|c| c.volume_tags = Some(true));
+    let has = |o: &str, m: &str| o.contains(&format!("{m}:ci-box-a@eu-south-2@0123456789ab"));
+    let (rc, out, _) = check_volumes(&on, "i-0123abcd", "2", "2");
+    assert!(rc == 0 && has(&out, "volume-tags-match"), "{out}");
+    let (rc, out, log) = check_volumes(&on, "i-0123abcd", "2", "1");
+    assert_eq!(rc, 0, "a warning, not a failed check: {out}");
+    assert!(has(&out, "volume-tags-drift"), "{out}");
+    assert!(log.contains("Name=tag:pool,Values=spot-rmedia-pr"), "{log}");
+    let (_, out, _) = check_volumes(&on, "i-0123abcd", "x", "2");
+    assert!(has(&out, "volume-tags-unreadable"), "{out}");
+    // not declared, or no instance: no volume query at all
+    let (_, _, log) = check_volumes(&res(), "i-0123abcd", "2", "1");
+    let (rc, out, log2) = check_volumes(&on, "", "2", "1");
+    assert_ne!(rc, 0, "{out}");
+    assert!(!(log + &log2).contains("describe-volumes"), "{log2}");
 }
