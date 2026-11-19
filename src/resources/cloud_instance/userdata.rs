@@ -92,7 +92,9 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
         big = refuse(&format!("is larger than {MAX_BYTES} bytes")),
         line = sh_squote(&required_line(life_min)),
         shells = SHELLS,
-        noshebang = refuse("must have line 1 exactly #!/bin/sh or #!/bin/bash"),
+        noshebang = refuse(
+            "must have line 1 exactly one of #!/bin/sh, #!/bin/bash, #!/usr/bin/env sh, #!/usr/bin/env bash",
+        ),
         noline = refuse(&format!(
             "must have exactly [{}] as line 2 (the lifetime bound, first command)",
             required_line(life_min)
@@ -269,7 +271,12 @@ mod tests {
         std::fs::write(&ud, "no shebang\nshutdown -h +60\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 1, "{out}");
-        assert!(out.contains("must have line 1 exactly"), "{out}");
+        assert!(
+            out.contains(
+                "must have line 1 exactly one of #!/bin/sh, #!/bin/bash, #!/usr/bin/env sh, #!/usr/bin/env bash"
+            ),
+            "{out}"
+        );
         std::fs::write(&ud, "#!/bin/sh\nshutdown -h +60\n/opt/train.sh\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "{out}");
@@ -291,7 +298,7 @@ mod tests {
             assert!(out.contains("REFUSED: cloud_user_data_file"), "{out}");
             assert_eq!(sb.log(), "", "{l1:?}: no aws call");
         }
-        for l1 in ["#!/bin/bash", "#!/usr/bin/env sh"] {
+        for l1 in ["#!/bin/bash", "#!/usr/bin/env sh", "#!/usr/bin/env bash"] {
             std::fs::write(&ud, format!("{l1}\n{REQ}")).unwrap();
             assert_eq!(sb.run(&script, "").0, 0, "{l1}");
         }
