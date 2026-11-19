@@ -130,26 +130,12 @@ fn host_with_busy_runner_is_never_terminated_even_when_old_and_idle() {
     assert!(s.terminate_hosts.is_empty());
 }
 
-fn unknown(runner: &str, host: &str) -> Result<Sweep, SweepError> {
-    Err(SweepError::UnknownRunnerHost {
-        runner: runner.into(),
-        host: host.into(),
-    })
-}
-
 #[test]
-fn busy_runner_on_an_unlisted_host_id_is_refused_whatever_it_looks_like() {
-    let hosts = [ha("i-0abc", 99_999, 99_999)];
-    for bad in ["ip-10-0-0-5", "zzz", "I-0ABC", "i-0ab"] {
-        let l = complete(vec![r("b", bad, true)]);
-        assert_eq!(sweep(&l, &hosts), unknown("b", bad), "{bad}");
-    }
-}
-
-#[test]
-fn idle_runner_on_an_unlisted_host_id_is_refused() {
-    let l = complete(vec![r("i", "gone", false)]);
-    assert_eq!(sweep(&l, &[h("i-0abc", 99_999)]), unknown("i", "gone"));
+fn unknown_runner_host_is_reported_and_orphans_are_still_terminated() {
+    let l = complete(vec![r("ghost", "gone", false), r("b", "I-0ABC", true)]);
+    let s = sweep(&l, &[h("o1", 99_999), h("i-0abc", 99_999), h("o2", 99_999)]).unwrap();
+    assert_eq!(s.terminate_hosts, ["o1", "o2"]);
+    assert_eq!(s.unknown_runners.len(), 2);
 }
 
 #[test]
