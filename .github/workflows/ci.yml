@@ -93,7 +93,7 @@ jobs:
   lockfile:
     timeout-minutes: 30
     name: lockfile-preflight
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN_LIGHT == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     permissions:
       contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -139,7 +139,7 @@ jobs:
     needs: classify
     name: examples-validate
     # forjar#1090: X64, as every PR job. The aarch64 smoke is nightly.yml `arm64-smoke`.
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN_LIGHT == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     permissions:
       contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -193,7 +193,8 @@ jobs:
           --test falsification_683_cross_mounts_under_work_root \
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest \
-          --test falsification_pr_jobs_name_no_arm64_or_host
+          --test falsification_pr_jobs_name_no_arm64_or_host \
+          --test falsification_ci_light_jobs_read_their_own_burst_variable
       # The LIVE half of that falsifier (real sudo, required, not skippable) runs
       # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
       # have no passwordless sudo (measured 2026-11-15, run 43718157756). It

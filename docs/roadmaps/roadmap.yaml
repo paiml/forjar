@@ -8192,7 +8192,7 @@ roadmap:
   updated: 2026-11-19T08:08:02Z
   spec: null
   acceptance_criteria:
-  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8211,7 +8211,7 @@ roadmap:
   updated: 2026-11-19T08:08:07Z
   spec: null
   acceptance_criteria:
-  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8230,7 +8230,7 @@ roadmap:
   updated: 2026-11-19T08:08:14Z
   spec: null
   acceptance_criteria:
-  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
   phases: []
   subtasks: []
   estimated_effort: null

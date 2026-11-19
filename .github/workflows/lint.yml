@@ -146,7 +146,7 @@ jobs:
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
     timeout-minutes: 15
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN_LIGHT == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room"]') }}
     permissions:
       contents: read
     steps:
