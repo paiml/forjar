@@ -101,7 +101,8 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
              applied by the create call and the gates but never read back",
         ),
         // `cloud_user_data_file` is not read by the gates: only the apply guard (presence, size, header) checks it,
-        // and the run-instances (create) call passes it by path as --user-data.
+        // on a private copy that the run-instances (create) call is given as --user-data; codegen also hashes the
+        // file's bytes into the client token (launch_io::token_input). It is never read back from the instance.
         "cloud_user_data_file" => Observability::Unmigrated(
             "#861 — the provider query keys on name and region (check: plus image digest); this field is \
              applied only by the apply guard and the run-instances call, and is never read back",
