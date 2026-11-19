@@ -1,17 +1,19 @@
 //! `cloud_user_data_file`: optional local FILE passed as the instance's user-data (#1131-#1133).
 //!
-//! Only the PATH is ever used. forjar never reads the content, so it cannot reach the plan,
+//! Only the PATH is ever used, except that `token_input` reads the content (bytes, regular files up to the size limit) to hash it into the client
+//! token (never printed). forjar never keeps the content, so it cannot reach the plan,
 //! the instance key, a generated script, a log or state: the fleet's user-data carries presigned
 //! URLs, which are secrets. The path is NOT part of the instance key: a per-launch temp path must
 //! not turn a live box into a "changed" refusal, and keys without the field stay byte for byte.
 //! The path is checked against a strict allow-list at parse time and again at codegen (both
 //! through `spec_of`), then single-quoted at use. The size and presence guard runs in the apply
-//! script before any `aws` call; a file that is gone after launch therefore blocks a re-apply
+//! script before any `aws` call, on a private copy (`mktemp`, removed on exit, INT and TERM) that run-instances also
+//! reads, so a swap after the check is not launched; a file that is gone after launch therefore blocks a re-apply
 //! of an already present box too (the wrapper keeps the file or drops the field).
 //!
 //! A declared file REPLACES the built-in script, which carries the instance's only lifetime
 //! bound (`shutdown -h +N`) and delivers `FORJAR_IMAGE`. Fail closed: the apply guard also
-//! refuses unless line 1 of the file starts with `#!` and line 2 is exactly
+//! refuses unless line 1 of the file is exactly a shell `#!` line (`SHELLS`) and line 2 is exactly
 //! `shutdown -h +<max_lifetime_min>` (read with `sed`, compared whole, never printed), so the
 //! shutdown is scheduled as the file's first command, before any workload runs. The tool CHECKS
 //! that; it cannot guarantee the file's later commands do not cancel it (`shutdown -c`).
@@ -30,8 +32,10 @@ pub(super) fn required_line(life_min: u32) -> String {
 use crate::core::shell_escape::sh_squote;
 
 /// EC2 takes 16 KB raw; the fleet's own limit is 16000.
-const MAX_BYTES: usize = 16000;
+pub(super) const MAX_BYTES: usize = 16000;
 const MAX_PATH: usize = 255;
+/// The only accepted line 1: a shell, so line 2 runs as a command. CR, args and other interpreters fail.
+const SHELLS: &str = "'#!/bin/sh'|'#!/bin/bash'|'#!/usr/bin/env sh'|'#!/usr/bin/env bash'";
 
 /// Validate the declared path: absent stays absent; anything outside the allow-list is refused.
 pub(super) fn checked(v: &Option<String>) -> Result<Option<String>, String> {
@@ -54,9 +58,10 @@ pub(super) fn checked(v: &Option<String>) -> Result<Option<String>, String> {
     }
 }
 
-/// The `--user-data` value for a declared file: the path by reference, read by `aws` at apply time.
-pub(super) fn file_arg(path: &str) -> String {
-    sh_squote(&format!("file://{path}"))
+/// The `--user-data` value for a declared file: the private copy the guard checked (`$ud_file` after the
+/// guard), not the declared path, so a file swapped after the check is never launched.
+pub(super) fn file_arg(_path: &str) -> String {
+    "\"file://$ud_file\"".into()
 }
 
 /// Apply-script lines refusing (before any provider call) a file that is missing, not a regular
@@ -67,6 +72,11 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
     format!(
         "ud_file={p}\n\
          if [ ! -f \"$ud_file\" ]; then {missing}; fi\n\
+         ud_tmp=\"$(mktemp)\" || {{ {unread}; }}\n\
+         trap 'rm -f \"$ud_tmp\"' EXIT\n\
+         trap 'rm -f \"$ud_tmp\"; exit 1' INT TERM\n\
+         cat \"$ud_file\" > \"$ud_tmp\" 2>/dev/null || {{ {unread}; }}\n\
+         ud_file=\"$ud_tmp\"\n\
          ud_n=\"$(wc -c < \"$ud_file\")\" || {{ {unread}; }}\n\
          ud_n=\"${{ud_n##* }}\"\n\
          case \"$ud_n\" in ''|*[!0-9]*) {unread} ;; esac\n\
@@ -74,7 +84,7 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
          if [ \"$ud_n\" -gt {MAX_BYTES} ]; then {big}; fi\n\
          ud_l1=\"$(sed -n 1p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
          ud_l2=\"$(sed -n 2p \"$ud_file\" 2>/dev/null)\" || {{ {unread}; }}\n\
-         case \"$ud_l1\" in '#!'*) ;; *) {noshebang} ;; esac\n\
+         case \"$ud_l1\" in {shells}) ;; *) {noshebang} ;; esac\n\
          if [ \"$ud_l2\" != {line} ]; then {noline}; fi\n",
         p = sh_squote(p),
         missing = refuse("is missing or not a regular file"),
@@ -82,7 +92,10 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
         empty = refuse("is empty"),
         big = refuse(&format!("is larger than {MAX_BYTES} bytes")),
         line = sh_squote(&required_line(life_min)),
-        noshebang = refuse("must start with #! on line 1"),
+        shells = SHELLS,
+        noshebang = refuse(
+            "must have line 1 exactly one of #!/bin/sh, #!/bin/bash, #!/usr/bin/env sh, #!/usr/bin/env bash",
+        ),
         noline = refuse(&format!(
             "must have exactly [{}] as line 2 (the lifetime bound, first command)",
             required_line(life_min)
@@ -155,10 +168,10 @@ mod tests {
     fn user_data_file_passed_by_path_not_inlined() {
         let sb = Sandbox::new();
         sb.open_gate();
-        let (r, path) = with_file(sb.path(), MARKER.as_bytes());
+        let (r, _) = with_file(sb.path(), MARKER.as_bytes());
         let script = apply_script(&r);
         assert!(
-            script.contains(&format!("--user-data 'file://{path}' ")),
+            script.contains("--user-data \"file://$ud_file\" "),
             "{script}"
         );
         assert!(!script.contains("#!/bin/sh\nshutdown"), "{script}");
@@ -166,11 +179,7 @@ mod tests {
         assert_eq!(rc, 0, "{out}");
         let log = sb.log();
         assert_eq!(count(&log, "run-instances"), 1, "{log}");
-        assert_eq!(
-            count(&log, &format!("--user-data file://{path} ")),
-            1,
-            "{log}"
-        );
+        assert_eq!(count(&log, "--user-data file:///"), 1, "{log}");
     }
 
     #[test]
@@ -264,11 +273,67 @@ mod tests {
         std::fs::write(&ud, "no shebang\nshutdown -h +60\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 1, "{out}");
-        assert!(out.contains("must start with #! on line 1"), "{out}");
+        assert!(
+            out.contains(
+                "must have line 1 exactly one of #!/bin/sh, #!/bin/bash, #!/usr/bin/env sh, #!/usr/bin/env bash"
+            ),
+            "{out}"
+        );
         std::fs::write(&ud, "#!/bin/sh\nshutdown -h +60\n/opt/train.sh\n").unwrap();
         let (rc, out) = sb.run(&script, "");
         assert_eq!(rc, 0, "{out}");
         assert_eq!(count(&sb.log(), "run-instances"), 1, "{}", sb.log());
+    }
+
+    #[test]
+    fn line_one_must_name_a_shell() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (r, _) = with_file(sb.path(), b"");
+        let script = apply_script(&r);
+        let ud = sb.path().join("ud.sh");
+        let bad = ["#!/usr/bin/python3\n", "#!/nonexistent\n", "#!/bin/sh\r\n"];
+        for l1 in bad {
+            std::fs::write(&ud, format!("{l1}{REQ}")).unwrap();
+            let (rc, out) = sb.run(&script, "");
+            assert_eq!(rc, 1, "{l1:?}: {out}");
+            assert!(out.contains("REFUSED: cloud_user_data_file"), "{out}");
+            assert_eq!(sb.log(), "", "{l1:?}: no aws call");
+        }
+        for l1 in ["#!/bin/bash", "#!/usr/bin/env sh", "#!/usr/bin/env bash"] {
+            std::fs::write(&ud, format!("{l1}\n{REQ}")).unwrap();
+            assert_eq!(sb.run(&script, "").0, 0, "{l1}");
+        }
+    }
+
+    #[test]
+    fn the_copy_is_removed_on_exit_int_and_term() {
+        let (r, _) = with_file(Sandbox::new().path(), b"");
+        let script = apply_script(&r);
+        assert!(script.contains("' EXIT\n"), "{script}");
+        assert!(script.contains("; exit 1' INT TERM\n"), "{script}");
+    }
+
+    #[test]
+    fn the_launch_reads_the_copy_the_guard_checked() {
+        let sb = Sandbox::new();
+        sb.open_gate();
+        let (r, path) = with_file(sb.path(), b"");
+        let bin = sb.path().join("bin");
+        std::fs::rename(bin.join("aws"), bin.join("aws.real")).unwrap();
+        // swaps the declared file on the first call, then records what run-instances is given
+        let wrap = format!(
+            "#!/bin/sh\na=\"$*\"\ncase \"$a\" in\n*describe-instances*) echo '#!/bin/sh' > '{path}';;\n*run-instances*) f=\"${{a#*--user-data file://}}\"; cat \"${{f%% *}}\" > \"$STUB_LOG.ud\";;\nesac\nexec \"$(dirname \"$0\")/aws.real\" \"$@\"\n"
+        );
+        std::fs::write(bin.join("aws"), wrap).unwrap();
+        std::process::Command::new("chmod")
+            .args(["755", bin.join("aws").to_str().unwrap()])
+            .status()
+            .unwrap();
+        let (rc, out) = sb.run(&apply_script(&r), "");
+        assert_eq!(rc, 0, "{out}");
+        let sent = std::fs::read_to_string(sb.path().join("calls.log.ud")).unwrap();
+        assert_eq!(sent, format!("#!/bin/sh\n{REQ}\n"), "swapped");
     }
 
     #[test]
@@ -326,6 +391,43 @@ mod tests {
                 "output {i}: {s}"
             );
         }
+    }
+
+    #[test]
+    fn the_token_covers_the_user_data_content_and_volume_tags() {
+        let sb = Sandbox::new();
+        let tok = |r: &Resource| super::super::launch_io::token_input(&spec_of(r).unwrap());
+        let (mut r, _) = with_file(sb.path(), b"a");
+        r.tags.push("x=y".into());
+        let base = tok(&r);
+        with_file(sb.path(), b"b");
+        assert_ne!(tok(&r), base, "file content");
+        with_file(sb.path(), b"a");
+        assert_eq!(tok(&r), base, "same content, same token");
+        let mut v = r.clone();
+        v.cloud.volume_tags = Some(true);
+        assert_ne!(tok(&v), base, "volume tags");
+        let mut n = r.clone();
+        n.cloud.user_data_file = None;
+        assert_ne!(tok(&n), base, "no file");
+    }
+
+    #[test]
+    fn the_token_hashes_bytes_and_never_reads_a_device() {
+        let sb = Sandbox::new();
+        let tok = |r: &Resource| super::super::launch_io::token_input(&spec_of(r).unwrap());
+        let (r, _) = with_file(sb.path(), &[0xFE]);
+        let a = tok(&r);
+        with_file(sb.path(), &[0xFF]);
+        assert_ne!(tok(&r), a, "distinct non-UTF-8 bytes");
+        let mut d = r.clone();
+        d.cloud.user_data_file = Some("/dev/zero".into());
+        assert!(tok(&d).contains("|unreadable|"), "device is not read");
+        with_file(sb.path(), &vec![b'a'; 16001]);
+        assert!(
+            tok(&r).contains("|unreadable|"),
+            "over the limit is not read"
+        );
     }
 
     #[test]
