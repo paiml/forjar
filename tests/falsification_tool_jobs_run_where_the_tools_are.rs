@@ -21,10 +21,9 @@
 //!
 //! # The coupling this pins, on purpose
 //!
-//! `intel` is a HOSTNAME standing in for a CAPABILITY. When a capability label
-//! (`provers` / `bare-metal`) exists on the fleet, the right edit is to change
-//! the label here and in the workflows together — this test is the reminder
-//! that the three must move as one.
+//! `provers` is a capability label, admitted only on seats where `cargo kani` and `lean`
+//! both run. kani and lean must carry it and no hostname label (`intel`); the label here
+//! and in proofs.yml move as one.
 //!
 //! # mutations — one per arm, each measured to redden exactly its own test
 //!
@@ -34,8 +33,11 @@
 //!
 //! 1. Add `, intel` to the `lean` job's `runs-on` in proofs.yml →
 //!    `every_tool_asserting_proof_job_names_no_host_label` goes RED alone.
+//!    Deleting `, provers` from kani or lean turns the same test RED.
 //!    (forjar#1086 removed the pin from kani and lean; this arm now guards
 //!    against it coming back.)
+//! 1b. Also RED alone: `continue-on-error`/`if:` on, or `exit 1` removed from, an
+//!    assert step; `clean-room` or `X64` dropped from kani or lean.
 //! 2. Delete `, intel` from `stress.yml`'s (or `mutation.yml`'s, or
 //!    `coverage.yml`'s) `runs-on` → `every_unfiltered_lib_test_job_runs_where_rsync_is`
 //!    goes RED alone.
@@ -47,6 +49,8 @@
 use serde_yaml_ng::Value;
 
 const BARE_METAL: &str = "intel";
+/// Capability label admitted only on seats where `cargo kani` and `lean` both run.
+const PROVERS: &str = "provers";
 
 fn workflow(name: &str) -> Value {
     let path = format!("{}/.github/workflows/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -97,20 +101,52 @@ fn every_tool_asserting_proof_job_names_no_host_label() {
         }
         let id = id.as_str().unwrap_or("?");
         let labels = runs_on(job);
-        // forjar#1086: the job may land on any seat carrying the pool labels and
-        // the tool assertion fails it by name on a seat without the tool. A
-        // host-specific label (a hostname standing in for a capability) queued
-        // main's kani and lean for hours behind a few busy seats.
+        // forjar#1086: a host-specific label (a hostname standing in for a capability)
+        // queued main's kani and lean for hours behind a few busy seats. The only label
+        // beyond the pool is the `provers` capability label, below.
         let host_specific: Vec<&String> = labels
             .iter()
-            .filter(|l| !["self-hosted", "Linux", "clean-room", "X64"].contains(&l.as_str()))
+            .filter(|l| {
+                !["self-hosted", "Linux", "clean-room", "X64", PROVERS].contains(&l.as_str())
+            })
             .collect();
         assert!(
             host_specific.is_empty(),
             "proofs.yml job `{id}` runs-on {labels:?} names host-specific label(s) \
-             {host_specific:?}; use only the pool labels and let the `Assert <tool> is available` \
-             step fail a seat without the tool (forjar#1086)"
+             {host_specific:?}; use the pool labels plus `{PROVERS}` only (forjar#1086)"
         );
+        for want in ["self-hosted", "clean-room", "X64"] {
+            assert!(
+                labels.iter().any(|l| l == want),
+                "proofs.yml job `{id}` runs-on {labels:?} dropped `{want}`"
+            );
+        }
+        // A seat that lacks the provers is not admitted to the capability label, so the
+        // job queues instead of landing on a seat that fails the assertion.
+        assert!(
+            labels.iter().any(|l| l == PROVERS),
+            "proofs.yml job `{id}` runs-on {labels:?} lacks the `{PROVERS}` capability label \
+             that only seats with the prover tools carry"
+        );
+        for step in tool_assertions(job) {
+            let name = step.get("name").and_then(Value::as_str).unwrap_or("?");
+            // A step that can be skipped or whose failure is tolerated asserts nothing.
+            for key in ["continue-on-error", "if"] {
+                assert!(
+                    step.get(key).is_none(),
+                    "proofs.yml job `{id}` step `{name}` sets `{key}`, so it no longer \
+                     fails the job when the tool is absent"
+                );
+            }
+            let run = step.get("run").and_then(Value::as_str).unwrap_or("");
+            for line in ["if ! command -v", "exit 1"] {
+                assert!(
+                    run.contains(line),
+                    "proofs.yml job `{id}` step `{name}` body lost `{line}`; it must exit \
+                     non-zero when the tool is absent:\n{run}"
+                );
+            }
+        }
         checked.push(id.to_string());
     }
 
