@@ -378,11 +378,15 @@ jobs:
       - name: Guard on the real tree
         run: bash tests/pr-spot-labels-guard.sh
       - name: Guard mutants (each must be refused)
+        shell: bash
         run: |
-          set -eu
+          set -euo pipefail
           t="$(mktemp -d)"
           CARGO_MANIFEST_DIR="$PWD" rustc --edition 2021 --test tests/falsification_pr_spot_labels.rs -o "$t/spot"
-          CARGO_MANIFEST_DIR="$PWD" "$t/spot" 2>&1 | tail -n 25
+          rc=0
+          CARGO_MANIFEST_DIR="$PWD" "$t/spot" > "$t/out" 2>&1 || rc=$?
+          tail -n 25 "$t/out"
+          exit "$rc"
 
   gate:
     timeout-minutes: 15
