@@ -211,6 +211,38 @@ impl Storage {
         )
     }
 
+    /// Check fragment for a live instance (`$ids` set): do its volumes carry every declared tag?
+    /// A marker line, never a failed check (apply cannot retag a live instance). None if undeclared.
+    pub(super) fn tag_check(&self, region: &str, tags: &[String], key: &str) -> Option<String> {
+        if !self.tag_volumes {
+            return None;
+        }
+        let by_tag: String = tags
+            .iter()
+            .filter_map(|t| t.split_once('='))
+            .map(|(k, v)| format!(" 'Name=tag:{k},Values={v}'"))
+            .collect();
+        let q = |f: &str| {
+            format!("aws ec2 describe-volumes --region {} --filters \"$vf\"{f} --query 'length(Volumes)' --output text", sh_squote(region))
+        };
+        let say = |m: &str| format!("echo {}", sh_squote(&format!("{m}:{key}")));
+        Some(format!(
+            "if [ -n \"$ids\" ]; then\n\
+             vf=\"Name=attachment.instance-id,Values=$(echo \"$ids\" | tr ' ' ',')\"\n\
+             va=\"$({all})\" || va=''; vt=\"$({tagged})\" || vt=''\n\
+             case \"$va\" in ''|*[!0-9]*) va=x;; esac; case \"$vt\" in ''|*[!0-9]*) vt=x;; esac\n\
+             if [ \"$va\" = x ] || [ \"$vt\" = x ]; then {bad}\n\
+             elif [ \"$va\" = \"$vt\" ]; then {ok}\n\
+             else {drift}; fi\n\
+             fi",
+            all = q(""),
+            tagged = q(&by_tag),
+            bad = say("volume-tags-unreadable"),
+            ok = say("volume-tags-match"),
+            drift = say("volume-tags-drift"),
+        ))
+    }
+
     /// Key suffix: empty if no volume is declared, else a short hash of the volumes.
     pub(super) fn key_suffix(&self) -> String {
         if self.volumes.is_empty() {

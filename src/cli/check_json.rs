@@ -46,6 +46,7 @@ pub(super) fn format_check_json_with_locks(
                 let key = match r.status.as_str() {
                     "error" => "error",
                     "unmeasured" => "detail",
+                    "pass" => "warning",
                     _ => "stderr",
                 };
                 obj[key] = serde_json::json!(r.detail);
