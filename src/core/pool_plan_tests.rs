@@ -236,7 +236,7 @@ fn property_plan_never_exceeds_caps() {
 
 // ---- review fixes (#1116) ----
 
-use crate::core::pool_reconcile::{decide, PoolAction, PoolLimits, PoolSnapshot};
+use crate::core::pool_reconcile::{decide, PoolAction, PoolLimits, PoolSnapshot, HARD_TTL_SECS};
 
 fn launches(s: &Snapshot, c: &Caps) -> bool {
     launched(&plan(s, c).unwrap()) > 0
@@ -257,11 +257,16 @@ fn plan_agrees_with_decide_on_scale_up() {
         max_launch_per_tick: 50,
         ..C
     };
+    assert_eq!(C.max_age_secs, HARD_TTL_SECS);
     for idle in 0..3u32 {
         for busy in 0..2u32 {
             for queued in 0..4u32 {
-                for age in [0u64, 299, 300, 301, 900] {
-                    let seats = seats_of(idle, busy);
+                // queue ages around SCALE_UP_AGE_SECS x host ages around the hard TTL
+                let ages = [0u64, 299, 300, 301, 900].into_iter();
+                let hosts = [0, 10, HARD_TTL_SECS - 1, HARD_TTL_SECS, HARD_TTL_SECS + 1];
+                for (age, host_age) in ages.flat_map(|a| hosts.map(|h| (a, h))) {
+                    let mut seats = seats_of(idle, busy);
+                    seats.iter_mut().for_each(|x| x.age_secs = host_age);
                     let oldest = if queued == 0 { 0 } else { age };
                     let s = Snapshot {
                         queue: vec![q("a", queued, oldest)],
@@ -275,14 +280,14 @@ fn plan_agrees_with_decide_on_scale_up() {
                             queued_eligible: queued,
                             oldest_queued_secs: (queued > 0).then_some(oldest),
                             quiet_secs: 0,
-                            oldest_host_age_secs: 0,
+                            oldest_host_age_secs: host_age,
                         },
                         &PoolLimits { max_hosts: 99 },
                     );
                     assert_eq!(
                         launches(&s, &big),
                         d == PoolAction::ScaleUp,
-                        "idle={idle} busy={busy} queued={queued} age={age}"
+                        "idle={idle} busy={busy} queued={queued} age={age} host_age={host_age}"
                     );
                 }
             }
@@ -401,23 +406,17 @@ fn assert_only_idle_retired(s: &Snapshot, p: &[Action]) {
     }
 }
 
-fn is_retired(p: &[Action], id: &str) -> bool {
-    p.iter()
-        .any(|a| matches!(a, Action::Retire { seat, .. } if seat == id))
-}
-
-/// True when some label set has more queued jobs than kept idle seats and
+/// True when some label set has more queued jobs than idle seats (a retiring one counts) and
 /// room under its per-label cap.
-fn any_starved(s: &Snapshot, c: &Caps, p: &[Action]) -> bool {
+fn any_starved(s: &Snapshot, c: &Caps) -> bool {
     s.queue.iter().any(|e| {
-        let idle_kept = s
+        let idle_all = s
             .seats
             .iter()
             .filter(|x| x.labels == e.labels && x.state == SeatState::Idle)
-            .filter(|x| !is_retired(p, &x.id))
             .count() as u32;
         let have = s.seats.iter().filter(|x| x.labels == e.labels).count() as u32;
-        e.queued > idle_kept && have < c.max_seats_per_labels
+        e.queued > idle_all && have < c.max_seats_per_labels
     })
 }
 
@@ -460,8 +459,10 @@ fn property_launch_bounds_and_liveness() {
         let p = plan(&s, &c).unwrap();
         assert_caps(&s, &c, &p);
         assert_only_idle_retired(&s, &p);
-        let room = (s.seats.len() as u32) < c.max_seats && c.max_launch_per_tick > 0;
-        if room && any_starved(&s, &c, &p) {
+        let room = (s.seats.len() as u32) < c.max_seats
+            && c.max_launch_per_tick > 0
+            && !pool_at_ttl(&s, &c);
+        if room && any_starved(&s, &c) {
             assert!(launched(&p) > 0, "starved queue with room must launch");
             launch_seen += 1;
         }
