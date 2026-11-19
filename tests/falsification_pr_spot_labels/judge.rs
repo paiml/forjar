@@ -19,7 +19,9 @@ pub(crate) fn judge_job(
     check_opt_in_vars(&ctx, canon, &all, why);
     let uses = key(j, "uses").is_some();
     match (canon, key(j, "runs-on")) {
-        (Some(c), _) => check_allowlisted(&ctx, j, c, &all, why),
+        (Some(c), _) => {
+            check_allowlisted(&ctx, j, c, &all, why);
+        }
         (None, Some(ro)) => {
             check_runs_on(&format!("{file}:{name}"), j, &ro, why);
             if let Err(e) = reaches_spot(j, &ro) {
@@ -151,6 +153,11 @@ pub(crate) fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut
             is_ci,
             why,
         );
+        if is_ci && canonical(n).is_some() {
+            if let Value::Mapping(jm) = j {
+                check_needs(&format!("{base}: job {n}"), jm, &jobs, why);
+            }
+        }
     }
     if is_ci && has_spot {
         check_workflow_level(&base, top, why);

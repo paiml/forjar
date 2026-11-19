@@ -19,11 +19,30 @@ pub(crate) const POOL_LABELS: [&str; 10] = [
     "mini-builder",
 ];
 
-/// Labels of GitHub-hosted runners; a job naming one cannot be taken by a self-hosted seat.
-pub(crate) const HOSTED_PREFIXES: [&str; 3] = ["ubuntu-", "macos-", "windows-"];
+/// The GitHub-hosted runner labels, spelled out. Only a label in this list, ALONE, can reach a
+/// hosted runner: `self-hosted` anywhere in `runs-on` means self-hosted only, and a label that is
+/// not in the list (`ubuntu-public`, `ubuntu-`) is just a label some self-hosted seat may carry.
+pub(crate) const HOSTED_LABELS: [&str; 14] = [
+    "ubuntu-latest",
+    "ubuntu-24.04",
+    "ubuntu-22.04",
+    "ubuntu-20.04",
+    "ubuntu-24.04-arm",
+    "ubuntu-22.04-arm",
+    "macos-latest",
+    "macos-15",
+    "macos-14",
+    "macos-13",
+    "macos-12",
+    "windows-latest",
+    "windows-2025",
+    "windows-2022",
+];
 
-/// Ok when this label list names a pool or a GitHub-hosted runner; anything else (including a bare
-/// `self-hosted`, or labels no pool is known to carry) can be taken by a spot seat.
+/// Ok when this label list names a pool, or is exactly one GitHub-hosted runner label; anything
+/// else (including a bare `self-hosted`, or labels no pool is known to carry) can be taken by a
+/// spot seat. Routing is by subset: a runner must carry EVERY listed label, so one pool label
+/// takes the job off the spot seats, while no hosted label can rescue a list holding `self-hosted`.
 pub(crate) fn leaves_spot(opt: &Value) -> Result<(), String> {
     let ls: Vec<String> = match opt {
         Value::String(s) => vec![s.clone()],
@@ -37,15 +56,14 @@ pub(crate) fn leaves_spot(opt: &Value) -> Result<(), String> {
     if ls.is_empty() || ls.iter().any(|l| l.contains("${{")) {
         return Err(format!("labels cannot be resolved statically: {ls:?}"));
     }
-    let named = |l: &String| {
-        let l = l.to_lowercase();
-        POOL_LABELS.contains(&l.as_str()) || HOSTED_PREFIXES.iter().any(|p| l.starts_with(p))
-    };
-    if ls.iter().any(named) {
+    let low: Vec<String> = ls.iter().map(|l| l.trim().to_lowercase()).collect();
+    let pool = low.iter().any(|l| POOL_LABELS.contains(&l.as_str()));
+    let hosted = low.len() == 1 && HOSTED_LABELS.contains(&low[0].as_str());
+    if pool || hosted {
         Ok(())
     } else {
         Err(format!(
-            "labels {ls:?} name no pool and no hosted runner, so a spot seat can take the job"
+            "labels {ls:?} name no pool and are not one GitHub-hosted label, so a spot seat can take the job"
         ))
     }
 }
@@ -86,7 +104,10 @@ pub(crate) fn matrix_options(j: &serde_yaml_ng::Mapping, k: &str) -> Result<Vec<
 pub(crate) fn reaches_spot(j: &serde_yaml_ng::Mapping, ro: &Value) -> Result<(), String> {
     match ro {
         Value::Mapping(m) => {
-            if let Some(k) = m.keys().find(|k| k.as_str() != Some("labels")) {
+            if let Some(k) = m
+                .keys()
+                .find(|k| !k.as_str().is_some_and(|s| s.eq_ignore_ascii_case("labels")))
+            {
                 return Err(format!(
                     "runs-on key {k:?} is refused: only `labels` is modeled, not runner groups"
                 ));
@@ -97,13 +118,7 @@ pub(crate) fn reaches_spot(j: &serde_yaml_ng::Mapping, ro: &Value) -> Result<(),
             }
         }
         Value::String(s) if s.contains("${{") => {
-            let k = s
-                .trim()
-                .strip_prefix("${{ matrix.")
-                .and_then(|r| r.strip_suffix(" }}"))
-                .filter(|k| {
-                    !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                })
+            let k = ctx_ref(s, "matrix")
                 .ok_or_else(|| format!("runs-on expression cannot be resolved: {s}"))?;
             matrix_options(j, k)?.iter().try_for_each(leaves_spot)
         }
@@ -309,11 +324,7 @@ pub(crate) fn judge_local_call(
             Some(ro) => {
                 let resolved = ro
                     .as_str()
-                    .and_then(|s| {
-                        s.trim()
-                            .strip_prefix("${{ inputs.")
-                            .and_then(|r| r.strip_suffix(" }}"))
-                    })
+                    .and_then(|s| ctx_ref(s, "inputs"))
                     .map(|k| {
                         key(&with, k)
                             .map(|v| input_value(&v))

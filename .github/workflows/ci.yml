@@ -73,7 +73,7 @@ jobs:
       # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
       # where #981 put them.
       # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
-      # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/falsification_pr_spot_labels.rs (judges the parsed YAML).
+      # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/falsification_pr_spot_labels/ (judges the parsed YAML).
       runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into

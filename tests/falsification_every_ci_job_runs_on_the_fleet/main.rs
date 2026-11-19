@@ -173,6 +173,14 @@ const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
 /// cannot name an architecture or a second pool. Exempt by this exact (file, job) AND that label.
 const SEAT_PROBE_JOBS: [(&str, &str); 1] = [("pool-canary.yml", "canary")];
 
+/// True only for the listed (file, job) AND exactly the label set `[self-hosted, pool-canary]`: the
+/// canary names no architecture and no second pool, and no other job may carry its label.
+fn is_seat_probe(file: &str, job: &str, labels: &[String]) -> bool {
+    let mut l: Vec<String> = labels.iter().map(|x| x.to_ascii_lowercase()).collect();
+    l.sort();
+    listed_at(&SEAT_PROBE_JOBS, file, job).is_some() && l == ["pool-canary", "self-hosted"]
+}
+
 /// Check one self-hosted job against `GATE_LIGHT_JOBS`. Marks a listed job as
 /// seen and returns a finding when the job is listed but not on `gate-light`,
 /// or on `gate-light` but not listed.
@@ -235,8 +243,7 @@ impl PinScan {
         let finding = gate_light_finding(file, job_name, labels, &mut self.gate_light_seen);
         self.gate_light_findings.extend(finding);
         let exempt = listed.is_some() && labels.iter().any(|l| l == "gate-light");
-        let probe = listed_at(&SEAT_PROBE_JOBS, file, job_name).is_some()
-            && labels.iter().any(|l| l == "pool-canary");
+        let probe = is_seat_probe(file, job_name, labels);
         let exempt = exempt || probe;
         let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
         if !pinned && neutral.is_none() && !exempt {
@@ -439,10 +446,9 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         // the self-hosted mac (mini-m4) that the nightly darwin legs build on
         "mini",
         "mini-builder",
-        // the seat probe (pool-canary.yml): one label no real job carries; SEAT_PROBE_JOBS pins which job
-        "pool-canary",
     ];
     let mut bare = Vec::new();
+    let mut probe_seen = false;
     for (file, doc) in workflows() {
         let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
             continue;
@@ -452,6 +458,16 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
             if !labels.iter().any(|l| l == "self-hosted") {
                 continue;
             }
+            if is_seat_probe(&file, name.as_str().unwrap_or("?"), &labels) {
+                probe_seen = true;
+                continue;
+            }
+            if labels.iter().any(|l| l.eq_ignore_ascii_case("pool-canary")) {
+                bare.push(format!(
+                    "  {file}  job `{}` carries `pool-canary` but is not the seat probe: {labels:?}",
+                    name.as_str().unwrap_or("?")
+                ));
+            }
             if !labels.iter().any(|l| pools.contains(&l.as_str())) {
                 bare.push(format!(
                     "  {file}  job `{}`  runs-on {labels:?}",
@@ -460,6 +476,10 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
             }
         }
     }
+    assert!(
+        probe_seen,
+        "SEAT_PROBE_JOBS names a job that is not a self-hosted pool-canary job"
+    );
     assert!(
         bare.is_empty(),
         "these jobs say `self-hosted` without naming a pool, so they can land on \

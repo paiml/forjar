@@ -19,8 +19,22 @@ pub(crate) fn names_pool(s: &str) -> bool {
     l.contains("burst") || l.contains("pool-canary")
 }
 
+/// GitHub compares context names, matrix keys, input names and variable names without regard to
+/// case, so every lookup here does too. Two keys that differ only in case are refused by `scalars`.
 pub(crate) fn key(m: &serde_yaml_ng::Mapping, k: &str) -> Option<Value> {
-    m.get(Value::String(k.to_string())).cloned()
+    m.iter()
+        .find(|(mk, _)| mk.as_str().is_some_and(|s| s.eq_ignore_ascii_case(k)))
+        .map(|(_, v)| v.clone())
+}
+
+/// `${{ <ctx>.<name> }}` (context compared case-insensitively) -> `<name>`; anything else None.
+pub(crate) fn ctx_ref<'a>(s: &'a str, ctx: &str) -> Option<&'a str> {
+    let r = s.trim().strip_prefix("${{ ")?.strip_suffix(" }}")?;
+    let (c, k) = r.split_once('.')?;
+    (c.eq_ignore_ascii_case(ctx)
+        && !k.is_empty()
+        && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+    .then_some(k)
 }
 
 /// Every scalar (keys and values) under `v`; a merge key or a tag cannot be judged.
@@ -32,6 +46,12 @@ pub(crate) fn scalars(v: &Value, out: &mut Vec<String>, why: &mut Vec<String>) {
         Value::Null => {}
         Value::Sequence(s) => s.iter().for_each(|x| scalars(x, out, why)),
         Value::Mapping(m) => {
+            let mut seen = std::collections::HashSet::new();
+            for k in m.keys().filter_map(Value::as_str) {
+                if !seen.insert(k.to_ascii_lowercase()) {
+                    why.push(format!("keys differing only in case: `{k}`, cannot judge"));
+                }
+            }
             for (k, x) in m {
                 if matches!(k, Value::String(s) if s == "<<") {
                     why.push("merge key `<<` is not modeled".into());
@@ -61,7 +81,7 @@ pub(crate) fn labels(v: &Value) -> Option<Vec<String>> {
         Value::Mapping(m) => {
             let mut out = Vec::new();
             for (k, x) in m {
-                match k.as_str()? {
+                match k.as_str()?.to_ascii_lowercase().as_str() {
                     "group" => out.push(x.as_str()?.to_string()),
                     "labels" => out.extend(labels(x)?),
                     _ => return None,
@@ -76,10 +96,7 @@ pub(crate) fn labels(v: &Value) -> Option<Vec<String>> {
 pub(crate) fn literal_matrix_ok(job: &serde_yaml_ng::Mapping, name: &str, why: &mut Vec<String>) {
     let ro = key(job, "runs-on").unwrap_or(Value::Null);
     let expr = ro.as_str().unwrap_or("").trim();
-    let k = expr
-        .strip_prefix("${{ matrix.")
-        .and_then(|r| r.strip_suffix(" }}"))
-        .filter(|k| !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+    let k = ctx_ref(expr, "matrix");
     let Some(k) = k else {
         why.push(format!(
             "job {name}: runs-on expression is not allowed: {expr}"
@@ -144,7 +161,8 @@ pub(crate) fn check_opt_in_vars(
 ) {
     for s in all {
         let allowed_here = canon.is_some_and(|c| s == c);
-        if (s.contains("PR_SPOT_OPTIN") || s.contains("BURST_OPTIN")) && !allowed_here {
+        let l = s.to_lowercase();
+        if (l.contains("pr_spot_optin") || l.contains("burst_optin")) && !allowed_here {
             why.push(format!(
                 "{ctx}: opt-in variable outside its canonical runs-on: {s}"
             ));
@@ -173,6 +191,9 @@ pub(crate) fn check_allowlisted(
         let l = s.to_lowercase();
         if l.contains("secrets") || l.contains("id-token") {
             why.push(format!("{ctx}: names secrets or id-token: {s}"));
+        }
+        if l.contains("download-artifact") || l.contains("run download") {
+            why.push(format!("{ctx}: downloads an artifact: {s}"));
         }
     }
 }
@@ -207,6 +228,76 @@ pub(crate) fn check_with(ctx: &str, is_ci_call: bool, w: &Value, why: &mut Vec<S
                     "{ctx}: reusable call passes a runs-on or pool value: {k:?}={s}"
                 ));
             }
+        }
+    }
+}
+
+fn grants_write(v: &Value) -> bool {
+    let w = |s: &str| s.to_lowercase().contains("write");
+    match v {
+        Value::String(s) => w(s),
+        Value::Mapping(m) => m.values().any(|x| x.as_str().is_some_and(w)),
+        _ => false,
+    }
+}
+
+/// An allowlisted spot job may take nothing from a job that can hold a secret or a write token:
+/// no `needs` on one (transitively), no unknown `needs`, and no artifact download. A job's
+/// outputs and artifacts are the two ways a secret crosses from a clean-room job to a spot one.
+pub(crate) fn check_needs(
+    ctx: &str,
+    j: &serde_yaml_ng::Mapping,
+    jobs: &serde_yaml_ng::Mapping,
+    why: &mut Vec<String>,
+) {
+    let mut todo: Vec<String> = match key(j, "needs") {
+        None => vec![],
+        Some(Value::String(s)) => vec![s],
+        Some(Value::Sequence(v)) => {
+            let names: Vec<_> = v
+                .iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect();
+            if names.len() != v.len() {
+                why.push(format!(
+                    "{ctx}: needs: has a non-string entry, cannot judge"
+                ));
+            }
+            names
+        }
+        Some(_) => {
+            why.push(format!("{ctx}: needs: shape is not modeled, cannot judge"));
+            vec![]
+        }
+    };
+    let mut seen = std::collections::HashSet::new();
+    while let Some(n) = todo.pop() {
+        if !seen.insert(n.to_lowercase()) {
+            continue;
+        }
+        let Some(Value::Mapping(nj)) = key(jobs, &n) else {
+            why.push(format!("{ctx}: needs: unknown or unjudgeable job `{n}`"));
+            continue;
+        };
+        let mut w = Vec::new();
+        let named: Vec<String> = all_scalars(&Value::Mapping(nj.clone()), &mut w)
+            .into_iter()
+            .filter(|s| {
+                let l = s.to_lowercase();
+                l.contains("secrets") || l.contains("id-token")
+            })
+            .collect();
+        if !named.is_empty() || key(&nj, "permissions").is_some_and(|p| grants_write(&p)) {
+            why.push(format!(
+                "{ctx}: needs: job `{n}` holds a secret, id-token or write permission"
+            ));
+        }
+        match key(&nj, "needs") {
+            Some(Value::String(s)) => todo.push(s),
+            Some(Value::Sequence(v)) => {
+                todo.extend(v.iter().filter_map(|x| x.as_str().map(str::to_string)))
+            }
+            _ => {}
         }
     }
 }

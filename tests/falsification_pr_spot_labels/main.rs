@@ -24,9 +24,11 @@ mod judge;
 mod model;
 mod routing;
 mod t_calls;
+mod t_class;
 mod t_core;
 mod t_labels;
 mod t_yaml;
+mod wiring;
 
 pub(crate) use judge::*;
 pub(crate) use model::*;
