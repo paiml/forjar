@@ -93,7 +93,9 @@ jobs:
   lockfile:
     timeout-minutes: 30
     name: lockfile-preflight
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    permissions:
+      contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -110,6 +112,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Verify Cargo.lock is committed and current
         # #423: the contract crates are workspace members, so the root crate's
         # path dependencies are unpublished until the release publishes them in
@@ -135,7 +139,9 @@ jobs:
     needs: classify
     name: examples-validate
     # forjar#1090: X64, as every PR job. The aarch64 smoke is nightly.yml `arm64-smoke`.
-    runs-on: [self-hosted, clean-room, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    permissions:
+      contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -152,6 +158,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       # One `cargo test` over every integration target below (same job, same
       # default feature set, same --locked): one resolution/compile plan instead
       # of 18 invocations (20 targets). Targets run in this order and a failing target fails

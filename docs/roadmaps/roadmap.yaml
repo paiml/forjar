@@ -8181,3 +8181,60 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1214
+  github_issue: 1214
+  item_type: task
+  title: 'ci: lockfile-preflight PR job opts into the burst-x64 seat'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-19T08:08:02Z
+  updated: 2026-11-19T08:08:02Z
+  spec: null
+  acceptance_criteria:
+  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
+- id: PMAT-1215
+  github_issue: 1215
+  item_type: task
+  title: 'ci: examples-validate PR job opts into the burst-x64 seat'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-19T08:08:07Z
+  updated: 2026-11-19T08:08:07Z
+  spec: null
+  acceptance_criteria:
+  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
+- id: PMAT-1216
+  github_issue: 1216
+  item_type: task
+  title: 'ci: lint file-health PR job opts into the burst-x64 seat'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-19T08:08:14Z
+  updated: 2026-11-19T08:08:14Z
+  spec: null
+  acceptance_criteria:
+  - Extend the BURST_OPTIN pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
