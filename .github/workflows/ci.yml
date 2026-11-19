@@ -73,8 +73,8 @@ jobs:
       # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
       # where #981 put them.
       # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
-      # RUNGRP1: pull requests of this public repo take the PR-only spot seats (labels burst-x64 + burst-public, no clean-room) when BURST_OPTIN=1; push, tag and release keep clean-room.
-      runs_on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && '["self-hosted","burst-x64","burst-public"]' || '["self-hosted","clean-room","X64"]' }}
+      # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/pr-spot-labels-guard.sh.
+      runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
       # forjar = medium workload, healthy --lib suite. cargo-nextest is baked into
       # sovereign-ci:stable (infra Dockerfile). Pilot only — keep until F11 test-job
@@ -94,7 +94,7 @@ jobs:
   lockfile:
     timeout-minutes: 30
     name: lockfile-preflight
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -136,7 +136,7 @@ jobs:
     needs: classify
     name: examples-validate
     # forjar#1090: X64, as every PR job. The aarch64 smoke is nightly.yml `arm64-smoke`.
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -211,7 +211,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: no-default-features
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     permissions:
       contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -250,7 +250,7 @@ jobs:
     if: needs.classify.outputs.code == 'true'
     needs: classify
     name: doctests
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     permissions:
       contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
@@ -297,7 +297,7 @@ jobs:
     timeout-minutes: 60
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -337,7 +337,7 @@ jobs:
     timeout-minutes: 30
     if: needs.classify.outputs.code == 'true'
     needs: classify
-    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('["self-hosted","burst-x64","burst-public"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     permissions:
       contents: read
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
