@@ -271,7 +271,7 @@ fn latest_resolve_snippet(crate_name: &str) -> String {
     format!(
         "_FJ_NC=\"${{FORJAR_NO_CARGO_CACHE:-}}\"\n\
          _FJ_LATEST=$(cargo search --color never --limit 10 -- {q} 2>/dev/null | \
-awk -v c={q} '/^[^[:space:]]/ && $1 == c && $2 == \"=\" && $3 ~ /^\"[0-9A-Za-z._+-]+\"$/ {{ gsub(/\"/, \"\", $3); print $3; exit }}' || true)\n\
+awk -v c={q} 'BEGIN {{ gsub(/_/, \"-\", c) }} /^[^[:space:]]/ {{ n = $1; gsub(/_/, \"-\", n); if (n == c && $2 == \"=\" && $3 ~ /^\"[0-9A-Za-z._+-]+\"$/) {{ gsub(/\"/, \"\", $3); print $3; exit }} }}' || true)\n\
          case \"$_FJ_LATEST\" in \"\"|*[!0-9A-Za-z._+-]*|*..*|-*) _FJ_LATEST='' ;; esac\n\
          _FJ_PIN=\"$_FJ_LATEST\"\n\
          if [ -z \"$_FJ_LATEST\" ]; then\n\

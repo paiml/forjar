@@ -1,11 +1,11 @@
 //! Token chain after a launch (#1134-#1137): the state read, the chain past a
 //! dead or forgotten box, the bounded state-read retry and the launch-time check.
 //! The fake aws is the one of `tests_launch`; launch times are computed relative
-//! to now by the test (no wall-clock seam in the product script).
+//! to now by the test; the token's UTC day is injected (`DAY`).
 
-use super::launch_io::{token, token_input, token_on, CAPACITY_EXIT};
+use super::launch_io::{token_input, token_on, CAPACITY_EXIT};
 use super::tests::{gated, res};
-use super::tests_launch::{err, fixture, iso, launch_with, next_token, run_tokens, Run, ID};
+use super::tests_launch::{err, fixture, iso, launch_with, next_token, run_tokens, tok, Run, ID};
 use super::*;
 
 const ID2: &str = "i-0fedcba9876543210";
@@ -276,7 +276,7 @@ fn the_accepted_launch_time_forms_are_launched() {
 #[test]
 fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     // generation 1 is dead; generation 2's launch is lost (rate limit) but its box exists
-    let t1 = token(&spec_of(&res()).unwrap());
+    let t1 = tok(&res());
     let t2 = next_token(&t1, ID);
     let lost: Run = (
         255,
@@ -287,13 +287,11 @@ fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     std::fs::write(sb.path().join(format!("tok.{t2}")), ID2).unwrap();
     let (rc, out) = sb.run(&script, "");
     let log = sb.log();
-    if run_tokens(&log)[0] == t1 {
-        assert_eq!(rc, 0, "{out}");
-        assert!(out.contains(&format!("adopted {ID2}\n")), "{out}");
-        assert!(log.contains(&format!("client-token,Values={t2}")), "{log}");
-        assert!(!log.contains(&format!("client-token,Values={t1}")), "{log}");
-        assert_eq!(run_tokens(&log).len(), 2, "{log}");
-    }
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains(&format!("adopted {ID2}\n")), "{out}");
+    assert!(log.contains(&format!("client-token,Values={t2}")), "{log}");
+    assert!(!log.contains(&format!("client-token,Values={t1}")), "{log}");
+    assert_eq!(run_tokens(&log).len(), 2, "{log}");
     // a table keyed by token: a rerun walks the same chain to the same live id
     let (sb, script) = fixture(&[ok(ID)], Some(""), &[(ID, "terminated")], false);
     let w = |n: String, c: String| std::fs::write(sb.path().join(n), c).unwrap();
@@ -306,9 +304,6 @@ fn adoption_uses_the_current_chain_token_and_a_rerun_walks_the_same_chain() {
     for round in 1..=2 {
         let (rc, out) = sb.run(&script, "");
         let log = sb.log();
-        if run_tokens(&log)[0] != t1 {
-            return; // the run straddled UTC midnight
-        }
         assert_eq!(rc, 0, "{out}");
         assert!(out.contains(&format!("launched {ID2}\n")), "{out}");
         let t = run_tokens(&log);
