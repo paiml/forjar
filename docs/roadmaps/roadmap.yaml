@@ -7588,13 +7588,14 @@ roadmap:
   github_issue: 1048
   item_type: task
   title: 'cargo provider: key unpinned cache on resolved upstream version'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-14T23:16:01Z
   updated: 2026-11-14T23:16:01Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7642,13 +7643,14 @@ roadmap:
   github_issue: 1049
   item_type: task
   title: github_release check asserts the declared version (forjar#1049)
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-14T21:58:51Z
   updated: 2026-11-15T08:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7660,13 +7662,14 @@ roadmap:
   github_issue: 1114
   item_type: task
   title: 'pool: pure ephemeral JIT runner config validator (forjar#894 slice 2)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7732,13 +7735,14 @@ roadmap:
   github_issue: 1115
   item_type: task
   title: 'pool: spot-interruption decision and orphan sweep, pure functions (forjar#1115)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8005,13 +8009,14 @@ roadmap:
   github_issue: 1155
   item_type: task
   title: 'security: ignore RUSTSEC-2026-0543 (chrono unmaintained) with a bounded, dated row in deny.toml and audit.toml'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-17T00:00:00Z
   updated: 2026-11-17T00:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8059,6 +8064,60 @@ roadmap:
   github_issue: 1168
   item_type: task
   title: 'post-merge review receipts for the v1.34.2 window, batch 3 of 6'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1200
+  github_issue: 1200
+  item_type: task
+  title: 'roadmap rows for shipped tickets still say planned with empty acceptance criteria'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1197
+  github_issue: 1197
+  item_type: task
+  title: 'cloud_instance observability text is false for user-data'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1199
+  github_issue: 1199
+  item_type: task
+  title: 'CI comment contradicts the setting under it'
   status: planned
   priority: high
   assigned_to: null

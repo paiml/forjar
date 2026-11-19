@@ -6,7 +6,7 @@ pub(crate) fn ci_value() -> Value {
     serde_yaml_ng::from_str(&ci_text()).unwrap()
 }
 
-const CMD: &str = "cargo test --locked --test falsification_pr_spot_labels";
+const CMD: &str = "cargo test --locked --test falsification_pr_spot_labels --test falsification_ci_reusable_jobs_route_to_x64";
 const GUARD_KEYS: [&str; 5] = ["timeout-minutes", "runs-on", "permissions", "env", "steps"];
 
 /// Exact wiring: the job has no `if`/`continue-on-error`/extra keys; its steps are the checkout and
