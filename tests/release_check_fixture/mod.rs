@@ -273,7 +273,7 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
             &format!("docs/audits/crux-{VERSION}.md"),
         ],
     );
-    git(&root, &["commit", "-qm", "the previous release"]);
+    commit_at(&root, "the previous release", "2026-09-01T00:00:00Z");
     git(&root, &["tag", PREV_TAG]);
 
     write(&root, "shipped.txt", "work that reached this release\n");
@@ -282,7 +282,7 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         write(&root, &format!(".quorum/{}.json", slug()), body);
         git(&root, &["add", &format!(".quorum/{}.json", slug())]);
     }
-    git(&root, &["commit", "-qm", "squash-merged work (#77)"]);
+    commit_at(&root, "squash-merged work (#77)", "2026-09-10T00:00:00Z");
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
 
     if tag_on_origin {

@@ -194,3 +194,26 @@ fn a_truncated_or_failing_page_is_unmeasured() {
         r.assert_says(says);
     }
 }
+
+#[test]
+fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
+    // PMAT-1173: a reader failure is a measured refusal, never a bare abort and
+    // never a bisection storm. Each body is one `gh` answered with exit 0.
+    let bodies = [
+        ("number", "[1]"),
+        ("string", r#"["err"]"#),
+        ("empty", ""),
+        ("two-docs", "[] []"),
+        ("object", r#"{"message":"rate limited"}"#),
+        ("no-number", r#"[{"mergedAt":"x"}]"#),
+    ];
+    for (name, body) in bodies {
+        let fx = fixture(false, Some(good_receipt()));
+        let (gh, calls) = stub_gh_counting(fx.root.parent().expect("dir"), name, body);
+        let r = run(&fx, &gh);
+        r.assert_not_green(name);
+        r.assert_says("UNMEASURED");
+        let n = std::fs::read_to_string(&calls).map_or(0, |s| s.lines().count());
+        assert_eq!(n, 1, "{name}: one read, then a refusal, not a storm");
+    }
+}
