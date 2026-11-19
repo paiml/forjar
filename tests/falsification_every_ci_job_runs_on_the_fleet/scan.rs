@@ -135,8 +135,29 @@ pub(crate) fn runner_labels(job: &Value) -> Vec<String> {
     let mut out = Vec::new();
     push_labels(&mut out, runs_on);
     if out.iter().any(|l| l.contains("${{")) {
+        let exprs: Vec<String> = out.iter().filter(|l| l.contains("${{")).cloned().collect();
         out.retain(|l| !l.contains("${{"));
+        // Both arms of `cond && fromJSON('[..]') || fromJSON('[..]')` are
+        // runners the job can land on, so every JSON array literal is read.
+        for e in &exprs {
+            out.extend(json_array_labels(e));
+        }
         out.extend(matrix_labels(job));
+    }
+    out
+}
+
+/// Every string in each `fromJSON('[...]')` literal inside one expression.
+pub(crate) fn json_array_labels(expr: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = expr;
+    while let Some(i) = rest.find("fromJSON('") {
+        rest = &rest[i + "fromJSON('".len()..];
+        let Some(end) = rest.find("')") else { break };
+        if let Ok(list) = serde_json::from_str::<Vec<String>>(&rest[..end]) {
+            out.extend(list);
+        }
+        rest = &rest[end..];
     }
     out
 }
