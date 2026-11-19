@@ -373,6 +373,10 @@ jobs:
     runs-on: [self-hosted, clean-room, X64]
     permissions:
       contents: read
+    # infra#430, as on every other cargo job in this file: a private registry per job, because the
+    # clean-room runners share one ~/.cargo and the reaper deletes registry/src under live builds.
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Parsed guard (judges the parsed workflows; exit code unmasked)

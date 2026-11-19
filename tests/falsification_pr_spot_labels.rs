@@ -222,7 +222,148 @@ fn check_with(ctx: &str, is_ci_call: bool, w: &Value, why: &mut Vec<String>) {
     }
 }
 
-fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, why: &mut Vec<String>) {
+// ---- rule (e): GitHub routes by label SUBSET, so judge the set, not the names ----
+
+/// MEASURED SNAPSHOT, 2026-11-19, read-only REST (`orgs/paiml/actions/runners`, 640 burst seats of
+/// which 2 online): every burst seat carries exactly `Linux, burst-x64, ffmpeg, self-hosted, tier2`
+/// and sits in runner group `tier2`. `x64` and `burst-public` are added on purpose (the arch label
+/// may appear on a seat, and `burst-public` is the PR-only spot label). Compared lower-case.
+/// A snapshot, not a live read: re-measure before trusting it for a new seat family.
+const SPOT_SEAT_LABELS: [&str; 7] = [
+    "self-hosted",
+    "linux",
+    "x64",
+    "tier2",
+    "ffmpeg",
+    "burst-x64",
+    "burst-public",
+];
+
+/// MEASURED SNAPSHOT, 2026-11-19, same REST read: org runner groups holding ZERO burst seats
+/// (`quarantine` and `burst-public` are left out on purpose). `tier2` holds all of them.
+const NON_SPOT_GROUPS: [&str; 15] = [
+    "Default",
+    "gpu-nodes",
+    "gpu-x86",
+    "aprender-reserved",
+    "gate-path-slot",
+    "rmedia-loan",
+    "mini-mac",
+    "public-build",
+    "lambda-night",
+    "aprender-only",
+    "infra-first",
+    "gate-light-shared",
+    "release-lane",
+    "demo-record",
+    "dotgithub-gate",
+];
+
+/// True when a pull_request-like event (or a call from one) can start this workflow.
+/// An `on` that cannot be read counts as reachable.
+fn pr_reachable(top: &serde_yaml_ng::Mapping) -> bool {
+    let hit = |s: &str| {
+        s.starts_with("pull_request")
+            || matches!(s, "merge_group" | "workflow_call" | "workflow_run")
+    };
+    let on = key(top, "on").or_else(|| top.get(Value::Bool(true)).cloned());
+    match on {
+        Some(Value::String(s)) => hit(&s),
+        Some(Value::Sequence(v)) => v.iter().any(|x| x.as_str().is_none_or(hit)),
+        Some(Value::Mapping(m)) => m.keys().any(|k| k.as_str().is_none_or(hit)),
+        _ => true,
+    }
+}
+
+/// Ok when this label list holds at least one label no spot seat carries.
+fn leaves_spot(opt: &Value) -> Result<(), String> {
+    let ls: Vec<String> = match opt {
+        Value::String(s) => vec![s.clone()],
+        Value::Sequence(v) => v
+            .iter()
+            .map(|x| x.as_str().map(str::to_string))
+            .collect::<Option<Vec<_>>>()
+            .ok_or("a label is not a plain string")?,
+        _ => return Err("runs-on shape is not modeled".into()),
+    };
+    if ls.is_empty() || ls.iter().any(|l| l.contains("${{")) {
+        return Err(format!("labels cannot be resolved statically: {ls:?}"));
+    }
+    if ls
+        .iter()
+        .any(|l| !SPOT_SEAT_LABELS.contains(&l.to_lowercase().as_str()))
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "labels {ls:?} are a subset of the spot seat labels"
+        ))
+    }
+}
+
+fn matrix_options(j: &serde_yaml_ng::Mapping, k: &str) -> Result<Vec<Value>, String> {
+    let Some(Value::Mapping(strategy)) = key(j, "strategy") else {
+        return Err("matrix reference without a literal strategy".into());
+    };
+    let Some(Value::Mapping(matrix)) = key(&strategy, "matrix") else {
+        return Err("strategy.matrix is not a literal mapping".into());
+    };
+    let mut out = Vec::new();
+    match key(&matrix, k) {
+        None => {}
+        Some(Value::Sequence(v)) => out.extend(v),
+        Some(_) => return Err(format!("matrix.{k} is not a literal list")),
+    }
+    match key(&matrix, "include") {
+        None => {}
+        Some(Value::Sequence(items)) => {
+            for it in items {
+                match it {
+                    Value::Mapping(m) => out.extend(key(&m, k)),
+                    _ => return Err("matrix include entry is not a mapping".into()),
+                }
+            }
+        }
+        Some(_) => return Err("matrix include is not a literal list".into()),
+    }
+    if out.is_empty() {
+        return Err(format!("matrix.{k} has no literal options"));
+    }
+    Ok(out)
+}
+
+fn reaches_spot(j: &serde_yaml_ng::Mapping, ro: &Value) -> Result<(), String> {
+    match ro {
+        Value::Mapping(m) => {
+            if let Some(k) = m
+                .keys()
+                .find(|k| !matches!(k.as_str(), Some("group" | "labels")))
+            {
+                return Err(format!("runs-on key {k:?} is not modeled"));
+            }
+            match (key(m, "group"), key(m, "labels")) {
+                (Some(Value::String(g)), _) if NON_SPOT_GROUPS.contains(&g.as_str()) => Ok(()),
+                (Some(g), _) => Err(format!("runner group {g:?} is not on the non-spot list")),
+                (None, Some(l)) => leaves_spot(&l),
+                (None, None) => Err("empty runs-on mapping".into()),
+            }
+        }
+        Value::String(s) if s.contains("${{") => {
+            let k = s
+                .trim()
+                .strip_prefix("${{ matrix.")
+                .and_then(|r| r.strip_suffix(" }}"))
+                .filter(|k| {
+                    !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                })
+                .ok_or_else(|| format!("runs-on expression cannot be resolved: {s}"))?;
+            matrix_options(j, k)?.iter().try_for_each(leaves_spot)
+        }
+        other => leaves_spot(other),
+    }
+}
+
+fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, reach: bool, why: &mut Vec<String>) {
     let ctx = format!("{file}: job {name}");
     let Value::Mapping(j) = job else {
         return why.push(format!("{ctx} is not a mapping, cannot judge"));
@@ -233,7 +374,14 @@ fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, why: &mut Vec<Str
     let uses = key(j, "uses").is_some();
     match (canon, key(j, "runs-on")) {
         (Some(c), _) => check_allowlisted(&ctx, j, c, &all, why),
-        (None, Some(ro)) => check_runs_on(&format!("{file}:{name}"), j, &ro, why),
+        (None, Some(ro)) => {
+            check_runs_on(&format!("{file}:{name}"), j, &ro, why);
+            if reach {
+                if let Err(e) = reaches_spot(j, &ro) {
+                    why.push(format!("{ctx}: can land on a spot seat: {e}"));
+                }
+            }
+        }
         (None, None) if !uses => why.push(format!("{ctx}: no runs-on and no uses, cannot judge")),
         (None, None) => {}
     }
@@ -346,7 +494,7 @@ fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut Vec<String
             continue;
         };
         has_spot |= is_ci && canonical(n).is_some();
-        judge_job(&base, n, j, is_ci, why);
+        judge_job(&base, n, j, is_ci, pr_reachable(top), why);
     }
     if is_ci && has_spot {
         check_workflow_level(&base, top, why);
@@ -398,8 +546,16 @@ fn guard(dir: &Path) -> bool {
     }
 }
 
+/// One directory per call, never shared between tests that run on parallel threads (the r5 flake:
+/// two tests used one name per process and one deleted the other's tree).
+fn unique_dir(name: &str) -> PathBuf {
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let i = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    std::env::temp_dir().join(format!("forjar-spot-{name}-{}-{i}", std::process::id()))
+}
+
 fn scratch(name: &str, ci: &str) -> PathBuf {
-    let d = std::env::temp_dir().join(format!("forjar-spot-{name}-{}", std::process::id()));
+    let d = unique_dir(name);
     let _ = fs::remove_dir_all(&d);
     fs::create_dir_all(&d).unwrap();
     fs::write(d.join("ci.yml"), ci).unwrap();
@@ -451,7 +607,7 @@ fn real_tree_passes() {
 
 #[test]
 fn empty_and_missing_dir_fail() {
-    let d = std::env::temp_dir().join(format!("forjar-spot-empty-{}", std::process::id()));
+    let d = unique_dir("empty");
     fs::create_dir_all(&d).unwrap();
     assert!(!guard(&d));
     assert!(!guard(&d.join("absent")));
@@ -1039,4 +1195,149 @@ fn ci_step_masking_mutants_are_refused() {
         .filter_map(|s| s.get("run").and_then(Value::as_str))
         .any(|r| r.contains("|| true"));
     assert!(step, "mutant did not apply to the guard step");
+}
+
+// ---- r5: GitHub routes by label SUBSET (rule (e)) ----
+
+/// A benign ci.yml plus one extra workflow file `x.yml`.
+fn with_x(name: &str, x: &str) -> PathBuf {
+    let d = scratch(name, "on: push\njobs: {}\n");
+    fs::write(d.join("x.yml"), x).unwrap();
+    d
+}
+
+/// A PR-triggered job that holds a secret, on the given runs-on text.
+fn secret_job(on: &str, runs_on: &str) -> String {
+    format!(
+        "on: {on}\njobs:\n  j:\n    runs-on: {runs_on}\n    env:\n      T: ${{{{ secrets.GH_TOKEN }}}}\n    steps: []\n"
+    )
+}
+
+fn r5_red(name: &str, x: &str, needle: &str) {
+    match judge(&with_x(name, x), &expected_canary()) {
+        Ok(_) => panic!("r5 plant {name} was accepted:\n{x}"),
+        Err(w) => assert!(
+            w.iter().any(|m| m.contains(needle)),
+            "r5 plant {name} refused for the wrong reason (want `{needle}`): {w:?}"
+        ),
+    }
+}
+
+#[test]
+fn r5_the_five_lane_plants_fail() {
+    for (n, ro) in [
+        ("self-hosted", "[self-hosted]"),
+        ("linux", "[self-hosted, Linux]"),
+        ("tier2", "[self-hosted, tier2]"),
+        ("ffmpeg", "[self-hosted, ffmpeg]"),
+        ("group-tier2", "{group: tier2}"),
+    ] {
+        r5_red(
+            n,
+            &secret_job("pull_request", ro),
+            "can land on a spot seat",
+        );
+    }
+}
+
+#[test]
+fn r5_subset_variants_fail() {
+    for (n, ro) in [
+        ("scalar", "self-hosted"),
+        ("case", "[SELF-HOSTED, linux, TIER2]"),
+        ("x64-tier2", "[self-hosted, Linux, X64, tier2, ffmpeg]"),
+        ("order", "[ffmpeg, tier2, self-hosted, linux]"),
+        ("empty", "[]"),
+        ("group-and-labels", "{group: tier2, labels: [clean-room]}"),
+        ("group-unlisted", "{group: some-new-group}"),
+        ("group-expr", "{group: \"${{ vars.G }}\"}"),
+        ("labels-only-spot", "{labels: [self-hosted, tier2]}"),
+        ("odd-key", "{group: public-build, extra: x}"),
+        ("expr-inputs", "${{ inputs.r }}"),
+        ("expr-fromjson", "${{ fromJSON(vars.R) }}"),
+        ("label-expr", "[self-hosted, \"${{ vars.L }}\"]"),
+    ] {
+        r5_red(n, &secret_job("pull_request", ro), "spot");
+    }
+}
+
+#[test]
+fn r5_every_pr_like_trigger_counts() {
+    for (n, on) in [
+        ("list", "[push, pull_request]"),
+        ("target", "pull_request_target"),
+        ("review", "{pull_request_review: {}}"),
+        ("merge-group", "merge_group"),
+        ("call", "workflow_call"),
+        (
+            "run",
+            "{workflow_run: {workflows: [a], types: [completed]}}",
+        ),
+    ] {
+        r5_red(
+            n,
+            &secret_job(on, "[self-hosted, tier2]"),
+            "can land on a spot seat",
+        );
+    }
+    // an unreadable `on` counts as reachable
+    r5_red(
+        "no-on",
+        &secret_job("{}", "[self-hosted]").replace("on: {}\n", ""),
+        "can land",
+    );
+}
+
+#[test]
+fn r5_matrix_options_are_judged_one_by_one() {
+    let m = |opts: &str| {
+        format!(
+            "on: pull_request\njobs:\n  j:\n    runs-on: ${{{{ matrix.os }}}}\n    strategy:\n      matrix:\n{opts}\n    steps: []\n"
+        )
+    };
+    r5_red(
+        "m-list",
+        &m("        os: [[self-hosted, clean-room], [self-hosted, tier2]]"),
+        "can land on a spot seat",
+    );
+    r5_red(
+        "m-include",
+        &m("        include:\n          - os: [self-hosted, Linux]"),
+        "can land on a spot seat",
+    );
+    r5_red("m-none", &m("        other: [a]"), "no literal options");
+    assert!(judge(
+        &with_x("m-ok", &m("        include:\n          - os: [self-hosted, clean-room]\n          - os: [self-hosted, clean-room, ARM64]")),
+        &expected_canary()
+    )
+    .is_ok());
+}
+
+#[test]
+fn r5_exclusive_labels_and_non_spot_groups_pass() {
+    for (n, ro) in [
+        ("clean-room", "[self-hosted, clean-room, X64]"),
+        ("gate-light", "[self-hosted, gate-light]"),
+        ("group", "{group: public-build}"),
+        (
+            "group-labels",
+            "{group: gate-light-shared, labels: [self-hosted, tier2]}",
+        ),
+        ("labels-map", "{labels: [self-hosted, clean-room]}"),
+    ] {
+        let d = with_x(n, &secret_job("pull_request", ro));
+        assert!(judge(&d, &expected_canary()).is_ok(), "{n} refused");
+    }
+    // a workflow no PR-like event can start is out of this rule's scope
+    let d = with_x("push-only", &secret_job("push", "[self-hosted, tier2]"));
+    assert!(judge(&d, &expected_canary()).is_ok());
+}
+
+#[test]
+fn r5_measured_snapshot_is_self_consistent() {
+    assert!(SPOT_SEAT_LABELS.iter().all(|l| *l == l.to_lowercase()));
+    assert!(!NON_SPOT_GROUPS.contains(&"tier2"));
+    assert!(!NON_SPOT_GROUPS.contains(&"burst-public"));
+    assert!(!SPOT_SEAT_LABELS.contains(&"clean-room"));
+    assert!(!SPOT_SEAT_LABELS.contains(&"gate-light"));
 }
