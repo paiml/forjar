@@ -5700,7 +5700,7 @@ roadmap:
   updated: 2026-11-11T09:40:00Z
   spec: null
   acceptance_criteria:
-  - Refs infra PMAT-1835 (the id PR #724 names; an infra ticket, so it had no row here)
+  - 'Refs infra PMAT-1835 (the id PR #724 names; an infra ticket, so it had no row here)'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7595,7 +7595,7 @@ roadmap:
   updated: 2026-11-14T23:16:01Z
   spec: null
   acceptance_criteria:
-  - Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.
+  - 'Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7650,7 +7650,7 @@ roadmap:
   updated: 2026-11-15T08:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.
+  - 'Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7669,7 +7669,7 @@ roadmap:
   updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.
+  - 'Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7742,7 +7742,7 @@ roadmap:
   updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.
+  - 'Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8016,7 +8016,7 @@ roadmap:
   updated: 2026-11-17T00:00:00Z
   spec: null
   acceptance_criteria:
-  - PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.
+  - 'PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8082,13 +8082,14 @@ roadmap:
   github_issue: 1200
   item_type: task
   title: 'roadmap rows for shipped tickets still say planned with empty acceptance criteria'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-18T00:00:00Z
   updated: 2026-11-18T00:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (set by PR #1202); no acceptance item is cut short by an unquoted comment marker; tests/falsification_1200_roadmap_rows_are_linted.rs fails when either regresses.'
   phases: []
   subtasks: []
   estimated_effort: null
