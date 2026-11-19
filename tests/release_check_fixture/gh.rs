@@ -101,3 +101,47 @@ pub(crate) fn stub_gh_published_api_empty(dir: &Path, head: &str) -> String {
         &stub_script(head, "false", "false", api),
     )
 }
+
+/// PMAT-1173: a `gh pr list` stub holding `n` merged PRs spread over the
+/// window, answering BOTH query shapes: `merged:A..B` (the paged reader) and
+/// the old unbounded `merged:>=A`, each capped at one 200-PR page. `mode`
+/// breaks it the way tests/falsification_dogfood_pr_window_pagination.rs does.
+pub(crate) fn stub_gh_release_paged(fx: &super::Fixture, n: usize, mode: &str) -> String {
+    let ct = |r: &str| -> i64 {
+        let out = super::git(&fx.root, &["log", "-1", "--format=%ct", r]);
+        super::stdout_of(&out).parse().expect("commit time")
+    };
+    let (a, b) = (ct(PREV_TAG), ct(&fx.head) + 86_400);
+    let row = |i: usize| {
+        let (num, t, h) = (
+            i + 1,
+            a + 1 + (i as i64) * (b - a - 2) / (n as i64 - 1),
+            &fx.head,
+        );
+        format!(
+            r#"{{"number":{num},"t":{t},"mergedAt":"x","mergeCommit":{{"oid":"{h}"}},"headRefName":"{}"}}"#,
+            super::HEAD_REF
+        )
+    };
+    let rows = format!("[{}]", (0..n).map(row).collect::<Vec<_>>().join(","));
+    let dir = fx.root.parent().expect("dir");
+    let (r, c, p) = (dir.join("rows"), dir.join("calls"), dir.join("gh_paged"));
+    std::fs::write(&r, rows).expect("rows");
+    let body = format!(
+        r#"#!/usr/bin/env bash
+while [ $# -gt 0 ]; do [ "$1" = --search ] && s="$2"; shift; done; s="${{s#merged:}}"; echo x >> '{c}'
+case "$s" in
+  '>='*) a=$(date -u -d "${{s#>=}}" +%s); f=$(jq -c --argjson a "$a" '[.[]|select(.t>=$a)]|.[0:200]' '{r}') ;;
+  *) a=$(date -u -d "${{s%%..*}}" +%s); b=$(date -u -d "${{s##*..}}" +%s)
+     f=$(jq -c --argjson a "$a" --argjson b "$b" '[.[]|select(.t>=$a and .t<=$b)]|.[0:200]' '{r}') ;;
+esac
+[ '{mode}' = always-full ] && f=$(jq -c '.[0:200]' '{r}')
+[ '{mode}' = fail-second-call ] && [ "$(wc -l < '{c}')" -ge 2 ] && {{ echo "$f"; exit 1; }}
+[ '{mode}' = child-drops-a-row ] && [ "$(wc -l < '{c}')" -ge 2 ] && f=$(echo "$f" | jq -c 'if length < 200 then .[1:] else . end')
+echo "$f"
+"#,
+        c = c.display(),
+        r = r.display(),
+    );
+    install(dir, "gh_paged", &body)
+}

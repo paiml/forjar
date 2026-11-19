@@ -235,6 +235,15 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         "scripts/dogfood/lib/tags.sh must exist — release-check.sh and crux-reconcile.sh source it",
     );
     write(&root, "scripts/dogfood/lib/tags.sh", &tags_lib);
+    // Arm 5 reads its window through the paged reader (PMAT-1173).
+    for rel in [
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
+    ] {
+        let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
+            .unwrap_or_else(|e| panic!("release-check.sh sources {rel}: {e}"));
+        write(&root, rel, &body);
+    }
     write(
         &root,
         "Cargo.toml",
@@ -341,6 +350,8 @@ pub(crate) fn published_fixture() -> Fixture {
         "scripts/dogfood/release-check.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
+        "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/crux-reconcile.sh",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))

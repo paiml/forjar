@@ -165,3 +165,32 @@ fn a_tag_that_exists_on_the_remote_is_never_pending() {
         r.text
     );
 }
+
+#[test]
+fn a_window_over_one_page_is_read_whole() {
+    // PMAT-1173: exactly one full page, and more than two. Both used to be
+    // refused as "fills the --limit"; the paged reader reads them to the end.
+    for n in [200, 450] {
+        let fx = fixture(false, Some(good_receipt()));
+        let gh = stub_gh_release_paged(&fx, n, "honest");
+        let r = run(&fx, &gh);
+        r.assert_green(&format!("a window of {n} PRs is read in full"));
+        r.assert_says(&format!("{n} PR(s)"));
+    }
+}
+
+#[test]
+fn a_truncated_or_failing_page_is_unmeasured() {
+    for (n, mode, says) in [
+        (450, "always-full", "single second"),
+        (450, "fail-second-call", "pr list exited"),
+        (450, "child-drops-a-row", "two halves"),
+        (6000, "honest", "more than 40"),
+    ] {
+        let fx = fixture(false, Some(good_receipt()));
+        let gh = stub_gh_release_paged(&fx, n, mode);
+        let r = run(&fx, &gh);
+        r.assert_not_green(mode);
+        r.assert_says(says);
+    }
+}
