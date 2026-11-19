@@ -200,6 +200,7 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     for rel in [
         "scripts/dogfood/tagged.sh",
         "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/lib/releases.sh",
         "scripts/dogfood/lib/releases.awk",
         "scripts/dogfood/lib/tags.sh",

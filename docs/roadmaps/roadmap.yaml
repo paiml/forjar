@@ -8366,6 +8366,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1164
+  github_issue: 1164
+  item_type: task
+  title: 'gate T window read: paginate instead of refusing at 200 PRs (filled page stays UNMEASURED)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1186
   github_issue: 1186
   item_type: task
