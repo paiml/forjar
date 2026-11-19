@@ -112,8 +112,6 @@ mod tests_purifier;
 #[cfg(test)]
 mod tests_purifier_b;
 #[cfg(test)]
-mod tests_roadmap_lint;
-#[cfg(test)]
 mod tests_scoring;
 #[cfg(test)]
 mod tests_scoring_b;

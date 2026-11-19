@@ -8089,7 +8089,7 @@ roadmap:
   updated: 2026-11-19T00:00:00Z
   spec: null
   acceptance_criteria:
-  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (set by PR #1202); no acceptance item is cut short by an unquoted comment marker; src/core/tests_roadmap_lint.rs fails when either regresses (it runs in the cargo test --lib job). The row stays inprogress until the PR merges and #1200 closes.'
+  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (rows set by PR #1202), and no acceptance item is cut short by an unquoted comment marker. scripts/lint/roadmap-lint.sh checks both and scripts/lint/roadmap-lint-test.sh proves it; the nightly workflow runs it. The row stays inprogress until the first green nightly run on main.'
   phases: []
   subtasks: []
   estimated_effort: null

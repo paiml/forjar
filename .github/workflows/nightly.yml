@@ -67,6 +67,20 @@ jobs:
           [ "$missing" = "0" ] && echo "All v* tags have releases"
           exit "$missing"
 
+  # ── Roadmap lint (forjar#1200, LAB lane) ──────────────────
+  # Nightly only: it blocks no merge and no release (nothing `needs` it). A red is the
+  # roadmap's own defect; the owner fixes the row. No continue-on-error, no third state.
+  roadmap-lint:
+    timeout-minutes: 10
+    runs-on: [self-hosted, clean-room, X64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Roadmap rows are shipped and no acceptance text is cut by a comment marker
+        run: |
+          bash scripts/lint/roadmap-lint-test.sh
+          bash scripts/lint/roadmap-lint.sh
+
   # ── Build release binaries (7 targets, native runners) ───
   build:
     timeout-minutes: 120
