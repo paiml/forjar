@@ -1,0 +1,50 @@
+# pool-canary (public pool). Dispatched by hand or by the pool operator after a canary refill of a public-pool box.
+# It runs ONLY on a seat that carries the one label pool-canary, so no real job can take it.
+# No secrets, no repo clone, read-only token. A separate proof step reads this run back from GitHub.
+name: pool-canary
+run-name: pool-canary ${{ inputs.pool }} ${{ inputs.iid }}
+on:
+  workflow_dispatch:
+    inputs:
+      pool:
+        description: pool of the canary seat (public)
+        required: true
+        type: choice
+        options: [public]
+      iid:
+        description: EC2 instance id of the box (i-...)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  canary:
+    runs-on: [self-hosted, pool-canary]
+    timeout-minutes: 10
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    steps:
+      - name: the seat is what it claims
+        env:
+          POOL: ${{ inputs.pool }}
+          IID: ${{ inputs.iid }}
+        run: |
+          set -eu
+          case "$IID" in i-[0-9a-f]*) ;; *) echo "bad iid"; exit 1 ;; esac
+          [ "$POOL" = public ] || { echo "pool is not public"; exit 1; }
+          root=$(cd "${RUNNER_WORKSPACE:?}/../.." && pwd)
+          rf="$root/.runner"
+          [ -s "$rf" ] || { echo "no .runner file at $rf"; exit 1; }
+          agent=$(jq -r '.agentName // empty' "$rf")
+          echo "runner env=${RUNNER_NAME} .runner agentName=${agent}"
+          [ -n "$agent" ] && [ "$agent" = "${RUNNER_NAME}" ] || { echo "runner name differs from .runner"; exit 1; }
+          printf '%s' "$agent" | grep -qE '^burst-[A-Za-z0-9-]+p[0-9]+-s[0-9]+$' || { echo "not a public-pool burst seat name"; exit 1; }
+          # no clean-room or release label may appear anywhere in the runner's own file or name
+          if jq -e '[.. | strings] | any(test("clean-room|release"))' "$rf" >/dev/null; then echo "seat carries a clean-room or release label"; exit 1; fi
+          case "$agent" in *clean-room*|*release*) echo "seat name carries a clean-room or release label"; exit 1 ;; esac
+          [ -s /etc/seat-image-id ] && echo "image: $(cat /etc/seat-image-id)" || echo "image: not stamped in this seat (digest not checked here)"
+          echo "user=$(id -un)"
+          git --version
+          cargo --version
+          rustc --version
+          jq --version

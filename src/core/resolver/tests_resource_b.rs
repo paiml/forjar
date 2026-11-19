@@ -300,3 +300,33 @@ fn test_pmat039_resolve_compute_mode() {
     let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
     assert_eq!(resolved.compute_mode.as_deref(), Some("exclusive_process"));
 }
+
+/// A param value that itself contains `{{..}}` must not reach a gate field.
+#[test]
+fn gate_fields_refuse_a_marker_left_by_a_param_value() {
+    let params = HashMap::from([
+        (
+            "x".to_string(),
+            serde_yaml_ng::Value::String("{{params.x}}".to_string()),
+        ),
+        (
+            "ok".to_string(),
+            serde_yaml_ng::Value::String("/run/kill".to_string()),
+        ),
+    ]);
+    let machines = indexmap::IndexMap::new();
+    for field in ["kill_switch", "parity_gate", "budget_cap_usd_day"] {
+        let set = |r: &mut Resource, v: &str| match field {
+            "kill_switch" => r.cloud.kill_switch = Some(v.into()),
+            "parity_gate" => r.cloud.parity_gate = Some(v.into()),
+            _ => r.cloud.budget_cap_usd_day = Some(v.into()),
+        };
+        let mut bad = make_base_resource();
+        set(&mut bad, "{{params.x}}");
+        let err = resolve_resource_templates(&bad, &params, &machines).unwrap_err();
+        assert!(err.contains(field) && err.contains("{{"), "{field}: {err}");
+        let mut good = make_base_resource();
+        set(&mut good, "{{params.ok}}");
+        assert!(resolve_resource_templates(&good, &params, &machines).is_ok());
+    }
+}

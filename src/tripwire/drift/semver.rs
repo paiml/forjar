@@ -29,13 +29,18 @@ impl fmt::Display for Semver {
 /// dotted run (`10.42.0.11`) or glued to letters (`x86_64`) is not a version.
 /// `None` means there was no version in the output. It is never taken as a match.
 pub fn parse_semver(text: &str) -> Option<Semver> {
+    parse_semver_span(text).map(|(v, _)| v)
+}
+
+/// [`parse_semver`] plus the byte index just past the `N.N.N` it read.
+pub fn parse_semver_span(text: &str) -> Option<(Semver, usize)> {
     let bytes = text.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i].is_ascii_digit() && starts_token(bytes, i) {
             if let Some((v, end)) = triple_at(bytes, i) {
                 if !continues_dotted(bytes, end) {
-                    return Some(v);
+                    return Some((v, end));
                 }
             }
         }
