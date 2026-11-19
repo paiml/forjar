@@ -66,16 +66,6 @@ jobs:
       # Routing: the reusable workflow's jobs run on the `runs_on` input below, the X64
       # clean-room pool (the gate roll-up job runs on the light gate seat, see the pin above).
       # The aarch64 smoke is nightly.yml `arm64-smoke` (forjar#1090).
-      # ARM64 route-back (infra-cop 2026-11-10 18:25Z, ARM64 starvation): the 2026-10-27 move put
-      # every gate job on ARM64 because ARM64 sat idle and X64 had 123 forjar jobs queued. On
-      # 2026-11-10 ~18:26Z it was the reverse: 205 forjar jobs queued on 6 ARM64 clean-room runners.
-      # Back to X64 (the aarch64 smoke is nightly.yml `arm64-smoke` since forjar#1090).
-      # 2026-11-11 (infra-cop, measured after #981): this repository is public, and the X64
-      # clean-room runner group does not serve public repositories, so the X64 jobs of this
-      # workflow share one seat. The reusable workflow's jobs (lint, security, provenance and
-      # its own gate) go back to the ARM64 clean-room pool; the jobs defined in this file stay
-      # where #981 put them.
-      # 2026-11-15 (#881): X64 again; no ARM64 runner was online and 26 jobs sat queued.
       # The reusable workflow signs provenance (id-token: write) on this runs_on, so it always stays on clean-room; only the plain PR jobs defined in this file take the PR-only spot labels when PR_SPOT_OPTIN=1. Guard: tests/falsification_pr_spot_labels/ (judges the parsed YAML).
       runs_on: '["self-hosted","clean-room","X64"]'
       # PMAT-155 Phase 2 nextest pilot (build-performance.md §4.3 + §7 Phase 2).
@@ -383,7 +373,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Parsed guard (judges the parsed workflows; exit code unmasked)
-        run: cargo test --locked --test falsification_pr_spot_labels
+        run: cargo test --locked --test falsification_pr_spot_labels --test falsification_ci_reusable_jobs_route_to_x64
 
   gate:
     timeout-minutes: 15
