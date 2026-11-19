@@ -77,7 +77,7 @@ pub(super) fn token_input(s: &CloudInstance) -> String {
 
 /// Hash of the declared user-data file BYTES, or the fixed word `unreadable` when the path is not a regular
 /// file, is over the guard's size limit or cannot be read (so `/dev/zero` or a FIFO is never read here).
-/// Every such file gives the same word; the apply guard refuses them before run-instances.
+/// Every such file gives the same word; the apply guard refuses a non-regular or oversize file before run-instances, but a file the apply shell can read and codegen could not is launched with this word in the token.
 fn user_data_hash(p: &str) -> String {
     let path = std::path::Path::new(p);
     let small = std::fs::metadata(path)
