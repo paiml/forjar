@@ -53,6 +53,16 @@ fn nothing_declared_is_byte_identical_to_today() {
         ends_with_launch(&s, TODAY_TAIL, &gated(std::path::Path::new("/t"))),
         "{s}"
     );
+    // the whole script, head included, against the golden captured from `apply_script` on main;
+    // the launch token hashes the UTC day, so it is held as `@TOKEN@` in the golden
+    let quoted = sh_squote(&launch_io::token(
+        &spec_of(&gated(std::path::Path::new("/t"))).unwrap(),
+    ));
+    assert_eq!(s.matches(&quoted).count(), 1, "{s}");
+    assert_eq!(
+        s.replace(&quoted, "@TOKEN@"),
+        include_str!("apply_today.golden")
+    );
     assert_eq!(s.matches("block-device-mappings").count(), 0);
     assert!(!key_of(&spec_of(&res()).unwrap()).contains("@s"));
     // tags alone (volume_tags unset or false) never add a volume tag specification
