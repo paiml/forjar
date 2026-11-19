@@ -349,6 +349,7 @@ pub(crate) fn fixture_msg(
         "scripts/dogfood/harness.sh",
         "scripts/dogfood/quorum.sh",
         "scripts/dogfood/lib/window.sh",
+        "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
     ] {
@@ -390,4 +391,24 @@ pub(crate) fn fixture_msg(
         head,
         tagged,
     }
+}
+pub(crate) fn stub_gh_paged(dir: &Path, rows: &str, mode: &str) -> String {
+    let (r, c, p) = (dir.join("rows"), dir.join("calls"), dir.join("gh_paged"));
+    std::fs::write(&r, rows).expect("rows");
+    let body = format!(
+        r#"#!/usr/bin/env bash
+while [ $# -gt 0 ]; do [ "$1" = --search ] && s="$2"; shift; done; s="${{s#merged:}}"
+a=$(date -u -d "${{s%%..*}}" +%s); b=$(date -u -d "${{s##*..}}" +%s); echo x >> '{c}'
+f=$(jq -c --argjson a "$a" --argjson b "$b" '[.[]|select(.t>=$a and .t<=$b)]|.[0:200]' '{r}')
+[ '{mode}' = always-full ] && f=$(jq -c '.[0:200]' '{r}')
+[ '{mode}' = fail-second-call ] && [ "$(wc -l < '{c}')" -ge 2 ] && {{ echo "$f"; exit 1; }}
+[ '{mode}' = child-drops-a-row ] && [ "$(wc -l < '{c}')" -ge 2 ] && f=$(echo "$f" | jq -c 'if length < 200 then .[1:] else . end')
+echo "$f"
+"#,
+        c = c.display(),
+        r = r.display(),
+    );
+    std::fs::write(&p, body).expect("stub");
+    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    p.to_string_lossy().into_owned()
 }
