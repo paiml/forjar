@@ -95,7 +95,6 @@ while IFS= read -r f || [ -n "$f" ]; do
     docs/book/*) code=true ;;                      # the book is asserted against the live surface
     docs/mcp-schema.json) code=true ;;             # the checked-in-copy test names it
     .quorum/enforce.json) code=true ;;             # the quorum gate reads it
-    docs/roadmaps/roadmap.yaml) code=true ;;       # falsification_1200 reads it by name
     # The record: roadmap rows, the release ledger, receipts, logs, evidence
     # and per-branch quorum artifacts. Nothing the PR lane runs reads any of
     # them, and a case in the falsification suite re-derives this exclusion
