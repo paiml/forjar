@@ -165,6 +165,7 @@ jobs:
         run: |
           cargo test --locked \
           --test examples_validate \
+          --test falsification_ci_surface_reads_its_own_burst_variable \
           --test falsification_no_orphaned_source_files \
           --test falsification_722_cache_key_arch \
           --test falsification_contract_citations_resolve \
@@ -296,7 +297,10 @@ jobs:
     timeout-minutes: 60
     if: needs.classify.outputs.code == 'true' && needs.classify.outputs.gates != 'none'
     needs: classify
-    runs-on: [self-hosted, clean-room, X64]
+    # Own opt-in variable, unset: the job runs on today's labels. Setting
+    # BURST_OPTIN_SURFACE to 1 first needs a probe of the burst seat image
+    # (python3 present) and a count of seats lost on jobs longer than 10 minutes.
+    runs-on: ${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN_SURFACE == '1') && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","clean-room","X64"]') }}
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
