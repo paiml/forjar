@@ -35,6 +35,7 @@ mod bundle;
 mod cbom;
 mod check;
 mod check_json;
+mod check_marker;
 mod check_test;
 mod check_test_runners;
 mod checkpoint;

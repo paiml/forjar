@@ -367,17 +367,14 @@ pub fn check_script(resource: &Resource) -> String {
             ]),
         );
     }
-    format!(
-        "{lookup}{check}",
-        lookup = lookup_ids("ids", &describe(&s)),
-        check = crate::resources::verdict::check_script_from(&[
-            crate::resources::verdict::assert_that(
-                "[ -n \"$ids\" ]",
-                &format!("instance-present:{key}"),
-                &format!("instance-absent:{key}"),
-            )
-        ]),
-    )
+    let mut checks = vec![crate::resources::verdict::assert_that(
+        "[ -n \"$ids\" ]",
+        &format!("instance-present:{key}"),
+        &format!("instance-absent:{key}"),
+    )];
+    checks.extend(s.storage.tag_check(&s.region, &s.tags, &key));
+    let verdict = crate::resources::verdict::check_script_from(&checks);
+    format!("{}{verdict}", lookup_ids("ids", &describe(&s)))
 }
 
 /// Script reporting observed state (read-only provider query), by OWNER: any
