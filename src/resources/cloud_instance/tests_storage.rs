@@ -56,9 +56,8 @@ fn nothing_declared_is_byte_identical_to_today() {
     );
     // the whole script, head included, against the golden captured from `apply_script` on main;
     // the launch token hashes the UTC day, so it is held as `@TOKEN@` in the golden
-    let quoted = sh_squote(&launch_io::token_on(
-        &launch_io::token_input(&spec_of(&gated(std::path::Path::new("/t"))).unwrap()),
-        DAY,
+    let quoted = sh_squote(&launch_io::token(
+        &spec_of(&gated(std::path::Path::new("/t"))).unwrap(),
     ));
     assert_eq!(s.matches(&quoted).count(), 1, "{s}");
     assert_eq!(

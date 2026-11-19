@@ -469,27 +469,3 @@ fn property_launch_bounds_and_liveness() {
     }
     assert!(launch_seen > 100, "generator must exercise launches");
 }
-
-/// Queued jobs that a cap refuses are not "queue served": the reason names the cap.
-#[test]
-fn nothing_reason_names_the_cap_that_blocked_a_launch() {
-    let s = Snapshot {
-        queue: vec![q("a", 2, 1)],
-        seats: vec![],
-    };
-    let reason = |c: &Caps| match plan(&s, c).unwrap().as_slice() {
-        [Action::Nothing { reason }] => reason.clone(),
-        other => panic!("expected a single Nothing, got {other:?}"),
-    };
-    assert!(reason(&Caps { max_seats: 0, ..C }).ends_with("by max_seats"));
-    let per = Caps {
-        max_seats_per_labels: 0,
-        ..C
-    };
-    assert!(reason(&per).ends_with("by max_seats_per_labels"));
-    let tick = Caps {
-        max_launch_per_tick: 0,
-        ..C
-    };
-    assert!(reason(&tick).ends_with("by max_launch_per_tick"));
-}

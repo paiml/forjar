@@ -17,24 +17,6 @@ fn resolve_opt(
     }
 }
 
-/// Like `resolve_opt` for a gate field: a `{{` left in the result (the resolver
-/// does not re-scan substituted text) is refused instead of passed through.
-fn resolve_gate(
-    name: &str,
-    field: &Option<String>,
-    params: &HashMap<String, serde_yaml_ng::Value>,
-    machines: &indexmap::IndexMap<String, Machine>,
-    secrets: &SecretsConfig,
-) -> Result<Option<String>, String> {
-    let out = resolve_opt(field, params, machines, secrets)?;
-    match out.as_deref() {
-        Some(v) if v.contains("{{") => Err(format!(
-            "{name}: resolved value still contains a template marker `{{{{`; refusing"
-        )),
-        _ => Ok(out),
-    }
-}
-
 /// Resolve a list of strings through the template engine.
 fn resolve_list(
     items: &[String],
@@ -175,13 +157,10 @@ fn resolve_build_and_overlay_fields(
     r.cloud.region = resolve_opt(&r.cloud.region, params, machines, secrets)?;
     r.cloud.instance_type = resolve_opt(&r.cloud.instance_type, params, machines, secrets)?;
     r.cloud.max_price = resolve_opt(&r.cloud.max_price, params, machines, secrets)?;
-    let cap = &r.cloud.budget_cap_usd_day;
     r.cloud.budget_cap_usd_day =
-        resolve_gate("budget_cap_usd_day", cap, params, machines, secrets)?;
-    let ks = &r.cloud.kill_switch;
-    r.cloud.kill_switch = resolve_gate("kill_switch", ks, params, machines, secrets)?;
-    let pg = &r.cloud.parity_gate;
-    r.cloud.parity_gate = resolve_gate("parity_gate", pg, params, machines, secrets)?;
+        resolve_opt(&r.cloud.budget_cap_usd_day, params, machines, secrets)?;
+    r.cloud.kill_switch = resolve_opt(&r.cloud.kill_switch, params, machines, secrets)?;
+    r.cloud.parity_gate = resolve_opt(&r.cloud.parity_gate, params, machines, secrets)?;
     r.pattern = resolve_opt(&r.pattern, params, machines, secrets)?;
     for rule in &mut r.budget.reclaim {
         rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;

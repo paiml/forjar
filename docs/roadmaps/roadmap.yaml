@@ -8348,24 +8348,6 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-1184
-  github_issue: 1184
-  item_type: task
-  title: "advisory-ignore expiry is compared with today's UTC date"
-  status: planned
-  priority: high
-  assigned_to: null
-  created: 2026-11-18T00:00:00Z
-  updated: 2026-11-18T00:00:00Z
-  spec: null
-  acceptance_criteria: []
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
-  epic: 764
 - id: PMAT-1186
   github_issue: 1186
   item_type: task
@@ -8384,46 +8366,10 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-1193
-  github_issue: 1193
-  item_type: task
-  title: 'resolver refuses a gate field that still holds a template marker'
-  status: planned
-  priority: high
-  assigned_to: null
-  created: 2026-11-18T00:00:00Z
-  updated: 2026-11-18T00:00:00Z
-  spec: null
-  acceptance_criteria: []
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
-  epic: 764
 - id: PMAT-1188
   github_issue: 1188
   item_type: task
   title: 'cargo cache can be keyed on a version the build does not install'
-  status: planned
-  priority: high
-  assigned_to: null
-  created: 2026-11-18T00:00:00Z
-  updated: 2026-11-18T00:00:00Z
-  spec: null
-  acceptance_criteria: []
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
-  epic: 764
-- id: PMAT-1183
-  github_issue: 1183
-  item_type: task
-  title: 'pool plan names the cap that blocked a launch instead of "queue served"'
   status: planned
   priority: high
   assigned_to: null
