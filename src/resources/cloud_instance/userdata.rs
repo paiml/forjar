@@ -7,7 +7,7 @@
 //! not turn a live box into a "changed" refusal, and keys without the field stay byte for byte.
 //! The path is checked against a strict allow-list at parse time and again at codegen (both
 //! through `spec_of`), then single-quoted at use. The size and presence guard runs in the apply
-//! script before any `aws` call, on a private copy (`mktemp`, removed on exit) that run-instances also
+//! script before any `aws` call, on a private copy (`mktemp`, removed on exit, INT and TERM) that run-instances also
 //! reads, so a swap after the check is not launched; a file that is gone after launch therefore blocks a re-apply
 //! of an already present box too (the wrapper keeps the file or drops the field).
 //!
@@ -74,6 +74,7 @@ pub(super) fn guard(path: Option<&str>, life_min: u32) -> String {
          if [ ! -f \"$ud_file\" ]; then {missing}; fi\n\
          ud_tmp=\"$(mktemp)\" || {{ {unread}; }}\n\
          trap 'rm -f \"$ud_tmp\"' EXIT\n\
+         trap 'rm -f \"$ud_tmp\"; exit 1' INT TERM\n\
          cat \"$ud_file\" > \"$ud_tmp\" 2>/dev/null || {{ {unread}; }}\n\
          ud_file=\"$ud_tmp\"\n\
          ud_n=\"$(wc -c < \"$ud_file\")\" || {{ {unread}; }}\n\
@@ -302,6 +303,14 @@ mod tests {
             std::fs::write(&ud, format!("{l1}\n{REQ}")).unwrap();
             assert_eq!(sb.run(&script, "").0, 0, "{l1}");
         }
+    }
+
+    #[test]
+    fn the_copy_is_removed_on_exit_int_and_term() {
+        let (r, _) = with_file(Sandbox::new().path(), b"");
+        let script = apply_script(&r);
+        assert!(script.contains("' EXIT\n"), "{script}");
+        assert!(script.contains("; exit 1' INT TERM\n"), "{script}");
     }
 
     #[test]
