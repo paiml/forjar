@@ -273,6 +273,7 @@ fn latest_resolve_snippet(crate_name: &str) -> String {
          _FJ_LATEST=$(cargo search --color never --limit 10 -- {q} 2>/dev/null | \
 awk -v c={q} '/^[^[:space:]]/ && $1 == c && $2 == \"=\" && $3 ~ /^\"[0-9A-Za-z._+-]+\"$/ {{ gsub(/\"/, \"\", $3); print $3; exit }}' || true)\n\
          case \"$_FJ_LATEST\" in \"\"|*[!0-9A-Za-z._+-]*|*..*|-*) _FJ_LATEST='' ;; esac\n\
+         _FJ_PIN=\"$_FJ_LATEST\"\n\
          if [ -z \"$_FJ_LATEST\" ]; then\n\
            echo \"forjar: WARNING cannot resolve latest version of {crate_name}; building without cache\" >&2\n\
            _FJ_NC=1\n\
@@ -332,6 +333,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
         Some(v) => sh_squote(&format!("{crate_name}@{v}")),
         None => sh_squote(crate_name),
     };
+    let pin_arg = version.map_or(" ${_FJ_PIN:+--version \"=$_FJ_PIN\"}", |_| "");
     let features_arg = if features.is_empty() {
         String::new()
     } else {
@@ -354,7 +356,7 @@ fn cargo_cached_install(pkg: &str, version: Option<&str>) -> String {
            echo \"forjar: cache-hit {crate_name} [$_CACHE_KEY]\"\n\
          else\n\
            _STAGING=$(mktemp -d /tmp/forjar-cargo.XXXXXX)\n\
-           cargo install --force --locked --root \"$_STAGING\"{features_arg} {install_arg}\n\
+           cargo install --force --locked --root \"$_STAGING\"{features_arg}{pin_arg} {install_arg}\n\
            if [ ! -d \"$_STAGING/bin\" ] || ! ls \"$_STAGING/bin/\"* >/dev/null 2>&1; then\n\
              echo \"ERROR: cargo install {crate_name} produced no binaries\" >&2\n\
              echo \"HINT: does the crate need --features? Use packages: [\\\"{crate_name}[feature_name]\\\"]\" >&2\n\

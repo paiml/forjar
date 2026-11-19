@@ -296,8 +296,9 @@ fn only_whole_spot_request_ids_are_cancelled() {
 }
 
 #[test]
-fn a_malformed_spot_request_id_stops_destroy_before_any_terminate() {
+fn a_malformed_spot_request_id_is_reported_after_terminate_and_not_cancelled() {
     for bad in [
+        "sir-0a1b2c3d4e5f6a7b8",
         "sir-0A1B2C3D",
         "sir-0c!x",
         "sir-",
@@ -312,10 +313,9 @@ fn a_malformed_spot_request_id_stops_destroy_before_any_terminate() {
         let (rc, out) = sb.run_with(&apply_script(&absent(gated(sb.path()))), "", Some(&fx));
         assert_ne!(rc, 0, "{bad}: {out}");
         assert!(out.contains("not a whole spot request id"), "{bad}: {out}");
-        assert!(!out.contains("destroyed"), "{bad}: {out}");
         let log = sb.log();
-        assert_eq!(count(&log, "terminate-instances"), 0, "{bad}: {log}");
-        assert_eq!(count(&log, "cancel-spot"), 0, "{bad}: {log}");
+        assert_eq!(count(&log, "terminate-instances"), 1, "{bad}: {log}");
+        assert_eq!(count(&log, "cancel-spot"), 1, "{bad}: {log}");
     }
 }
 

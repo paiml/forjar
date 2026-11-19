@@ -8253,3 +8253,57 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1186
+  github_issue: 1186
+  item_type: task
+  title: 'one stale runner registration freezes the whole orphan sweep'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1188
+  github_issue: 1188
+  item_type: task
+  title: 'cargo cache can be keyed on a version the build does not install'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1185
+  github_issue: 1185
+  item_type: task
+  title: 'destroy blocks terminate on a cancel-only lookup'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
