@@ -12,6 +12,10 @@
 //!      'secrets' or 'id-token', and ci.yml has no workflow-level scalar naming 'secrets' and no
 //!      workflow permissions wider than contents: read.
 //!  (c) pool-canary.yml parses equal to tests/pool-canary.expected.yml and is dispatch-only.
+//!  (e) EVERY job of EVERY workflow, whatever its trigger: its labels must include one no spot seat
+//!      carries, or its group must be on the committed non-spot list.
+//!  (f) a `uses:` call: local files are judged with the caller context; external calls must be on
+//!      the committed allowlist (exact string, reason); `secrets: inherit` only where allowed.
 //!  (d) cannot judge = red: parse failure, duplicate keys, a merge key or tag, a non-mapping
 //!      document or jobs section, an unmodeled runs-on shape, an empty or missing directory.
 
@@ -259,22 +263,6 @@ const NON_SPOT_GROUPS: [&str; 15] = [
     "dotgithub-gate",
 ];
 
-/// True when a pull_request-like event (or a call from one) can start this workflow.
-/// An `on` that cannot be read counts as reachable.
-fn pr_reachable(top: &serde_yaml_ng::Mapping) -> bool {
-    let hit = |s: &str| {
-        s.starts_with("pull_request")
-            || matches!(s, "merge_group" | "workflow_call" | "workflow_run")
-    };
-    let on = key(top, "on").or_else(|| top.get(Value::Bool(true)).cloned());
-    match on {
-        Some(Value::String(s)) => hit(&s),
-        Some(Value::Sequence(v)) => v.iter().any(|x| x.as_str().is_none_or(hit)),
-        Some(Value::Mapping(m)) => m.keys().any(|k| k.as_str().is_none_or(hit)),
-        _ => true,
-    }
-}
-
 /// Ok when this label list holds at least one label no spot seat carries.
 fn leaves_spot(opt: &Value) -> Result<(), String> {
     let ls: Vec<String> = match opt {
@@ -363,7 +351,148 @@ fn reaches_spot(j: &serde_yaml_ng::Mapping, ro: &Value) -> Result<(), String> {
     }
 }
 
-fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, reach: bool, why: &mut Vec<String>) {
+// ---- rule (f): a job that `uses:` a reusable workflow is judged, never trusted ----
+
+/// Committed allowlist of EXTERNAL reusable-workflow calls: the exact `uses` string, the reason,
+/// and whether `secrets: inherit` may be passed. Anything else outside this repository is red.
+const EXTERNAL_CALLS: [(&str, &str, bool); 3] = [
+    (
+        "paiml/.github/.github/workflows/sovereign-ci.yml@8adbee1d793df71a31867eb875829b55e04a7c02",
+        "ci.yml `ci`: the organisation's gate, pinned to a commit; runs on the literal clean-room runs_on",
+        true,
+    ),
+    (
+        "paiml/.github/.github/workflows/sovereign-ci.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0",
+        "nightly-bench.yml `bench`: scheduled benchmark run of the same gate, pinned",
+        true,
+    ),
+    (
+        "paiml/.github/.github/workflows/pr-gate.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0",
+        "pr-gate.yml `authorize`: PR authorization, pinned, no secrets passed",
+        false,
+    ),
+];
+
+fn is_inherit(j: &serde_yaml_ng::Mapping) -> bool {
+    matches!(key(j, "secrets"), Some(Value::String(s)) if s.trim().eq_ignore_ascii_case("inherit"))
+}
+
+/// A `with` value as the called workflow would read it: JSON text becomes a list or map.
+fn input_value(v: &Value) -> Value {
+    match v {
+        Value::String(s) if matches!(s.trim_start().chars().next(), Some('[' | '{')) => {
+            serde_yaml_ng::from_str(s).unwrap_or_else(|_| v.clone())
+        }
+        other => other.clone(),
+    }
+}
+
+fn judge_call(
+    ctx: &str,
+    dir: &Path,
+    j: &serde_yaml_ng::Mapping,
+    depth: usize,
+    why: &mut Vec<String>,
+) {
+    let Some(uses) = key(j, "uses") else { return };
+    let Some(u) = uses.as_str() else {
+        return why.push(format!("{ctx}: `uses` is not a string, cannot judge"));
+    };
+    if let Some(local) = u.strip_prefix("./") {
+        return judge_local_call(ctx, dir, local, j, depth, why);
+    }
+    match EXTERNAL_CALLS.iter().find(|(x, _, _)| *x == u) {
+        None => why.push(format!(
+            "{ctx}: external or unresolvable reusable call is not on the external-call allowlist: {u}"
+        )),
+        Some((_, _, inherit_ok)) => {
+            if is_inherit(j) && !inherit_ok {
+                why.push(format!("{ctx}: secrets: inherit to a call that may not take it: {u}"));
+            }
+            if let Some(Value::Mapping(w)) = key(j, "with") {
+                for k in w.keys().filter_map(Value::as_str) {
+                    let l = k.to_lowercase();
+                    let exact_ci = l == "runs_on" && u == EXTERNAL_CALLS[0].0;
+                    if !exact_ci && ["label", "runner", "group"].iter().any(|n| l.contains(n)) {
+                        why.push(format!("{ctx}: reusable call passes a runs-on or pool value: {k}"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn judge_local_call(
+    ctx: &str,
+    dir: &Path,
+    rel: &str,
+    j: &serde_yaml_ng::Mapping,
+    depth: usize,
+    why: &mut Vec<String>,
+) {
+    let ctx = format!("{ctx} via local call ./{rel}");
+    if is_inherit(j) {
+        why.push(format!(
+            "{ctx}: secrets: inherit to a call not on an allowlist"
+        ));
+    }
+    let name = rel.strip_prefix(".github/workflows/").unwrap_or("");
+    let plain = !name.is_empty()
+        && !name.contains('/')
+        && !name.contains("..")
+        && (name.ends_with(".yml") || name.ends_with(".yaml"));
+    if !plain || depth >= 3 {
+        return why.push(format!(
+            "{ctx}: not a plain workflow file under .github/workflows (or nested too deep), cannot judge"
+        ));
+    }
+    let mut inner = Vec::new();
+    let Some(Value::Mapping(top)) = parse_file(&dir.join(name), name, &mut inner)
+        .and_then(|d| matches!(d, Value::Mapping(_)).then_some(d))
+    else {
+        inner.push("callee is missing or not a mapping".to_string());
+        return why.push(format!("{ctx}: cannot judge: {inner:?}"));
+    };
+    why.extend(inner.into_iter().map(|w| format!("{ctx}: {w}")));
+    let Some(Value::Mapping(jobs)) = key(&top, "jobs") else {
+        return why.push(format!("{ctx}: callee jobs missing, cannot judge"));
+    };
+    let with = match key(j, "with") {
+        Some(Value::Mapping(w)) => w,
+        _ => serde_yaml_ng::Mapping::new(),
+    };
+    for (n, cj) in &jobs {
+        let cctx = format!("{ctx}: job {}", n.as_str().unwrap_or("?"));
+        let Value::Mapping(cm) = cj else {
+            why.push(format!("{cctx} is not a mapping, cannot judge"));
+            continue;
+        };
+        match key(cm, "runs-on") {
+            None if key(cm, "uses").is_some() => judge_call(&cctx, dir, cm, depth + 1, why),
+            None => why.push(format!("{cctx}: no runs-on and no uses, cannot judge")),
+            Some(ro) => {
+                let resolved = ro
+                    .as_str()
+                    .and_then(|s| {
+                        s.trim()
+                            .strip_prefix("${{ inputs.")
+                            .and_then(|r| r.strip_suffix(" }}"))
+                    })
+                    .map(|k| {
+                        key(&with, k)
+                            .map(|v| input_value(&v))
+                            .unwrap_or_else(|| Value::String(format!("${{{{ inputs.{k} }}}}")))
+                    })
+                    .unwrap_or(ro);
+                if let Err(e) = reaches_spot(cm, &resolved) {
+                    why.push(format!("{cctx}: can land on a spot seat: {e}"));
+                }
+            }
+        }
+    }
+}
+
+fn judge_job(file: &str, dir: &Path, name: &str, job: &Value, is_ci: bool, why: &mut Vec<String>) {
     let ctx = format!("{file}: job {name}");
     let Value::Mapping(j) = job else {
         return why.push(format!("{ctx} is not a mapping, cannot judge"));
@@ -376,10 +505,8 @@ fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, reach: bool, why:
         (Some(c), _) => check_allowlisted(&ctx, j, c, &all, why),
         (None, Some(ro)) => {
             check_runs_on(&format!("{file}:{name}"), j, &ro, why);
-            if reach {
-                if let Err(e) = reaches_spot(j, &ro) {
-                    why.push(format!("{ctx}: can land on a spot seat: {e}"));
-                }
+            if let Err(e) = reaches_spot(j, &ro) {
+                why.push(format!("{ctx}: can land on a spot seat: {e}"));
             }
         }
         (None, None) if !uses => why.push(format!("{ctx}: no runs-on and no uses, cannot judge")),
@@ -389,6 +516,7 @@ fn judge_job(file: &str, name: &str, job: &Value, is_ci: bool, reach: bool, why:
         return;
     }
     let is_ci_call = is_ci && name == "ci";
+    judge_call(&ctx, dir, j, 0, why);
     if let Some(w) = key(j, "with") {
         check_with(&ctx, is_ci_call, &w, why);
     }
@@ -494,7 +622,14 @@ fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut Vec<String
             continue;
         };
         has_spot |= is_ci && canonical(n).is_some();
-        judge_job(&base, n, j, is_ci, pr_reachable(top), why);
+        judge_job(
+            &base,
+            path.parent().unwrap_or(Path::new(".")),
+            n,
+            j,
+            is_ci,
+            why,
+        );
     }
     if is_ci && has_spot {
         check_workflow_level(&base, top, why);
@@ -1328,9 +1463,9 @@ fn r5_exclusive_labels_and_non_spot_groups_pass() {
         let d = with_x(n, &secret_job("pull_request", ro));
         assert!(judge(&d, &expected_canary()).is_ok(), "{n} refused");
     }
-    // a workflow no PR-like event can start is out of this rule's scope
+    // no trigger is out of scope: see the r6 tests
     let d = with_x("push-only", &secret_job("push", "[self-hosted, tier2]"));
-    assert!(judge(&d, &expected_canary()).is_ok());
+    assert!(judge(&d, &expected_canary()).is_err());
 }
 
 #[test]
@@ -1340,4 +1475,249 @@ fn r5_measured_snapshot_is_self_consistent() {
     assert!(!NON_SPOT_GROUPS.contains(&"burst-public"));
     assert!(!SPOT_SEAT_LABELS.contains(&"clean-room"));
     assert!(!SPOT_SEAT_LABELS.contains(&"gate-light"));
+}
+
+// ---- r6: the subset rule applies to EVERY job of EVERY workflow, whatever its trigger ----
+
+#[test]
+fn r6_every_trigger_type_is_judged() {
+    let ons = [
+        "issue_comment",
+        "[issue_comment]",
+        "{issue_comment: {types: [created]}}",
+        "push",
+        "[push]",
+        "{push: {branches: [main]}}",
+        "{schedule: [{cron: '0 0 * * *'}]}",
+        "workflow_dispatch",
+        "repository_dispatch",
+        "{repository_dispatch: {types: [x]}}",
+        "release",
+        "issues",
+        "discussion",
+        "{workflow_run: {workflows: [a], types: [completed]}}",
+        "[pull_request, push]",
+    ];
+    let ros = [
+        "[self-hosted]",
+        "[self-hosted, Linux]",
+        "[self-hosted, tier2]",
+        "{group: tier2}",
+    ];
+    for (i, on) in ons.iter().enumerate() {
+        for (k, ro) in ros.iter().enumerate() {
+            r5_red(
+                &format!("r6-on-{i}-{k}"),
+                &secret_job(on, ro),
+                "can land on a spot seat",
+            );
+        }
+    }
+    r5_red(
+        "r6-no-on",
+        &secret_job("{}", "[self-hosted]").replace("on: {}\n", ""),
+        "can land on a spot seat",
+    );
+}
+
+#[test]
+fn r6_exclusive_labels_pass_on_every_trigger() {
+    for (i, on) in [
+        "issue_comment",
+        "push",
+        "schedule",
+        "workflow_dispatch",
+        "repository_dispatch",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let d = with_x(
+            &format!("r6-ok-{i}"),
+            &secret_job(on, "[self-hosted, clean-room, X64]"),
+        );
+        assert!(judge(&d, &expected_canary()).is_ok(), "{on} refused");
+    }
+}
+
+/// A new workflow `x.yml` holding one job that calls `uses`, plus extra job lines.
+fn call_file(on: &str, uses: &str, extra: &str) -> String {
+    format!("on: {on}\njobs:\n  c:\n    uses: {uses}\n{extra}")
+}
+
+const EXT_BAD: &str =
+    "someone/else/.github/workflows/w.yml@0123456789012345678901234567890123456789";
+const EXT_OK_CI: &str =
+    "paiml/.github/.github/workflows/sovereign-ci.yml@8adbee1d793df71a31867eb875829b55e04a7c02";
+const EXT_OK_GATE: &str =
+    "paiml/.github/.github/workflows/pr-gate.yml@fbee3788a0ed92d09974ac21ea9bc97d373af6f0";
+
+#[test]
+fn r6_external_call_not_on_allowlist_fails_on_every_trigger() {
+    for (i, on) in [
+        "pull_request",
+        "issue_comment",
+        "push",
+        "schedule",
+        "workflow_dispatch",
+    ]
+    .iter()
+    .enumerate()
+    {
+        for (k, extra) in [
+            "",
+            "    secrets: inherit\n",
+            "    with:\n      labels: '[\"self-hosted\",\"tier2\"]'\n",
+            "    secrets: inherit\n    with:\n      labels: '[\"self-hosted\",\"tier2\"]'\n",
+            "    with:\n      repo: x\n",
+        ]
+        .iter()
+        .enumerate()
+        {
+            r5_red(
+                &format!("r6-ext-{i}-{k}"),
+                &call_file(on, EXT_BAD, extra),
+                "not on the external-call allowlist",
+            );
+        }
+    }
+    for (n, u) in [
+        ("expr", "${{ vars.W }}"),
+        ("docker", "docker://alpine:3"),
+        (
+            "other-ref",
+            "paiml/.github/.github/workflows/sovereign-ci.yml@main",
+        ),
+        (
+            "other-file",
+            "paiml/.github/.github/workflows/evil.yml@8adbee1d793df71a31867eb875829b55e04a7c02",
+        ),
+    ] {
+        r5_red(
+            &format!("r6-ext-{n}"),
+            &call_file("pull_request", u, ""),
+            "not on the external-call allowlist",
+        );
+    }
+}
+
+#[test]
+fn r6_allowlisted_calls_pass_and_stay_pinned() {
+    let ok = |n: &str, u: &str, extra: &str| {
+        let d = with_x(n, &call_file("pull_request", u, extra));
+        assert!(judge(&d, &expected_canary()).is_ok(), "{n} refused");
+    };
+    ok(
+        "r6-ok-ci",
+        EXT_OK_CI,
+        "    with:\n      repo: x\n    secrets: inherit\n",
+    );
+    ok("r6-ok-gate", EXT_OK_GATE, "");
+    r5_red(
+        "r6-gate-inherit",
+        &call_file("pull_request", EXT_OK_GATE, "    secrets: inherit\n"),
+        "secrets: inherit",
+    );
+    r5_red(
+        "r6-ok-with-labels",
+        &call_file(
+            "pull_request",
+            EXT_OK_CI,
+            "    with:\n      labels: '[\"self-hosted\",\"tier2\"]'\n    secrets: inherit\n",
+        ),
+        "reusable call passes",
+    );
+    r5_red(
+        "r6-ok-with-runner",
+        &call_file(
+            "push",
+            EXT_OK_CI,
+            "    with:\n      runner: tier2\n    secrets: inherit\n",
+        ),
+        "reusable call passes",
+    );
+    r5_red(
+        "r6-ok-secrets-map-inherit-case",
+        &call_file("pull_request", EXT_OK_GATE, "    secrets: INHERIT\n"),
+        "secrets: inherit",
+    );
+}
+
+/// x.yml calls ./.github/workflows/callee.yml; callee.yml holds `callee`.
+fn with_callee(name: &str, caller: &str, callee: &str) -> PathBuf {
+    let d = with_x(name, caller);
+    fs::write(d.join("callee.yml"), callee).unwrap();
+    d
+}
+
+fn r6_local_red(name: &str, caller: &str, callee: &str, needle: &str) {
+    match judge(&with_callee(name, caller, callee), &expected_canary()) {
+        Ok(_) => panic!("r6 plant {name} was accepted"),
+        Err(w) => assert!(
+            w.iter().any(|m| m.contains(needle)),
+            "r6 plant {name} refused for the wrong reason (want `{needle}`): {w:?}"
+        ),
+    }
+}
+
+const LOCAL: &str = "./.github/workflows/callee.yml";
+
+#[test]
+fn r6_local_reusable_call_is_judged_with_the_callers_context() {
+    let callee_spot =
+        "on: workflow_call\njobs:\n  j:\n    runs-on: [self-hosted, tier2]\n    steps: []\n";
+    for on in ["pull_request", "issue_comment", "push", "schedule"] {
+        r6_local_red(
+            &format!("r6-local-{on}"),
+            &call_file(on, LOCAL, ""),
+            callee_spot,
+            "via local call",
+        );
+    }
+    let callee_in = "on:\n  workflow_call:\n    inputs:\n      l:\n        type: string\njobs:\n  j:\n    runs-on: ${{ inputs.l }}\n    steps: []\n";
+    r6_local_red(
+        "r6-local-input-spot",
+        &call_file(
+            "push",
+            LOCAL,
+            "    with:\n      l: '[\"self-hosted\",\"tier2\"]'\n",
+        ),
+        callee_in,
+        "via local call",
+    );
+    r6_local_red(
+        "r6-local-input-missing",
+        &call_file("push", LOCAL, ""),
+        callee_in,
+        "via local call",
+    );
+    r6_local_red(
+        "r6-local-inherit",
+        &call_file("push", LOCAL, "    secrets: inherit\n"),
+        "on: workflow_call\njobs:\n  j:\n    runs-on: [self-hosted, clean-room]\n    steps: []\n",
+        "secrets: inherit",
+    );
+    for (n, u) in [
+        ("missing", "./.github/workflows/absent.yml"),
+        ("dotdot", "./.github/workflows/../../x.yml"),
+        ("subdir", "./.github/workflows/sub/callee.yml"),
+        ("action-dir", "./.github/actions/changed-class"),
+        ("self-loop", "./.github/workflows/x.yml"),
+    ] {
+        r5_red(
+            &format!("r6-local-{n}"),
+            &call_file("push", u, ""),
+            "cannot judge",
+        );
+    }
+}
+
+#[test]
+fn r6_local_reusable_call_on_exclusive_labels_passes() {
+    let d = with_callee(
+        "r6-local-ok",
+        &call_file("issue_comment", LOCAL, ""),
+        "on: workflow_call\njobs:\n  j:\n    runs-on: [self-hosted, clean-room, X64]\n    steps: []\n",
+    );
+    assert!(judge(&d, &expected_canary()).is_ok());
 }
