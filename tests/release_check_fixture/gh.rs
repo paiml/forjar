@@ -102,40 +102,31 @@ pub(crate) fn stub_gh_published_api_empty(dir: &Path, head: &str) -> String {
     )
 }
 
-/// A commit dated `iso` (author and committer), so tags sit days apart.
+/// A commit dated `iso`, so the fixture tags sit days apart.
 pub(crate) fn commit_at(root: &Path, msg: &str, iso: &str) {
-    let out = std::process::Command::new("git")
-        .args(["commit", "-qm", msg])
-        .current_dir(root)
-        .env("GIT_AUTHOR_DATE", iso)
-        .env("GIT_COMMITTER_DATE", iso)
-        .output()
-        .expect("git must run");
-    assert!(out.status.success(), "git commit failed");
+    let mut c = std::process::Command::new("git");
+    c.args(["commit", "-qm", msg]).current_dir(root);
+    let ok = c.env("GIT_AUTHOR_DATE", iso).env("GIT_COMMITTER_DATE", iso);
+    assert!(ok.status().expect("git").success());
 }
 
-/// A `gh` that answers every call with exactly `body` (possibly empty or several
-/// documents) and counts its calls. Returns the stub and the number of calls.
+/// A `gh` answering every call with exactly `body`; returns it and its call log.
 pub(crate) fn stub_gh_counting(dir: &Path, name: &str, body: &str) -> (String, std::path::PathBuf) {
-    let (out, calls) = (
+    let (out, log) = (
         dir.join(format!("{name}.out")),
-        dir.join(format!("{name}.calls")),
+        dir.join(format!("{name}.log")),
     );
     std::fs::write(&out, body).expect("body");
-    let script = format!(
+    let s = format!(
         "#!/usr/bin/env bash\necho x >> '{}'\ncat '{}'\n",
-        calls.display(),
+        log.display(),
         out.display()
     );
-    (install(dir, name, &script), calls)
+    (install(dir, name, &s), log)
 }
 
-/// PMAT-1173: a `gh pr list` stub holding `n` merged PRs spread over the window
-/// plus ten outside it (five before the previous tag, five after the upper
-/// bound), answering as real gh does: it honours `--search` (inclusive
-/// `merged:A..B` or `merged:>=A`), `--limit` (30 when absent), lists newest
-/// first, emits only the `--json` fields asked for and refuses an unknown one.
-/// `mode` breaks it as tests/falsification_dogfood_pr_window_pagination.rs does.
+/// PMAT-1173: a `gh pr list` stub as real gh answers: `--search` (inclusive), `--limit` (30 if
+/// absent), newest first, only the `--json` fields asked for, 10 PRs outside the window.
 pub(crate) fn stub_gh_release_paged(fx: &super::Fixture, n: usize, mode: &str) -> String {
     let ct = |r: &str| -> i64 {
         let out = super::git(&fx.root, &["log", "-1", "--format=%ct", r]);

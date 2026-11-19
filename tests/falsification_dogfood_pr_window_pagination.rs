@@ -45,21 +45,14 @@ fn a_read_that_cannot_finish_is_unmeasured() {
 }
 #[test]
 fn a_page_that_is_not_an_array_of_prs_is_unmeasured() {
-    // PMAT-1173: the shared reader refuses a malformed page with a verdict.
     for (i, body) in ["[1]", "", "[] []", r#"{"m":1}"#].into_iter().enumerate() {
         let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
-        let (dir, out) = (fx.root.parent().expect("dir"), format!("bad{i}"));
-        std::fs::write(dir.join(&out), body).expect("body");
-        let gh = dir.join(format!("gh_bad{i}"));
-        std::fs::write(
-            &gh,
-            format!("#!/usr/bin/env bash\ncat '{}'\n", dir.join(&out).display()),
-        )
-        .expect("stub");
-        std::fs::set_permissions(&gh, std::os::unix::fs::PermissionsExt::from_mode(0o755))
-            .expect("chmod");
-        let r = run(&fx, "harness.sh", &gh.to_string_lossy());
+        let r = run(
+            &fx,
+            "harness.sh",
+            &stub_gh(fx.root.parent().unwrap(), &format!("bad{i}"), body),
+        );
         r.assert_not_green("A", body);
-        r.assert_says("UNMEASURED");
+        r.assert_says("one JSON array of PRs");
     }
 }

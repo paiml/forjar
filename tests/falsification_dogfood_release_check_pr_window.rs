@@ -168,12 +168,9 @@ fn a_tag_that_exists_on_the_remote_is_never_pending() {
 
 #[test]
 fn a_window_over_one_page_is_read_whole() {
-    // PMAT-1173: exactly one full page, and more than two. Both used to be
-    // refused as "fills the --limit"; the paged reader reads them to the end.
     for n in [200, 450] {
         let fx = fixture(false, Some(good_receipt()));
-        let gh = stub_gh_release_paged(&fx, n, "honest");
-        let r = run(&fx, &gh);
+        let r = run(&fx, &stub_gh_release_paged(&fx, n, "honest"));
         r.assert_green(&format!("a window of {n} PRs is read in full"));
         r.assert_says(&format!("{n} PR(s)"));
     }
@@ -188,8 +185,7 @@ fn a_truncated_or_failing_page_is_unmeasured() {
         (6000, "honest", "more than 40"),
     ] {
         let fx = fixture(false, Some(good_receipt()));
-        let gh = stub_gh_release_paged(&fx, n, mode);
-        let r = run(&fx, &gh);
+        let r = run(&fx, &stub_gh_release_paged(&fx, n, mode));
         r.assert_not_green(mode);
         r.assert_says(says);
     }
@@ -197,23 +193,25 @@ fn a_truncated_or_failing_page_is_unmeasured() {
 
 #[test]
 fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
-    // PMAT-1173: a reader failure is a measured refusal, never a bare abort and
-    // never a bisection storm. Each body is one `gh` answered with exit 0.
+    // exit 0 with these bodies: one read, then a verdict, never a bare abort or a storm
     let bodies = [
-        ("number", "[1]"),
-        ("string", r#"["err"]"#),
-        ("empty", ""),
-        ("two-docs", "[] []"),
-        ("object", r#"{"message":"rate limited"}"#),
-        ("no-number", r#"[{"mergedAt":"x"}]"#),
+        "[1]",
+        r#"["err"]"#,
+        "",
+        "[] []",
+        r#"{"message":"x"}"#,
+        r#"[{"mergedAt":"x"}]"#,
     ];
-    for (name, body) in bodies {
+    for (i, body) in bodies.into_iter().enumerate() {
         let fx = fixture(false, Some(good_receipt()));
-        let (gh, calls) = stub_gh_counting(fx.root.parent().expect("dir"), name, body);
+        let (gh, log) = stub_gh_counting(fx.root.parent().expect("dir"), &format!("bad{i}"), body);
         let r = run(&fx, &gh);
-        r.assert_not_green(name);
-        r.assert_says("UNMEASURED");
-        let n = std::fs::read_to_string(&calls).map_or(0, |s| s.lines().count());
-        assert_eq!(n, 1, "{name}: one read, then a refusal, not a storm");
+        r.assert_not_green(body);
+        r.assert_says("one JSON array of PRs (jq exit 5)");
+        assert_eq!(
+            std::fs::read_to_string(&log).map_or(0, |s| s.lines().count()),
+            1,
+            "{body}"
+        );
     }
 }

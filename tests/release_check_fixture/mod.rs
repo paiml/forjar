@@ -235,7 +235,6 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         "scripts/dogfood/lib/tags.sh must exist — release-check.sh and crux-reconcile.sh source it",
     );
     write(&root, "scripts/dogfood/lib/tags.sh", &tags_lib);
-    // Arm 5 reads its window through the paged reader (PMAT-1173).
     for rel in [
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/lib/prpage.sh",

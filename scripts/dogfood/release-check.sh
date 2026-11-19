@@ -282,9 +282,7 @@ fi
 # merged. gh is a RELEASE-TIME REQUIREMENT: a gh that cannot answer leaves the
 # window UNMEASURED, and UNMEASURED is a FAIL naming the tool — never a PASS
 # over "no PRs found".
-# PMAT-1173: the window is read through the paged reader (lib/prpage.sh), so a
-# window of 200 or more PRs is read in full and a read that cannot finish is
-# UNMEASURED, never a subset.
+# PMAT-1173: read through the paged reader (lib/prpage.sh); a read that cannot finish is UNMEASURED.
 dogfood_pr_fetch "$prev_tag" HEAD number,mergedAt,mergeCommit,headRefName
 jrc=0
 pr_rows="$(printf '%s' "$DOGFOOD_PR_RAW" | jq -r '.[] | "\(.number) \(.mergeCommit.oid // "-") \(.headRefName // "-")"')" || jrc=$?
@@ -464,9 +462,6 @@ fi
 # `elif false`, and a full release that /releases/latest does not point at
 # passes -- exactly the four-release staleness this arm was written for;
 # `a_full_release_that_is_not_latest_is_named_and_red` goes RED.
-# mutation: change `dogfood_pr_fetch "$prev_tag" HEAD` back to one `--limit 200` read
-# and a window of 200 or more PRs is refused as truncated;
-# `a_window_over_one_page_is_read_whole` goes RED.
 # mutation: change `if [ "$status" != "ok" ]` below the report loop to
 # `if [ "$status" = "missing" ]` — a waived or thin receipt then sets nothing
 # and this arm passes a release over a PR whose quorum was waived or never

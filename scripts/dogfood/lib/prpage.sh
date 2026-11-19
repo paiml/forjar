@@ -29,11 +29,8 @@ dogfood_pr_slice() {
     fail "${GH} pr list exited ${rc} (${raw}) — the PRs merged ${DOGFOOD_PR_A}..${DOGFOOD_PR_B} cannot be enumerated without GitHub, and an unenumerable window is UNMEASURED, which is not the same as a window with no PRs"
   fi
   rc=0
-  # PMAT-1173: the page must be exactly ONE array whose every element is an object with a numeric
-  # `number`. Anything else (`[1]`, empty output, two documents, an error object) is refused here,
-  # before the merge below, so no caller dies in a bare jq and none bisects a page it cannot read.
+  # PMAT-1173: the page must be ONE array of objects with a numeric `number`, else UNMEASURED.
   n="$(printf '%s' "$raw" | jq -rs 'if length == 1 and (.[0] | type == "array") and (.[0] | all(.[]; type == "object" and (.number | type) == "number")) then (.[0] | length) else error("not one array of PR objects") end')" || rc=$?
-  case "$n" in '' | *[!0-9]*) rc=1 ;; esac
   if [ "$rc" -ne 0 ]; then
     fail "cannot read what ${GH} pr list returned as one JSON array of PRs (jq exit ${rc}): ${raw} — UNMEASURED"
   fi

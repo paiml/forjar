@@ -8485,8 +8485,7 @@ roadmap:
   updated: 2026-11-19T00:00:00Z
   spec: null
   acceptance_criteria:
-  - Arm 5 calls the paged reader; no second window reader remains in release-check.sh
-  - A fixture window over 200 PRs is read whole; a failed page fails the arm; the tests go red on the unpaged read
+  - Arm 5 calls the paged reader; no second window reader remains in release-check.sh; a window over 200 PRs is read whole; a failed page fails the arm
   phases: []
   subtasks: []
   estimated_effort: null
