@@ -8204,3 +8204,57 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1180
+  github_issue: 1180
+  item_type: task
+  title: "cloud_instance user-data guard is fail-open on the lifetime bound"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1181
+  github_issue: 1181
+  item_type: task
+  title: "cloud_instance client token omits cloud_user_data_file and cloud_volume_tags"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1182
+  github_issue: 1182
+  item_type: task
+  title: "user-data guard and aws read the file at different times (check-then-use)"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
