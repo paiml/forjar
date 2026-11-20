@@ -42,11 +42,33 @@ pub fn check_script(resource: &Resource) -> String {
         );
     }
     let n = sh_squote(name);
-    verdict::single(
+    let mut checks = vec![verdict::assert_that(
         &format!("docker inspect -f '{{{{.State.Running}}}}' {n} >/dev/null 2>&1"),
         &format!("exists:{name}"),
         &format!("missing:{name}"),
-    )
+    )];
+    // #1143: the declared network mode is part of the verdict.
+    if let Some(net) = declared(&resource.network) {
+        checks.push(verdict::assert_that(
+            &format!(
+                "[ \"$(docker inspect -f '{{{{.HostConfig.NetworkMode}}}}' {n} 2>/dev/null)\" = {} ]",
+                sh_squote(net)
+            ),
+            &format!("network:{net}"),
+            &format!("network-diverged:{net}"),
+        ));
+    }
+    // #1143: a declared `completion_check` was accepted and never run, so a
+    // container reported converged without the assertion being measured.
+    if let Some(cc) = declared(&resource.completion_check) {
+        checks.push(verdict::assert_that(cc, "task=completed", "task=pending"));
+    }
+    verdict::check_script_from(&checks)
+}
+
+/// A declared, non-blank optional string (a blank value asserts nothing).
+fn declared(v: &Option<String>) -> Option<&str> {
+    v.as_deref().filter(|s| !s.trim().is_empty())
 }
 
 /// Generate shell script to manage a container.
@@ -89,6 +111,10 @@ pub fn apply_script(resource: &Resource) -> String {
             // Build run command
             let mut run_args = vec!["docker run -d".to_string()];
             run_args.push(format!("--name {n}"));
+
+            if let Some(net) = declared(&resource.network) {
+                run_args.push(format!("--network {}", sh_squote(net)));
+            }
 
             if let Some(ref restart) = resource.restart {
                 run_args.push(format!("--restart {}", sh_squote(restart)));

@@ -393,7 +393,7 @@ fn test_gh1143_network_value_is_quoted() {
     r.network = Some("a'; rm -rf /; '".to_string());
     let script = apply_script(&r);
     assert!(
-        script.contains("--network 'a'\\''; rm -rf /; '\\'''"),
+        script.contains("--network 'a'\"'\"'; rm -rf /; '\"'\"''"),
         "{script}"
     );
 }
