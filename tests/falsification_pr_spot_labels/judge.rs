@@ -14,7 +14,7 @@ pub(crate) fn judge_job(
     let Value::Mapping(j) = job else {
         return why.push(format!("{ctx} is not a mapping, cannot judge"));
     };
-    let canon = if is_ci { canonical(name) } else { None };
+    let canon = canonical(file, name);
     let all = all_scalars(job, why);
     check_opt_in_vars(&ctx, canon, &all, why);
     let uses = key(j, "uses").is_some();
@@ -144,7 +144,7 @@ pub(crate) fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut
             why.push(format!("{base}: non-string job id, cannot judge"));
             continue;
         };
-        has_spot |= is_ci && canonical(n).is_some();
+        has_spot |= canonical(&base, n).is_some();
         judge_job(
             &base,
             path.parent().unwrap_or(Path::new(".")),
@@ -153,13 +153,13 @@ pub(crate) fn judge_file(path: &Path, expected_canary: Option<&Value>, why: &mut
             is_ci,
             why,
         );
-        if is_ci && canonical(n).is_some() {
+        if canonical(&base, n).is_some() {
             if let Value::Mapping(jm) = j {
                 check_needs(&format!("{base}: job {n}"), jm, &jobs, why);
             }
         }
     }
-    if is_ci && has_spot {
+    if has_spot {
         check_workflow_level(&base, top, why);
     }
 }

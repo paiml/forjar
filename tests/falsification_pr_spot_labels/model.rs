@@ -4,12 +4,15 @@ use crate::*;
 
 pub(crate) const PS: &str = "${{ (github.event_name == 'pull_request' && vars.PR_SPOT_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\",\"burst-public\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}";
 pub(crate) const BU: &str = "${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\"]') || fromJSON('[\"self-hosted\",\"clean-room\",\"X64\"]') }}";
+/// `lint.yml` `file-health`: same opt-in as `BU`, but its unchanged fallback is `[self-hosted, clean-room]`.
+pub(crate) const BU_LINT: &str = "${{ (github.event_name == 'pull_request' && vars.BURST_OPTIN == '1') && fromJSON('[\"self-hosted\",\"burst-x64\"]') || fromJSON('[\"self-hosted\",\"clean-room\"]') }}";
 pub(crate) const REUSABLE_RUNS_ON: &str = "[\"self-hosted\",\"clean-room\",\"X64\"]";
 
-pub(crate) fn canonical(job: &str) -> Option<&'static str> {
-    match job {
-        "lockfile" | "examples-validate" | "dogfood-surface" => Some(PS),
-        "no-default-features" | "doctests" | "dogfood-guards" => Some(BU),
+pub(crate) fn canonical(file: &str, job: &str) -> Option<&'static str> {
+    match (file, job) {
+        ("ci.yml", "lockfile" | "examples-validate" | "dogfood-surface") => Some(PS),
+        ("ci.yml", "no-default-features" | "doctests" | "dogfood-guards") => Some(BU),
+        ("lint.yml", "file-health") => Some(BU_LINT),
         _ => None,
     }
 }

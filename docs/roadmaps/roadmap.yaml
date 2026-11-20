@@ -8643,3 +8643,23 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1216
+  github_issue: 1216
+  item_type: task
+  title: 'lint file-health PR job takes the burst-x64 opt-in, guarded'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - See the ticket; a falsifier in tests/falsification_pr_spot_labels or a workflow check covers it
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1160

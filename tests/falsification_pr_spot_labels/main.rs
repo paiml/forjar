@@ -27,6 +27,7 @@ mod t_calls;
 mod t_class;
 mod t_core;
 mod t_labels;
+mod t_lint;
 mod t_yaml;
 mod wiring;
 
