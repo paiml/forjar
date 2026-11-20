@@ -8681,6 +8681,25 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1139
+  github_issue: 1139
+  item_type: task
+  title: 'pool sweep: orphaned-runner cleanup (deregister idle runners on unlisted hosts, terminate nothing)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria:
+  - An orphaned-runner cleanup pass deregisters idle runners whose host is not listed and terminates nothing; a test shows a sweep proceeds after the cleanup and the pass refuses when the runner is busy
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1216
   github_issue: 1216
   item_type: task
