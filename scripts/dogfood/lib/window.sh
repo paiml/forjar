@@ -202,6 +202,7 @@ dogfood_prs_between() {
         echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted" >&2
         DOGFOOD_PR_OUTSIDE=$((DOGFOOD_PR_OUTSIDE + 1))
         ;;
+      *) fail "dogfood_pr_member_of left DOGFOOD_PR_MEMBER='${DOGFOOD_PR_MEMBER:-}' for PR #${num}: its place in this window is UNMEASURED" ;;
     esac
     i=$((i + 1))
   done
