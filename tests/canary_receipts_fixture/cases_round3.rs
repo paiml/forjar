@@ -217,5 +217,147 @@ pub fn table() -> Vec<Case> {
             |o| o.squash = 2,
             "ok",
         ),
+        // round 4 (6ebdc6ea): word boundaries on the spaced-out search.
+        (
+            "an honest claim holding sub(a, i) takes is accepted",
+            |f| {
+                claim0(
+                    f,
+                    "The helper sub(a, i) takes a slice and adds added_one to src/a.rs.",
+                )
+            },
+            nop,
+            "ok",
+        ),
+        (
+            "an honest claim holding a[i] triggers is accepted",
+            |f| {
+                claim0(
+                    f,
+                    "In src/lib, a[i] triggers a rebuild of the target state.",
+                )
+            },
+            nop,
+            "ok",
+        ),
+        (
+            "an honest claim holding a [i] token is accepted",
+            |f| claim0(f, "For each job, a [i] token is parsed from the manifest."),
+            nop,
+            "ok",
+        ),
+        (
+            "an honest claim holding an n-tuple after a step is accepted",
+            |f| {
+                claim0(
+                    f,
+                    "At the step l: a n-tuple of hosts is read from src/a.rs.",
+                )
+            },
+            nop,
+            "ok",
+        ),
+        (
+            "a compound with a marker word inside is accepted (words, not stems)",
+            |f| {
+                claim0(
+                    f,
+                    "The plantation module adds added_one to src/a.rs at line four.",
+                )
+            },
+            nop,
+            "ok",
+        ),
+        (
+            "a planter is refused",
+            |f| claim0(f, "The planter adds added_one to src/a.rs at line four."),
+            nop,
+            "were not blind",
+        ),
+        (
+            "baiting is refused",
+            |f| claim0(f, "Baiting the refuters adds added_one to src/a.rs."),
+            nop,
+            "were not blind",
+        ),
+        (
+            "a spaced marker at the very start of a claim is still refused",
+            |_| {},
+            |o| o.claims_raw = raw_claims("c-a-n-a-r-y adds added_two to src/a.rs."),
+            "were not blind",
+        ),
+        // round 4: names and texts are ASCII printable, compared trimmed and lower-cased.
+        (
+            "zero-width lane names are refused",
+            |f| f.receipt["quorum"]["lanes"] = json!(["\u{200b}", "\u{200c}", "\u{200d}"]),
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "a zero-width character inside a lane name is refused",
+            |f| f.receipt["quorum"]["lanes"] = json!(["a", "a\u{200b}", "c"]),
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "a zero-width planted_by that spells refuter is refused",
+            |f| canary(f)["planted_by"] = json!("ref\u{200b}uter-J1"),
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "a zero-width joiner in planted_by is refused",
+            |f| canary(f)["planted_by"] = json!("cou\u{200d}rier"),
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "a zero-width non-joiner in a planted text is refused",
+            |f| {
+                pl(
+                    f,
+                    0,
+                    "text",
+                    json!(
+                        "The change deletes the function\u{200c} added_one from src/a.rs entirely."
+                    ),
+                )
+            },
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "a control character in a refuter name is refused",
+            |f| f.receipt["quorum"]["refuter_names"] = json!(["r1", "r2\u{0007}", "r3"]),
+            nop,
+            "ASCII printable only",
+        ),
+        (
+            "judge names that differ only by a zero-width character are refused",
+            |f| {
+                f.verdicts[1]["judge"] = json!("J1\u{200b}");
+                f.verdicts[2]["judge"] = json!("J1\u{200c}");
+            },
+            nop,
+            "verdicts_file must be ASCII printable only",
+        ),
+        (
+            "a planted_by equal to a judge after trimming and case is refused",
+            |f| canary(f)["planted_by"] = json!("  j1 "),
+            nop,
+            "also a judge in the verdicts file",
+        ),
+        (
+            "a planted_by that is the bare word Lane is refused",
+            |f| canary(f)["planted_by"] = json!(" Lane "),
+            nop,
+            "bare role word",
+        ),
+        (
+            "a planted_by that is the bare word reviewer is refused",
+            |f| canary(f)["planted_by"] = json!("REVIEWER"),
+            nop,
+            "bare role word",
+        ),
     ]
 }

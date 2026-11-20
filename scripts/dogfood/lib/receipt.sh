@@ -80,6 +80,8 @@ DOGFOOD_CANARY_SHAPE_JQ='
         "quorum.lanes is empty, short, or holds a blank or non-string lane name"),
     chk(($lanes | map(norm) | unique | length) != ($lanes | length); "quorum.lanes names are not distinct: one lane counted twice"),
     chk((($c.planted_by | nes) | not); "quorum.canary.planted_by is missing: a canary round names who planted it"),
+    chk(($c.planted_by | norm) as $pb | any(["lane", "lanes", "reviewer", "reviewers", "author", "panel", "refuter", "refuters", "judge", "judges"][]; . == $pb);
+        "quorum.canary.planted_by is a bare role word, not a name: the planter must be named"),
     chk(($c.planted_by | test("refuter|judge"; "i")); "quorum.canary.planted_by names a refuter or a judge: the planter must be neither"),
     chk(($c.planted_by | norm) as $pb | any($others[]; . == $pb); "quorum.canary.planted_by is also a lane, refuter or judge name: the planter must be none of them"),
     chk((($c.reviewed_base | hexn(40)) | not); "quorum.canary.reviewed_base is not a 40-hex commit id"),
@@ -120,7 +122,9 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk((evok($c; "verdicts_file"; "judge-verdicts")) | not;
         "quorum.canary.verdicts_file must be one evidence.files entry with role judge-verdicts and a sha256"),
     chk(([$c.claims_file, $c.plan_file, $c.verdicts_file] | unique | length) != 3;
-        "quorum.canary claims_file, plan_file and verdicts_file are not three distinct files")] | map(select(.[0])) | (first(.[] | .[1]) // "ok")
+        "quorum.canary claims_file, plan_file and verdicts_file are not three distinct files"),
+    chk(([$lanes, .quorum.refuters, .quorum.refuter_names, .quorum.judge_names, $c][] | [.. | strings] | any(test("[^ -~]")));
+        "quorum names and canary texts must be ASCII printable only: a zero-width, non-ASCII or control character can make two names look different")] | map(select(.[0])) | (first(.[] | .[1]) // "ok")
 '
 
 # Stage 2b: the claims file the refuters and judges were handed. Input: that
@@ -167,6 +171,8 @@ DOGFOOD_CANARY_VERDICTS_JQ='
     chk(($v | length) != $q.judges; "canary verdicts_file judge entries do not equal quorum.judges (\(try ($v | length) catch "?") entries, \($q.judges) judges)"),
     chk(($v | all(.[]; (type == "object") and (keys == ["judge", "verdicts"]) and (.judge | type == "string") and ((.judge | gsub("\\s"; "") | length) > 0) and (.verdicts | type == "object"))) | not;
         "canary verdicts_file entries must be objects with exactly the keys judge (a non-blank name) and verdicts"),
+    chk([$v | .. | strings] | any(test("[^ -~]"));
+        "canary verdicts_file must be ASCII printable only: a zero-width or non-ASCII character can make two judges look different"),
     chk(([$v[].judge | norm] | unique | length) != ($v | length); "canary verdicts_file judges are not distinct"),
     chk(($c.planted_by | norm) as $pb | any($v[].judge | norm; . == $pb); "quorum.canary.planted_by is also a judge in the verdicts file: the planter must not judge"),
     chk($v | any(.[]; ((.verdicts | keys) != ($all | sort)) or ([.verdicts[]] | all(. == "REFUTED" or . == "SURVIVED") | not));
@@ -184,19 +190,23 @@ DOGFOOD_CANARY_VERDICTS_JQ='
 # Words that would tell a refuter or a judge which claims are planted. They are
 # searched in each DECODED string and object key of the claims file on its own,
 # lower-cased, so case and \u escapes do not hide one. A marker counts as a
-# whole word (so "plan", "planned" and "plan takes" are honest prose) or as its
-# letters each separated by one or more non-letters ("p-l-a-n-t", "c a n a r y").
+# whole word (so "plan", "planned" and "plan takes" are honest prose), with the
+# inflections listed in the regex below (stems are NOT matched: "plantation" and
+# a compound such as "canaryclaim" pass, as honest prose must), or as its letters
+# each separated by one or more non-letters ("p-l-a-n-t", "c a n a r y"), where
+# the first letter must start a word and the last must end one, so ordinary code
+# prose such as "sub(a, i) takes" is not read as "bait".
 # A claims file with any non-ASCII or control character in a string is refused
 # outright, so a homoglyph cannot hide a word. Not caught, and said so in the
 # design doc: a word split with a separator in only some gaps ("ca nary").
 DOGFOOD_CANARY_MARKERS='canary|plant|decoy|honeypot|tripwire|bait|sentinel'
 DOGFOOD_CANARY_MARKER_JQ='
   def stems: ["canary", "plant", "decoy", "honeypot", "tripwire", "bait", "sentinel"];
-  def spaced($w): $w | split("") | join("[^a-z]+");
+  def spaced($w): "(?<![a-z])" + ($w | split("") | join("[^a-z]+")) + "(?![a-z])";
   ([.. | strings] + [.. | objects | keys[]]) as $s
   | if any($s[]; test("[^ -~]")) then "nonascii"
     elif any($s[] | ascii_downcase;
-        test("(?<![a-z])(canar(y|ies)|plant(s|ed|ing)?|decoys?|honeypots?|tripwires?|baits?|baited|sentinels?)(?![a-z])")
+        test("(?<![a-z])(canar(y|ies)|plant(s|ed|ing|er|ers)?|decoy(s|ed|ing)?|honeypots?|tripwires?|bait(s|ed|ing)?|sentinels?)(?![a-z])")
         or (. as $t | any(stems[]; . as $w | $t | test(spaced($w)))))
       then "marker"
     else "ok"
@@ -440,25 +450,32 @@ dogfood_receipt_status() {
 }
 
 # dogfood_receipt_pick OID PATH : the receipt blob Arm 5 judges for the PR whose
-# merge commit is OID. A PR-branch receipt rides in OID's tree, but a canary
-# receipt is bound to the commit it vouches for and a squash or merge commit
-# cannot be named in the tree it labels, so for a canary the copy at HEAD (the
-# receipt committed after the merge, bound to OID and OID^1) is the one judged.
+# merge commit is OID. For a receipt without a canary block it is exactly what
+# Arm 5 chose before PMAT-1170: the copy in OID's tree, else the copy at HEAD.
+# A canary receipt is bound to the commit it vouches for and a squash or merge
+# commit cannot be named in the tree it labels, so it is committed AFTER the
+# merge; when the copy at HEAD carries a canary block, that copy is the one
+# judged, which is also the one gate E reads (it always reads HEAD). The choice
+# looks at the HEAD copy, the receipt it will actually judge, never at the old
+# copy: an old 0-refuted receipt at OID is replaced by a canary receipt at HEAD
+# on a re-run, and an old copy that merely mentions "canary" does not let an
+# unbound non-canary stub at HEAD stand in for it.
 dogfood_receipt_pick() {
-  local oid="$1" path="$2" blob="" later=""
+  local oid="$1" path="$2" blob="" later="" have_blob=0
   if git cat-file -e "${oid}:${path}" 2>/dev/null; then
+    have_blob=1
     blob="$(git cat-file -p "${oid}:${path}")"
   fi
   if git cat-file -e "HEAD:${path}" 2>/dev/null; then
     later="$(git cat-file -p "HEAD:${path}")"
   fi
-  if [ -z "$blob" ]; then
+  if [ -n "$later" ] && printf '%s' "$later" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
     printf '%s' "$later"
     return 0
   fi
-  if [ -n "$later" ] && printf '%s' "$blob" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
+  if [ "$have_blob" -eq 1 ]; then
+    printf '%s' "$blob"
+  else
     printf '%s' "$later"
-    return 0
   fi
-  printf '%s' "$blob"
 }

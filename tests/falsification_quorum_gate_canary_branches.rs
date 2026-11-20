@@ -7,8 +7,8 @@
 //! that adds the lines the canaries are falsified by, an evidence commit, a
 //! committed receipt) and runs the REAL gate on it, pushed from a checkout that
 //! is not the pushed branch (so the gate never shells out to `cargo test`).
-//! The two mutants copy `scripts/`, change one branch of the copy, and must
-//! turn their kill case from refused to accepted.
+//! The mutants copy `scripts/`, change one branch of the copy, and must
+//! flip the decision of their kill case (a changed refusal message does not count).
 //!
 //! Every run pins `QUORUM_ACTOR`: the fixture's `enforce.json` lists only that
 //! actor, so a run inheriting the machine's email would fall to `advisory`.
@@ -171,6 +171,10 @@ fn fixture_with(
     for (p, body, _) in &files {
         fx::put(root, p, body);
     }
+    // `extra` runs twice: here, while the receipt file does not exist yet (so
+    // its files land in the evidence commit, AFTER reviewed_head and BEFORE the
+    // diff hash is taken), and again in the receipt commit.
+    extra(root);
     fx::git(root, &["add", "-A"]);
     fx::git(root, &["commit", "-qm", "evidence"]);
     let entries: Vec<Value> = files
@@ -233,7 +237,7 @@ fn nothing(_: &Path) {}
 
 const WAIVER_SENTENCE: &str = "quorum.canary is present next to a waiver or override key";
 
-const CASES: [Case; 15] = [
+const CASES: [Case; 17] = [
     (
         "refuted_ge_1_with_a_malformed_canary_block_is_refused",
         1,
@@ -338,6 +342,28 @@ const CASES: [Case; 15] = [
         Some("blank or non-string lane name"),
     ),
     (
+        "a_code_file_added_after_reviewed_head_is_refused_though_the_diff_hash_covers_it",
+        0,
+        |_, _| {},
+        |root| {
+            if !root.join(format!(".quorum/{BRANCH}.json")).exists() {
+                fx::put(root, "src/backdoor.rs", "pub fn evil() {}\n");
+            }
+        },
+        Some("change files outside .quorum/ and .pmat/"),
+    ),
+    (
+        "an_unparsable_receipt_is_refused_by_the_json_pass_not_waived",
+        0,
+        |_, _| {},
+        |root| {
+            if root.join(format!(".quorum/{BRANCH}.json")).exists() {
+                fx::put(root, &format!(".quorum/{BRANCH}.json"), "{ not json");
+            }
+        },
+        Some("not valid JSON"),
+    ),
+    (
         "a_pack_is_judged_on_its_own_receipt_not_on_the_backfill_receipts_it_carries",
         0,
         |_, _| {},
@@ -355,17 +381,42 @@ const CASES: [Case; 15] = [
     ),
 ];
 
+/// Run one case and return the gate's answer and what it was designed to say
+/// (None = accepted, else a substring of the refusal).
+fn case_run(c: &Case, script: &Path, path: Option<&str>) -> (Run, Option<&'static str>) {
+    let (f, tip) = fixture_with(c.1, &c.2, &c.3);
+    (run_gate(&f.repo, script, false, &tip, path), c.4)
+}
+
+/// True when the answer is the designed one. An acceptance needs the gate's own
+/// pass line or its WAIVED line, so a death is never an acceptance.
+fn as_designed(r: &Run, want: Option<&str>) -> bool {
+    match want {
+        None => r.code == 0 && r.text.contains("quorum gate passed"),
+        Some(w) => r.code != 0 && r.text.contains(w),
+    }
+}
+
+/// True when a mutant flipped the decision: an accepted case is now refused, or
+/// a refused case is now accepted (exit 0). A mutant that only changes the
+/// words of a refusal does not count.
+fn flipped(r: &Run, want: Option<&str>) -> bool {
+    match want {
+        None => r.code != 0,
+        Some(_) => r.code == 0,
+    }
+}
+
 /// None when the case behaves as designed, else what went wrong.
 fn verdict(c: &Case, script: &Path, path: Option<&str>) -> Option<String> {
-    let (f, tip) = fixture_with(c.1, &c.2, &c.3);
-    let r = run_gate(&f.repo, script, false, &tip, path);
-    match c.4 {
-        None if r.code == 0 && r.text.contains("quorum gate passed") => None,
-        Some(want) if r.code != 0 && r.text.contains(want) => None,
-        _ => Some(format!(
+    let (r, want) = case_run(c, script, path);
+    if as_designed(&r, want) {
+        None
+    } else {
+        Some(format!(
             "{}: exit {} (wanted {:?}):\n{}",
             c.0, r.code, c.4, r.text
-        )),
+        ))
     }
 }
 
@@ -431,67 +482,213 @@ fn a_failing_jq_in_the_evidence_read_is_refused_not_passed() {
     );
 }
 
-/// (name, text in the gate, its mutation, index into CASES of the case it must flip)
-const MUTANTS: [(&str, &str, &str, usize); 4] = [
+/// A PATH whose `jq` exits `code` for every call whose arguments contain
+/// `needle` (empty needle: every call) and is the real jq otherwise.
+fn jq_shim(needle: &str, code: i32) -> (tempfile::TempDir, String) {
+    let real = Command::new("sh")
+        .args(["-c", "command -v jq"])
+        .output()
+        .expect("sh");
+    let real = String::from_utf8_lossy(&real.stdout).trim().to_string();
+    assert!(!real.is_empty(), "jq must be installed");
+    let bin = tempfile::tempdir().expect("tempdir");
+    let shim = bin.path().join("jq");
+    let body = if needle.is_empty() {
+        format!("#!/bin/sh\nexit {code}\n")
+    } else {
+        format!("#!/bin/sh\ncase \"$*\" in *'{needle}'*) exit {code};; esac\nexec {real} \"$@\"\n")
+    };
+    std::fs::write(&shim, body).expect("write the shim");
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    let path = format!(
+        "{}:{}",
+        bin.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    (bin, path)
+}
+
+const BYPASS: Edit = |r, _| r["waived"] = json!({"reason": "bypass"});
+const NO_CANARY_WAIVED: Edit = |r, _| {
+    r["quorum"]
+        .as_object_mut()
+        .expect("quorum")
+        .remove("canary");
+    r["quorum"]["refutation_waived"] = json!("fixture: a waived non-canary round");
+    r["waived"] = json!({"reason": "emergency"});
+};
+
+fn probe_case(name: &'static str, edit: Edit, want: Option<&'static str>) -> Case {
+    (name, 0, edit, nothing, want)
+}
+
+/// The waiver check under a jq that fails with `code`: (name of the probe, the
+/// answer, what it was designed to be).
+fn jq_fails(code: i32, gate: &Path) -> (Run, Option<&'static str>) {
+    let (_bin, path) = jq_shim("waiv|override", code);
+    let c = probe_case(
+        "canary block next to a waiver, jq broken",
+        BYPASS,
+        Some("could not run (jq exit"),
+    );
+    case_run(&c, gate, Some(&path))
+}
+
+fn non_canary_waiver_without_jq(gate: &Path) -> (Run, Option<&'static str>) {
+    let (_bin, path) = jq_shim("", 2);
+    let (r, _) = case_run(
+        &probe_case(
+            "waived non-canary round, no jq at all",
+            NO_CANARY_WAIVED,
+            None,
+        ),
+        gate,
+        Some(&path),
+    );
+    // Designed: the WAIVED line and exit 0, exactly as before the canary change.
+    let waived = r.code == 0 && r.text.contains("quorum gate WAIVED");
+    (
+        Run {
+            code: if waived { 0 } else { 1 },
+            text: r.text,
+        },
+        None,
+    )
+}
+
+/// Finding 1 of the third review: `jq -e` exit 0 is a hit (refuse), 1 is no hit,
+/// anything else (2 usage or system, 5 parse error, 127 missing) is UNMEASURED.
+/// It must never fall through to the WAIVED exit.
+#[test]
+fn a_jq_that_fails_next_to_a_canary_block_is_unmeasured_never_waived() {
+    let gate = fx::manifest().join("scripts/quorum-gate.sh");
+    for code in [2, 4, 5, 127] {
+        let (r, _) = jq_fails(code, &gate);
+        assert!(
+            r.code != 0
+                && r.text.contains(&format!("(jq exit {code}): UNMEASURED"))
+                && !r.text.contains("WAIVED"),
+            "jq exit {code} must refuse as UNMEASURED:\n{}",
+            r.text
+        );
+    }
+}
+
+#[test]
+fn a_push_with_no_canary_block_never_runs_jq_for_the_waiver_check() {
+    let gate = fx::manifest().join("scripts/quorum-gate.sh");
+    let (r, _) = non_canary_waiver_without_jq(&gate);
+    assert!(
+        r.code == 0,
+        "a non-canary waived receipt must decide as it did on main, with no jq:\n{}",
+        r.text
+    );
+}
+
+/// (name, text in the gate, its mutation, the probe it must flip). A probe runs
+/// the (mutated) gate and says what the answer was designed to be.
+type Probe = fn(&Path) -> (Run, Option<&'static str>);
+const MUTANTS: [(&str, &str, &str, Probe); 8] = [
     (
         "skip the canary check when refuted >= 1",
         "if \"canary\" in q:",
         "if refuted == 0 and \"canary\" in q:",
-        0,
+        |g| case_run(&CASES[0], g, None),
     ),
     (
         "let a canary block pass the waiver check",
         "0) die \"quorum.canary is present next to a waiver or override key: a waived round is not a canary round\" ;;",
         "0) : ;;",
-        4,
+        |g| case_run(&CASES[4], g, None),
     ),
     (
         "do not compare reviewed_base with the merge base",
         "if rb != merge_base:",
         "if False:",
-        10,
+        |g| case_run(&CASES[10], g, None),
     ),
     (
         "refuse a regenerated .pmat/ after reviewed_head",
         "startswith((\".quorum/\", \".pmat/\"))",
         "startswith((\".quorum/\",))",
-        11,
+        |g| case_run(&CASES[11], g, None),
+    ),
+    (
+        "ignore a code file added after reviewed_head",
+        "if later.returncode != 0 or any(not p.startswith(",
+        "if later.returncode != 0 or any(False and not p.startswith(",
+        |g| case_run(&CASES[14], g, None),
+    ),
+    (
+        "treat jq exit 2 as no hit",
+        "        1) : ;;\n",
+        "        1 | 2) : ;;\n",
+        |g| jq_fails(2, g),
+    ),
+    (
+        "treat a failing jq as no hit whatever its code",
+        "        *) die \"the canary/waiver check could not run (jq exit $canary_waiver_rc): UNMEASURED\" ;;",
+        "        *) : ;;",
+        |g| jq_fails(5, g),
+    ),
+    (
+        "do not detect the canary block before the jq check",
+        "print(\"yes\" if isinstance(q, dict) and \"canary\" in q else \"no\")",
+        "print(\"no\")",
+        |g| case_run(&CASES[4], g, None),
     ),
 ];
 
+/// The jq-free path: the mutant that runs jq for every push breaks it.
+const NO_JQ_MUTANT: (&str, &str, &str) = (
+    "run jq for pushes whose receipt has no canary block",
+    "if [ \"$has_canary\" = \"yes\" ]; then",
+    "if true; then",
+);
+
+fn mutated_gate(from: &str, to: &str) -> (tempfile::TempDir, PathBuf) {
+    let copy = tempfile::tempdir().expect("tempdir");
+    let ok = Command::new("cp")
+        .arg("-r")
+        .arg(fx::manifest().join("scripts"))
+        .arg(copy.path())
+        .status()
+        .expect("cp");
+    assert!(ok.success(), "cp -r scripts failed");
+    let gate = copy.path().join("scripts/quorum-gate.sh");
+    let src = std::fs::read_to_string(&gate).expect("read the gate copy");
+    assert_eq!(
+        src.matches(from).count(),
+        1,
+        "mutant '{from}' must match once"
+    );
+    std::fs::write(&gate, src.replace(from, to)).expect("write the mutant");
+    (copy, gate)
+}
+
 #[test]
 fn every_mutant_of_the_gate_flips_its_kill_case() {
-    eprintln!("gate mutants {}", MUTANTS.len());
-    for (name, from, to, kill) in MUTANTS {
-        let copy = tempfile::tempdir().expect("tempdir");
-        let ok = Command::new("cp")
-            .arg("-r")
-            .arg(fx::manifest().join("scripts"))
-            .arg(copy.path())
-            .status()
-            .expect("cp");
-        assert!(ok.success(), "cp -r scripts failed");
-        let gate = copy.path().join("scripts/quorum-gate.sh");
-        let src = std::fs::read_to_string(&gate).expect("read the gate copy");
-        assert_eq!(
-            src.matches(from).count(),
-            1,
-            "mutant '{name}' must match the gate exactly once"
-        );
-        std::fs::write(&gate, src.replace(from, to)).expect("write the mutant");
-        let c = &CASES[kill];
-        // The case must stop behaving as designed under the mutant.
+    eprintln!("gate mutants {}", MUTANTS.len() + 1);
+    let real = fx::manifest().join("scripts/quorum-gate.sh");
+    for (name, from, to, probe) in MUTANTS {
+        let (_keep, gate) = mutated_gate(from, to);
+        let (r, want) = probe(&gate);
         assert!(
-            verdict(c, &gate, None).is_some(),
-            "mutant '{name}' survived: {} still behaves as designed under it",
-            c.0
+            flipped(&r, want),
+            "mutant '{name}' survived: the decision did not flip:\n{}",
+            r.text
         );
-        // Control: the unmutated copy gives the case its designed answer.
-        std::fs::write(&gate, &src).expect("restore");
+        // Control: the unmutated gate gives the probe its designed answer.
+        let (r0, want0) = probe(&real);
         assert!(
-            verdict(c, &gate, None).is_none(),
-            "the unmutated copy must pass {}",
-            c.0
+            want0.is_none() && r0.code == 0
+                || want0.is_some_and(|w| r0.code != 0 && r0.text.contains(w)),
+            "the unmutated gate must give the designed answer for '{name}':\n{}",
+            r0.text
         );
     }
+    let (name, from, to) = NO_JQ_MUTANT;
+    let (_keep, gate) = mutated_gate(from, to);
+    let (r, _) = non_canary_waiver_without_jq(&gate);
+    assert!(r.code != 0, "mutant '{name}' survived:\n{}", r.text);
 }

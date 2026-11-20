@@ -34,9 +34,18 @@ use std::process::Command;
 /// Rebuild the window's one commit as a squash commit S with six added lines and
 /// no receipt, then commit the pack: N's canary receipt and its evidence.
 /// Returns S. `missed`: no judge refutes planted claim 2.
-fn land(root: &Path, slug: &str, missed: bool, date: Option<&str>) -> String {
+fn land(root: &Path, slug: &str, missed: bool, old: bool, date: Option<&str>) -> String {
     cf::git(root, &["reset", "-q", "--hard", "HEAD~1"]);
     cf::put(root, "shipped.txt", "l1\nl2\nl3\nl4\nl5\nl6\n");
+    if old {
+        // A re-run of an already merged PR: its receipt at the merge commit is the
+        // old 0-refuted one, with no canary block.
+        cf::put(
+            root,
+            &format!(".quorum/{slug}.json"),
+            r#"{"quorum":{"lanes":["a","b","c"],"judges":3,"refuters_per_claim":3,"claims_refuted":0},"evidence":{"files":[{}]}}"#,
+        );
+    }
     cf::git(root, &["add", "-A"]);
     let commit = |msg: &str| {
         let mut c = Command::new("git");
@@ -92,11 +101,17 @@ fn gh_json(s: &str, head_ref: &str) -> String {
 
 /// What each release gate says, as (arm5 green, arm5 text, gate E green, gate E text).
 /// `mutate` rewrites (file, from, to) in the fixtures' working trees first.
-fn both(missed: bool, mutate: &[(&str, &str, &str)]) -> (bool, String, bool, String) {
+fn both(missed: bool, old: bool, mutate: &[(&str, &str, &str)]) -> (bool, String, bool, String) {
     let r = rc::fixture(false, None);
-    let s = land(&r.root, &rc::slug(), missed, Some("2026-09-10T00:00:00Z"));
+    let s = land(
+        &r.root,
+        &rc::slug(),
+        missed,
+        old,
+        Some("2026-09-10T00:00:00Z"),
+    );
     let g = ge::fixture(None, None);
-    let s2 = land(&g.root, &ge::slug(), missed, None);
+    let s2 = land(&g.root, &ge::slug(), missed, old, None);
     for (file, from, to) in mutate {
         for root in [&r.root, &g.root] {
             let p = root.join(file);
@@ -136,14 +151,14 @@ fn both(missed: bool, mutate: &[(&str, &str, &str)]) -> (bool, String, bool, Str
 
 #[test]
 fn a_canary_receipt_in_a_pack_after_the_squash_merge_is_ok_at_arm5_and_gate_e() {
-    let (a5, t5, e, te) = both(false, &[]);
+    let (a5, t5, e, te) = both(false, false, &[]);
     assert!(a5, "Arm 5 must count N as receipt=ok:\n{t5}");
     assert!(e, "gate E must accept N's receipt:\n{te}");
 }
 
 #[test]
 fn a_missed_planted_claim_in_that_pack_is_refused_at_arm5_and_gate_e() {
-    let (a5, t5, e, te) = both(true, &[]);
+    let (a5, t5, e, te) = both(true, false, &[]);
     assert!(!a5 && t5.contains("receipt=thin"), "Arm 5:\n{t5}");
     assert!(
         !e && te.contains("not refuted by a majority"),
@@ -151,14 +166,41 @@ fn a_missed_planted_claim_in_that_pack_is_refused_at_arm5_and_gate_e() {
     );
 }
 
-/// (name, file, needle, replacement, the case it must flip: missed?)
-const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
+/// Gate E reads HEAD only; Arm 5 used to read the copy at the merge commit when
+/// there was one. On a re-run of an already merged 0-refuted PR (old receipt at
+/// the merge commit, canary receipt at HEAD) both must give the same answer.
+#[test]
+fn a_rerun_of_a_merged_zero_refuted_pr_gets_the_same_answer_at_arm5_and_gate_e() {
+    let (a5, t5, e, te) = both(false, true, &[]);
+    assert!(
+        a5 && e,
+        "both must accept the HEAD canary receipt:\narm5:\n{t5}\ngate E:\n{te}"
+    );
+    let (a5, t5, e, te) = both(true, true, &[]);
+    assert!(
+        !a5 && !e,
+        "both must refuse a missed canary on a re-run:\narm5:\n{t5}\ngate E:\n{te}"
+    );
+}
+
+/// Which gate's answer a mutant must flip.
+#[derive(Clone, Copy)]
+enum Gate {
+    Arm5,
+    E,
+    Both,
+}
+
+/// (name, file, needle, replacement, missed, re-run of an old receipt, gate)
+const MUTANTS: [(&str, &str, &str, &str, bool, bool, Gate); 7] = [
     (
         "Arm 5 reads only the merge-commit copy of the receipt",
         "scripts/dogfood/release-check.sh",
         "blob=\"$(dogfood_receipt_pick \"$oid\" \"$path\")\"",
         "blob=\"$(git show \"${oid}:${path}\" 2>/dev/null || true)\"",
         false,
+        false,
+        Gate::Arm5,
     ),
     (
         "Arm 5 reads evidence only at the merge commit",
@@ -166,6 +208,8 @@ const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
         "\"$blob\" \"$oid\" \"${oid}^1\" \"$oid\" HEAD)",
         "\"$blob\" \"$oid\" \"${oid}^1\" \"$oid\")",
         false,
+        false,
+        Gate::Arm5,
     ),
     (
         "gate E reads evidence only at the merge commit",
@@ -173,6 +217,8 @@ const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
         "\"$mc\" \"${mc}^1\" \"$mc\" HEAD)",
         "\"$mc\" \"${mc}^1\" \"$mc\")",
         false,
+        false,
+        Gate::E,
     ),
     (
         "the predicate does not require a judge majority on a planted claim",
@@ -180,6 +226,8 @@ const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
         "chk(any($pid[]; majority($v; .) | not);",
         "chk(false;",
         true,
+        false,
+        Gate::Both,
     ),
     (
         "gate E binds the falsifier diff to the merge commit itself, not its parent",
@@ -187,6 +235,26 @@ const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
         "\"$mc\" \"${mc}^1\" \"$mc\" HEAD)",
         "\"$mc\" \"$mc\" \"$mc\" HEAD)",
         false,
+        false,
+        Gate::E,
+    ),
+    (
+        "the pick decides on the merge-commit copy: a re-run's old 0-refuted receipt wins",
+        "scripts/dogfood/lib/receipt.sh",
+        "printf '%s' \"$later\" | jq -e '(.quorum | type == \"object\") and (.quorum | has(\"canary\"))'",
+        "printf '%s' \"${blob:-$later}\" | jq -e '(.quorum | type == \"object\") and (.quorum | has(\"canary\"))'",
+        false,
+        true,
+        Gate::Arm5,
+    ),
+    (
+        "the pick never prefers the HEAD copy",
+        "scripts/dogfood/lib/receipt.sh",
+        "printf '%s' \"$later\" | jq -e '(.quorum | type == \"object\") and (.quorum | has(\"canary\"))'",
+        "false",
+        false,
+        true,
+        Gate::Arm5,
     ),
 ];
 
@@ -194,18 +262,16 @@ const MUTANTS: [(&str, &str, &str, &str, bool); 5] = [
 fn every_mutant_of_the_post_merge_path_flips_its_case() {
     eprintln!("post-merge path mutants {}", MUTANTS.len());
     let mut bad = Vec::new();
-    for (name, file, from, to, missed) in MUTANTS {
-        let (a5, _, e, _) = both(missed, &[(file, from, to)]);
-        // The mutated script must change its gate's answer: a green case goes
-        // red, a refused case goes green. Only the gate that reads the file counts.
-        let (gate_ok, flipped) = if file.ends_with("release-check.sh") {
-            (a5, a5 == missed)
-        } else if file.ends_with("quorum.sh") {
-            (e, e == missed)
-        } else {
-            (a5 && e, a5 == missed && e == missed)
+    for (name, file, from, to, missed, old, gate) in MUTANTS {
+        let (a5, _, e, _) = both(missed, old, &[(file, from, to)]);
+        // Designed: both gates accept, or (a missed canary) both refuse. A
+        // mutant must change the answer of the gate that reads its file.
+        let designed = !missed;
+        let flipped = match gate {
+            Gate::Arm5 => a5 != designed,
+            Gate::E => e != designed,
+            Gate::Both => a5 != designed && e != designed,
         };
-        let _ = gate_ok;
         if !flipped {
             bad.push(format!("{name}: arm5={a5} gateE={e} missed={missed}"));
         }

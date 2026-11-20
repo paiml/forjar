@@ -430,13 +430,29 @@ git cat-file -p "$pushed:$receipt" > "$receipt_blob" 2>/dev/null \
 # early exit below, which reads only waived.reason and would exit 0 on it.
 # shellcheck source=scripts/dogfood/lib/receipt.sh
 . "$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh"
-canary_waiver_rc=0
-jq -e "$DOGFOOD_CANARY_WAIVER_JQ" "$receipt_blob" >/dev/null 2>&1 || canary_waiver_rc=$?
-case "$canary_waiver_rc" in
-    0) die "quorum.canary is present next to a waiver or override key: a waived round is not a canary round" ;;
-    1 | 2) : ;; # 2 = not JSON: the python pass below says so
-    *) die "the canary/waiver check could not run (jq exit $canary_waiver_rc): UNMEASURED" ;;
-esac
+# jq is needed ONLY when the receipt carries a canary block, so a push whose
+# receipt has none decides exactly as before this change (main had no jq here).
+# The block is detected by python on the decoded JSON, the same key jq reads; a
+# receipt python cannot parse is not a canary receipt here, and the python pass
+# below refuses it as it always did.
+has_canary="$(python3 - "$receipt_blob" <<'CANARY_PY' 2>/dev/null || true
+import json, sys
+try:
+    q = json.load(open(sys.argv[1])).get("quorum")
+    print("yes" if isinstance(q, dict) and "canary" in q else "no")
+except Exception:
+    print("no")
+CANARY_PY
+)"
+if [ "$has_canary" = "yes" ]; then
+    canary_waiver_rc=0
+    jq -e "$DOGFOOD_CANARY_WAIVER_JQ" "$receipt_blob" >/dev/null 2>&1 || canary_waiver_rc=$?
+    case "$canary_waiver_rc" in
+        0) die "quorum.canary is present next to a waiver or override key: a waived round is not a canary round" ;;
+        1) : ;;
+        *) die "the canary/waiver check could not run (jq exit $canary_waiver_rc): UNMEASURED" ;;
+    esac
+fi
 
 waiver="$(python3 - "$receipt_blob" <<'WAIVE_PY' 2>/dev/null || true
 import json, sys

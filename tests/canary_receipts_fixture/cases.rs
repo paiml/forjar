@@ -271,11 +271,11 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
             "outside .quorum/evidence",
         ),
         (
-            "an evidence file that is not committed is refused",
+            "a verdicts_file that is not an evidence.files entry is refused",
             |f| {
                 canary(f)["verdicts_file"] = json!(".quorum/evidence/absent.json");
             },
-            "verdicts_file",
+            "verdicts_file must be one evidence.files entry",
         ),
         (
             "a claims file that is not an array is refused",
