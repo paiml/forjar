@@ -178,6 +178,10 @@ pub struct Resource {
     #[serde(default)]
     pub restart: Option<String>,
 
+    /// Docker network mode (`--network`, e.g. `host`, `bridge`, or a named network)
+    #[serde(default)]
+    pub network: Option<String>,
+
     // -- Network fields --
     /// Network protocol (tcp/udp)
     #[serde(default)]

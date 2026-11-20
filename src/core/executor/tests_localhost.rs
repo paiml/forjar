@@ -204,6 +204,7 @@ fn test_fj131_build_details_group_only() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

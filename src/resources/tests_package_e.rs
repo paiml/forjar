@@ -147,3 +147,19 @@ fn fj1189_hyphen_declared_matches_underscore_in_registry() {
     let out = run_key(&apply_script(&r), fake);
     assert!(out.starts_with("foo-bar-1.2.3-"), "{out}");
 }
+
+/// FJ-51: empty staging bin dir produces clear error with hint.
+#[test]
+fn test_cargo_install_empty_bin_error_hint() {
+    let mut r = make_apt_resource(&["some-lib-crate"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("produced no binaries"),
+        "must detect empty bin dir, got: {script}"
+    );
+    assert!(
+        script.contains("HINT"),
+        "must provide hint about --features, got: {script}"
+    );
+}

@@ -1,6 +1,7 @@
 //! #1033-#1035: where a `cloud_instance` lands (subnet, security groups, zone).
 //! Every value is a whole token, validated here and quoted where it is used.
 
+use crate::core::error::ForjarError;
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::CloudSpec;
 
@@ -19,32 +20,38 @@ fn is_aws_id(s: &str, prefix: &str) -> bool {
     })
 }
 
-fn check_subnet(s: &str) -> Result<(), String> {
+fn check_subnet(s: &str) -> Result<(), ForjarError> {
     if is_aws_id(s, "subnet-") {
         return Ok(());
     }
-    Err("cloud_subnet_id must be subnet- plus 8 or 17 lowercase hex digits".into())
+    Err(ForjarError::from_untyped(
+        "cloud_subnet_id must be subnet- plus 8 or 17 lowercase hex digits",
+    ))
 }
 
-fn check_groups(groups: &[String]) -> Result<(), String> {
+fn check_groups(groups: &[String]) -> Result<(), ForjarError> {
     let uniq: std::collections::BTreeSet<_> = groups.iter().collect();
     if groups.is_empty() || groups.len() > 5 || uniq.len() != groups.len() {
-        return Err("cloud_security_group_ids needs 1 to 5 distinct ids".into());
+        return Err(ForjarError::from_untyped(
+            "cloud_security_group_ids needs 1 to 5 distinct ids",
+        ));
     }
     if !groups.iter().all(|g| is_aws_id(g, "sg-")) {
-        return Err(
-            "cloud_security_group_ids entries must be sg- plus 8 or 17 lowercase hex digits".into(),
-        );
+        return Err(ForjarError::from_untyped(
+            "cloud_security_group_ids entries must be sg- plus 8 or 17 lowercase hex digits",
+        ));
     }
     Ok(())
 }
 
-fn check_zone(z: &str, region: &str) -> Result<(), String> {
+fn check_zone(z: &str, region: &str) -> Result<(), ForjarError> {
     let letter = z.strip_prefix(region).filter(|l| l.len() == 1);
     if letter.is_some_and(|l| l.chars().all(|c| c.is_ascii_lowercase())) {
         return Ok(());
     }
-    Err("cloud_availability_zone must be cloud_region plus one lowercase letter".into())
+    Err(ForjarError::from_untyped(
+        "cloud_availability_zone must be cloud_region plus one lowercase letter",
+    ))
 }
 
 impl Placement {
@@ -52,9 +59,17 @@ impl Placement {
         let subnet = c.subnet_id.clone();
         let zone = c.availability_zone.clone();
         let groups = c.security_group_ids.clone();
-        subnet.as_deref().map_or(Ok(()), check_subnet)?;
-        groups.as_deref().map_or(Ok(()), check_groups)?;
-        zone.as_deref().map_or(Ok(()), |z| check_zone(z, region))?;
+        subnet
+            .as_deref()
+            .map_or(Ok(()), check_subnet)
+            .map_err(ForjarError::into_message)?;
+        groups
+            .as_deref()
+            .map_or(Ok(()), check_groups)
+            .map_err(ForjarError::into_message)?;
+        zone.as_deref()
+            .map_or(Ok(()), |z| check_zone(z, region))
+            .map_err(ForjarError::into_message)?;
         Ok(Self {
             subnet,
             groups: groups.unwrap_or_default(),

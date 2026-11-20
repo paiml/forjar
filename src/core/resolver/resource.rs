@@ -79,6 +79,7 @@ fn resolve_core_fields(
     r.shell = resolve_opt(&r.shell, params, machines, secrets)?;
     r.home = resolve_opt(&r.home, params, machines, secrets)?;
     r.restart = resolve_opt(&r.restart, params, machines, secrets)?;
+    r.network = resolve_opt(&r.network, params, machines, secrets)?;
     r.version = resolve_opt(&r.version, params, machines, secrets)?;
     Ok(())
 }

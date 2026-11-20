@@ -37,6 +37,7 @@ pub(super) fn make_mount_resource() -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

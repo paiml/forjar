@@ -44,6 +44,7 @@ fn make_user_resource(name: &str) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
