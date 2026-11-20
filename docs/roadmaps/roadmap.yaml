@@ -5700,7 +5700,7 @@ roadmap:
   updated: 2026-11-11T09:40:00Z
   spec: null
   acceptance_criteria:
-  - Refs infra PMAT-1835 (the id PR #724 names; an infra ticket, so it had no row here)
+  - 'Refs infra PMAT-1835 (the id PR #724 names; an infra ticket, so it had no row here)'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7595,7 +7595,7 @@ roadmap:
   updated: 2026-11-14T23:16:01Z
   spec: null
   acceptance_criteria:
-  - Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.
+  - 'Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7650,7 +7650,7 @@ roadmap:
   updated: 2026-11-15T08:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.
+  - 'Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7669,7 +7669,7 @@ roadmap:
   updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.
+  - 'Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7742,7 +7742,7 @@ roadmap:
   updated: 2026-11-15T18:15:00Z
   spec: null
   acceptance_criteria:
-  - Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.
+  - 'Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8016,7 +8016,7 @@ roadmap:
   updated: 2026-11-17T00:00:00Z
   spec: null
   acceptance_criteria:
-  - PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.
+  - 'PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8082,13 +8082,14 @@ roadmap:
   github_issue: 1200
   item_type: task
   title: 'roadmap rows for shipped tickets still say planned with empty acceptance criteria'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-18T00:00:00Z
-  updated: 2026-11-18T00:00:00Z
+  updated: 2026-11-19T00:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'roadmap.yaml rows PMAT-1048, 1049, 1114, 1115 and 1155 state their true status with acceptance criteria (rows set by PR #1202), and no acceptance item is cut short by an unquoted comment marker. scripts/lint/roadmap-lint.sh checks both and scripts/lint/roadmap-lint-test.sh proves it; the nightly workflow runs it. The row stays inprogress until the first green nightly run on main.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8566,3 +8567,60 @@ roadmap:
   - kind:code
   notes: null
   epic: 913
+- id: PMAT-1169
+  github_issue: 1169
+  item_type: task
+  title: 'post-merge review receipts for the v1.34.2 window, batch 4 of 6'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Post-merge non-author review receipts for 12 merged PRs (1025, 1118, 1146, 1152, 1175, 1201, 1202, 1204, 1205, 1207, 1209, 1211) are committed under .quorum/, each bound to its merge commit and passing dogfood_receipt_status
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1179
+  github_issue: 1179
+  item_type: task
+  title: 'tests for the untested fail-closed paths of scripts/dogfood/lib/prpage.sh'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T14:26:25Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Each fail-closed path of prpage.sh has a test that goes red on its mutant, run in the dogfood-guards job
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1123
+  github_issue: 1123
+  item_type: task
+  title: 'apt-lock-timeout-guard-test.sh pipes into an early-exit reader; falsification test fails'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - the script no longer pipes into an early-exit reader; the falsification test is green in a checkout with git; bashrs reports 0 errors in the script
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

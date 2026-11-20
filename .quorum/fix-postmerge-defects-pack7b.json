@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "fix: post-merge defects pack 7b: pool scale-to-zero, apply golden, check warn line (PMAT-1191, PMAT-1192, PMAT-1187) (forjar#1211)",
+  "branch": "fix/postmerge-defects-pack7b",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T20:49:30Z",
+  "head": "62af0491c8b6d800855d512b854ca9be1773752d",
+  "merge_commit": "31b6f3c085ff628ae628d0a6372cb04c57830300",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 16 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 19 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 21 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 55,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "2.8 (3 of 3 judges): kind=BODY; verdict=TRUE; evidence src/resources/cloud_instance/mod.rs:370-377 (`checks.extend(s.storage.tag_check(&s.region, &s.tags, &key));`), src/resources/cloud_instance/storage.rs:216-244 (`pub(super) fn tag_check`, `aws ec2 describe-volumes`, `volume-tags-unreadable`, `volume-tags-match`, `volume-tags-drift`); with `cloud_volume_tags: true` and a live instance, `check_script` runs `describe-volumes` twice, emits one of the three `:<key>` markers (treating failed or non-numeric replies as `unreadable`), leaves `__fj_diverged` / exit code unchanged, and omits the queries when `cloud_volume_tags` is off or `$ids` is empty."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1211-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "87e0f5a5c0927c44c1076c160bbb3e357267e347",
+        "sha256": "654619444c6700aa7d82d377b4ed6528e6356e68f26942e0dc9c1164c1e83bfa",
+        "bytes": 28795
+      },
+      {
+        "path": ".quorum/evidence/PR-1211-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "89386eae2042e38c096ebdd259b6783eed2e8ccf",
+        "sha256": "f0589c804f8a960046254afbfd73e28bd2be33d421f64d0d0a95fa60b814542e",
+        "bytes": 38660
+      },
+      {
+        "path": ".quorum/evidence/PR-1211-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "32ac3ad26dd15dbbb23a7eb660ab95345115ebe6",
+        "sha256": "70a2e13690774d26313a55efe23a13dc0caa4775c9aa1f64a81968462bd6b327",
+        "bytes": 40227
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "PMAT-1116 (forjar#1118) pure reconcile plan for the runner pool",
+  "branch": "feat/894-pool-reconcile-plan",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T18:28:00Z",
+  "head": "fab6186e9bd100c1d2909b6b0fc57bb9973f74dd",
+  "merge_commit": "2580f98904e46a523d8fc2e842c0fa8458e44140",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 17 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 20 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 17 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 53,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "2.19 (lane 2 DEFECT 19): no test exercises a plan containing both retire/drain and launch actions or asserts sorted launch label ordering"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1118-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "42315f416a2e8856eda1e56b4549f603b92ccc0b",
+        "sha256": "b8bdd59930f1a119ccd22b1b3befd36d4815916fbe5a2ab256535d6e06c697e5",
+        "bytes": 27516
+      },
+      {
+        "path": ".quorum/evidence/PR-1118-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "d071d12f5bde797f0aaa5dc4a638628a494a11e9",
+        "sha256": "f70f9bf4d0dd15ee7d9d9dc26d1e8e0334e43bdb4bcd011ab1455c5e174b7765",
+        "bytes": 47946
+      },
+      {
+        "path": ".quorum/evidence/PR-1118-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "795567d1e3dd70bfe7e395ae424855b24114ae74",
+        "sha256": "cdb8353e836aa80733881abeedd7e0cf5181250987a4a0608fa82c639abb5fc8",
+        "bytes": 47803
+      }
+    ]
+  }
+}

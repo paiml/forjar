@@ -1,0 +1,65 @@
+{
+  "kind": "code",
+  "issue": "PMAT-1146 (forjar#1146) cloud_instance idempotent launch token, adopt, instance id line, capacity exit code",
+  "branch": "feat/cloud-instance-launch-io",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T18:49:46Z",
+  "head": "ea0ab6d55853abe0f4d5d3e21970c195b1017b08",
+  "merge_commit": "7a8eda782d46f097ff34682c971e1e5a780ac2a6",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 21 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 23 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 21 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 61,
+    "claims_refuted": 4,
+    "refuted_claims": [
+      "1.2 (lane 1 BODY): body line 6 strict ISO-8601 UTC validation is TRUE without caveat; launch_io.rs:106-107 sequential %Z/%+00:00 stripping accepts double-suffix timestamps",
+      "2.7 (lane 2, 2 of 3 judges): exit-0 state read returning empty or None sets cls=nf (launch_io.rs:115,126-135), outside the six known states",
+      "2.22 (lane 2): no test asserts that stderr contains launch-capacity-unavailable (launch_io.rs:143), so deleting or corrupting it passes the whole suite; refuted by userdata.rs:176-184 with userdata_today.txt:86, where unset_script_is_byte_identical_to_today pins that token",
+      "3.7 (lane 3): PR body line 21 claims exit 1 with launch-token-derive-failed when the token derivation fails; under set -eu a failing cut aborts first (launch_io.rs:137-138, mod.rs:452), so the body table does not match all 10 mappings"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1146-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "9f5e284d13d7fd8282f6e180744ec89189bf8dc4",
+        "sha256": "cce193519f4c08d445cf33927499fac637d47416937e09d20d612406496bde47",
+        "bytes": 39681
+      },
+      {
+        "path": ".quorum/evidence/PR-1146-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "fec90bdc03074a513dd7089ebc5167b4f2cfd1bd",
+        "sha256": "ef20ca1b9e25c9d2ba0b114a0effd12ada9169d6beee9a76a0e2aae4a391fefa",
+        "bytes": 63973
+      },
+      {
+        "path": ".quorum/evidence/PR-1146-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "fb2eaf37f56791f8aa1efbbf8c5e7db72e557386",
+        "sha256": "08aaf2e57105bd9298fd8944b56fba82f88758b4702067814f17d6092bb9a0c9",
+        "bytes": 61047
+      }
+    ]
+  }
+}
