@@ -40,6 +40,7 @@ fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

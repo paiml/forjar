@@ -37,6 +37,7 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
