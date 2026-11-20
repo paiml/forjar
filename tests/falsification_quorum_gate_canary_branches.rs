@@ -233,7 +233,7 @@ fn nothing(_: &Path) {}
 
 const WAIVER_SENTENCE: &str = "quorum.canary is present next to a waiver or override key";
 
-const CASES: [Case; 14] = [
+const CASES: [Case; 15] = [
     (
         "refuted_ge_1_with_a_malformed_canary_block_is_refused",
         1,
@@ -336,6 +336,22 @@ const CASES: [Case; 14] = [
         |r, _| r["quorum"]["lanes"] = json!(["a", "b", " "]),
         nothing,
         Some("blank or non-string lane name"),
+    ),
+    (
+        "a_pack_is_judged_on_its_own_receipt_not_on_the_backfill_receipts_it_carries",
+        0,
+        |_, _| {},
+        |root| {
+            // A backfill receipt for an already merged PR: a canary block next
+            // to a waiver, which gate E and Arm 5 refuse at the tag. The push
+            // gate reads `.quorum/<pushed branch>.json` only.
+            fx::put(
+                root,
+                ".quorum/feat-merged-pr.json",
+                "{\"waived\": {\"reason\": \"x\"}, \"quorum\": {\"canary\": {}}}",
+            )
+        },
+        None,
     ),
 ];
 

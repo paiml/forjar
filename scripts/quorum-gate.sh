@@ -376,6 +376,13 @@ if [ -n "$branch_id" ]; then
     fi
 fi
 
+# This gate judges the receipt of the branch being PUSHED, and only that one. A
+# post-merge "pack" branch also commits receipts for PRs that merged earlier
+# (`.quorum/<merged-pr-branch>.json`, plus evidence): those are not read here,
+# the pack's own receipt is. They are judged at the release by gate E
+# (scripts/dogfood/quorum.sh) and Arm 5 (scripts/dogfood/release-check.sh), read
+# at HEAD and bound to that PR's merge commit and its first parent, including
+# the canary shape (tests/falsification_canary_postmerge_path.rs).
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
 
 # THE RECEIPT IS READ FROM THE COMMIT, NOT FROM THE WORKING TREE.
