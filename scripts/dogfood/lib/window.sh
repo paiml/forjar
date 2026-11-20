@@ -113,6 +113,28 @@ dogfood_tag_date() {
   DOGFOOD_TAG_DATE="$when"
 }
 
+# MEMBERSHIP (PMAT-1174), stated once: a PR is in (LOWER, UPPER] when its merge
+# commit is NOT inside LOWER and IS inside UPPER. The release PR merges a second
+# after its tag, so a time read returns it for the NEXT window; inside LOWER it
+# is `previous`. Sets DOGFOOD_PR_MEMBER to member | previous | after.
+dogfood_pr_member_of() {
+  local num="$1" oid="$2" lower="$3" upper="$4" prev_rc=0 arc=0
+  git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?
+  if [ "$prev_rc" -eq 0 ]; then
+    DOGFOOD_PR_MEMBER=previous
+    return 0
+  fi
+  if [ "$prev_rc" -ne 1 ]; then
+    fail "git merge-base --is-ancestor ${oid} ${lower} exited ${prev_rc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin) — UNMEASURED"
+  fi
+  git merge-base --is-ancestor "$oid" "$upper" >/dev/null 2>&1 || arc=$?
+  case "$arc" in
+    0) DOGFOOD_PR_MEMBER=member ;;
+    1) DOGFOOD_PR_MEMBER=after ;;
+    *) fail "git merge-base --is-ancestor ${oid} ${upper} exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
+  esac
+}
+
 # The PRs GitHub reports as merged into main since LOWER's commit date,
 # narrowed to those inside UPPER and not inside LOWER ->
 # DOGFOOD_PR_JSON (a JSON array), DOGFOOD_PR_COUNT, DOGFOOD_PR_OUTSIDE,
@@ -141,7 +163,7 @@ dogfood_prs_between() {
   # a release gate softened from outside is exactly the hole this must not
   # open. An argument cannot be inherited.
   local lower="$1" upper="$2" soft="${3:-}"
-  local raw n i=0 num oid arc prev_rc keep='[]'
+  local raw n i=0 num oid keep='[]'
   dogfood_pr_fetch "$lower" "$upper" number,mergedAt,mergeCommit,headRefName,title,body
   raw="$DOGFOOD_PR_RAW"
   n="$(printf '%s' "$raw" | jq -r 'length')"
@@ -157,9 +179,8 @@ dogfood_prs_between() {
     # The previous release's own PR is merged at the very second its tag is
     # cut, so `merged:>=<tag date>` returns it; its merge commit is an ancestor
     # of (or is) the tag, which puts it in the PREVIOUS window, not this one.
-    prev_rc=0
-    git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?
-    if [ "$prev_rc" -eq 0 ]; then
+    dogfood_pr_member_of "$num" "$oid" "$lower" "$upper"
+    if [ "$DOGFOOD_PR_MEMBER" = previous ]; then
       # PMAT-228: STDERR. This is a diagnostic about a PR that is NOT in the
       # window, and `release-goal.sh cut` captures this function's stdout to
       # build the row it writes into docs/roadmaps/releases.yaml — where the
@@ -170,19 +191,14 @@ dogfood_prs_between() {
       i=$((i + 1))
       continue
     fi
-    if [ "$prev_rc" -ne 1 ]; then
-      fail "git merge-base --is-ancestor ${oid} ${lower} exited ${prev_rc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin) — UNMEASURED"
-    fi
-    arc=0
-    git merge-base --is-ancestor "$oid" "$upper" >/dev/null 2>&1 || arc=$?
-    case "$arc" in
-      0) keep="$(printf '%s' "$keep" | jq -c --arg o "$oid" '. + [$o]')" ;;
-      1)
+    case "$DOGFOOD_PR_MEMBER" in
+      member) keep="$(printf '%s' "$keep" | jq -c --arg o "$oid" '. + [$o]')" ;;
+      after)
         # PMAT-228: stderr, for the same reason as the note above.
         echo "  #${num} ${oid} is outside ${upper} (merged after it) — not counted" >&2
         DOGFOOD_PR_OUTSIDE=$((DOGFOOD_PR_OUTSIDE + 1))
         ;;
-      *) fail "git merge-base --is-ancestor ${oid} ${upper} exited ${arc} for PR #${num}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this window is UNMEASURED" ;;
+      *) fail "dogfood_pr_member_of left DOGFOOD_PR_MEMBER='${DOGFOOD_PR_MEMBER:-}' for PR #${num}: its place in this window is UNMEASURED" ;;
     esac
     i=$((i + 1))
   done

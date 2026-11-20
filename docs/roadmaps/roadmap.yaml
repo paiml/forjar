@@ -8624,3 +8624,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1174
+  github_issue: 1174
+  item_type: task
+  title: 'gate R Arm 5 leaves the previous release''s own PR out of the window by membership'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - One membership rule (merge commit inside the previous tag is previous, not inside HEAD is after) lives in lib/window.sh and Arm 5 reads it; a test shows the previous release's PR left out and a member kept
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

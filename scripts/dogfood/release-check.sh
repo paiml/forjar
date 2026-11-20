@@ -307,12 +307,13 @@ while read -r pr oid headref; do
   if [ -z "$headref" ] || [ "$headref" = "-" ]; then
     fail "GitHub reports PR #${pr} merged since ${prev_tag} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
-  arc=0
-  git merge-base --is-ancestor "$oid" HEAD >/dev/null 2>&1 || arc=$?
-  case "$arc" in
-    0) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref}"$'\n' ;;
-    1) n_after=$((n_after + 1)) ;;
-    *) fail "git merge-base --is-ancestor ${oid} HEAD exited ${arc} for PR #${pr}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this release is UNMEASURED" ;;
+  # PMAT-1174: membership is the one rule in lib/window.sh, never a PR number.
+  dogfood_pr_member_of "$pr" "$oid" "$prev_tag" HEAD
+  case "$DOGFOOD_PR_MEMBER" in
+    member) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref}"$'\n' ;;
+    previous) echo "  #${pr} ${oid} is inside ${prev_tag} (the previous release) — not counted" >&2 ;;
+    after) n_after=$((n_after + 1)) ;;
+    *) fail "dogfood_pr_member_of left DOGFOOD_PR_MEMBER='${DOGFOOD_PR_MEMBER:-}' for PR #${pr}: its place in this release is UNMEASURED" ;;
   esac
 done <<EOF
 $pr_rows
@@ -467,3 +468,8 @@ fi
 # and this arm passes a release over a PR whose quorum was waived or never
 # reached the floor; the falsification tests a_waived_receipt_is_red,
 # a_nested_override_is_red and a_thin_receipt_is_red go RED.
+# mutation: in lib/window.sh dogfood_pr_member_of, change `DOGFOOD_PR_MEMBER=previous`
+# to `=member` (the_previous_releases_own_pr_is_outside_the_window_by_membership
+# goes RED), swap previous and after (previous_and_after_carry_their_own_labels
+# goes RED), or compare a bound by equality (both_bounds_are_ancestry_not_equality).
+# A value no `case` arm lists fails UNMEASURED; `*) ;;` there would drop the PR.
