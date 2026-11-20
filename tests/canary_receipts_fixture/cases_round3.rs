@@ -2,7 +2,7 @@
 //! trailing newline, path:line forms, a falsifier inside the receipt's own
 //! evidence, honest prose that held the letters of a marker word, and the
 //! squash-merge shape. Each is a receipt the f7a2012 predicate got wrong.
-use super::cases_review::{nop, pl, raw_claims, rename, s};
+use super::cases_review::{nop, pl, pl_text, raw_claims, rename, s};
 use super::*;
 
 fn newline_id(f: &mut Fx) {
@@ -358,6 +358,200 @@ pub fn table() -> Vec<Case> {
             |f| canary(f)["planted_by"] = json!("REVIEWER"),
             nop,
             "bare role word",
+        ),
+        // round 5: duplicate keys in every file the canary path reads, raw bytes, role names.
+        (
+            "an identical duplicate id in a claim is refused",
+            |_| {},
+            |o| {
+                o.claims_raw = raw_claims("The change adds added_two to src/a.rs at line five.")
+                    .map(|s| s.replacen("\"id\":\"1\"", "\"id\":\"1\",\"id\":\"1\"", 1))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a shadowed marker text in a duplicate claim text is refused",
+            |_| {},
+            |o| {
+                o.claims_raw = raw_claims("The change adds added_two to src/a.rs at line five.")
+                    .map(|s| {
+                        s.replacen(
+                            "{\"id\":\"3\",\"text\":",
+                            "{\"id\":\"3\",\"text\":\"PLANTED CANARY DECOY\",\"text\":",
+                            1,
+                        )
+                    })
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate key at the top of the plan file is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("plan.json", |s| {
+                    s.replacen('{', "{\"extra\": 1, \"extra\": 1,", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate planted id in the plan file is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("plan.json", |s| {
+                    s.replacen("\"id\": \"2\"", "\"id\": \"2\",\n\"id\": \"2\"", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "two same-key objects with disjoint members in the plan file are refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("plan.json", |s| {
+                    s.replacen('{', "{\"a\": {\"x\": 1}, \"a\": {\"y\": 2},", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "an empty object then a filled one under the same key in the plan file is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("plan.json", |s| {
+                    s.replacen('{', "{\"a\": {}, \"a\": {\"x\": 1},", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate judge key in the verdicts file is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("verdicts.json", |s| {
+                    s.replacen('{', "{\"judge\": \"J1\",", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate verdict id deeper in the verdicts file is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("verdicts.json", |s| {
+                    s.replacen("\"verdicts\": {", "\"verdicts\": {\"1\": \"SURVIVED\",", 1)
+                }))
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate key at the top of the receipt is refused",
+            |_| {},
+            |o| o.rec_edit = Some(|s| s.replacen('{', "{\"issue\":\"x\",\"issue\":\"x\",", 1)),
+            "duplicate JSON key",
+        ),
+        (
+            "a duplicate planted_by inside the canary block is refused",
+            |_| {},
+            |o| {
+                o.rec_edit = Some(|s| {
+                    s.replacen("\"canary\":{", "\"canary\":{\"planted_by\":\"courier\",", 1)
+                })
+            },
+            "duplicate JSON key",
+        ),
+        (
+            "a raw non-ASCII byte in an extra plan key is refused",
+            |_| {},
+            |o| {
+                o.body_edit = Some(("plan.json", |s| {
+                    s.replacen('{', "{\"note\": \"em \u{2014} dash\",", 1)
+                }))
+            },
+            "outside printable ASCII",
+        ),
+        (
+            "a raw non-ASCII byte in an extra receipt key is refused",
+            |_| {},
+            |o| o.rec_edit = Some(|s| s.replacen('{', "{\"issue\":\"PMAT \u{2014} x\",", 1)),
+            "outside printable ASCII",
+        ),
+        (
+            "a spaced word inside a longer word is honest prose",
+            |f| claim0(f, "The slab-a-i-t helper adds added_one to src/a.rs."),
+            nop,
+            "ok",
+        ),
+        (
+            "hash_b(a, i) == t_expected is honest prose",
+            |f| {
+                claim0(
+                    f,
+                    "The check hash_b(a, i) == t_expected passes in src/a.rs.",
+                )
+            },
+            nop,
+            "ok",
+        ),
+        (
+            "b = a[i] + t is honest prose",
+            |f| claim0(f, "The loop sets b = a[i] + t in src/a.rs."),
+            nop,
+            "ok",
+        ),
+        (
+            "type params <B, A, I, T> are honest prose",
+            |f| claim0(f, "Type params <B, A, I, T> are unconstrained in src/a.rs."),
+            nop,
+            "ok",
+        ),
+        (
+            "parameters (p, l, a, n, t) are honest prose",
+            |f| claim0(f, "Parameters (p, l, a, n, t) are passed in order."),
+            nop,
+            "ok",
+        ),
+        (
+            "a spaced plural inflection is refused",
+            |f| claim0(f, "The c-a-n-a-r-i-e-s are loud in src/a.rs."),
+            nop,
+            "were not blind",
+        ),
+        (
+            "a planted_by of authors is refused",
+            |f| canary(f)["planted_by"] = json!("authors"),
+            nop,
+            "bare role word",
+        ),
+        (
+            "a planted_by of panels is refused",
+            |f| canary(f)["planted_by"] = json!("panels"),
+            nop,
+            "bare role word",
+        ),
+        (
+            "a spaced planted_by ref uter-1 is refused",
+            |f| canary(f)["planted_by"] = json!("ref uter-1"),
+            nop,
+            "plain name",
+        ),
+        (
+            "a spaced planted_by j u d g e-1 is refused",
+            |f| canary(f)["planted_by"] = json!("j u d g e-1"),
+            nop,
+            "plain name",
+        ),
+        (
+            "a hyphenated planted_by ref-uter-1 is refused",
+            |f| canary(f)["planted_by"] = json!("ref-uter-1"),
+            nop,
+            "contains a role word",
+        ),
+        (
+            "a planted text of two sparse words is refused",
+            |f| pl_text(f, 0, "a                  b"),
+            nop,
+            "4+ words",
         ),
     ]
 }

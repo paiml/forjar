@@ -124,7 +124,13 @@ pub struct Opt {
     pub extra_ev: Option<&'static str>,
     /// Commit the evidence files first, so @EVID names a commit that adds them.
     pub evid_head: bool,
+    /// Rewrites the serialized text of one evidence file ("plan.json", ...) before it is hashed.
+    pub body_edit: Option<BodyEdit>,
+    /// Rewrites the serialized receipt text.
+    pub rec_edit: Option<fn(String) -> String>,
 }
+
+pub type BodyEdit = (&'static str, fn(String) -> String);
 
 pub type OptEdit = fn(&mut Opt);
 
@@ -138,6 +144,20 @@ fn set_repo(root: &Path) {
     ] {
         git(root, &["config", kv.0, kv.1]);
     }
+}
+
+/// The serialized text of one evidence file, after the run's raw overrides.
+fn evidence_body(name: &str, v: &Value, raw: &Option<String>, o: &Opt) -> String {
+    let mut body = match (raw, name) {
+        (Some(b), "claims.json") => b.clone(),
+        _ => serde_json::to_string_pretty(v).expect("json"),
+    };
+    if let Some((n, edit)) = o.body_edit {
+        if n == name {
+            body = edit(body);
+        }
+    }
+    body
 }
 
 /// What the predicate says for `fx` under `o`. Evidence is committed in a
@@ -176,10 +196,7 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
         ("plan.json", &fx.plan, "canary-plan"),
         ("verdicts.json", &fx.verdicts, "judge-verdicts"),
     ] {
-        let body = match (&raw, name) {
-            (Some(b), "claims.json") => b.clone(),
-            _ => serde_json::to_string_pretty(v).expect("json"),
-        };
+        let body = evidence_body(name, v, &raw, o);
         if o.no_commit != Some(name) {
             put(root, &format!(".quorum/evidence/{name}"), &body);
         }
@@ -206,7 +223,12 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
         c.entry("reviewed_base").or_insert(json!(base));
         c.entry("reviewed_head").or_insert(json!(head));
     }
-    put(root, "rec.json", &sub(&r.to_string()));
+    let rec_text = sub(&r.to_string());
+    put(
+        root,
+        "rec.json",
+        &o.rec_edit.map_or(rec_text.clone(), |e| e(rec_text)),
+    );
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "evidence"]);
     if o.squash > 0 {

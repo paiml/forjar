@@ -71,8 +71,13 @@ fn pick(lib: &Path, oid_copy: Option<&str>, head_copy: Option<&str>, which: &str
     fx::git(root, &["add", "-A"]);
     fx::git(root, &["commit", "-qm", "merge commit"]);
     let oid = fx::git(root, &["rev-parse", "HEAD"]);
-    if let Some(b) = head_copy {
-        fx::put(root, ".quorum/pr.json", b);
+    match head_copy {
+        Some(b) => fx::put(root, ".quorum/pr.json", b),
+        None => {
+            if oid_copy.is_some() {
+                fx::git(root, &["rm", "-q", ".quorum/pr.json"]);
+            }
+        }
     }
     fx::put(root, "later.txt", "y\n");
     fx::git(root, &["add", "-A"]);

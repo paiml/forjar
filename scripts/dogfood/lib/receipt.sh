@@ -80,7 +80,7 @@ DOGFOOD_CANARY_SHAPE_JQ='
         "quorum.lanes is empty, short, or holds a blank or non-string lane name"),
     chk(($lanes | map(norm) | unique | length) != ($lanes | length); "quorum.lanes names are not distinct: one lane counted twice"),
     chk((($c.planted_by | nes) | not); "quorum.canary.planted_by is missing: a canary round names who planted it"),
-    chk(($c.planted_by | norm) as $pb | any(["lane", "lanes", "reviewer", "reviewers", "author", "panel", "refuter", "refuters", "judge", "judges"][]; . == $pb);
+    chk(($c.planted_by | norm) as $pb | any(["lane", "lanes", "reviewer", "reviewers", "author", "authors", "panel", "panels", "refuter", "refuters", "judge", "judges"][]; . == $pb);
         "quorum.canary.planted_by is a bare role word, not a name: the planter must be named"),
     chk(($c.planted_by | test("refuter|judge"; "i")); "quorum.canary.planted_by names a refuter or a judge: the planter must be neither"),
     chk(($c.planted_by | norm) as $pb | any($others[]; . == $pb); "quorum.canary.planted_by is also a lane, refuter or judge name: the planter must be none of them"),
@@ -94,10 +94,10 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk(($c.planted | length) < 2; "quorum.canary.planted has \(try ($c.planted | length) catch "?") planted claim(s), below the floor of 2"),
     chk(($c.planted | all(.[];
          (type == "object") and (.id | sid)
-         and ((.text | nes) and ((.text | gsub("^\\s+|\\s+$"; "") | length) >= 20))
+         and ((.text | nes) and ((.text | gsub("^\\s+|\\s+$"; "") | length) >= 20) and (([.text | scan("[^\\s]+")] | length) >= 4))
          and ((.falsified_by | isstr) and (.falsified_by | test("\\A(?!\\./)[A-Za-z0-9_./-]+:[1-9][0-9]{0,8}\\z")) and ((.falsified_by | test("\\.\\.")) | not))
          and ((.position | type) == "number") and (.position == (.position | floor)) and (.position >= 1))) | not;
-        "quorum.canary.planted[] needs a plain numeric id, text (20+ non-blank chars), falsified_by (path:line, no ..) and an integer position >= 1"),
+        "quorum.canary.planted[] needs a plain numeric id, text (20+ non-blank chars in 4+ words), falsified_by (path:line, no ..) and an integer position >= 1"),
     chk(any($c.planted[].falsified_by; test("\\A(\\.quorum|\\.pmat)/"));
         "quorum.canary.planted[].falsified_by lies under .quorum/ or .pmat/: a receipt cannot falsify a claim with its own evidence"),
     chk(([.evidence.files[]?.path] as $ev | any($c.planted[].falsified_by; sub(":[0-9]+\\z"; "") as $fp | any($ev[]; . == $fp)));
@@ -124,7 +124,11 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk(([$c.claims_file, $c.plan_file, $c.verdicts_file] | unique | length) != 3;
         "quorum.canary claims_file, plan_file and verdicts_file are not three distinct files"),
     chk(([$lanes, .quorum.refuters, .quorum.refuter_names, .quorum.judge_names, $c][] | [.. | strings] | any(test("[^ -~]")));
-        "quorum names and canary texts must be ASCII printable only: a zero-width, non-ASCII or control character can make two names look different")] | map(select(.[0])) | (first(.[] | .[1]) // "ok")
+        "quorum names and canary texts must be ASCII printable only: a zero-width, non-ASCII or control character can make two names look different"),
+    chk(($c.planted_by | ascii_downcase | gsub("^\\s+|\\s+$"; "") | test("\\A[a-z][a-z0-9-]*\\z")) | not;
+        "quorum.canary.planted_by must be a plain name ([a-z][a-z0-9-]*, no spaces): a spaced-out role word is not a name"),
+    chk(($c.planted_by | ascii_downcase | gsub("[^a-z]"; "")) as $pl | any(["lane", "review", "author", "panel", "judge", "refut"][]; . as $w | $pl | contains($w));
+        "quorum.canary.planted_by contains a role word (lane, review, author, panel, judge, refut): the planter must be named, not titled")] | map(select(.[0])) | (first(.[] | .[1]) // "ok")
 '
 
 # Stage 2b: the claims file the refuters and judges were handed. Input: that
@@ -193,16 +197,17 @@ DOGFOOD_CANARY_VERDICTS_JQ='
 # whole word (so "plan", "planned" and "plan takes" are honest prose), with the
 # inflections listed in the regex below (stems are NOT matched: "plantation" and
 # a compound such as "canaryclaim" pass, as honest prose must), or as its letters
-# each separated by one or more non-letters ("p-l-a-n-t", "c a n a r y"), where
-# the first letter must start a word and the last must end one, so ordinary code
-# prose such as "sub(a, i) takes" is not read as "bait".
+# each separated by one to three of space . _ * | / - ("p-l-a-n-t", "c a n a r y",
+# "c-a-n-a-r-i-e-s"), where the first letter must start a word and the last must
+# end one. Brackets, commas and operators are not separators, so code prose such
+# as "sub(a, i) takes", "b = a[i] + t" or "(p, l, a, n, t)" is not read as a marker.
 # A claims file with any non-ASCII or control character in a string is refused
-# outright, so a homoglyph cannot hide a word. Not caught, and said so in the
-# design doc: a word split with a separator in only some gaps ("ca nary").
+# outright, so a homoglyph cannot hide a word. Not caught: a word split with a
+# separator in only some gaps ("ca nary"), and a compound ("canaryclaim").
 DOGFOOD_CANARY_MARKERS='canary|plant|decoy|honeypot|tripwire|bait|sentinel'
 DOGFOOD_CANARY_MARKER_JQ='
-  def stems: ["canary", "plant", "decoy", "honeypot", "tripwire", "bait", "sentinel"];
-  def spaced($w): "(?<![a-z])" + ($w | split("") | join("[^a-z]+")) + "(?![a-z])";
+  def stems: ["canary", "canaries", "plant", "plants", "planted", "planting", "planter", "planters", "decoy", "decoys", "decoyed", "decoying", "honeypot", "honeypots", "tripwire", "tripwires", "bait", "baits", "baited", "baiting", "sentinel", "sentinels"];
+  def spaced($w): "(?<![a-z])" + ($w | split("") | join("[ ._*|/-]{1,3}")) + "(?![a-z])";
   ([.. | strings] + [.. | objects | keys[]]) as $s
   | if any($s[]; test("[^ -~]")) then "nonascii"
     elif any($s[] | ascii_downcase;
@@ -275,6 +280,45 @@ dogfood_canary_marker() {
   esac
 }
 
+# Duplicate JSON keys. jq keeps the last of two equal keys, so a file could show
+# a human or another parser one claim and this predicate another. Read as a jq
+# --stream (works on jq 1.6 to 1.8; the build host has 1.8.2): a leaf path may
+# occur once, no leaf path may be the prefix of another path, and each container
+# closes once (so two same-key objects with disjoint members are caught too).
+DOGFOOD_CANARY_DUP_JQ='
+  [inputs] as $e
+  | [$e[] | select(length == 2) | .[0]] as $L
+  | [$e[] | select(length == 1) | .[0][0:-1]] as $C
+  | if ($L | length) != ($L | unique | length) then "dup"
+    elif ($C | length) != ($C | unique | length) then "dup"
+    elif any($L[]; . as $l | any($e[]; .[0] as $p | ($p | length) > ($l | length) and $p[0:($l | length)] == $l)) then "dup"
+    else "ok" end
+'
+
+# dogfood_canary_raw FILE LABEL dup|bytes : prints nothing when FILE is clean,
+# else a sentence. dup: a duplicate key at any depth, or unreadable JSON.
+# bytes: any byte outside printable ASCII plus tab, LF and CR in the RAW file,
+# so nothing jq does not return (a shadowed duplicate, an escape) can hide.
+dogfood_canary_raw() {
+  local file="$1" label="$2" mode="$3" out
+  case "$mode" in
+    dup)
+      out="$(jq -n -r --stream "$DOGFOOD_CANARY_DUP_JQ" "$file" 2>/dev/null)" || out="unreadable"
+      case "$out" in
+        ok) ;;
+        dup) printf '%s\n' "canary ${label} holds a duplicate JSON key: jq keeps the last one, so the file reads differently to a human or another parser" ;;
+        *) printf '%s\n' "canary ${label} is not readable JSON" ;;
+      esac
+      ;;
+    bytes)
+      out="$(LC_ALL=C tr -d '\11\12\15\40-\176' <"$file" 2>/dev/null | head -c 1 | od -An -c | tr -d ' ')" || out="x"
+      if [ -n "$out" ]; then
+        printf '%s\n' "canary ${label} holds a byte outside printable ASCII in its raw file: nothing may hide where jq does not look"
+      fi
+      ;;
+  esac
+}
+
 # dogfood_canary_jqfile PROG FILE LABEL [jq args...] : run a stage-2 program
 # on FILE; prints ok or a sentence. A jq failure is a sentence, never ok.
 dogfood_canary_jqfile() {
@@ -316,6 +360,11 @@ dogfood_canary_files() {
       printf 'quorum.canary.%s %s: evidence.files sha256 %s, no committed copy matches (last seen %s)\n' "$role" "$path" "${want:0:12}" "${DOGFOOD_CANARY_GOT:0:12}"
       return 0
     fi
+    out="$(dogfood_canary_raw "$f" "$role" dup)"
+    if [ -n "$out" ]; then
+      printf '%s\n' "$out"
+      return 0
+    fi
   done
   rc=0
   dogfood_canary_marker "${tmp}/claims_file" || rc=$?
@@ -341,6 +390,13 @@ dogfood_canary_files() {
     printf '%s\n' "$out"
     return 0
   fi
+  for role in claims_file plan_file verdicts_file; do
+    out="$(dogfood_canary_raw "${tmp}/${role}" "$role" bytes)"
+    if [ -n "$out" ]; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+  done
   names="$(git diff --name-only --no-renames "$base" "$head" 2>/dev/null)" || {
     printf 'quorum.canary the diff %s..%s could not be listed: UNMEASURED\n' "${base:0:12}" "${head:0:12}"
     return 0
@@ -375,12 +431,31 @@ dogfood_canary_status() {
   local blob="$1" why tmp rc=0 head base rev
   local -a revs=()
   shift
+  tmp="$(mktemp)" || {
+    printf '%s\n' "quorum.canary: no scratch file to read the receipt into, UNMEASURED"
+    return 0
+  }
+  printf '%s' "$blob" >"$tmp"
+  why="$(dogfood_canary_raw "$tmp" receipt dup)"
+  if [ -n "$why" ]; then
+    rm -f "${tmp:?}"
+    printf '%s\n' "$why"
+    return 0
+  fi
   why="$(printf '%s' "$blob" | jq -r "$DOGFOOD_CANARY_SHAPE_JQ" 2>/dev/null)" || rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$why" ]; then
+    rm -f "${tmp:?}"
     printf '%s\n' "quorum.canary is not readable by this predicate (jq exit ${rc})"
     return 0
   fi
   if [ "$why" != ok ]; then
+    rm -f "${tmp:?}"
+    printf '%s\n' "$why"
+    return 0
+  fi
+  why="$(dogfood_canary_raw "$tmp" receipt bytes)"
+  rm -f "${tmp:?}"
+  if [ -n "$why" ]; then
     printf '%s\n' "$why"
     return 0
   fi
