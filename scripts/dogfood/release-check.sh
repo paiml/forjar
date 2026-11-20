@@ -386,7 +386,7 @@ while read -r pr oid headref; do
   if [ -z "$blob" ]; then
     status="missing"
   else
-    status="$(receipt_status "$blob" "$oid" HEAD)"
+    status="$(receipt_status "$blob" "$oid" "${oid}^1" "$oid" HEAD)"
   fi
   report="${report}#${pr} ${slug} receipt=${status}"$'\n'
   if [ "$status" != "ok" ]; then

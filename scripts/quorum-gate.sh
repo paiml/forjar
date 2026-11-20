@@ -443,10 +443,10 @@ fi
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
 QUORUM_RECEIPT_LIB="$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh" \
-python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
+python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" "$merge_base" <<'PY' || exit 1
 import json, os, subprocess, sys
 
-path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed = sys.argv[1:8]
+path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed, merge_base = sys.argv[1:9]
 min_lanes, min_refuters, min_judges = int(min_lanes), int(min_refuters), int(min_judges)
 touched = set(filter(None, touched_raw.splitlines()))
 
@@ -551,15 +551,31 @@ if refuted_texts and len(refuted_texts) != refuted:
     die(f"claims_refuted={refuted} but {len(refuted_texts)} refuted_claims listed -- "
         "the tally and the text disagree")
 
-if refuted == 0 and "canary" in q and not q.get("refutation_waived"):
+if "canary" in q:
     # PMAT-1170: the second shape. The one predicate in lib/receipt.sh decides,
     # so this gate and gates E and R cannot drift apart on what a canary is.
+    # A block that is present is ALWAYS checked, whatever refuted says and
+    # whether or not a waiver is set: a canary block next to a waiver is refused.
+    if q.get("refutation_waived") or r.get("waived"):
+        die("quorum.canary is present next to a waiver: a waived round is not a canary round")
+    c = q["canary"] if isinstance(q["canary"], dict) else {}
+    rh, rb = str(c.get("reviewed_head", "")), str(c.get("reviewed_base", ""))
+    if rb != merge_base:
+        die("quorum.canary.reviewed_base is not the merge base of this push")
+    anc = subprocess.run(["git", "merge-base", "--is-ancestor", rh, pushed],
+                         capture_output=True, text=True)
+    if not rh or anc.returncode != 0:
+        die("quorum.canary.reviewed_head is not an ancestor of the pushed commit")
+    later = subprocess.run(["git", "diff", "--name-only", rh, pushed],
+                           capture_output=True, text=True)
+    if later.returncode != 0 or any(not p.startswith(".quorum/") for p in later.stdout.split("\n") if p):
+        die("commits after quorum.canary.reviewed_head change files outside .quorum/")
     cp = subprocess.run(
-        ["bash", "-c", '. "$1"; dogfood_canary_status "$(cat "$2")" "$3"',
-         "canary", os.environ["QUORUM_RECEIPT_LIB"], path, pushed],
+        ["bash", "-c", '. "$1"; dogfood_canary_status "$(cat "$2")" "$3" "$4" "$5"',
+         "canary", os.environ["QUORUM_RECEIPT_LIB"], path, rh, rb, pushed],
         capture_output=True, text=True)
     if cp.returncode != 0 or cp.stdout.strip() != "ok":
-        die("the quorum refuted nothing and its quorum.canary block is refused: "
+        die("quorum.canary block is refused: "
             + (cp.stdout.strip() or cp.stderr.strip() or "no answer"))
 elif refuted == 0 and not q.get("refutation_waived"):
     die("""the quorum refuted NOTHING.

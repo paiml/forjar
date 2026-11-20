@@ -65,14 +65,14 @@ pub struct Fx {
 
 pub fn base_fx() -> Fx {
     let planted = json!([
-        {"id": "C02", "text": P_DELETE, "falsified_by": "src/a.rs:4", "position": 2},
-        {"id": "C04", "text": P_FIRST, "falsified_by": "src/a.rs:5", "position": 4}
+        {"id": "2", "text": P_DELETE, "falsified_by": "src/a.rs:4", "position": 2},
+        {"id": "4", "text": P_FIRST, "falsified_by": "src/a.rs:5", "position": 4}
     ]);
-    let v = |j: &str, a: &str, b: &str| json!({"judge": j, "verdicts": {"C01": "SURVIVED", "C02": a, "C03": "SURVIVED", "C04": b}});
+    let v = |j: &str, a: &str, b: &str| json!({"judge": j, "verdicts": {"1": "SURVIVED", "2": a, "3": "SURVIVED", "4": b}});
     Fx {
         claims: json!([
-            {"id": "C01", "text": A_ADDED_1}, {"id": "C02", "text": P_DELETE},
-            {"id": "C03", "text": A_ADDED_2}, {"id": "C04", "text": P_FIRST}
+            {"id": "1", "text": A_ADDED_1}, {"id": "2", "text": P_DELETE},
+            {"id": "3", "text": A_ADDED_2}, {"id": "4", "text": P_FIRST}
         ]),
         plan: json!({"planted": planted}),
         verdicts: json!([
@@ -85,8 +85,8 @@ pub fn base_fx() -> Fx {
                 "lanes": ["a", "b", "c"], "judges": 3, "refuters_per_claim": 3,
                 "claims_reviewed": 2, "claims_confirmed": 2, "claims_refuted": 0,
                 "canary": {
-                    "planted_by": "courier", "real_claim_ids": ["C01", "C03"],
-                    "planted": planted, "caught": ["C02", "C04"],
+                    "planted_by": "courier", "real_claim_ids": ["1", "3"],
+                    "planted": planted, "caught": ["2", "4"],
                     "claims_file": ".quorum/evidence/claims.json",
                     "plan_file": ".quorum/evidence/plan.json",
                     "verdicts_file": ".quorum/evidence/verdicts.json"
@@ -101,11 +101,25 @@ pub fn canary(fx: &mut Fx) -> &mut Value {
     &mut fx.receipt["quorum"]["canary"]
 }
 
-/// What the predicate says for `fx`; `revs` default to HEAD. `skip_hash`
-/// keeps a hand-edited sha256 in the receipt instead of recomputing it.
-pub fn run(script: &Path, fx: &Fx, revs: &[&str], skip_hash: bool) -> String {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let root = dir.path();
+/// How one run differs from the clean one. The placeholders @HEAD, @BASE and
+/// @OTHER (a real commit between head and the evidence commit) are replaced in
+/// the receipt text, the subject arguments and the evidence revs.
+#[derive(Clone, Default)]
+pub struct Opt {
+    pub subj_head: Option<String>,
+    pub subj_base: Option<String>,
+    pub no_subject: bool,
+    pub revs: Vec<String>,
+    pub skip_hash: bool,
+    pub stale_first: bool,
+    pub delete_only: bool,
+    pub claims_raw: Option<String>,
+    pub resolve_empty: bool,
+}
+
+pub type OptEdit = fn(&mut Opt);
+
+fn set_repo(root: &Path) {
     git(root, &["init", "-q", "-b", "main"]);
     for kv in [
         ("core.hooksPath", "/dev/null"),
@@ -115,59 +129,97 @@ pub fn run(script: &Path, fx: &Fx, revs: &[&str], skip_hash: bool) -> String {
     ] {
         git(root, &["config", kv.0, kv.1]);
     }
+}
+
+/// What the predicate says for `fx` under `o`. Evidence is committed in a
+/// final commit; the subject (head, base) defaults to the commit that adds the
+/// changed lines and its parent.
+pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    set_repo(root);
     put(root, "src/a.rs", "l1\nl2\nl3\n");
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "base"]);
     let base = git(root, &["rev-parse", "HEAD"]);
-    put(
-        root,
-        "src/a.rs",
-        "l1\nl2\nl3\nfn added_one() {}\nfn added_two() {}\n",
-    );
+    let changed = if o.delete_only {
+        "l1\nl2\n"
+    } else {
+        "l1\nl2\nl3\nfn added_one() {}\nfn added_two() {}\n"
+    };
+    put(root, "src/a.rs", changed);
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "head"]);
     let head = git(root, &["rev-parse", "HEAD"]);
+    put(root, "src/b.rs", "x\n");
+    if o.stale_first {
+        put(root, ".quorum/evidence/claims.json", "[]");
+    }
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-qm", "other"]);
+    let other = git(root, &["rev-parse", "HEAD"]);
+    let sub = |s: &str| {
+        s.replace("@HEAD", &head)
+            .replace("@BASE", &base)
+            .replace("@OTHER", &other)
+    };
     let mut r = fx.receipt.clone();
-    let texts = [
+    let mut files = Vec::new();
+    let raw = o.claims_raw.clone();
+    for (name, v, role) in [
         ("claims.json", &fx.claims, "claims-blind"),
         ("plan.json", &fx.plan, "canary-plan"),
         ("verdicts.json", &fx.verdicts, "judge-verdicts"),
-    ];
-    let mut files = Vec::new();
-    for (name, v, role) in texts {
-        let body = serde_json::to_string_pretty(v).expect("json");
+    ] {
+        let body = match (&raw, name) {
+            (Some(b), "claims.json") => b.clone(),
+            _ => serde_json::to_string_pretty(v).expect("json"),
+        };
         put(root, &format!(".quorum/evidence/{name}"), &body);
         files.push(json!({"path": format!(".quorum/evidence/{name}"), "roles": [role], "sha256": sha256(&body)}));
     }
-    if !skip_hash {
+    if !o.skip_hash {
         r["evidence"]["files"] = Value::Array(files);
     }
     if let Some(c) = r["quorum"].get_mut("canary").and_then(Value::as_object_mut) {
         c.entry("reviewed_base").or_insert(json!(base));
         c.entry("reviewed_head").or_insert(json!(head));
     }
-    put(root, "rec.json", &r.to_string());
+    put(root, "rec.json", &sub(&r.to_string()));
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "evidence"]);
-    let o = Command::new("bash")
-        .args([
-            "-c",
-            r#". "$1"; r="$(cat rec.json)"; shift; dogfood_receipt_status "$r" "$@""#,
-            "x",
-        ])
+    let mut args: Vec<String> = Vec::new();
+    if !o.no_subject {
+        args.push(sub(o.subj_head.as_deref().unwrap_or("@HEAD")));
+        args.push(sub(o.subj_base.as_deref().unwrap_or("@BASE")));
+        for r in &o.revs {
+            args.push(sub(r));
+        }
+    }
+    let call = if o.resolve_empty {
+        r#". "$1"; r="$(cat rec.json)"; shift; dogfood_receipt_resolve "" "$r" "$@""#
+    } else {
+        r#". "$1"; r="$(cat rec.json)"; shift; dogfood_receipt_status "$r" "$@""#
+    };
+    let out = Command::new("bash")
+        .args(["-c", call, "x"])
         .arg(script)
-        .args(revs)
+        .args(&args)
         .current_dir(root)
         .output()
         .expect("bash");
-    String::from_utf8_lossy(&o.stdout).trim().to_string()
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
-
-pub type Edit = fn(&mut Fx);
 
 pub fn set_claims(fx: &mut Fx, i: usize, k: &str, v: Value) {
     fx.claims[i][k] = v;
 }
 
-/// (name, edit, expected answer: "ok" exactly, or a substring of the refusal).
+pub type Edit = fn(&mut Fx);
+
+/// (name, edit, run options, expected: "ok" exactly, or a substring of the refusal).
+pub type Case = (&'static str, Edit, OptEdit, &'static str);
+
 pub mod cases;
+pub mod cases_review;
+pub mod mutants;

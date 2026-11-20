@@ -82,6 +82,8 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   num="$DOGFOOD_FIELD"
   dogfood_pr_field "$i" ".headRefName"
   href="$DOGFOOD_FIELD"
+  dogfood_pr_field "$i" ".mergeCommit.oid"
+  mc="$DOGFOOD_FIELD"
   if [ -z "$href" ]; then
     fail "GitHub reports PR #${num} merged since ${DOGFOOD_PREV_TAG} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
@@ -103,7 +105,7 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   if [ "$jrc" -ne 0 ]; then
     fail "PR #${num}: ${receipt} is not readable as the JSON this gate checks (jq exit ${jrc}) — UNMEASURED, and an unreadable receipt is not a passed quorum"
   fi
-  why="$(dogfood_receipt_resolve "$why" "$text" HEAD)"
+  why="$(dogfood_receipt_resolve "$why" "$text" "$mc" "${mc}^1" "$mc" HEAD)"
   if [ "$why" != "ok" ]; then
     fail "PR #${num}: ${receipt} ${why}"
   fi

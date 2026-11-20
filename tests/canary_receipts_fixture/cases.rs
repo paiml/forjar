@@ -23,37 +23,35 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
         ),
         (
             "planted = 1 is refused",
-            |f| {
-                canary(f)["planted"].as_array_mut().unwrap().pop();
-            },
+            super::cases_review::one_planted,
             "below the floor of 2",
         ),
         (
             "caught short of planted is refused",
             |f| {
-                canary(f)["caught"] = json!(["C02"]);
+                canary(f)["caught"] = json!(["2"]);
             },
             "caught does not equal",
         ),
         (
             "caught naming an unplanted id is refused",
             |f| {
-                canary(f)["caught"] = json!(["C02", "C01"]);
+                canary(f)["caught"] = json!(["2", "1"]);
             },
             "caught does not equal",
         ),
         (
             "a canary a judge majority missed is refused",
             |f| {
-                f.verdicts[1]["verdicts"]["C04"] = json!("SURVIVED");
-                f.verdicts[2]["verdicts"]["C04"] = json!("SURVIVED");
+                f.verdicts[1]["verdicts"]["4"] = json!("SURVIVED");
+                f.verdicts[2]["verdicts"]["4"] = json!("SURVIVED");
             },
             "not refuted by a majority",
         ),
         (
             "canary refuted by one of three is refused",
             |f| {
-                f.verdicts[1]["verdicts"]["C02"] = json!("SURVIVED");
+                f.verdicts[1]["verdicts"]["2"] = json!("SURVIVED");
             },
             "not refuted by a majority",
         ),
@@ -70,14 +68,14 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
                 f.verdicts[0]["verdicts"]
                     .as_object_mut()
                     .unwrap()
-                    .remove("C03");
+                    .remove("3");
             },
             "every judge must answer every claim",
         ),
         (
             "a canary id also among real claims is refused",
             |f| {
-                canary(f)["real_claim_ids"] = json!(["C01", "C02"]);
+                canary(f)["real_claim_ids"] = json!(["1", "2"]);
             },
             "also appears in real_claim_ids",
         ),
@@ -175,7 +173,7 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
                 canary(f)["planted"][1]["falsified_by"] = json!("src/z.rs:5");
                 f.plan["planted"][1]["falsified_by"] = json!("src/z.rs:5");
             },
-            "not an added line",
+            "not exactly a file changed",
         ),
         (
             "a plan that differs from the receipt is refused",
@@ -183,7 +181,7 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
                 f.plan["planted"][0]["text"] =
                     json!("A different false claim about the diff, long enough.");
             },
-            "plan_file .planted does not equal",
+            "is not an array equal to quorum.canary.planted",
         ),
         (
             "a receipt count that counts a canary is refused",
@@ -196,8 +194,9 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
             "claims_refuted that disagrees with the judges is refused",
             |f| {
                 f.receipt["quorum"]["claims_refuted"] = json!(0);
-                f.verdicts[0]["verdicts"]["C01"] = json!("REFUTED");
-                f.verdicts[1]["verdicts"]["C01"] = json!("REFUTED");
+                f.receipt["quorum"]["claims_confirmed"] = json!(1);
+                f.verdicts[0]["verdicts"]["1"] = json!("REFUTED");
+                f.verdicts[1]["verdicts"]["1"] = json!("REFUTED");
             },
             "judge verdicts refute 1",
         ),
@@ -255,7 +254,7 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
             |f| {
                 canary(f)["reviewed_head"] = json!("0123456789012345678901234567890123456789");
             },
-            "not in this repository",
+            "is not the commit this receipt vouches for",
         ),
         (
             "a claims_file without its role is refused",
@@ -302,40 +301,34 @@ pub fn table() -> Vec<(&'static str, Edit, &'static str)> {
     ]
 }
 
-/// Cases that need their own run arguments or a tampered hash.
-pub fn extra(script: &Path, out: &mut Vec<String>) {
-    let fx = base_fx();
-    let got = run(
-        script,
-        &fx,
-        &["0000000000000000000000000000000000000000", "HEAD"],
-        false,
-    );
-    if got != "ok" {
-        out.push(format!("a missing first rev falls back to the next: {got}"));
-    }
-    let mut stale = fx.clone();
-    let wrong = "0".repeat(64);
-    stale.receipt["evidence"]["files"] = json!([
-        {"path": ".quorum/evidence/claims.json", "roles": ["claims-blind"], "sha256": wrong},
-        {"path": ".quorum/evidence/plan.json", "roles": ["canary-plan"], "sha256": wrong},
-        {"path": ".quorum/evidence/verdicts.json", "roles": ["judge-verdicts"], "sha256": wrong}
-    ]);
-    let got = run(script, &stale, &[], true);
-    if !got.contains("evidence.files sha256") {
-        out.push(format!(
-            "a receipt whose hashes do not match its files: {got}"
-        ));
-    }
+/// Every case, the original table and the review-finding table, as one list.
+pub fn all() -> Vec<Case> {
+    let mut v: Vec<Case> = table()
+        .into_iter()
+        .map(|(n, e, w)| (n, e, (|_: &mut Opt| {}) as OptEdit, w))
+        .collect();
+    v.extend(super::cases_review::table());
+    v
 }
 
-/// Every table case against `script`; the failures, empty when all hold.
+/// What case `name` gives with the script `script`.
+pub fn answer(script: &Path, name: &str) -> (String, &'static str) {
+    let (_, edit, opt, want) = all()
+        .into_iter()
+        .find(|c| c.0 == name)
+        .unwrap_or_else(|| panic!("no case named {name:?}"));
+    let mut fx = base_fx();
+    edit(&mut fx);
+    let mut o = Opt::default();
+    opt(&mut o);
+    (run(script, &fx, &o), want)
+}
+
+/// Every case against `script`; the failures, empty when all hold.
 pub fn failures(script: &Path, stop_at_first: bool) -> Vec<String> {
     let mut bad = Vec::new();
-    for (name, edit, want) in table() {
-        let mut fx = base_fx();
-        edit(&mut fx);
-        let got = run(script, &fx, &[], false);
+    for (name, _, _, _) in all() {
+        let (got, want) = answer(script, name);
         let ok = if want == "ok" {
             got == "ok"
         } else {
@@ -348,6 +341,5 @@ pub fn failures(script: &Path, stop_at_first: bool) -> Vec<String> {
             }
         }
     }
-    extra(script, &mut bad);
     bad
 }

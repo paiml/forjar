@@ -11,12 +11,18 @@
 #[path = "canary_receipts_fixture/mod.rs"]
 mod fx;
 
-use fx::cases::failures;
+use fx::cases::{answer, failures};
+use fx::mutants::MUTANTS;
 use fx::{manifest, OLD_ZERO, SCRIPT};
 use std::process::Command;
 
 #[test]
 fn the_canary_shape_accepts_and_refuses_as_designed() {
+    eprintln!(
+        "cases {}, mutants {}",
+        fx::cases::all().len(),
+        MUTANTS.len()
+    );
     let bad = failures(&manifest().join(SCRIPT), false);
     assert!(
         bad.is_empty(),
@@ -96,88 +102,63 @@ fn jq(body: &str, prog: &str) -> String {
         .to_string()
 }
 
-/// (needle, replacement): one-token breaks of the predicate, each applied by
-/// hand to a copy of the script. Each needle occurs exactly once.
-const MUTANTS: &[(&str, &str)] = &[
-    (
-        "(hascanary | not)\n    then \"quorum.claims_refuted",
-        "false\n    then \"quorum.claims_refuted",
-    ),
-    (
-        "chk(($c.planted | length) < 2;",
-        "chk(($c.planted | length) < 1;",
-    ),
-    (
-        "or (($c.caught | sort) != ([$c.planted[].id] | sort))",
-        "or false",
-    ),
-    ("(refd($v; $id) * 2) > ($v | length)", "refd($v; $id) >= 1"),
-    (
-        "if [ \"$rc\" -eq 0 ]; then\n    printf 'quorum.canary.claims_file carries",
-        "if [ \"$rc\" -eq 99 ]; then\n    printf 'quorum.canary.claims_file carries",
-    ),
-    ("($q | has(\"claims_reviewed\")) and", "false and"),
-    ("if [ \"$got\" != \"$want\" ]; then", "if false; then"),
-    ("== ($c.planted | proj)", "!= ($c.planted | proj)"),
-    (
-        "test(\"refuter|judge\"; \"i\")",
-        "test(\"refuterx|judgex\"; \"i\")",
-    ),
-    (
-        "any($c.real_claim_ids[]; . == $i)",
-        "any($c.real_claim_ids[]; . == \"zz\")",
-    ),
-    (
-        "    if [ \"$rc\" -ne 0 ]; then\n      printf 'quorum.canary.planted[%s]",
-        "    if [ \"$rc\" -ne 99 ]; then\n      printf 'quorum.canary.planted[%s]",
-    ),
-    ("chk(($v | length) != $q.judges;", "chk(false;"),
-    ("test(\"waiv|override\")", "test(\"waivx|override\")"),
-    (
-        "(keys == [\"id\", \"text\"]) and (.id | type",
-        "(keys | length > 0) and (.id | type",
-    ),
-    ("$cl[$p.position - 1] !=", "$cl[0] !="),
-    (
-        "if [ \"$why\" = canary ]; then",
-        "if [ \"$why\" = canaryx ]; then",
-    ),
-    ("chk($q.claims_refuted != $realref;", "chk(false;"),
-    (
-        "chk(($c.real_claim_ids | length) < 1;",
-        "chk(($c.real_claim_ids | length) < 0;",
-    ),
-    (
-        "chk(([$c.planted[].position] | unique | length) != ($c.planted | length);",
-        "chk(false;",
-    ),
-    (
-        "if (try ((.planted | proj) == ($c.planted | proj)) catch false)",
-        "if true",
-    ),
-];
-
 #[test]
-fn every_mutant_of_the_predicate_turns_the_table_red() {
+fn every_mutant_of_the_predicate_flips_its_kill_case() {
     let src = std::fs::read_to_string(manifest().join(SCRIPT)).expect("script");
-    assert!(MUTANTS.len() >= 12);
+    assert!(MUTANTS.len() >= 35, "only {} mutants", MUTANTS.len());
     let dir = tempfile::tempdir().expect("tempdir");
-    let mut survived = Vec::new();
-    for (i, (needle, repl)) in MUTANTS.iter().enumerate() {
-        assert_eq!(
-            src.matches(needle).count(),
-            1,
-            "mutant {i}: needle must occur once: {needle:?}"
-        );
+    let mut bad = Vec::new();
+    for (i, mu) in MUTANTS.iter().enumerate() {
+        let mut text = src.clone();
+        for (needle, repl) in mu.pairs {
+            assert_eq!(
+                text.matches(needle).count(),
+                1,
+                "mutant {i} ({}): needle must occur once: {needle:?}",
+                mu.name
+            );
+            text = text.replacen(needle, repl, 1);
+        }
         let p = dir.path().join(format!("m{i}.sh"));
-        std::fs::write(&p, src.replacen(needle, repl, 1)).expect("write mutant");
-        if failures(&p, true).is_empty() {
-            survived.push(format!("mutant {i}: {needle:?}"));
+        std::fs::write(&p, text).expect("write mutant");
+        let (got, want) = answer(&p, mu.kill);
+        // A case that wants "ok" must stop being ok; a refusal must flip.
+        let flipped = if want == "ok" {
+            got != "ok"
+        } else {
+            got == mu.flip
+        };
+        if !flipped {
+            bad.push(format!(
+                "mutant {i} ({}): kill case {:?} wanted {want:?}, mutant gave {got:?}",
+                mu.name, mu.kill
+            ));
         }
     }
     assert!(
-        survived.is_empty(),
-        "mutants the table did not catch:\n{}",
-        survived.join("\n")
+        bad.is_empty(),
+        "mutants that did not flip:\n{}",
+        bad.join("\n")
     );
+}
+
+/// Callers must name the commit they vouch for, and the push gate must check a
+/// present block on every path. Structural: these files are shell and Python
+/// inside shell, run by CI only against a real GitHub.
+#[test]
+fn the_callers_bind_the_receipt_to_a_commit() {
+    let read = |p: &str| std::fs::read_to_string(manifest().join(p)).expect(p);
+    let store = read("scripts/dogfood/lib/store.sh");
+    assert!(store.contains("dogfood_receipt_status \"$blob\" \"$head\" \"$base\" \"$head\""));
+    let quorum = read("scripts/dogfood/quorum.sh");
+    assert!(quorum.contains("dogfood_receipt_resolve \"$why\" \"$text\" \"$mc\" \"${mc}^1\""));
+    let rel = read("scripts/dogfood/release-check.sh");
+    assert!(rel.contains("receipt_status \"$blob\" \"$oid\" \"${oid}^1\""));
+    let gate = read("scripts/quorum-gate.sh");
+    assert!(
+        gate.contains("if \"canary\" in q:"),
+        "block not checked on every path"
+    );
+    assert!(!gate.contains("refuted == 0 and \"canary\""));
+    assert!(gate.contains("reviewed_head is not an ancestor"));
 }

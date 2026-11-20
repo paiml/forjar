@@ -25,7 +25,7 @@ dogfood_store_require() {
 }
 
 dogfood_store_check() {
-  local pr="$1" head="$2" merge="$3" parent base tmp out rc=0 file why
+  local pr="$1" head="$2" merge="$3" parent base tmp out rc=0 file why blob
   DOGFOOD_STORE_TOKEN=missing
   DOGFOOD_STORE_WHY=""
   if ! [[ "$head" =~ ^[0-9a-f]{40}$ ]] || ! git cat-file -e "${head}^{commit}" 2>/dev/null; then
@@ -59,7 +59,11 @@ dogfood_store_check() {
     return 0
   fi
   file="$QUORUM_STORE/quorum/$REPO/$pr/$head.json"
-  why="$(dogfood_receipt_status "$(cat "$file")")"
+  blob="$(<"$file")" || {
+    DOGFOOD_STORE_WHY="the store receipt $file for PR #${pr} cannot be read"
+    return 0
+  }
+  why="$(dogfood_receipt_status "$blob" "$head" "$base" "$head" "$merge" HEAD)"
   DOGFOOD_STORE_WHY="$why"
   case "$why" in
     ok) DOGFOOD_STORE_TOKEN=ok ;;
