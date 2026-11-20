@@ -1,22 +1,24 @@
 //! The three light PR jobs (lockfile, examples-validate, file-health) read
 //! nothing but the repository, so each carries `permissions: contents: read`
-//! and checks out with `persist-credentials: false`. `violations` judges the
-//! parsed YAML, and shell text only through `commands` (never a comment, never
-//! a re-serialised string):
+//! and checks out with `persist-credentials: false`.
+//!
+//! The test judges the parsed YAML and compares exact values. It does NOT
+//! interpret shell: the two scripts that carry this PR's guarantees (the
+//! examples-validate guard step, and gate's "Check required jobs" step) are
+//! pinned verbatim below, byte for byte after YAML parsing, so any edit to
+//! either script needs an edit to this file, which a reviewer sees.
+//!
 //! - job `permissions` are exactly `contents: read`; a workflow-level
 //!   `permissions` is absent or no wider than read;
 //! - no `continue-on-error` key on a light job, on any of its steps, on `gate`
-//!   or on any `gate` step;
-//! - a light job's `if` is the YAML value it already had (absent stays absent;
-//!   a bool or number is a failure); `gate`'s `if` is `always()` and no `gate`
-//!   step has an `if`;
+//!   or on any `gate` step; a light job's `if` keeps its YAML value (absent
+//!   stays absent; a bool or number fails); `gate`'s `if` is `always()`;
 //! - every checkout step (`uses` matched case-insensitively) sets
 //!   `persist-credentials` to the YAML bool false, and there is exactly one;
-//! - `gate` needs both ci.yml jobs and reads both results as the workflow
-//!   reads them today, on command text after comment stripping;
-//! - examples-validate runs this target as a `--test <target>` argument of a
-//!   `cargo test` command (no `--no-run`, no `--list`, not masked by `|| true`),
-//!   in a step with no `if` and no `continue-on-error`.
+//! - `gate` needs both ci.yml jobs; its one step has exactly the keys
+//!   name/env/run, with `env` pinned and `run` equal to `GATE_RUN`;
+//! - the guard step has exactly the keys name/run and `run` equal to
+//!   `GUARDS_RUN`, which contains the `--test` line for this target.
 //!
 //! mutation: each row of `mutants()` edits the workflow text in memory and the
 //! checker must name the violation; the unmutated trees must be clean.
@@ -25,8 +27,8 @@ use serde_yaml_ng::Value;
 
 const TARGET: &str = "falsification_ci_light_jobs_are_hardened";
 const CODE_IF: &str = "needs.classify.outputs.code == 'true'";
-const LOCK: &str = "${{ needs.lockfile.result }}";
-const EXAMPLES: &str = "${{ needs.examples-validate.result }}";
+const GUARD_NAME: &str =
+    "Integration guards (examples, orphans, undo, quorum gates, nightly, version)";
 
 fn read(rel: &str) -> String {
     let p = format!("{}/{rel}", env!("CARGO_MANIFEST_DIR"));
@@ -37,101 +39,118 @@ fn parse(text: &str) -> Value {
     serde_yaml_ng::from_str(text).expect("workflow parses")
 }
 
-/// One shell command: its words (quotes removed, comments gone) and the
-/// separator that preceded it (`""` newline/start, `;`, `&&`, `||`).
-struct Cmd {
-    sep: &'static str,
-    words: Vec<String>,
+/// The examples-validate guard step's `run:`, pinned verbatim.
+const GUARDS_RUN: &str = r####"cargo test --locked \
+--test examples_validate \
+--test falsification_no_orphaned_source_files \
+--test falsification_722_cache_key_arch \
+--test falsification_contract_citations_resolve \
+--test falsification_714_unsafe_libyaml_ignore_is_bounded \
+--test falsification_chrono_0543_ignore_is_bounded \
+--test falsification_drift_unmeasured_is_not_drift \
+--test e2e_transport_absence_t \
+--test falsification_undo_actually_undoes \
+--test falsification_undo_state_dir_interlock \
+--test falsification_hosted_jobs_do_not_cache_target \
+--test falsification_no_tracked_file_is_gitignored \
+--test falsification_quorum_gate_reads_the_pushed_ref \
+--test falsification_quorum_gate_reads_the_receipt_store \
+--test falsification_quorum_gate_bypasses \
+--test falsification_quorum_gate_exact_identity \
+--test falsification_nightly_gate_is_tag_vs_head \
+--test falsification_nightly_windows_openssl_perl \
+--test falsification_683_cross_mounts_under_work_root \
+--test falsification_sudo_transport_closefrom_emulated \
+--test falsification_version_matches_manifest \
+--test falsification_pr_jobs_name_no_arm64_or_host \
+--test falsification_ci_light_jobs_are_hardened
+"####;
+
+/// gate's "Check required jobs" `run:`, pinned verbatim.
+const GATE_RUN: &str = r####"# PMAT-237: a job may be SKIPPED only because the change cannot reach
+# it. The gate re-reads the class rather than trusting the skip: if
+# the change IS code and a heavy job did not run, that is a hole, not
+# a saving, and this gate refuses it by name.
+# Written with explicit `if`, not `[ … ] && return 0`: an AND-list
+# that fails at statement level exits the step under `bash -e` before
+# the message is printed, and a gate that fails silently is half a
+# gate.
+# THE CLASS ITSELF MUST HAVE BEEN MEASURED (PMAT-237).
+#
+# If `classify` fails or is cancelled its output is EMPTY, every heavy
+# job's `if` is false so they all skip, and a gate that read an empty
+# class as "not code" would pass over a change nothing tested. A
+# review lane found exactly that. An unmeasured class is code.
+if [ "${{ needs.classify.result }}" != "success" ]; then
+  echo "::error::classify did not run (${{ needs.classify.result }}), so nothing knows what this change can break"
+  exit 1
+fi
+if [ -z "$CODE" ]; then
+  echo "::error::the class is empty — treating it as code and refusing"
+  exit 1
+fi
+# PMAT-542: the SELECTION must have been measured too. The classifier
+# prints `none` and never the empty string, exactly so that "nothing
+# was selected" and "nothing computed a selection" cannot look the
+# same here. An empty value is the second one.
+if [ -z "$GATES" ]; then
+  echo "::error::the gate selection is empty — nothing measured which gates this change can move, and an unmeasured selection is not a selection"
+  exit 1
+fi
+
+ok() {
+  case "$2" in
+    success) return 0 ;;
+    skipped)
+      if [ "$CODE" != "true" ]; then
+        echo "$1: skipped — the change touches nothing it reads"
+        return 0
+      fi
+      echo "::error::$1 was skipped on a change the classifier called code"
+      return 1
+      ;;
+    *)
+      echo "::error::$1: $2"
+      return 1
+      ;;
+  esac
 }
-
-/// Incremental reader state for `commands`.
-#[derive(Default)]
-struct Lexer {
-    out: Vec<Cmd>,
-    words: Vec<String>,
-    cur: String,
-    in_word: bool,
-    sep: &'static str,
-}
-
-impl Lexer {
-    fn end_word(&mut self) {
-        if self.in_word {
-            self.words.push(std::mem::take(&mut self.cur));
-            self.in_word = false;
-        }
-    }
-
-    fn end_cmd(&mut self, next_sep: &'static str) {
-        self.end_word();
-        if !self.words.is_empty() {
-            self.out.push(Cmd {
-                sep: self.sep,
-                words: std::mem::take(&mut self.words),
-            });
-        }
-        self.sep = next_sep;
-    }
-
-    fn push(&mut self, c: char) {
-        self.cur.push(c);
-        self.in_word = true;
-    }
-}
-
-/// The separator a character starts outside quotes, if any, and its width.
-fn separator(c: char, next: Option<char>) -> Option<(&'static str, usize)> {
-    match (c, next) {
-        ('\n', _) => Some(("", 1)),
-        (';', _) => Some((";", 1)),
-        ('&', Some('&')) => Some(("&&", 2)),
-        ('|', Some('|')) => Some(("||", 2)),
-        _ => None,
-    }
-}
-
-/// Index of the last character of a comment that starts at `i`.
-fn comment_end(chars: &[char], mut i: usize) -> usize {
-    while i + 1 < chars.len() && chars[i + 1] != '\n' {
-        i += 1;
-    }
-    i
-}
-
-/// Turn a `run:` block into commands: `\`-newline continuations joined
-/// (including a final line ending in `\`), unquoted `#` comments stripped at
-/// the start of a word (inline or full line), quotes honoured, split on
-/// newline, `;`, `&&` and `||`.
-fn commands(run: &str) -> Vec<Cmd> {
-    let text = run.replace("\\\n", "");
-    let chars: Vec<char> = text.trim_end().trim_end_matches('\\').chars().collect();
-    let (mut lx, mut quote, mut i) = (Lexer::default(), None::<char>, 0);
-    while i < chars.len() {
-        let c = chars[i];
-        if let Some(q) = quote {
-            if c == q {
-                quote = None;
-            } else {
-                lx.cur.push(c);
-            }
-        } else if c == '\'' || c == '"' {
-            quote = Some(c);
-            lx.in_word = true;
-        } else if c == '#' && !lx.in_word {
-            i = comment_end(&chars, i);
-        } else if c == ' ' || c == '\t' {
-            lx.end_word();
-        } else if let Some((sep, width)) = separator(c, chars.get(i + 1).copied()) {
-            lx.end_cmd(sep);
-            i += width - 1;
-        } else {
-            lx.push(c);
-        }
-        i += 1;
-    }
-    lx.end_cmd("");
-    lx.out
-}
+ok "ci" "${{ needs.ci.result }}" || exit 1
+if [ "${{ needs.lockfile.result }}" != "success" ]; then
+  echo "lockfile preflight failed: ${{ needs.lockfile.result }}"
+  exit 1
+fi
+ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1
+ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
+ok "doctests" "${{ needs.doctests.result }}" || exit 1
+ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+if [ "${{ needs.spot-labels-guard.result }}" != "success" ]; then
+  echo "::error::spot-labels-guard: ${{ needs.spot-labels-guard.result }}"
+  exit 1
+fi
+# PMAT-542: dogfood-surface skips on its OWN condition, which is
+# `gates != none` rather than the class. Re-read the selection here
+# for the same reason `ok` re-reads the class: a skip is a claim until
+# the thing that decided it says so.
+case "${{ needs.dogfood-surface.result }}" in
+  success) echo "dogfood-surface: ran gates $GATES" ;;
+  skipped)
+    if [ "$CODE" != "true" ]; then
+      echo "dogfood-surface: skipped — the change touches nothing it reads"
+    elif [ "$GATES" = "none" ]; then
+      echo "dogfood-surface: NOT-SELECTED — this change can move neither gate C nor gate D; both are measured in full by make dogfood-release before the tag"
+    else
+      echo "::error::dogfood-surface was skipped while the selection says $GATES"
+      exit 1
+    fi
+    ;;
+  *)
+    echo "::error::dogfood-surface: ${{ needs.dogfood-surface.result }}"
+    exit 1
+    ;;
+esac
+echo "All required jobs passed"
+"####;
 
 fn steps(job: &Value) -> Vec<&Value> {
     job["steps"]
@@ -139,36 +158,12 @@ fn steps(job: &Value) -> Vec<&Value> {
         .map_or(vec![], |s| s.iter().collect())
 }
 
-fn run_commands(job: &Value) -> Vec<Cmd> {
-    steps(job)
-        .iter()
-        .flat_map(|s| commands(s["run"].as_str().unwrap_or("")))
-        .collect()
-}
-
-/// A `cargo test` command (no `--no-run`, no `--list`) that passes
-/// `--test <TARGET>`.
-fn is_target_cmd(c: &Cmd) -> bool {
-    let has = |s: &str| c.words.iter().any(|x| x == s);
-    c.words.starts_with(&["cargo".into(), "test".into()])
-        && !has("--no-run")
-        && !has("--list")
-        && c.words
-            .windows(2)
-            .any(|p| p[0] == "--test" && p[1] == TARGET)
-}
-
-/// `|| true`, `|| :` or `|| exit 0`: the command's failure is swallowed.
-fn swallows_failure(c: &Cmd) -> bool {
-    c.sep == "||" && (matches!(c.words[0].as_str(), "true" | ":") || c.words == ["exit", "0"])
-}
-
-/// Some(masked) when the step runs the target; `masked` is true when a
-/// failure of that command is swallowed.
-fn runs_target(step: &Value) -> Option<bool> {
-    let cmds = commands(step["run"].as_str().unwrap_or(""));
-    let i = cmds.iter().position(is_target_cmd)?;
-    Some(cmds.get(i + 1).is_some_and(swallows_failure))
+fn keys(step: &Value) -> Vec<String> {
+    step.as_mapping().map_or(vec![], |m| {
+        m.keys()
+            .filter_map(|k| k.as_str().map(String::from))
+            .collect()
+    })
 }
 
 fn wide_permissions(doc: &Value) -> bool {
@@ -220,6 +215,26 @@ fn check_job(doc: &Value, name: &str, want_if: Option<&str>, out: &mut Vec<Strin
     }
 }
 
+fn check_guard_step(ev: &Value, out: &mut Vec<String>) {
+    let guards: Vec<&Value> = steps(ev)
+        .into_iter()
+        .filter(|s| s["name"].as_str() == Some(GUARD_NAME))
+        .collect();
+    if guards.len() != 1 {
+        out.push(format!(
+            "examples-validate: guard step count {}",
+            guards.len()
+        ));
+        return;
+    }
+    if keys(guards[0]) != ["name", "run"] {
+        out.push("examples-validate: guard step keys".into());
+    }
+    if guards[0]["run"].as_str() != Some(GUARDS_RUN) {
+        out.push("examples-validate: guard run differs from the pinned script".into());
+    }
+}
+
 fn check_gate(gate: &Value, out: &mut Vec<String>) {
     let needs = gate["needs"].as_sequence().cloned().unwrap_or_default();
     for j in ["lockfile", "examples-validate"] {
@@ -233,34 +248,22 @@ fn check_gate(gate: &Value, out: &mut Vec<String>) {
     if gate.get("continue-on-error").is_some() {
         out.push("gate: continue-on-error".into());
     }
-    if steps(gate)
-        .iter()
-        .any(|s| s.get("if").is_some() || s.get("continue-on-error").is_some())
-    {
-        out.push("gate: step if or continue-on-error".into());
+    let st = steps(gate);
+    if st.len() != 1 {
+        out.push(format!("gate: step count {}", st.len()));
+        return;
     }
-    let cmds = run_commands(gate);
-    // `if [ "${{ needs.lockfile.result }}" != "success" ]; then ... exit 1`
-    let lock = cmds.iter().any(|c| {
-        let w: Vec<&str> = c
-            .words
-            .iter()
-            .map(String::as_str)
-            .skip_while(|x| *x == "if")
-            .collect();
-        w == ["[", LOCK, "!=", "success", "]"]
-    });
-    if !lock {
-        out.push("gate: does not read lockfile result".into());
+    if keys(st[0]) != ["name", "env", "run"] {
+        out.push("gate: step keys".into());
     }
-    // `ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1`
-    let ex = cmds.windows(2).any(|p| {
-        p[0].words == ["ok", "examples-validate", EXAMPLES]
-            && p[1].sep == "||"
-            && p[1].words == ["exit", "1"]
-    });
-    if !ex {
-        out.push("gate: does not read examples-validate result".into());
+    let mut env = serde_yaml_ng::Mapping::new();
+    env.insert("CODE".into(), "${{ needs.classify.outputs.code }}".into());
+    env.insert("GATES".into(), "${{ needs.classify.outputs.gates }}".into());
+    if st[0]["env"] != Value::Mapping(env) {
+        out.push("gate: step env".into());
+    }
+    if st[0]["run"].as_str() != Some(GATE_RUN) {
+        out.push("gate: run differs from the pinned script".into());
     }
 }
 
@@ -275,18 +278,8 @@ fn violations(ci: &str, lint: &str) -> Vec<String> {
             out.push(format!("{file}: workflow permissions"));
         }
     }
+    check_guard_step(&ci["jobs"]["examples-validate"], &mut out);
     check_gate(&ci["jobs"]["gate"], &mut out);
-    let ev = &ci["jobs"]["examples-validate"];
-    let runs: Vec<Option<bool>> = steps(ev)
-        .into_iter()
-        .filter(|s| s.get("if").is_none() && s.get("continue-on-error").is_none())
-        .map(runs_target)
-        .collect();
-    match runs.iter().flatten().next() {
-        None => out.push("examples-validate: does not run the target".into()),
-        Some(true) => out.push("examples-validate: target masked by || true".into()),
-        Some(false) => {}
-    }
     out
 }
 
@@ -297,6 +290,22 @@ fn the_light_jobs_are_hardened() {
         &read(".github/workflows/lint.yml"),
     );
     assert!(v.is_empty(), "{v:#?}");
+}
+
+/// The pinned literal itself runs this target as a plain `--test` line of its
+/// `cargo test` list, and reads both results with `exit 1` on failure.
+#[test]
+fn the_pinned_literals_say_what_this_pr_relies_on() {
+    let lines: Vec<&str> = GUARDS_RUN.lines().collect();
+    assert_eq!(lines[0], "cargo test --locked \\");
+    assert!(
+        lines.contains(&format!("--test {TARGET}").as_str()),
+        "target line missing"
+    );
+    assert!(GATE_RUN.contains("if [ \"${{ needs.lockfile.result }}\" != \"success\" ]; then\n  echo \"lockfile preflight failed: ${{ needs.lockfile.result }}\"\n  exit 1\nfi\n"));
+    assert!(GATE_RUN.contains(
+        "ok \"examples-validate\" \"${{ needs.examples-validate.result }}\" || exit 1\n"
+    ));
 }
 
 const SHA: &str = "3d3c42e5aac5ba805825da76410c181273ba90b1";
@@ -315,44 +324,54 @@ fn mutants() -> Vec<Mutant> {
     let lock_name = "    name: lockfile-preflight\n";
     let verify = "      - name: Verify Cargo.lock is committed and current\n";
     let ex = format!("      - uses: Actions/checkout@{SHA}\n");
-    let guards = "      - name: Integration guards (examples, orphans, undo, quorum gates, nightly, version)\n";
+    let guards = format!("      - name: {GUARD_NAME}\n");
     let host = "          --test falsification_pr_jobs_name_no_arm64_or_host";
     let last = format!("{host} \\\n          --test {TARGET}");
+    let first = "          cargo test --locked \\\n";
     let gate_step = "      - name: Check required jobs\n";
     let lock_if = "          if [ \"${{ needs.lockfile.result }}\" != \"success\" ]; then";
     let ex_ok =
         "          ok \"examples-validate\" \"${{ needs.examples-validate.result }}\" || exit 1";
+    let classify = "          if [ \"${{ needs.classify.result }}\" != \"success\" ]; then";
     let m = |n, f, o: &str, w: String, all, v| -> Mutant { (n, f, o.to_string(), w, all, v) };
-    let ci = "ci";
-    let li = "lint";
-    let run_t = "does not run the target";
+    let (ci, li) = ("ci", "lint");
+    let (g, s) = ("guard run differs", "gate: run differs");
     vec![
-        m("B1 lockfile if: false (bool)", ci, lock_name, format!("{lock_name}    if: false\n"), false, "lockfile: if"),
-        m("B1 file-health if: 0 (number)", li, "  file-health:\n    timeout-minutes: 15\n", "  file-health:\n    timeout-minutes: 15\n    if: 0\n".into(), false, "file-health: if"),
-        m("B1 examples-validate if loosened to bool", ci, "    if: needs.classify.outputs.code == 'true'\n    needs: classify\n    name: examples-validate", "    if: true\n    needs: classify\n    name: examples-validate".into(), false, "examples-validate: if"),
-        m("B2 target commented out (full line)", ci, &last, format!("{host}\n          # --test {TARGET}"), false, run_t),
-        m("B2 target commented out (inline #)", ci, &last, format!("{host} # --test {TARGET}"), false, run_t),
-        m("B2 target renamed (prefix match)", ci, &format!("--test {TARGET}"), format!("--test {TARGET}_noop"), false, run_t),
-        m("B2 target step disabled by if: false", ci, guards, format!("{guards}        if: false\n"), false, run_t),
-        m("B2 target removed from the list", ci, &last, host.into(), false, run_t),
-        m("B2 target passed to echo, not cargo", ci, &last, format!("{host}\n          echo --test {TARGET}"), false, run_t),
-        m("B2 cargo test --no-run", ci, "          cargo test --locked \\\n          --test examples_validate", "          cargo test --locked --no-run \\\n          --test examples_validate".into(), false, run_t),
-        m("B2 target masked by || true", ci, &last, format!("{host} \\\n          --test {TARGET} || true"), false, "masked by || true"),
-        m("B3 mixed-case second checkout", ci, verify, format!("{ex}{verify}"), false, "checkout count 2"),
-        m("B3 file-health persist-credentials as string", li, "persist-credentials: false", "persist-credentials: \"false\"".into(), false, "file-health: persist-credentials"),
-        m("B3 lockfile persist-credentials true", ci, "        with:\n          persist-credentials: false\n      - name: Verify Cargo.lock", "        with:\n          persist-credentials: true\n      - name: Verify Cargo.lock".into(), false, "lockfile: persist-credentials"),
-        m("perm file-health widened", li, "      contents: read\n", "      contents: write\n".into(), false, "file-health: permissions"),
-        m("perm workflow-level write-all", ci, "\nconcurrency:\n", "\npermissions: write-all\n\nconcurrency:\n".into(), false, "ci.yml: workflow permissions"),
-        m("coe job-level", ci, lock_name, format!("{lock_name}    continue-on-error: true\n"), false, "lockfile: continue-on-error (job)"),
-        m("coe step-level", ci, verify, format!("{verify}        continue-on-error: true\n"), false, "lockfile: continue-on-error (step)"),
+        m("lockfile if: false (bool)", ci, lock_name, format!("{lock_name}    if: false\n"), false, "lockfile: if"),
+        m("file-health if: 0 (number)", li, "  file-health:\n    timeout-minutes: 15\n", "  file-health:\n    timeout-minutes: 15\n    if: 0\n".into(), false, "file-health: if"),
+        m("examples-validate if loosened to bool", ci, "    if: needs.classify.outputs.code == 'true'\n    needs: classify\n    name: examples-validate", "    if: true\n    needs: classify\n    name: examples-validate".into(), false, "examples-validate: if"),
+        m("mixed-case second checkout", ci, verify, format!("{ex}{verify}"), false, "checkout count 2"),
+        m("file-health persist-credentials as string", li, "persist-credentials: false", "persist-credentials: \"false\"".into(), false, "file-health: persist-credentials"),
+        m("lockfile persist-credentials true", ci, "        with:\n          persist-credentials: false\n      - name: Verify Cargo.lock", "        with:\n          persist-credentials: true\n      - name: Verify Cargo.lock".into(), false, "lockfile: persist-credentials"),
+        m("file-health permissions widened", li, "      contents: read\n", "      contents: write\n".into(), false, "file-health: permissions"),
+        m("workflow-level write-all", ci, "\nconcurrency:\n", "\npermissions: write-all\n\nconcurrency:\n".into(), false, "ci.yml: workflow permissions"),
+        m("continue-on-error on a job", ci, lock_name, format!("{lock_name}    continue-on-error: true\n"), false, "lockfile: continue-on-error (job)"),
+        m("continue-on-error on a step", ci, verify, format!("{verify}        continue-on-error: true\n"), false, "lockfile: continue-on-error (step)"),
         m("gate drops lockfile from needs", ci, "needs: [classify, ci, lockfile, ", "needs: [classify, ci, ".into(), false, "gate: does not need lockfile"),
-        m("gate stops reading lockfile result", ci, "needs.lockfile.result", "needs.classify.result".into(), true, "gate: does not read lockfile result"),
-        m("gate stops reading examples-validate result", ci, "needs.examples-validate.result", "needs.classify.result".into(), true, "gate: does not read examples-validate result"),
-        m("gate lockfile result only in an inline comment", ci, lock_if, format!("          if true; then # [ \"{LOCK}\" != \"success\" ]"), false, "gate: does not read lockfile result"),
-        m("gate examples-validate result only in an inline comment", ci, ex_ok, format!("          true # ok \"examples-validate\" \"{EXAMPLES}\" || exit 1"), false, "gate: does not read examples-validate result"),
-        m("gate step continue-on-error", ci, gate_step, format!("{gate_step}        continue-on-error: true\n"), false, "gate: step if or continue-on-error"),
-        m("gate step if: false", ci, gate_step, format!("{gate_step}        if: false\n"), false, "gate: step if or continue-on-error"),
         m("gate if: false", ci, "    if: always()\n", "    if: false\n".into(), false, "gate: if"),
+        m("gate job continue-on-error", ci, "    if: always()\n", "    if: always()\n    continue-on-error: true\n".into(), false, "gate: continue-on-error"),
+        m("gate step continue-on-error", ci, gate_step, format!("{gate_step}        continue-on-error: true\n"), false, "gate: step keys"),
+        m("gate step if: false", ci, gate_step, format!("{gate_step}        if: false\n"), false, "gate: step keys"),
+        m("gate step env changed", ci, "CODE: ${{ needs.classify.outputs.code }}", "CODE: 'true'".into(), false, "gate: step env"),
+        m("guard step if: false", ci, &guards, format!("{guards}        if: false\n"), false, "guard step keys"),
+        m("guard step continue-on-error", ci, &guards, format!("{guards}        continue-on-error: true\n"), false, "examples-validate: continue-on-error (step)"),
+        m("target removed from the list", ci, &last, host.into(), false, g),
+        m("target in an inline # comment", ci, &last, format!("{host} # --test {TARGET}"), false, g),
+        m("target in a full-line comment", ci, &last, format!("{host}\n          # --test {TARGET}"), false, g),
+        m("target renamed (prefix match)", ci, &format!("--test {TARGET}"), format!("--test {TARGET}_noop"), false, g),
+        m("target passed to echo, not cargo", ci, &last, format!("{host}\n          echo --test {TARGET}"), false, g),
+        m("cargo test --no-run", ci, first, "          cargo test --locked --no-run \\\n".into(), false, g),
+        m("target masked by || true", ci, &last, format!("{host} \\\n          --test {TARGET} || true"), false, g),
+        m("newline after ||", ci, &last, format!("{host} \\\n          --test {TARGET} ||\n          true"), false, g),
+        m("backslash-quote trick", ci, first, "          cargo test --locked \\\n          --test \"x\\\" \\\n".into(), false, g),
+        m("true || prefix", ci, first, "          true || cargo test --locked \\\n".into(), false, g),
+        m("if false wrap", ci, first, "          if false; then cargo test --locked \\\n".into(), false, g),
+        m("set +e in the guard step", ci, first, format!("          set +e\n{first}"), false, g),
+        m("lockfile result only in a comment", ci, lock_if, "          if true; then # [ \"${{ needs.lockfile.result }}\" != \"success\" ]".into(), false, s),
+        m("examples-validate result only in a comment", ci, ex_ok, "          true # ok examples-validate".into(), false, s),
+        m("examples-validate exit 1 deleted", ci, ex_ok, "          ok \"examples-validate\" \"${{ needs.examples-validate.result }}\"".into(), false, s),
+        m("set +e in gate", ci, classify, format!("          set +e\n{classify}"), false, s),
+        m("gate echo All required jobs passed moved before checks", ci, classify, format!("          echo All required jobs passed\n{classify}"), false, s),
     ]
 }
 
@@ -363,7 +382,7 @@ fn every_mutant_is_refused() {
         read(".github/workflows/lint.yml"),
     );
     let table = mutants();
-    assert!(table.len() >= 10, "{} mutants", table.len());
+    assert!(table.len() >= 30, "{} mutants", table.len());
     for (name, file, old, new, all, want) in table {
         let src = if file == "ci" { &ci } else { &lint };
         let n = src.matches(old.as_str()).count();
@@ -385,29 +404,23 @@ fn every_mutant_is_refused() {
     }
 }
 
-/// Each control sits next to a real check: the thing it changes is present,
-/// and the checker must still accept the tree.
+/// With exact equality any change to a pinned script is red, so the only
+/// controls are YAML-level: a YAML comment, and the words continue-on-error in
+/// another step's `name:`.
 #[test]
-fn comments_and_names_next_to_real_checks_are_accepted() {
+fn yaml_level_edits_next_to_real_checks_are_accepted() {
     let (ci, lint) = (
         read(".github/workflows/ci.yml"),
         read(".github/workflows/lint.yml"),
     );
-    let last =
-        format!("--test falsification_pr_jobs_name_no_arm64_or_host \\\n          --test {TARGET}");
-    let edits: [(&str, String); 3] = [
-        // the target is also named in an inline comment on the line that really runs it
-        (&last, format!("{last} # --test {TARGET}")),
-        // the words continue-on-error sit in a step name
+    let edits: [(&str, String); 2] = [
         (
             "      - name: Integration guards (examples,",
-            "      - name: Integration guards (continue-on-error is not set; examples,".into(),
+            "      # a YAML comment: continue-on-error is not set here\n      - name: Integration guards (examples,".into(),
         ),
-        // a shell comment inside a run block says continue-on-error
         (
-            "        run: cargo package --locked --no-verify --workspace",
-            "        run: cargo package --locked --no-verify --workspace # no continue-on-error"
-                .into(),
+            "      - name: Verify Cargo.lock is committed and current\n",
+            "      - name: Verify Cargo.lock is committed and current (no continue-on-error)\n".into(),
         ),
     ];
     for (old, new) in edits {
@@ -417,29 +430,4 @@ fn comments_and_names_next_to_real_checks_are_accepted() {
             "{old}"
         );
     }
-}
-
-#[test]
-fn the_script_reader_splits_what_the_shell_splits() {
-    let words = |s: &str| {
-        commands(s)
-            .into_iter()
-            .map(|c| (c.sep, c.words.join(" ")))
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(
-        words("a \\\n  b # c\n# d\ne;f && g || h"),
-        [
-            ("", "a b".into()),
-            ("", "e".into()),
-            (";", "f".into()),
-            ("&&", "g".into()),
-            ("||", "h".into())
-        ]
-    );
-    assert_eq!(
-        words("echo \"a # b\" 'c;d'"),
-        [("", "echo a # b c;d".into())]
-    );
-    assert_eq!(words("cargo test \\"), [("", "cargo test".into())]);
 }
