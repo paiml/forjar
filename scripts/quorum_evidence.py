@@ -31,7 +31,8 @@ FILE_MAX, TOTAL_MAX, ITEM_MIN, ANCHOR_MIN = 128 * 1024, 512 * 1024, 180, 0.33
 # truncation tell, not a coincidence -- 18 of 43 quotes in the first digest were
 # exactly 600 bytes.
 TRUNC_BUDGETS = (200, 300, 400, 500, 600, 800, 1000, 1200, 1400, 1500, 2000, 4000)
-ROLES = {"claims", "lanes", "judges", "agy", "pmat", "proposals", "crux"}
+ROLES = {"claims", "lanes", "judges", "agy", "pmat", "proposals", "crux",
+         "claims-blind", "canary-plan", "judge-verdicts"}
 
 SEC_RE = re.compile(r"(?m)^#{2,4}\s+(CONFIRMED|REFUTED)\b")
 ITEM_RE = re.compile(r"(?m)^(?=\d+\.\s+\[)")

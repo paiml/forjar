@@ -8586,6 +8586,26 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1170
+  github_issue: 1170
+  item_type: task
+  title: 'release gate: a second receipt shape for clean quorum rounds, proved by a blind planted-defect canary'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - claims_refuted >= 1 stays the floor; a round that refuted 0 claims passes only with a quorum.canary block of >= 2 planted false claims, each refuted by a computed judge majority and falsified by an added line of the reviewed diff, with blind-form evidence hashed into the receipt
+  - Earlier 0-refuted receipts are not grandfathered and every receipt on main keeps its verdict
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1179
   github_issue: 1179
   item_type: task

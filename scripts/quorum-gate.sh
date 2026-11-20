@@ -442,6 +442,7 @@ fi
 # required to be one of them (see the free-rider defence below).
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
+QUORUM_RECEIPT_LIB="$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh" \
 python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
 import json, os, subprocess, sys
 
@@ -550,7 +551,17 @@ if refuted_texts and len(refuted_texts) != refuted:
     die(f"claims_refuted={refuted} but {len(refuted_texts)} refuted_claims listed -- "
         "the tally and the text disagree")
 
-if refuted == 0 and not q.get("refutation_waived"):
+if refuted == 0 and "canary" in q and not q.get("refutation_waived"):
+    # PMAT-1170: the second shape. The one predicate in lib/receipt.sh decides,
+    # so this gate and gates E and R cannot drift apart on what a canary is.
+    cp = subprocess.run(
+        ["bash", "-c", '. "$1"; dogfood_canary_status "$(cat "$2")" "$3"',
+         "canary", os.environ["QUORUM_RECEIPT_LIB"], path, pushed],
+        capture_output=True, text=True)
+    if cp.returncode != 0 or cp.stdout.strip() != "ok":
+        die("the quorum refuted nothing and its quorum.canary block is refused: "
+            + (cp.stdout.strip() or cp.stderr.strip() or "no answer"))
+elif refuted == 0 and not q.get("refutation_waived"):
     die("""the quorum refuted NOTHING.
   Every claim survived, which usually means the refuters were not adversarial.
   If that is genuinely the result, set quorum.refutation_waived to a reason

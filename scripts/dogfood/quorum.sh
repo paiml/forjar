@@ -28,6 +28,8 @@
 #   quorum.refuters_per_claim >= 3 — a claim one refuter failed to kill is a
 #                                  claim that met one refuter.
 #   quorum.claims_refuted >= 1   — a round that killed nothing did not hunt.
+#                                  OR a verified `quorum.canary` block (PMAT-1170): a clean
+#                                  round that caught >= 2 blind planted false claims.
 #                                  This is the anti-vacuity floor: a receipt
 #                                  recording 60 confirmations and 0 refutations
 #                                  is the shape of a quorum that never ran.
@@ -101,6 +103,7 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   if [ "$jrc" -ne 0 ]; then
     fail "PR #${num}: ${receipt} is not readable as the JSON this gate checks (jq exit ${jrc}) — UNMEASURED, and an unreadable receipt is not a passed quorum"
   fi
+  why="$(dogfood_receipt_resolve "$why" "$text" HEAD)"
   if [ "$why" != "ok" ]; then
     fail "PR #${num}: ${receipt} ${why}"
   fi
