@@ -1,7 +1,7 @@
 {
   "kind": "code",
   "issue": "forjar#1201 post-merge review round (backfill, agy gemini-4-neon-high)",
-  "branch": "chore-postmerge-receipts-gh1176-1178",
+  "branch": "chore/postmerge-receipts-gh1176-1178",
   "reviewed_after_merge": true,
   "reviewed_at": "2026-11-19T20:25:14Z",
   "head": "4e3cf5ce04821f765a59fc8b4c5fc761239855cf",
@@ -25,7 +25,7 @@
     "claims_confirmed": 74,
     "claims_refuted": 1,
     "refuted_claims": [
-      "3.27 (3 of 3 judges): 27. kind=DEFECT; evidence docs/specifications/quorum-spec.md:188-190 `**Kill rule: any un-countered substantive objection kills the claim.** Not a vote. This started as \"≥2 of 3 refute it\" and an outside review was right to reject that`, .quorum/feat-894-pool-interruption-orphans.json:15,28 `\"a claim is refuted when at least 2 of 3 judges voted REFUTED\"` / `\"claims_confirmed\": 48`, and .quorum/evidence/PR-1140-judg"
+      "3.27 (3 of 3 judges): 27. kind=DEFECT; evidence docs/specifications/quorum-spec.md:188-190 `**Kill rule: any un-countered substantive objection kills the claim.** Not a vote. This started as \"≥2 of 3 refute it\" and an outside review was right to reject that`, .quorum/feat-894-pool-interruption-orphans.json:15,28 `\"a claim is refuted when at least 2 of 3 judges voted REFUTED\"` / `\"claims_confirmed\": 48`, and .quorum/evidence/PR-1140-judge-1.json:270, PR-1140-judge-2.json:270, PR-1140-judge-3.json:269-270 `\"verdict\": \"REFUTED\"` / `src/core/pool_interruption.rs at 26decafc has 8 '#[test]' ... not the lane's '7 tests, l.87-156'`; all 6 receipts apply the 2-of-3 majority-vote kill rule explicitly rejected by `quorum-spec.md`, causing PR #1140 `(lane 3, claim 11)` — whose stated test count was proved false by all 3 refuters and voted `REFUTED` by Judge 3 — to be counted in `claims_confirmed: 48` and omitted from `refuted_claims`."
     ]
   },
   "evidence": {
@@ -62,9 +62,9 @@
         "roles": [
           "note"
         ],
-        "blob": "8759ad48ae2724c9403b419eaa64b8174434efea",
-        "sha256": "451ef30c17932f10b158f446c6e12a0b5f1677a2aa304d34534d1bafe0b2349b",
-        "bytes": 345
+        "blob": "ad239d9f7745a5a85c30a32ed2b3ec083a60b65c",
+        "sha256": "05939d001337900a11dfec67b1da4d96ccb479317bef6ce2e0d15d3332aef275",
+        "bytes": 360
       }
     ]
   }

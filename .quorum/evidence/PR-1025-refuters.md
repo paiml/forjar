@@ -476,4 +476,4 @@ refuter: 3
 reviewer_model: gemini-4-neon-high
 
 === refuter 2 first attempts (invalid JSON, not used) ===
-see AGY-refuter-2.out and AGY-refuter-2.try1.out in round dir
+see PR-1025-round-note.md; the two first attempts are not committed

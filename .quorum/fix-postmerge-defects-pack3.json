@@ -25,7 +25,7 @@
     "claims_confirmed": 50,
     "claims_refuted": 1,
     "refuted_claims": [
-      "1.15 (3 of 3 judges): kind=BODY; TRUE; evidence `src/tripwire/drift/version_pin.rs:49,63-70,138-154,241-269` (`pub use super::semver::{parse_semver, parse_semver_span, Semver};`, `Pin::Version(Semver)`, `Live::Version(Semver)`); the drift detector (`version_pin`) still compares only `N.N.N` (`Semver`), and this PR change"
+      "1.15 (3 of 3 judges): kind=BODY; TRUE; evidence `src/tripwire/drift/version_pin.rs:49,63-70,138-154,241-269` (`pub use super::semver::{parse_semver, parse_semver_span, Semver};`, `Pin::Version(Semver)`, `Live::Version(Semver)`); the drift detector (`version_pin`) still compares only `N.N.N` (`Semver`), and this PR changes only the check script in `github_release_check.rs` plus the `parse_semver_span` re-export."
     ]
   },
   "evidence": {

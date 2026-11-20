@@ -25,7 +25,7 @@
     "claims_confirmed": 57,
     "claims_refuted": 1,
     "refuted_claims": [
-      "3.9 (3 of 3 judges): kind=BODY; verdict=UNVERIFIED; evidence [PR_BODY.md](<review-round>/PR_BODY.md#L18-L24) `\"author-reported from a run on a separate build host; no log attached, and no CI check at ee66a4a shows these results\"`; author-reported executi"
+      "3.9 (3 of 3 judges): kind=BODY; verdict=UNVERIFIED; evidence [PR_BODY.md](<review-round>/PR_BODY.md#L18-L24) `\"author-reported from a run on a separate build host; no log attached, and no CI check at ee66a4a shows these results\"`; author-reported execution results for `falsification_chrono_0543_ignore_is_bounded` (9 tests), `core::resolver` (201 tests), `core::pool_plan` (18 tests), `cargo fmt --all -- --check`, pre-fix red failures, and 3/3 + 5/5 mutant kills have no attached logs or CI output (though the static `#[test]` counts 9, 201, and 18 match the merge tree)."
     ]
   },
   "evidence": {

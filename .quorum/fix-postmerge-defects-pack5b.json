@@ -25,8 +25,8 @@
     "claims_confirmed": 76,
     "claims_refuted": 2,
     "refuted_claims": [
-      "1.24 (3 of 3 judges): kind=DEFECT; evidence `src/core/pool_orphans_tests.rs:138` (`assert_eq!(s.unknown_runners.len(), 2);`); the only test in the suite where `unknown_runners` is non-empty checks only `.len() == 2`, never asserting the actual `(runner_name, host_id)` pairs or order, so swapping `(r.name, r.host_id)` or ",
-      "3.8 (3 of 3 judges): kind=BODY; UNVERIFIED; evidence `src/core/pool_orphans_tests.rs:28-249`, `src/resources/cloud_instance/*.rs`, `src/resources/tests_package*.rs` (`PR_BODY.md:20-21`: `\"pool_orphans: 21 passed. cloud_instance: 133 passed. resources::tests_package (includes tests_package_c): 100 passed.\"`); static `#[t"
+      "1.24 (3 of 3 judges): kind=DEFECT; evidence `src/core/pool_orphans_tests.rs:138` (`assert_eq!(s.unknown_runners.len(), 2);`); the only test in the suite where `unknown_runners` is non-empty checks only `.len() == 2`, never asserting the actual `(runner_name, host_id)` pairs or order, so swapping `(r.name, r.host_id)` or returning corrupted strings in `src/core/pool_orphans.rs:141` passes all tests.",
+      "3.8 (3 of 3 judges): kind=BODY; UNVERIFIED; evidence `src/core/pool_orphans_tests.rs:28-249`, `src/resources/cloud_instance/*.rs`, `src/resources/tests_package*.rs` (`PR_BODY.md:20-21`: `\"pool_orphans: 21 passed. cloud_instance: 133 passed. resources::tests_package (includes tests_package_c): 100 passed.\"`); static `#[test]` counts match exactly (21, 133, 100), but actual `cargo test` execution and pass results at commit `56ecdf0` are unverified in this read-only review with no attached logs."
     ]
   },
   "evidence": {

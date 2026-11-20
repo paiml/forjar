@@ -27,8 +27,8 @@
     "refuted_claims": [
       "1.2 (lane 1 BODY): body line 6 strict ISO-8601 UTC validation is TRUE without caveat; launch_io.rs:106-107 sequential %Z/%+00:00 stripping accepts double-suffix timestamps",
       "2.7 (lane 2, 2 of 3 judges): exit-0 state read returning empty or None sets cls=nf (launch_io.rs:115,126-135), outside the six known states",
-      "2.22 (lane 2): byte-identical test userdata.rs:176-184 does not pin launch-capacity-unavailable in launch_io",
-      "3.7 (lane 3): body table does not match all 10 mappings; under set -eu a failing cut aborts before cls=nf (launch_io.rs:137-138)"
+      "2.22 (lane 2): no test asserts that stderr contains launch-capacity-unavailable (launch_io.rs:143), so deleting or corrupting it passes the whole suite; refuted by userdata.rs:176-184 with userdata_today.txt:86, where unset_script_is_byte_identical_to_today pins that token",
+      "3.7 (lane 3): PR body line 21 claims exit 1 with launch-token-derive-failed when the token derivation fails; under set -eu a failing cut aborts first (launch_io.rs:137-138, mod.rs:452), so the body table does not match all 10 mappings"
     ]
   },
   "evidence": {
@@ -47,9 +47,9 @@
         "roles": [
           "agy"
         ],
-        "blob": "3d0ccdccf56b33a3edea0a8242a1d94a09a0af8d",
-        "sha256": "df5bc9fcb2af8af7b0f92a391503e702a56c05f74fc9915cbfe157786cdb7b36",
-        "bytes": 63977
+        "blob": "fec90bdc03074a513dd7089ebc5167b4f2cfd1bd",
+        "sha256": "ef20ca1b9e25c9d2ba0b114a0effd12ada9169d6beee9a76a0e2aae4a391fefa",
+        "bytes": 63973
       },
       {
         "path": ".quorum/evidence/PR-1146-judges.md",

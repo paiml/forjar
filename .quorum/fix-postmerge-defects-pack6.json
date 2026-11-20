@@ -25,7 +25,7 @@
     "claims_confirmed": 73,
     "claims_refuted": 1,
     "refuted_claims": [
-      "3.21 (3 of 3 judges): kind=DEFECT; evidence `src/resources/cloud_instance/userdata.rs:181` (`assert_eq!(count(&log, \"--user-data file:///\"), 1, \"{log}\");`); loosened test assertion \u2014 replacing `count(&log, &format!(\"--user-data file://{path} \"))` with `count(&log, \"--user-data file:///\")` no longer verifies that `run-ins"
+      "3.21 (3 of 3 judges): kind=DEFECT; evidence `src/resources/cloud_instance/userdata.rs:181` (`assert_eq!(count(&log, \"--user-data file:///\"), 1, \"{log}\");`); loosened test assertion — replacing `count(&log, &format!(\"--user-data file://{path} \"))` with `count(&log, \"--user-data file:///\")` no longer verifies that `run-instances` received a path distinct from the declared `{path}` (which also begins with `/`)."
     ]
   },
   "evidence": {

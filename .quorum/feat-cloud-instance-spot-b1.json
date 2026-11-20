@@ -35,18 +35,18 @@
         "roles": [
           "lanes"
         ],
-        "blob": "187b89feb5ebb73cfb23bea7b5b6d58130e129d6",
-        "sha256": "20c3466d711dd1989bee3b4f171de10890169cd65ec606c5b78d473bc72d939e",
-        "bytes": 82247
+        "blob": "d4bdfc3d08e4347019961bde892786397f4ce4d1",
+        "sha256": "0a2312e7456700ac2cb0c4f0df5cee952c6e0301242421f17ed37b979ed960fd",
+        "bytes": 41161
       },
       {
         "path": ".quorum/evidence/PR-1025-refuters.md",
         "roles": [
           "agy"
         ],
-        "blob": "234b9ddcebdca78ccd1784e248d09f039c95215e",
-        "sha256": "3580b8da8bebd3d64c38cfc58771e7949c7d8f7570b2316ca4c96d3d6fe1d166",
-        "bytes": 57125
+        "blob": "3c29534cd450c9a82efcb6599895f7520d96ef2d",
+        "sha256": "3dbdff96c90a99dcf91aa528f1847fa32452b195b7a217248c100d58beae90bb",
+        "bytes": 57131
       },
       {
         "path": ".quorum/evidence/PR-1025-judges.md",
@@ -62,9 +62,9 @@
         "roles": [
           "note"
         ],
-        "blob": "d0703dbc3702fb2a17ee5433c828bafa8332591b",
-        "sha256": "0d2f3ba235d1fb061a4ada7cc88182a88dbfe6ead5c0e19478e0e497fbbd8dad",
-        "bytes": 1264
+        "blob": "8fa550988b3270ae2a4f43e91fcb23982f0c84b7",
+        "sha256": "7202f8c331a39c90a767c43a52b9b6f03788169b6ecedc3d824bd8aa8297060d",
+        "bytes": 1143
       }
     ]
   }
