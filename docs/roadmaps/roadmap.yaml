@@ -8738,3 +8738,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1230
+  github_issue: 1230
+  item_type: task
+  title: 'main red: golden desired-state hash not repinned after #1227 added Resource.network'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - core::planner::tests_hash::test_golden_hash_pinned_value passes on main
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

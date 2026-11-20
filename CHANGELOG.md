@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Upgrade note: the canonical desired-state hash moved again (PMAT-1143, PR #1227; repinned by PMAT-1230).**
+`Resource` gained `network` (the docker `--network` mode). `Resource` has no `skip_serializing_if`, so the field serialises as `~` on every resource and every recorded lock hash stops matching: each resource replans as `Update` once after upgrading, then converges. A one-time fleet re-converge, same class as the PMAT-560 and #406 moves.
+
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
