@@ -37,6 +37,7 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
@@ -368,4 +369,84 @@ fn state_query_excludes_fields_that_change_on_their_own() {
         q.contains("State.Running"),
         "the observable must still notice a container that stopped:\n{q}"
     );
+}
+
+// ---- #1143: completion_check is executed; --network can be declared ----
+
+#[test]
+fn test_gh1143_apply_with_network() {
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.network = Some("host".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("--network 'host'"), "{script}");
+}
+
+#[test]
+fn test_gh1143_apply_without_network_emits_none() {
+    let r = make_docker_resource("web", "nginx:latest");
+    assert!(!apply_script(&r).contains("--network"));
+}
+
+#[test]
+fn test_gh1143_network_value_is_quoted() {
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.network = Some("a'; rm -rf /; '".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("--network 'a'\\''; rm -rf /; '\\'''"),
+        "{script}"
+    );
+}
+
+#[test]
+fn test_gh1143_check_asserts_network_mode() {
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.network = Some("host".to_string());
+    let script = check_script(&r);
+    assert!(script.contains("NetworkMode"), "{script}");
+    assert!(script.contains("host"), "{script}");
+}
+
+#[test]
+fn test_gh1143_check_runs_completion_check() {
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.completion_check = Some("curl -fs localhost:8080/health".to_string());
+    let script = check_script(&r);
+    assert!(
+        script.contains("curl -fs localhost:8080/health"),
+        "{script}"
+    );
+    assert!(script.contains("task=pending"), "{script}");
+}
+
+#[test]
+fn test_gh1143_check_blank_completion_check_asserts_nothing() {
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.completion_check = Some("  ".to_string());
+    assert_eq!(
+        check_script(&r),
+        check_script(&make_docker_resource("web", "nginx:latest"))
+    );
+}
+
+#[test]
+fn test_gh1143_completion_check_failing_is_diverged() {
+    // The shell verdict, not just the text: a failing check must exit non-zero.
+    let mut r = make_docker_resource("web", "nginx:latest");
+    r.completion_check = Some("false".to_string());
+    let script = format!("docker() {{ return 0; }}\n{}", check_script(&r));
+    let status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&script)
+        .status()
+        .unwrap();
+    assert!(!status.success());
+    r.completion_check = Some("true".to_string());
+    let script = format!("docker() {{ return 0; }}\n{}", check_script(&r));
+    let status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&script)
+        .status()
+        .unwrap();
+    assert!(status.success());
 }

@@ -37,6 +37,7 @@ fn make_service_resource(name: &str, state: &str) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
