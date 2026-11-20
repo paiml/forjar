@@ -1,0 +1,63 @@
+{
+  "kind": "code",
+  "issue": "forjar#1152 release: prepare v1.34.2 (version bump, changelog, crux audit, release row)",
+  "branch": "release/v1.34.2",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T19:45:06Z",
+  "head": "4c602d17f06906aeacd9fe71a325bf605d962ab8",
+  "merge_commit": "1fbf561381e8fd92f05d8157200aff5c26a4908a",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1: 25 claims",
+      "agy gemini-4-neon-high lane 2: 19 claims",
+      "agy gemini-4-neon-high lane 3: 19 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 61,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "1.6 (lane 1 BODY, 3 of 3 judges): PR body line 8 \"the rest are one line each\" and CHANGELOG.md:77 \"one line each\" are false; CHANGELOG.md:79-87 packs the 28 remaining PRs into 9 multi-PR category bullets",
+      "3.4 (lane 3, 3 of 3 judges): claim marking PR_BODY.md:8 TRUE is wrong; CHANGELOG.md:79-87 groups 28 PRs into 9 multi-PR bullets, not one line each"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1152-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "b186ba382eed1758fe31723c4d65511a958d97f0",
+        "sha256": "97bd2115f3f3281e2271e70ed21c19bc9c5ade4ba2379401f9b014dffd7dcd4d",
+        "bytes": 30396
+      },
+      {
+        "path": ".quorum/evidence/PR-1152-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "2b180782c5e0396ada76ef50c85c6d794f4cf1cd",
+        "sha256": "2651ae90351a9d49a5e48c381576ece8be2c62d85129ed2a485dcf66408498e7",
+        "bytes": 57964
+      },
+      {
+        "path": ".quorum/evidence/PR-1152-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "28c7df942a89b3156fb0cb42e12e741a43e6c3cf",
+        "sha256": "209461a5eca8eea21aaab53b13b1a2e1ed6f19a6532442d414776b6348deb977",
+        "bytes": 51432
+      }
+    ]
+  }
+}

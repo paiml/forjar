@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "fix(cloud): post-merge review defects pack 6 (PMAT-1180, PMAT-1181, PMAT-1182) (forjar#1207)",
+  "branch": "fix/postmerge-defects-pack6",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T19:40:31Z",
+  "head": "b7daf1bf22c6fb991619aab51c48c1c8848e9720",
+  "merge_commit": "56b8abd1bdf8285daf0266acd088f024b3b669bf",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 24 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 28 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 22 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 73,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "3.21 (3 of 3 judges): kind=DEFECT; evidence `src/resources/cloud_instance/userdata.rs:181` (`assert_eq!(count(&log, \"--user-data file:///\"), 1, \"{log}\");`); loosened test assertion — replacing `count(&log, &format!(\"--user-data file://{path} \"))` with `count(&log, \"--user-data file:///\")` no longer verifies that `run-instances` received a path distinct from the declared `{path}` (which also begins with `/`)."
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1207-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "ebf0e030e8078ef4005ab522b9c8bf1454c1ad96",
+        "sha256": "534614fdbe1194e4275ee7fc3464f623b8af7d4c964bf2d2d09418061d57181e",
+        "bytes": 37579
+      },
+      {
+        "path": ".quorum/evidence/PR-1207-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "37145b61b31a6eba9e089f80c14c2a0b621b9dc7",
+        "sha256": "7476df24cde9d966620c451bfa670cc89896f05012b594afc85e13c4b9edb558",
+        "bytes": 61564
+      },
+      {
+        "path": ".quorum/evidence/PR-1207-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "b59e4f26d187f641063d2fff75ec0fe6ee05cf79",
+        "sha256": "a31bdafc26ad5e5f0c5402642bcd4e1c5d8f6eb46204fd6842ae8b1c7ed57ce4",
+        "bytes": 60132
+      }
+    ]
+  }
+}
