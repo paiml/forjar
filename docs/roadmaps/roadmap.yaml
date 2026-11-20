@@ -8547,3 +8547,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1169
+  github_issue: 1169
+  item_type: task
+  title: 'post-merge review receipts for the v1.34.2 window, batch 4 of 6'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Post-merge non-author review receipts for 12 merged PRs (1025, 1118, 1146, 1152, 1175, 1201, 1202, 1204, 1205, 1207, 1209, 1211) are committed under .quorum/, each bound to its merge commit and passing dogfood_receipt_status
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764

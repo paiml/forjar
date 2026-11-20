@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "fix: post-merge review defects pack 4 (PMAT-1183, PMAT-1184, PMAT-1193) (forjar#1205)",
+  "branch": "fix/postmerge-defects-pack4",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T19:40:31Z",
+  "head": "4465efd1cff5eeb99fdd105e7f854396fac2a6e9",
+  "merge_commit": "6e7f6d704c717db80669296b9086717567dd0e86",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 19 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 22 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 17 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 57,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "3.9 (3 of 3 judges): kind=BODY; verdict=UNVERIFIED; evidence [PR_BODY.md](<review-round>/PR_BODY.md#L18-L24) `\"author-reported from a run on a separate build host; no log attached, and no CI check at ee66a4a shows these results\"`; author-reported executi"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1205-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "91504a50770b7e0c7b7380ffa1bfecd92ae800f8",
+        "sha256": "8e37c83dce4f0fe2b6d8f4aea1a5fd0b8d5e011d2a93fbd8e712ee3375bf5880",
+        "bytes": 32551
+      },
+      {
+        "path": ".quorum/evidence/PR-1205-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "0d7c09dfabe3f7c0775fd20f4c9596fffffb8750",
+        "sha256": "422025aa80c3d8e5aabfe91d3604b5c93758738e939547142c576945f364d422",
+        "bytes": 53151
+      },
+      {
+        "path": ".quorum/evidence/PR-1205-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "0bd94636a4f2c2eea8eee7fd4d6bef8a90ae110c",
+        "sha256": "b75e39daa2a3cfd50ea9ceb3dfad7283b885dd8a3ea8e5869feff871a847d89d",
+        "bytes": 47955
+      }
+    ]
+  }
+}

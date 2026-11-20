@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "fix(resources): post-merge review defects pack 3 (PMAT-1189, PMAT-1190, PMAT-1198) (forjar#1204)",
+  "branch": "fix/postmerge-defects-pack3",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T19:40:31Z",
+  "head": "eac09554f9ab3cd1878f58531a132f0b74c06746",
+  "merge_commit": "bf9fd8e34380f8428d0a25fbf3510b259b32715f",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 16 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 17 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 18 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 50,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "1.15 (3 of 3 judges): kind=BODY; TRUE; evidence `src/tripwire/drift/version_pin.rs:49,63-70,138-154,241-269` (`pub use super::semver::{parse_semver, parse_semver_span, Semver};`, `Pin::Version(Semver)`, `Live::Version(Semver)`); the drift detector (`version_pin`) still compares only `N.N.N` (`Semver`), and this PR change"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1204-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "e1ba7cc5d0d5bce305832626890d75f0824108f8",
+        "sha256": "4cfad9524831d936cdbbdfc629881fb6e061322e5da1291994c09fba97075c5a",
+        "bytes": 29585
+      },
+      {
+        "path": ".quorum/evidence/PR-1204-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "af9ff8ebcad8e1e41f237a634bf50bf69f478d01",
+        "sha256": "97ba0444b38ea531ae716cd586c645059f343f4e5b3a43a684eccfb09fe72ce6",
+        "bytes": 56755
+      },
+      {
+        "path": ".quorum/evidence/PR-1204-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "6a804ca60279a1dfc0a632dbf7e527e3ef1a98a0",
+        "sha256": "434009105cb1b1bddd5170c24762e4304426b55e275ecd1e6a52f7690f5ab622",
+        "bytes": 55697
+      }
+    ]
+  }
+}

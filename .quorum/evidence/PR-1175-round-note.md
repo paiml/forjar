@@ -1,0 +1,1 @@
+Backfill round for merged PR #1175, run 2026-11-19T20:25:14Z by courier on agy gemini-4-neon-high. Counts from AGY-*.out: 47 claims, 3 lanes, 3 refuters each answering every claim, 3 judges each voting every claim; refuted = >=2 of 3 judge REFUTED votes. Lane claims refuted here are lane assertions the judges found false, not defects on main.

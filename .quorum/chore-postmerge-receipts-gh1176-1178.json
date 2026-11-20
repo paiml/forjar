@@ -1,0 +1,71 @@
+{
+  "kind": "code",
+  "issue": "forjar#1201 post-merge review round (backfill, agy gemini-4-neon-high)",
+  "branch": "chore-postmerge-receipts-gh1176-1178",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T20:25:14Z",
+  "head": "4e3cf5ce04821f765a59fc8b4c5fc761239855cf",
+  "merge_commit": "8e0508507b7a30fc2d57233e6a960512b3232bd0",
+  "author_model": "unknown (squash commit has no author trailer; PR body says Sonnet/Haiku/Opus family)",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1: 28 claims",
+      "agy gemini-4-neon-high lane 2: 20 claims",
+      "agy gemini-4-neon-high lane 3: 27 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 74,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "3.27 (3 of 3 judges): 27. kind=DEFECT; evidence docs/specifications/quorum-spec.md:188-190 `**Kill rule: any un-countered substantive objection kills the claim.** Not a vote. This started as \"≥2 of 3 refute it\" and an outside review was right to reject that`, .quorum/feat-894-pool-interruption-orphans.json:15,28 `\"a claim is refuted when at least 2 of 3 judges voted REFUTED\"` / `\"claims_confirmed\": 48`, and .quorum/evidence/PR-1140-judg"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1201-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "847a2a3ce74571086f823433c67a1bb620242921",
+        "sha256": "cea6e08b9f8634a7fd9088771dafe915be1ee250ce5aac1cf67392dd1069bd5c",
+        "bytes": 39889
+      },
+      {
+        "path": ".quorum/evidence/PR-1201-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "e53afdf0635d0ccfeae5052886687716874e3782",
+        "sha256": "385bde476a80a284e33bc3dede07343da01beb51cc590848b3453751afc71fe9",
+        "bytes": 43858
+      },
+      {
+        "path": ".quorum/evidence/PR-1201-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "af3c72614844278b13f2165e271ef0f17fec4fbe",
+        "sha256": "365fbbc5fe60f27ccf5fd60e60a21fd4c1faec0c1c891c4b91b5ff720029f545",
+        "bytes": 41836
+      },
+      {
+        "path": ".quorum/evidence/PR-1201-round-note.md",
+        "roles": [
+          "note"
+        ],
+        "blob": "8759ad48ae2724c9403b419eaa64b8174434efea",
+        "sha256": "451ef30c17932f10b158f446c6e12a0b5f1677a2aa304d34534d1bafe0b2349b",
+        "bytes": 345
+      }
+    ]
+  }
+}

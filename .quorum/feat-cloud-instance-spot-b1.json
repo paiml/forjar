@@ -1,0 +1,71 @@
+{
+  "kind": "code",
+  "issue": "forjar#1025 feat: cloud_instance spot b1 (PMAT-861), post-merge review round (redo of refuter 2 + judges)",
+  "branch": "feat/cloud-instance-spot-b1",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T20:20:42Z",
+  "head": "781a21b1b562936140cb899edd1cc9e273621749",
+  "merge_commit": "02df42622c2fb8454d1749805b9c9dcc74ddfe2a",
+  "author_model": "Claude F 5.2|Claude Opus 5.5|Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1: 20 claims",
+      "agy gemini-4-neon-high lane 2: 23 claims",
+      "agy gemini-4-neon-high lane 3: 22 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 64,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "1.5 (lane 1 BODY, 3 of 3 judges): PR body claim that check and state_query exit 1 on any non-instance-id reply is false; src/resources/cloud_instance/mod.rs:260-265,313,336 loops `for i in ${var}` without `set -f`, so whitespace-only replies run zero iterations (reported present) and glob replies like i-* expand against cwd"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1025-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "187b89feb5ebb73cfb23bea7b5b6d58130e129d6",
+        "sha256": "20c3466d711dd1989bee3b4f171de10890169cd65ec606c5b78d473bc72d939e",
+        "bytes": 82247
+      },
+      {
+        "path": ".quorum/evidence/PR-1025-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "234b9ddcebdca78ccd1784e248d09f039c95215e",
+        "sha256": "3580b8da8bebd3d64c38cfc58771e7949c7d8f7570b2316ca4c96d3d6fe1d166",
+        "bytes": 57125
+      },
+      {
+        "path": ".quorum/evidence/PR-1025-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "79bb35256fca84befea77a9ff481e0fa8de936ec",
+        "sha256": "504ac18908d9a7f9d5464ca799d85e37d5e84da64dacf79ae0f071125bd8e861",
+        "bytes": 58558
+      },
+      {
+        "path": ".quorum/evidence/PR-1025-round-note.md",
+        "roles": [
+          "note"
+        ],
+        "blob": "d0703dbc3702fb2a17ee5433c828bafa8332591b",
+        "sha256": "0d2f3ba235d1fb061a4ada7cc88182a88dbfe6ead5c0e19478e0e497fbbd8dad",
+        "bytes": 1264
+      }
+    ]
+  }
+}

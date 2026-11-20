@@ -1,0 +1,63 @@
+{
+  "kind": "code",
+  "issue": "fix: post-merge review defects pack 5, re-cut (PMAT-1185, PMAT-1186, PMAT-1188) (forjar#1209)",
+  "branch": "fix/postmerge-defects-pack5b",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T19:40:31Z",
+  "head": "0435992ba0d7ede2f6a265f09a53eb825e25ce4c",
+  "merge_commit": "35fb8d98ecab1701cc7877c55e5bb533caec536a",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1 (correctness): 28 claims",
+      "agy gemini-4-neon-high lane 2 (defects): 23 claims",
+      "agy gemini-4-neon-high lane 3 (adversarial): 27 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 76,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "1.24 (3 of 3 judges): kind=DEFECT; evidence `src/core/pool_orphans_tests.rs:138` (`assert_eq!(s.unknown_runners.len(), 2);`); the only test in the suite where `unknown_runners` is non-empty checks only `.len() == 2`, never asserting the actual `(runner_name, host_id)` pairs or order, so swapping `(r.name, r.host_id)` or ",
+      "3.8 (3 of 3 judges): kind=BODY; UNVERIFIED; evidence `src/core/pool_orphans_tests.rs:28-249`, `src/resources/cloud_instance/*.rs`, `src/resources/tests_package*.rs` (`PR_BODY.md:20-21`: `\"pool_orphans: 21 passed. cloud_instance: 133 passed. resources::tests_package (includes tests_package_c): 100 passed.\"`); static `#[t"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1209-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "5894a01bf3a4ebb06a7f6aee7c3c4d16121be168",
+        "sha256": "1ea63a9d2a12f1f65a1e1658438d16aa6484bfd2de28d7c48832d6749b18c3a2",
+        "bytes": 35029
+      },
+      {
+        "path": ".quorum/evidence/PR-1209-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "f2fa7ec9bed935f7c4e2bba8c1e640b551108b5d",
+        "sha256": "8710d8c41b391ff838315cf0d42ddba88d1f4c1c68983158dc7cab64d4efb34c",
+        "bytes": 67051
+      },
+      {
+        "path": ".quorum/evidence/PR-1209-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e870429de9a2f418038553346e5d53b91bd36e0b",
+        "sha256": "1fdf16380b39e8786719271220f7340b1e08dc5145c51cb992a28fcbaafb909a",
+        "bytes": 62844
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "kind": "code",
+  "issue": "forjar#1175 post-merge review round (backfill, agy gemini-4-neon-high)",
+  "branch": "chore-postmerge-receipts-batches-1-3",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T20:25:14Z",
+  "head": "a40adeea1eed712133c1241b0a685b87b355b93c",
+  "merge_commit": "fa852b0252d06068a222bb833fbbc5a60befc587",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1: 15 claims",
+      "agy gemini-4-neon-high lane 2: 14 claims",
+      "agy gemini-4-neon-high lane 3: 18 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 45,
+    "claims_refuted": 2,
+    "refuted_claims": [
+      "2.12 (3 of 3 judges): 12. kind=DEFECT; evidence .quorum/fix-876-572-quorum-receipt.json:31 (`The prefix \\\"scripts/dogfood/\\\" is documented as \\\"Repository scripts that run car | judges REFUTED`), .quorum/fix-1074-typed-errors-image-cmd.json:31 (`so the ratchet keeps 5 sites of sla | judges REFUTED`), .quorum/fix-858-e02-controlmaster.json:31 (`No assertion changes.\\\" Verd | judges REFUTED`), .quorum/fix-858-untyped-ratchet-5.json:31 (`the",
+      "3.13 (3 of 3 judges): 13. kind=DEFECT; evidence .quorum/feat-cloud-instance-ami-pin.json:2,38-40,65 `\"kind\": \"code\"`, `\"roles\": [\"judges\"]`, `\"claims_digest\": \".quorum/evidence/PR-1097-judge-1.json\"`, scripts/quorum-gate.sh:461 `\"for field in (\\\"issue\\\", \\\"diff_sha256\\\", \\\"quorum\\\", \\\"falsification\\\", \\\"crux\\\", \\\"agy_teamwork\\\", \\\"pmat\\\"):\"`, scripts/quorum_evidence.py:186-189,359-364 `\"for need in (\\\"claims\\\", \\\"lanes\\\", \\\"judges\\\", \\\"ag"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1175-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "495a83cea57cc5724898e3fa5111ea8b6ff54aeb",
+        "sha256": "4a913599b1d187b0c710058931f49d27869081535bafd0fcf9f9b1b1ef2956c6",
+        "bytes": 34829
+      },
+      {
+        "path": ".quorum/evidence/PR-1175-refuters.md",
+        "roles": [
+          "agy"
+        ],
+        "blob": "fbb902999c4d144e95233788a1ce17f65211ac32",
+        "sha256": "30ecd10c2ddde5109651e7e9b4a47cb023d5db21f7255a4e32f9a650669bc35c",
+        "bytes": 30780
+      },
+      {
+        "path": ".quorum/evidence/PR-1175-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "e85e58324e3a474336be28b302ea41cd7b36b7ab",
+        "sha256": "a80f84cdbecea19fdb69c903d47ed82e140aecdcd4f62844f6535b062e1a4396",
+        "bytes": 31778
+      },
+      {
+        "path": ".quorum/evidence/PR-1175-round-note.md",
+        "roles": [
+          "note"
+        ],
+        "blob": "b6cc6df57d743c9987bb5298dc210585cbfe4ce3",
+        "sha256": "f833084cd2de46dafd7d02a4e1ffca3a553c62841c6dede03330b927174e292f",
+        "bytes": 345
+      }
+    ]
+  }
+}
