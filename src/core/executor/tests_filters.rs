@@ -94,6 +94,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

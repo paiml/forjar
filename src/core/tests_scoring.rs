@@ -64,6 +64,7 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         environment: Vec::new(),
         volumes: Vec::new(),
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

@@ -26,3 +26,23 @@ fn test_638_staging_name_is_per_run() {
         "every staging reference must carry the per-run suffix"
     );
 }
+
+/// forjar#634 review: an unreadable source fails before anything is staged.
+#[test]
+fn fj634_an_unreadable_source_leaves_no_staged_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("conf");
+    std::fs::write(&target, "old\n").unwrap();
+    let mut r = make_file_resource(target.to_str().unwrap(), None);
+    r.source = Some(dir.path().join("no-such-source").display().to_string());
+    r.owner = None;
+    r.group = None;
+    let applied = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(apply_script(&r))
+        .status()
+        .unwrap();
+    assert!(!applied.success());
+    assert!(!has_staged_residue(dir.path()), "staged file left behind");
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "old\n");
+}

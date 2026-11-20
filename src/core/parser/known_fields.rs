@@ -64,6 +64,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "environment",
     "volumes",
     "restart",
+    "network",
     "protocol",
     "port",
     "action",

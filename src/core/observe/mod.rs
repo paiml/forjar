@@ -91,6 +91,7 @@ static FIELDS: &[(&str, Observability)] = &[
     ("volumes", Observability::Observed { alt: "/tmp/forjar-alt-vol" }),
     ("environment", Observability::Observed { alt: "FORJAR_ALT=1" }),
     ("restart", Observability::Observed { alt: "no" }),
+    ("network", Observability::Observed { alt: "none" }),
     ("schedule", Observability::Observed { alt: "0 0 31 2 *" }),
     ("command", Observability::Observed { alt: "true # forjar-alt" }),
     ("overlay_ip", Observability::Observed { alt: "10.42.0.254" }),

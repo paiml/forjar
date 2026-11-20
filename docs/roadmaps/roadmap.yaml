@@ -8643,6 +8643,44 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1143
+  github_issue: 1143
+  item_type: task
+  title: 'docker resource executes completion_check and can declare its network mode'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - A docker resource's completion_check is part of its check verdict (red when it fails); a docker resource can declare network and apply passes --network
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1141
+  github_issue: 1141
+  item_type: task
+  title: 'Triage at filing: every new ticket gets a parent, a milestone and triaged; cap stays at 50 open'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - A filing helper creates the ticket, attaches it to its parent, sets the milestone and adds triaged, and refuses without a parent; a nightly count reports open and untriaged tickets
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1139
   github_issue: 1139
   item_type: task
