@@ -307,12 +307,12 @@ while read -r pr oid headref; do
   if [ -z "$headref" ] || [ "$headref" = "-" ]; then
     fail "GitHub reports PR #${pr} merged since ${prev_tag} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
-  arc=0
-  git merge-base --is-ancestor "$oid" HEAD >/dev/null 2>&1 || arc=$?
-  case "$arc" in
-    0) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref}"$'\n' ;;
-    1) n_after=$((n_after + 1)) ;;
-    *) fail "git merge-base --is-ancestor ${oid} HEAD exited ${arc} for PR #${pr}: the commit GitHub names is not in this checkout (run: git fetch origin), so membership of this release is UNMEASURED" ;;
+  # PMAT-1174: membership is the one rule in lib/window.sh, never a PR number.
+  dogfood_pr_member_of "$pr" "$oid" "$prev_tag" HEAD
+  case "$DOGFOOD_PR_MEMBER" in
+    member) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref}"$'\n' ;;
+    previous) echo "  #${pr} ${oid} is inside ${prev_tag} (the previous release) — not counted" >&2 ;;
+    after) n_after=$((n_after + 1)) ;;
   esac
 done <<EOF
 $pr_rows
@@ -466,4 +466,9 @@ fi
 # `if [ "$status" = "missing" ]` — a waived or thin receipt then sets nothing
 # and this arm passes a release over a PR whose quorum was waived or never
 # reached the floor; the falsification tests a_waived_receipt_is_red,
-# a_nested_override_is_red and a_thin_receipt_is_red go RED.
+# a_nested_override_is_red and a_thin_receipt_is_red go RED.# mutation: change `DOGFOOD_PR_MEMBER=previous` in lib/window.sh's
+# dogfood_pr_member_of to `DOGFOOD_PR_MEMBER=member` — the previous release's
+# own PR is then counted in this window and demanded a receipt;
+# the_previous_releases_own_pr_is_outside_the_window_by_membership goes RED.
+# And change its `DOGFOOD_PR_MEMBER=after` to `=member`: a PR merged after
+# HEAD is counted; a_pr_merged_after_this_head_is_outside_the_window_by_membership goes RED.

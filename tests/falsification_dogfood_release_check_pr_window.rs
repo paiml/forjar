@@ -215,3 +215,58 @@ fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
         );
     }
 }
+
+/// gh answering with the PR in this release and, beside it, the previous
+/// release's own PR (#76): its merge commit is the previous tag's commit, and
+/// GitHub's time window returns it because it merged one second after that tag
+/// was cut (the shape of #1024 against v1.34.1).
+fn gh_with_the_previous_releases_own_pr(fx: &Fixture) -> String {
+    let prev = stdout_of(&git(&fx.root, &["rev-parse", PREV_TAG]));
+    stub_gh(
+        fx.root.parent().expect("tempdir"),
+        "gh-two-prs",
+        &format!(
+            r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}"}},{{"number":76,"mergedAt":"2026-09-01T00:00:01Z","mergeCommit":{{"oid":"{prev}"}},"headRefName":"release/prev"}}]"#,
+            fx.head
+        ),
+    )
+}
+
+#[test]
+fn the_previous_releases_own_pr_is_outside_the_window_by_membership() {
+    // #76 has no receipt. If the window counts it, the gate is red on a PR
+    // that shipped in the previous release; membership (merge commit inside the
+    // previous tag) leaves it out, and the member #77 stays in.
+    let fx = fixture(false, Some(good_receipt()));
+    let r = run(&fx, &gh_with_the_previous_releases_own_pr(&fx));
+    r.assert_green("the previous release's own PR is not a member of this window");
+    r.assert_says("1 PR(s)");
+    r.assert_says(&format!("#{PR} {} receipt=ok", slug()));
+    r.assert_never_says(
+        "#76 release-prev",
+        "a PR inside the previous tag has no receipt row",
+    );
+}
+
+#[test]
+fn a_pr_merged_after_this_head_is_outside_the_window_by_membership() {
+    // The other edge of the rule: a merge commit that is not an ancestor of
+    // HEAD (a descendant, here) is not a member either.
+    let fx = fixture(false, Some(good_receipt()));
+    let later = stdout_of(&git(
+        &fx.root,
+        &["commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "later"],
+    ));
+    let gh = stub_gh(
+        fx.root.parent().expect("tempdir"),
+        "gh-after",
+        &format!(
+            r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}"}},{{"number":78,"mergedAt":"2026-09-11T00:00:00Z","mergeCommit":{{"oid":"{later}"}},"headRefName":"feat/later"}}]"#,
+            fx.head
+        ),
+    );
+    let r = run(&fx, &gh);
+    r.assert_green("a PR merged after HEAD is not a member of this window");
+    r.assert_says("1 PR(s)");
+    r.assert_never_says("#78 feat-later", "a PR outside HEAD has no receipt row");
+}
