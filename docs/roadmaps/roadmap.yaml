@@ -2716,13 +2716,14 @@ roadmap:
   github_issue: 470
   item_type: task
   title: 'apply --refresh-only ignores -r / -g / --subset: a scoped refresh refreshes the whole lock'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #470 closed as completed 2026-11-11; PR #941 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2735,13 +2736,14 @@ roadmap:
   github_issue: 471
   item_type: task
   title: 'apply --only-machine X -m Y runs nothing and exits 0: the two machine selectors disagree silently'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-12T00:25:44Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #471 closed as completed 2026-11-13; PR #1003 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2755,13 +2757,14 @@ roadmap:
   github_issue: 452
   item_type: task
   title: 'forjar-contracts (vendored in-tree, #436): its unit tests fail in the workspace and no CI lane runs them'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #452 closed as completed 2026-11-12; PR #909 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2774,13 +2777,14 @@ roadmap:
   github_issue: 456
   item_type: task
   title: build.rs bakes CARGO_MANIFEST_DIR with env!() at compile time — a reused build-script binary reads another checkout's contracts/ and panics
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-13T10:44:15Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #456 closed as completed 2026-11-12; PR #909 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2796,13 +2800,14 @@ roadmap:
   github_issue: 445
   item_type: task
   title: 'cron: a hand-edited entry under a forjar marker is left in place and a fresh block is appended (found by the #362 quorum)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #445 closed as completed 2026-11-12; PR #943 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2815,13 +2820,14 @@ roadmap:
   github_issue: 435
   item_type: task
   title: 'apply --canary-machine skips apply_pre_checks: --pre-script, --webhook-before and --abort-on-drift are silently ignored on the canary path (found by the #374 quorum)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #435 closed as completed 2026-11-11; PR #941 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2852,13 +2858,14 @@ roadmap:
   github_issue: 433
   item_type: task
   title: 'ResourceType is still printed in its Debug spelling at ~50 CLI sites (found by the #366 quorum)'
-  status: planned
+  status: completed
   priority: low
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #433 closed as completed 2026-11-12; PR #943 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -2871,13 +2878,14 @@ roadmap:
   github_issue: 432
   item_type: task
   title: apply --plan-file runs no live-drift probe, and the summary does not say so
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-09-07T12:00:00Z
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #432 closed as completed 2026-11-11; PR #941 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5880,13 +5888,14 @@ roadmap:
   github_issue: 608
   item_type: task
   title: 'github_release: ''no asset matching'' is unreachable under pipefail — a missing asset exits 1 with empty stderr'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #608 closed as completed 2026-11-13; PR #910 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5914,13 +5923,14 @@ roadmap:
   github_issue: 621
   item_type: task
   title: 'store import docker: ''docker create REF && docker export'' leaks a created container every call (2658 on lambda); tests run it for real'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-12T00:25:44Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #621 closed as completed 2026-11-11; PR #933 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5932,13 +5942,14 @@ roadmap:
   github_issue: 638
   item_type: task
   title: 'file arm: fixed staging name .forjar-new can be raced from the same directory; I8 corpus never exercises state: file (follow-up to #637)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #638 closed as completed 2026-11-12; PR #906 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5949,13 +5960,14 @@ roadmap:
   github_issue: 639
   item_type: task
   title: forjar --version names no commit, so a fleet host cannot tell which build it runs
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #639 closed as completed 2026-11-12; PR #908 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -5966,13 +5978,14 @@ roadmap:
   github_issue: 649
   item_type: task
   title: I8 gate links bashrs 6.68.0, whose SEC005 reads 'disk-watch' as an OpenAI key — ci-disk-watch-timer-enable cannot converge on any host
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #649 closed as completed 2026-11-13; PR #914 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6000,13 +6013,14 @@ roadmap:
   github_issue: 659
   item_type: task
   title: 'check / apply --check: an unreachable host counts as a FAIL (ssh exit 255) and exits 1, like drift; the documented exit 2 and exit 4 never happen'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #659 closed as completed 2026-11-12; PR #902 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6017,13 +6031,14 @@ roadmap:
   github_issue: 660
   item_type: task
   title: 'forjar show does not resolve data: command sources (plan/apply do): ''unknown data source'''
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-12T00:25:44Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #660 closed as completed 2026-11-11; PR #934 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6035,13 +6050,14 @@ roadmap:
   github_issue: 661
   item_type: task
   title: 'lock-prune -f <config> prunes every machine in --state-dir: another stack''s lock entries are deleted, including machines the config never declares'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #661 closed as completed 2026-11-12; PR #902 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6149,13 +6165,14 @@ roadmap:
   github_issue: 673
   item_type: task
   title: 'Stress Tests cannot pass: 10 single-threaded passes per leg never fit its 30-minute timeout'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #673 closed as completed 2026-11-13; PR #914 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6166,13 +6183,14 @@ roadmap:
   github_issue: 685
   item_type: task
   title: forjar lint and the quality gate silently skip the apply script of a resource that carries a secret reference
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-12T00:25:44Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #685 closed as completed 2026-11-11; PR #903 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6184,13 +6202,14 @@ roadmap:
   github_issue: 688
   item_type: task
   title: 'A failed resource is recorded as `action: converged` in the run''s meta.yaml (ResourceRunStatus has no failure variant)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #688 closed as completed 2026-11-12; PR #902 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6218,13 +6237,14 @@ roadmap:
   github_issue: 694
   item_type: task
   title: 'completion_check on a package resource is accepted and never run: the box is graded by dpkg/cargo --list instead'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #694 closed as completed 2026-11-12; PR #906, #961 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6471,13 +6491,14 @@ roadmap:
   github_issue: 848
   item_type: task
   title: 'cron check SKIPs (exit 2) under a crontab-only sudoers rule: CRONTAB_CHECK_GUARD probes `sudo -n true`'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #848 closed as completed 2026-11-11; PR #943 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6505,13 +6526,14 @@ roadmap:
   github_issue: 852
   item_type: task
   title: drift --offline with no lock inspects 0 resources and exits 0 for a pinned github_release
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #852 closed as completed 2026-11-13; PR #961 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6556,13 +6578,14 @@ roadmap:
   github_issue: 858
   item_type: task
   title: 7 integration tests fail on main and are not run by any CI job
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #858 closed as completed 2026-11-20; PR #1226 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6573,13 +6596,14 @@ roadmap:
   github_issue: 859
   item_type: task
   title: 'hooks: scripts/hooks/pre-push blocks on slow non-auto-fixable checks; only fmt should block'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #859 closed as completed 2026-11-15; PR #1108 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6737,13 +6761,14 @@ roadmap:
   github_issue: 890
   item_type: task
   title: apply -t includes the depends_on closure (FLEET-OPS-DELIVERY-001 §5 item 1)
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #890 closed as completed 2026-11-12; PR #899 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6753,13 +6778,14 @@ roadmap:
   github_issue: 891
   item_type: task
   title: plan gains --param (FLEET-OPS-DELIVERY-001 §5 item 2)
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #891 closed as completed 2026-11-12; PR #899 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6769,13 +6795,14 @@ roadmap:
   github_issue: 892
   item_type: task
   title: 'docs: completion_check asserts install state (FLEET-OPS-DELIVERY-001 §5 item 3)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #892 closed as completed 2026-11-12; PR #899 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -6785,13 +6812,14 @@ roadmap:
   github_issue: 893
   item_type: task
   title: 'cloud host provider: one allowlisted AWS spot resource, static count, orphan sweep, teardown layers'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #893 closed as completed 2026-11-12; PR #1006 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7009,13 +7037,14 @@ roadmap:
   github_issue: 921
   item_type: task
   title: 'FJ-LOCK-001 C1 [critical]: atomic acquire — no empty-file window'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #921 closed as completed 2026-11-12; PR #930 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7025,13 +7054,14 @@ roadmap:
   github_issue: 922
   item_type: task
   title: 'FJ-LOCK-001 C2 [critical]: hold the lock across pre-validate -> post-actions (RAII guard)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #922 closed as completed 2026-11-12; PR #930 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7105,13 +7135,14 @@ roadmap:
   github_issue: 936
   item_type: task
   title: 'disk_budget: an empty /proc scan must fail closed (execution test)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #936 closed as completed 2026-11-13; PR #944 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7154,13 +7185,14 @@ roadmap:
   github_issue: 958
   item_type: task
   title: 'python-ban: delete dead one-off pmat_split.py and split_files.py'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
   updated: 2026-11-10T09:01:00.345747172+00:00
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #958 closed as completed 2026-11-12; PR #959 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7552,13 +7584,14 @@ roadmap:
   github_issue: 1044
   item_type: task
   title: 'cloud_instance 1025 follow-ups: I8 lint, cb200 SC1020, templated uniqueness'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-14T21:13:28Z
   updated: 2026-11-14T21:13:28Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1044 closed as completed 2026-11-15; PR #1063 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7570,13 +7603,14 @@ roadmap:
   github_issue: 1045
   item_type: task
   title: 'file-health: split resource_types.rs under 500 lines (main red)'
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 2026-11-14T21:45:52Z
   updated: 2026-11-14T21:45:52Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1045 closed as completed 2026-11-14; PR #1054, #1062 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7699,13 +7733,14 @@ roadmap:
   github_issue: 1116
   item_type: task
   title: 'pool: dry-run reconcile plan from queue and seat snapshot (forjar#1116)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:30:00Z
   updated: 2026-11-15T18:30:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1116 closed as completed 2026-11-16; PR #1118 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7717,13 +7752,14 @@ roadmap:
   github_issue: 858
   item_type: task
   title: e02 ControlMaster-before-drift-gate test fixture answers the inode pre-check (forjar#858)
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-15T09:00:00Z
   updated: 2026-11-15T09:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #858 closed as completed 2026-11-20; PR #1226 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7754,13 +7790,14 @@ roadmap:
   github_issue: 1117
   item_type: task
   title: 'errors: typed ForjarError in six cli fns (untyped-error ratchet under its ceiling)'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1117 closed as completed 2026-11-16; PR #1119 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7772,13 +7809,14 @@ roadmap:
   github_issue: 859
   item_type: task
   title: 'hooks: pre-push blocks only on fmt; slow checks warn (forjar#859)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #859 closed as completed 2026-11-15; PR #1108 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7790,13 +7828,14 @@ roadmap:
   github_issue: 1065
   item_type: task
   title: github_release check asserts checksum before running the binary (forjar#1065)
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-15T08:20:00Z
   updated: 2026-11-15T08:20:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1065 closed as completed 2026-11-15; PR #1068 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7808,13 +7847,14 @@ roadmap:
   github_issue: 1093
   item_type: task
   title: retry test must not depend on the host ssh behaviour (forjar#1093)
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - 'Issue #1093 closed as completed 2026-11-15; PR #1105 merged.'
   phases: []
   subtasks: []
   estimated_effort: null
