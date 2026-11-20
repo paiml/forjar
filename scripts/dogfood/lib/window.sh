@@ -113,14 +113,10 @@ dogfood_tag_date() {
   DOGFOOD_TAG_DATE="$when"
 }
 
-# THE MEMBERSHIP RULE (PMAT-1174), stated once; every window reader asks it.
-# A PR is a member of the window (LOWER, UPPER] when its merge commit is NOT
-# an ancestor of LOWER and IS an ancestor of UPPER. The release's own PR merges
-# one second after its tag is cut, so a time read for "since LOWER" returns the
-# PREVIOUS release's PR (the cut PR on the tag commit): its merge commit is
-# inside LOWER, so it is `previous`, not a member. No PR number appears here.
-# Sets DOGFOOD_PR_MEMBER to member | previous | after; any other git answer
-# is UNMEASURED and fails.
+# MEMBERSHIP (PMAT-1174), stated once: a PR is in (LOWER, UPPER] when its merge
+# commit is NOT inside LOWER and IS inside UPPER. The release PR merges a second
+# after its tag, so a time read returns it for the NEXT window; inside LOWER it
+# is `previous`. Sets DOGFOOD_PR_MEMBER to member | previous | after.
 dogfood_pr_member_of() {
   local num="$1" oid="$2" lower="$3" upper="$4" prev_rc=0 arc=0
   git merge-base --is-ancestor "$oid" "$lower" >/dev/null 2>&1 || prev_rc=$?

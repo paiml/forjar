@@ -468,14 +468,8 @@ fi
 # and this arm passes a release over a PR whose quorum was waived or never
 # reached the floor; the falsification tests a_waived_receipt_is_red,
 # a_nested_override_is_red and a_thin_receipt_is_red go RED.
-# mutation: change `DOGFOOD_PR_MEMBER=previous` in lib/window.sh's
-# dogfood_pr_member_of to `DOGFOOD_PR_MEMBER=member` — the previous release's
-# own PR is then counted in this window and demanded a receipt;
-# the_previous_releases_own_pr_is_outside_the_window_by_membership goes RED.
-# And change its `DOGFOOD_PR_MEMBER=after` to `=member`: a PR merged after
-# HEAD is counted; a_pr_merged_after_this_head_is_outside_the_window_by_membership goes RED.
-# mutation: change `previous) ... ;;` and `after)` arms of dogfood_pr_member_of to
-# `previous|after) DOGFOOD_PR_MEMBER=unknown` ... or make the function assign a value
-# the callers do not list (`DOGFOOD_PR_MEMBER=unknown`): the `*)` arm in both case
-# statements then fails UNMEASURED naming the PR, and every window test goes RED.
-# Replacing either `*)` arm with `*) ;;` drops the PR silently instead.
+# mutation: in lib/window.sh dogfood_pr_member_of, change `DOGFOOD_PR_MEMBER=previous`
+# to `=member` (the_previous_releases_own_pr_is_outside_the_window_by_membership
+# goes RED), swap previous and after (previous_and_after_carry_their_own_labels
+# goes RED), or compare a bound by equality (both_bounds_are_ancestry_not_equality).
+# A value no `case` arm lists fails UNMEASURED; `*) ;;` there would drop the PR.
