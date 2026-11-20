@@ -1,0 +1,62 @@
+{
+  "kind": "code",
+  "issue": "forjar#1202 fix: post-merge review defects pack 1 (PMAT-1197, PMAT-1199), post-merge backfill round",
+  "branch": "fix/postmerge-defects-pack1",
+  "reviewed_after_merge": true,
+  "reviewed_at": "2026-11-19T20:50:57Z",
+  "head": "a4f218486fc260ff4091ee4210f19d4396573470",
+  "merge_commit": "eccc4ae32123c90ff1c43c6ea0591b92d7e7c23f",
+  "author_model": "Claude Sonnet 5.5",
+  "lane_models": [
+    "gemini-4-neon-high",
+    "gemini-4-neon-high",
+    "gemini-4-neon-high"
+  ],
+  "quorum": {
+    "rounds": 1,
+    "lanes": [
+      "agy gemini-4-neon-high lane 1: 18 claims",
+      "agy gemini-4-neon-high lane 2: 21 claims",
+      "agy gemini-4-neon-high lane 3: 21 claims"
+    ],
+    "lane_errors": 0,
+    "judges": 3,
+    "refuters_per_claim": 3,
+    "claims_confirmed": 59,
+    "claims_refuted": 1,
+    "refuted_claims": [
+      "1.6 (lane 1 BODY, 3 of 3 judges): PR body claim that the five roadmap rows carry acceptance criteria citing the merged PRs is false as parsed YAML; docs/roadmaps/roadmap.yaml:7598,7653,7672,7745,8019 are unquoted plain scalars containing \" #\" (\"- Issue #1048 ...\", \"- PR #1156 ...\"), which YAML reads as a comment, truncating acceptance_criteria to [\"Issue\"] / [\"PR\"]"
+    ]
+  },
+  "evidence": {
+    "files": [
+      {
+        "path": ".quorum/evidence/PR-1202-lanes.md",
+        "roles": [
+          "lanes"
+        ],
+        "blob": "376e941a69ac1b70e4e8b94372944d052b01643c",
+        "sha256": "dcc712bdb3cbf7ad2324e84060f13955d8ef364065626228907f09d479f905d9",
+        "bytes": 39307
+      },
+      {
+        "path": ".quorum/evidence/PR-1202-refuters.md",
+        "roles": [
+          "refuters"
+        ],
+        "blob": "0a9974caf3c85e1c453f6f02c9271a97173891c0",
+        "sha256": "2a11b506552f49c55cb8c3775186d7d1555c9f1ea0fb345bed3db6d0320e2dc0",
+        "bytes": 46837
+      },
+      {
+        "path": ".quorum/evidence/PR-1202-judges.md",
+        "roles": [
+          "judges"
+        ],
+        "blob": "ddfbe9dbabb346da1cbcac39b91d3f2f7a4812d2",
+        "sha256": "ef7ddbe08b9b0f1cf0faf918da0cc1400357eeda1c2e11c12420a35b7aae95c0",
+        "bytes": 43007
+      }
+    ]
+  }
+}
