@@ -23,9 +23,10 @@ check() {
 }
 # checkmsg <name> <dir> <fixed-text>: the guard output must name the call site.
 checkmsg() {
-  local name=$1 dir=$2 want=$3
+  local name=$1 dir=$2 want=$3 out
   n=$((n + 1))
-  if ! "$g" "$dir" 2>&1 | grep -qF -- "$want"; then
+  out=$("$g" "$dir" 2>&1)
+  if ! grep -qF -- "$want" <<<"$out"; then
     echo "FAIL $name: output lacks: $want"
     fail=$((fail + 1))
   fi
@@ -107,9 +108,19 @@ check quoted-timeout-option 0 "$(fx qt "$HDR      - run: sudo apt-get -o \"DPkg:
 check hash-inside-word-is-not-a-comment 0 "$(fx hw "$HDR      - run: sudo apt-get install -y a#b -o DPkg::Lock::Timeout=600\n")"
 check key-with-digit-is-not-run 0 "$(fx kd "$HDR$GOOD      - name1: apt-get install deps\n")"
 check key-ending-in-run-is-not-run 0 "$(fx kr "$HDR$GOOD      - prerun: apt-get install deps\n")"
-for kw in then do else elif if while until '!'; do
+# One keyword per line: a `for` word list naming then/do trips the linter's block-keyword rules.
+while IFS= read -r kw; do
   check "echo-after-$kw" 0 "$(fx "ek$kw" "$HDR$GOOD      - run: $kw echo \"apt-get install x\"\n")"
-done
+done <<'KEYWORDS'
+then
+do
+else
+elif
+if
+while
+until
+!
+KEYWORDS
 
 checkmsg violation-names-first-line-of-continuation "$(fx ln "$HDR      - run: |\n          sudo apt-get \\\\\n            install -y x\n")" "w.yml:5:"
 
