@@ -106,6 +106,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Verify Cargo.lock is committed and current
         # #423: the contract crates are workspace members, so the root crate's
         # path dependencies are unpublished until the release publishes them in
@@ -150,6 +152,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       # One `cargo test` over every integration target below (same job, same
       # default feature set, same --locked): one resolution/compile plan instead
       # of 18 invocations (20 targets). Targets run in this order and a failing target fails
@@ -183,7 +187,8 @@ jobs:
           --test falsification_683_cross_mounts_under_work_root \
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest \
-          --test falsification_pr_jobs_name_no_arm64_or_host
+          --test falsification_pr_jobs_name_no_arm64_or_host \
+          --test falsification_ci_light_jobs_are_hardened
       # The LIVE half of that falsifier (real sudo, required, not skippable) runs
       # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
       # have no passwordless sudo (measured 2026-11-15, run 43718157756). It
