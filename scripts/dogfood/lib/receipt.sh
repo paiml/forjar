@@ -94,7 +94,7 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk(($c.planted | length) < 2; "quorum.canary.planted has \(try ($c.planted | length) catch "?") planted claim(s), below the floor of 2"),
     chk(($c.planted | all(.[];
          (type == "object") and (.id | sid)
-         and ((.text | nes) and ((.text | gsub("^\\s+|\\s+$"; "") | length) >= 20) and (([.text | scan("[^\\s]+")] | length) >= 4))
+         and ((.text | nes) and ((.text | gsub("\\s"; "") | length) >= 20) and (([.text | scan("[^\\s]+")] | length) >= 4))
          and ((.falsified_by | isstr) and (.falsified_by | test("\\A(?!\\./)[A-Za-z0-9_./-]+:[1-9][0-9]{0,8}\\z")) and ((.falsified_by | test("\\.\\.")) | not))
          and ((.position | type) == "number") and (.position == (.position | floor)) and (.position >= 1))) | not;
         "quorum.canary.planted[] needs a plain numeric id, text (20+ non-blank chars in 4+ words), falsified_by (path:line, no ..) and an integer position >= 1"),
@@ -220,8 +220,17 @@ DOGFOOD_CANARY_MARKER_JQ='
 
 # dogfood_canary_commit REV : the 40-hex commit REV names, or fail.
 dogfood_canary_commit() {
+  local out rc=0
   [ -n "$1" ] || return 1
-  git rev-parse --verify -q "${1}^{commit}" 2>/dev/null
+  out="$(git rev-parse --verify -q "${1}^{commit}" 2>/dev/null)" || rc=$?
+  # A commit id is 40 hex digits (or 64): empty or other output from a git
+  # that exited 0 is a git that did not answer, never a commit.
+  [ "$rc" -eq 0 ] || return 1
+  case "$out" in
+    *[!0-9a-f]* | "") return 1 ;;
+  esac
+  [ "${#out}" -eq 40 ] || [ "${#out}" -eq 64 ] || return 1
+  printf '%s\n' "$out"
 }
 
 # dogfood_canary_fetch OUT PATH WANT REV... : copy PATH from the first REV
@@ -249,16 +258,23 @@ dogfood_canary_fetch() {
 # `git diff -U0 BASE HEAD`? A fact outside the diff falsifies nothing the
 # reviewed change did. Exit 0 yes, 1 no, 2 the diff could not be read.
 dogfood_canary_added() {
-  local path="$1" line="$2" base="$3" head="$4" d rc=0
+  local path="$1" line="$2" base="$3" head="$4" d out rc=0
   d="$(git --literal-pathspecs diff -U0 --no-color --no-ext-diff "$base" "$head" -- "$path" 2>/dev/null)" || rc=$?
   if [ "$rc" -ne 0 ]; then
     return 2
   fi
-  awk -v n="$line" '
+  # The answer is a word awk prints, never awk's exit status or its silence: an
+  # awk that is missing or shimmed to exit 0 prints no word, and no word is
+  # not a hit.
+  out="$(awk -v n="$line" '
     /^@@ / { split($3, a, ","); s = substr(a[1], 2) + 0; c = (a[2] == "" ? 1 : a[2] + 0)
              if (c > 0 && n + 0 >= s && n + 0 < s + c) hit = 1 }
-    END { exit(hit ? 0 : 1) }' <<<"$d" || return 1
-  return 0
+    END { print (hit ? "hit" : "miss") }' <<<"$d")" || return 2
+  case "$out" in
+    hit) return 0 ;;
+    miss) return 1 ;;
+    *) return 2 ;;
+  esac
 }
 
 # dogfood_canary_marker FILE : 0 clean, 1 a marker word or a non-ASCII char
@@ -282,7 +298,7 @@ dogfood_canary_marker() {
 
 # Duplicate JSON keys. jq keeps the last of two equal keys, so a file could show
 # a human or another parser one claim and this predicate another. Read as a jq
-# --stream (works on jq 1.6 to 1.8; the build host has 1.8.2): a leaf path may
+# --stream (tested on jq 1.8.2 only, the build host's; --stream and [0:-1] are in jq 1.5 and later, but no other version was run): a leaf path may
 # occur once, no leaf path may be the prefix of another path, and each container
 # closes once (so two same-key objects with disjoint members are caught too).
 DOGFOOD_CANARY_DUP_JQ='
@@ -295,28 +311,158 @@ DOGFOOD_CANARY_DUP_JQ='
     else "ok" end
 '
 
-# dogfood_canary_raw FILE LABEL dup|bytes : prints nothing when FILE is clean,
-# else a sentence. dup: a duplicate key at any depth, or unreadable JSON.
-# bytes: any byte outside printable ASCII plus tab, LF and CR in the RAW file,
-# so nothing jq does not return (a shadowed duplicate, an escape) can hide.
+# dogfood_pgrep FLAGS PATTERN FILE POS NEG : prints hit, miss or unmeasured.
+# No decision in this library rests on the silence of a command: a grep that is
+# missing, shimmed to exit 0 or 1, or broken is caught by two positive controls
+# run in the same call, a sample that MUST match (POS) and one that MUST NOT
+# (NEG), both given as printf %b text so they may hold a NUL or a high byte.
+# Only then is FILE judged, and only exit 0 (hit) or 1 (miss) of grep counts.
+dogfood_pgrep() {
+  local flags="$1" pat="$2" file="$3" pos="$4" neg="$5" pf nf rc prc nrc
+  pf="$(mktemp)" || pf=""
+  nf="$(mktemp)" || nf=""
+  if [ -z "$pf" ] || [ -z "$nf" ] || [ ! -f "$pf" ] || [ ! -f "$nf" ]; then
+    [ -n "$pf" ] && rm -f "${pf:?}"
+    [ -n "$nf" ] && rm -f "${nf:?}"
+    printf 'unmeasured\n'
+    return 0
+  fi
+  printf '%b' "$pos" >"$pf" 2>/dev/null
+  printf '%b' "$neg" >"$nf" 2>/dev/null
+  prc=0
+  LC_ALL=C grep -q"${flags}P" -e "$pat" "$pf" >/dev/null 2>&1 || prc=$?
+  nrc=0
+  LC_ALL=C grep -q"${flags}P" -e "$pat" "$nf" >/dev/null 2>&1 || nrc=$?
+  rm -f "${pf:?}"
+  rm -f "${nf:?}"
+  # Both controls first: the pattern must hit its positive sample and miss its
+  # negative one, or this grep is not judging anything.
+  if [ "$prc" -ne 0 ] || [ "$nrc" -ne 1 ]; then
+    printf 'unmeasured\n'
+    return 0
+  fi
+  rc=0
+  LC_ALL=C grep -q"${flags}P" -e "$pat" "$file" >/dev/null 2>&1 || rc=$?
+  case "$rc" in
+    0) printf 'hit\n' ;;
+    1) printf 'miss\n' ;;
+    *) printf 'unmeasured\n' ;;
+  esac
+}
+
+# dogfood_blob_nul FILE : exit 0 FILE holds no NUL byte, 1 it does, 2 could not
+# be judged. A NUL cannot survive a bash variable, so a receipt read through
+# $(...) is judged WITHOUT it and invalid JSON reaches `ok`; every reader below
+# asks this on the bytes git (or the store) has, before they become a variable.
+dogfood_blob_nul() {
+  local out
+  out="$(dogfood_pgrep a '\x00' "$1" 'a\0000b' 'ab')"
+  case "$out" in
+    miss) return 0 ;;
+    hit) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+
+# dogfood_file_blob FILE : prints FILE when it holds no NUL; exit 0 ok, 3 a NUL
+# byte, 2 unreadable or not judged. dogfood_git_blob SPEC does the same for the
+# git object SPEC (exit 1 when git has no such object).
+dogfood_file_blob() {
+  local rc=0
+  dogfood_blob_nul "$1" || rc=$?
+  case "$rc" in
+    0) cat -- "$1" || return 2 ;;
+    1) return 3 ;;
+    *) return 2 ;;
+  esac
+}
+dogfood_git_blob() {
+  local f rc=0
+  f="$(mktemp)" || return 2
+  [ -n "$f" ] && [ -f "$f" ] || return 2
+  git cat-file -p "$1" >"$f" 2>/dev/null || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    rm -f "${f:?}"
+    return 1
+  fi
+  rc=0
+  dogfood_file_blob "$f" || rc=$?
+  rm -f "${f:?}"
+  return "$rc"
+}
+
+# Lexical RFC 8259 for the canary files: whitespace, strings without \u escapes
+# or raw control characters, integers of at most 15 digits with no sign other
+# than -, no leading zero, fraction or exponent, and true false null and the
+# structural characters. jq accepts NaN, Infinity, +3, 03, 1e309 and a BOM; this
+# does not, and with no \u escape a string's raw bytes are its decoded bytes.
+DOGFOOD_CANARY_LEX='\A[ \t\n\r]*+(?:(?:"(?:[^"\\\x00-\x1f]|\\["\\/bfnrt])*+"|-?(?:0|[1-9][0-9]{0,14})(?![0-9.eE+\-])|true|false|null|[\[\]{}:,])[ \t\n\r]*+)*+\z'
+
+# dogfood_canary_raw FILE LABEL nul|dup|lex|bytes : prints ok, or one sentence.
+# ok is printed only after a positive result, never because a command said
+# nothing; a caller treats anything but ok as a refusal.
+#   nul   a NUL byte anywhere.
+#   dup   exactly one top-level value, no duplicate JSON key at any depth.
+#   lex   the strict lexical check above (also refuses a BOM and trailing text).
+#   bytes any byte outside printable ASCII plus tab, LF and CR in the RAW file.
 dogfood_canary_raw() {
   local file="$1" label="$2" mode="$3" out
   case "$mode" in
+    nul)
+      out="$(dogfood_pgrep a '\x00' "$file" 'a\0000b' 'ab')"
+      case "$out" in
+        miss) printf 'ok\n' ;;
+        hit) printf '%s\n' "canary ${label} holds a NUL byte: no JSON reader agrees on what a NUL hides" ;;
+        *) printf '%s\n' "canary ${label} could not be scanned for NUL bytes: UNMEASURED" ;;
+      esac
+      ;;
     dup)
+      out="$(jq -s -r 'length | tostring' "$file" 2>/dev/null)" || out="unreadable"
+      case "$out" in
+        1) ;;
+        unreadable | "") printf '%s\n' "canary ${label} is not readable JSON" && return 0 ;;
+        *) printf '%s\n' "canary ${label} holds ${out} top-level JSON values, not one" && return 0 ;;
+      esac
       out="$(jq -n -r --stream "$DOGFOOD_CANARY_DUP_JQ" "$file" 2>/dev/null)" || out="unreadable"
       case "$out" in
-        ok) ;;
+        ok) printf 'ok\n' ;;
         dup) printf '%s\n' "canary ${label} holds a duplicate JSON key: jq keeps the last one, so the file reads differently to a human or another parser" ;;
         *) printf '%s\n' "canary ${label} is not readable JSON" ;;
       esac
       ;;
-    bytes)
-      out="$(LC_ALL=C tr -d '\11\12\15\40-\176' <"$file" 2>/dev/null | head -c 1 | od -An -c | tr -d ' ')" || out="x"
-      if [ -n "$out" ]; then
-        printf '%s\n' "canary ${label} holds a byte outside printable ASCII in its raw file: nothing may hide where jq does not look"
-      fi
+    lex)
+      out="$(dogfood_pgrep az "$DOGFOOD_CANARY_LEX" "$file" '{"a":[1,"x",-0,true]}\n' '{"a":+3}')"
+      case "$out" in
+        hit) printf 'ok\n' ;;
+        miss) printf '%s\n' "canary ${label} is not strict JSON text (a \\u escape, a number that is not a plain integer of at most 15 digits such as NaN, Infinity, +3, 03, 1.5 or 1e309, a BOM, a raw control character or trailing text)" ;;
+        *) printf '%s\n' "canary ${label} could not be checked for strict JSON text: UNMEASURED" ;;
+      esac
       ;;
+    bytes)
+      out="$(dogfood_pgrep a '[^\x09\x0a\x0d\x20-\x7e]' "$file" '\0177' 'ab\n')"
+      case "$out" in
+        miss) printf 'ok\n' ;;
+        hit) printf '%s\n' "canary ${label} holds a byte outside printable ASCII in its raw file: nothing may hide where jq does not look" ;;
+        *) printf '%s\n' "canary ${label} could not be scanned for non-ASCII bytes: UNMEASURED" ;;
+      esac
+      ;;
+    *) printf '%s\n' "canary ${label}: unknown raw check ${mode}, UNMEASURED" ;;
   esac
+}
+
+# dogfood_canary_rawall FILE LABEL MODE... : the first non-ok answer of the
+# modes in order, else ok.
+dogfood_canary_rawall() {
+  local file="$1" label="$2" mode out
+  shift 2
+  for mode in "$@"; do
+    out="$(dogfood_canary_raw "$file" "$label" "$mode")"
+    if [ "$out" != ok ]; then
+      printf '%s\n' "${out:-canary ${label} gave no answer to the ${mode} check, UNMEASURED}"
+      return 0
+    fi
+  done
+  printf 'ok\n'
 }
 
 # dogfood_canary_jqfile PROG FILE LABEL [jq args...] : run a stage-2 program
@@ -332,10 +478,11 @@ dogfood_canary_jqfile() {
 # The file-level checks, run inside a scratch dir $1 for the already-resolved
 # commits HEAD $3 and BASE $4, reading evidence at the revs after them.
 dogfood_canary_files() {
-  local tmp="$1" blob="$2" head="$3" base="$4" c q f role path want out rc i n p line names
+  local tmp="$1" blob="$2" head="$3" base="$4" c q f role path want out rc i n p line names nm
   shift 4
   c="$(printf '%s' "$blob" | jq -c '.quorum.canary')" || return 1
   q="$(printf '%s' "$blob" | jq -c '.quorum')" || return 1
+  [ -n "$c" ] && [ -n "$q" ] || return 1
   p="$(printf '%s' "$c" | jq -r '.reviewed_head')" || return 1
   if [ "$p" != "$head" ]; then
     printf 'quorum.canary.reviewed_head %s is not the commit this receipt vouches for (%s)\n' "${p:0:12}" "${head:0:12}"
@@ -360,8 +507,8 @@ dogfood_canary_files() {
       printf 'quorum.canary.%s %s: evidence.files sha256 %s, no committed copy matches (last seen %s)\n' "$role" "$path" "${want:0:12}" "${DOGFOOD_CANARY_GOT:0:12}"
       return 0
     fi
-    out="$(dogfood_canary_raw "$f" "$role" dup)"
-    if [ -n "$out" ]; then
+    out="$(dogfood_canary_rawall "$f" "$role" nul dup lex)"
+    if [ "$out" != ok ]; then
       printf '%s\n' "$out"
       return 0
     fi
@@ -391,8 +538,8 @@ dogfood_canary_files() {
     return 0
   fi
   for role in claims_file plan_file verdicts_file; do
-    out="$(dogfood_canary_raw "${tmp}/${role}" "$role" bytes)"
-    if [ -n "$out" ]; then
+    out="$(dogfood_canary_rawall "${tmp}/${role}" "$role" bytes)"
+    if [ "$out" != ok ]; then
       printf '%s\n' "$out"
       return 0
     fi
@@ -402,13 +549,22 @@ dogfood_canary_files() {
     return 0
   }
   n="$(printf '%s' "$c" | jq -r '.planted | length')" || return 1
+  case "$n" in
+    "" | *[!0-9]*) return 1 ;;
+  esac
+  [ "$n" -ge 2 ] || return 1
   i=0
   while [ "$i" -lt "$n" ]; do
     p="$(printf '%s' "$c" | jq -r --argjson i "$i" '.planted[$i].falsified_by')" || return 1
     path="${p%:*}"
     line="${p##*:}"
-    rc=0
-    grep -qxF -- "$path" <<<"$names" || rc=$?
+    rc=1
+    while IFS= read -r nm; do
+      if [ "$nm" = "$path" ]; then
+        rc=0
+        break
+      fi
+    done <<<"$names"
     if [ "$rc" -ne 0 ]; then
       printf 'quorum.canary.planted[%s].falsified_by %s names a path that is not exactly a file changed by the reviewed diff\n' "$i" "$p"
       return 0
@@ -431,13 +587,14 @@ dogfood_canary_status() {
   local blob="$1" why tmp rc=0 head base rev
   local -a revs=()
   shift
-  tmp="$(mktemp)" || {
+  tmp="$(mktemp)" || tmp=""
+  if [ -z "$tmp" ] || [ ! -f "$tmp" ]; then
     printf '%s\n' "quorum.canary: no scratch file to read the receipt into, UNMEASURED"
     return 0
-  }
+  fi
   printf '%s' "$blob" >"$tmp"
-  why="$(dogfood_canary_raw "$tmp" receipt dup)"
-  if [ -n "$why" ]; then
+  why="$(dogfood_canary_rawall "$tmp" receipt nul dup lex)"
+  if [ "$why" != ok ]; then
     rm -f "${tmp:?}"
     printf '%s\n' "$why"
     return 0
@@ -453,9 +610,9 @@ dogfood_canary_status() {
     printf '%s\n' "$why"
     return 0
   fi
-  why="$(dogfood_canary_raw "$tmp" receipt bytes)"
+  why="$(dogfood_canary_rawall "$tmp" receipt bytes)"
   rm -f "${tmp:?}"
-  if [ -n "$why" ]; then
+  if [ "$why" != ok ]; then
     printf '%s\n' "$why"
     return 0
   fi
@@ -482,10 +639,11 @@ dogfood_canary_status() {
     }
     revs+=("$(dogfood_canary_commit "$rev")")
   done
-  tmp="$(mktemp -d)" || {
+  tmp="$(mktemp -d)" || tmp=""
+  if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
     printf '%s\n' "quorum.canary: no scratch directory to read the evidence files into, UNMEASURED"
     return 0
-  }
+  fi
   rc=0
   why="$(dogfood_canary_files "$tmp" "$blob" "$head" "$base" "${revs[@]}" 2>/dev/null)" || rc=$?
   rm -rf "${tmp:?}"
@@ -535,18 +693,49 @@ dogfood_receipt_status() {
 # copy: an old 0-refuted receipt at OID is replaced by a canary receipt at HEAD
 # on a re-run, and an old copy that merely mentions "canary" does not let an
 # unbound non-canary stub at HEAD stand in for it.
+# dogfood_pick_read SPEC : the receipt blob at SPEC; when it holds a NUL byte or
+# cannot be read, a sentence that is not JSON, so every reader of the pick
+# refuses it instead of judging bytes a shell variable dropped.
+dogfood_pick_read() {
+  local rc=0 out
+  out="$(dogfood_git_blob "$1")" || rc=$?
+  case "$rc" in
+    0) printf '%s' "$out" ;;
+    3) printf '%s' "receipt holds a NUL byte" ;;
+    *) printf '%s' "receipt unreadable (exit ${rc}), UNMEASURED" ;;
+  esac
+}
+
 dogfood_receipt_pick() {
   local oid="$1" path="$2" blob="" later="" have_blob=0
   if git cat-file -e "${oid}:${path}" 2>/dev/null; then
     have_blob=1
-    blob="$(git cat-file -p "${oid}:${path}")"
+    blob="$(dogfood_pick_read "${oid}:${path}")"
   fi
   if git cat-file -e "HEAD:${path}" 2>/dev/null; then
-    later="$(git cat-file -p "HEAD:${path}")"
+    later="$(dogfood_pick_read "HEAD:${path}")"
   fi
-  if [ -n "$later" ] && printf '%s' "$later" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
-    printf '%s' "$later"
-    return 0
+  case "$later" in
+    "receipt holds a NUL byte" | "receipt unreadable "*)
+      printf '%s' "$later"
+      return 0
+      ;;
+  esac
+  if [ -n "$later" ]; then
+    local jrc=0
+    printf '%s' "$later" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1 || jrc=$?
+    case "$jrc" in
+      0)
+        printf '%s' "$later"
+        return 0
+        ;;
+      1 | 5) ;;
+      *)
+        # jq itself failed (absent, killed): which copy is canary is not known.
+        printf '%s' "receipt unreadable: jq exit ${jrc}, UNMEASURED"
+        return 0
+        ;;
+    esac
   fi
   if [ "$have_blob" -eq 1 ]; then
     printf '%s' "$blob"

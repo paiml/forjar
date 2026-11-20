@@ -330,7 +330,7 @@ pub fn table() -> Vec<Case> {
             "a control character in a refuter name is refused",
             |f| f.receipt["quorum"]["refuter_names"] = json!(["r1", "r2\u{0007}", "r3"]),
             nop,
-            "ASCII printable only",
+            "strict JSON text",
         ),
         (
             "judge names that differ only by a zero-width character are refused",
@@ -549,7 +549,7 @@ pub fn table() -> Vec<Case> {
         ),
         (
             "a planted text of two sparse words is refused",
-            |f| pl_text(f, 0, "a                  b"),
+            |f| pl_text(f, 0, "aaaaaaaaaaaaaaaaaaaaaaaa      bbbbbbbbbbbb"),
             nop,
             "4+ words",
         ),

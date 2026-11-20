@@ -585,10 +585,94 @@ fn a_push_with_no_canary_block_never_runs_jq_for_the_waiver_check() {
     );
 }
 
+/// A python3 that says nothing (or exits `code`) for the canary detection pass
+/// and is the real one for every other pass: the detection must die UNMEASURED,
+/// never read the silence as "no canary".
+fn python_shim(code: i32) -> (tempfile::TempDir, String) {
+    let real = Command::new("sh")
+        .args(["-c", "command -v python3"])
+        .output()
+        .expect("sh");
+    let real = String::from_utf8_lossy(&real.stdout).trim().to_string();
+    assert!(!real.is_empty(), "python3 must be installed");
+    let bin = tempfile::tempdir().expect("tempdir");
+    let shim = bin.path().join("python3");
+    let body = format!(
+        "#!/bin/bash\ns=\"$(cat)\"\ncase \"$s\" in *'\"canary\" in q'*) exit {code};; esac\nprintf '%s\\n' \"$s\" | exec {real} \"$@\"\n"
+    );
+    std::fs::write(&shim, body).expect("write the shim");
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    let path = format!(
+        "{}:{}",
+        bin.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    (bin, path)
+}
+
+#[test]
+fn a_python3_that_says_nothing_for_the_canary_detection_is_unmeasured_never_no_canary() {
+    let gate = fx::manifest().join("scripts/quorum-gate.sh");
+    for code in [0, 1, 2, 127] {
+        let (_bin, path) = python_shim(code);
+        let (r, _) = case_run(&CASES[0], &gate, Some(&path));
+        assert!(
+            r.code != 0
+                && r.text.contains("the canary detection could not run")
+                && r.text.contains("UNMEASURED"),
+            "python3 exit {code} must refuse as UNMEASURED:\n{}",
+            r.text
+        );
+    }
+}
+
+fn nul_receipt(root: &Path) {
+    let p = root.join(format!(".quorum/{BRANCH}.json"));
+    if let Ok(t) = std::fs::read_to_string(&p) {
+        std::fs::write(&p, t.replacen('{', "{\u{0}", 1)).expect("write");
+    }
+}
+
+fn nul_claims(root: &Path) {
+    let p = root.join(".quorum/evidence/claims.json");
+    if let Ok(t) = std::fs::read_to_string(&p) {
+        std::fs::write(&p, t.replacen('[', "[\u{0}", 1)).expect("write");
+    }
+}
+
+/// A NUL byte in the receipt, or in an evidence file the receipt hashes, is
+/// refused by the push gate (the receipt is judged on the bytes git holds).
+#[test]
+fn a_nul_byte_in_the_receipt_or_a_canary_evidence_file_is_refused_by_the_push_gate() {
+    let gate = fx::manifest().join("scripts/quorum-gate.sh");
+    for (name, extra) in [
+        ("receipt", nul_receipt as fn(&Path)),
+        ("claims.json", nul_claims),
+    ] {
+        let (f, tip) = fixture_with(1, &|_, _| {}, &extra);
+        let r = run_gate(&f.repo, &gate, false, &tip, None);
+        assert!(
+            r.code != 0 && !r.text.contains("quorum gate passed"),
+            "a NUL in the {name} must be refused:\n{}",
+            r.text
+        );
+    }
+}
+
 /// (name, text in the gate, its mutation, the probe it must flip). A probe runs
 /// the (mutated) gate and says what the answer was designed to be.
 type Probe = fn(&Path) -> (Run, Option<&'static str>);
-const MUTANTS: [(&str, &str, &str, Probe); 8] = [
+const MUTANTS: [(&str, &str, &str, Probe); 9] = [
+    (
+        "read a silent python3 as no canary",
+        "if [ \"$has_canary_rc\" -ne 0 ] || { [ \"$has_canary\" != \"yes\" ] && [ \"$has_canary\" != \"no\" ]; }; then",
+        "if false; then",
+        |g| {
+            let (_bin, path) = python_shim(0);
+            let (r, _) = case_run(&CASES[0], g, Some(&path));
+            (r, Some("the canary detection could not run"))
+        },
+    ),
     (
         "skip the canary check when refuted >= 1",
         "if \"canary\" in q:",

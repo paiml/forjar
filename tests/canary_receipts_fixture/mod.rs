@@ -128,6 +128,82 @@ pub struct Opt {
     pub body_edit: Option<BodyEdit>,
     /// Rewrites the serialized receipt text.
     pub rec_edit: Option<fn(String) -> String>,
+    /// (tool, mode): run with a PATH holding every other tool and, for this one,
+    /// nothing ("absent"), a script that prints nothing and exits 0 ("silent0")
+    /// or one that prints nothing and exits 1 ("silent1").
+    pub shim: Option<(&'static str, &'static str)>,
+}
+
+/// The external tools the receipt predicate and this harness can reach.
+const TOOLS: [&str; 17] = [
+    "git",
+    "jq",
+    "grep",
+    "mktemp",
+    "cat",
+    "sha256sum",
+    "awk",
+    "rm",
+    "dirname",
+    "env",
+    "sed",
+    "sort",
+    "uniq",
+    "tr",
+    "head",
+    "wc",
+    "od",
+];
+
+/// A directory to use as the whole PATH: a symlink to each of TOOLS except the
+/// shimmed one, which is missing or a silent script.
+fn shim_path(dir: &Path, shim: (&str, &str)) -> String {
+    let bin = dir.join("shimbin");
+    std::fs::create_dir_all(&bin).expect("shim dir");
+    for t in TOOLS {
+        let dst = bin.join(t);
+        if t == shim.0 {
+            match shim.1 {
+                m if m.starts_with("when:") => {
+                    // when:<case pattern on "$*">: silent for that call, the real tool otherwise.
+                    let real = ["/usr/bin", "/bin"]
+                        .iter()
+                        .map(|d| Path::new(d).join(t))
+                        .find(|p| p.exists())
+                        .expect("real tool");
+                    let pat = &m["when:".len()..];
+                    std::fs::write(
+                        &dst,
+                        format!(
+                            "#!/bin/sh\ncase \"$*\" in {pat}) exit 0;; esac\nexec {} \"$@\"\n",
+                            real.display()
+                        ),
+                    )
+                    .expect("shim");
+                    let mut p = std::fs::metadata(&dst).expect("meta").permissions();
+                    std::os::unix::fs::PermissionsExt::set_mode(&mut p, 0o755);
+                    std::fs::set_permissions(&dst, p).expect("chmod");
+                }
+                "silent0" | "silent1" => {
+                    let code = if shim.1 == "silent0" { 0 } else { 1 };
+                    std::fs::write(&dst, format!("#!/bin/sh\nexit {code}\n")).expect("shim");
+                    let mut p = std::fs::metadata(&dst).expect("meta").permissions();
+                    std::os::unix::fs::PermissionsExt::set_mode(&mut p, 0o755);
+                    std::fs::set_permissions(&dst, p).expect("chmod");
+                }
+                _ => {}
+            }
+            continue;
+        }
+        let found = ["/usr/bin", "/bin", "/usr/local/bin"]
+            .iter()
+            .map(|d| Path::new(d).join(t))
+            .find(|p| p.exists());
+        if let Some(src) = found {
+            std::os::unix::fs::symlink(src, &dst).expect("link");
+        }
+    }
+    bin.to_string_lossy().into_owned()
 }
 
 pub type BodyEdit = (&'static str, fn(String) -> String);
@@ -265,17 +341,23 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
         }
     }
     let call = if o.resolve_empty {
-        r#". "$1"; r="$(cat rec.json)"; shift; dogfood_receipt_resolve "" "$r" "$@""#
+        r#". "$1"; r="$(<rec.json)"; shift; dogfood_receipt_resolve "" "$r" "$@""#
     } else {
-        r#". "$1"; r="$(cat rec.json)"; shift; dogfood_receipt_status "$r" "$@""#
+        r#". "$1"; r="$(<rec.json)"; shift; dogfood_receipt_status "$r" "$@""#
     };
-    let out = Command::new("bash")
-        .args(["-c", call, "x"])
+    let mut cmd = Command::new(if o.shim.is_some() {
+        "/bin/bash"
+    } else {
+        "bash"
+    });
+    cmd.args(["-c", call, "x"])
         .arg(script)
         .args(&args)
-        .current_dir(root)
-        .output()
-        .expect("bash");
+        .current_dir(root);
+    if let Some(sh) = o.shim {
+        cmd.env("PATH", shim_path(dir.path(), sh));
+    }
+    let out = cmd.output().expect("bash");
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
@@ -291,4 +373,5 @@ pub type Case = (&'static str, Edit, OptEdit, &'static str);
 pub mod cases;
 pub mod cases_review;
 pub mod cases_round3;
+pub mod cases_round6;
 pub mod mutants;

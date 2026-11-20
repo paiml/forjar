@@ -309,6 +309,7 @@ pub fn all() -> Vec<Case> {
         .collect();
     v.extend(super::cases_review::table());
     v.extend(super::cases_round3::table());
+    v.extend(super::cases_round6::table());
     v
 }
 
@@ -332,6 +333,8 @@ pub fn failures(script: &Path, stop_at_first: bool) -> Vec<String> {
         let (got, want) = answer(script, name);
         let ok = if want == "ok" {
             got == "ok"
+        } else if want == "!ok" {
+            !got.is_empty() && got != "ok"
         } else {
             got.contains(want)
         };

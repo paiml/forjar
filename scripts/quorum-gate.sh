@@ -435,7 +435,10 @@ git cat-file -p "$pushed:$receipt" > "$receipt_blob" 2>/dev/null \
 # The block is detected by python on the decoded JSON, the same key jq reads; a
 # receipt python cannot parse is not a canary receipt here, and the python pass
 # below refuses it as it always did.
-has_canary="$(python3 - "$receipt_blob" <<'CANARY_PY' 2>/dev/null || true
+# The answer is exactly yes or no from a python that exited 0; a python that is
+# missing, shimmed or killed says nothing, and nothing is not "no canary".
+has_canary_rc=0
+has_canary="$(python3 - "$receipt_blob" <<'CANARY_PY' 2>/dev/null
 import json, sys
 try:
     q = json.load(open(sys.argv[1])).get("quorum")
@@ -443,7 +446,10 @@ try:
 except Exception:
     print("no")
 CANARY_PY
-)"
+)" || has_canary_rc=$?
+if [ "$has_canary_rc" -ne 0 ] || { [ "$has_canary" != "yes" ] && [ "$has_canary" != "no" ]; }; then
+    die "the canary detection could not run (python3 exit $has_canary_rc, answer '${has_canary}'): UNMEASURED"
+fi
 if [ "$has_canary" = "yes" ]; then
     canary_waiver_rc=0
     jq -e "$DOGFOOD_CANARY_WAIVER_JQ" "$receipt_blob" >/dev/null 2>&1 || canary_waiver_rc=$?
@@ -606,7 +612,7 @@ if "canary" in q:
     if later.returncode != 0 or any(not p.startswith((".quorum/", ".pmat/")) for p in later.stdout.split("\n") if p):
         die("commits after quorum.canary.reviewed_head change files outside .quorum/ and .pmat/")
     cp = subprocess.run(
-        ["bash", "-c", '. "$1"; dogfood_receipt_status "$(cat "$2")" "$3" "$4" "$5"',
+        ["bash", "-c", '. "$1"; b="$(dogfood_file_blob "$2")" || { echo "the receipt holds a NUL byte or cannot be read: UNMEASURED"; exit 0; }; dogfood_receipt_status "$b" "$3" "$4" "$5"',
          "canary", os.environ["QUORUM_RECEIPT_LIB"], path, rh, rb, pushed],
         capture_output=True, text=True)
     if cp.returncode != 0 or cp.stdout.strip() != "ok":

@@ -123,7 +123,10 @@ fn every_mutant_of_the_predicate_flips_its_kill_case() {
         std::fs::write(&p, text).expect("write mutant");
         let (got, want) = answer(&p, mu.kill);
         // A case that wants "ok" must stop being ok; a refusal must flip.
-        let flipped = if want == "ok" {
+        let flipped = if mu.flip.is_empty() {
+            // A guard behind another guard: the answer must at least change.
+            got != answer(&manifest().join(SCRIPT), mu.kill).0
+        } else if want == "ok" {
             got != "ok"
         } else {
             got == mu.flip

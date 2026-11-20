@@ -35,6 +35,19 @@ use std::process::Command;
 /// no receipt, then commit the pack: N's canary receipt and its evidence.
 /// Returns S. `missed`: no judge refutes planted claim 2.
 fn land(root: &Path, slug: &str, missed: bool, old: bool, date: Option<&str>) -> String {
+    land_nul(root, slug, missed, old, date, "")
+}
+
+/// `nul` names the committed file that gets a NUL byte spliced in: "receipt",
+/// "claims.json", "plan.json" or "verdicts.json" (the hash follows the bytes).
+fn land_nul(
+    root: &Path,
+    slug: &str,
+    missed: bool,
+    old: bool,
+    date: Option<&str>,
+    nul: &str,
+) -> String {
     cf::git(root, &["reset", "-q", "--hard", "HEAD~1"]);
     cf::put(root, "shipped.txt", "l1\nl2\nl3\nl4\nl5\nl6\n");
     if old {
@@ -78,16 +91,19 @@ fn land(root: &Path, slug: &str, missed: bool, old: bool, date: Option<&str>) ->
         ("plan.json", &f.plan, "canary-plan"),
         ("verdicts.json", &f.verdicts, "judge-verdicts"),
     ] {
-        let body = serde_json::to_string_pretty(v).expect("json");
+        let mut body = serde_json::to_string_pretty(v).expect("json");
+        if nul == name {
+            body = body.replacen('[', "[\u{0}", 1).replacen('{', "{\u{0}", 1);
+        }
         cf::put(root, &format!(".quorum/evidence/{name}"), &body);
         files.push(json!({"path": format!(".quorum/evidence/{name}"), "roles": [role], "sha256": cf::sha256(&body)}));
     }
     f.receipt["evidence"]["files"] = Value::Array(files);
-    cf::put(
-        root,
-        &format!(".quorum/{slug}.json"),
-        &f.receipt.to_string(),
-    );
+    let mut rec = f.receipt.to_string();
+    if nul == "receipt" {
+        rec = rec.replacen('{', "{\u{0}", 1);
+    }
+    cf::put(root, &format!(".quorum/{slug}.json"), &rec);
     cf::git(root, &["add", "-A"]);
     commit("post-merge receipts pack");
     s
@@ -102,16 +118,26 @@ fn gh_json(s: &str, head_ref: &str) -> String {
 /// What each release gate says, as (arm5 green, arm5 text, gate E green, gate E text).
 /// `mutate` rewrites (file, from, to) in the fixtures' working trees first.
 fn both(missed: bool, old: bool, mutate: &[(&str, &str, &str)]) -> (bool, String, bool, String) {
+    both_nul(missed, old, mutate, "")
+}
+
+fn both_nul(
+    missed: bool,
+    old: bool,
+    mutate: &[(&str, &str, &str)],
+    nul: &str,
+) -> (bool, String, bool, String) {
     let r = rc::fixture(false, None);
-    let s = land(
+    let s = land_nul(
         &r.root,
         &rc::slug(),
         missed,
         old,
         Some("2026-09-10T00:00:00Z"),
+        nul,
     );
     let g = ge::fixture(None, None);
-    let s2 = land(&g.root, &ge::slug(), missed, old, None);
+    let s2 = land_nul(&g.root, &ge::slug(), missed, old, None, nul);
     for (file, from, to) in mutate {
         for root in [&r.root, &g.root] {
             let p = root.join(file);
@@ -154,6 +180,22 @@ fn a_canary_receipt_in_a_pack_after_the_squash_merge_is_ok_at_arm5_and_gate_e() 
     let (a5, t5, e, te) = both(false, false, &[]);
     assert!(a5, "Arm 5 must count N as receipt=ok:\n{t5}");
     assert!(e, "gate E must accept N's receipt:\n{te}");
+}
+
+/// A NUL byte in the receipt or in one of the three evidence files is refused
+/// at Arm 5 and at gate E, on the bytes git holds (a shell variable would drop
+/// the NUL and judge a different file).
+#[test]
+fn a_nul_byte_in_a_canary_receipt_or_its_evidence_is_refused_at_arm5_and_gate_e() {
+    for nul in ["receipt", "claims.json", "plan.json", "verdicts.json"] {
+        let (a5, t5, e, te) = both_nul(false, false, &[], nul);
+        assert!(!a5 && !t5.contains("receipt=ok"), "Arm 5 {nul}:\n{t5}");
+        assert!(!e, "gate E {nul}:\n{te}");
+        if nul == "receipt" {
+            assert!(te.contains("NUL byte"), "gate E {nul}:\n{te}");
+            assert!(t5.contains("receipt=thin"), "Arm 5 {nul}:\n{t5}");
+        }
+    }
 }
 
 #[test]

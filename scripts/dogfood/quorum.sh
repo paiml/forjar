@@ -95,9 +95,11 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   fi
 
   grc=0
-  text="$(git show "HEAD:${receipt}")" || grc=$?
-  if [ "$grc" -ne 0 ]; then
-    fail "git show HEAD:${receipt} exited ${grc} for PR #${num}, so the receipt cannot be read — UNMEASURED"
+  text="$(dogfood_git_blob "HEAD:${receipt}")" || grc=$?
+  if [ "$grc" -eq 3 ]; then
+    fail "PR #${num}: ${receipt} holds a NUL byte, which a shell variable drops, so the receipt cannot be judged as git has it: refused"
+  elif [ "$grc" -ne 0 ]; then
+    fail "reading HEAD:${receipt} exited ${grc} for PR #${num}, so the receipt cannot be read — UNMEASURED"
   fi
 
   jrc=0

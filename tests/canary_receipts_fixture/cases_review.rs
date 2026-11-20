@@ -229,7 +229,7 @@ pub fn table() -> Vec<Case> {
             "a JSON-escaped marker word is refused",
             |_| {},
             |o| o.claims_raw = raw_claims("The \\u0063anary claim adds added_two to src/a.rs."),
-            "were not blind",
+            "strict JSON text",
         ),
         (
             "a homoglyph lookalike of a marker word is refused",
