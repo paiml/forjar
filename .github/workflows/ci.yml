@@ -5,7 +5,7 @@
 #   test: cargo test --lib (self-hosted clean-room)
 #   lint: cargo clippy --all-targets -- -D warnings + cargo fmt --check
 #   coverage: cargo llvm-cov + codecov upload
-#   security: cargo audit (fleet, continue-on-error)
+#   security: cargo audit + advisory gate (blocking; no continue-on-error)
 #   provenance: SLSA attest-build-provenance
 #   gate: aggregates test+lint results
 #

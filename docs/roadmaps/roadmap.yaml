@@ -8663,3 +8663,21 @@ roadmap:
   notes: null
   epic: 764
 - id: PMAT-1160
+  github_issue: 1160
+  item_type: task
+  title: 'ci.yml header no longer says the security job is continue-on-error'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - See the ticket; a falsifier in tests/falsification_pr_spot_labels or a workflow check covers it
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
