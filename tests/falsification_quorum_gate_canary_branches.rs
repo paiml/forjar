@@ -103,6 +103,15 @@ struct Fix {
 /// committed receipt; the checkout is then left on main. `edit` may change the
 /// receipt; it is handed a commit that is NOT an ancestor of the pushed branch.
 fn fixture(refuted: usize, edit: &dyn Fn(&mut Value, &str)) -> (Fix, String) {
+    fixture_with(refuted, edit, &|_| {})
+}
+
+/// `extra` writes files into the receipt commit (e.g. a regenerated `.pmat/`).
+fn fixture_with(
+    refuted: usize,
+    edit: &dyn Fn(&mut Value, &str),
+    extra: &dyn Fn(&Path),
+) -> (Fix, String) {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = dir.path().to_path_buf();
     let root = repo.as_path();
@@ -205,6 +214,7 @@ fn fixture(refuted: usize, edit: &dyn Fn(&mut Value, &str)) -> (Fix, String) {
         &format!(".quorum/{BRANCH}.json"),
         &serde_json::to_string_pretty(&r).expect("json"),
     );
+    extra(root);
     fx::git(root, &["add", "-A"]);
     fx::git(root, &["commit", "-qm", "quorum receipt"]);
     let tip = fx::git(root, &["rev-parse", "HEAD"]);
@@ -215,46 +225,130 @@ fn fixture(refuted: usize, edit: &dyn Fn(&mut Value, &str)) -> (Fix, String) {
 
 type Edit = fn(&mut Value, &str);
 
-/// (name, claims_refuted, receipt edit, expected: None = accepted, else a refusal substring)
-type Case = (&'static str, usize, Edit, Option<&'static str>);
+/// (name, claims_refuted, receipt edit, extra files in the receipt commit,
+/// expected: None = accepted, else a refusal substring)
+type Case = (&'static str, usize, Edit, fn(&Path), Option<&'static str>);
 
-const CASES: [Case; 4] = [
+fn nothing(_: &Path) {}
+
+const WAIVER_SENTENCE: &str = "quorum.canary is present next to a waiver or override key";
+
+const CASES: [Case; 14] = [
     (
         "refuted_ge_1_with_a_malformed_canary_block_is_refused",
         1,
         |r, _| r["quorum"]["canary"]["planted_by"] = json!("refuter-1"),
+        nothing,
         Some("quorum.canary block is refused: quorum.canary.planted_by names a refuter or a judge"),
     ),
     (
-        "refuted_0_with_a_valid_canary_block_and_a_waived_key_is_refused",
+        "refuted_0_with_a_valid_canary_block_and_an_empty_waived_reason_is_refused",
         0,
         |r, _| r["waived"] = json!({"reason": ""}),
-        Some("quorum.canary is present next to a waiver"),
+        nothing,
+        Some(WAIVER_SENTENCE),
     ),
     (
         "refuted_0_with_a_valid_canary_block_is_accepted",
         0,
         |_, _| {},
+        nothing,
         None,
     ),
     (
         "a_reviewed_head_that_is_not_an_ancestor_of_the_push_is_refused",
         0,
         |r, side| r["quorum"]["canary"]["reviewed_head"] = json!(side),
+        nothing,
         Some("quorum.canary.reviewed_head is not an ancestor of the pushed commit"),
+    ),
+    (
+        "a_non_empty_waived_reason_next_to_a_canary_block_is_refused_not_waived",
+        0,
+        |r, _| r["waived"] = json!({"reason": "because"}),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "an_override_key_next_to_a_canary_block_is_refused",
+        0,
+        |r, _| r["override"] = json!("sneaky"),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "an_upper_case_WAIVED_key_next_to_a_canary_block_is_refused",
+        0,
+        |r, _| r["WAIVED"] = json!({"reason": "because"}),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "a_capitalised_Override_key_next_to_a_canary_block_is_refused",
+        0,
+        |r, _| r["Override"] = json!(true),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "a_nested_waiver_key_next_to_a_canary_block_is_refused",
+        0,
+        |r, _| r["pmat"]["accepted_waivers"] = json!([]),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "refutation_waived_false_next_to_a_canary_block_is_refused",
+        0,
+        |r, _| r["quorum"]["refutation_waived"] = json!(false),
+        nothing,
+        Some(WAIVER_SENTENCE),
+    ),
+    (
+        "a_reviewed_base_that_is_not_the_merge_base_is_refused",
+        0,
+        |r, side| r["quorum"]["canary"]["reviewed_base"] = json!(side),
+        nothing,
+        Some("quorum.canary.reviewed_base is not the merge base of this push"),
+    ),
+    (
+        "a_regenerated_pmat_baseline_after_reviewed_head_is_accepted",
+        0,
+        |_, _| {},
+        |root| fx::put(root, ".pmat/baseline.json", "{\"regenerated\": true}\n"),
+        None,
+    ),
+    (
+        "a_canary_whose_falsifier_is_the_receipts_own_evidence_is_refused",
+        0,
+        |r, _| {
+            for (i, ln) in [(0, 1), (1, 2)] {
+                let p = format!(".quorum/evidence/claims.json:{ln}");
+                r["quorum"]["canary"]["planted"][i]["falsified_by"] = json!(p);
+            }
+        },
+        nothing,
+        Some("lies under .quorum/"),
+    ),
+    (
+        "a_canary_receipt_with_a_blank_lane_name_is_refused",
+        0,
+        |r, _| r["quorum"]["lanes"] = json!(["a", "b", " "]),
+        nothing,
+        Some("blank or non-string lane name"),
     ),
 ];
 
 /// None when the case behaves as designed, else what went wrong.
 fn verdict(c: &Case, script: &Path, path: Option<&str>) -> Option<String> {
-    let (f, tip) = fixture(c.1, &c.2);
+    let (f, tip) = fixture_with(c.1, &c.2, &c.3);
     let r = run_gate(&f.repo, script, false, &tip, path);
-    match c.3 {
+    match c.4 {
         None if r.code == 0 && r.text.contains("quorum gate passed") => None,
         Some(want) if r.code != 0 && r.text.contains(want) => None,
         _ => Some(format!(
             "{}: exit {} (wanted {:?}):\n{}",
-            c.0, r.code, c.3, r.text
+            c.0, r.code, c.4, r.text
         )),
     }
 }
@@ -322,7 +416,7 @@ fn a_failing_jq_in_the_evidence_read_is_refused_not_passed() {
 }
 
 /// (name, text in the gate, its mutation, index into CASES of the case it must flip)
-const MUTANTS: [(&str, &str, &str, usize); 2] = [
+const MUTANTS: [(&str, &str, &str, usize); 4] = [
     (
         "skip the canary check when refuted >= 1",
         "if \"canary\" in q:",
@@ -330,10 +424,22 @@ const MUTANTS: [(&str, &str, &str, usize); 2] = [
         0,
     ),
     (
-        "skip the waiver check when refuted == 0",
-        "if q.get(\"refutation_waived\") or r.get(\"waived\"):",
+        "let a canary block pass the waiver check",
+        "0) die \"quorum.canary is present next to a waiver or override key: a waived round is not a canary round\" ;;",
+        "0) : ;;",
+        4,
+    ),
+    (
+        "do not compare reviewed_base with the merge base",
+        "if rb != merge_base:",
         "if False:",
-        1,
+        10,
+    ),
+    (
+        "refuse a regenerated .pmat/ after reviewed_head",
+        "startswith((\".quorum/\", \".pmat/\"))",
+        "startswith((\".quorum/\",))",
+        11,
     ),
 ];
 
@@ -358,20 +464,16 @@ fn every_mutant_of_the_gate_flips_its_kill_case() {
         );
         std::fs::write(&gate, src.replace(from, to)).expect("write the mutant");
         let c = &CASES[kill];
-        let (f, tip) = fixture(c.1, &c.2);
-        let r = run_gate(&f.repo, &gate, false, &tip, None);
+        // The case must stop behaving as designed under the mutant.
         assert!(
-            r.code == 0 && r.text.contains("quorum gate passed"),
-            "mutant '{name}' survived: {} is still refused under it (exit {}):\n{}",
-            c.0,
-            r.code,
-            r.text
+            verdict(c, &gate, None).is_some(),
+            "mutant '{name}' survived: {} still behaves as designed under it",
+            c.0
         );
-        // Control: the unmutated copy still passes the kill case.
-        let orig = copy.path().join("scripts/quorum-gate.sh");
-        std::fs::write(&orig, &src).expect("restore");
+        // Control: the unmutated copy gives the case its designed answer.
+        std::fs::write(&gate, &src).expect("restore");
         assert!(
-            verdict(c, &orig, None).is_none(),
+            verdict(c, &gate, None).is_none(),
             "the unmutated copy must pass {}",
             c.0
         );

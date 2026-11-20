@@ -48,14 +48,23 @@ DOGFOOD_RECEIPT_JQ='
   end
 '
 
+# A canary block and ANY waiver/override key, at any depth, in any case, with
+# any value (an empty reason, false, null, a nested key), never coexist. Run it
+# with `jq -e`: exit 0 = the two are together (refuse), 1 = not. The push gate
+# runs it BEFORE its waiver early exit, which only reads waived.reason.
+DOGFOOD_CANARY_WAIVER_JQ='
+  (.quorum | type == "object" and has("canary"))
+  and ([paths | .[-1]? | tostring] | any(test("waiv|override"; "i")))
+'
+
 # Stage 2a: the SHAPE of quorum.canary and its pointers into evidence.files.
 # Every condition is "bad when true"; one that raises (a wrong type) is bad too.
 DOGFOOD_CANARY_SHAPE_JQ='
   def isstr: type == "string";
   def nes: isstr and (gsub("\\s"; "") | length > 0);
-  def sid: isstr and test("^[1-9][0-9]{0,5}$");
+  def sid: isstr and test("\\A[1-9][0-9]{0,5}\\z");
   def norm: tostring | ascii_downcase | gsub("\\s"; "");
-  def hexn($n): isstr and test("^[0-9a-f]{\($n)}$");
+  def hexn($n): isstr and test("\\A[0-9a-f]{\($n)}\\z");
   def chk(c; m): [(try ([c] | any) catch true), m];
   def evok($c; $f; $role):
     (($c[$f] | nes)
@@ -63,9 +72,13 @@ DOGFOOD_CANARY_SHAPE_JQ='
           and ((.roles // []) | type == "array" and (index($role) != null))
           and (.sha256 | hexn(64)))] | length) == 1);
   ([.quorum | (.lanes, .refuters, .refuter_names, .judge_names)? | arrays | .[] | norm]) as $others
+  | (.quorum.lanes) as $lanes
   | .quorum.canary as $c
   | [
     chk(($c | type) != "object"; "quorum.canary is not an object"),
+    chk(($lanes | type) != "array" or ($lanes | length) < 3 or ($lanes | all(nes) | not);
+        "quorum.lanes is empty, short, or holds a blank or non-string lane name"),
+    chk(($lanes | map(norm) | unique | length) != ($lanes | length); "quorum.lanes names are not distinct: one lane counted twice"),
     chk((($c.planted_by | nes) | not); "quorum.canary.planted_by is missing: a canary round names who planted it"),
     chk(($c.planted_by | test("refuter|judge"; "i")); "quorum.canary.planted_by names a refuter or a judge: the planter must be neither"),
     chk(($c.planted_by | norm) as $pb | any($others[]; . == $pb); "quorum.canary.planted_by is also a lane, refuter or judge name: the planter must be none of them"),
@@ -80,9 +93,13 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk(($c.planted | all(.[];
          (type == "object") and (.id | sid)
          and ((.text | nes) and ((.text | gsub("^\\s+|\\s+$"; "") | length) >= 20))
-         and ((.falsified_by | isstr) and (.falsified_by | test("^[A-Za-z0-9_./-]+:[0-9]+$")) and ((.falsified_by | test("\\.\\.")) | not))
+         and ((.falsified_by | isstr) and (.falsified_by | test("\\A(?!\\./)[A-Za-z0-9_./-]+:[1-9][0-9]{0,8}\\z")) and ((.falsified_by | test("\\.\\.")) | not))
          and ((.position | type) == "number") and (.position == (.position | floor)) and (.position >= 1))) | not;
         "quorum.canary.planted[] needs a plain numeric id, text (20+ non-blank chars), falsified_by (path:line, no ..) and an integer position >= 1"),
+    chk(any($c.planted[].falsified_by; test("\\A(\\.quorum|\\.pmat)/"));
+        "quorum.canary.planted[].falsified_by lies under .quorum/ or .pmat/: a receipt cannot falsify a claim with its own evidence"),
+    chk(([.evidence.files[]?.path] as $ev | any($c.planted[].falsified_by; sub(":[0-9]+\\z"; "") as $fp | any($ev[]; . == $fp)));
+        "quorum.canary.planted[].falsified_by names a file the receipt lists as evidence"),
     chk(([$c.planted[].id] | unique | length) != ($c.planted | length); "quorum.canary.planted[].id are not distinct"),
     chk(([$c.planted[].text | norm] | unique | length) != ($c.planted | length); "quorum.canary.planted[].text are not distinct"),
     chk(([$c.planted[].falsified_by] | unique | length) != ($c.planted | length); "quorum.canary.planted[].falsified_by are not distinct: two canaries may not share one falsifying line"),
@@ -94,7 +111,7 @@ DOGFOOD_CANARY_SHAPE_JQ='
     chk(($c.caught | sort) != ([$c.planted[].id] | sort);
         "quorum.canary.caught does not equal the planted ids: a missed canary means the round did not hunt"),
     chk(any([$c.claims_file, $c.plan_file, $c.verdicts_file][];
-            ((try test("^\\.quorum/evidence/[A-Za-z0-9_./-]+$") catch false) | not) or (try test("\\.\\.") catch true));
+            ((try test("\\A\\.quorum/evidence/[A-Za-z0-9_./-]+\\z") catch false) | not) or (try test("\\.\\.") catch true));
         "quorum.canary names an evidence file outside .quorum/evidence/"),
     chk((evok($c; "claims_file"; "claims-blind")) | not;
         "quorum.canary.claims_file must be one evidence.files entry with role claims-blind and a sha256"),
@@ -110,7 +127,7 @@ DOGFOOD_CANARY_SHAPE_JQ='
 # file. $c is quorum.canary. Same form for planted and real claims.
 DOGFOOD_CANARY_CLAIMS_JQ='
   def chk(c; m): [(try ([c] | any) catch true), m];
-  def sid: type == "string" and test("^[1-9][0-9]{0,5}$");
+  def sid: type == "string" and test("\\A[1-9][0-9]{0,5}\\z");
   . as $cl
   | ($c.real_claim_ids) as $rid | ($c.planted) as $pl
   | [
@@ -164,11 +181,27 @@ DOGFOOD_CANARY_VERDICTS_JQ='
         "quorum.claims_reviewed does not equal the real claim count; planted claims are never counted")] | map(select(.[0])) | (first(.[] | .[1]) // "ok")
 '
 
-# Words that would tell a refuter or a judge which claims are planted. They
-# are searched in the DECODED strings and keys of the claims file, lower-cased
-# and reduced to letters, so case, spacing, punctuation and \u escapes do not
-# hide one. A claims file with any non-ASCII character is refused outright.
+# Words that would tell a refuter or a judge which claims are planted. They are
+# searched in each DECODED string and object key of the claims file on its own,
+# lower-cased, so case and \u escapes do not hide one. A marker counts as a
+# whole word (so "plan", "planned" and "plan takes" are honest prose) or as its
+# letters each separated by one or more non-letters ("p-l-a-n-t", "c a n a r y").
+# A claims file with any non-ASCII or control character in a string is refused
+# outright, so a homoglyph cannot hide a word. Not caught, and said so in the
+# design doc: a word split with a separator in only some gaps ("ca nary").
 DOGFOOD_CANARY_MARKERS='canary|plant|decoy|honeypot|tripwire|bait|sentinel'
+DOGFOOD_CANARY_MARKER_JQ='
+  def stems: ["canary", "plant", "decoy", "honeypot", "tripwire", "bait", "sentinel"];
+  def spaced($w): $w | split("") | join("[^a-z]+");
+  ([.. | strings] + [.. | objects | keys[]]) as $s
+  | if any($s[]; test("[^ -~]")) then "nonascii"
+    elif any($s[] | ascii_downcase;
+        test("(?<![a-z])(canar(y|ies)|plant(s|ed|ing)?|decoys?|honeypots?|tripwires?|baits?|baited|sentinels?)(?![a-z])")
+        or (. as $t | any(stems[]; . as $w | $t | test(spaced($w)))))
+      then "marker"
+    else "ok"
+    end
+'
 
 # dogfood_canary_commit REV : the 40-hex commit REV names, or fail.
 dogfood_canary_commit() {
@@ -216,25 +249,20 @@ dogfood_canary_added() {
 # dogfood_canary_marker FILE : 0 clean, 1 a marker word or a non-ASCII char
 # (sentence in DOGFOOD_CANARY_WHY), 2 unreadable.
 dogfood_canary_marker() {
-  local decoded folded rc=0
-  decoded="$(jq -r '[.. | strings] + [.. | objects | keys[]] | .[]' "$1" 2>/dev/null)" || return 2
-  LC_ALL=C grep -q '[^ -~]' <<<"$decoded" || rc=$?
-  if [ "$rc" -eq 0 ]; then
-    DOGFOOD_CANARY_WHY="quorum.canary.claims_file carries a non-ASCII or control character: a homoglyph could hide a marker word"
-    return 1
-  elif [ "$rc" -ne 1 ]; then
-    return 2
-  fi
-  folded="$(tr 'A-Z' 'a-z' <<<"$decoded" | tr -cd 'a-z')" || return 2
-  rc=0
-  grep -qE "$DOGFOOD_CANARY_MARKERS" <<<"$folded" || rc=$?
-  if [ "$rc" -eq 0 ]; then
-    DOGFOOD_CANARY_WHY="quorum.canary.claims_file carries a marker word (${DOGFOOD_CANARY_MARKERS}): the refuters and judges were not blind"
-    return 1
-  elif [ "$rc" -ne 1 ]; then
-    return 2
-  fi
-  return 0
+  local out
+  out="$(jq -r "$DOGFOOD_CANARY_MARKER_JQ" "$1" 2>/dev/null)" || return 2
+  case "$out" in
+    ok) return 0 ;;
+    nonascii)
+      DOGFOOD_CANARY_WHY="quorum.canary.claims_file carries a non-ASCII or control character: a homoglyph could hide a marker word"
+      return 1
+      ;;
+    marker)
+      DOGFOOD_CANARY_WHY="quorum.canary.claims_file carries a marker word (${DOGFOOD_CANARY_MARKERS}): the refuters and judges were not blind"
+      return 1
+      ;;
+    *) return 2 ;;
+  esac
 }
 
 # dogfood_canary_jqfile PROG FILE LABEL [jq args...] : run a stage-2 program
@@ -409,4 +437,28 @@ dogfood_receipt_status() {
     return 0
   fi
   dogfood_receipt_resolve "$why" "$blob" "$@"
+}
+
+# dogfood_receipt_pick OID PATH : the receipt blob Arm 5 judges for the PR whose
+# merge commit is OID. A PR-branch receipt rides in OID's tree, but a canary
+# receipt is bound to the commit it vouches for and a squash or merge commit
+# cannot be named in the tree it labels, so for a canary the copy at HEAD (the
+# receipt committed after the merge, bound to OID and OID^1) is the one judged.
+dogfood_receipt_pick() {
+  local oid="$1" path="$2" blob="" later=""
+  if git cat-file -e "${oid}:${path}" 2>/dev/null; then
+    blob="$(git cat-file -p "${oid}:${path}")"
+  fi
+  if git cat-file -e "HEAD:${path}" 2>/dev/null; then
+    later="$(git cat-file -p "HEAD:${path}")"
+  fi
+  if [ -z "$blob" ]; then
+    printf '%s' "$later"
+    return 0
+  fi
+  if [ -n "$later" ] && printf '%s' "$blob" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
+    printf '%s' "$later"
+    return 0
+  fi
+  printf '%s' "$blob"
 }

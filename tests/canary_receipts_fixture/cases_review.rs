@@ -2,25 +2,25 @@
 //! Each was a forged or unbound receipt the first predicate accepted.
 use super::*;
 
-fn s(x: &str) -> Option<String> {
+pub fn s(x: &str) -> Option<String> {
     Some(x.to_string())
 }
 
 /// Set a planted claim's field in the receipt and in the hashed plan.
-fn pl(f: &mut Fx, i: usize, k: &str, v: Value) {
+pub fn pl(f: &mut Fx, i: usize, k: &str, v: Value) {
     f.receipt["quorum"]["canary"]["planted"][i][k] = v.clone();
     f.plan["planted"][i][k] = v;
 }
 
 /// Set a planted claim's text everywhere it is copied: receipt, plan, claims.
-fn pl_text(f: &mut Fx, i: usize, t: &str) {
+pub fn pl_text(f: &mut Fx, i: usize, t: &str) {
     pl(f, i, "text", json!(t));
     let pos = f.plan["planted"][i]["position"].as_u64().expect("position") as usize;
     f.claims[pos - 1]["text"] = json!(t);
 }
 
 /// Rename a claim id in the claims file and in every judge's verdicts.
-fn rename(f: &mut Fx, old: &str, new: &str) {
+pub fn rename(f: &mut Fx, old: &str, new: &str) {
     for c in f.claims.as_array_mut().expect("claims") {
         if c["id"] == old {
             c["id"] = json!(new);
@@ -61,13 +61,13 @@ fn only_planted(f: &mut Fx) {
     f.receipt["quorum"]["claims_confirmed"] = json!(0);
 }
 
-fn raw_claims(third: &str) -> Option<String> {
+pub fn raw_claims(third: &str) -> Option<String> {
     Some(format!(
         "[{{\"id\":\"1\",\"text\":\"{A_ADDED_1}\"}},{{\"id\":\"2\",\"text\":\"{P_DELETE}\"}},{{\"id\":\"3\",\"text\":\"{third}\"}},{{\"id\":\"4\",\"text\":\"{P_FIRST}\"}}]"
     ))
 }
 
-fn nop(_: &mut Opt) {}
+pub fn nop(_: &mut Opt) {}
 
 fn zero_hashes(f: &mut Fx) {
     let z = "0".repeat(64);
@@ -174,7 +174,7 @@ pub fn table() -> Vec<Case> {
                 pl(f, 0, "falsified_by", json!("./src/a.rs:4"));
             },
             nop,
-            "not exactly a file changed",
+            "needs a plain numeric id",
         ),
         (
             "two canaries sharing one falsifying line are refused",
@@ -374,7 +374,8 @@ pub fn table() -> Vec<Case> {
         (
             "a plan whose planted is an object is refused",
             |f| {
-                f.plan = json!({"planted": {"a": 1}});
+                let p = f.plan["planted"].clone();
+                f.plan = json!({"planted": {"k1": p[0], "k2": p[1]}});
             },
             nop,
             "not an array",

@@ -115,6 +115,15 @@ pub struct Opt {
     pub delete_only: bool,
     pub claims_raw: Option<String>,
     pub resolve_empty: bool,
+    /// An evidence file named here is hashed into the receipt but never committed.
+    pub no_commit: Option<&'static str>,
+    /// 1: squash-merge shaped, only the pre-merge receipt (bound to the PR head);
+    /// 2: the same plus a post-merge receipt bound to the squash commit.
+    pub squash: u8,
+    /// A further evidence.files entry (path only; a zero hash) in the receipt.
+    pub extra_ev: Option<&'static str>,
+    /// Commit the evidence files first, so @EVID names a commit that adds them.
+    pub evid_head: bool,
 }
 
 pub type OptEdit = fn(&mut Opt);
@@ -158,13 +167,9 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "other"]);
     let other = git(root, &["rev-parse", "HEAD"]);
-    let sub = |s: &str| {
-        s.replace("@HEAD", &head)
-            .replace("@BASE", &base)
-            .replace("@OTHER", &other)
-    };
     let mut r = fx.receipt.clone();
     let mut files = Vec::new();
+    let mut evid = String::new();
     let raw = o.claims_raw.clone();
     for (name, v, role) in [
         ("claims.json", &fx.claims, "claims-blind"),
@@ -175,8 +180,24 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
             (Some(b), "claims.json") => b.clone(),
             _ => serde_json::to_string_pretty(v).expect("json"),
         };
-        put(root, &format!(".quorum/evidence/{name}"), &body);
+        if o.no_commit != Some(name) {
+            put(root, &format!(".quorum/evidence/{name}"), &body);
+        }
         files.push(json!({"path": format!(".quorum/evidence/{name}"), "roles": [role], "sha256": sha256(&body)}));
+    }
+    if o.evid_head {
+        git(root, &["add", "-A"]);
+        git(root, &["commit", "-qm", "evidence files"]);
+        evid = git(root, &["rev-parse", "HEAD"]);
+    }
+    let sub = |s: &str| {
+        s.replace("@HEAD", &head)
+            .replace("@BASE", &base)
+            .replace("@OTHER", &other)
+            .replace("@EVID", &evid)
+    };
+    if let Some(p) = o.extra_ev {
+        files.push(json!({"path": p, "roles": ["code"], "sha256": "0".repeat(64)}));
     }
     if !o.skip_hash {
         r["evidence"]["files"] = Value::Array(files);
@@ -188,6 +209,31 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
     put(root, "rec.json", &sub(&r.to_string()));
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "evidence"]);
+    if o.squash > 0 {
+        // A squash merge: one ordinary commit S on the base, holding the PR's tree
+        // (receipt included), so the receipt's reviewed_head (the PR head) is no
+        // ancestor of anything on main.
+        let ev = git(root, &["rev-parse", "HEAD"]);
+        git(root, &["checkout", "-q", "--detach", &base]);
+        git(root, &["read-tree", "-u", "--reset", &ev]);
+        git(root, &["commit", "-qm", "squash"]);
+        let sq = git(root, &["rev-parse", "HEAD"]);
+        if o.squash > 1 {
+            let post = sub(&r.to_string()).replace(&head, &sq);
+            put(root, "rec.json", &post);
+            git(root, &["add", "-A"]);
+            git(root, &["commit", "-qm", "post-merge receipt"]);
+        }
+        let call = r#". "$1"; s="$(git rev-parse HEAD~1)"; [ "$2" = 1 ] && s="$(git rev-parse HEAD)"; r="$(dogfood_receipt_pick "$s" rec.json)"; dogfood_receipt_status "$r" "$s" "${s}^1" "$s" HEAD"#;
+        let out = Command::new("bash")
+            .args(["-c", call, "x"])
+            .arg(script)
+            .arg(o.squash.to_string())
+            .current_dir(root)
+            .output()
+            .expect("bash");
+        return String::from_utf8_lossy(&out.stdout).trim().to_string();
+    }
     let mut args: Vec<String> = Vec::new();
     if !o.no_subject {
         args.push(sub(o.subj_head.as_deref().unwrap_or("@HEAD")));
@@ -222,4 +268,5 @@ pub type Case = (&'static str, Edit, OptEdit, &'static str);
 
 pub mod cases;
 pub mod cases_review;
+pub mod cases_round3;
 pub mod mutants;

@@ -377,12 +377,7 @@ while read -r pr oid headref; do
   [ -n "$pr" ] || continue
   slug="${headref//\//-}"
   path=".quorum/${slug}.json"
-  blob=""
-  if git cat-file -e "${oid}:${path}" 2>/dev/null; then
-    blob="$(git cat-file -p "${oid}:${path}")"
-  elif git cat-file -e "HEAD:${path}" 2>/dev/null; then
-    blob="$(git cat-file -p "HEAD:${path}")"
-  fi
+  blob="$(dogfood_receipt_pick "$oid" "$path")"
   if [ -z "$blob" ]; then
     status="missing"
   else

@@ -308,6 +308,7 @@ pub fn all() -> Vec<Case> {
         .map(|(n, e, w)| (n, e, (|_: &mut Opt| {}) as OptEdit, w))
         .collect();
     v.extend(super::cases_review::table());
+    v.extend(super::cases_round3::table());
     v
 }
 

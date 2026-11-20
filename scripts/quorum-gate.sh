@@ -418,6 +418,19 @@ git cat-file -p "$pushed:$receipt" > "$receipt_blob" 2>/dev/null \
 # becomes a hostage the first time it is wrong. It is a reason STRING in the
 # COMMITTED receipt: it lands in the PR diff where a reviewer sees it, and it
 # cannot be set from the environment. Bypass exists; silent bypass does not.
+# PMAT-1170: a canary block next to ANY waiver or override key (any depth, any
+# case, any value, even an empty reason or false) is refused HERE, before the
+# early exit below, which reads only waived.reason and would exit 0 on it.
+# shellcheck source=scripts/dogfood/lib/receipt.sh
+. "$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh"
+canary_waiver_rc=0
+jq -e "$DOGFOOD_CANARY_WAIVER_JQ" "$receipt_blob" >/dev/null 2>&1 || canary_waiver_rc=$?
+case "$canary_waiver_rc" in
+    0) die "quorum.canary is present next to a waiver or override key: a waived round is not a canary round" ;;
+    1 | 2) : ;; # 2 = not JSON: the python pass below says so
+    *) die "the canary/waiver check could not run (jq exit $canary_waiver_rc): UNMEASURED" ;;
+esac
+
 waiver="$(python3 - "$receipt_blob" <<'WAIVE_PY' 2>/dev/null || true
 import json, sys
 try:
@@ -554,10 +567,9 @@ if refuted_texts and len(refuted_texts) != refuted:
 if "canary" in q:
     # PMAT-1170: the second shape. The one predicate in lib/receipt.sh decides,
     # so this gate and gates E and R cannot drift apart on what a canary is.
-    # A block that is present is ALWAYS checked, whatever refuted says and
-    # whether or not a waiver is set: a canary block next to a waiver is refused.
-    if q.get("refutation_waived") or r.get("waived"):
-        die("quorum.canary is present next to a waiver: a waived round is not a canary round")
+    # A block that is present is ALWAYS checked, whatever refuted says. A canary
+    # block next to a waiver or override key never gets here: the shell refuses
+    # it before the waiver early exit, and lib stage 1 refuses it again below.
     c = q["canary"] if isinstance(q["canary"], dict) else {}
     rh, rb = str(c.get("reviewed_head", "")), str(c.get("reviewed_base", ""))
     if rb != merge_base:
@@ -568,10 +580,10 @@ if "canary" in q:
         die("quorum.canary.reviewed_head is not an ancestor of the pushed commit")
     later = subprocess.run(["git", "diff", "--name-only", rh, pushed],
                            capture_output=True, text=True)
-    if later.returncode != 0 or any(not p.startswith(".quorum/") for p in later.stdout.split("\n") if p):
-        die("commits after quorum.canary.reviewed_head change files outside .quorum/")
+    if later.returncode != 0 or any(not p.startswith((".quorum/", ".pmat/")) for p in later.stdout.split("\n") if p):
+        die("commits after quorum.canary.reviewed_head change files outside .quorum/ and .pmat/")
     cp = subprocess.run(
-        ["bash", "-c", '. "$1"; dogfood_canary_status "$(cat "$2")" "$3" "$4" "$5"',
+        ["bash", "-c", '. "$1"; dogfood_receipt_status "$(cat "$2")" "$3" "$4" "$5"',
          "canary", os.environ["QUORUM_RECEIPT_LIB"], path, rh, rb, pushed],
         capture_output=True, text=True)
     if cp.returncode != 0 or cp.stdout.strip() != "ok":
