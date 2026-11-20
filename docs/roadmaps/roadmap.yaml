@@ -8567,3 +8567,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1179
+  github_issue: 1179
+  item_type: task
+  title: 'tests for the untested fail-closed paths of scripts/dogfood/lib/prpage.sh'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria:
+  - Each fail-closed path of prpage.sh has a test that goes red on its mutant, run in the dogfood-guards job
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
