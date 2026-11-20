@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
-this release carries everything in them and everything merged since. The section below covers the 48 PRs merged
-after the v1.34.1 tag (`git log v1.34.1..origin/main --first-parent`). Numbers are marked: `PR #n` is a merged pull
+this release carries everything in them and everything merged since. The section below covers the 64 PRs merged
+after the v1.34.1 tag up to `main` at 0aef952a (`git log v1.34.1..0aef952a --first-parent`). Numbers are marked: `PR #n` is a merged pull
 request, `issue #n` is an issue, and `PMAT-n` is a roadmap ticket. Behaviour changes have a paragraph and a row in
 `docs/audits/crux-1.34.2.md`; the rest are one line each.
 
@@ -85,6 +85,12 @@ Also merged since v1.34.1, one line each from the merge subjects:
 - Security only: `Cargo.lock` takes quinn-proto 0.11.19 and quinn-udp 0.5.16, which clears three RUSTSEC advisories that `cargo audit` reported on the previous locked versions; no source change (PMAT-1153, PR #1154).
 - Security only: `deny.toml` and `.cargo/audit.toml` each gain one dated ignore row for RUSTSEC-2026-0543 (chrono is unmaintained; forjar calls no chrono API, the crate is locked only through two dependencies), with a review-by date and a new test that fails if the row, its date or the set of chrono dependents changes; no source change (PMAT-1155, PR #1156).
 - Repository only: the dogfood quorum store receipt, step A1 (`scripts/dogfood/lib/store.sh`), is added and wired to no gate, so gates E and R do not read it yet (PR #1148).
+- Release prep: version 1.34.2 in `Cargo.toml`, this section and `docs/audits/crux-1.34.2.md` (PMAT-1150, PR #1152); it tags and publishes nothing.
+- Review receipts only: post-merge review receipts under `.quorum/` for 12 merged PRs (PMAT-1166, PMAT-1167, PMAT-1168, PR #1175) and for 6 merged PRs (PMAT-1176, PMAT-1177, PMAT-1178, PR #1201); data and roadmap rows only.
+- Post-merge review defect packs, merged after this section's paragraphs were written and with no paragraph or crux row of their own yet: pack 1 (PMAT-1197, PMAT-1199, PR #1202), pack 2 (PMAT-1194, PMAT-1195, PMAT-1196, PR #1203), pack 3 (PMAT-1189, PMAT-1190, PMAT-1198, PR #1204), pack 4 (PMAT-1183, PMAT-1184, PMAT-1193, PR #1205), pack 5 re-cut (PMAT-1185, PMAT-1186, PMAT-1188 partly, PR #1209), pack 6 (PMAT-1180, PMAT-1181, PMAT-1182, PR #1207) and pack 7b (PMAT-1187, PMAT-1191, PMAT-1192, PR #1211). Each PR body lists its fixes and tests. They include changes to `cloud_instance` (user-data first-line check and private copy, client token inputs, unresolved `{{` refused for the gate fields, `check` volume-tags `warn:` lines), the runner pool planning code, the unpinned-cargo cache key and the `github_release` check.
+- Tests only: `tests_storage.rs` calls `launch_io::token_on` again, because #1211 and #1204 each compiled alone and together left `main` without compiling test targets (PR #1220; issue #1198).
+- CI only: PR jobs `lockfile`, `examples-validate` and `dogfood-surface` take PR-only spot labels when the repository variable `PR_SPOT_OPTIN` is `1`, and routing is unchanged when it is unset (PR #1219); `kani` and `lean` run on runners labelled `provers` (GH-881, PR #1222).
+- Dogfood gates: the PR window is read in pages instead of refusing at 200 PRs, for gates A, E and T (PR #1212) and gate R Arm 5 (PMAT-1173, PR #1221); `docs/roadmaps/releases.yaml` books v1.34.1 and names v1.34.2 the next goal (PR #1218).
 
 ## [1.34.1] - 2026-11-13
 
