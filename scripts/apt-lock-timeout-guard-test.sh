@@ -13,7 +13,7 @@ n=0
 # check <name> <want-rc> <dir>
 check() {
   local name=$1 want=$2 dir=$3 got
-  "$g" "$dir" >/dev/null 2>&1
+  "$g" "$dir" >/dev/null 2>&1 </dev/null
   got=$?
   n=$((n + 1))
   if [ "$got" -ne "$want" ]; then
