@@ -1,6 +1,7 @@
 //! #1128-#1130 falsifiers: root volume, data volume, volume tags (asserted on the fake aws log).
 
 use super::tests::{gated, res, Sandbox};
+use super::tests_launch::DAY;
 use super::*;
 use crate::core::types::CloudSpec;
 
@@ -15,7 +16,7 @@ export FORJAR_IMAGE='"'"'123456789012.dkr.ecr.eu-south-2.amazonaws.com/img001@sh
 /// A script that ends with `body` (the run-instances arguments, minus their final newline)
 /// followed by the launch-I/O tail for `r`.
 fn ends_with_launch(script: &str, body: &str, r: &Resource) -> bool {
-    let tail = launch_io::tail(&spec_of(r).unwrap());
+    let tail = launch_io::tail_on(&spec_of(r).unwrap(), DAY);
     script.ends_with(&format!("{}{tail}", body.trim_end_matches('\n')))
 }
 
@@ -48,15 +49,16 @@ fn good_data(c: &mut CloudSpec) {
 
 #[test]
 fn nothing_declared_is_byte_identical_to_today() {
-    let s = apply_script(&gated(std::path::Path::new("/t")));
+    let s = apply_script_on(&gated(std::path::Path::new("/t")), DAY);
     assert!(
         ends_with_launch(&s, TODAY_TAIL, &gated(std::path::Path::new("/t"))),
         "{s}"
     );
     // the whole script, head included, against the golden captured from `apply_script` on main;
     // the launch token hashes the UTC day, so it is held as `@TOKEN@` in the golden
-    let quoted = sh_squote(&launch_io::token(
-        &spec_of(&gated(std::path::Path::new("/t"))).unwrap(),
+    let quoted = sh_squote(&launch_io::token_on(
+        &launch_io::token_input(&spec_of(&gated(std::path::Path::new("/t"))).unwrap()),
+        DAY,
     ));
     assert_eq!(s.matches(&quoted).count(), 1, "{s}");
     assert_eq!(
@@ -68,7 +70,7 @@ fn nothing_declared_is_byte_identical_to_today() {
     // tags alone (volume_tags unset or false) never add a volume tag specification
     let mut r = gated(std::path::Path::new("/t"));
     r.cloud.volume_tags = Some(false);
-    assert!(ends_with_launch(&apply_script(&r), TODAY_TAIL, &r));
+    assert!(ends_with_launch(&apply_script_on(&r, DAY), TODAY_TAIL, &r));
 }
 
 #[test]
@@ -130,7 +132,7 @@ fn tagspec_has_volume_resource_with_declared_tags() {
     let mut r = gated(std::path::Path::new("/t"));
     r.cloud.volume_tags = Some(true);
     assert!(ends_with_launch(
-        &apply_script(&r),
+        &apply_script_on(&r, DAY),
         "--tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]' 'ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]'",
         &r
     ));

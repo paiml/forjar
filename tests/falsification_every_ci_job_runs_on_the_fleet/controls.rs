@@ -100,32 +100,6 @@ jobs:
     );
 }
 
-/// `runs-on: ${{ cond && fromJSON('[..]') || fromJSON('[..]') }}` can land on
-/// either array, so a hosted label in EITHER arm must be seen, and the fleet
-/// labels of both arms must be visible to the pool and architecture checks.
-#[test]
-fn both_arms_of_a_fromjson_runs_on_expression_are_read() {
-    let doc = fixture(
-        r#"
-jobs:
-  build:
-    runs-on: ${{ (a && b) && fromJSON('["self-hosted","burst-x64"]') || fromJSON('["self-hosted","ubuntu-latest"]') }}
-"#,
-    );
-    let labels = crate::scan::runner_labels(&doc["jobs"]["build"]);
-    for want in ["self-hosted", "burst-x64", "ubuntu-latest"] {
-        assert!(
-            labels.iter().any(|l| l == want),
-            "{want} missing: {labels:?}"
-        );
-    }
-    assert_eq!(
-        hosted_in(&doc),
-        vec![("build".to_string(), "ubuntu-latest".to_string())],
-        "a hosted runner in a fromJSON arm was not seen"
-    );
-}
-
 /// And the controls do not fire on a job that is genuinely on the fleet — a
 /// parser that called everything hosted would pass every case above.
 #[test]

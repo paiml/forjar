@@ -121,6 +121,34 @@ pub(crate) fn matrix_labels(job: &Value) -> Vec<String> {
     out
 }
 
+/// Every label list an expression can pick, read out of its `fromJSON('[...]')` literals: both
+/// branches of `cond && fromJSON('[a]') || fromJSON('[b]')`. A `fromJSON` whose argument is not a
+/// literal list of strings, or an expression with no literal at all, cannot be read: refused.
+pub(crate) fn expr_labels(expr: &str) -> Vec<String> {
+    let low = expr.to_ascii_lowercase();
+    let calls = low.matches("fromjson(").count();
+    let mut out = Vec::new();
+    let mut lits = 0;
+    let mut at = 0;
+    while let Some(i) = low[at..].find("fromjson('") {
+        let start = at + i + "fromjson('".len();
+        let end = low[start..]
+            .find("')")
+            .unwrap_or_else(|| panic!("runs-on expression has an unterminated literal: {expr}"));
+        let list: Vec<String> = serde_json::from_str(&expr[start..start + end])
+            .unwrap_or_else(|e| panic!("runs-on literal is not a list of strings ({e}): {expr}"));
+        out.extend(list);
+        lits += 1;
+        at = start + end;
+    }
+    assert!(
+        lits > 0 && lits == calls,
+        "runs-on expression cannot be resolved to literal label lists, so its CARGO_HOME and pool \
+         checks cannot be judged: {expr}"
+    );
+    out
+}
+
 /// Every literal runner label a job can end up on: its own `runs-on` when that
 /// is a literal, and — when `runs-on` is a `${{ matrix.* }}` expression — the
 /// values that expression can take.
@@ -134,30 +162,16 @@ pub(crate) fn runner_labels(job: &Value) -> Vec<String> {
     // everything the matrix can substitute, because either can be hosted.
     let mut out = Vec::new();
     push_labels(&mut out, runs_on);
-    if out.iter().any(|l| l.contains("${{")) {
-        let exprs: Vec<String> = out.iter().filter(|l| l.contains("${{")).cloned().collect();
+    let exprs: Vec<String> = out.iter().filter(|l| l.contains("${{")).cloned().collect();
+    if !exprs.is_empty() {
         out.retain(|l| !l.contains("${{"));
-        // Both arms of `cond && fromJSON('[..]') || fromJSON('[..]')` are
-        // runners the job can land on, so every JSON array literal is read.
-        for e in &exprs {
-            out.extend(json_array_labels(e));
-        }
         out.extend(matrix_labels(job));
-    }
-    out
-}
-
-/// Every string in each `fromJSON('[...]')` literal inside one expression.
-pub(crate) fn json_array_labels(expr: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut rest = expr;
-    while let Some(i) = rest.find("fromJSON('") {
-        rest = &rest[i + "fromJSON('".len()..];
-        let Some(end) = rest.find("')") else { break };
-        if let Ok(list) = serde_json::from_str::<Vec<String>>(&rest[..end]) {
-            out.extend(list);
+        for e in exprs.iter().filter(|e| {
+            let l = e.to_ascii_lowercase();
+            l.contains("fromjson(") || !l.contains("matrix.")
+        }) {
+            out.extend(expr_labels(e));
         }
-        rest = &rest[end..];
     }
     out
 }

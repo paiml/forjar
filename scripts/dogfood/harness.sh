@@ -31,7 +31,7 @@
 # tree: a gate that reads uncommitted files reports on a tree that no one else
 # will ever have.
 #
-# UNMEASURED IS FAIL. A gh that cannot answer, a page that fills the limit, a
+# UNMEASURED IS FAIL. A gh that cannot answer, a window not read in full, a
 # PR with no merge commit: each of those means this gate does not know the set
 # it is checking, and it says so instead of printing the words of a check that
 # ran. Nothing here is skipped for being offline.

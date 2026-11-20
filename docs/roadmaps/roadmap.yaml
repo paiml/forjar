@@ -3761,7 +3761,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions
@@ -3774,7 +3774,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.1
+  - release:v1.34.2
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
   release: 1.30.0
 - id: PMAT-528
@@ -3786,7 +3786,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window
@@ -3799,7 +3799,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.1
+  - release:v1.34.2
   notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
   release: 1.30.0
 - id: PMAT-529
@@ -3811,7 +3811,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output
@@ -3823,7 +3823,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.1
+  - release:v1.34.2
   notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
   release: 1.30.0
 - id: PMAT-531
@@ -4462,7 +4462,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-20T12:05:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - 'Every CB-21xx ratchet check is at or under its 2026-09-11 ceiling on a COMMITTED tree, repaired rather than raised: no ceiling in scripts/ratchets/cb21xx-baseline.json is edited. Measured before: origin/main CB-2115 55/43, CB-2114 37/34. Done when scripts/dogfood/comply.sh prints GATE B PASS.'
@@ -4471,7 +4471,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:triage
-  - release:v1.34.1
+  - release:v1.34.2
   notes: null
   release: 1.35.0
   epic: 697
@@ -4758,7 +4758,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-07T19:00:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - 'scripts/release-goal.sh (label_row, unlabel_row, cut) and scripts/dogfood/lib/releases.sh (the ledger loader) run no python3: the loader is scripts/dogfood/lib/releases.awk, which reads the ledger''s subset of YAML and fails by line number on any other line shape, and the row and ledger edits are awk over the file text with the same messages and exit codes as before'
@@ -4771,7 +4771,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.1
+  - release:v1.34.2
   notes: null
 - id: PMAT-614
   kind: code
@@ -4866,7 +4866,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-27T10:30:00Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - check_script is RED when more than one filesystem (autofs excluded) is mounted at the target, even when the top one matches the declared source and options.
@@ -4877,7 +4877,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.1
+  - release:v1.34.2
   notes: null
   release: 1.33.0
   epic: 696
@@ -5082,7 +5082,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-10-04T14:41:22Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - nightly.yml x86_64-apple-darwin and aarch64-apple-darwin legs run on [self-hosted, macOS, ARM64, mini]; every other leg keeps its runner, and nightly.yml still triggers only on schedule and workflow_dispatch.
@@ -5095,7 +5095,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.1
+  - release:v1.34.2
   notes: null
 - id: PMAT-727
   github_issue: 727
@@ -5366,7 +5366,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-23T18:10:27Z
-  updated: 2026-11-12T00:25:33Z
+  updated: 2026-11-19T09:32:58Z
   spec: null
   acceptance_criteria:
   - forjar#777
@@ -5375,7 +5375,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.1
+  - release:v1.34.2
   notes: null
   epic: 764
 - id: PMAT-829
@@ -7588,13 +7588,14 @@ roadmap:
   github_issue: 1048
   item_type: task
   title: 'cargo provider: key unpinned cache on resolved upstream version'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-14T23:16:01Z
   updated: 2026-11-14T23:16:01Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1048 closed as completed 2026-11-15; PR #1058 merged: the unpinned cargo cache is keyed on the resolved upstream version.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7642,13 +7643,14 @@ roadmap:
   github_issue: 1049
   item_type: task
   title: github_release check asserts the declared version (forjar#1049)
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-11-14T21:58:51Z
   updated: 2026-11-15T08:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1049 closed as completed 2026-11-15; PR #1066 merged: the github_release check asserts the pinned version against the live binary.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7660,13 +7662,14 @@ roadmap:
   github_issue: 1114
   item_type: task
   title: 'pool: pure ephemeral JIT runner config validator (forjar#894 slice 2)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1114 closed as completed 2026-11-16; PR #1138 merged: validated JIT runner config request.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -7732,13 +7735,14 @@ roadmap:
   github_issue: 1115
   item_type: task
   title: 'pool: spot-interruption decision and orphan sweep, pure functions (forjar#1115)'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-15T18:15:00Z
   updated: 2026-11-15T18:15:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - Issue #1115 closed as completed 2026-11-16; PR #1140 merged: interruption grace and orphan-host sweep.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8005,13 +8009,14 @@ roadmap:
   github_issue: 1155
   item_type: task
   title: 'security: ignore RUSTSEC-2026-0543 (chrono unmaintained) with a bounded, dated row in deny.toml and audit.toml'
-  status: planned
+  status: inprogress
   priority: high
   assigned_to: null
   created: 2026-11-17T00:00:00Z
   updated: 2026-11-17T00:00:00Z
   spec: null
-  acceptance_criteria: []
+  acceptance_criteria:
+  - PR #1156 merged (dated, bounded RUSTSEC-2026-0543 ignore rows and a bounding test); issue #1155 is still open, so the row is not completed until the issue closes.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -8059,6 +8064,60 @@ roadmap:
   github_issue: 1168
   item_type: task
   title: 'post-merge review receipts for the v1.34.2 window, batch 3 of 6'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1200
+  github_issue: 1200
+  item_type: task
+  title: 'roadmap rows for shipped tickets still say planned with empty acceptance criteria'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1197
+  github_issue: 1197
+  item_type: task
+  title: 'cloud_instance observability text is false for user-data'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1199
+  github_issue: 1199
+  item_type: task
+  title: 'CI comment contradicts the setting under it'
   status: planned
   priority: high
   assigned_to: null
@@ -8127,6 +8186,42 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1194
+  github_issue: 1194
+  item_type: task
+  title: 'derived Debug on the validated JIT config prints the token source in clear'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1189
+  github_issue: 1189
+  item_type: task
+  title: 'cargo latest-version lookup treats _ and - in a crate name as equal'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1180
   github_issue: 1180
   item_type: task
@@ -8145,10 +8240,82 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1195
+  github_issue: 1195
+  item_type: task
+  title: 'runner-name duplicate check is case-sensitive while host ids are case-insensitive'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1190
+  github_issue: 1190
+  item_type: task
+  title: 'github_release check distinguishes a pre-release pin from its final release'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1181
   github_issue: 1181
   item_type: task
   title: "cloud_instance client token omits cloud_user_data_file and cloud_volume_tags"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1196
+  github_issue: 1196
+  item_type: task
+  title: '`on_notice` test cannot fail'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1198
+  github_issue: 1198
+  item_type: task
+  title: 'cloud_instance client token takes the UTC day as an input'
   status: planned
   priority: high
   assigned_to: null
@@ -8235,10 +8402,64 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1184
+  github_issue: 1184
+  item_type: task
+  title: "advisory-ignore expiry is compared with today's UTC date"
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1164
+  github_issue: 1164
+  item_type: task
+  title: 'gate T window read: paginate instead of refusing at 200 PRs (filled page stays UNMEASURED)'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-15T18:15:00Z
+  updated: 2026-11-15T18:15:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1186
   github_issue: 1186
   item_type: task
   title: 'one stale runner registration freezes the whole orphan sweep'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
+- id: PMAT-1193
+  github_issue: 1193
+  item_type: task
+  title: 'resolver refuses a gate field that still holds a template marker'
   status: planned
   priority: high
   assigned_to: null
@@ -8271,6 +8492,24 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1183
+  github_issue: 1183
+  item_type: task
+  title: 'pool plan names the cap that blocked a launch instead of "queue served"'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-11-18T00:00:00Z
+  updated: 2026-11-18T00:00:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
 - id: PMAT-1185
   github_issue: 1185
   item_type: task
@@ -8289,56 +8528,37 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
-- id: PMAT-1214
-  github_issue: 1214
+- id: PMAT-1173
+  github_issue: 1173
   item_type: task
-  title: 'ci: lockfile-preflight PR job opts into the burst-x64 seat'
-  status: planned
-  priority: medium
+  title: 'gate R Arm 5 reads its window through the paged reader'
+  status: inprogress
+  priority: high
   assigned_to: null
-  created: 2026-11-19T08:08:02Z
-  updated: 2026-11-19T08:08:02Z
+  created: 2026-11-19T00:00:00Z
+  updated: 2026-11-19T00:00:00Z
   spec: null
   acceptance_criteria:
-  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  - Arm 5 calls the paged reader; no second window reader remains in release-check.sh; a window over 200 PRs is read whole; a failed page fails the arm
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
   notes: null
-  epic: 913
-- id: PMAT-1215
-  github_issue: 1215
+  epic: 764
+- id: PMAT-1082
+  github_issue: 1082
   item_type: task
-  title: 'ci: examples-validate PR job opts into the burst-x64 seat'
-  status: planned
-  priority: medium
+  title: 'MASTER: pre-push and PR gate speed and correctness (7 tickets)'
+  status: inprogress
+  priority: high
   assigned_to: null
-  created: 2026-11-19T08:08:07Z
-  updated: 2026-11-19T08:08:07Z
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
   spec: null
   acceptance_criteria:
-  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
-  phases: []
-  subtasks: []
-  estimated_effort: null
-  labels:
-  - kind:code
-  notes: null
-  epic: 913
-- id: PMAT-1216
-  github_issue: 1216
-  item_type: task
-  title: 'ci: lint file-health PR job opts into the burst-x64 seat'
-  status: planned
-  priority: medium
-  assigned_to: null
-  created: 2026-11-19T08:08:14Z
-  updated: 2026-11-19T08:08:14Z
-  spec: null
-  acceptance_criteria:
-  - Extend the BURST_OPTIN_LIGHT pull_request opt-in to a PR job that needs only cargo, git and bash. Same commands, same check name.
+  - Make the pre-push and PR gate path fast and correct so green PRs merge without rework
   phases: []
   subtasks: []
   estimated_effort: null

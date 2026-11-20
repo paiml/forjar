@@ -47,11 +47,21 @@ impl fmt::Debug for JitRunnerRequest {
 }
 
 /// A validated configuration. Only [`validate`] builds one.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct JitRunnerConfig {
     labels: Vec<String>,
     token_ttl_secs: u64,
     token_source: String,
+}
+
+impl fmt::Debug for JitRunnerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JitRunnerConfig")
+            .field("labels", &self.labels)
+            .field("token_ttl_secs", &self.token_ttl_secs)
+            .field("token_source", &"<redacted>")
+            .finish()
+    }
 }
 
 impl JitRunnerConfig {

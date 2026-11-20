@@ -78,29 +78,23 @@ jobs:
 
   kani:
     name: kani
-    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
-    # blind:
+    # forjar#598 / forjar#1086 -- ROUTE BY CAPABILITY, NOT BY HOST. History:
     #
     # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
-    # prover tools and seats that did not. The job was deterministic per seat
-    # and a coin flip per run: on commit 537252d3 four runs went
-    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
-    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
-    # (PMAT-547).
+    # prover tools and seats that did not (a coin flip per run). The interim pin
+    # was `intel`, a HOSTNAME standing in for a CAPABILITY (PMAT-547).
+    # 2026-11-15: that pin queued kani and lean for hours behind a few busy
+    # seats, so it was removed; with no label at all the job landed on seats
+    # without the tool and the assertion step below failed main (a red run on
+    # main for both lean and kani, 2026-11-19).
     #
-    # 2026-11-15: that pin left kani and lean queued for hours on main, because
-    # only a few seats carried the label and all were busy. It is removed. This
-    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
-    # was NOT measured on every such seat. What was measured: Proofs run
-    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
-    # this job green on one seat and the other proof job on a second seat; the
-    # tool assertion below passed on both.
-    #
-    # Safety does not rest on the label: the assertion step below fails this job
-    # by seat name if the tool is absent, so a seat without it turns the run
-    # red rather than passing or skipping. Fix that seat's image; do not add a
-    # host label. A test pins that this job names no host-specific label.
-    runs-on: [self-hosted, clean-room, X64]
+    # Now: `provers` is a capability label, admitted by the runner owner only on
+    # seats where both `cargo kani --version` and `lean --version` run. A job
+    # asking for a label no online seat carries stays queued; it never passes
+    # and never lands on a seat without the tool. The assertion step below is
+    # kept as the second line of defence; do not weaken it or install at
+    # runtime, and do not name a hostname here. A test pins this label set.
+    runs-on: [self-hosted, clean-room, X64, provers]
     # infra#430: sixteen clean-room runners share one ~/.cargo, and an hourly
     # reaper deletes registry/src entries by mtime -- under a live build, which
     # makes rustc read a source file that has just vanished:
@@ -208,29 +202,23 @@ jobs:
   # keeps real proof coverage at a cost that does not register.
   lean:
     name: lean
-    # forjar#598 / forjar#1086 -- NO HOST LABEL. History, so nobody re-adds one
-    # blind:
+    # forjar#598 / forjar#1086 -- ROUTE BY CAPABILITY, NOT BY HOST. History:
     #
     # 2026-09-20: `[self-hosted, clean-room, X64]` matched seats that carry the
-    # prover tools and seats that did not. The job was deterministic per seat
-    # and a coin flip per run: on commit 537252d3 four runs went
-    # fail/pass/fail/pass purely by which seat picked it up. The interim answer
-    # was a fourth label, `intel`: a HOSTNAME standing in for a CAPABILITY
-    # (PMAT-547).
+    # prover tools and seats that did not (a coin flip per run). The interim pin
+    # was `intel`, a HOSTNAME standing in for a CAPABILITY (PMAT-547).
+    # 2026-11-15: that pin queued kani and lean for hours behind a few busy
+    # seats, so it was removed; with no label at all the job landed on seats
+    # without the tool and the assertion step below failed main (a red run on
+    # main for both lean and kani, 2026-11-19).
     #
-    # 2026-11-15: that pin left kani and lean queued for hours on main, because
-    # only a few seats carried the label and all were busy. It is removed. This
-    # job may now land on ANY online seat carrying `clean-room` and `X64`; this
-    # was NOT measured on every such seat. What was measured: Proofs run
-    # 43739295778 (workflow_dispatch on the branch that removed the pin) ran
-    # this job green on one seat and the other proof job on a second seat; the
-    # tool assertion below passed on both.
-    #
-    # Safety does not rest on the label: the assertion step below fails this job
-    # by seat name if the tool is absent, so a seat without it turns the run
-    # red rather than passing or skipping. Fix that seat's image; do not add a
-    # host label. A test pins that this job names no host-specific label.
-    runs-on: [self-hosted, clean-room, X64]
+    # Now: `provers` is a capability label, admitted by the runner owner only on
+    # seats where both `cargo kani --version` and `lean --version` run. A job
+    # asking for a label no online seat carries stays queued; it never passes
+    # and never lands on a seat without the tool. The assertion step below is
+    # kept as the second line of defence; do not weaken it or install at
+    # runtime, and do not name a hostname here. A test pins this label set.
+    runs-on: [self-hosted, clean-room, X64, provers]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7

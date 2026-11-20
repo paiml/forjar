@@ -29,6 +29,8 @@
 
 # shellcheck source=scripts/dogfood/lib/tags.sh
 . "${BASH_SOURCE[0]%/*}/tags.sh"
+# shellcheck source=scripts/dogfood/lib/prpage.sh
+. "${BASH_SOURCE[0]%/*}/prpage.sh"
 
 # The GitHub client. Named here because it is a REQUIREMENT of the gates, not
 # a convenience: the set of PRs merged since a tag is a fact only GitHub holds,
@@ -126,8 +128,8 @@ dogfood_tag_date() {
 # MEMBERSHIP IS ANCESTRY, NEVER A TIME UPPER BOUND. GitHub's `mergedAt` for a
 # release's own PR is one second AFTER the commit date of the tag cut on it
 # (measured on v1.27.0: 21:46:05Z against 21:46:04Z), so a `merged:<=<tag
-# date>` bound would lose exactly the PR that made the release. The search is
-# bounded below only; each PR's merge commit is then placed by
+# date>` bound would lose exactly the PR that made the release. The time bound
+# only limits what is READ (lib/prpage.sh); each PR's merge commit is placed by
 # `git merge-base --is-ancestor` — inside LOWER (the previous window, not
 # counted), inside UPPER (this window), or neither (merged after UPPER,
 # reported and not counted).
@@ -139,19 +141,10 @@ dogfood_prs_between() {
   # a release gate softened from outside is exactly the hole this must not
   # open. An argument cannot be inherited.
   local lower="$1" upper="$2" soft="${3:-}"
-  local rc=0 raw n jrc=0 i=0 num oid arc prev_rc keep='[]'
-  dogfood_ref_date "$lower"
-  raw="$("$GH" pr list --repo "$REPO" --state merged --base main --search "merged:>=${DOGFOOD_REF_DATE}" --limit "$PR_PAGE_LIMIT" --json number,mergedAt,mergeCommit,headRefName,title,body 2>&1)" || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    fail "${GH} pr list exited ${rc} (${raw}) — the PRs merged since ${lower} cannot be enumerated without GitHub, and an unenumerable window is UNMEASURED, which is not the same as a window with no PRs"
-  fi
-  n="$(printf '%s' "$raw" | jq -r 'if type == "array" then length else error("not an array") end')" || jrc=$?
-  if [ "$jrc" -ne 0 ]; then
-    fail "cannot parse what ${GH} pr list returned as a JSON array (jq exit ${jrc}): ${raw} — UNMEASURED"
-  fi
-  if [ "$n" -ge "$PR_PAGE_LIMIT" ]; then
-    fail "${GH} pr list returned ${n} PR(s), which fills the --limit of ${PR_PAGE_LIMIT}: the window may be truncated and this gate would then check a subset while reporting the whole — UNMEASURED"
-  fi
+  local raw n i=0 num oid arc prev_rc keep='[]'
+  dogfood_pr_fetch "$lower" "$upper" number,mergedAt,mergeCommit,headRefName,title,body
+  raw="$DOGFOOD_PR_RAW"
+  n="$(printf '%s' "$raw" | jq -r 'length')"
 
   DOGFOOD_PR_OUTSIDE=0
   DOGFOOD_PR_PREVIOUS=0
