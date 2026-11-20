@@ -146,11 +146,14 @@ jobs:
   # clap structs CLAUDE.md exempts) is untouched until someone grows it.
   file-health:
     timeout-minutes: 15
+    permissions:
+      contents: read
     runs-on: [self-hosted, clean-room]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Max-lines ratchet on changed .rs files
         shell: bash

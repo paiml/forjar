@@ -8547,3 +8547,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1082
+  github_issue: 1082
+  item_type: task
+  title: 'MASTER: pre-push and PR gate speed and correctness (7 tickets)'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Make the pre-push and PR gate path fast and correct so green PRs merge without rework
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
