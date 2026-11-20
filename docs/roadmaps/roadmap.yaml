@@ -8586,3 +8586,22 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1123
+  github_issue: 1123
+  item_type: task
+  title: 'apt-lock-timeout-guard-test.sh pipes into an early-exit reader; falsification test fails'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-11-20T00:00:00Z
+  updated: 2026-11-20T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - the script no longer pipes into an early-exit reader; the falsification test is green in a checkout with git; bashrs reports 0 errors in the script
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
