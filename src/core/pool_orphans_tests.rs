@@ -263,3 +263,51 @@ fn blank_runner_names_are_refused() {
         assert_eq!(e, Err(SweepError::EmptyRunnerName), "{name:?}");
     }
 }
+
+#[test]
+fn cleanup_deregisters_idle_runners_on_unlisted_hosts_only() {
+    let l = complete(vec![
+        r("ghost", "gone", false),
+        r("kept", "I-0ABC", false),
+        r("ghost2", "gone2", false),
+    ]);
+    let c = cleanup_orphan_runners(&l, &[h("i-0abc", 99_999)]).unwrap();
+    assert_eq!(c.deregister_runners, ["ghost", "ghost2"]);
+}
+
+#[test]
+fn cleanup_terminates_nothing_and_leaves_a_sweep_that_proceeds() {
+    let hosts = [h("o1", 99_999), h("live", 99_999)];
+    let before = vec![r("ghost", "gone", false), r("live-r", "live", false)];
+    let c = cleanup_orphan_runners(&complete(before.clone()), &hosts).unwrap();
+    assert_eq!(c.deregister_runners, ["ghost"]);
+    let after: Vec<Runner> = before
+        .into_iter()
+        .filter(|x| !c.deregister_runners.contains(&x.name))
+        .collect();
+    let s = sweep(&complete(after), &hosts).unwrap();
+    assert!(s.unknown_runners.is_empty());
+    assert_eq!(s.terminate_hosts, ["o1"]);
+}
+
+#[test]
+fn cleanup_refuses_when_an_unlisted_host_runner_is_busy() {
+    let l = complete(vec![r("ghost", "gone", false), r("work", "gone2", true)]);
+    assert_eq!(
+        cleanup_orphan_runners(&l, &[h("o1", 99_999)]),
+        Err(SweepError::BusyRunnerOnUnlistedHost {
+            runner: "work".into(),
+            host: "gone2".into()
+        })
+    );
+}
+
+#[test]
+fn cleanup_refuses_a_partial_listing_and_invalid_input() {
+    assert_eq!(
+        cleanup_orphan_runners(&RunnerListing::Partial, &[]),
+        Err(SweepError::IncompleteListing)
+    );
+    let l = complete(vec![r("g", "", false)]);
+    assert!(cleanup_orphan_runners(&l, &[]).is_err());
+}
