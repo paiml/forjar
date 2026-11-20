@@ -36,7 +36,7 @@
 //!    Deleting `, provers` from kani or lean turns the same test RED.
 //!    (forjar#1086 removed the pin from kani and lean; this arm now guards
 //!    against it coming back.)
-//! 1b. Also RED alone: `continue-on-error`/`if:` on, or `exit 1` removed from, an
+//!    Also RED alone: `continue-on-error`/`if:` on, or `exit 1` removed from, an
 //!    assert step; `clean-room` or `X64` dropped from kani or lean.
 //! 2. Delete `, intel` from `stress.yml`'s (or `mutation.yml`'s, or
 //!    `coverage.yml`'s) `runs-on` → `every_unfiltered_lib_test_job_runs_where_rsync_is`
