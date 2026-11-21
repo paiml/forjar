@@ -42,6 +42,8 @@ mod tests;
 mod tests_fake;
 #[cfg(test)]
 mod tests_mutants;
+#[cfg(test)]
+mod tests_policy;
 
 use crate::core::types::Resource;
 pub use script::{apply_script, check_script, state_query_script};
