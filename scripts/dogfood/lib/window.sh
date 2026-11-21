@@ -468,15 +468,16 @@ dogfood_take_id() {
 # kill the caller with no verdict line (measured on the v1.25.1 window, which
 # names no ticket at all).
 dogfood_window_tickets() {
-  local i=0 num href title body all="" strays="" none=""
+  local i=0 num href title body oid all="" strays="" none=""
   while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     dogfood_pr_field "$i" ".number"; num="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".headRefName"; href="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".title"; title="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
+    dogfood_pr_field "$i" ".mergeCommit.oid"; oid="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
     if [ -z "$DOGFOOD_TICKETS" ] && [ -z "$DOGFOOD_STRAY_IDS" ]; then
-      dogfood_pr_alias_row "$num"
+      dogfood_pr_alias_row "$num" "$oid"
       DOGFOOD_TICKETS="$DOGFOOD_ALIAS_ROW"
     fi
     all="$all $DOGFOOD_TICKETS"

@@ -38,11 +38,119 @@ dogfood_floor: v1.26.0
 # From the next cut. Retrofitting the ten releases whose cookbook commit
 # nobody recorded would be inventing the record, not keeping it.
 cookbook_floor: v1.29.0
-# A PR whose branch, title and body name no PMAT id, mapped to the row that owns it
-# (forjar#1235). Read only for a PR naming no id at all; a stray id stays red.
+# A PR whose branch, title and body name no PMAT id, mapped to an existing row that owns it
+# (forjar#1235, FORJAR-T-HISTORY). Read only for a PR naming no id at all; a stray id stays red.
+# Each entry cites its evidence. Frozen: a PR merged after the freeze names its ticket or stays red.
+pr_ticket_aliases_frozen_at: 34907bc86c30420cae9943610d9ded61e730aa85
 pr_ticket_aliases:
+  - pr: 935
+    ticket: PMAT-913
+    evidence: "squash trailer Pmat-Ticket: PMAT-913"
   - pr: 944
     ticket: PMAT-1235
+    evidence: "the PR's branch names GH-667 and its text GH-669; row PMAT-1235 names PR #944 and GH-667/668/669/936 in its acceptance criteria"
+  - pr: 1026
+    ticket: PMAT-1015
+    evidence: "squash trailer Pmat-Ticket: PMAT-1015"
+  - pr: 1036
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+  - pr: 1058
+    ticket: PMAT-1048
+    evidence: "squash trailer Pmat-Ticket: PMAT-1048; body names #1048, which the PR closes"
+  - pr: 1061
+    ticket: PMAT-1027
+    evidence: "squash trailer Pmat-Ticket: PMAT-1027 (3 of 7 trailers; also PMAT-1032, PMAT-1015, PMAT-1028); the PR closes #1027"
+  - pr: 1066
+    ticket: PMAT-1049
+    evidence: "squash trailer Pmat-Ticket: PMAT-1049; the PR closes #1049"
+  - pr: 1068
+    ticket: PMAT-1065
+    evidence: "squash trailer Pmat-Ticket: PMAT-1065 (also PMAT-1049); the PR closes #1065"
+  - pr: 1071
+    ticket: PMAT-894
+    evidence: "squash trailer Pmat-Ticket: PMAT-894 (2 of 2)"
+  - pr: 1072
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 3; the third, PMAT-1070, is no row)"
+  - pr: 1073
+    ticket: PMAT-1067
+    evidence: "squash trailer Pmat-Ticket: PMAT-1067; the PR closes #1067"
+  - pr: 1084
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 2)"
+  - pr: 1085
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 2)"
+  - pr: 1088
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 3)"
+  - pr: 1089
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 5; the other, PMAT-1076, is no row)"
+  - pr: 1091
+    ticket: GH-881
+    evidence: "branch ci/881-provenance-security-x64 and squash trailer Pmat-Ticket: PMAT-881 name issue 881, the github_issue of row GH-881"
+  - pr: 1097
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+  - pr: 1099
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+  - pr: 1100
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+  - pr: 1101
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (3 of 3)"
+  - pr: 1102
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (3 of 3)"
+  - pr: 1103
+    ticket: PMAT-1078
+    evidence: "squash trailer Pmat-Ticket: PMAT-1078; the PR closes #1078"
+  - pr: 1104
+    ticket: PMAT-1074
+    evidence: "squash trailer Pmat-Ticket: PMAT-1074; the PR closes #1074"
+  - pr: 1107
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858; body names #858"
+  - pr: 1120
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (7 of 7)"
+  - pr: 1126
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (2 of 2)"
+  - pr: 1127
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (2 of 2)"
+  - pr: 1142
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (3 of 3)"
+  - pr: 1145
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (4 of 4)"
+  - pr: 1146
+    ticket: PMAT-861
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (5 of 7; the other, PMAT-1146, is no row)"
+  - pr: 1148
+    ticket: PMAT-876
+    evidence: "squash trailer Pmat-Ticket: PMAT-876; body names #876"
+  - pr: 1220
+    ticket: PMAT-1198
+    evidence: "squash trailer Pmat-Ticket: PMAT-1198; body names #1198"
+  - pr: 1222
+    ticket: GH-881
+    evidence: "squash trailer Pmat-Ticket: GH-881 (2 of 2); branch and title name GH-881, the row's id"
+  - pr: 1225
+    ticket: PMAT-1216
+    evidence: "squash trailer Pmat-Ticket: PMAT-1216 (also PMAT-1160); the PR closes #1216"
+  - pr: 1226
+    ticket: PMAT-858
+    evidence: "squash trailer Pmat-Ticket: PMAT-858; the PR closes #858"
+  - pr: 1227
+    ticket: PMAT-1143
+    evidence: "squash trailer Pmat-Ticket: PMAT-1143; the PR closes #1143"
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
