@@ -8885,3 +8885,21 @@ roadmap:
   - kind:code
   notes: null
   epic: 697
+- id: PMAT-1245
+  github_issue: 1245
+  item_type: task
+  title: 'gate B: CB-200 659 > 651 ceiling (pmat 3.46.0); refactor 10 worst functions, ceiling unchanged'
+  status: planned
+  priority: critical
+  assigned_to: null
+  created: 2026-11-21T20:14:40Z
+  updated: 2026-11-21T20:14:40Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 913
