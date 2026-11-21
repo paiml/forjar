@@ -12,14 +12,14 @@
 # `unpublished`, 1 when it declares nothing.
 crates_io_declaration_is_known() {
   local row="$1" tag="$2" rc=0
-  jq -e 'if type == "object" then has("crates_io") else error("row is not an object") end' <<<"$row" >/dev/null 2>&1 || rc=$?
+  jq -se 'if length == 1 and (.[0] | type) == "object" then .[0] | has("crates_io") else error("row is not one object") end' <<<"$row" >/dev/null 2>&1 || rc=$?
   case "$rc" in
     0) ;;
     1) return 1 ;;
     *) fail "${tag}: jq exited ${rc} asking whether the row declares crates_io -- UNMEASURED, and an unanswered question is not an absent field" ;;
   esac
   rc=0
-  jq -e '.crates_io == "unpublished"' <<<"$row" >/dev/null 2>&1 || rc=$?
+  jq -se 'if length == 1 and (.[0] | type) == "object" then .[0].crates_io == "unpublished" else error("row is not one object") end' <<<"$row" >/dev/null 2>&1 || rc=$?
   case "$rc" in
     0) return 0 ;;
     1) fail "${tag}: the row's crates_io is not a value this gate knows -- the only declaration is exactly \`unpublished\`; a published release carries no such field" ;;

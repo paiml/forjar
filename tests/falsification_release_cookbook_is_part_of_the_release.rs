@@ -626,6 +626,11 @@ fn an_unreadable_or_malformed_crates_io_index_is_unmeasured_and_red() {
             "\n",
             r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false}]}"#
         ),
+        concat!(
+            r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false}]}"#,
+            "\n",
+            r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.9","yanked":false}]}"#
+        ),
         // leading zeros on major, minor, or patch are not semver nums
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"00.0.1","yanked":false}]}"#,
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.00.1","yanked":false}]}"#,
@@ -1124,4 +1129,41 @@ fn a_jq_that_cannot_answer_is_unmeasured_at_every_call() {
     let (r, _) = run_full(&fx, Some(&index), true, Some("tonumber"));
     r.assert_red("jq failed selecting");
     r.assert_says("could not select the predecessor");
+}
+
+/// The declaration check reads exactly ONE JSON object: null, a scalar, an
+/// array, empty input and a multi-document reply are UNMEASURED (rc 5 from the
+/// `fail` stub), never "absent" (rc 1) or "unpublished" (rc 0).
+#[test]
+fn the_declaration_check_reads_exactly_one_object() {
+    let script = r#"set -u
+fail() { echo "FAIL: $1" >&2; exit 5; }
+. scripts/dogfood/lib/cratesio.sh
+rc=0; crates_io_declaration_is_known "$ROW" T || rc=$?; exit "$rc""#;
+    let run = |row: &str| {
+        std::process::Command::new("bash")
+            .args(["-c", &format!("{script}\n")])
+            .env("ROW", row)
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .expect("bash must run")
+            .status
+            .code()
+    };
+    assert_eq!(run(r#"{"tag":"v1.0.0"}"#), Some(1), "absent is rc 1");
+    assert_eq!(
+        run(r#"{"tag":"v1.0.0","crates_io":"unpublished"}"#),
+        Some(0)
+    );
+    for bad in [
+        "null",
+        "5",
+        "[]",
+        "",
+        r#"{"tag":"v1.0.0","crates_io":"bogus"}"#,
+        "{\"tag\":\"v1.0.0\",\"crates_io\":\"bogus\"}\n{\"tag\":\"v1.0.0\"}",
+        "{\"tag\":\"v1.0.0\",\"crates_io\":\"bogus\"}\n{\"tag\":\"v1.0.0\",\"crates_io\":\"unpublished\"}",
+    ] {
+        assert_eq!(run(bad), Some(5), "must be UNMEASURED/red, row: {bad:?}");
+    }
 }
