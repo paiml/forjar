@@ -25,7 +25,9 @@
 #                moved in four releases (PMAT-241).
 # releases[]     tag, cut (the tag's creation instant, UTC), prs (every PR whose
 #                merge commit the tag contains and the previous tag does not),
-#                tickets (every roadmap row those PRs name in branch or title)
+#                tickets (every roadmap row those PRs name in branch or title),
+#                and optional crates_io: unpublished (T8b exemption when a tagged
+#                release was never published to crates.io)
 # next           the open goal: the tag the merged-since-newest window ships
 #                in, and the instant it is due (previous cut + cadence_days)
 #

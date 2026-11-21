@@ -424,8 +424,25 @@ fn run_env_seen(fx: &Fixture, index: Option<&str>, marked: bool) -> (Run, bool) 
 }
 
 /// Every jq the gate runs whose program contains `jq_fail` exits 5 (a jq that
-/// cannot answer); all others are the real jq.
-fn run_full(fx: &Fixture, index: Option<&str>, marked: bool, jq_fail: Option<&str>) -> (Run, bool) {
+/// cannot answer); all others are the real jq. When `serve_index` is true, a
+/// `curl` shim on PATH rewrites crates.io requests to the fixture's local file.
+fn run_full(
+    fx: &Fixture,
+    index: Option<&str>,
+    serve_index: bool,
+    jq_fail: Option<&str>,
+) -> (Run, bool) {
+    run_full_opts(fx, index, serve_index, jq_fail, None, None)
+}
+
+fn run_full_opts(
+    fx: &Fixture,
+    index: Option<&str>,
+    serve_index: bool,
+    jq_fail: Option<&str>,
+    curl_home: Option<&std::path::Path>,
+    curl_exit: Option<i32>,
+) -> (Run, bool) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("forjar.json");
     if let Some(body) = index {
@@ -444,35 +461,61 @@ fn run_full(fx: &Fixture, index: Option<&str>, marked: bool, jq_fail: Option<&st
     }
     let shim = dir.path().join("shim");
     std::fs::create_dir_all(&shim).expect("shim dir");
-    std::fs::write(
-        shim.join("jq"),
-        "#!/bin/bash\nfor a in \"$@\"; do case \"$a\" in *\"$JQ_FAIL_MARK\"*) exit 5;; esac; done\nPATH=\"$ORIG_PATH\" exec jq \"$@\"\n",
-    )
-    .expect("jq shim");
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(shim.join("jq"), std::fs::Permissions::from_mode(0o755))
-            .expect("chmod");
+    if serve_index {
+        std::fs::write(
+            shim.join("curl"),
+            "#!/bin/bash\nset -euo pipefail\nif [ -n \"${CURL_SHIM_EXIT:-}\" ]; then\n  cat \"$CURL_SHIM_INDEX\"\n  exit \"$CURL_SHIM_EXIT\"\nfi\nargs=()\nfor a in \"$@\"; do\n  if [ \"$a\" = \"https://crates.io/api/v1/crates/forjar\" ]; then\n    args+=(\"file://${CURL_SHIM_INDEX}\")\n  else\n    args+=(\"$a\")\n  fi\ndone\nPATH=\"$ORIG_PATH\" exec curl \"${args[@]}\"\n",
+        )
+        .expect("curl shim");
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(shim.join("curl"), std::fs::Permissions::from_mode(0o755))
+                .expect("chmod");
+        }
+    }
+    if jq_fail.is_some() {
+        std::fs::write(
+            shim.join("jq"),
+            "#!/bin/bash\nfor a in \"$@\"; do case \"$a\" in *\"$JQ_FAIL_MARK\"*) exit 5;; esac; done\nPATH=\"$ORIG_PATH\" exec jq \"$@\"\n",
+        )
+        .expect("jq shim");
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(shim.join("jq"), std::fs::Permissions::from_mode(0o755))
+                .expect("chmod");
+        }
     }
     let orig = std::env::var("PATH").unwrap_or_default();
     let mut cmd = std::process::Command::new("bash");
     cmd.arg(fx.root.join("scripts/dogfood/tagged.sh"))
         .current_dir(&fx.root)
         .env("GH", &fx.gh)
-        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string());
-    if let Some(m) = jq_fail {
+        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string())
+        .env_remove("FORJAR_GATE_T_TEST")
+        .env_remove("CURL_OVERRIDE")
+        .env_remove("CRATES_IO_API_OVERRIDE")
+        .env_remove("CURL_SHIM_EXIT")
+        .env_remove("CURL_SHIM_INDEX");
+    if serve_index || jq_fail.is_some() {
         cmd.env("PATH", format!("{}:{orig}", shim.display()))
-            .env("ORIG_PATH", &orig)
-            .env("JQ_FAIL_MARK", m);
+            .env("ORIG_PATH", &orig);
+    }
+    if let Some(m) = jq_fail {
+        cmd.env("JQ_FAIL_MARK", m);
+    }
+    if let Some(home) = curl_home {
+        cmd.env("CURL_HOME", home);
     }
     let url = format!("file://{}", path.display());
-    if marked {
-        cmd.env("FORJAR_GATE_T_TEST", "1")
-            .env("CRATES_IO_API_OVERRIDE", &url)
-            .env("CURL_OVERRIDE", &stub);
+    if serve_index {
+        cmd.env("CURL_SHIM_INDEX", &path);
+        if let Some(rc) = curl_exit {
+            cmd.env("CURL_SHIM_EXIT", rc.to_string());
+        }
     } else {
         // the names an operator or a CI job might plausibly export
-        cmd.env("CRATES_IO_API", &url)
+        cmd.env("FORJAR_GATE_T_TEST", "1")
+            .env("CRATES_IO_API", &url)
             .env("CRATES_IO_API_OVERRIDE", &url)
             .env("CURL", &stub)
             .env("CURL_OVERRIDE", &stub);
@@ -570,14 +613,41 @@ fn an_unreadable_or_malformed_crates_io_index_is_unmeasured_and_red() {
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"abc","yanked":false}]}"#,
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.0"}]}"#,
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},null]}"#,
-        // a leading zero is not a semver num
+        // non-array versions object, non-boolean yanked, malformed pre-release, NDJSON
+        r#"{"crate":{"id":"forjar"},"versions":{"a":{"num":"0.0.0","yanked":false}}}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.2","yanked":null}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.2","yanked":"false"}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.2","yanked":0}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"1.2.3.4 garbage!","yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"1.2.3-","yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"1.2.3+build","yanked":false}]}"#,
+        concat!(
+            r#"{"crate":{"id":"wrong"},"versions":[]}"#,
+            "\n",
+            r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false}]}"#
+        ),
+        // leading zeros on major, minor, or patch are not semver nums
         r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"00.0.1","yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.00.1","yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.01","yanked":false}]}"#,
     ] {
         let r = run_index(&fx, Some(body));
         r.assert_red(&format!("malformed index must be red: {body}"));
         r.assert_says("UNMEASURED");
         r.assert_says("well-formed forjar version list");
     }
+    // Non-zero curl exit with valid JSON stdout must still fail closed as UNMEASURED.
+    let (r, _) = run_full_opts(
+        &fx,
+        Some(&idx(&[("0.0.0", false)])),
+        true,
+        None,
+        None,
+        Some(22),
+    );
+    r.assert_red("non-zero curl exit with valid JSON stdout must fail");
+    r.assert_says("UNMEASURED");
+    r.assert_says("curl exit 22");
 }
 
 /// MUTANT 4: any value but the exact word `unpublished` is refused, and the
@@ -649,7 +719,7 @@ fn an_exempt_row_must_lock_the_newest_published_predecessor() {
 
 /// Run the predecessor selection directly against an index with MANY versions,
 /// which a fixture whose only tag is v0.0.1 cannot hold.
-fn newest_stable_below(ver: &str, index: &str) -> String {
+fn run_cratesio_below(ver: &str, index: &str) -> (i32, String) {
     use std::io::Write;
     let lib = format!(
         "{}/scripts/dogfood/lib/cratesio.sh",
@@ -658,10 +728,13 @@ fn newest_stable_below(ver: &str, index: &str) -> String {
     let mut child = std::process::Command::new("bash")
         .args([
             "-c",
-            &format!(". {lib} && cratesio_newest_stable_below {ver}"),
+            &format!("fail() {{ echo \"$1\" >&2; exit 1; }}; . \"{lib}\" && cratesio_newest_stable_below \"$1\""),
+            "bash",
+            ver,
         ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()
         .expect("bash must run");
     child
@@ -671,7 +744,19 @@ fn newest_stable_below(ver: &str, index: &str) -> String {
         .write_all(index.as_bytes())
         .expect("write");
     let out = child.wait_with_output().expect("wait");
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).trim().to_string(),
+    )
+}
+
+fn newest_stable_below(ver: &str, index: &str) -> String {
+    let (code, out) = run_cratesio_below(ver, index);
+    assert_eq!(
+        code, 0,
+        "cratesio_newest_stable_below {ver} exited {code}: {out}"
+    );
+    out
 }
 
 /// MUTANT 7: the selection takes the NEWEST (not oldest, not first listed),
@@ -701,6 +786,11 @@ fn the_predecessor_is_the_newest_stable_unyanked_version_strictly_below() {
         "numeric order"
     );
     assert_eq!(
+        newest_stable_below("1.9.0", &idx(&[("1.2.0", false), ("1.10.0", false)])),
+        "1.2.0",
+        "1.10.0 is not below 1.9.0"
+    );
+    assert_eq!(
         newest_stable_below("1.9.0", &many),
         "",
         "nothing below the oldest"
@@ -711,21 +801,35 @@ fn the_predecessor_is_the_newest_stable_unyanked_version_strictly_below() {
     );
 }
 
-/// The evidence cannot be forged from the environment: without the test marker
-/// the script ignores every redirect and asks the real crates.io. A forged
-/// index that would exempt the row is not read.
+/// The evidence cannot be forged from the environment: exporting CURL,
+/// CRATES_IO_API, *_OVERRIDE, or FORJAR_GATE_T_TEST=1 never redirects the gate,
+/// and `curl -q` ignores `.curlrc` under CURL_HOME.
 #[test]
 fn the_index_cannot_be_redirected_without_the_test_marker() {
     let fx = unpublished_fx("unpublished", "0.0.0");
-    // control: with the marker the same forged index is honoured
+    // control: with the PATH curl shim the forged index is served
     let (r, seen) = run_env_seen(&fx, Some(&idx(&[("0.0.0", false)])), true);
-    r.assert_green("marked: honoured");
-    assert!(seen, "marked: the redirected curl is the one that ran");
-    let (_r, seen) = run_env_seen(&fx, Some(&idx(&[("0.0.0", false)])), false);
+    r.assert_green("shim: honoured");
+    assert!(!seen, "stub was not called");
+    // curl -q must disable .curlrc so CURL_HOME cannot corrupt or redirect curl
+    let ch = tempfile::tempdir().expect("curl_home");
+    std::fs::write(ch.path().join(".curlrc"), "write-out = \"CORRUPTED\"\n").expect("curlrc");
+    let (r, _) = run_full_opts(
+        &fx,
+        Some(&idx(&[("0.0.0", false)])),
+        true,
+        None,
+        Some(ch.path()),
+        None,
+    );
+    r.assert_green("curl -q ignores .curlrc");
+    // env vars alone (including FORJAR_GATE_T_TEST=1) must never redirect curl or URL
+    let (r, seen) = run_env_seen(&fx, Some(&idx(&[("0.0.0", false)])), false);
     assert!(
         !seen,
-        "unmarked: CURL / CRATES_IO_API exported by an operator must not be honoured"
+        "env: CURL / CURL_OVERRIDE exported in environment must not be honoured"
     );
+    r.assert_red("env: CRATES_IO_API / CRATES_IO_API_OVERRIDE must not redirect the index");
 }
 
 const BAD_VALUES: [&str; 9] = [
@@ -761,9 +865,20 @@ fn a_bogus_crates_io_below_the_cookbook_floor_is_red() {
         ..Case::default()
     });
     run(&fx, AN_HOUR).assert_green("the exact word is a known value on any row");
+
+    // a row below `floor:` (v0.0.0 < FLOOR v0.0.1) is still validated
+    let fx = fixture(Case {
+        extra_row: "  - tag: v0.0.0\n    cut: 2026-01-01T00:00:00Z\n    prs: []\n    tickets: []\n    crates_io: bogus\n",
+        ..Case::default()
+    });
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("a bogus crates_io below floor: must still be rejected");
+    r.assert_says("v0.0.0");
+    r.assert_says("not a value this gate knows");
 }
 
-/// A key written twice would let a reader see `bogus` while jq keeps the last.
+/// A key written twice (list item, top-level, or map) would let a reader see
+/// one value while jq keeps the last.
 #[test]
 fn a_duplicate_crates_io_key_is_red() {
     for dup in [
@@ -777,10 +892,44 @@ fn a_duplicate_crates_io_key_is_red() {
         r.assert_red("a duplicated key is not one declaration");
         r.assert_says("duplicate key");
     }
+    // control: two distinct items sharing the same key names are valid
+    let two_rows = fixture(Case {
+        cookbook_floor: FLOOR,
+        cookbook: SHA2,
+        crates_io: "unpublished",
+        extra_row: "  - tag: v0.0.0\n    cut: 2026-01-01T00:00:00Z\n    prs: []\n    tickets: []\n    crates_io: unpublished\n",
+        ..Case::default()
+    });
+    // v0.0.0 is below floor and has no cookbook/crates_io lock check, only declaration check
+    let mut two_rows = two_rows;
+    two_rows.cookbook_files(TOML2, &lock_of("0.0.0"));
+    run_index(&two_rows, Some(&idx(&[("0.0.0", false)])))
+        .assert_green("distinct rows may share keys");
+
+    // duplicate top-level key and duplicate map key in next:
+    for bad in [
+        "cadence_days: 2\nfloor: v0.0.1\nharness_floor: v0.0.1\ndogfood_floor: v0.0.1\ncookbook_floor: v0.0.1\ncookbook_floor:\nreleases: []\nnext:\n  tag: v0.0.2\n  due: 2026-01-03T00:00:00Z\n",
+        "cadence_days: 2\nfloor: v0.0.1\nharness_floor: v0.0.1\ndogfood_floor: v0.0.1\nreleases: []\nreleases: []\nnext:\n  tag: v0.0.2\n  due: 2026-01-03T00:00:00Z\n",
+        "cadence_days: 2\nfloor: v0.0.1\nharness_floor: v0.0.1\ndogfood_floor: v0.0.1\nreleases: []\nnext:\n  tag: v0.0.2\n  tag: v0.0.3\n  due: 2026-01-03T00:00:00Z\n",
+    ] {
+        let mut child = std::process::Command::new("awk")
+            .args(["-f", &format!("{}/scripts/dogfood/lib/releases.awk", env!("CARGO_MANIFEST_DIR"))])
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("awk must run");
+        use std::io::Write;
+        child.stdin.take().expect("stdin").write_all(bad.as_bytes()).expect("write");
+        let out = child.wait_with_output().expect("wait");
+        assert!(!out.status.success(), "awk accepted duplicate key:\n{bad}");
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("duplicate key"), "unexpected stderr: {err}");
+    }
 }
 
-/// A num with a trailing newline is not a semver num: `$` would match before
-/// it, `\z` does not. It must be UNMEASURED, never reach `tonumber`.
+/// A num with a trailing newline or oversized component is not a semver num:
+/// `$` would match before it, `\z` does not. Must be UNMEASURED, never reach `tonumber`.
 #[test]
 fn a_num_with_a_trailing_newline_is_unmeasured() {
     let fx = unpublished_fx("unpublished", "0.0.0");
@@ -799,22 +948,151 @@ fn a_num_with_a_trailing_newline_is_unmeasured() {
             r.assert_says("well-formed forjar version list");
         }
     }
-    // an oversized component would lose precision as a float
-    let r = run_index(
-        &fx,
-        Some(&idx(&[("0.0.0", false), ("1234567890.0.0", false)])),
-    );
-    r.assert_red("ten digits do not compare exactly");
-    r.assert_says("UNMEASURED");
+    // oversized (10-digit) components on major, minor, or patch would lose float precision
+    for big in ["1234567890.0.0", "0.1234567890.0", "0.0.1234567890"] {
+        let r = run_index(&fx, Some(&idx(&[("0.0.0", false), (big, false)])));
+        r.assert_red(&format!("ten-digit component must fail: {big}"));
+        r.assert_says("UNMEASURED");
+    }
 }
 
-/// The selection itself skips a newline-terminated num rather than crashing.
+/// The selection fails closed on malformed inputs, leading zeros, 10-digit
+/// components, non-boolean yanked, NDJSON, and empty stdin.
 #[test]
 fn the_selection_never_reads_a_newline_terminated_num() {
-    let many = idx(&[("1.9.0", false), ("1.33.0\\n", false)]);
-    assert_eq!(newest_stable_below("1.34.1", &many), "1.9.0");
-    let many = idx(&[("1.9.0", false), ("x\\n1.33.0", false)]);
-    assert_eq!(newest_stable_below("1.34.1", &many), "1.9.0");
+    for bad in [
+        idx(&[("1.9.0", false), ("1.33.0\\n", false)]),
+        idx(&[("1.9.0", false), ("x\\n1.33.0", false)]),
+        idx(&[("1.33.0", false), ("01.33.0", false)]),
+        idx(&[("1.33.0", false), ("0.01.0", false)]),
+        idx(&[("1.33.0", false), ("0.0.01", false)]),
+        idx(&[("1.33.0", false), ("1234567890.0.0", false)]),
+        idx(&[("1.33.0", false), ("0.1234567890.0", false)]),
+        idx(&[("1.33.0", false), ("0.0.1234567890", false)]),
+        idx(&[("1.33.0", false), ("1.2.3.4 garbage!", false)]),
+        r#"{"versions":[{"num":"1.33.0","yanked":false},{"num":"1.33.9","yanked":"false"}]}"#
+            .to_string(),
+        r#"{"versions":[{"num":"1.33.0","yanked":false},null]}"#.to_string(),
+        r#"{"versions":[{"num":"1.33.0","yanked":false},{"num":123,"yanked":true}]}"#.to_string(),
+        r#"{"versions":{"a":{"num":"1.33.0","yanked":false}}}"#.to_string(),
+        format!(
+            "{}\n{}",
+            idx(&[("1.33.0", false)]),
+            idx(&[("1.33.0", false)])
+        ),
+        String::new(),
+    ] {
+        let (code, out) = run_cratesio_below("1.34.1", &bad);
+        assert_ne!(code, 0, "selection accepted malformed input {bad:?}: {out}");
+    }
+    let (code, out) = run_cratesio_below("01.0.0", &idx(&[("0.0.0", false)]));
+    assert_ne!(code, 0, "invalid target version must fail: {out}");
+}
+
+/// End-to-end predecessor wiring through tagged.sh with multiple published
+/// versions below the release: locking an older version instead of the newest
+/// predecessor stays red.
+#[test]
+fn tagged_end_to_end_locks_newest_predecessor_not_older_release() {
+    let mut fx = fixture(Case {
+        cookbook_floor: "v0.0.2",
+        version: "0.0.2",
+        ..Case::default()
+    });
+    let shipped_oid = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.1^{commit}"]));
+    let open_oid = stdout_of(&git(&fx.root, &["rev-parse", "HEAD~1"]));
+    git(&fx.root, &["tag", "-a", "-m", "v0.0.2", "v0.0.2"]);
+    let cut2: i64 = stdout_of(&git(
+        &fx.root,
+        &[
+            "for-each-ref",
+            "--format=%(creatordate:unix)",
+            "refs/tags/v0.0.2",
+        ],
+    ))
+    .parse()
+    .expect("cut2");
+    write(&fx.root, "open2.txt", "open after v0.0.2\n");
+    git(&fx.root, &["add", "open2.txt"]);
+    git(&fx.root, &["commit", "-qm", "more open work (#12)"]);
+    let open2_oid = stdout_of(&git(&fx.root, &["rev-parse", "HEAD"]));
+    write(
+        &fx.root,
+        "docs/audits/dogfood-0.0.2-receipt.md",
+        "# dogfood 0.0.2\n\nverdict: GO\n\nDOGFOOD-0.0.2-RECEIPT-END\n",
+    );
+    write(&fx.root, "docs/audits/crux-0.0.2.md", "# crux 0.0.2\n");
+    write(
+        &fx.root,
+        "docs/roadmaps/roadmap.yaml",
+        &roadmap(&[
+            (SHIPPED, &["release:v0.0.1"]),
+            (OPEN, &["release:v0.0.2"]),
+            ("PMAT-903", &["release:v0.0.3"]),
+        ]),
+    );
+    let cut1_iso = iso(fx.cut);
+    let cut2_iso = iso(cut2);
+    let due = iso(cut2 + 2 * 86400);
+    write(
+        &fx.root,
+        "docs/roadmaps/releases.yaml",
+        &format!(
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {FLOOR}\ncookbook_floor: v0.0.2\n\
+             releases:\n\
+               \x20\x20- tag: {FLOOR}\n    cut: {cut1_iso}\n    prs: [10]\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n\
+               \x20\x20- tag: v0.0.2\n    cut: {cut2_iso}\n    prs: [11]\n    tickets: [{OPEN}]\n    dogfood: docs/audits/dogfood-0.0.2-receipt.md\n    crux: docs/audits/crux-0.0.2.md\n    cookbook: {SHA2}\n    crates_io: unpublished\n\
+             next:\n  tag: v0.0.3\n  due: {due}\n"
+        ),
+    );
+    git(&fx.root, &["add", "-A"]);
+    git(&fx.root, &["commit", "-qm", "declare v0.0.2"]);
+    git(&fx.root, &["push", "-q", "origin", "main", "--tags"]);
+    fx.prs = format!(
+        r#"[{{"number":10,"mergedAt":"2026-01-02T00:00:00Z","mergeCommit":{{"oid":"{shipped_oid}"}},"headRefName":"PMAT-901-the-shipped-work","title":"the shipped work","body":""}},{{"number":11,"mergedAt":"2026-01-03T00:00:00Z","mergeCommit":{{"oid":"{open_oid}"}},"headRefName":"PMAT-902-the-open-work","title":"the open work","body":""}},{{"number":12,"mergedAt":"2026-01-04T00:00:00Z","mergeCommit":{{"oid":"{open2_oid}"}},"headRefName":"PMAT-903-the-next-work","title":"more open work","body":""}}]"#
+    );
+    let two = idx(&[("0.0.0", false), ("0.0.1", false)]);
+    fx.cookbook_files(TOML2, &lock_of("0.0.1"));
+    run_index(&fx, Some(&two))
+        .assert_green("0.0.1 is the newest published predecessor below 0.0.2");
+    fx.cookbook_files(TOML2, &lock_of("0.0.0"));
+    let r = run_index(&fx, Some(&two));
+    r.assert_red("0.0.0 is older than 0.0.1");
+    r.assert_says("0.0.1");
+    r.assert_says("LOCKS forjar 0.0.0");
+}
+
+/// The real committed ledger parses and every row's crates_io declaration is known.
+#[test]
+fn the_committed_ledger_parses_and_every_crates_io_declaration_is_known() {
+    let script = r#"set -euo pipefail
+fail() { echo "FAIL: $1" >&2; exit 1; }
+. scripts/dogfood/lib/window.sh
+. scripts/dogfood/lib/releases.sh
+. scripts/dogfood/lib/cratesio.sh
+DOGFOOD_RELEASES_REF=worktree dogfood_load_releases
+tags="$(jq -r '.releases[].tag' <<<"$DOGFOOD_RELEASES")"
+for t in $tags; do
+  dogfood_release_row "$t"
+  crates_io_declaration_is_known "$DOGFOOD_RELEASE_ROW" "$t" || :
+done
+jq -e '
+  (.releases[] | select(.tag == "v1.34.0") | .crates_io == "unpublished")
+  and (.releases[] | select(.tag == "v1.34.1") | .crates_io == "unpublished")
+  and (.releases[] | select(.tag == "v1.33.0") | has("crates_io") | not)
+' <<<"$DOGFOOD_RELEASES" >/dev/null
+"#;
+    let out = std::process::Command::new("bash")
+        .args(["-c", script])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("bash must run");
+    assert!(
+        out.status.success(),
+        "committed docs/roadmaps/releases.yaml failed:\n{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 /// A jq that cannot answer is UNMEASURED at every call in the exemption path,

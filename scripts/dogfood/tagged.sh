@@ -203,38 +203,8 @@ labels_of_release() {
   done
 }
 
-# The crates.io version index the T8b exemption reads, and the curl that reads it.
-# Both are FIXED. They can be redirected only by the test harness, which sets
-# FORJAR_GATE_T_TEST=1; an operator or CI environment that merely exports
-# CRATES_IO_API or CURL cannot forge the evidence (PMAT-1150).
-CURL=curl
-CRATES_IO_API=https://crates.io/api/v1/crates/forjar
-if [ "${FORJAR_GATE_T_TEST:-}" = "1" ]; then
-  CURL="${CURL_OVERRIDE:-curl}"
-  CRATES_IO_API="${CRATES_IO_API_OVERRIDE:-$CRATES_IO_API}"
-fi
-
-# The `crates_io:` declaration, checked on EVERY row whatever its floor or lock
-# (PMAT-1150). Absent is fine; the exact word `unpublished` is fine; any other
-# value (empty, null, false, padded, another word) is red, and a jq that cannot
-# answer is UNMEASURED, never "absent". Returns 0 when the row declares
-# `unpublished`, 1 when it declares nothing.
-crates_io_declaration_is_known() {
-  local row="$1" tag="$2" rc=0
-  jq -e 'has("crates_io")' <<<"$row" >/dev/null 2>&1 || rc=$?
-  case "$rc" in
-    0) ;;
-    1) return 1 ;;
-    *) fail "${tag}: jq exited ${rc} asking whether the row declares crates_io — UNMEASURED, and an unanswered question is not an absent field" ;;
-  esac
-  rc=0
-  jq -e '.crates_io == "unpublished"' <<<"$row" >/dev/null 2>&1 || rc=$?
-  case "$rc" in
-    0) return 0 ;;
-    1) fail "${tag}: the row's crates_io is not a value this gate knows — the only declaration is exactly \`unpublished\`; a published release carries no such field" ;;
-    *) fail "${tag}: jq exited ${rc} reading the row's crates_io — UNMEASURED" ;;
-  esac
-}
+# The crates.io version index URL and curl invocation in T8b are fixed (never
+# read from environment variables, PMAT-1150). Tests stub `curl` on PATH.
 
 # T8b exemption (PMAT-1342): a release that was tagged but never published.
 #
@@ -255,15 +225,17 @@ crates_io_declaration_is_known() {
 unpublished_release_locks_predecessor() {
   local row="$1" tag="$2" ver="$3" locked="$4" sha="$5" idx rc=0 listed prev
   crates_io_declaration_is_known "$row" "$tag" || return 1
-  idx="$("$CURL" -fsS -A "forjar-gate-t" -- "$CRATES_IO_API" 2>&1)" || rc=$?
-  # Fail closed on SHAPE, not just on reachability: the document must be the
-  # forjar crate's own, and every version element an object with a semver `num`
-  # and a boolean `yanked`. A malformed element would otherwise make a later jq
-  # exit non-zero inside an `if` (errexit is off there) and read as no evidence.
-  if [ "$rc" -ne 0 ] || ! jq -e '
+  idx="$(curl -q -fsS -A "forjar-gate-t" -- "https://crates.io/api/v1/crates/forjar" 2>&1)" || rc=$?
+  # Fail closed on SHAPE, not just on reachability: the document must be a
+  # single JSON object for the forjar crate, and every version element an object
+  # with a semver `num` and a boolean `yanked`. A malformed element would
+  # otherwise make a later jq exit non-zero inside an `if` (errexit is off
+  # there) and read as no evidence.
+  if [ "$rc" -ne 0 ] || ! jq -es '
+      length == 1 and (.[0] |
       (.crate.id == "forjar") and (.versions | type == "array" and length > 0 and
-      all(.[]; (.num | type == "string" and test("\\A(0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})(-[0-9A-Za-z.+-]+)?\\z")) and (.yanked | type == "boolean")))' <<<"$idx" >/dev/null 2>&1; then
-    fail "${tag}: the row says crates_io: unpublished and the crates.io index at ${CRATES_IO_API} is not a well-formed forjar version list (curl exit ${rc}; needs crate.id forjar and every version an object with a semver num and a boolean yanked) — UNMEASURED, and an unmeasured claim never exempts a row"
+      all(.[]; (.num | type == "string" and test("\\A(0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})(-[0-9A-Za-z.+-]+)?\\z")) and (.yanked | type == "boolean"))))' <<<"$idx" >/dev/null 2>&1; then
+    fail "${tag}: the row says crates_io: unpublished and the crates.io index at https://crates.io/api/v1/crates/forjar is not a well-formed forjar version list (curl exit ${rc}; needs crate.id forjar and every version an object with a semver num and a boolean yanked) -- UNMEASURED, and an unmeasured claim never exempts a row"
   fi
   listed="$(jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length' <<<"$idx")" || fail "${tag}: jq could not count the versions of the crates.io index — UNMEASURED"
   if [ "$listed" != "0" ]; then
@@ -479,6 +451,8 @@ for t in $DECLARED_TAGS; do
   if ! tag_on_origin "$t"; then
     fail "docs/roadmaps/releases.yaml declares ${t} and origin carries no such tag: a declared release that does not exist"
   fi
+  dogfood_release_row "$t"
+  crates_io_declaration_is_known "$DOGFOOD_RELEASE_ROW" "$t" || :
 done
 
 checked=0
@@ -489,8 +463,6 @@ for tag in $TAGS; do
     fail "${tag} is reachable from HEAD, at or above the floor ${FLOOR}, and has no row in docs/roadmaps/releases.yaml: a release that was cut and never declared (write it with: scripts/release-goal.sh cut ${tag} --next vX.Y.Z)"
   fi
   row="$DOGFOOD_RELEASE_ROW"
-  # absent (returns 1) is fine here; any other unknown value or unanswered jq is red inside
-  crates_io_declaration_is_known "$row" "$tag" || declared_crates_io=none
   dogfood_tag_date "$tag"
   declared_cut="$(printf '%s' "$row" | jq -r '.cut')"
   if [ "$declared_cut" != "$DOGFOOD_TAG_DATE" ]; then
