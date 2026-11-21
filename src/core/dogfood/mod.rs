@@ -104,6 +104,9 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
         ResourceType::CloudInstance => {
             Coverage::NotApplicable("talks to a cloud provider; apply is gated")
         }
+        ResourceType::S3Bucket => {
+            Coverage::NotApplicable("talks to AWS; tested against a stub aws")
+        }
     }
 }
 
@@ -132,6 +135,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::NasArchive,
     ResourceType::TmpReaper,
     ResourceType::CloudInstance,
+    ResourceType::S3Bucket,
 ];
 
 /// Run every exercised resource type against reality.

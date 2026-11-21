@@ -7,6 +7,7 @@ use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
 use super::resource_enums::{MachineTarget, ResourceType};
+use super::s3_bucket_types::S3Spec;
 use super::service_exec_types::ExecParity;
 use super::service_mode_types::RestartPolicy;
 use super::task_types::{HealthCheck, PipelineStage, QualityGate, TaskMode};
@@ -488,4 +489,8 @@ pub struct Resource {
     /// FJ-861: `cloud_instance` declaration fields.
     #[serde(flatten)]
     pub cloud: CloudSpec,
+
+    /// PMAT-1242: `s3_bucket` declaration fields.
+    #[serde(flatten)]
+    pub s3: S3Spec,
 }
