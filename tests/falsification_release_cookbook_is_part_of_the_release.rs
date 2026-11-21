@@ -473,6 +473,16 @@ fn run_full_opts(
                 .expect("chmod");
         }
     }
+    if !serve_index {
+        // No live network, ever: a curl that always fails (exit 6), so a gate that
+        // honoured an exported CURL / CRATES_IO_API would be the only way to green.
+        std::fs::write(shim.join("curl"), "#!/bin/sh\nexit 6\n").expect("failing curl shim");
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(shim.join("curl"), std::fs::Permissions::from_mode(0o755))
+                .expect("chmod");
+        }
+    }
     if jq_fail.is_some() {
         std::fs::write(
             shim.join("jq"),
@@ -496,7 +506,7 @@ fn run_full_opts(
         .env_remove("CRATES_IO_API_OVERRIDE")
         .env_remove("CURL_SHIM_EXIT")
         .env_remove("CURL_SHIM_INDEX");
-    if serve_index || jq_fail.is_some() {
+    {
         cmd.env("PATH", format!("{}:{orig}", shim.display()))
             .env("ORIG_PATH", &orig);
     }
@@ -835,6 +845,8 @@ fn the_index_cannot_be_redirected_without_the_test_marker() {
         "env: CURL / CURL_OVERRIDE exported in environment must not be honoured"
     );
     r.assert_red("env: CRATES_IO_API / CRATES_IO_API_OVERRIDE must not redirect the index");
+    r.assert_says("UNMEASURED");
+    r.assert_says("well-formed forjar version list");
 }
 
 const BAD_VALUES: [&str; 9] = [
