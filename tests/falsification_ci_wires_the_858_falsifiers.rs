@@ -27,13 +27,23 @@ fn ci_yml() -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("read {p}: {e}"))
 }
 
-/// A shell line up to its first `#` that starts a comment (line start or after a blank).
+/// A shell line up to its first UNQUOTED `#` that starts a comment (line start
+/// or after a blank). Single and double quotes and backslash escapes are tracked.
 fn strip_comment(line: &str) -> &str {
-    let b = line.as_bytes();
-    for i in 0..b.len() {
-        if b[i] == b'#' && (i == 0 || b[i - 1].is_ascii_whitespace()) {
-            return &line[..i];
+    let mut quote: Option<char> = None;
+    let mut prev_blank = true;
+    let mut chars = line.char_indices();
+    while let Some((i, c)) = chars.next() {
+        match (quote, c) {
+            (None, '#') if prev_blank => return &line[..i],
+            (None, '\\') | (Some('"'), '\\') => {
+                chars.next();
+            }
+            (None, '"' | '\'') => quote = Some(c),
+            (Some(q), _) if q == c => quote = None,
+            _ => {}
         }
+        prev_blank = c.is_ascii_whitespace();
     }
     line
 }
@@ -235,4 +245,18 @@ fn only_the_cargo_test_command_itself_wires_a_target() {
     assert_eq!(wired(&cont).len(), 2, "continuation not joined");
     let env = one_step("RUST_LOG=x cargo +nightly test --test e1 && cargo fmt --test z");
     assert_eq!(wired(&env).into_iter().collect::<Vec<_>>(), ["e1"]);
+}
+
+/// A `#` inside quotes is data, not a comment: it must not hide later `--test`
+/// arguments, and a quoted `# --test X` in a non-cargo command is still no wiring.
+#[test]
+fn a_quoted_hash_is_not_a_comment() {
+    let q = one_step("cargo test --test a \"x # y\" --test b 'p #q' --test c");
+    assert_eq!(wired(&q).into_iter().collect::<Vec<_>>(), ["a", "b", "c"]);
+    let esc = one_step("cargo test --test a \\# --test b # --test z");
+    assert_eq!(wired(&esc).into_iter().collect::<Vec<_>>(), ["a", "b"]);
+    let tail = one_step("cargo test --test a # \"--test z\"");
+    assert_eq!(wired(&tail).into_iter().collect::<Vec<_>>(), ["a"]);
+    let echoed = one_step("echo \"# --test x\"");
+    assert!(wired(&echoed).is_empty(), "echo is not cargo test");
 }
