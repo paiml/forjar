@@ -115,6 +115,8 @@ releases:
     dogfood: docs/audits/dogfood-1.34.0-receipt.md
     crux: docs/audits/crux-1.34.0.md
     cookbook: 9ba66ad7875d16e587ebfbe59837d88e333375fd
+    # never published to crates.io (measured 2026-11-21: index lists 1.33.0 as newest); the lock pins 1.33.0
+    crates_io: unpublished
   - tag: v1.34.1
     cut: 2026-11-13T17:48:49Z
     prs: [895, 899, 902, 903, 904, 906, 908, 909, 910, 914, 930, 932, 933, 934, 941, 943, 944, 945, 946, 948, 950, 959, 961, 972, 978, 993, 998, 1003, 1005, 1006, 1012, 1016, 1024]
@@ -122,6 +124,8 @@ releases:
     dogfood: docs/audits/dogfood-1.34.1-receipt.md
     crux: docs/audits/crux-1.34.1.md
     cookbook: d676d819c5afe51071c8416360d7de523a712f8c
+    # never published to crates.io (measured 2026-11-21); T8b exemption, PMAT-1342
+    crates_io: unpublished
     # PRs naming no roadmap ticket: #944
 next:
   tag: v1.34.2

@@ -391,3 +391,151 @@ fn a_cookbook_lock_that_says_nothing_is_unmeasured_and_red() {
     );
     run(&fx, AN_HOUR).assert_green("forjar's entry is forjar's, whatever precedes it");
 }
+
+// ---------------------------------------------------------------------------
+// PMAT-1342 / T8b: a release that was never published to crates.io.
+//
+// forjar 1.34.0 and 1.34.1 were tagged but never published, so no cookbook
+// commit can lock them and gate T was red on main. The narrow exemption: a row
+// that DECLARES `crates_io: unpublished` is not asked to lock its own version
+// IF the crates.io index, read live, does not list that version, AND the lock
+// pins the newest non-yanked stable release the index does list below it. Every
+// other row, the newest included, keeps the full check; absent, unreadable or
+// contradicting evidence stays red.
+// ---------------------------------------------------------------------------
+
+const SHA2: &str = "0123456789abcdef0123456789abcdef01234567";
+const TOML2: &str = "[dependencies]\nforjar = \"0.0\"\n";
+
+fn lock_of(v: &str) -> String {
+    format!("[[package]]\nname = \"forjar\"\nversion = \"{v}\"\n")
+}
+
+/// Run the gate with `CRATES_IO_API` pointing at an index document (or at a
+/// path that does not exist when `index` is None).
+fn run_index(fx: &Fixture, index: Option<&str>) -> Run {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("forjar.json");
+    if let Some(body) = index {
+        std::fs::write(&path, body).expect("write index");
+    }
+    let out = std::process::Command::new("bash")
+        .arg(fx.root.join("scripts/dogfood/tagged.sh"))
+        .current_dir(&fx.root)
+        .env("GH", &fx.gh)
+        .env("CRATES_IO_API", format!("file://{}", path.display()))
+        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string())
+        .output()
+        .expect("bash must run");
+    let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
+    text.push_str(&String::from_utf8_lossy(&out.stderr));
+    Run {
+        code: out.status.code().unwrap_or(-1),
+        text,
+    }
+}
+
+fn unpublished_fx(crates_io: &'static str, lock: &str) -> Fixture {
+    let mut fx = fixture(Case {
+        cookbook_floor: FLOOR,
+        cookbook: SHA2,
+        crates_io,
+        ..Case::default()
+    });
+    fx.cookbook_files(TOML2, &lock_of(lock));
+    fx
+}
+
+const IDX_PREDECESSOR: &str = r#"{"versions":[{"num":"0.0.0","yanked":false}]}"#;
+
+/// The positive case: declared, absent from the index, lock = newest published
+/// predecessor.
+#[test]
+fn an_unpublished_release_may_lock_its_published_predecessor() {
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let r = run_index(&fx, Some(IDX_PREDECESSOR));
+    r.assert_green("0.0.1 is declared unpublished, absent from crates.io, lock is 0.0.0");
+    r.assert_says("never published");
+}
+
+/// MUTANT 1: the loosened rule must not exempt a PUBLISHED row. The row says
+/// unpublished but crates.io lists 0.0.1.
+#[test]
+fn a_row_declared_unpublished_that_crates_io_serves_stays_red() {
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let r = run_index(
+        &fx,
+        Some(r#"{"versions":[{"num":"0.0.1","yanked":false},{"num":"0.0.0","yanked":false}]}"#),
+    );
+    r.assert_red("crates.io lists 0.0.1, so the declaration is false");
+    r.assert_says("crates.io lists");
+    // a yanked version is still published
+    let r = run_index(
+        &fx,
+        Some(r#"{"versions":[{"num":"0.0.1","yanked":true},{"num":"0.0.0","yanked":false}]}"#),
+    );
+    r.assert_red("a yanked 0.0.1 was still published");
+}
+
+/// MUTANT 2: no declaration, no exemption. Absent evidence is the full check,
+/// even when crates.io lacks the version and the lock is the predecessor.
+#[test]
+fn an_undeclared_row_is_not_exempt_whatever_crates_io_says() {
+    let fx = unpublished_fx("", "0.0.0");
+    let r = run_index(&fx, Some(IDX_PREDECESSOR));
+    r.assert_red("no crates_io: field, so the lock must pin the release");
+    r.assert_says("LOCKS forjar 0.0.0");
+}
+
+/// MUTANT 3: an unreadable index is UNMEASURED, never a pass.
+#[test]
+fn an_unreadable_crates_io_index_is_unmeasured_and_red() {
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let r = run_index(&fx, None);
+    r.assert_red("the index cannot be read");
+    r.assert_says("UNMEASURED");
+    let r = run_index(&fx, Some("not json"));
+    r.assert_red("a body that is not an index measures nothing");
+    r.assert_says("UNMEASURED");
+    let r = run_index(&fx, Some(r#"{"versions":[]}"#));
+    r.assert_red("an empty index is not evidence of anything");
+    r.assert_says("UNMEASURED");
+}
+
+/// MUTANT 4: any value but the exact word `unpublished` is refused.
+#[test]
+fn an_unknown_crates_io_value_is_red() {
+    for v in ["published", "false", "\"\"", "Unpublished", "yes"] {
+        let fx = unpublished_fx(v, "0.0.0");
+        let r = run_index(&fx, Some(IDX_PREDECESSOR));
+        r.assert_red("only the exact word unpublished declares anything");
+        r.assert_says("crates_io");
+    }
+}
+
+/// MUTANT 5: the exemption is not a blank cheque on the lock. It must be the
+/// newest published stable predecessor: not ahead, not an older release, not
+/// a pre-release, and a yanked predecessor does not count.
+#[test]
+fn an_exempt_row_must_lock_the_newest_published_predecessor() {
+    // the lock is ahead of the release
+    let fx = unpublished_fx("unpublished", "0.0.2");
+    run_index(&fx, Some(IDX_PREDECESSOR)).assert_red("a lock ahead is no predecessor");
+    // the lock is an older published release than the newest predecessor
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let r = run_index(
+        &fx,
+        Some(r#"{"versions":[{"num":"0.0.0-rc.1","yanked":false}]}"#),
+    );
+    r.assert_red("a pre-release is not a published predecessor, so there is none");
+    // no predecessor at all (only yanked)
+    let r = run_index(&fx, Some(r#"{"versions":[{"num":"0.0.0","yanked":true}]}"#));
+    r.assert_red("a yanked predecessor does not count");
+    // the lock names a release the index never served
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let r = run_index(
+        &fx,
+        Some(r#"{"versions":[{"num":"0.0.0","yanked":false}]}"#),
+    );
+    r.assert_green("control: same fixture, honest index");
+}

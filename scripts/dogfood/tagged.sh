@@ -48,6 +48,9 @@
 #       7c100454, the commit v1.29.0's row named: the manifest says `1.2` and
 #       the lock says 1.2.1, so the gate blessed a cookbook compiled twenty-seven
 #       minors behind the release it was recorded as qualifying (PMAT-537).
+#       Exemption (PMAT-1342): a row declaring `crates_io: unpublished` whose version the
+#       live crates.io index does not list must lock the newest published stable
+#       release below it; absent, unreadable or contradicting evidence stays red.
 #   T9  while a cut is in flight, any "<N> PRs across <M> tickets" claim in the
 #       release's own CHANGELOG section equals what the window measures. The
 #       1.29.0 cut wrote "Thirteen" over twelve merged PRs — the thirteenth was
@@ -198,6 +201,51 @@ labels_of_release() {
   done
 }
 
+# The crates.io version index the T8b exemption reads, and the curl that reads it.
+CURL="${CURL:-curl}"
+CRATES_IO_API="${CRATES_IO_API:-https://crates.io/api/v1/crates/forjar}"
+
+# T8b exemption (PMAT-1342): a release that was tagged but never published.
+#
+# forjar 1.34.0 and 1.34.1 were tagged and never published to crates.io, so no
+# cookbook commit can lock a version cargo cannot resolve, and gate T was red on
+# main. This is the ONE case where the lock need not pin the release itself, and
+# it is as narrow as the evidence allows:
+#   1. the row must DECLARE `crates_io: unpublished` (exact word; any other
+#      value is refused, an absent field is the full check);
+#   2. the crates.io index, read live, must be readable and list the crate, and
+#      must NOT list this version (a yanked entry still counts as listed);
+#   3. the lock must pin the newest non-yanked stable version the index lists
+#      below this one, so the cookbook was qualified against the latest release
+#      a user could actually install.
+# Anything else (unreadable, unparseable, empty, contradicting) is red. Returns
+# 0 when exempt, 1 when the row is not declared (the caller runs the full
+# check), and fails by name otherwise.
+unpublished_release_locks_predecessor() {
+  local row="$1" tag="$2" ver="$3" locked="$4" sha="$5" decl idx rc=0 listed prev
+  decl="$(printf '%s' "$row" | jq -r 'if has("crates_io") then (.crates_io | tostring) else "-absent-" end')"
+  [ "$decl" = "-absent-" ] && return 1
+  if [ "$decl" != "unpublished" ]; then
+    fail "${tag}: crates_io: \"${decl}\" is not a value this gate knows — the only declaration is exactly \`unpublished\`; a published release carries no such field"
+  fi
+  idx="$("$CURL" -fsS -A "forjar-gate-t" "$CRATES_IO_API" 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ] || ! printf '%s' "$idx" | jq -e '.versions | type == "array" and length > 0' >/dev/null 2>&1; then
+    fail "${tag}: the row says crates_io: unpublished and the crates.io index at ${CRATES_IO_API} could not be read as a non-empty version list (curl exit ${rc}) — UNMEASURED, and an unmeasured claim never exempts a row"
+  fi
+  listed="$(printf '%s' "$idx" | jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length')"
+  if [ "$listed" != "0" ]; then
+    fail "${tag}: the row says crates_io: unpublished and crates.io lists ${ver} (yanked or not) — the declaration is false, so the lock must pin ${ver} like any published release"
+  fi
+  prev="$(printf '%s' "$idx" | jq -r '.versions[] | select((.yanked | not) and (.num | test("^[0-9]+[.][0-9]+[.][0-9]+$"))) | .num' | { cat; printf '%s\n' "$ver"; } | sort -V | awk -v v="$ver" '$0 == v { print p; exit } { p = $0 }')"
+  if [ -z "$prev" ]; then
+    fail "${tag}: the row says crates_io: unpublished and crates.io lists no non-yanked stable release below ${ver} — there is no published predecessor for the lock to pin"
+  fi
+  if [ "$locked" != "$prev" ]; then
+    fail "${tag}: never published to crates.io, so the cookbook at ${sha} must lock the newest published release below it, ${prev}, and it LOCKS forjar ${locked}"
+  fi
+  echo "GATE T ${tag} cookbook ${sha} locks forjar ${locked}: ${tag} was never published to crates.io (crates_io: unpublished, ${prev} is the newest published release below it) ok"
+}
+
 # T8 (PMAT-241): the cookbook moved with the release.
 #
 # The cookbook is where forjar is USED rather than described: gate D validates
@@ -327,6 +375,9 @@ cookbook_of_release() {
     /^\[\[package\]\]/ { want = 0 }' <<<"$lock")"
   if [ -z "$locked" ]; then
     fail "${tag}: the cookbook's Cargo.lock at ${sha} pins no forjar version — a lock with no entry for the crate under test measures nothing, and nothing is not a pass"
+  fi
+  if [ "$locked" != "$ver" ] && unpublished_release_locks_predecessor "$row" "$tag" "$ver" "$locked" "$sha"; then
+    return 0
   fi
   if [ "$locked" != "$ver" ]; then
     fail "${tag}: the cookbook at ${sha} LOCKS forjar ${locked} and the release is ${ver} — the requirement ${raw} admits it, but a requirement is a range and the lock is what cargo builds, so that cookbook was never compiled against this release. Update paiml/forjar-cookbook's Cargo.lock to ${ver} and name the resulting commit here (PMAT-537)"

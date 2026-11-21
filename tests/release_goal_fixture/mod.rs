@@ -101,6 +101,8 @@ pub(crate) struct Case {
     pub(crate) cookbook_floor: &'static str,
     /// The `cookbook:` the floor's row declares; empty writes no such field.
     pub(crate) cookbook: &'static str,
+    /// The `crates_io:` line the floor's row declares; empty writes none (PMAT-1342).
+    pub(crate) crates_io: &'static str,
     /// The version Cargo.toml carries at HEAD.
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
@@ -128,6 +130,7 @@ impl Default for Case {
             receipts: true,
             cookbook_floor: "",
             cookbook: "",
+            crates_io: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
             changelog: "",
@@ -171,11 +174,15 @@ fn cookbook_floor_line(case: &Case) -> String {
 
 /// `    cookbook: <sha>\n` on the floor's row, or nothing.
 fn cookbook_row_line(case: &Case) -> String {
-    if case.cookbook.is_empty() {
+    let mut s = if case.cookbook.is_empty() {
         String::new()
     } else {
         format!("    cookbook: {}\n", case.cookbook)
+    };
+    if !case.crates_io.is_empty() {
+        s.push_str(&format!("    crates_io: {}\n", case.crates_io));
     }
+    s
 }
 
 pub(crate) fn fixture(case: Case) -> Fixture {
