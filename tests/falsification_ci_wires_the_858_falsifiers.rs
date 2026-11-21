@@ -38,6 +38,61 @@ fn strip_comment(line: &str) -> &str {
     line
 }
 
+/// Shell `run:` text as logical commands: comments dropped, backslash
+/// continuations joined, split on newline `;` `&&` `||` `|`.
+fn logical_commands(run: &str) -> Vec<String> {
+    let mut joined = Vec::new();
+    let mut cur = String::new();
+    for line in run.lines() {
+        let code = strip_comment(line).trim_end();
+        match code.strip_suffix('\\') {
+            Some(head) => {
+                cur.push_str(head);
+                cur.push(' ');
+            }
+            None => {
+                cur.push_str(code);
+                joined.push(std::mem::take(&mut cur));
+            }
+        }
+    }
+    joined.push(cur);
+    let mut out = Vec::new();
+    for l in joined {
+        let l = l.replace("&&", ";").replace("||", ";").replace('|', ";");
+        out.extend(l.split(';').map(str::to_string));
+    }
+    out
+}
+
+/// `[ENV=v ...] cargo [+toolchain] test ...`
+fn is_cargo_test(toks: &[&str]) -> bool {
+    let mut it = toks
+        .iter()
+        .skip_while(|t| !t.starts_with('-') && t.contains('='));
+    if it.next() != Some(&"cargo") {
+        return false;
+    }
+    let mut rest = it.skip_while(|t| t.starts_with('+'));
+    rest.next() == Some(&"test")
+}
+
+/// `--test NAME` targets of the `cargo test` commands in one `run:` block.
+fn run_targets(run: &str) -> Vec<String> {
+    let cmds = logical_commands(run);
+    let toks = cmds
+        .iter()
+        .map(|c| c.split_whitespace().collect::<Vec<_>>());
+    toks.filter(|t| is_cargo_test(t))
+        .flat_map(|t| {
+            t.windows(2)
+                .filter(|w| w[0] == "--test")
+                .map(|w| w[1].to_string())
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 /// Every `--test NAME` token in every job step's `run:`.
 fn wired(text: &str) -> BTreeSet<String> {
     let doc: Value = serde_yaml_ng::from_str(text).expect("ci.yml parses");
@@ -48,17 +103,7 @@ fn wired(text: &str) -> BTreeSet<String> {
             let Some(run) = step["run"].as_str() else {
                 continue;
             };
-            let code: Vec<&str> = run.lines().map(strip_comment).collect();
-            let toks: Vec<&str> = code.iter().flat_map(|l| l.split_whitespace()).collect();
-            // `--test X` is wiring only inside a step that runs `cargo test`.
-            if !toks.windows(2).any(|w| w == ["cargo", "test"]) {
-                continue;
-            }
-            for w in toks.windows(2) {
-                if w[0] == "--test" {
-                    out.insert(w[1].to_string());
-                }
-            }
+            out.extend(run_targets(run));
         }
     }
     out
@@ -164,7 +209,7 @@ fn drop_target_survives_odd_spacing_and_keeps_prefix_siblings() {
 fn a_test_flag_outside_cargo_test_is_not_wired() {
     let echoed = one_step("echo --test falsification_budget_dry_run");
     assert!(wired(&echoed).is_empty(), "echo is not a cargo test run");
-    let real = one_step("cargo test --locked \\\n--test a # --test b\n--test c");
+    let real = one_step("cargo test --locked --test a # --test b\ncargo test --test c");
     let got: Vec<String> = wired(&real).into_iter().collect();
     assert_eq!(got, ["a", "c"], "comment tail or real target misread");
 }
@@ -176,4 +221,18 @@ fn the_live_workflow_yields_a_populated_wired_set() {
     let w = wired(&ci_yml());
     assert!(w.contains("examples_validate"), "pre-existing target gone");
     assert!(w.len() >= 25, "only {} targets parsed from ci.yml", w.len());
+}
+
+/// Only a logical command that itself is `cargo test` wires a target: an echo
+/// in the same step, or a second command after `&&` / `;` / `|`, does not.
+#[test]
+fn only_the_cargo_test_command_itself_wires_a_target() {
+    let echo_after = one_step("cargo test --lib\necho --test x1");
+    assert!(wired(&echo_after).is_empty(), "echo line counted");
+    let and_then = one_step("cargo test --lib && echo --test x2; true | cat --test x3");
+    assert!(wired(&and_then).is_empty(), "chained command counted");
+    let cont = one_step("cargo test --locked \\\n  --test a1 \\\n  --test a2");
+    assert_eq!(wired(&cont).len(), 2, "continuation not joined");
+    let env = one_step("RUST_LOG=x cargo +nightly test --test e1 && cargo fmt --test z");
+    assert_eq!(wired(&env).into_iter().collect::<Vec<_>>(), ["e1"]);
 }
