@@ -297,7 +297,10 @@ dogfood_roadmap_rows() {
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/roadmap.yaml cannot be read at ${ref} (exit ${rc}): the ticket registry is unreadable, so no PR's ticket can be identified — UNMEASURED"
   fi
-  DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(PMAT-[0-9][0-9]*\)$/\1/p')"
+  # PMAT-<n> and GH-<n> rows both exist (72 GH- rows); an id in a PR's text is
+  # still read as PMAT-<n> only (dogfood_ids_in), so a GH- row is reachable by
+  # a releases.yaml pr_ticket_aliases entry and never by a stray scan (#1235).
+  DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(\(PMAT\|GH\)-[0-9][0-9]*\)$/\1/p')"
   # `labels: []` opens a list that the next key closes; `labels:` followed by
   # `  - x` lines is the populated shape. Both are one awk state.
   DOGFOOD_ROW_LABELS="$(printf '%s\n' "$text" | awk '
@@ -468,13 +471,18 @@ dogfood_take_id() {
 # kill the caller with no verdict line (measured on the v1.25.1 window, which
 # names no ticket at all).
 dogfood_window_tickets() {
-  local i=0 num href title body all="" strays="" none=""
+  local i=0 num href title body oid all="" strays="" none=""
   while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     dogfood_pr_field "$i" ".number"; num="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".headRefName"; href="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".title"; title="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
+    dogfood_pr_field "$i" ".mergeCommit.oid"; oid="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
+    if [ -z "$DOGFOOD_TICKETS" ] && [ -z "$DOGFOOD_STRAY_IDS" ] && declare -F dogfood_pr_alias_row >/dev/null 2>&1; then
+      dogfood_pr_alias_row "$num" "$oid"
+      DOGFOOD_TICKETS="$DOGFOOD_ALIAS_ROW"
+    fi
     all="$all $DOGFOOD_TICKETS"
     [ -z "$DOGFOOD_STRAY_IDS" ] || strays="$strays #${num}:${DOGFOOD_STRAY_IDS// /,}"
     [ -n "$DOGFOOD_TICKETS" ] || none="$none #${num}"
