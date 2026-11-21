@@ -50,6 +50,10 @@ fn wired(text: &str) -> BTreeSet<String> {
             };
             let code: Vec<&str> = run.lines().map(strip_comment).collect();
             let toks: Vec<&str> = code.iter().flat_map(|l| l.split_whitespace()).collect();
+            // `--test X` is wiring only inside a step that runs `cargo test`.
+            if !toks.windows(2).any(|w| w == ["cargo", "test"]) {
+                continue;
+            }
             for w in toks.windows(2) {
                 if w[0] == "--test" {
                     out.insert(w[1].to_string());
@@ -71,8 +75,26 @@ fn missing(text: &str) -> Vec<&'static str> {
 
 /// `text` with every `--test <target>` occurrence deleted (a dropped wiring).
 fn drop_target(text: &str, target: &str) -> String {
-    text.replace(&format!("--test {target} \\\n"), "")
-        .replace(&format!("--test {target}\n"), "\n")
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(i) = rest.find("--test") {
+        let after = &rest[i + "--test".len()..];
+        let tail = after.trim_start_matches([' ', '\t']);
+        let hit = tail.strip_prefix(target).filter(|t| {
+            let c = t.chars().next();
+            !c.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        });
+        out.push_str(&rest[..i]);
+        match hit {
+            Some(t) => rest = t,
+            None => {
+                out.push_str("--test");
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 #[test]
@@ -112,4 +134,46 @@ fn every_required_target_exists_on_disk() {
         let p = format!("{}/tests/{t}.rs", env!("CARGO_MANIFEST_DIR"));
         assert!(std::path::Path::new(&p).exists(), "{p} is missing");
     }
+}
+
+fn one_step(run_block: &str) -> String {
+    let body: String = run_block
+        .lines()
+        .map(|l| format!("          {l}\n"))
+        .collect();
+    format!("jobs:\n  j:\n    steps:\n      - run: |\n{body}")
+}
+
+/// A mutant must not depend on how ci.yml spaces its arguments, or a reformat
+/// turns the probe vacuous (or, here, loud for the wrong reason).
+#[test]
+fn drop_target_survives_odd_spacing_and_keeps_prefix_siblings() {
+    let text = "cargo test \\\n\t--test  foo\t\\\n  --test foo_bar \\\n  --test baz\n";
+    let m = drop_target(text, "foo");
+    assert_ne!(m, text, "tab / double-space spelling was not removed");
+    assert!(m.contains("--test foo_bar"), "a prefix sibling was eaten");
+    assert_ne!(
+        drop_target(text, "baz"),
+        text,
+        "last line without backslash"
+    );
+}
+
+/// `--test X` only counts as wiring when the same step runs `cargo test`.
+#[test]
+fn a_test_flag_outside_cargo_test_is_not_wired() {
+    let echoed = one_step("echo --test falsification_budget_dry_run");
+    assert!(wired(&echoed).is_empty(), "echo is not a cargo test run");
+    let real = one_step("cargo test --locked \\\n--test a # --test b\n--test c");
+    let got: Vec<String> = wired(&real).into_iter().collect();
+    assert_eq!(got, ["a", "c"], "comment tail or real target misread");
+}
+
+/// If the parser silently lost the steps, `missing` would still report seven
+/// absent targets; this pins that the live file yields a populated set.
+#[test]
+fn the_live_workflow_yields_a_populated_wired_set() {
+    let w = wired(&ci_yml());
+    assert!(w.contains("examples_validate"), "pre-existing target gone");
+    assert!(w.len() >= 25, "only {} targets parsed from ci.yml", w.len());
 }
