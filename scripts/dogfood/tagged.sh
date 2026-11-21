@@ -48,6 +48,9 @@
 #       7c100454, the commit v1.29.0's row named: the manifest says `1.2` and
 #       the lock says 1.2.1, so the gate blessed a cookbook compiled twenty-seven
 #       minors behind the release it was recorded as qualifying (PMAT-537).
+#       Exemption (PMAT-1342): a row declaring `crates_io: unpublished` whose version the
+#       live crates.io index does not list must lock the newest published stable
+#       release below it; absent, unreadable or contradicting evidence stays red.
 #   T9  while a cut is in flight, any "<N> PRs across <M> tickets" claim in the
 #       release's own CHANGELOG section equals what the window measures. The
 #       1.29.0 cut wrote "Thirteen" over twelve merged PRs — the thirteenth was
@@ -96,6 +99,8 @@ number_word() {
 . "$(dirname "${BASH_SOURCE[0]}")/lib/window.sh"
 # shellcheck source=scripts/dogfood/lib/releases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/releases.sh"
+# shellcheck source=scripts/dogfood/lib/cratesio.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/cratesio.sh"
 
 # The clock. Overridable ONLY so the falsification tests can stand at a chosen
 # instant; the cadence arm measures the wall clock by design.
@@ -196,6 +201,54 @@ labels_of_release() {
       *) fail "${t} carries the label release:${tag} and no PR in ${tag}'s window names it: a ticket claiming a release it was not in is a fabricated link (a goal that missed the cut moves to the next release: scripts/release-goal.sh cut moves it)" ;;
     esac
   done
+}
+
+# The crates.io version index URL and curl invocation in T8b are fixed (never
+# read from environment variables, PMAT-1150). Tests stub `curl` on PATH.
+
+# T8b exemption (PMAT-1342): a release that was tagged but never published.
+#
+# forjar 1.34.0 and 1.34.1 were tagged and never published to crates.io, so no
+# cookbook commit can lock a version cargo cannot resolve, and gate T was red on
+# main. This is the ONE case where the lock need not pin the release itself, and
+# it is as narrow as the evidence allows:
+#   1. the row must DECLARE `crates_io: unpublished` (exact word; any other
+#      value is refused, an absent field is the full check);
+#   2. the crates.io index, read live, must be readable and list the crate, and
+#      must NOT list this version (a yanked entry still counts as listed);
+#   3. the lock must pin the newest non-yanked stable version the index lists
+#      below this one, so the cookbook was qualified against the latest release
+#      a user could actually install.
+# Anything else (unreadable, unparseable, empty, contradicting) is red. Returns
+# 0 when exempt, 1 when the row is not declared (the caller runs the full
+# check), and fails by name otherwise.
+unpublished_release_locks_predecessor() {
+  local row="$1" tag="$2" ver="$3" locked="$4" sha="$5" idx rc=0 listed prev
+  crates_io_declaration_is_known "$row" "$tag" || return 1
+  idx="$(curl -q -fsS -A "forjar-gate-t" -- "https://crates.io/api/v1/crates/forjar" 2>&1)" || rc=$?
+  # Fail closed on SHAPE, not just on reachability: the document must be a
+  # single JSON object for the forjar crate, and every version element an object
+  # with a semver `num` and a boolean `yanked`. A malformed element would
+  # otherwise make a later jq exit non-zero inside an `if` (errexit is off
+  # there) and read as no evidence.
+  if [ "$rc" -ne 0 ] || ! jq -es '
+      length == 1 and (.[0] |
+      (.crate.id == "forjar") and (.versions | type == "array" and length > 0 and
+      all(.[]; (.num | type == "string" and test("\\A(0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})[.](0|[1-9][0-9]{0,8})(-[0-9A-Za-z.+-]+)?\\z")) and (.yanked | type == "boolean"))))' <<<"$idx" >/dev/null 2>&1; then
+    fail "${tag}: the row says crates_io: unpublished and the crates.io index at https://crates.io/api/v1/crates/forjar is not a well-formed forjar version list (curl exit ${rc}; needs crate.id forjar and every version an object with a semver num and a boolean yanked) -- UNMEASURED, and an unmeasured claim never exempts a row"
+  fi
+  listed="$(jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length' <<<"$idx")" || fail "${tag}: jq could not count the versions of the crates.io index — UNMEASURED"
+  if [ "$listed" != "0" ]; then
+    fail "${tag}: the row says crates_io: unpublished and crates.io lists ${ver} (yanked or not; listed ${listed} time(s)) — the declaration is false, so the lock must pin ${ver} like any published release"
+  fi
+  prev="$(cratesio_newest_stable_below "$ver" <<<"$idx")" || fail "${tag}: jq could not select the predecessor from the crates.io index — UNMEASURED, and a selection that did not run is not a missing predecessor"
+  if [ -z "$prev" ]; then
+    fail "${tag}: the row says crates_io: unpublished and crates.io lists no non-yanked stable release below ${ver} — there is no published predecessor for the lock to pin"
+  fi
+  if [ "$locked" != "$prev" ]; then
+    fail "${tag}: never published to crates.io, so the cookbook at ${sha} must lock the newest published release below it, ${prev}, and it LOCKS forjar ${locked}"
+  fi
+  echo "GATE T ${tag} cookbook ${sha} locks forjar ${locked}: ${tag} was never published to crates.io (crates_io: unpublished, ${prev} is the newest published release below it) ok"
 }
 
 # T8 (PMAT-241): the cookbook moved with the release.
@@ -328,6 +381,9 @@ cookbook_of_release() {
   if [ -z "$locked" ]; then
     fail "${tag}: the cookbook's Cargo.lock at ${sha} pins no forjar version — a lock with no entry for the crate under test measures nothing, and nothing is not a pass"
   fi
+  if unpublished_release_locks_predecessor "$row" "$tag" "$ver" "$locked" "$sha"; then
+    return 0
+  fi
   if [ "$locked" != "$ver" ]; then
     fail "${tag}: the cookbook at ${sha} LOCKS forjar ${locked} and the release is ${ver} — the requirement ${raw} admits it, but a requirement is a range and the lock is what cargo builds, so that cookbook was never compiled against this release. Update paiml/forjar-cookbook's Cargo.lock to ${ver} and name the resulting commit here (PMAT-537)"
   fi
@@ -403,6 +459,8 @@ for t in $DECLARED_TAGS; do
   if ! tag_on_origin "$t"; then
     fail "docs/roadmaps/releases.yaml declares ${t} and origin carries no such tag: a declared release that does not exist"
   fi
+  dogfood_release_row "$t"
+  crates_io_declaration_is_known "$DOGFOOD_RELEASE_ROW" "$t" || :
 done
 
 checked=0

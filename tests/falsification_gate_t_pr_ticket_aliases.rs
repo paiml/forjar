@@ -432,3 +432,32 @@ fn the_alias_map_checker_rejects_missing_freeze_post_freeze_ambiguous_and_minori
         .unwrap_err()
         .contains("must match one first-parent commit"));
 }
+
+/// A ledger-only PR runs this target (alias-map-guard) and nothing under
+/// tests/falsification_gate_t_unpublished_*: every `crates_io` declaration in the
+/// committed ledger must be exactly `unpublished`, or a bogus one reaches main.
+#[test]
+fn every_committed_crates_io_declaration_is_a_value_the_gate_knows() {
+    let script = r#"set -uo pipefail
+fail() { echo "FAIL: $1" >&2; exit 1; }
+. scripts/dogfood/lib/window.sh
+. scripts/dogfood/lib/releases.sh
+. scripts/dogfood/lib/cratesio.sh
+DOGFOOD_RELEASES_REF=worktree dogfood_load_releases
+for t in $(jq -r '.releases[].tag' <<<"$DOGFOOD_RELEASES"); do
+  dogfood_release_row "$t"
+  crates_io_declaration_is_known "$DOGFOOD_RELEASE_ROW" "$t" || :
+done
+"#;
+    let out = std::process::Command::new("bash")
+        .args(["-c", script])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .expect("bash must run");
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}

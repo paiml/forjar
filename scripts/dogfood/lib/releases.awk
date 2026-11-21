@@ -59,6 +59,13 @@ function value(v,   inner, n, parts, i, out, p) {
   }
   return scalar(v)
 }
+# A key twice in one object (top-level, map, or list item): jq keeps the LAST,
+# so a reader of the file and the gate would disagree about which value the
+# file or row declares (PMAT-1150).
+function dupkey(scope, k) {
+  if ((scope SUBSEP k) in seen) bad("a duplicate key (" scope "): " k)
+  seen[scope SUBSEP k] = 1
+}
 # Close whatever the previous top-level key opened.
 function close_top() {
   if (pend != "") { out = out sep str(pend) ":null"; sep = ","; pend = "" }
@@ -75,13 +82,15 @@ function open_child(kind) {
     bad("an indented line with no parent key that opens a " (kind == "arr" ? "list" : "map"))
   }
 }
-BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
+BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; topk = ""; failed = 0 }
 /^[ \t]*$/ { next }
 /^[ \t]*#/ { next }
 /\t/ { bad("a tab") }
 /^[A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   close_top()
   k = $0; sub(/:.*$/, "", k)
+  dupkey("top", k)
+  topk = k
   v = $0; sub(/^[^:]*:/, "", v)
   vv = v; sub(/[ \t]+#.*$/, "", vv); sub(/^[ \t]+/, "", vv); sub(/[ \t]+$/, "", vv)
   if (vv == "") { pend = k; next }
@@ -91,6 +100,7 @@ BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
 /^  - [A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   open_child("arr")
   k = $0; sub(/^  - /, "", k); sub(/:.*$/, "", k)
+  nitems++; dupkey("item:" nitems, k)
   v = $0; sub(/^  - [^:]*:/, "", v)
   out = out (item ? "}," : "") "{" str(k) ":" value(v)
   item = 1; isep = ","
@@ -99,6 +109,7 @@ BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
 /^    [A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   if (ctx != "arr" || !item) bad("an item key outside a list item")
   k = $0; sub(/^    /, "", k); sub(/:.*$/, "", k)
+  dupkey("item:" nitems, k)
   v = $0; sub(/^    [^:]*:/, "", v)
   out = out isep str(k) ":" value(v)
   next
@@ -106,6 +117,7 @@ BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
 /^  [A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   open_child("map")
   k = $0; sub(/^  /, "", k); sub(/:.*$/, "", k)
+  dupkey("map:" topk, k)
   v = $0; sub(/^  [^:]*:/, "", v)
   out = out isep str(k) ":" value(v); isep = ","
   next
