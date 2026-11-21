@@ -156,12 +156,12 @@ jobs:
           persist-credentials: false
       # One `cargo test` over every integration target below (same job, same
       # default feature set, same --locked): one resolution/compile plan instead
-      # of 18 invocations (20 targets). Targets run in this order and a failing target fails
+      # of one invocation per target. Targets run in this order and a failing target fails
       # the step (cargo's default fail-fast, as the former per-step chain did).
       # Each guards what its own test file's header says (#292 orphaned sources,
       # #298 contract citations, #376/#377 undo, #386 hosted cache, #400/PMAT-554
       # quorum gates, #401 gitignored files, #614/#629/#683 nightly + cross,
-      # #714 advisory ignore, #722 cache keys, PMAT-159 sudo closefrom emulated and
+      # #858 seven falsifiers (reporter budget, release shape, untyped-error ratchet, e02, replace-running-binary, io_hash, budget dry run), #714 advisory ignore, #722 cache keys, PMAT-159 sudo closefrom emulated and
       # version coherence -- `--locked` is load-bearing for the latter).
       - name: Integration guards (examples, orphans, undo, quorum gates, nightly, version)
         run: |
@@ -188,6 +188,14 @@ jobs:
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest \
           --test falsification_pr_jobs_name_no_arm64_or_host \
+          --test falsification_390_one_stream_reporter \
+          --test falsification_release_workflow_shape \
+          --test falsification_untyped_error_sites_ratchet \
+          --test falsification_e02_controlmaster_before_the_drift_gate \
+          --test falsification_replace_running_binary \
+          --test falsification_io_hash_answers_for_its_machine \
+          --test falsification_budget_dry_run \
+          --test falsification_ci_wires_the_858_falsifiers \
           --test falsification_ci_light_jobs_are_hardened
       # The LIVE half of that falsifier (real sudo, required, not skippable) runs
       # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
