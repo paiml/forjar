@@ -232,7 +232,7 @@ fi
 # check), and fails by name otherwise.
 unpublished_release_locks_predecessor() {
   local row="$1" tag="$2" ver="$3" locked="$4" sha="$5" decl idx rc=0 listed prev
-  if ! printf '%s' "$row" | jq -e 'has("crates_io")' >/dev/null 2>&1; then
+  if ! jq -e 'has("crates_io")' <<<"$row" >/dev/null 2>&1; then
     return 1
   fi
   decl="$(printf '%s' "$row" | jq -r '.crates_io | tostring' 2>/dev/null)" || decl="?"
@@ -244,9 +244,9 @@ unpublished_release_locks_predecessor() {
   # forjar crate's own, and every version element an object with a semver `num`
   # and a boolean `yanked`. A malformed element would otherwise make a later jq
   # exit non-zero inside an `if` (errexit is off there) and read as no evidence.
-  if [ "$rc" -ne 0 ] || ! printf '%s' "$idx" | jq -e '
+  if [ "$rc" -ne 0 ] || ! jq -e '
       (.crate.id == "forjar") and (.versions | type == "array" and length > 0 and
-      all(.[]; type == "object" and (.num | type == "string" and test("^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-[0-9A-Za-z.+-]+)?$")) and (.yanked | type == "boolean")))' >/dev/null 2>&1; then
+      all(.[]; type == "object" and (.num | type == "string" and test("^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-[0-9A-Za-z.+-]+)?$")) and (.yanked | type == "boolean")))' <<<"$idx" >/dev/null 2>&1; then
     fail "${tag}: the row says crates_io: unpublished and the crates.io index at ${CRATES_IO_API} is not a well-formed forjar version list (curl exit ${rc}; needs crate.id forjar and every version an object with a semver num and a boolean yanked) — UNMEASURED, and an unmeasured claim never exempts a row"
   fi
   listed="$(printf '%s' "$idx" | jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length')" || listed="?"
