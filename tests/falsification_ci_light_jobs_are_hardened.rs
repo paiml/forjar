@@ -245,6 +245,15 @@ fn check_job(doc: &Value, name: &str, want_if: Option<&str>, out: &mut Vec<Strin
     }
 }
 
+/// The alias step must be a bare `name` + `run`: an `if:` or `continue-on-error:`
+/// on it would let a red alias test report a green job.
+fn check_alias_step(job: &Value, out: &mut Vec<String>) {
+    let st = steps(job);
+    if st.len() != 2 || keys(st[1]) != ["name", "run"] {
+        out.push("alias-map-guard: step shape".into());
+    }
+}
+
 fn check_guard_step(ev: &Value, out: &mut Vec<String>) {
     let guards: Vec<&Value> = steps(ev)
         .into_iter()
@@ -306,6 +315,8 @@ fn violations(ci: &str, lint: &str) -> Vec<String> {
     let mut out = Vec::new();
     check_job(&ci, "lockfile", None, &mut out);
     check_job(&ci, "examples-validate", Some(CODE_IF), &mut out);
+    check_job(&ci, "alias-map-guard", Some(ROADMAPS_IF), &mut out);
+    check_alias_step(&ci["jobs"]["alias-map-guard"], &mut out);
     check_job(&lint, "file-health", None, &mut out);
     for (file, doc) in [("ci.yml", &ci), ("lint.yml", &lint)] {
         if wide_permissions(doc) {
@@ -357,6 +368,8 @@ type Mutant = (
     &'static str,
 );
 
+const ROADMAPS_IF: &str = "needs.classify.outputs.roadmaps == 'true'";
+
 fn mutants() -> Vec<Mutant> {
     let lock_name = "    name: lockfile-preflight\n";
     let verify = "      - name: Verify Cargo.lock is committed and current\n";
@@ -384,6 +397,10 @@ fn mutants() -> Vec<Mutant> {
         m("workflow-level write-all", ci, "\nconcurrency:\n", "\npermissions: write-all\n\nconcurrency:\n".into(), false, "ci.yml: workflow permissions"),
         m("continue-on-error on a job", ci, lock_name, format!("{lock_name}    continue-on-error: true\n"), false, "lockfile: continue-on-error (job)"),
         m("continue-on-error on a step", ci, verify, format!("{verify}        continue-on-error: true\n"), false, "lockfile: continue-on-error (step)"),
+        m("alias-map-guard job continue-on-error", ci, "  alias-map-guard:\n    timeout-minutes: 30\n", "  alias-map-guard:\n    timeout-minutes: 30\n    continue-on-error: true\n".into(), false, "alias-map-guard: continue-on-error (job)"),
+        m("alias-map-guard step continue-on-error", ci, "      - name: Alias map guard\n", "      - name: Alias map guard\n        continue-on-error: true\n".into(), false, "alias-map-guard: continue-on-error (step)"),
+        m("alias-map-guard step if: false", ci, "      - name: Alias map guard\n", "      - name: Alias map guard\n        if: false\n".into(), false, "alias-map-guard: step shape"),
+        m("alias-map-guard if loosened", ci, "    if: needs.classify.outputs.roadmaps == 'true'\n", "    if: true\n".into(), false, "alias-map-guard: if"),
         m("gate drops lockfile from needs", ci, "needs: [classify, ci, lockfile, ", "needs: [classify, ci, ".into(), false, "gate: does not need lockfile"),
         m("gate drops alias-map-guard from needs", ci, ", alias-map-guard,", ",".into(), false, "gate: does not need alias-map-guard"),
         m("gate if: false", ci, "    if: always()\n", "    if: false\n".into(), false, "gate: if"),
