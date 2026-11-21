@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**`s3_bucket` declares one private S3 bucket as state (PMAT-1242; PRs #1243, #1244).**
+New resource type `s3_bucket` with fields `s3_bucket`, `s3_region`, `s3_private`, `s3_sse`, `s3_tls_only`, `s3_versioning` and `s3_noncurrent_expire_days`. The generated scripts shell out to `aws`; check and state query ask AWS and never read the lock, apply creates the bucket on a 404 and reads every property back, and `state: absent` is refused. The canonical desired-state hash does not move: every new `Resource` field skips serialising when unset (`skip_serializing_if = "Option::is_none"` in `src/core/types/s3_bucket_types.rs`), so no existing resource replans. See `docs/book/src/03-resources.md` and `examples/s3-bucket.yaml`.
+
 **Upgrade note: the canonical desired-state hash moved again (PMAT-1143, PR #1227; repinned by PMAT-1230).**
 `Resource` gained `network` (the docker `--network` mode). `Resource` has no `skip_serializing_if`, so the field serialises as `~` on every resource and every recorded lock hash stops matching: each resource replans as `Update` once after upgrading, then converges. A one-time fleet re-converge, same class as the PMAT-560 and #406 moves.
 
