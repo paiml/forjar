@@ -390,7 +390,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Alias map guard
-        run: cargo test --locked --test falsification_gate_t_pr_ticket_aliases
+        # Also runs gate T's T8b falsifiers (PMAT-1342): nothing else in CI runs
+        # these targets, so without them here they are written and never executed.
+        run: cargo test --locked --test falsification_gate_t_pr_ticket_aliases --test falsification_gate_t_unpublished_exemption --test falsification_gate_t_unpublished_hardening --test falsification_release_cookbook_is_part_of_the_release
 
   # The spot-label guard: a red guard blocks the gate. Stays on clean-room, never on a spot label.
   spot-labels-guard:
