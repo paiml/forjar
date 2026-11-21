@@ -2,7 +2,8 @@
 //! script and the drift case for it must go from red to green. A case that stays red
 //! under its own mutant is not testing that assertion.
 
-use super::tests::{cases, res, Fake};
+use super::tests::cases;
+use super::tests_fake::{res, Fake};
 use super::*;
 
 /// Assertion condition lines (the line after `if`) keyed by the marker they print.

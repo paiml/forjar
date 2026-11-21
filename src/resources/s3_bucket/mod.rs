@@ -39,6 +39,8 @@ mod script;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_fake;
+#[cfg(test)]
 mod tests_mutants;
 
 use crate::core::types::Resource;
