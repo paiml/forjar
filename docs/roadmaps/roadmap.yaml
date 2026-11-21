@@ -8757,3 +8757,23 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1232
+  github_issue: 1232
+  item_type: task
+  title: 'ci: wire the seven #858 integration falsifiers into ci.yml'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-21T00:00:00Z
+  updated: 2026-11-21T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - the seven #858 integration targets are --test arguments of a ci.yml cargo test step
+  - a falsifier fails when any one is dropped
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 764
