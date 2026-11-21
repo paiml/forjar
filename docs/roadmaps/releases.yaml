@@ -38,6 +38,11 @@ dogfood_floor: v1.26.0
 # From the next cut. Retrofitting the ten releases whose cookbook commit
 # nobody recorded would be inventing the record, not keeping it.
 cookbook_floor: v1.29.0
+# A PR whose branch, title and body name no PMAT id, mapped to the row that owns it
+# (forjar#1235). Read only for a PR naming no id at all; a stray id stays red.
+pr_ticket_aliases:
+  - pr: 944
+    ticket: PMAT-1235
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
@@ -118,11 +123,11 @@ releases:
   - tag: v1.34.1
     cut: 2026-11-13T17:48:49Z
     prs: [895, 899, 902, 903, 904, 906, 908, 909, 910, 914, 930, 932, 933, 934, 941, 943, 944, 945, 946, 948, 950, 959, 961, 972, 978, 993, 998, 1003, 1005, 1006, 1012, 1016, 1024]
-    tickets: [PMAT-192, PMAT-194, PMAT-503, PMAT-590, PMAT-608, PMAT-621, PMAT-638, PMAT-639, PMAT-659, PMAT-660, PMAT-673, PMAT-685, PMAT-890, PMAT-893, PMAT-896, PMAT-911, PMAT-912, PMAT-913, PMAT-916, PMAT-920, PMAT-939, PMAT-969, PMAT-989, PMAT-992, PMAT-995, PMAT-1004, PMAT-1011, PMAT-1014, PMAT-1015]
+    tickets: [PMAT-192, PMAT-194, PMAT-503, PMAT-590, PMAT-608, PMAT-621, PMAT-638, PMAT-639, PMAT-659, PMAT-660, PMAT-673, PMAT-685, PMAT-890, PMAT-893, PMAT-896, PMAT-911, PMAT-912, PMAT-913, PMAT-916, PMAT-920, PMAT-939, PMAT-969, PMAT-989, PMAT-992, PMAT-995, PMAT-1004, PMAT-1011, PMAT-1014, PMAT-1015, PMAT-1235]
     dogfood: docs/audits/dogfood-1.34.1-receipt.md
     crux: docs/audits/crux-1.34.1.md
     cookbook: d676d819c5afe51071c8416360d7de523a712f8c
-    # PRs naming no roadmap ticket: #944
+    # #944 names GH-667/669 only; pr_ticket_aliases maps it to PMAT-1235 (forjar#1235)
 next:
   tag: v1.34.2
   due: 2026-11-15T17:48:49Z

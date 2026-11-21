@@ -475,6 +475,10 @@ dogfood_window_tickets() {
     dogfood_pr_field "$i" ".title"; title="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
+    if [ -z "$DOGFOOD_TICKETS" ] && [ -z "$DOGFOOD_STRAY_IDS" ]; then
+      dogfood_pr_alias_row "$num"
+      DOGFOOD_TICKETS="$DOGFOOD_ALIAS_ROW"
+    fi
     all="$all $DOGFOOD_TICKETS"
     [ -z "$DOGFOOD_STRAY_IDS" ] || strays="$strays #${num}:${DOGFOOD_STRAY_IDS// /,}"
     [ -n "$DOGFOOD_TICKETS" ] || none="$none #${num}"

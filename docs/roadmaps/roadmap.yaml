@@ -8777,3 +8777,25 @@ roadmap:
   - kind:code
   notes: null
   epic: 764
+- id: PMAT-1235
+  github_issue: 1235
+  item_type: task
+  title: 'gate T: map PR #944, which names no PMAT id, to a ticket (pr_ticket_aliases)'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-11-21T00:00:00Z
+  updated: 2026-11-21T00:00:00Z
+  spec: null
+  acceptance_criteria:
+  - releases.yaml may declare pr_ticket_aliases (PR number to PMAT row), read only for a PR that names no id and never for a stray
+  - PR 944 (work of GH-667, GH-668, GH-669, GH-936) is mapped here and the v1.34.1 window no longer reports it unticketed
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  - release:v1.34.1
+  - release:v1.34.2
+  notes: 'Owns PR #944 for gate T: its branch, title and body name GH-/forjar# ids only, which the gate does not read.'
+  epic: 764

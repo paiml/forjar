@@ -31,6 +31,7 @@ DOGFOOD_RELEASES_SHAPE='
         and (.cut | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
         and (.prs | type == "array" and all(.[]; type == "number"))
         and (.tickets | type == "array" and all(.[]; type == "string" and test("^PMAT-[0-9]+$"))))
+  and ((.pr_ticket_aliases // []) | type == "array" and all(.[]; (.pr | type == "number") and (.ticket | type == "string" and test("^PMAT-[0-9]+$"))))
   and (.next | type == "object")
   and (.next.tag | type == "string" and test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
   and (.next.due | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"))
@@ -61,7 +62,7 @@ dogfood_load_releases() {
   # the ledger UNMEASURED at random rather than judging its shape.
   jq -e "$DOGFOOD_RELEASES_SHAPE" >/dev/null <<<"$json" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n), and next.tag / next.due"
+    fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n), an optional pr_ticket_aliases[] of {pr: number, ticket: PMAT-n}, and next.tag / next.due"
   fi
   rc=0
   line="$(printf '%s\n' "$text" | grep -n -E '^next:' | cut -d: -f1)" || rc=$?
@@ -219,4 +220,21 @@ dogfood_req_admits() {
   DOGFOOD_REQ_UPPER="$upper"
   if dogfood_semver_ge "v${ver}" "v${upper}"; then return 3; fi
   return 0
+}
+
+# The row releases.yaml `pr_ticket_aliases` maps PR $1 to (forjar#1235) ->
+# DOGFOOD_ALIAS_ROW; empty when none, when no ledger is loaded (gates A and E),
+# or when the target is no row. For a PR that names no id at all (#944 named
+# GH-667 only), so no `alias:<id>` can exist; a stray is never mapped.
+dogfood_pr_alias_row() {
+  local rc=0 t
+  DOGFOOD_ALIAS_ROW=""
+  [ -n "${DOGFOOD_RELEASES:-}" ] || return 0
+  t="$(jq -r --argjson n "$1" '[.pr_ticket_aliases[]? | select(.pr == $n) | .ticket] | first // empty' <<<"$DOGFOOD_RELEASES")" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "jq exited ${rc} reading pr_ticket_aliases for PR #$1 — UNMEASURED"
+  fi
+  if [ -n "$t" ] && dogfood_is_row "$t"; then
+    DOGFOOD_ALIAS_ROW="$t"
+  fi
 }
