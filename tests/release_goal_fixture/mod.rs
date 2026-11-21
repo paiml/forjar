@@ -20,6 +20,10 @@ use std::process::{Command, Output};
 #[path = "stub.rs"]
 mod stub;
 pub(crate) use stub::*;
+#[path = "alias_map.rs"]
+mod alias_map;
+#[allow(unused_imports)]
+pub(crate) use alias_map::*;
 
 pub(crate) const FLOOR: &str = "v0.0.1";
 pub(crate) const NEXT: &str = "v0.0.2";
@@ -112,6 +116,8 @@ pub(crate) struct Case {
     /// The world BEFORE the cut is booked: v0.0.1 exists and the ledger still
     /// says next is v0.0.1 (due = v0.0.0's cut + cadence) with no rows.
     pub(crate) pre_cut: bool,
+    /// Top-level `pr_ticket_aliases:` text the ledger declares, or none.
+    pub(crate) aliases: &'static str,
 }
 
 impl Default for Case {
@@ -132,6 +138,7 @@ impl Default for Case {
             shipped_branch: "PMAT-901-the-shipped-work",
             changelog: "",
             pre_cut: false,
+            aliases: "",
         }
     }
 }
@@ -264,15 +271,16 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     let due = iso(cut + 2 * 86400 + case.due_skew);
     let mut ledger = if case.pre_cut {
         format!(
-            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
             case.dogfood_floor,
             cookbook_floor_line(&case),
+            case.aliases,
             iso(base_cut + 2 * 86400)
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
-        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.aliases, case.declared_prs, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {

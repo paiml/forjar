@@ -384,6 +384,14 @@ for t in "$FLOOR" "$HARNESS_FLOOR" "$DOGFOOD_FLOOR"; do
     fail "the ledger's floor ${t} is not a tag origin carries: a floor that names no release bounds nothing"
   fi
 done
+dogfood_releases_field '.pr_ticket_aliases_frozen_at // ""'; ALIAS_FROZEN="$DOGFOOD_FIELD"
+case "$ALIAS_FROZEN" in
+  v*)
+    if ! tag_on_origin "$ALIAS_FROZEN"; then
+      fail "pr_ticket_aliases_frozen_at ${ALIAS_FROZEN} is not a tag origin carries: a local tag freezes nothing"
+    fi
+    ;;
+esac
 
 # ---------------------------------------------- T2 T3 T4 T5 every tagged release
 reachable_tags_from_floor

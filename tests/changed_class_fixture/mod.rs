@@ -106,6 +106,18 @@ pub fn assert_harmless(files: &[&str], why: &str) {
     );
 }
 
+pub fn roadmaps_of(files: &[&str]) -> String {
+    field(files, "roadmaps")
+}
+
+pub fn assert_roadmaps(files: &[&str], want: &str, why: &str) {
+    assert_eq!(
+        roadmaps_of(files),
+        want,
+        "PMAT-237: {why}. A change touching {files:?} must emit roadmaps={want}."
+    );
+}
+
 pub fn workflow(rel: &str) -> String {
     let p = Path::new(env!("CARGO_MANIFEST_DIR")).join(rel);
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("read {p:?}: {e}"))
