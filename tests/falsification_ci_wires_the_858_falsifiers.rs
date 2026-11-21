@@ -27,52 +27,162 @@ fn ci_yml() -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("read {p}: {e}"))
 }
 
-/// A shell line up to its first UNQUOTED `#` that starts a comment (line start
-/// or after a blank). Single and double quotes and backslash escapes are tracked.
-fn strip_comment(line: &str) -> &str {
-    let mut quote: Option<char> = None;
-    let mut prev_blank = true;
-    let mut chars = line.char_indices();
-    while let Some((i, c)) = chars.next() {
-        match (quote, c) {
-            (None, '#') if prev_blank => return &line[..i],
-            (None, '\\') | (Some('"'), '\\') => {
-                chars.next();
-            }
-            (None, '"' | '\'') => quote = Some(c),
-            (Some(q), _) if q == c => quote = None,
-            _ => {}
-        }
-        prev_blank = c.is_ascii_whitespace();
-    }
-    line
+/// One pass over a whole `run:` text (quote and escape state carried across
+/// lines), yielding commands as (line, words). It models only: words, single
+/// and double quotes, backslash escapes and continuations, `#` comments (an
+/// unquoted `#` at a word start), and the separators newline `;` `&` `|`.
+/// Anything else it cannot read faithfully is refused (see `Scan::bad`).
+#[derive(Default)]
+struct Scan {
+    cmds: Vec<(usize, Vec<String>)>,
+    cur: Vec<String>,
+    tok: String,
+    started: bool,
+    line: usize,
 }
 
-/// Shell `run:` text as logical commands: comments dropped, backslash
-/// continuations joined, split on newline `;` `&&` `||` `|`.
-fn logical_commands(run: &str) -> Vec<String> {
-    let mut joined = Vec::new();
-    let mut cur = String::new();
-    for line in run.lines() {
-        let code = strip_comment(line).trim_end();
-        match code.strip_suffix('\\') {
-            Some(head) => {
-                cur.push_str(head);
-                cur.push(' ');
-            }
-            None => {
-                cur.push_str(code);
-                joined.push(std::mem::take(&mut cur));
-            }
+impl Scan {
+    fn push(&mut self, c: char) {
+        self.tok.push(c);
+        self.started = true;
+    }
+    fn end_tok(&mut self) {
+        if self.started {
+            self.cur.push(std::mem::take(&mut self.tok));
+            self.started = false;
         }
     }
-    joined.push(cur);
-    let mut out = Vec::new();
-    for l in joined {
-        let l = l.replace("&&", ";").replace("||", ";").replace('|', ";");
-        out.extend(l.split(';').map(str::to_string));
+    fn end_cmd(&mut self) {
+        self.end_tok();
+        if !self.cur.is_empty() {
+            self.cmds.push((self.line, std::mem::take(&mut self.cur)));
+        }
     }
-    out
+    fn bad(&self, what: &str) -> String {
+        format!(
+            "ci.yml run block, line {}: unsupported {what}",
+            self.line + 1
+        )
+    }
+    /// Chars consumed after a backslash outside single quotes.
+    fn escape(&mut self, nx: Option<char>) -> usize {
+        match nx {
+            Some('\n') => {
+                self.line += 1;
+                1
+            }
+            Some(c) => {
+                self.push(c);
+                1
+            }
+            None => 0,
+        }
+    }
+    fn unquoted(
+        &mut self,
+        q: &mut Option<char>,
+        c: char,
+        nx: Option<char>,
+    ) -> Result<usize, String> {
+        if let Some(what) = unsupported(c, nx, false) {
+            return Err(self.bad(what));
+        }
+        match c {
+            '\\' => return Ok(self.escape(nx)),
+            '\'' | '"' => {
+                *q = Some(c);
+                self.started = true;
+            }
+            '\n' | ';' | '&' | '|' => self.end_cmd(),
+            c if c.is_whitespace() => self.end_tok(),
+            _ => self.push(c),
+        }
+        Ok(0)
+    }
+    fn dquoted(
+        &mut self,
+        q: &mut Option<char>,
+        c: char,
+        nx: Option<char>,
+    ) -> Result<usize, String> {
+        if let Some(what) = unsupported(c, nx, true) {
+            return Err(self.bad(what));
+        }
+        match (c, nx) {
+            ('"', _) => *q = None,
+            ('\\', Some('\n')) => return Ok(self.escape(nx)),
+            ('\\', Some(n @ ('$' | '`' | '"' | '\\'))) => {
+                self.push(n);
+                return Ok(1);
+            }
+            _ => self.push(c),
+        }
+        Ok(0)
+    }
+}
+
+/// The construct (if any) the scanner refuses to read at `c`.
+fn unsupported(c: char, nx: Option<char>, in_dq: bool) -> Option<&'static str> {
+    match (c, nx) {
+        ('$', Some('(')) => Some("$( command substitution"),
+        ('`', _) => Some("backtick substitution"),
+        ('$', Some('\'')) if !in_dq => Some("$'...' quoting"),
+        ('<', Some('<')) if !in_dq => Some("heredoc <<"),
+        _ => None,
+    }
+}
+
+/// Commands of one `run:` text, or the reason it cannot be read faithfully.
+fn commands(run: &str) -> Result<Vec<(usize, Vec<String>)>, String> {
+    let chars: Vec<char> = run.chars().collect();
+    let (mut s, mut q, mut i) = (Scan::default(), None::<char>, 0);
+    while i < chars.len() {
+        let (c, nx) = (chars[i], chars.get(i + 1).copied());
+        i += 1;
+        if q.is_none() && c == '#' && !s.started {
+            i += chars[i..].iter().take_while(|&&k| k != '\n').count();
+            continue;
+        }
+        i += match q {
+            None => s.unquoted(&mut q, c, nx)?,
+            Some('"') => s.dquoted(&mut q, c, nx)?,
+            Some(_) => {
+                if c == '\'' {
+                    q = None;
+                } else {
+                    s.push(c);
+                }
+                0
+            }
+        };
+        if c == '\n' {
+            s.line += 1;
+        }
+    }
+    if q.is_some() {
+        return Err(s.bad("unbalanced quote at end of text"));
+    }
+    s.end_cmd();
+    Ok(s.cmds)
+}
+
+/// Commands that re-parse a string as shell are beyond the scanner: refuse.
+fn refuse_reparse(cmds: &[(usize, Vec<String>)]) -> Result<(), String> {
+    for (line, t) in cmds {
+        let w: Vec<&str> = t.iter().map(String::as_str).collect();
+        let eval = w.first() == Some(&"eval");
+        let dash_c = w
+            .windows(2)
+            .any(|p| matches!(p[0], "sh" | "bash" | "zsh") && p[1] == "-c");
+        if eval || dash_c {
+            let what = if eval { "eval" } else { "sh -c" };
+            return Err(format!(
+                "ci.yml run block, line {}: unsupported {what}",
+                line + 1
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// `[ENV=v ...] cargo [+toolchain] test ...`
@@ -88,19 +198,25 @@ fn is_cargo_test(toks: &[&str]) -> bool {
 }
 
 /// `--test NAME` targets of the `cargo test` commands in one `run:` block.
+/// A step naming `--test` that the scanner cannot read PANICS: it never
+/// silently drops or invents targets. The pinned GUARDS_RUN literal in
+/// falsification_ci_light_jobs_are_hardened.rs remains the backstop.
 fn run_targets(run: &str) -> Vec<String> {
-    let cmds = logical_commands(run);
-    let toks = cmds
-        .iter()
-        .map(|c| c.split_whitespace().collect::<Vec<_>>());
-    toks.filter(|t| is_cargo_test(t))
-        .flat_map(|t| {
-            t.windows(2)
-                .filter(|w| w[0] == "--test")
-                .map(|w| w[1].to_string())
-                .collect::<Vec<_>>()
-        })
-        .collect()
+    if !run.contains("--test") {
+        return Vec::new();
+    }
+    let cmds = commands(run)
+        .and_then(|c| refuse_reparse(&c).map(|()| c))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let mut out = Vec::new();
+    for (_, t) in &cmds {
+        let w: Vec<&str> = t.iter().map(String::as_str).collect();
+        if is_cargo_test(&w) {
+            let args = w.windows(2).filter(|p| p[0] == "--test");
+            out.extend(args.map(|p| p[1].to_string()));
+        }
+    }
+    out
 }
 
 /// Every `--test NAME` token in every job step's `run:`.
@@ -259,4 +375,67 @@ fn a_quoted_hash_is_not_a_comment() {
     assert_eq!(wired(&tail).into_iter().collect::<Vec<_>>(), ["a"]);
     let echoed = one_step("echo \"# --test x\"");
     assert!(wired(&echoed).is_empty(), "echo is not cargo test");
+}
+
+fn w(run: &str) -> Vec<String> {
+    wired(&one_step(run)).into_iter().collect()
+}
+
+/// `;#` starts a comment: what follows on that line is not live code.
+#[test]
+fn a_hash_right_after_a_separator_is_a_comment() {
+    assert!(w("cargo test --lib;# c; cargo test --test X").is_empty());
+    assert!(w("cargo test --lib &# c\ncargo fmt --test Y").is_empty());
+}
+
+/// Quote state survives a newline: a `#` inside a multi-line string is data.
+#[test]
+fn quote_state_carries_across_lines() {
+    assert_eq!(w("cargo test --test a \"x\n# y\" --test c"), ["a", "c"]);
+}
+
+/// Separators inside quotes do not split; a bare `&` does.
+#[test]
+fn only_unquoted_separators_split_commands() {
+    assert_eq!(w("cargo test --test a \"p;q\" --test b"), ["a", "b"]);
+    assert!(w("cargo test --lib & echo --test x").is_empty());
+}
+
+// Fail closed: a construct the scanner does not model must stop the test, never
+// silently drop or invent targets. (The pinned GUARDS_RUN literal in
+// falsification_ci_light_jobs_are_hardened.rs stays the backstop for the step.)
+#[test]
+#[should_panic(expected = "$'")]
+fn ansi_c_quote_is_refused() {
+    w("cargo test --test a $'it\\'s' --test b");
+}
+#[test]
+#[should_panic(expected = "heredoc")]
+fn heredoc_is_refused() {
+    w("cargo test --test a\ncat <<EOF\nx\nEOF");
+}
+#[test]
+#[should_panic(expected = "backtick")]
+fn backtick_is_refused() {
+    w("cargo test --test a `echo b`");
+}
+#[test]
+#[should_panic(expected = "$(")]
+fn command_substitution_is_refused() {
+    w("cargo test --test a \"$(echo b)\"");
+}
+#[test]
+#[should_panic(expected = "eval")]
+fn eval_is_refused() {
+    w("cargo test --test a\neval \"cargo test --test b\"");
+}
+#[test]
+#[should_panic(expected = "sh -c")]
+fn shell_dash_c_is_refused() {
+    w("cargo test --test a\nbash -c 'cargo test --test b'");
+}
+#[test]
+#[should_panic(expected = "unbalanced quote")]
+fn unbalanced_quote_is_refused() {
+    w("cargo test --test a \"b");
 }
