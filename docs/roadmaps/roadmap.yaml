@@ -6069,7 +6069,7 @@ roadmap:
   github_issue: 667
   item_type: task
   title: 'disk_budget reaper deletes in-use dirs: cargo_target finder skips the in-use check; open-path scan ignores exe/maps'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
@@ -6085,9 +6085,10 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
+  - release:v1.34.1
   - orch-basis:state
-  notes: 'PR #944 (branch lane-944); worker lane, unpushed'
-  release: backlog
+  notes: 'Landed in PR #944 (v1.34.1); closes #667, #669, #936'
+  release: 1.34.1
 - id: GH-668
   github_issue: 668
   item_type: task
@@ -8780,7 +8781,7 @@ roadmap:
 - id: PMAT-1235
   github_issue: 1235
   item_type: task
-  title: 'gate T: map PR #944, which names no PMAT id, to a ticket (pr_ticket_aliases)'
+  title: 'gate T: map PRs that name no PMAT id to the row that owns them (pr_ticket_aliases)'
   status: inprogress
   priority: medium
   assigned_to: null
@@ -8789,13 +8790,12 @@ roadmap:
   spec: null
   acceptance_criteria:
   - releases.yaml may declare pr_ticket_aliases (PR number to PMAT row), read only for a PR that names no id and never for a stray
-  - PR 944 (work of GH-667, GH-668, GH-669, GH-936) is mapped here and the v1.34.1 window no longer reports it unticketed
+  - PR 944 (work of GH-667, GH-669, GH-936) is mapped to GH-667 and the v1.34.1 window no longer reports it unticketed; the map fails closed (freeze point required and resolvable, blank evidence, duplicate or malformed entries refused)
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.1
   - release:v1.34.2
-  notes: 'Owns PR #944 for gate T: its branch, title and body name GH-/forjar# ids only, which the gate does not read.'
+  notes: 'Ships the alias map for gate T (PR #1238). PRs the map cannot evidence (#1026 #1087 #1094 #1218 #1219) stay unmapped.'
   epic: 764

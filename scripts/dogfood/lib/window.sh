@@ -297,7 +297,10 @@ dogfood_roadmap_rows() {
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/roadmap.yaml cannot be read at ${ref} (exit ${rc}): the ticket registry is unreadable, so no PR's ticket can be identified — UNMEASURED"
   fi
-  DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(PMAT-[0-9][0-9]*\)$/\1/p')"
+  # PMAT-<n> and GH-<n> rows both exist (72 GH- rows); an id in a PR's text is
+  # still read as PMAT-<n> only (dogfood_ids_in), so a GH- row is reachable by
+  # a releases.yaml pr_ticket_aliases entry and never by a stray scan (#1235).
+  DOGFOOD_ROW_IDS="$(printf '%s\n' "$text" | sed -n 's/^- id: \(\(PMAT\|GH\)-[0-9][0-9]*\)$/\1/p')"
   # `labels: []` opens a list that the next key closes; `labels:` followed by
   # `  - x` lines is the populated shape. Both are one awk state.
   DOGFOOD_ROW_LABELS="$(printf '%s\n' "$text" | awk '

@@ -40,42 +40,45 @@ dogfood_floor: v1.26.0
 cookbook_floor: v1.29.0
 # A PR whose branch, title and body name no PMAT id, mapped to an existing row that owns it
 # (forjar#1235, FORJAR-T-HISTORY). Read only for a PR naming no id at all; a stray id stays red.
-# Each entry cites its evidence. Frozen: a PR merged after the freeze names its ticket or stays red.
-pr_ticket_aliases_frozen_at: 34907bc86c30420cae9943610d9ded61e730aa85
+# Each entry states its evidence as the squash commit's own Pmat-Ticket trailer counts, and
+# tests/falsification_gate_t_pr_ticket_aliases.rs re-measures every count against git.
+# Frozen at the merge commit of the newest aliased PR (#1225): a PR merged after it names its
+# ticket or stays red, and the freeze cannot move without that commit being an aliased PR.
+# NOT mapped, no evidence that names an existing row: #1026 (its trailer names the v1.34.1 cut
+# ticket, but the work is CI runner opt-in), #1087, #1094, #1218, #1219. They stay red until the
+# ONE ledger ticket for gate-T pre-enforcement history lists them.
+pr_ticket_aliases_frozen_at: cb428c8a5a76dcc97ae29e68e0dade6a1fbd2085
 pr_ticket_aliases:
   - pr: 935
     ticket: PMAT-913
-    evidence: "squash trailer Pmat-Ticket: PMAT-913"
+    evidence: "squash trailer Pmat-Ticket: PMAT-913 (3 of 3)"
   - pr: 944
-    ticket: PMAT-1235
-    evidence: "the PR's branch names GH-667 and its text GH-669; row PMAT-1235 names PR #944 and GH-667/668/669/936 in its acceptance criteria"
-  - pr: 1026
-    ticket: PMAT-1015
-    evidence: "squash trailer Pmat-Ticket: PMAT-1015"
+    ticket: GH-667
+    evidence: "squash trailer Pmat-Ticket: GH-667 (3 of 10); the PR body names GH-667 and closes #667, #669 and #936, three rows of one change; GH-667 is the one its trailers and body name first"
   - pr: 1036
     ticket: PMAT-861
-    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
   - pr: 1058
     ticket: PMAT-1048
-    evidence: "squash trailer Pmat-Ticket: PMAT-1048; body names #1048, which the PR closes"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1048 (2 of 2)"
   - pr: 1061
     ticket: PMAT-1027
-    evidence: "squash trailer Pmat-Ticket: PMAT-1027 (3 of 7 trailers; also PMAT-1032, PMAT-1015, PMAT-1028); the PR closes #1027"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1027 (3 of 9); the other trailers name PMAT-1015 (2), PMAT-1032 (2, the PR also closes #1032), PMAT-1028 (1) and GH-1043 (1); one row owns the PR and this is the first"
   - pr: 1066
     ticket: PMAT-1049
-    evidence: "squash trailer Pmat-Ticket: PMAT-1049; the PR closes #1049"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1049 (1 of 1)"
   - pr: 1068
     ticket: PMAT-1065
-    evidence: "squash trailer Pmat-Ticket: PMAT-1065 (also PMAT-1049); the PR closes #1065"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1065 (1 of 2); the other trailer names PMAT-1049 (1)"
   - pr: 1071
     ticket: PMAT-894
     evidence: "squash trailer Pmat-Ticket: PMAT-894 (2 of 2)"
   - pr: 1072
     ticket: PMAT-858
-    evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 3; the third, PMAT-1070, is no row)"
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 3); the other, PMAT-1070 (1 of 3), is no row"
   - pr: 1073
     ticket: PMAT-1067
-    evidence: "squash trailer Pmat-Ticket: PMAT-1067; the PR closes #1067"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1067 (1 of 1)"
   - pr: 1084
     ticket: PMAT-858
     evidence: "squash trailer Pmat-Ticket: PMAT-858 (2 of 2)"
@@ -87,19 +90,19 @@ pr_ticket_aliases:
     evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 3)"
   - pr: 1089
     ticket: PMAT-858
-    evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 5; the other, PMAT-1076, is no row)"
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 5); the other, PMAT-1076 (2 of 5), is no row"
   - pr: 1091
     ticket: GH-881
-    evidence: "branch ci/881-provenance-security-x64 and squash trailer Pmat-Ticket: PMAT-881 name issue 881, the github_issue of row GH-881"
+    evidence: "squash trailer Pmat-Ticket: PMAT-881 (1 of 6) names issue 881, the github_issue of row GH-881; the other 5 trailers name PMAT-1090, which is no row"
   - pr: 1097
     ticket: PMAT-861
-    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
   - pr: 1099
     ticket: PMAT-861
-    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
   - pr: 1100
     ticket: PMAT-861
-    evidence: "squash trailer Pmat-Ticket: PMAT-861; body names #861"
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
   - pr: 1101
     ticket: PMAT-861
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (3 of 3)"
@@ -108,13 +111,13 @@ pr_ticket_aliases:
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (3 of 3)"
   - pr: 1103
     ticket: PMAT-1078
-    evidence: "squash trailer Pmat-Ticket: PMAT-1078; the PR closes #1078"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1078 (1 of 1)"
   - pr: 1104
     ticket: PMAT-1074
-    evidence: "squash trailer Pmat-Ticket: PMAT-1074; the PR closes #1074"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1074 (2 of 2)"
   - pr: 1107
     ticket: PMAT-858
-    evidence: "squash trailer Pmat-Ticket: PMAT-858; body names #858"
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (1 of 1)"
   - pr: 1120
     ticket: PMAT-861
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (7 of 7)"
@@ -132,25 +135,25 @@ pr_ticket_aliases:
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (4 of 4)"
   - pr: 1146
     ticket: PMAT-861
-    evidence: "squash trailer Pmat-Ticket: PMAT-861 (5 of 7; the other, PMAT-1146, is no row)"
+    evidence: "squash trailer Pmat-Ticket: PMAT-861 (5 of 7); the other, PMAT-1146 (2 of 7), is no row"
   - pr: 1148
     ticket: PMAT-876
-    evidence: "squash trailer Pmat-Ticket: PMAT-876; body names #876"
+    evidence: "squash trailer Pmat-Ticket: PMAT-876 (2 of 2)"
   - pr: 1220
     ticket: PMAT-1198
-    evidence: "squash trailer Pmat-Ticket: PMAT-1198; body names #1198"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1198 (1 of 1)"
   - pr: 1222
     ticket: GH-881
-    evidence: "squash trailer Pmat-Ticket: GH-881 (2 of 2); branch and title name GH-881, the row's id"
+    evidence: "squash trailer Pmat-Ticket: GH-881 (2 of 2)"
   - pr: 1225
     ticket: PMAT-1216
-    evidence: "squash trailer Pmat-Ticket: PMAT-1216 (also PMAT-1160); the PR closes #1216"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1216 (1 of 3); PMAT-1160 (2 of 3) is a row too; the PR's first commit and its title close #1216"
   - pr: 1226
     ticket: PMAT-858
-    evidence: "squash trailer Pmat-Ticket: PMAT-858; the PR closes #858"
+    evidence: "squash trailer Pmat-Ticket: PMAT-858 (1 of 1)"
   - pr: 1227
     ticket: PMAT-1143
-    evidence: "squash trailer Pmat-Ticket: PMAT-1143; the PR closes #1143"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1143 (3 of 3)"
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
@@ -231,11 +234,11 @@ releases:
   - tag: v1.34.1
     cut: 2026-11-13T17:48:49Z
     prs: [895, 899, 902, 903, 904, 906, 908, 909, 910, 914, 930, 932, 933, 934, 941, 943, 944, 945, 946, 948, 950, 959, 961, 972, 978, 993, 998, 1003, 1005, 1006, 1012, 1016, 1024]
-    tickets: [PMAT-192, PMAT-194, PMAT-503, PMAT-590, PMAT-608, PMAT-621, PMAT-638, PMAT-639, PMAT-659, PMAT-660, PMAT-673, PMAT-685, PMAT-890, PMAT-893, PMAT-896, PMAT-911, PMAT-912, PMAT-913, PMAT-916, PMAT-920, PMAT-939, PMAT-969, PMAT-989, PMAT-992, PMAT-995, PMAT-1004, PMAT-1011, PMAT-1014, PMAT-1015, PMAT-1235]
+    tickets: [GH-667, PMAT-192, PMAT-194, PMAT-503, PMAT-590, PMAT-608, PMAT-621, PMAT-638, PMAT-639, PMAT-659, PMAT-660, PMAT-673, PMAT-685, PMAT-890, PMAT-893, PMAT-896, PMAT-911, PMAT-912, PMAT-913, PMAT-916, PMAT-920, PMAT-939, PMAT-969, PMAT-989, PMAT-992, PMAT-995, PMAT-1004, PMAT-1011, PMAT-1014, PMAT-1015]
     dogfood: docs/audits/dogfood-1.34.1-receipt.md
     crux: docs/audits/crux-1.34.1.md
     cookbook: d676d819c5afe51071c8416360d7de523a712f8c
-    # #944 names GH-667/669 only; pr_ticket_aliases maps it to PMAT-1235 (forjar#1235)
+    # #944 names GH-667/669 only; pr_ticket_aliases maps it to GH-667 (forjar#1235)
 next:
   tag: v1.34.2
   due: 2026-11-15T17:48:49Z
