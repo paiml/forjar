@@ -8768,7 +8768,7 @@ roadmap:
   updated: 2026-11-21T00:00:00Z
   spec: null
   acceptance_criteria:
-  - the seven #858 integration targets are --test arguments of a ci.yml cargo test step
+  - the seven integration targets (issue 858) are --test arguments of a ci.yml cargo test step
   - a falsifier fails when any one is dropped
   phases: []
   subtasks: []
