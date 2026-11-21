@@ -474,9 +474,17 @@ fn run_full_opts(
         }
     }
     if !serve_index {
-        // No live network, ever: a curl that always fails (exit 6), so a gate that
-        // honoured an exported CURL / CRATES_IO_API would be the only way to green.
-        std::fs::write(shim.join("curl"), "#!/bin/sh\nexit 6\n").expect("failing curl shim");
+        // No live network, ever: this curl fails (exit 6) for the canonical crates.io URL
+        // and serves the forged index for ANY other URL, so a gate that honoured an
+        // exported CURL / CRATES_IO_API would go green and the test would catch it.
+        std::fs::write(
+            shim.join("curl"),
+            format!(
+                "#!/bin/sh\nfor a in \"$@\"; do\n  [ \"$a\" = \"https://crates.io/api/v1/crates/forjar\" ] && exit 6\ndone\ncat {}\nexit 0\n",
+                path.display()
+            ),
+        )
+        .expect("failing curl shim");
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(shim.join("curl"), std::fs::Permissions::from_mode(0o755))
@@ -970,6 +978,7 @@ fn a_num_with_a_trailing_newline_is_unmeasured() {
         let r = run_index(&fx, Some(&idx(&[("0.0.0", false), (big, false)])));
         r.assert_red(&format!("ten-digit component must fail: {big}"));
         r.assert_says("UNMEASURED");
+        r.assert_says("well-formed forjar version list");
     }
 }
 
