@@ -105,6 +105,10 @@ if [ -z "$GATES" ]; then
   echo "::error::the gate selection is empty — nothing measured which gates this change can move, and an unmeasured selection is not a selection"
   exit 1
 fi
+if [ -z "$ROADMAPS" ]; then
+  echo "::error::the roadmaps class is empty - treating it as roadmaps and refusing"
+  exit 1
+fi
 
 ok() {
   case "$2" in
@@ -123,6 +127,23 @@ ok() {
       ;;
   esac
 }
+ok_roadmaps() {
+  case "$2" in
+    success) return 0 ;;
+    skipped)
+      if [ "$ROADMAPS" != "true" ]; then
+        echo "$1: skipped - the change touches nothing it reads"
+        return 0
+      fi
+      echo "::error::$1 was skipped on a change the classifier called roadmaps"
+      return 1
+      ;;
+    *)
+      echo "::error::$1: $2"
+      return 1
+      ;;
+  esac
+}
 ok "ci" "${{ needs.ci.result }}" || exit 1
 if [ "${{ needs.lockfile.result }}" != "success" ]; then
   echo "lockfile preflight failed: ${{ needs.lockfile.result }}"
@@ -132,6 +153,7 @@ ok "examples-validate" "${{ needs.examples-validate.result }}" || exit 1
 ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
 ok "doctests" "${{ needs.doctests.result }}" || exit 1
 ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+ok_roadmaps "alias-map-guard" "${{ needs.alias-map-guard.result }}" || exit 1
 if [ "${{ needs.spot-labels-guard.result }}" != "success" ]; then
   echo "::error::spot-labels-guard: ${{ needs.spot-labels-guard.result }}"
   exit 1
@@ -245,7 +267,7 @@ fn check_guard_step(ev: &Value, out: &mut Vec<String>) {
 
 fn check_gate(gate: &Value, out: &mut Vec<String>) {
     let needs = gate["needs"].as_sequence().cloned().unwrap_or_default();
-    for j in ["lockfile", "examples-validate"] {
+    for j in ["lockfile", "examples-validate", "alias-map-guard"] {
         if !needs.iter().any(|n| n.as_str() == Some(j)) {
             out.push(format!("gate: does not need {j}"));
         }
@@ -267,6 +289,10 @@ fn check_gate(gate: &Value, out: &mut Vec<String>) {
     let mut env = serde_yaml_ng::Mapping::new();
     env.insert("CODE".into(), "${{ needs.classify.outputs.code }}".into());
     env.insert("GATES".into(), "${{ needs.classify.outputs.gates }}".into());
+    env.insert(
+        "ROADMAPS".into(),
+        "${{ needs.classify.outputs.roadmaps }}".into(),
+    );
     if st[0]["env"] != Value::Mapping(env) {
         out.push("gate: step env".into());
     }
@@ -314,6 +340,9 @@ fn the_pinned_literals_say_what_this_pr_relies_on() {
     assert!(GATE_RUN.contains(
         "ok \"examples-validate\" \"${{ needs.examples-validate.result }}\" || exit 1\n"
     ));
+    assert!(GATE_RUN.contains(
+        "ok_roadmaps \"alias-map-guard\" \"${{ needs.alias-map-guard.result }}\" || exit 1\n"
+    ));
 }
 
 const SHA: &str = "3d3c42e5aac5ba805825da76410c181273ba90b1";
@@ -356,6 +385,7 @@ fn mutants() -> Vec<Mutant> {
         m("continue-on-error on a job", ci, lock_name, format!("{lock_name}    continue-on-error: true\n"), false, "lockfile: continue-on-error (job)"),
         m("continue-on-error on a step", ci, verify, format!("{verify}        continue-on-error: true\n"), false, "lockfile: continue-on-error (step)"),
         m("gate drops lockfile from needs", ci, "needs: [classify, ci, lockfile, ", "needs: [classify, ci, ".into(), false, "gate: does not need lockfile"),
+        m("gate drops alias-map-guard from needs", ci, ", alias-map-guard,", ",".into(), false, "gate: does not need alias-map-guard"),
         m("gate if: false", ci, "    if: always()\n", "    if: false\n".into(), false, "gate: if"),
         m("gate job continue-on-error", ci, "    if: always()\n", "    if: always()\n    continue-on-error: true\n".into(), false, "gate: continue-on-error"),
         m("gate step continue-on-error", ci, gate_step, format!("{gate_step}        continue-on-error: true\n"), false, "gate: step keys"),
@@ -378,6 +408,7 @@ fn mutants() -> Vec<Mutant> {
         m("lockfile result only in a comment", ci, lock_if, "          if true; then # [ \"${{ needs.lockfile.result }}\" != \"success\" ]".into(), false, s),
         m("examples-validate result only in a comment", ci, ex_ok, "          true # ok examples-validate".into(), false, s),
         m("examples-validate exit 1 deleted", ci, ex_ok, "          ok \"examples-validate\" \"${{ needs.examples-validate.result }}\"".into(), false, s),
+        m("alias-map-guard result only in a comment", ci, "          ok_roadmaps \"alias-map-guard\" \"${{ needs.alias-map-guard.result }}\" || exit 1", "          true # ok_roadmaps alias-map-guard".into(), false, s),
         m("set +e in gate", ci, classify, format!("          set +e\n{classify}"), false, s),
         m("gate echo All required jobs passed moved before checks", ci, classify, format!("          echo All required jobs passed\n{classify}"), false, s),
     ]

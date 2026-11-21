@@ -48,6 +48,7 @@ jobs:
       gate_c: ${{ steps.class.outputs.gate_c }}
       gate_d: ${{ steps.class.outputs.gate_d }}
       gates: ${{ steps.class.outputs.gates }}
+      roadmaps: ${{ steps.class.outputs.roadmaps }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -374,6 +375,23 @@ jobs:
         run: cargo test --locked --test falsification_no_pull_request_target --test falsification_dogfood_skill_is_named --test falsification_dogfood_scripts_declare_mutations --test falsification_dogfood_release_check_pr_window --test falsification_dogfood_pr_window_pagination --test falsification_dogfood_prpage_fail_closed --test falsification_dogfood_harness_and_quorum --test falsification_crux_gate_reads_the_release_section --test falsification_cb200_ratchet_measures_this_tree --test falsification_pr_lane_runs_what_the_change_can_break --test falsification_pr_lane_selects_the_gate_the_change_can_move --test falsification_gate_a_the_pr_and_its_commits_name_one_ticket --test falsification_gate_t_pr_ticket_aliases
 
 
+  alias-map-guard:
+    timeout-minutes: 30
+    if: needs.classify.outputs.roadmaps == 'true'
+    needs: classify
+    runs-on: [self-hosted, clean-room, X64]
+    permissions:
+      contents: read
+    env:
+      CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Alias map guard
+        run: cargo test --locked --test falsification_gate_t_pr_ticket_aliases
+
   # The spot-label guard: a red guard blocks the gate. Stays on clean-room, never on a spot label.
   spot-labels-guard:
     timeout-minutes: 45
@@ -392,13 +410,14 @@ jobs:
   gate:
     timeout-minutes: 15
     runs-on: [self-hosted, gate-light]
-    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards, spot-labels-guard]
+    needs: [classify, ci, lockfile, examples-validate, no-default-features, doctests, dogfood-surface, dogfood-guards, alias-map-guard, spot-labels-guard]
     if: always()
     steps:
       - name: Check required jobs
         env:
           CODE: ${{ needs.classify.outputs.code }}
           GATES: ${{ needs.classify.outputs.gates }}
+          ROADMAPS: ${{ needs.classify.outputs.roadmaps }}
         run: |
           # PMAT-237: a job may be SKIPPED only because the change cannot reach
           # it. The gate re-reads the class rather than trusting the skip: if
@@ -430,6 +449,10 @@ jobs:
             echo "::error::the gate selection is empty — nothing measured which gates this change can move, and an unmeasured selection is not a selection"
             exit 1
           fi
+          if [ -z "$ROADMAPS" ]; then
+            echo "::error::the roadmaps class is empty - treating it as roadmaps and refusing"
+            exit 1
+          fi
 
           ok() {
             case "$2" in
@@ -448,6 +471,23 @@ jobs:
                 ;;
             esac
           }
+          ok_roadmaps() {
+            case "$2" in
+              success) return 0 ;;
+              skipped)
+                if [ "$ROADMAPS" != "true" ]; then
+                  echo "$1: skipped - the change touches nothing it reads"
+                  return 0
+                fi
+                echo "::error::$1 was skipped on a change the classifier called roadmaps"
+                return 1
+                ;;
+              *)
+                echo "::error::$1: $2"
+                return 1
+                ;;
+            esac
+          }
           ok "ci" "${{ needs.ci.result }}" || exit 1
           if [ "${{ needs.lockfile.result }}" != "success" ]; then
             echo "lockfile preflight failed: ${{ needs.lockfile.result }}"
@@ -457,6 +497,7 @@ jobs:
           ok "no-default-features" "${{ needs.no-default-features.result }}" || exit 1
           ok "doctests" "${{ needs.doctests.result }}" || exit 1
           ok "dogfood-guards" "${{ needs.dogfood-guards.result }}" || exit 1
+          ok_roadmaps "alias-map-guard" "${{ needs.alias-map-guard.result }}" || exit 1
           if [ "${{ needs.spot-labels-guard.result }}" != "success" ]; then
             echo "::error::spot-labels-guard: ${{ needs.spot-labels-guard.result }}"
             exit 1
