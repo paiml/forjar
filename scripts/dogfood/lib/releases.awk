@@ -59,6 +59,12 @@ function value(v,   inner, n, parts, i, out, p) {
   }
   return scalar(v)
 }
+# A key twice in one list item: jq keeps the LAST, so a reader of the file and the
+# gate would disagree about which value the row declares (PMAT-1150).
+function dupkey(k) {
+  if ((nitems SUBSEP k) in seen) bad("a duplicate key in one list item: " k)
+  seen[nitems SUBSEP k] = 1
+}
 # Close whatever the previous top-level key opened.
 function close_top() {
   if (pend != "") { out = out sep str(pend) ":null"; sep = ","; pend = "" }
@@ -91,6 +97,7 @@ BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
 /^  - [A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   open_child("arr")
   k = $0; sub(/^  - /, "", k); sub(/:.*$/, "", k)
+  nitems++; dupkey(k)
   v = $0; sub(/^  - [^:]*:/, "", v)
   out = out (item ? "}," : "") "{" str(k) ":" value(v)
   item = 1; isep = ","
@@ -99,6 +106,7 @@ BEGIN { out = "{"; sep = ""; pend = ""; ctx = ""; failed = 0 }
 /^    [A-Za-z_][A-Za-z0-9_-]*:([ ].*)?$/ {
   if (ctx != "arr" || !item) bad("an item key outside a list item")
   k = $0; sub(/^    /, "", k); sub(/:.*$/, "", k)
+  dupkey(k)
   v = $0; sub(/^    [^:]*:/, "", v)
   out = out isep str(k) ":" value(v)
   next

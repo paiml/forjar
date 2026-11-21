@@ -420,6 +420,12 @@ fn run_env(fx: &Fixture, index: Option<&str>, marked: bool) -> Run {
 
 /// As `run_env`, and whether the redirected curl was ever invoked.
 fn run_env_seen(fx: &Fixture, index: Option<&str>, marked: bool) -> (Run, bool) {
+    run_full(fx, index, marked, None)
+}
+
+/// Every jq the gate runs whose program contains `jq_fail` exits 5 (a jq that
+/// cannot answer); all others are the real jq.
+fn run_full(fx: &Fixture, index: Option<&str>, marked: bool, jq_fail: Option<&str>) -> (Run, bool) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("forjar.json");
     if let Some(body) = index {
@@ -436,11 +442,29 @@ fn run_env_seen(fx: &Fixture, index: Option<&str>, marked: bool) -> (Run, bool) 
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
     }
+    let shim = dir.path().join("shim");
+    std::fs::create_dir_all(&shim).expect("shim dir");
+    std::fs::write(
+        shim.join("jq"),
+        "#!/bin/bash\nfor a in \"$@\"; do case \"$a\" in *\"$JQ_FAIL_MARK\"*) exit 5;; esac; done\nPATH=\"$ORIG_PATH\" exec jq \"$@\"\n",
+    )
+    .expect("jq shim");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(shim.join("jq"), std::fs::Permissions::from_mode(0o755))
+            .expect("chmod");
+    }
+    let orig = std::env::var("PATH").unwrap_or_default();
     let mut cmd = std::process::Command::new("bash");
     cmd.arg(fx.root.join("scripts/dogfood/tagged.sh"))
         .current_dir(&fx.root)
         .env("GH", &fx.gh)
         .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string());
+    if let Some(m) = jq_fail {
+        cmd.env("PATH", format!("{}:{orig}", shim.display()))
+            .env("ORIG_PATH", &orig)
+            .env("JQ_FAIL_MARK", m);
+    }
     let url = format!("file://{}", path.display());
     if marked {
         cmd.env("FORJAR_GATE_T_TEST", "1")
@@ -704,14 +728,122 @@ fn the_index_cannot_be_redirected_without_the_test_marker() {
     );
 }
 
-/// The newest row is not special-cased, but it is not a free pass either: it
-/// is exempt only while the live index does not list it, and a published newest
-/// row stays fully checked.
+const BAD_VALUES: [&str; 9] = [
+    "published",
+    "false",
+    "\"\"",
+    "\" unpublished\"",
+    "\"unpublished \"",
+    "Unpublished",
+    "yes",
+    "null",
+    "bogus",
+];
+
+/// The declaration is validated on EVERY row, below `cookbook_floor` too: the
+/// floor decides whether the lock is read, not whether a value is meaningful.
 #[test]
-fn the_newest_row_is_exempt_only_on_live_evidence() {
+fn a_bogus_crates_io_below_the_cookbook_floor_is_red() {
+    for v in BAD_VALUES {
+        let fx = fixture(Case {
+            cookbook_floor: "v9.9.9",
+            crates_io: v,
+            ..Case::default()
+        });
+        let r = run(&fx, AN_HOUR);
+        r.assert_red(&format!("crates_io {v} below the floor is no declaration"));
+        r.assert_says("not a value this gate knows");
+    }
+    // control: the exact word below the floor is merely not asked for anything
+    let fx = fixture(Case {
+        cookbook_floor: "v9.9.9",
+        crates_io: "unpublished",
+        ..Case::default()
+    });
+    run(&fx, AN_HOUR).assert_green("the exact word is a known value on any row");
+}
+
+/// A key written twice would let a reader see `bogus` while jq keeps the last.
+#[test]
+fn a_duplicate_crates_io_key_is_red() {
+    for dup in [
+        "bogus\n    crates_io: unpublished",
+        "unpublished\n    crates_io: bogus",
+        // the item's FIRST key is a key too
+        "unpublished\n    tag: v0.0.1",
+    ] {
+        let fx = unpublished_fx(dup, "0.0.0");
+        let r = run_index(&fx, Some(&idx(&[("0.0.0", false)])));
+        r.assert_red("a duplicated key is not one declaration");
+        r.assert_says("duplicate key");
+    }
+}
+
+/// A num with a trailing newline is not a semver num: `$` would match before
+/// it, `\z` does not. It must be UNMEASURED, never reach `tonumber`.
+#[test]
+fn a_num_with_a_trailing_newline_is_unmeasured() {
     let fx = unpublished_fx("unpublished", "0.0.0");
-    run_index(&fx, Some(&idx(&[("0.0.0", false)])))
-        .assert_green("newest, unpublished, predecessor lock");
-    run_index(&fx, Some(&idx(&[("0.0.0", false), ("0.0.1", false)])))
-        .assert_red("newest, but crates.io now serves it");
+    for num in [
+        "1.34.0\\n",
+        "0.0.0\\n",
+        "0.0.1-rc.1\\n",
+        // a leading line is not a semver num either
+        "x\\n1.0.0",
+        "x\\n0.0.0",
+    ] {
+        for y in [true, false] {
+            let r = run_index(&fx, Some(&idx(&[("0.0.0", false), (num, y)])));
+            r.assert_red(&format!("num {num:?} yanked {y}"));
+            r.assert_says("UNMEASURED");
+            r.assert_says("well-formed forjar version list");
+        }
+    }
+    // an oversized component would lose precision as a float
+    let r = run_index(
+        &fx,
+        Some(&idx(&[("0.0.0", false), ("1234567890.0.0", false)])),
+    );
+    r.assert_red("ten digits do not compare exactly");
+    r.assert_says("UNMEASURED");
+}
+
+/// The selection itself skips a newline-terminated num rather than crashing.
+#[test]
+fn the_selection_never_reads_a_newline_terminated_num() {
+    let many = idx(&[("1.9.0", false), ("1.33.0\\n", false)]);
+    assert_eq!(newest_stable_below("1.34.1", &many), "1.9.0");
+    let many = idx(&[("1.9.0", false), ("x\\n1.33.0", false)]);
+    assert_eq!(newest_stable_below("1.34.1", &many), "1.9.0");
+}
+
+/// A jq that cannot answer is UNMEASURED at every call in the exemption path,
+/// never "absent", "not listed" or "no predecessor".
+#[test]
+fn a_jq_that_cannot_answer_is_unmeasured_at_every_call() {
+    let index = idx(&[("0.0.0", false)]);
+    // asking whether the row declares anything: a published row (lock = its
+    // own version) must not read an unanswered question as an absent field
+    let fx = unpublished_fx("", "0.0.1");
+    let (r, _) = run_full(&fx, Some(&index), true, Some("has(\"crates_io\")"));
+    r.assert_red("jq failed asking for crates_io");
+    r.assert_says("UNMEASURED");
+    r.assert_says("asking whether the row declares crates_io");
+    // reading the value
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    let (r, _) = run_full(&fx, Some(&index), true, Some(".crates_io == "));
+    r.assert_red("jq failed reading crates_io");
+    r.assert_says("reading the row");
+    // the shape check
+    let (r, _) = run_full(&fx, Some(&index), true, Some(".crate.id"));
+    r.assert_red("jq failed on the shape check");
+    r.assert_says("UNMEASURED");
+    // counting
+    let (r, _) = run_full(&fx, Some(&index), true, Some("select(.num == $v)"));
+    r.assert_red("jq failed counting");
+    r.assert_says("could not count");
+    // selecting
+    let (r, _) = run_full(&fx, Some(&index), true, Some("tonumber"));
+    r.assert_red("jq failed selecting");
+    r.assert_says("could not select the predecessor");
 }

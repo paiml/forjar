@@ -13,7 +13,7 @@ cratesio_newest_stable_below() {
   jq -r --arg v "$1" '
     ($v | split(".") | map(tonumber)) as $t
     | [.versions[]
-       | select(.yanked == false and (.num | test("^[0-9]+[.][0-9]+[.][0-9]+$")))
+       | select(.yanked == false and (.num | test("\\A[0-9]{1,9}[.][0-9]{1,9}[.][0-9]{1,9}\\z")))
        | .num | split(".") | map(tonumber)]
     | map(select(. < $t)) | sort | last // empty | map(tostring) | join(".")'
 }
