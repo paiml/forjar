@@ -41,7 +41,7 @@ fail() { echo "An error occurred ($1) when calling the $op operation: $2" >&2; e
 case "$op" in
 head-bucket)
   [ -e "$d/head.err" ] && { cat "$d/head.err" >&2; exit 254; }
-  [ -e "$d/exists" ] || fail 404 'Not Found'; exit 0;;
+  [ -e "$d/exists" ] || { echo "An error occurred (404) when calling the HeadBucket operation: Not Found" >&2; exit 254; }; exit 0;;
 create-bucket) touch "$d/exists"; exit 0;;
 get-bucket-encryption)
   want 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm'

@@ -100,3 +100,157 @@ fn the_lookup_guard_has_a_mutant_too() {
         "mutant should have tried to create"
     );
 }
+
+/// The head-bucket 404 pattern as shipped, and as it was before the fix (any "404").
+const FIXED_404: &str = "*'An error occurred (404) when calling the HeadBucket operation'*|*'(NoSuchBucket)'*) have=no;;";
+const OLD_404: &str = "*404*|*'Not Found'*) have=no;;";
+
+fn bash_n(script: &str) {
+    let out = std::process::Command::new("sh")
+        .arg("-n")
+        .arg("-c")
+        .arg(script)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "mutant is not valid shell: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn a_network_error_mentioning_404_is_an_error_not_absent() {
+    // Bug 1: the old pattern read any text holding "404" (a port, a request id, a
+    // proxy page) as "no such bucket", so apply would create-bucket on a network error.
+    for msg in [
+        "Could not connect to the endpoint URL: \"https://s3.us-east-1.amazonaws.com:4040/paiml\"",
+        "Connect timeout on endpoint URL: \"https://proxy.internal:404/\"",
+        "An error occurred (RequestTimeout) when calling the HeadBucket operation: id 4041",
+    ] {
+        for (label, script) in [
+            ("apply", apply_script(&res())),
+            ("check", check_script(&res())),
+        ] {
+            let f = Fake::new();
+            f.set("head.err", msg);
+            f.clear_log();
+            let (rc, out, _) = f.run(&script);
+            assert_eq!(rc, 1, "{label}: {msg}");
+            assert!(!out.contains("s3-bucket-absent"), "{label}: {msg}");
+            assert!(
+                !f.log().contains("create-"),
+                "{label}: wrote on {msg}: {}",
+                f.log()
+            );
+        }
+    }
+    // A real HeadBucket 404 and a NoSuchBucket code are still absent, so apply creates.
+    for msg in [
+        "An error occurred (404) when calling the HeadBucket operation: Not Found",
+        "An error occurred (NoSuchBucket) when calling the HeadBucket operation: gone",
+    ] {
+        let f = Fake::new();
+        f.set("head.err", msg);
+        f.run(&apply_script(&res()));
+        assert!(f.log().contains("create-bucket"), "{msg}: {}", f.log());
+    }
+}
+
+#[test]
+fn bug1_revert_proof_old_pattern_creates_on_a_network_error() {
+    let real = apply_script(&res());
+    assert!(real.contains(FIXED_404));
+    let mutant = real.replace(FIXED_404, OLD_404);
+    assert_ne!(mutant, real);
+    bash_n(&mutant);
+    let f = Fake::new();
+    f.set(
+        "head.err",
+        "Could not connect to the endpoint URL: \"https://s3.us-east-1.amazonaws.com:4040/x\"",
+    );
+    f.run(&mutant);
+    assert!(
+        f.log().contains("create-bucket"),
+        "reverted fix must reproduce the bug"
+    );
+}
+
+/// (what to break in the stored policy, which predicate it is)
+fn policy_breaks() -> Vec<(&'static str, &'static str, &'static str)> {
+    vec![
+        ("Effect Deny", "\"Effect\":\"Deny\"", "\"Effect\":\"Allow\""),
+        (
+            "Principal *",
+            "\"Principal\":\"*\"",
+            "\"Principal\":\"nobody\"",
+        ),
+        (
+            "Action s3:*",
+            "\"Action\":\"s3:*\"",
+            "\"Action\":\"s3:GetObject\"",
+        ),
+        (
+            "bucket resource",
+            "\"arn:aws:s3:::paiml-metrics-preview\",",
+            "",
+        ),
+        (
+            "object resource",
+            ",\"arn:aws:s3:::paiml-metrics-preview/*\"",
+            "",
+        ),
+        (
+            "Bool SecureTransport false",
+            "\"aws:SecureTransport\":\"false\"",
+            "\"aws:SecureTransport\":\"true\"",
+        ),
+    ]
+}
+
+#[test]
+fn state_query_reports_tls_only_no_when_any_of_the_six_predicates_is_missing() {
+    let q = state_query_script(&res());
+    let f = Fake::converged();
+    assert!(f.run(&q).1.contains("tls_only=yes"));
+    for (label, from, to) in policy_breaks() {
+        let f = Fake::converged();
+        let p = std::fs::read_to_string(f.file("pol"))
+            .unwrap()
+            .replace(['\n', ' '], "");
+        assert!(p.contains(from), "{label}: fixture lacks {from}");
+        f.set("pol", &p.replace(from, to));
+        let out = f.run(&q).1;
+        assert!(
+            out.contains("tls_only=no"),
+            "{label}: false tls_only=yes: {out}"
+        );
+    }
+}
+
+#[test]
+fn bug2_revert_proof_two_predicate_state_query_reports_yes_for_a_broken_policy() {
+    let real = state_query_script(&res());
+    let cond = super::script::tls_condition(&res().s3.bucket.clone().unwrap());
+    assert!(real.contains(&cond));
+    let old = "has '\"aws:SecureTransport\":\"false\"' && has '\"Effect\":\"Deny\"'";
+    let mutant = real.replace(&cond, old);
+    assert_ne!(mutant, real);
+    bash_n(&mutant);
+    let mut wrong = 0;
+    for (label, from, to) in policy_breaks() {
+        let f = Fake::converged();
+        let p = std::fs::read_to_string(f.file("pol"))
+            .unwrap()
+            .replace(['\n', ' '], "");
+        f.set("pol", &p.replace(from, to));
+        if f.run(&mutant).1.contains("tls_only=yes") {
+            wrong += 1;
+            eprintln!("reverted fix says yes for: {label}");
+        }
+    }
+    assert!(
+        wrong >= 4,
+        "reverted fix must misreport at least the 4 unchecked predicates, got {wrong}"
+    );
+}

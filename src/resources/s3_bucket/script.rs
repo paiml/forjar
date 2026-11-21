@@ -34,14 +34,14 @@ fn api(s: &S3Bucket, op: &str) -> String {
 
 /// Shell that sets `have=yes|no` from `head-bucket`, or EXITS NON-ZERO.
 ///
-/// Only a 404 means "no such bucket". Expired credentials, a 403 (someone else's
+/// Only a real HeadBucket 404 or NoSuchBucket error code means "no such bucket" (a bare "404" anywhere in the text, such as a host name or port, does not). Expired credentials, a 403 (someone else's
 /// bucket), a 301 (other region), throttling or a missing `aws` are ERRORS: reading
 /// one as "absent" would make apply try to create a bucket it cannot own.
 fn probe(s: &S3Bucket) -> String {
     format!(
         "LC_ALL=C; export LC_ALL\n\
          if err=\"$({head} 2>&1)\"; then\n  have=yes\nelse\n  case \"$err\" in\n    \
-         *404*|*'Not Found'*) have=no;;\n    \
+         *'An error occurred (404) when calling the HeadBucket operation'*|*'(NoSuchBucket)'*) have=no;;\n    \
          *) echo 'bucket-lookup-failed' >&2; echo 'ERROR: head-bucket failed and is not a 404' >&2; exit 1;;\n  esac\nfi\n",
         head = api(s, "head-bucket")
     )
@@ -117,12 +117,12 @@ fn assertions(s: &S3Bucket) -> Vec<String> {
 
 /// The stored policy, whitespace stripped, must hold an all-principal Deny of `s3:*`
 /// on the bucket and its objects when `aws:SecureTransport` is `false`.
-fn tls_condition(b: &str) -> String {
+pub(super) fn tls_condition(b: &str) -> String {
     let q = |t: &str| sh_squote(t);
     format!(
         "has {} && has {} && has {} && has {} && has {} && {{ has {} || has {}; }}",
         q("\"Effect\":\"Deny\""),
-        q("\"aws:SecureTransport\":\"false\""),
+        q("\"Bool\":{\"aws:SecureTransport\":\"false\"}"),
         q(&format!("\"arn:aws:s3:::{b}\"")),
         q(&format!("\"arn:aws:s3:::{b}/*\"")),
         q("\"Action\":\"s3:*\""),
@@ -156,7 +156,7 @@ pub fn state_query_script(resource: &Resource) -> String {
         probe(&s),
         reads(&s),
         s.bucket,
-        "has '\"aws:SecureTransport\":\"false\"' && has '\"Effect\":\"Deny\"'",
+        tls_condition(&s.bucket),
     )
 }
 
