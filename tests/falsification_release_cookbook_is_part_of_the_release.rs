@@ -411,28 +411,62 @@ fn lock_of(v: &str) -> String {
     format!("[[package]]\nname = \"forjar\"\nversion = \"{v}\"\n")
 }
 
-/// Run the gate with `CRATES_IO_API` pointing at an index document (or at a
-/// path that does not exist when `index` is None).
-fn run_index(fx: &Fixture, index: Option<&str>) -> Run {
+/// Run the gate with the index redirected to a document (or to a path that does
+/// not exist when `index` is None). `marked` sets the test marker the script
+/// requires before it honours any redirect.
+fn run_env(fx: &Fixture, index: Option<&str>, marked: bool) -> Run {
+    run_env_seen(fx, index, marked).0
+}
+
+/// As `run_env`, and whether the redirected curl was ever invoked.
+fn run_env_seen(fx: &Fixture, index: Option<&str>, marked: bool) -> (Run, bool) {
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("forjar.json");
     if let Some(body) = index {
         std::fs::write(&path, body).expect("write index");
     }
-    let out = std::process::Command::new("bash")
-        .arg(fx.root.join("scripts/dogfood/tagged.sh"))
+    let seen = dir.path().join("seen");
+    let stub = dir.path().join("curl-stub.sh");
+    std::fs::write(
+        &stub,
+        format!("#!/bin/sh\ntouch {}\nexec curl \"$@\"\n", seen.display()),
+    )
+    .expect("stub");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    }
+    let mut cmd = std::process::Command::new("bash");
+    cmd.arg(fx.root.join("scripts/dogfood/tagged.sh"))
         .current_dir(&fx.root)
         .env("GH", &fx.gh)
-        .env("CRATES_IO_API", format!("file://{}", path.display()))
-        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string())
-        .output()
-        .expect("bash must run");
+        .env("DOGFOOD_NOW", (fx.cut + AN_HOUR).to_string());
+    let url = format!("file://{}", path.display());
+    if marked {
+        cmd.env("FORJAR_GATE_T_TEST", "1")
+            .env("CRATES_IO_API_OVERRIDE", &url)
+            .env("CURL_OVERRIDE", &stub);
+    } else {
+        // the names an operator or a CI job might plausibly export
+        cmd.env("CRATES_IO_API", &url)
+            .env("CRATES_IO_API_OVERRIDE", &url)
+            .env("CURL", &stub)
+            .env("CURL_OVERRIDE", &stub);
+    }
+    let out = cmd.output().expect("bash must run");
     let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&out.stderr));
-    Run {
-        code: out.status.code().unwrap_or(-1),
-        text,
-    }
+    (
+        Run {
+            code: out.status.code().unwrap_or(-1),
+            text,
+        },
+        seen.exists(),
+    )
+}
+
+fn run_index(fx: &Fixture, index: Option<&str>) -> Run {
+    run_env(fx, index, true)
 }
 
 fn unpublished_fx(crates_io: &'static str, lock: &str) -> Fixture {
@@ -446,96 +480,238 @@ fn unpublished_fx(crates_io: &'static str, lock: &str) -> Fixture {
     fx
 }
 
-const IDX_PREDECESSOR: &str = r#"{"versions":[{"num":"0.0.0","yanked":false}]}"#;
+/// An index document for crate `forjar` from (num, yanked) pairs.
+fn idx(vs: &[(&str, bool)]) -> String {
+    let items: Vec<String> = vs
+        .iter()
+        .map(|(n, y)| format!(r#"{{"num":"{n}","yanked":{y}}}"#))
+        .collect();
+    format!(
+        r#"{{"crate":{{"id":"forjar"}},"versions":[{}]}}"#,
+        items.join(",")
+    )
+}
 
 /// The positive case: declared, absent from the index, lock = newest published
 /// predecessor.
 #[test]
 fn an_unpublished_release_may_lock_its_published_predecessor() {
     let fx = unpublished_fx("unpublished", "0.0.0");
-    let r = run_index(&fx, Some(IDX_PREDECESSOR));
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", false)])));
     r.assert_green("0.0.1 is declared unpublished, absent from crates.io, lock is 0.0.0");
     r.assert_says("never published");
 }
 
 /// MUTANT 1: the loosened rule must not exempt a PUBLISHED row. The row says
-/// unpublished but crates.io lists 0.0.1.
+/// unpublished but crates.io lists 0.0.1 (yanked or not).
 #[test]
 fn a_row_declared_unpublished_that_crates_io_serves_stays_red() {
     let fx = unpublished_fx("unpublished", "0.0.0");
-    let r = run_index(
-        &fx,
-        Some(r#"{"versions":[{"num":"0.0.1","yanked":false},{"num":"0.0.0","yanked":false}]}"#),
-    );
+    let r = run_index(&fx, Some(&idx(&[("0.0.1", false), ("0.0.0", false)])));
     r.assert_red("crates.io lists 0.0.1, so the declaration is false");
     r.assert_says("crates.io lists");
-    // a yanked version is still published
-    let r = run_index(
-        &fx,
-        Some(r#"{"versions":[{"num":"0.0.1","yanked":true},{"num":"0.0.0","yanked":false}]}"#),
-    );
+    let r = run_index(&fx, Some(&idx(&[("0.0.1", true), ("0.0.0", false)])));
     r.assert_red("a yanked 0.0.1 was still published");
 }
 
-/// MUTANT 2: no declaration, no exemption. Absent evidence is the full check,
-/// even when crates.io lacks the version and the lock is the predecessor.
+/// MUTANT 2: no declaration, no exemption, even when crates.io lacks the
+/// version and the lock is the predecessor.
 #[test]
 fn an_undeclared_row_is_not_exempt_whatever_crates_io_says() {
     let fx = unpublished_fx("", "0.0.0");
-    let r = run_index(&fx, Some(IDX_PREDECESSOR));
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", false)])));
     r.assert_red("no crates_io: field, so the lock must pin the release");
     r.assert_says("LOCKS forjar 0.0.0");
 }
 
-/// MUTANT 3: an unreadable index is UNMEASURED, never a pass.
+/// MUTANT 3: an unreadable, empty, foreign or malformed index is UNMEASURED,
+/// never a pass. Each malformed shape below made an earlier version of the
+/// script print ok, because a jq error inside an `if` is not an error.
 #[test]
-fn an_unreadable_crates_io_index_is_unmeasured_and_red() {
+fn an_unreadable_or_malformed_crates_io_index_is_unmeasured_and_red() {
     let fx = unpublished_fx("unpublished", "0.0.0");
     let r = run_index(&fx, None);
     r.assert_red("the index cannot be read");
     r.assert_says("UNMEASURED");
-    let r = run_index(&fx, Some("not json"));
-    r.assert_red("a body that is not an index measures nothing");
-    r.assert_says("UNMEASURED");
-    let r = run_index(&fx, Some(r#"{"versions":[]}"#));
-    r.assert_red("an empty index is not evidence of anything");
-    r.assert_says("UNMEASURED");
-}
-
-/// MUTANT 4: any value but the exact word `unpublished` is refused.
-#[test]
-fn an_unknown_crates_io_value_is_red() {
-    for v in ["published", "false", "\"\"", "Unpublished", "yes"] {
-        let fx = unpublished_fx(v, "0.0.0");
-        let r = run_index(&fx, Some(IDX_PREDECESSOR));
-        r.assert_red("only the exact word unpublished declares anything");
-        r.assert_says("crates_io");
+    for body in [
+        "not json",
+        r#"{"crate":{"id":"forjar"},"versions":[]}"#,
+        // another crate's index
+        r#"{"crate":{"id":"serde"},"versions":[{"num":"0.0.0","yanked":false}]}"#,
+        // no crate id at all
+        r#"{"versions":[{"num":"0.0.0","yanked":false}]}"#,
+        // malformed elements next to a valid predecessor
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},"x"]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":5,"yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"abc","yanked":false}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"0.0.0"}]}"#,
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},null]}"#,
+        // a leading zero is not a semver num
+        r#"{"crate":{"id":"forjar"},"versions":[{"num":"0.0.0","yanked":false},{"num":"00.0.1","yanked":false}]}"#,
+    ] {
+        let r = run_index(&fx, Some(body));
+        r.assert_red(&format!("malformed index must be red: {body}"));
+        r.assert_says("UNMEASURED");
+        r.assert_says("well-formed forjar version list");
     }
 }
 
-/// MUTANT 5: the exemption is not a blank cheque on the lock. It must be the
-/// newest published stable predecessor: not ahead, not an older release, not
-/// a pre-release, and a yanked predecessor does not count.
+/// MUTANT 4: any value but the exact word `unpublished` is refused, and the
+/// declaration is validated whatever the lock says (a published row whose lock
+/// pins its own version cannot carry a bogus or false declaration either).
+#[test]
+fn an_unknown_crates_io_value_is_red() {
+    for v in [
+        "published",
+        "false",
+        "\"\"",
+        "Unpublished",
+        "yes",
+        "null",
+        "-absent-",
+    ] {
+        for lock in ["0.0.0", "0.0.1"] {
+            let fx = unpublished_fx(v, lock);
+            let r = run_index(&fx, Some(&idx(&[("0.0.0", false)])));
+            r.assert_red("only the exact word unpublished declares anything");
+            r.assert_says("crates_io");
+        }
+    }
+}
+
+/// MUTANT 5: a declared row whose lock already pins its own version is red:
+/// the declaration says the release does not exist on crates.io, so a lock on
+/// it contradicts it.
+#[test]
+fn a_declared_row_whose_lock_pins_its_own_version_is_red() {
+    let fx = unpublished_fx("unpublished", "0.0.1");
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", false)])));
+    r.assert_red("declared unpublished but locking the release itself");
+    r.assert_says("must lock the newest published release below it");
+}
+
+/// MUTANT 6: the lock must be the newest published stable predecessor: not
+/// ahead, not an older release, not a pre-release, not a yanked one, and
+/// versions ABOVE the release never count.
 #[test]
 fn an_exempt_row_must_lock_the_newest_published_predecessor() {
-    // the lock is ahead of the release
     let fx = unpublished_fx("unpublished", "0.0.2");
-    run_index(&fx, Some(IDX_PREDECESSOR)).assert_red("a lock ahead is no predecessor");
-    // the lock is an older published release than the newest predecessor
+    run_index(&fx, Some(&idx(&[("0.0.0", false)]))).assert_red("a lock ahead is no predecessor");
+
+    // Only a pre-release below: there is no stable predecessor at all.
     let fx = unpublished_fx("unpublished", "0.0.0");
-    let r = run_index(
-        &fx,
-        Some(r#"{"versions":[{"num":"0.0.0-rc.1","yanked":false}]}"#),
-    );
-    r.assert_red("a pre-release is not a published predecessor, so there is none");
-    // no predecessor at all (only yanked)
-    let r = run_index(&fx, Some(r#"{"versions":[{"num":"0.0.0","yanked":true}]}"#));
+    let r = run_index(&fx, Some(&idx(&[("0.0.0-rc.1", false)])));
+    r.assert_red("a pre-release is not a published predecessor");
+    r.assert_says("no non-yanked stable release below");
+
+    // A pre-release that sorts above the stable one must not be chosen: lock
+    // 0.0.0 is the stable predecessor even though 0.0.1-rc.1 is newer.
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", false), ("0.0.1-rc.1", false)])));
+    r.assert_green("0.0.0 is the newest stable below 0.0.1 whatever pre-releases exist");
+
+    // Only yanked below: no predecessor.
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", true)])));
     r.assert_red("a yanked predecessor does not count");
-    // the lock names a release the index never served
-    let fx = unpublished_fx("unpublished", "0.0.0");
-    let r = run_index(
-        &fx,
-        Some(r#"{"versions":[{"num":"0.0.0","yanked":false}]}"#),
+    r.assert_says("no non-yanked stable release below");
+
+    // The release is above: a newer published version never becomes the
+    // predecessor (publishing 0.0.2 later must not break this row).
+    let r = run_index(&fx, Some(&idx(&[("0.0.0", false), ("0.0.2", false)])));
+    r.assert_green("0.0.2 is above 0.0.1 and is ignored");
+    let fx2 = unpublished_fx("unpublished", "0.0.2");
+    run_index(&fx2, Some(&idx(&[("0.0.0", false), ("0.0.2", false)])))
+        .assert_red("locking a version above the release is not a predecessor lock");
+}
+
+/// Run the predecessor selection directly against an index with MANY versions,
+/// which a fixture whose only tag is v0.0.1 cannot hold.
+fn newest_stable_below(ver: &str, index: &str) -> String {
+    use std::io::Write;
+    let lib = format!(
+        "{}/scripts/dogfood/lib/cratesio.sh",
+        env!("CARGO_MANIFEST_DIR")
     );
-    r.assert_green("control: same fixture, honest index");
+    let mut child = std::process::Command::new("bash")
+        .args([
+            "-c",
+            &format!(". {lib} && cratesio_newest_stable_below {ver}"),
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("bash must run");
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(index.as_bytes())
+        .expect("write");
+    let out = child.wait_with_output().expect("wait");
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// MUTANT 7: the selection takes the NEWEST (not oldest, not first listed),
+/// compares as numbers (1.10.0 > 1.9.0), stays strictly BELOW the release, and
+/// skips pre-releases and yanked versions.
+#[test]
+fn the_predecessor_is_the_newest_stable_unyanked_version_strictly_below() {
+    let many = idx(&[
+        ("1.9.0", false),
+        ("1.33.0", false),
+        ("1.10.0", false),
+        ("1.33.1-rc.1", false),
+        ("1.33.1", true),
+        ("1.34.2", false),
+        ("1.35.0", false),
+    ]);
+    assert_eq!(newest_stable_below("1.34.1", &many), "1.33.0");
+    assert_eq!(
+        newest_stable_below("1.34.2", &many),
+        "1.33.0",
+        "strictly below"
+    );
+    assert_eq!(newest_stable_below("1.35.1", &many), "1.35.0");
+    assert_eq!(
+        newest_stable_below("1.10.1", &many),
+        "1.10.0",
+        "numeric order"
+    );
+    assert_eq!(
+        newest_stable_below("1.9.0", &many),
+        "",
+        "nothing below the oldest"
+    );
+    assert_eq!(
+        newest_stable_below("1.33.1", &idx(&[("1.33.1-rc.1", false)])),
+        ""
+    );
+}
+
+/// The evidence cannot be forged from the environment: without the test marker
+/// the script ignores every redirect and asks the real crates.io. A forged
+/// index that would exempt the row is not read.
+#[test]
+fn the_index_cannot_be_redirected_without_the_test_marker() {
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    // control: with the marker the same forged index is honoured
+    let (r, seen) = run_env_seen(&fx, Some(&idx(&[("0.0.0", false)])), true);
+    r.assert_green("marked: honoured");
+    assert!(seen, "marked: the redirected curl is the one that ran");
+    let (_r, seen) = run_env_seen(&fx, Some(&idx(&[("0.0.0", false)])), false);
+    assert!(
+        !seen,
+        "unmarked: CURL / CRATES_IO_API exported by an operator must not be honoured"
+    );
+}
+
+/// The newest row is not special-cased, but it is not a free pass either: it
+/// is exempt only while the live index does not list it, and a published newest
+/// row stays fully checked.
+#[test]
+fn the_newest_row_is_exempt_only_on_live_evidence() {
+    let fx = unpublished_fx("unpublished", "0.0.0");
+    run_index(&fx, Some(&idx(&[("0.0.0", false)])))
+        .assert_green("newest, unpublished, predecessor lock");
+    run_index(&fx, Some(&idx(&[("0.0.0", false), ("0.0.1", false)])))
+        .assert_red("newest, but crates.io now serves it");
 }

@@ -99,6 +99,8 @@ number_word() {
 . "$(dirname "${BASH_SOURCE[0]}")/lib/window.sh"
 # shellcheck source=scripts/dogfood/lib/releases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/releases.sh"
+# shellcheck source=scripts/dogfood/lib/cratesio.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/cratesio.sh"
 
 # The clock. Overridable ONLY so the falsification tests can stand at a chosen
 # instant; the cadence arm measures the wall clock by design.
@@ -202,8 +204,15 @@ labels_of_release() {
 }
 
 # The crates.io version index the T8b exemption reads, and the curl that reads it.
-CURL="${CURL:-curl}"
-CRATES_IO_API="${CRATES_IO_API:-https://crates.io/api/v1/crates/forjar}"
+# Both are FIXED. They can be redirected only by the test harness, which sets
+# FORJAR_GATE_T_TEST=1; an operator or CI environment that merely exports
+# CRATES_IO_API or CURL cannot forge the evidence (PMAT-1150).
+CURL=curl
+CRATES_IO_API=https://crates.io/api/v1/crates/forjar
+if [ "${FORJAR_GATE_T_TEST:-}" = "1" ]; then
+  CURL="${CURL_OVERRIDE:-curl}"
+  CRATES_IO_API="${CRATES_IO_API_OVERRIDE:-$CRATES_IO_API}"
+fi
 
 # T8b exemption (PMAT-1342): a release that was tagged but never published.
 #
@@ -223,20 +232,28 @@ CRATES_IO_API="${CRATES_IO_API:-https://crates.io/api/v1/crates/forjar}"
 # check), and fails by name otherwise.
 unpublished_release_locks_predecessor() {
   local row="$1" tag="$2" ver="$3" locked="$4" sha="$5" decl idx rc=0 listed prev
-  decl="$(printf '%s' "$row" | jq -r 'if has("crates_io") then (.crates_io | tostring) else "-absent-" end')"
-  [ "$decl" = "-absent-" ] && return 1
+  if ! printf '%s' "$row" | jq -e 'has("crates_io")' >/dev/null 2>&1; then
+    return 1
+  fi
+  decl="$(printf '%s' "$row" | jq -r '.crates_io | tostring' 2>/dev/null)" || decl="?"
   if [ "$decl" != "unpublished" ]; then
     fail "${tag}: crates_io: \"${decl}\" is not a value this gate knows — the only declaration is exactly \`unpublished\`; a published release carries no such field"
   fi
-  idx="$("$CURL" -fsS -A "forjar-gate-t" "$CRATES_IO_API" 2>&1)" || rc=$?
-  if [ "$rc" -ne 0 ] || ! printf '%s' "$idx" | jq -e '.versions | type == "array" and length > 0' >/dev/null 2>&1; then
-    fail "${tag}: the row says crates_io: unpublished and the crates.io index at ${CRATES_IO_API} could not be read as a non-empty version list (curl exit ${rc}) — UNMEASURED, and an unmeasured claim never exempts a row"
+  idx="$("$CURL" -fsS -A "forjar-gate-t" -- "$CRATES_IO_API" 2>&1)" || rc=$?
+  # Fail closed on SHAPE, not just on reachability: the document must be the
+  # forjar crate's own, and every version element an object with a semver `num`
+  # and a boolean `yanked`. A malformed element would otherwise make a later jq
+  # exit non-zero inside an `if` (errexit is off there) and read as no evidence.
+  if [ "$rc" -ne 0 ] || ! printf '%s' "$idx" | jq -e '
+      (.crate.id == "forjar") and (.versions | type == "array" and length > 0 and
+      all(.[]; type == "object" and (.num | type == "string" and test("^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-[0-9A-Za-z.+-]+)?$")) and (.yanked | type == "boolean")))' >/dev/null 2>&1; then
+    fail "${tag}: the row says crates_io: unpublished and the crates.io index at ${CRATES_IO_API} is not a well-formed forjar version list (curl exit ${rc}; needs crate.id forjar and every version an object with a semver num and a boolean yanked) — UNMEASURED, and an unmeasured claim never exempts a row"
   fi
-  listed="$(printf '%s' "$idx" | jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length')"
+  listed="$(printf '%s' "$idx" | jq -r --arg v "$ver" '[.versions[] | select(.num == $v)] | length')" || listed="?"
   if [ "$listed" != "0" ]; then
-    fail "${tag}: the row says crates_io: unpublished and crates.io lists ${ver} (yanked or not) — the declaration is false, so the lock must pin ${ver} like any published release"
+    fail "${tag}: the row says crates_io: unpublished and crates.io lists ${ver} (yanked or not; or the listing could not be counted: \"${listed}\") — the declaration is false, so the lock must pin ${ver} like any published release"
   fi
-  prev="$(printf '%s' "$idx" | jq -r '.versions[] | select((.yanked | not) and (.num | test("^[0-9]+[.][0-9]+[.][0-9]+$"))) | .num' | { cat; printf '%s\n' "$ver"; } | sort -V | awk -v v="$ver" '$0 == v { print p; exit } { p = $0 }')"
+  prev="$(printf '%s' "$idx" | cratesio_newest_stable_below "$ver")" || prev=""
   if [ -z "$prev" ]; then
     fail "${tag}: the row says crates_io: unpublished and crates.io lists no non-yanked stable release below ${ver} — there is no published predecessor for the lock to pin"
   fi
@@ -376,7 +393,7 @@ cookbook_of_release() {
   if [ -z "$locked" ]; then
     fail "${tag}: the cookbook's Cargo.lock at ${sha} pins no forjar version — a lock with no entry for the crate under test measures nothing, and nothing is not a pass"
   fi
-  if [ "$locked" != "$ver" ] && unpublished_release_locks_predecessor "$row" "$tag" "$ver" "$locked" "$sha"; then
+  if unpublished_release_locks_predecessor "$row" "$tag" "$ver" "$locked" "$sha"; then
     return 0
   fi
   if [ "$locked" != "$ver" ]; then
