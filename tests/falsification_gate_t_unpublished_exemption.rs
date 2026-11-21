@@ -1,7 +1,6 @@
 //! PMAT-1342 / T8b: gate T and a release never published to crates.io.
 
 #[path = "release_goal_fixture/mod.rs"]
-#[allow(dead_code)]
 mod fx;
 #[path = "t8b_fixture/mod.rs"]
 mod t8b;
