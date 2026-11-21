@@ -160,37 +160,7 @@ fn obligation_fn_name(ob: &ProofObligation, index: usize) -> String {
 
 /// Return a mathematical pattern description for the given obligation type
 fn obligation_pattern(ot: ObligationType) -> &'static str {
-    match ot {
-        ObligationType::Invariant => "∀x ∈ Domain: P(f(x)) — property holds for all inputs",
-        ObligationType::Equivalence => "∀x: |f(x) - g(x)| < ε — two implementations agree",
-        ObligationType::Bound => "∀x: a ≤ f(x)_i ≤ b — output range bounded",
-        ObligationType::Monotonicity => "x_i > x_j → f(x)_i > f(x)_j — order preserved",
-        ObligationType::Idempotency => "f(f(x)) = f(x) — applying twice gives same result",
-        ObligationType::Linearity => "f(αx) = α·f(x) — homogeneous scaling",
-        ObligationType::Symmetry => "f(permute(x)) related to f(x) — permutation property",
-        ObligationType::Associativity => "(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c) — grouping invariant",
-        ObligationType::Conservation => "Q(before) = Q(after) — conserved quantity",
-        ObligationType::Ordering => "a ≤ b → f(a) ≤ f(b) — order relation maintained",
-        ObligationType::Completeness => "∀ required elements present — completeness verified",
-        ObligationType::Soundness => "∀x: P(x) → Q(f(x)) — soundness of transformation",
-        ObligationType::Involution => "f(f(x)) = x — involution (self-inverse)",
-        ObligationType::Determinism => "f(x) = f(x) — deterministic output for same input",
-        ObligationType::Roundtrip => "decode(encode(x)) = x — roundtrip fidelity",
-        ObligationType::StateMachine => "S × A → S — valid state transitions",
-        ObligationType::Classification => "f(x) ∈ C — output belongs to valid class set",
-        ObligationType::Independence => "P(A∩B) = P(A)·P(B) — statistical independence",
-        ObligationType::Termination => "algorithm terminates in finite steps",
-        // Eiffel DbC types
-        ObligationType::Precondition => "P(input) — caller must guarantee before call",
-        ObligationType::Postcondition => "P(in) → Q(out) — kernel guarantees if pre holds",
-        ObligationType::Frame => "modifies(S) ∧ preserves(T\\S) — only S may change",
-        ObligationType::LoopInvariant => "∀ iter i: P(state_i) — maintained across iterations",
-        ObligationType::LoopVariant => "V(state) ∈ ℕ, strictly decreasing — termination witness",
-        ObligationType::OldState => "Q(old(state), new(state)) — relates pre to post state",
-        ObligationType::Subcontract => "weaken(pre) ∧ strengthen(post) — behavioral subtyping",
-        ObligationType::Safety => "∀x: safe(f(x)) — memory/IO safety obligation",
-        ObligationType::Liveness => "◇ P — eventually P holds (progress obligation)",
-    }
+    crate::explain::obligation_pattern(ot)
 }
 
 /// Emit an `unimplemented!()` test stub for a falsification test entry
