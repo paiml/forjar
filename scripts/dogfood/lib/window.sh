@@ -479,7 +479,7 @@ dogfood_window_tickets() {
     dogfood_pr_field "$i" ".body"; body="$DOGFOOD_FIELD"
     dogfood_pr_field "$i" ".mergeCommit.oid"; oid="$DOGFOOD_FIELD"
     dogfood_pr_tickets "$href" "$title" "$body"
-    if [ -z "$DOGFOOD_TICKETS" ] && [ -z "$DOGFOOD_STRAY_IDS" ]; then
+    if [ -z "$DOGFOOD_TICKETS" ] && [ -z "$DOGFOOD_STRAY_IDS" ] && declare -F dogfood_pr_alias_row >/dev/null 2>&1; then
       dogfood_pr_alias_row "$num" "$oid"
       DOGFOOD_TICKETS="$DOGFOOD_ALIAS_ROW"
     fi

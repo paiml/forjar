@@ -45,8 +45,9 @@ cookbook_floor: v1.29.0
 # Frozen at the merge commit of the newest aliased PR (#1225): a PR merged after it names its
 # ticket or stays red, and the freeze cannot move without that commit being an aliased PR.
 # NOT mapped, no evidence that names an existing row: #1026 (its trailer names the v1.34.1 cut
-# ticket, but the work is CI runner opt-in), #1087, #1094, #1218, #1219. They stay red until the
-# ONE ledger ticket for gate-T pre-enforcement history lists them.
+# ticket, but the work is CI runner opt-in), #1087, #1091 (5 of 6 trailers name PMAT-1090, no
+# row), #1094, #1218, #1219. They stay red until the ONE ledger ticket for gate-T
+# pre-enforcement history lists them.
 pr_ticket_aliases_frozen_at: cb428c8a5a76dcc97ae29e68e0dade6a1fbd2085
 pr_ticket_aliases:
   - pr: 935
@@ -54,7 +55,7 @@ pr_ticket_aliases:
     evidence: "squash trailer Pmat-Ticket: PMAT-913 (3 of 3)"
   - pr: 944
     ticket: GH-667
-    evidence: "squash trailer Pmat-Ticket: GH-667 (3 of 10); the PR body names GH-667 and closes #667, #669 and #936, three rows of one change; GH-667 is the one its trailers and body name first"
+    evidence: "squash trailer Pmat-Ticket: GH-667 (3 of 10); plus Pmat-Ticket: forjar#667 (1) and trailers for forjar#669 (4), forjar#668 (1), forjar#936 (1); the PR body names GH-667 and closes #667, #669 and #936"
   - pr: 1036
     ticket: PMAT-861
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
@@ -63,7 +64,7 @@ pr_ticket_aliases:
     evidence: "squash trailer Pmat-Ticket: PMAT-1048 (2 of 2)"
   - pr: 1061
     ticket: PMAT-1027
-    evidence: "squash trailer Pmat-Ticket: PMAT-1027 (3 of 9); the other trailers name PMAT-1015 (2), PMAT-1032 (2, the PR also closes #1032), PMAT-1028 (1) and GH-1043 (1); one row owns the PR and this is the first"
+    evidence: "squash trailer Pmat-Ticket: PMAT-1027 (3 of 9); plurality of 9 trailers (others: PMAT-1015 (2), PMAT-1032 (2, PR also closes #1032), PMAT-1028 (1), GH-1043 (1))"
   - pr: 1066
     ticket: PMAT-1049
     evidence: "squash trailer Pmat-Ticket: PMAT-1049 (1 of 1)"
@@ -91,9 +92,6 @@ pr_ticket_aliases:
   - pr: 1089
     ticket: PMAT-858
     evidence: "squash trailer Pmat-Ticket: PMAT-858 (3 of 5); the other, PMAT-1076 (2 of 5), is no row"
-  - pr: 1091
-    ticket: GH-881
-    evidence: "squash trailer Pmat-Ticket: PMAT-881 (1 of 6) names issue 881, the github_issue of row GH-881; the other 5 trailers name PMAT-1090, which is no row"
   - pr: 1097
     ticket: PMAT-861
     evidence: "squash trailer Pmat-Ticket: PMAT-861 (1 of 1)"
@@ -146,8 +144,8 @@ pr_ticket_aliases:
     ticket: GH-881
     evidence: "squash trailer Pmat-Ticket: GH-881 (2 of 2)"
   - pr: 1225
-    ticket: PMAT-1216
-    evidence: "squash trailer Pmat-Ticket: PMAT-1216 (1 of 3); PMAT-1160 (2 of 3) is a row too; the PR's first commit and its title close #1216"
+    ticket: PMAT-1160
+    evidence: "squash trailer Pmat-Ticket: PMAT-1160 (2 of 3); the remaining trailer names PMAT-1216 (1 of 3), also a row"
   - pr: 1226
     ticket: PMAT-858
     evidence: "squash trailer Pmat-Ticket: PMAT-858 (1 of 1)"

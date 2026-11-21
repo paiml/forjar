@@ -33,7 +33,7 @@ DOGFOOD_RELEASES_SHAPE='
         and (.tickets | type == "array" and all(.[]; type == "string" and test("^(PMAT|GH)-[0-9]+$"))))
   and ((if has("pr_ticket_aliases") then .pr_ticket_aliases else [] end) as $al
        | ($al | type == "array")
-         and all($al[]; (.pr | type == "number" and . >= 1 and . == floor)
+         and all($al[]; (.pr | type == "number" and (tostring | test("^[1-9][0-9]*$")))
                  and (.ticket | type == "string" and test("^(PMAT|GH)-[0-9]+$"))
                  and (.evidence | type == "string" and test("\\S")))
          and (($al | map(.pr) | length) == ($al | map(.pr) | unique | length)))
@@ -72,22 +72,23 @@ dogfood_load_releases() {
   if [ "$rc" -ne 0 ]; then
     fail "docs/roadmaps/releases.yaml at ${ref} is not the declared shape (jq exit ${rc}): cadence_days (integer >= 1), floor / harness_floor / dogfood_floor (vX.Y.Z), releases[] with tag, cut (UTC, ...Z), prs (numbers) and tickets (PMAT-n or GH-n), an optional pr_ticket_aliases[] of {pr: unique integer >= 1, ticket: PMAT-n or GH-n, evidence: non-blank text} that REQUIRES pr_ticket_aliases_frozen_at (a 40-hex sha or vX.Y.Z), and next.tag / next.due"
   fi
-  # forjar#1235: a ledger that declares aliases has its freeze point resolved
-  # ONCE, here, whether or not any PR reaches an alias lookup: an unresolvable
-  # or off-history freeze point is a ledger nobody can measure, never a pass.
+  # forjar#1235: a ledger that declares pr_ticket_aliases_frozen_at has it
+  # resolved ONCE, here, even when pr_ticket_aliases is empty or absent: an
+  # unresolvable or off-history freeze point is a ledger nobody can measure.
   rc=0
-  fz="$(jq -r 'if ((.pr_ticket_aliases // []) | length) > 0 then .pr_ticket_aliases_frozen_at else empty end' <<<"$json")" || rc=$?
+  fz="$(jq -r '.pr_ticket_aliases_frozen_at // empty' <<<"$json")" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "jq exited ${rc} reading pr_ticket_aliases_frozen_at — UNMEASURED"
+    fail "jq exited ${rc} reading pr_ticket_aliases_frozen_at - UNMEASURED"
   fi
   if [ -n "$fz" ]; then
-    git rev-parse --verify -q "${fz}^{commit}" >/dev/null || rc=$?
+    dogfood_freeze_ref "$fz"
+    git rev-parse --verify -q "${DOGFOOD_FREEZE_REF}^{commit}" >/dev/null 2>&1 || rc=$?
     if [ "$rc" -ne 0 ]; then
-      fail "pr_ticket_aliases_frozen_at ${fz} resolves to no commit here, so no alias can be placed inside the freeze — UNMEASURED"
+      fail "pr_ticket_aliases_frozen_at ${fz} resolves to no commit here, so no alias can be placed inside the freeze - UNMEASURED"
     fi
-    git merge-base --is-ancestor "${fz}^{commit}" HEAD || rc=$?
+    git merge-base --is-ancestor "${DOGFOOD_FREEZE_REF}^{commit}" HEAD || rc=$?
     if [ "$rc" -ne 0 ]; then
-      fail "pr_ticket_aliases_frozen_at ${fz} is not history of HEAD (git merge-base --is-ancestor exit ${rc}): a freeze point off this branch freezes nothing — UNMEASURED"
+      fail "pr_ticket_aliases_frozen_at ${fz} is not history of HEAD (git merge-base --is-ancestor exit ${rc}): a freeze point off this branch freezes nothing - UNMEASURED"
     fi
   fi
   rc=0
@@ -248,6 +249,15 @@ dogfood_req_admits() {
   return 0
 }
 
+# Qualify a vX.Y.Z freeze tag with refs/tags/ so a local branch cannot pose as
+# a tag -> DOGFOOD_FREEZE_REF.
+dogfood_freeze_ref() {
+  case "$1" in
+    v*) DOGFOOD_FREEZE_REF="refs/tags/$1" ;;
+    *) DOGFOOD_FREEZE_REF="$1" ;;
+  esac
+}
+
 # The row releases.yaml `pr_ticket_aliases` maps PR $1 (merged as commit $2) to
 # (forjar#1235) -> DOGFOOD_ALIAS_ROW; empty when none, when no ledger is loaded
 # (gates A and E), when the target is no row, or when the map is frozen
@@ -261,24 +271,25 @@ dogfood_pr_alias_row() {
   [ -n "${DOGFOOD_RELEASES:-}" ] || return 0
   t="$(jq -r --argjson n "$1" '[.pr_ticket_aliases[]? | select(.pr == $n) | .ticket] | first // empty' <<<"$DOGFOOD_RELEASES")" || rc=$?
   if [ "$rc" -ne 0 ]; then
-    fail "jq exited ${rc} reading pr_ticket_aliases for PR #$1 — UNMEASURED"
+    fail "jq exited ${rc} reading pr_ticket_aliases for PR #$1 - UNMEASURED"
   fi
   [ -n "$t" ] || return 0
   # The loader refused a map with no freeze point and resolved this one; an
   # empty value here is a caller that skipped the loader, never "no freeze".
   fz="$(jq -r '.pr_ticket_aliases_frozen_at // empty' <<<"$DOGFOOD_RELEASES")" || rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$fz" ]; then
-    fail "PR #$1 has an alias but the ledger carries no pr_ticket_aliases_frozen_at (jq exit ${rc}) — UNMEASURED"
+    fail "PR #$1 has an alias but the ledger carries no pr_ticket_aliases_frozen_at (jq exit ${rc}) - UNMEASURED"
   fi
-  git rev-parse --verify -q "${fz}^{commit}" >/dev/null || rc=$?
+  dogfood_freeze_ref "$fz"
+  git rev-parse --verify -q "${DOGFOOD_FREEZE_REF}^{commit}" >/dev/null 2>&1 || rc=$?
   if [ "$rc" -ne 0 ]; then
     fail "pr_ticket_aliases_frozen_at ${fz} resolves to no commit here, so whether PR #$1 merged inside the freeze is UNMEASURED"
   fi
   case "${2:-}" in ''|-) return 0 ;; esac
-  git merge-base --is-ancestor "$2" "${fz}^{commit}" || rc=$?
+  git merge-base --is-ancestor "$2" "${DOGFOOD_FREEZE_REF}^{commit}" || rc=$?
   if [ "$rc" -eq 1 ]; then return 0; fi
   if [ "$rc" -ne 0 ]; then
-    fail "git merge-base --is-ancestor $2 ${fz} exited ${rc} for PR #$1 — UNMEASURED"
+    fail "git merge-base --is-ancestor $2 ${fz} exited ${rc} for PR #$1 - UNMEASURED"
   fi
   if dogfood_is_row "$t"; then
     DOGFOOD_ALIAS_ROW="$t"

@@ -20,6 +20,10 @@ use std::process::{Command, Output};
 #[path = "stub.rs"]
 mod stub;
 pub(crate) use stub::*;
+#[path = "alias_map.rs"]
+mod alias_map;
+#[allow(unused_imports)]
+pub(crate) use alias_map::*;
 
 pub(crate) const FLOOR: &str = "v0.0.1";
 pub(crate) const NEXT: &str = "v0.0.2";

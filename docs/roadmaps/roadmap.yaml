@@ -6110,11 +6110,11 @@ roadmap:
   github_issue: 669
   item_type: task
   title: 'disk_budget: an unreachable target turns the reaper into a TTL sweep of every idle candidate'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-11-10T09:01:00.345747172+00:00
-  updated: 2026-11-12T01:13:00Z
+  updated: 2026-11-21T00:00:00Z
   spec: null
   acceptance_criteria:
   - Before deleting anything the reaper sums what every eligible candidate could free and compares it with the bytes the target needs.
@@ -6127,8 +6127,8 @@ roadmap:
   - kind:code
   - orch:fable
   - orch-basis:state
-  notes: 'PR #944 (branch lane-944); worker lane, unpushed'
-  release: backlog
+  notes: 'Landed in PR #944 (v1.34.1) alongside GH-667'
+  release: 1.34.1
 - id: GH-670
   github_issue: 670
   item_type: task
@@ -8797,5 +8797,5 @@ roadmap:
   labels:
   - kind:code
   - release:v1.34.2
-  notes: 'Ships the alias map for gate T (PR #1238). PRs the map cannot evidence (#1026 #1087 #1094 #1218 #1219) stay unmapped.'
+  notes: 'Ships the alias map for gate T (PR #1238). PRs the map cannot evidence (#1026 #1087 #1091 #1094 #1218 #1219) stay unmapped.'
   epic: 764

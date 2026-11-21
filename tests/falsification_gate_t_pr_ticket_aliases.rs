@@ -11,6 +11,7 @@
 #[path = "release_goal_fixture/mod.rs"]
 mod fx;
 use fx::*;
+use std::path::Path;
 
 /// An alias map frozen at `frozen` (a line, or "" for none) with `entries`.
 fn map(frozen: &str, entries: &str) -> &'static str {
@@ -133,7 +134,7 @@ fn an_unresolvable_freeze_point_fails_even_when_no_alias_is_read() {
     // The default branch names PMAT-901: no PR reaches the alias lookup.
     for frozen in [
         "pr_ticket_aliases_frozen_at: v9.9.9\n",
-        "pr_ticket_aliases_frozen_at: 0000000000000000000000000000000000000000\n",
+        "pr_ticket_aliases_frozen_at: deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n",
     ] {
         let fx = fixture(Case {
             aliases: map(frozen, &good_entry()),
@@ -141,8 +142,58 @@ fn an_unresolvable_freeze_point_fails_even_when_no_alias_is_read() {
         });
         let r = run(&fx, AN_HOUR);
         r.assert_red("a freeze point that names no commit is a ledger nobody can measure");
+        r.assert_says("resolves to no commit");
         r.assert_says("UNMEASURED");
     }
+}
+
+#[test]
+fn an_unresolvable_freeze_point_fails_even_when_alias_list_is_empty_or_absent() {
+    for aliases in [
+        "pr_ticket_aliases_frozen_at: deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\npr_ticket_aliases: []\n",
+        "pr_ticket_aliases_frozen_at: deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n",
+        "pr_ticket_aliases_frozen_at: v9.9.9\npr_ticket_aliases: []\n",
+    ] {
+        let fx = fixture(Case {
+            aliases,
+            ..Case::default()
+        });
+        let r = run(&fx, AN_HOUR);
+        r.assert_red("an unresolvable freeze point is unmeasured even without aliases");
+        r.assert_says("resolves to no commit");
+        r.assert_says("UNMEASURED");
+    }
+}
+
+#[test]
+fn a_real_40_hex_commit_sha_freeze_point_works_green_and_red() {
+    let fx = unticketed(map(FROZEN, &good_entry()));
+    let v001_sha = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.1^{commit}"]));
+    let v000_sha = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.0^{commit}"]));
+    let ledger = read(&fx, "docs/roadmaps/releases.yaml");
+    std::fs::write(
+        fx.root.join("docs/roadmaps/releases.yaml"),
+        ledger.replace(
+            "pr_ticket_aliases_frozen_at: v0.0.1",
+            &format!("pr_ticket_aliases_frozen_at: {v001_sha}"),
+        ),
+    )
+    .expect("rewrite");
+    git(&fx.root, &["commit", "-qam", "freeze at 40-hex v0.0.1 sha"]);
+    run(&fx, AN_HOUR).assert_green("PR #10 is an ancestor of the 40-hex freeze sha");
+
+    std::fs::write(
+        fx.root.join("docs/roadmaps/releases.yaml"),
+        ledger.replace(
+            "pr_ticket_aliases_frozen_at: v0.0.1",
+            &format!("pr_ticket_aliases_frozen_at: {v000_sha}"),
+        ),
+    )
+    .expect("rewrite");
+    git(&fx.root, &["commit", "-qam", "freeze at 40-hex v0.0.0 sha"]);
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("PR #10 merged after the 40-hex freeze sha");
+    r.assert_says("name no roadmap ticket");
 }
 
 // #1238 finding 6: the freeze point must be history of HEAD, not a tag or sha
@@ -156,10 +207,26 @@ fn a_freeze_point_that_is_not_history_of_head_fails() {
         &["commit", "-q", "--allow-empty", "-m", "a side commit"],
     );
     git(&fx.root, &["tag", "v0.7.7"]);
+    git(&fx.root, &["push", "-q", "origin", "v0.7.7"]);
     git(&fx.root, &["checkout", "-q", "main"]);
     let r = run(&fx, AN_HOUR);
     r.assert_red("v0.7.7 is not an ancestor of HEAD");
     r.assert_says("pr_ticket_aliases_frozen_at");
+}
+
+#[test]
+fn a_local_branch_or_unpushed_tag_named_like_a_release_cannot_freeze() {
+    let fx = unticketed(map("pr_ticket_aliases_frozen_at: v9.9.9\n", &good_entry()));
+    git(&fx.root, &["branch", "v9.9.9", "HEAD"]);
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("a local branch named v9.9.9 is not a tag");
+    r.assert_says("resolves to no commit");
+
+    git(&fx.root, &["branch", "-D", "v9.9.9"]);
+    git(&fx.root, &["tag", "-a", "-m", "local", "v9.9.9", "HEAD"]);
+    let r = run(&fx, AN_HOUR);
+    r.assert_red("a local tag v9.9.9 not on origin cannot freeze aliases");
+    r.assert_says("origin");
 }
 
 #[test]
@@ -182,7 +249,7 @@ fn a_malformed_alias_map_is_a_ledger_shape_error() {
         let t: &'static str = Box::leak(format!("{FROZEN}{text}").into_boxed_str());
         assert_shape_error(t, &format!("{text:?} is not a list of entries"));
     }
-    for pr in ["0", "-1", "10.5"] {
+    for pr in ["0", "-1", "10.0", "10.5"] {
         let e = entry(pr, "PMAT-901", "\"squash trailer Pmat-Ticket: PMAT-901\"");
         assert_shape_error(map(FROZEN, &e), &format!("pr: {pr} is not a PR number"));
     }
@@ -230,123 +297,138 @@ fn an_alias_may_name_a_gh_row() {
         .assert_green("PR #10 resolves to GH-881, the row the ledger declares for v0.0.1");
 }
 
+#[test]
+fn window_sh_without_releases_sh_does_not_abort_on_unticketed_pr() {
+    let fx = fixture(Case {
+        shipped_branch: "the-shipped-work",
+        ..Case::default()
+    });
+    let oid = stdout_of(&git(&fx.root, &["rev-parse", "v0.0.1^{commit}"]));
+    let cmd = format!(
+        "set -euo pipefail; fail() {{ echo \"FAIL $1\"; exit 1; }}; \
+         . scripts/dogfood/lib/window.sh; \
+         DOGFOOD_PR_JSON='[{{\"number\":10,\"mergedAt\":\"2026-01-02T00:00:00Z\",\"mergeCommit\":{{\"oid\":\"{oid}\"}},\"headRefName\":\"no-ticket\",\"title\":\"no ticket\",\"body\":\"\"}}]'; \
+         DOGFOOD_PR_COUNT=1; \
+         dogfood_window_tickets; \
+         echo \"UNTICKETED=$DOGFOOD_WINDOW_UNTICKETED\""
+    );
+    let out = std::process::Command::new("bash")
+        .args(["-c", &cmd])
+        .current_dir(&fx.root)
+        .output()
+        .expect("bash must run");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        out.status.success(),
+        "window.sh without releases.sh must not abort:\n{text}"
+    );
+    assert_eq!(text.trim(), "UNTICKETED=#10");
+}
+
 // ---------------------------------------------------------------------------
 // The committed map, checked against git (#1238 lane 2, finding 6).
 
-fn here(args: &[&str]) -> Option<String> {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .output()
-        .expect("git must run");
-    out.status
-        .success()
-        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-fn yaml(rel: &str) -> serde_yaml_ng::Value {
-    let text = std::fs::read_to_string(format!("{}/{rel}", env!("CARGO_MANIFEST_DIR"))).expect(rel);
-    serde_yaml_ng::from_str(&text).expect(rel)
-}
-
-/// Every entry cites evidence, targets a row, is a squash commit whose own
-/// `Pmat-Ticket:` trailers say what the entry says, and the freeze point is the
-/// newest of those commits, so it cannot be moved to cover a later PR without
-/// a later PR's entry. A CI checkout is shallow (--depth 1) and cannot carry
-/// the history; it is MEASURED as shallow rather than skipped.
-///
-/// Residual limit, stated rather than hidden: the freeze point is data in the
-/// same ledger. A change that adds an entry for a PR merged after the freeze
-/// AND moves the freeze to that PR's merge commit passes this test, because
-/// that is also what a legitimate late entry looks like. What stops it is that
-/// releases.yaml is a gate file (a change to it needs two non-author lanes).
+/// Every entry cites evidence, targets a row, has plurality among its squash
+/// commit's `Pmat-Ticket:` trailers, and the freeze point is the newest of
+/// those commits. Fails closed when history is missing (CI runs with fetch-depth: 0).
 #[test]
 fn the_committed_alias_map_is_evidenced_row_backed_and_frozen() {
-    let ledger = yaml("docs/roadmaps/releases.yaml");
-    let roadmap = yaml("docs/roadmaps/roadmap.yaml");
-    let rows = roadmap["roadmap"].as_sequence().expect("roadmap rows");
-    let frozen = ledger["pr_ticket_aliases_frozen_at"]
-        .as_str()
-        .expect("the alias map declares pr_ticket_aliases_frozen_at");
-    assert!(
-        frozen.len() == 40 && frozen.bytes().all(|b| b.is_ascii_hexdigit()),
-        "the freeze point is a full commit sha, got {frozen:?}"
+    check_alias_map(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap_or_else(|e| panic!("{e}"));
+}
+
+#[test]
+fn the_alias_map_checker_rejects_missing_freeze_post_freeze_ambiguous_and_minority() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let r = dir.path().join("repo");
+    let nohooks = dir.path().join("nohooks");
+    std::fs::create_dir_all(&r).expect("mkdir repo");
+    std::fs::create_dir_all(&nohooks).expect("mkdir nohooks");
+    git(&r, &["init", "-q", "-b", "main"]);
+    git(
+        &r,
+        &["config", "core.hooksPath", &nohooks.to_string_lossy()],
     );
-    let aliases = ledger["pr_ticket_aliases"].as_sequence().expect("aliases");
-    assert!(!aliases.is_empty(), "the alias map is empty");
-    let mut seen = std::collections::BTreeSet::new();
-    for a in aliases {
-        let pr = a["pr"].as_u64().expect("pr is a number");
-        let ticket = a["ticket"].as_str().expect("ticket is a string");
-        assert!(seen.insert(pr), "PR #{pr} is mapped twice");
-        assert!(
-            !a["evidence"].as_str().unwrap_or("").trim().is_empty(),
-            "PR #{pr}: no evidence"
-        );
-        assert!(
-            rows.iter().any(|r| r["id"].as_str() == Some(ticket)),
-            "PR #{pr}: {ticket} is no roadmap row"
-        );
-    }
-    if here(&["rev-parse", "--verify", &format!("{frozen}^{{commit}}")]).is_none() {
-        // Exactly one explanation: this checkout does not carry the history.
-        assert_eq!(
-            here(&["rev-parse", "--is-shallow-repository"]).as_deref(),
-            Some("true"),
-            "the freeze point {frozen} names no commit in a full clone"
-        );
-        assert!(here(&["cat-file", "-e", frozen]).is_none());
-        return;
-    }
-    assert!(
-        here(&["merge-base", "--is-ancestor", frozen, "HEAD"]).is_some(),
-        "the freeze point {frozen} is not history of HEAD"
+    git(&r, &["config", "commit.gpgsign", "false"]);
+    write(
+        &r,
+        "docs/roadmaps/roadmap.yaml",
+        &roadmap(&[("PMAT-901", &[]), ("PMAT-902", &[])]),
     );
-    // PR number -> squash commit, from the subject's `(#N)` suffix.
-    let log = here(&["log", "--format=%H%x09%s", frozen]).expect("git log");
-    let commit_of = |pr: u64| {
-        log.lines()
-            .find(|l| l.ends_with(&format!("(#{pr})")))
-            .and_then(|l| l.split('\t').next())
-            .unwrap_or_else(|| panic!("PR #{pr} has no squash commit under the freeze point"))
-            .to_string()
-    };
-    let mut newest = false;
-    for a in aliases {
-        let pr = a["pr"].as_u64().expect("pr");
-        let ticket = a["ticket"].as_str().expect("ticket");
-        let evidence = a["evidence"].as_str().expect("evidence");
-        let oid = commit_of(pr);
-        newest |= oid == frozen;
-        let msg = here(&["show", "-s", "--format=%B", &oid]).expect("git show");
-        let trailers: Vec<&str> = msg
-            .lines()
-            .filter_map(|l| l.strip_prefix("Pmat-Ticket: "))
-            .collect();
-        let issue = rows
-            .iter()
-            .find(|r| r["id"].as_str() == Some(ticket))
-            .and_then(|r| r["github_issue"].as_u64());
-        // The trailer names the row, or the PMAT id of the row's issue.
-        let names = [Some(ticket.to_string()), issue.map(|n| format!("PMAT-{n}"))];
-        let hit = names.iter().flatten().find_map(|n| {
-            let k = trailers.iter().filter(|t| **t == n.as_str()).count();
-            (k > 0).then(|| format!("Pmat-Ticket: {n} ({k} of {})", trailers.len()))
-        });
-        let want = hit.unwrap_or_else(|| {
-            panic!("PR #{pr}: no Pmat-Ticket trailer of {oid} names {ticket}: {trailers:?}")
-        });
-        assert!(
-            evidence.contains(&want),
-            "PR #{pr}: the evidence {evidence:?} does not state the measured {want:?}"
-        );
-        assert!(
-            here(&["merge-base", "--is-ancestor", &oid, frozen]).is_some(),
-            "PR #{pr} merged after the freeze point"
-        );
-    }
-    assert!(
-        newest,
-        "the freeze point is not the merge commit of an aliased PR: it was moved"
+    git(&r, &["add", "-A"]);
+    git(
+        &r,
+        &[
+            "commit",
+            "-qm",
+            "work (#10)\n\nPmat-Ticket: PMAT-901\nPmat-Ticket: PMAT-902\nPmat-Ticket: PMAT-902\n",
+        ],
     );
+    let c1 = stdout_of(&git(&r, &["rev-parse", "HEAD"]));
+    git(
+        &r,
+        &[
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "later (#11)\n\nPmat-Ticket: PMAT-902\n",
+        ],
+    );
+    let c2 = stdout_of(&git(&r, &["rev-parse", "HEAD"]));
+
+    write(
+        &r,
+        "docs/roadmaps/releases.yaml",
+        "pr_ticket_aliases_frozen_at: deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\npr_ticket_aliases:\n  - pr: 10\n    ticket: PMAT-902\n    evidence: \"Pmat-Ticket: PMAT-902 (2 of 3)\"\n",
+    );
+    assert!(check_alias_map(&r)
+        .unwrap_err()
+        .contains("resolves to no commit"));
+
+    write(
+        &r,
+        "docs/roadmaps/releases.yaml",
+        &format!(
+            "pr_ticket_aliases_frozen_at: {c1}\npr_ticket_aliases:\n  - pr: 10\n    ticket: PMAT-901\n    evidence: \"Pmat-Ticket: PMAT-901 (1 of 3)\"\n"
+        ),
+    );
+    assert!(check_alias_map(&r)
+        .unwrap_err()
+        .contains("less than plurality"));
+
+    write(
+        &r,
+        "docs/roadmaps/releases.yaml",
+        &format!(
+            "pr_ticket_aliases_frozen_at: {c1}\npr_ticket_aliases:\n  - pr: 10\n    ticket: PMAT-902\n    evidence: \"Pmat-Ticket: PMAT-902 (2 of 3)\"\n  - pr: 11\n    ticket: PMAT-902\n    evidence: \"Pmat-Ticket: PMAT-902 (1 of 1)\"\n"
+        ),
+    );
+    assert!(check_alias_map(&r)
+        .unwrap_err()
+        .contains("merged after the freeze point"));
+
+    git(
+        &r,
+        &[
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "dup (#10)\n\nPmat-Ticket: PMAT-902\n",
+        ],
+    );
+    write(
+        &r,
+        "docs/roadmaps/releases.yaml",
+        &format!(
+            "pr_ticket_aliases_frozen_at: {c2}\npr_ticket_aliases:\n  - pr: 10\n    ticket: PMAT-902\n    evidence: \"Pmat-Ticket: PMAT-902 (2 of 3)\"\n"
+        ),
+    );
+    assert!(check_alias_map(&r)
+        .unwrap_err()
+        .contains("must match one first-parent commit"));
 }
