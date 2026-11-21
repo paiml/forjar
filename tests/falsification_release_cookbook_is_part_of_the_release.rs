@@ -990,6 +990,24 @@ fn the_selection_never_reads_a_newline_terminated_num() {
         let (code, out) = run_cratesio_below("1.34.1", &bad);
         assert_ne!(code, 0, "selection accepted malformed input {bad:?}: {out}");
     }
+    // The TARGET version is held to the same strict semver: leading zeros, a
+    // 10-digit component, a pre-release, a trailing newline or junk are refused.
+    let ok = idx(&[("1.9.0", false)]);
+    for bad_target in [
+        "01.0.0",
+        "1.01.0",
+        "1.0.01",
+        "1234567890.0.0",
+        "1.1234567890.0",
+        "1.0.1234567890",
+        "1.34.1-rc1",
+        "1.34.1\n",
+        "1.34",
+        "",
+    ] {
+        let (code, out) = run_cratesio_below(bad_target, &ok);
+        assert_ne!(code, 0, "target {bad_target:?} accepted: {out}");
+    }
     let (code, out) = run_cratesio_below("01.0.0", &idx(&[("0.0.0", false)]));
     assert_ne!(code, 0, "invalid target version must fail: {out}");
 }
@@ -1162,6 +1180,8 @@ rc=0; crates_io_declaration_is_known "$ROW" T || rc=$?; exit "$rc""#;
         "",
         r#"{"tag":"v1.0.0","crates_io":"bogus"}"#,
         "{\"tag\":\"v1.0.0\",\"crates_io\":\"bogus\"}\n{\"tag\":\"v1.0.0\"}",
+        "{\"tag\":\"v1.0.0\"}\n{\"tag\":\"v1.0.0\",\"crates_io\":\"unpublished\"}",
+        "{\"tag\":\"v1.0.0\"}\n{\"tag\":\"v1.0.0\"}",
         "{\"tag\":\"v1.0.0\",\"crates_io\":\"bogus\"}\n{\"tag\":\"v1.0.0\",\"crates_io\":\"unpublished\"}",
     ] {
         assert_eq!(run(bad), Some(5), "must be UNMEASURED/red, row: {bad:?}");
