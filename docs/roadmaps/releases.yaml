@@ -44,13 +44,13 @@ cookbook_floor: v1.29.0
 # (forjar#1235, FORJAR-T-HISTORY). Read only for a PR naming no id at all; a stray id stays red.
 # Each entry states its evidence as the squash commit's own Pmat-Ticket trailer counts, and
 # tests/falsification_gate_t_pr_ticket_aliases.rs re-measures every count against git.
-# Frozen at the merge commit of the newest aliased PR (#1225): a PR merged after it names its
+# Frozen at the merge commit of the newest aliased PR (#1247): a PR merged after it names its
 # ticket or stays red, and the freeze cannot move without that commit being an aliased PR.
 # NOT mapped, no evidence that names an existing row: #1026 (its trailer names the v1.34.1 cut
 # ticket, but the work is CI runner opt-in), #1087, #1091 (5 of 6 trailers name PMAT-1090, no
 # row), #1094, #1218, #1219. They stay red until the ONE ledger ticket for gate-T
 # pre-enforcement history lists them.
-pr_ticket_aliases_frozen_at: cb428c8a5a76dcc97ae29e68e0dade6a1fbd2085
+pr_ticket_aliases_frozen_at: 67b02b19c0c4d290f0829b0a86d1738f69a92325
 pr_ticket_aliases:
   - pr: 935
     ticket: PMAT-913
@@ -154,6 +154,9 @@ pr_ticket_aliases:
   - pr: 1227
     ticket: PMAT-1143
     evidence: "squash trailer Pmat-Ticket: PMAT-1143 (3 of 3)"
+  - pr: 1247
+    ticket: PMAT-1245
+    evidence: "squash trailer Pmat-Ticket: PMAT-1245 (1 of 1)"
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
