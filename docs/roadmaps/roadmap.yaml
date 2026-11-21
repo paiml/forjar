@@ -8866,3 +8866,22 @@ roadmap:
   - release:v1.34.2
   notes: 'Ships the alias map for gate T (PR #1238). PRs the map cannot evidence (#1026 #1087 #1091 #1094 #1218 #1219) stay unmapped.'
   epic: 764
+- id: PMAT-1242
+  github_issue: 1242
+  item_type: task
+  title: 's3_bucket resource type: declared private S3 bucket (infra D5 preview bucket)'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-11-21T18:11:48Z
+  updated: 2026-11-21T18:11:48Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar gap: no S3 bucket resource. Declares bucket, region, private, sse, tls_only, versioning, noncurrent_expire_days; check/state ask AWS.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - kind:code
+  notes: null
+  epic: 697

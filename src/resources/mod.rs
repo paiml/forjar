@@ -24,6 +24,7 @@ pub mod overlay_interface;
 pub mod package;
 pub mod package_check;
 pub mod pepita;
+pub mod s3_bucket;
 pub mod service;
 pub mod service_exec;
 pub mod sync_tools;

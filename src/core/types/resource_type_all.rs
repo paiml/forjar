@@ -16,7 +16,7 @@ impl ResourceType {
     /// the twelve, so the suite agreed with the reader about a schema neither
     /// of them had. A hand-written list goes stale silently, so this one is
     /// checked against the enum's own `Deserialize` derive by the test below.
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::Package,
         Self::File,
         Self::Service,
@@ -40,6 +40,7 @@ impl ResourceType {
         Self::NasArchive,
         Self::TmpReaper,
         Self::CloudInstance,
+        Self::S3Bucket,
     ];
 }
 

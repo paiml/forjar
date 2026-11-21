@@ -92,6 +92,13 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_data_volume_throughput",
         "cloud_volume_tags",
         "cloud_user_data_file",
+        "s3_bucket",
+        "s3_region",
+        "s3_private",
+        "s3_sse",
+        "s3_tls_only",
+        "s3_versioning",
+        "s3_noncurrent_expire_days",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS
