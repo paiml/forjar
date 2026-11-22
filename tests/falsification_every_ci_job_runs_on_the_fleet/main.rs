@@ -173,12 +173,12 @@ const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
 /// cannot name an architecture or a second pool. Exempt by this exact (file, job) AND that label.
 const SEAT_PROBE_JOBS: [(&str, &str); 1] = [("pool-canary.yml", "canary")];
 
-/// True only for the listed (file, job) AND exactly the label set `[self-hosted, pool-canary]`: the
+/// True only for the listed (file, job) AND exactly the single label `[pool-canary]` (CANARY=1 seats carry no `self-hosted`): the
 /// canary names no architecture and no second pool, and no other job may carry its label.
 fn is_seat_probe(file: &str, job: &str, labels: &[String]) -> bool {
     let mut l: Vec<String> = labels.iter().map(|x| x.to_ascii_lowercase()).collect();
     l.sort();
-    listed_at(&SEAT_PROBE_JOBS, file, job).is_some() && l == ["pool-canary", "self-hosted"]
+    listed_at(&SEAT_PROBE_JOBS, file, job).is_some() && l == ["pool-canary"]
 }
 
 /// Check one self-hosted job against `GATE_LIGHT_JOBS`. Marks a listed job as
@@ -455,11 +455,11 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
         };
         for (name, job) in jobs {
             let labels = runner_labels(job);
-            if !labels.iter().any(|l| l == "self-hosted") {
-                continue;
-            }
             if is_seat_probe(&file, name.as_str().unwrap_or("?"), &labels) {
                 probe_seen = true;
+                continue;
+            }
+            if !labels.iter().any(|l| l == "self-hosted") {
                 continue;
             }
             if labels.iter().any(|l| l.eq_ignore_ascii_case("pool-canary")) {
@@ -478,7 +478,7 @@ fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
     }
     assert!(
         probe_seen,
-        "SEAT_PROBE_JOBS names a job that is not a self-hosted pool-canary job"
+        "SEAT_PROBE_JOBS names a job that is not a [pool-canary]-only job"
     );
     assert!(
         bare.is_empty(),

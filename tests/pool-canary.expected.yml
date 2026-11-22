@@ -19,7 +19,7 @@ permissions:
   contents: read
 jobs:
   canary:
-    runs-on: [self-hosted, pool-canary]
+    runs-on: [pool-canary]
     timeout-minutes: 10
     env:
       CARGO_HOME: ${{ github.workspace }}/../cargo-home-${{ github.job }}

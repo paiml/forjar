@@ -81,10 +81,7 @@ fn canary_mutants_fail() {
         ),
         (
             "runs-on",
-            c.replace(
-                "[self-hosted, pool-canary]",
-                "[self-hosted, clean-room, X64]",
-            ),
+            c.replace("[pool-canary]", "[self-hosted, clean-room, X64]"),
         ),
         ("write", c.replace("contents: read", "contents: write")),
         (
