@@ -135,7 +135,10 @@ fn unknown_runner_host_is_reported_and_orphans_are_still_terminated() {
     let l = complete(vec![r("ghost", "gone", false), r("b", "I-0ABC", true)]);
     let s = sweep(&l, &[h("o1", 99_999), h("i-0abc", 99_999), h("o2", 99_999)]).unwrap();
     assert_eq!(s.terminate_hosts, ["o1", "o2"]);
-    assert_eq!(s.unknown_runners.len(), 2);
+    assert_eq!(
+        s.unknown_runners,
+        [("ghost".to_string(), "gone".to_string())]
+    );
 }
 
 #[test]
@@ -310,4 +313,17 @@ fn cleanup_refuses_a_partial_listing_and_invalid_input() {
     );
     let l = complete(vec![r("g", "", false)]);
     assert!(cleanup_orphan_runners(&l, &[]).is_err());
+}
+
+#[test]
+fn sweep_matches_host_ids_case_insensitively_like_cleanup() {
+    let l = complete(vec![r("r", "I-0ABC", false)]);
+    let hosts = [h("i-0abc", 99_999)];
+    let s = sweep(&l, &hosts).unwrap();
+    assert!(s.unknown_runners.is_empty());
+    assert!(s.terminate_hosts.is_empty());
+    assert!(cleanup_orphan_runners(&l, &hosts)
+        .unwrap()
+        .deregister_runners
+        .is_empty());
 }

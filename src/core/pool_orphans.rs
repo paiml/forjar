@@ -93,6 +93,12 @@ fn well_formed(id: &str) -> bool {
     id.chars().all(|c| c.is_ascii_graphic())
 }
 
+/// The one host-id comparison shared by [`sweep`] and [`cleanup_orphan_runners`]:
+/// ASCII-case-insensitive.
+fn same_host_id(a: &str, b: &str) -> bool {
+    a.eq_ignore_ascii_case(b)
+}
+
 fn check_well_formed(runners: &[Runner], hosts: &[Host]) -> Result<(), SweepError> {
     if let Some(h) = hosts.iter().find(|h| !well_formed(&h.id)) {
         return Err(SweepError::MalformedId(h.id.clone()));
@@ -148,7 +154,7 @@ pub fn sweep(listing: &RunnerListing, hosts: &[Host]) -> Result<Sweep, SweepErro
     validate(runners, hosts)?;
     let unknown_runners: Vec<(String, String)> = runners
         .iter()
-        .filter(|r| !hosts.iter().any(|h| h.id == r.host_id))
+        .filter(|r| !hosts.iter().any(|h| same_host_id(&h.id, &r.host_id)))
         .map(|r| (r.name.clone(), r.host_id.clone()))
         .collect();
     let terminate_hosts = hosts
@@ -156,10 +162,8 @@ pub fn sweep(listing: &RunnerListing, hosts: &[Host]) -> Result<Sweep, SweepErro
         .filter(|h| {
             h.idle_secs >= SCALE_DOWN_QUIET_SECS
                 && h.age_secs >= REGISTRATION_GRACE_SECS
-                && !runners.iter().any(|r| r.host_id == h.id)
-                && !unknown_runners
-                    .iter()
-                    .any(|(_, u)| u.eq_ignore_ascii_case(&h.id))
+                && !runners.iter().any(|r| same_host_id(&r.host_id, &h.id))
+                && !unknown_runners.iter().any(|(_, u)| same_host_id(u, &h.id))
         })
         .map(|h| h.id.clone())
         .collect();
@@ -184,7 +188,7 @@ pub fn cleanup_orphan_runners(
     validate(runners, hosts)?;
     let orphans: Vec<&Runner> = runners
         .iter()
-        .filter(|r| !hosts.iter().any(|h| h.id.eq_ignore_ascii_case(&r.host_id)))
+        .filter(|r| !hosts.iter().any(|h| same_host_id(&h.id, &r.host_id)))
         .collect();
     if let Some(r) = orphans.iter().find(|r| r.busy) {
         return Err(SweepError::BusyRunnerOnUnlistedHost {
