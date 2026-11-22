@@ -102,32 +102,34 @@ pub(crate) fn ensure_xorriso() -> Result<(), ForjarError> {
     }
 }
 
-/// Extract the base ISO and stage the autoinstall payload
-/// (user-data, meta-data, forjar binary, forjar.yaml) into the work dir.
-fn stage_iso_workdir(
+/// Directory inside `work_dir` populated by `extract_iso` and packed by `repack_iso`.
+pub(crate) fn packed_iso_dir(work_dir: &Path) -> std::path::PathBuf {
+    work_dir.join("iso")
+}
+
+/// Extract the base ISO and stage the autoinstall payload into `work/iso/`.
+pub(crate) fn stage_iso_workdir(
     work: &Path,
     base_iso: &Path,
     user_data: &str,
     file: &Path,
 ) -> Result<(), String> {
-    // Extract base ISO
     extract_iso(base_iso, work).map_err(ForjarError::into_message)?;
+    stage_iso_payload(work, user_data, file)
+}
 
-    // Write user-data and meta-data
-    let nocloud = work.join("nocloud");
+/// Stage `nocloud/` and `forjar/` inside the packed ISO directory (`work/iso/`).
+pub(crate) fn stage_iso_payload(work: &Path, user_data: &str, file: &Path) -> Result<(), String> {
+    let iso_dir = packed_iso_dir(work);
+    let nocloud = iso_dir.join("nocloud");
     std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
     std::fs::write(nocloud.join("user-data"), user_data)
         .map_err(|e| format!("write user-data: {e}"))?;
     std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
-
-    // Copy forjar binary into ISO
     embed_forjar_binary(work).map_err(ForjarError::into_message)?;
-
-    // Copy forjar.yaml into ISO
-    let iso_config_dir = work.join("forjar");
-    std::fs::create_dir_all(&iso_config_dir).map_err(|e| format!("create forjar dir: {e}"))?;
-    std::fs::copy(file, iso_config_dir.join("forjar.yaml"))
-        .map_err(|e| format!("copy config: {e}"))?;
+    let iso_cfg = iso_dir.join("forjar");
+    std::fs::create_dir_all(&iso_cfg).map_err(|e| format!("create forjar dir: {e}"))?;
+    std::fs::copy(file, iso_cfg.join("forjar.yaml")).map_err(|e| format!("copy config: {e}"))?;
     Ok(())
 }
 
@@ -206,18 +208,17 @@ pub fn generate_user_data(
     yaml.push_str("  keyboard:\n    layout: us\n");
     yaml.push_str(&format!("  timezone: {timezone}\n"));
 
-    // Identity
+    // Identity (password locked; SSH key auth only)
     yaml.push_str("  identity:\n");
     yaml.push_str(&format!("    hostname: {hostname}\n"));
     yaml.push_str(&format!("    username: {username}\n"));
+    yaml.push_str("    password: \"!\"\n");
 
     // SSH
-    yaml.push_str("  ssh:\n    install-server: true\n");
-    if !ssh_keys.is_empty() {
-        yaml.push_str("    authorized-keys:\n");
-        for key in &ssh_keys {
-            yaml.push_str(&format!("      - {key}\n"));
-        }
+    yaml.push_str("  ssh:\n    install-server: true\n    allow-pw: false\n");
+    yaml.push_str("    authorized-keys:\n");
+    for key in &ssh_keys {
+        yaml.push_str(&format!("      - {key}\n"));
     }
 
     // Storage
@@ -267,37 +268,65 @@ pub(crate) fn storage_layout_yaml(disk: &str) -> Result<String, ForjarError> {
     match disk {
         "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
         "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
-        path if path.starts_with('/') => Ok(format!(
-            "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
-        )),
-        other => Err(ForjarError::from_untyped(format!(
-            "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
+        _ if disk.starts_with("serial:") => {
+            let serial = disk.strip_prefix("serial:").unwrap_or("");
+            if serial.trim().is_empty() || serial.contains(['\n', '\r']) {
+                return Err(ForjarError::from_untyped(
+                    "invalid disk serial pattern: serial:<glob> requires a non-empty single-line glob",
+                ));
+            }
+            let quoted = format!("'{}'", serial.replace('\'', "''"));
+            Ok(format!("    layout:\n      name: lvm\n      match:\n        serial: {quoted}"))
+        }
+        _ if disk.starts_with("/dev/disk/by-") => Err(ForjarError::from_untyped(format!(
+            "disk path '{disk}' under /dev/disk/by-* is not supported; use serial:<glob> or /dev/<kernel-name>"
         ))),
+        _ => {
+            if let Some(kname) = disk.strip_prefix("/dev/") {
+                if !kname.is_empty() && !kname.contains('/') && !kname.chars().any(char::is_whitespace) {
+                    return Ok(format!(
+                        "    layout:\n      name: lvm\n      match:\n        path: {disk}"
+                    ));
+                }
+            }
+            Err(ForjarError::from_untyped(format!(
+                "unknown disk layout: {disk} (use auto-lvm, auto-zfs, serial:<glob>, or /dev/<kernel-name>)"
+            )))
+        }
     }
 }
 
 /// Read SSH public key file (tries .pub extension).
+/// Errors when no key path is configured, the file cannot be read, or no keys exist.
 pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, ForjarError> {
-    let Some(key_path) = ssh_key else {
-        return Ok(Vec::new());
-    };
-
-    // Try the .pub version first
+    let key_path = ssh_key
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .ok_or_else(|| {
+            ForjarError::from_untyped(
+                "machine has no ssh_key configured; an SSH public key is required for autoinstall",
+            )
+        })?;
     let pub_path = if key_path.ends_with(".pub") {
         key_path.to_string()
     } else {
         format!("{key_path}.pub")
     };
-
     let expanded = expand_tilde(&pub_path);
-    match std::fs::read_to_string(&expanded) {
-        Ok(content) => Ok(content
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(|l| l.to_string())
-            .collect()),
-        Err(_) => Ok(Vec::new()),
+    let content = std::fs::read_to_string(&expanded)
+        .map_err(|e| ForjarError::from_untyped(format!("read SSH public key '{expanded}': {e}")))?;
+    let keys: Vec<String> = content
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(str::to_string)
+        .collect();
+    if keys.is_empty() {
+        return Err(ForjarError::from_untyped(format!(
+            "no SSH public keys found in '{expanded}'"
+        )));
     }
+    Ok(keys)
 }
 
 /// Expand ~ to $HOME in a path string.
@@ -373,7 +402,7 @@ WantedBy=multi-user.target"#;
 
 /// Extract a base ISO using xorriso.
 pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), ForjarError> {
-    let extract_dir = work_dir.join("iso");
+    let extract_dir = packed_iso_dir(work_dir);
     std::fs::create_dir_all(&extract_dir)
         .map_err(|e| ForjarError::from_untyped(format!("create iso dir: {e}")))?;
 
@@ -400,7 +429,7 @@ pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), Forjar
 
 /// Copy the current forjar binary into the ISO working directory.
 pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
-    let bin_dir = work_dir.join("iso").join("forjar").join("bin");
+    let bin_dir = packed_iso_dir(work_dir).join("forjar").join("bin");
     std::fs::create_dir_all(&bin_dir)
         .map_err(|e| ForjarError::from_untyped(format!("create bin dir: {e}")))?;
     if let Ok(exe) = std::env::current_exe() {
@@ -412,7 +441,7 @@ pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
 
 /// Repack an extracted ISO directory into a bootable ISO using xorriso.
 fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
-    let iso_dir = work_dir.join("iso");
+    let iso_dir = packed_iso_dir(work_dir);
 
     let status = std::process::Command::new("xorriso")
         .args([

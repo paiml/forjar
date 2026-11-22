@@ -155,7 +155,14 @@ mod tests {
     #[test]
     fn infra_image_user_data_ok() {
         let dir = tempfile::tempdir().unwrap();
-        let file = write_cfg(dir.path());
+        let key_path = dir.path().join("id_ed25519.pub");
+        std::fs::write(&key_path, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 test\n").unwrap();
+        let yaml = format!(
+            "version: \"1.0\"\nname: infra\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\n    ssh_key: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /etc/forjar-cov.conf\n    content: x\n",
+            key_path.display()
+        );
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(&file, yaml).unwrap();
         let args = image_args(file, dir.path());
         let r = dispatch_data_cmd(Commands::Image(args));
         assert!(r.is_ok(), "user-data image: {r:?}");

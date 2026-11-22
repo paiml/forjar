@@ -276,6 +276,17 @@ fn image_help_does_not_reference_a_nonexistent_iso_flag() {
 #[test]
 fn image_user_data_file_is_valid_yaml() {
     let d = sandbox(CONFIG);
+    let key_path = d.path().join("id_ed25519.pub");
+    std::fs::write(&key_path, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 test\n").unwrap();
+    let cfg = std::fs::read_to_string(d.path().join("forjar.yaml")).unwrap();
+    std::fs::write(
+        d.path().join("forjar.yaml"),
+        cfg.replace(
+            "    arch: x86_64",
+            &format!("    arch: x86_64\n    ssh_key: {}", key_path.display()),
+        ),
+    )
+    .unwrap();
     let out = run(
         d.path(),
         &["image", "-m", "local", "--user-data", "-o", "ud.yaml"],
