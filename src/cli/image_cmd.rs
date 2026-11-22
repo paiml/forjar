@@ -4,6 +4,8 @@
 //! and optionally repacks a base ISO with xorriso to produce a bootable image.
 
 use super::helpers::*;
+pub(crate) use super::image_seed::storage_layout_yaml;
+pub use super::image_seed::{expand_tilde, read_ssh_pub_key};
 use crate::core::error::ForjarError;
 use std::path::Path;
 
@@ -75,7 +77,7 @@ pub fn cmd_image_iso(
     stage_iso_workdir(&work, base_iso, &user_data, file)?;
 
     // Repack ISO with xorriso
-    repack_iso(&work, output)?;
+    repack_iso(&work, base_iso, output)?;
 
     // Clean up temp directory
     let _ = std::fs::remove_dir_all(&work);
@@ -102,33 +104,86 @@ pub(crate) fn ensure_xorriso() -> Result<(), ForjarError> {
     }
 }
 
-/// Extract the base ISO and stage the autoinstall payload
-/// (user-data, meta-data, forjar binary, forjar.yaml) into the work dir.
-fn stage_iso_workdir(
+/// Directory inside `work_dir` populated by `extract_iso` and packed by `repack_iso`.
+pub(crate) fn packed_iso_dir(work_dir: &Path) -> std::path::PathBuf {
+    work_dir.join("iso")
+}
+
+/// Extract the base ISO and stage the autoinstall payload into `work/iso/`.
+pub(crate) fn stage_iso_workdir(
     work: &Path,
     base_iso: &Path,
     user_data: &str,
     file: &Path,
 ) -> Result<(), String> {
-    // Extract base ISO
     extract_iso(base_iso, work).map_err(ForjarError::into_message)?;
+    stage_iso_payload(work, user_data, file).map_err(ForjarError::into_message)
+}
 
-    // Write user-data and meta-data
-    let nocloud = work.join("nocloud");
-    std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
+/// Stage `nocloud/`, `forjar/`, and patched `boot/grub/grub.cfg` inside `work/iso/`.
+pub(crate) fn stage_iso_payload(
+    work: &Path,
+    user_data: &str,
+    file: &Path,
+) -> Result<(), ForjarError> {
+    let iso_dir = packed_iso_dir(work);
+    let nocloud = iso_dir.join("nocloud");
+    std::fs::create_dir_all(&nocloud)
+        .map_err(|e| ForjarError::from_untyped(format!("create nocloud dir: {e}")))?;
     std::fs::write(nocloud.join("user-data"), user_data)
-        .map_err(|e| format!("write user-data: {e}"))?;
-    std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
-
-    // Copy forjar binary into ISO
-    embed_forjar_binary(work).map_err(ForjarError::into_message)?;
-
-    // Copy forjar.yaml into ISO
-    let iso_config_dir = work.join("forjar");
-    std::fs::create_dir_all(&iso_config_dir).map_err(|e| format!("create forjar dir: {e}"))?;
-    std::fs::copy(file, iso_config_dir.join("forjar.yaml"))
-        .map_err(|e| format!("copy config: {e}"))?;
+        .map_err(|e| ForjarError::from_untyped(format!("write user-data: {e}")))?;
+    std::fs::write(nocloud.join("meta-data"), "")
+        .map_err(|e| ForjarError::from_untyped(format!("write meta-data: {e}")))?;
+    embed_forjar_binary(work)?;
+    let iso_cfg = iso_dir.join("forjar");
+    std::fs::create_dir_all(&iso_cfg)
+        .map_err(|e| ForjarError::from_untyped(format!("create forjar dir: {e}")))?;
+    std::fs::copy(file, iso_cfg.join("forjar.yaml"))
+        .map_err(|e| ForjarError::from_untyped(format!("copy config: {e}")))?;
+    patch_staged_grub_cfg(&iso_dir)?;
     Ok(())
+}
+
+fn patch_grub_line(line: &str) -> String {
+    let t = line.trim_start();
+    let is_linux = t.starts_with("linux ") || t.starts_with("linux\t");
+    if is_linux && !t.contains("autoinstall") && !t.contains("ds=nocloud") {
+        format!(
+            "{} autoinstall ds=nocloud\\;s=/cdrom/nocloud/",
+            line.trim_end()
+        )
+    } else {
+        line.to_string()
+    }
+}
+
+/// Append autoinstall nocloud parameters to every `linux` line in `grub.cfg` (idempotent).
+pub(crate) fn patch_grub_cfg(cfg: &str) -> String {
+    let mut out: Vec<String> = cfg.lines().map(patch_grub_line).collect();
+    if cfg.ends_with('\n') {
+        out.push(String::new());
+    }
+    out.join("\n")
+}
+
+fn patch_staged_grub_cfg(iso_dir: &Path) -> Result<(), ForjarError> {
+    let path = iso_dir.join("boot/grub/grub.cfg");
+    if !path.is_file() {
+        return Ok(());
+    }
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| ForjarError::from_untyped(format!("read grub.cfg: {e}")))?;
+    let mut perms = std::fs::metadata(&path)
+        .map_err(|e| ForjarError::from_untyped(format!("stat grub.cfg: {e}")))?
+        .permissions();
+    if perms.readonly() {
+        #[allow(clippy::permissions_set_readonly_false)]
+        perms.set_readonly(false);
+        std::fs::set_permissions(&path, perms)
+            .map_err(|e| ForjarError::from_untyped(format!("chmod grub.cfg: {e}")))?;
+    }
+    std::fs::write(&path, patch_grub_cfg(&raw))
+        .map_err(|e| ForjarError::from_untyped(format!("write grub.cfg: {e}")))
 }
 
 /// Print the ISO generation summary (JSON or human-readable).
@@ -206,18 +261,17 @@ pub fn generate_user_data(
     yaml.push_str("  keyboard:\n    layout: us\n");
     yaml.push_str(&format!("  timezone: {timezone}\n"));
 
-    // Identity
+    // Identity (password locked; SSH key auth only)
     yaml.push_str("  identity:\n");
     yaml.push_str(&format!("    hostname: {hostname}\n"));
     yaml.push_str(&format!("    username: {username}\n"));
+    yaml.push_str("    password: \"!\"\n");
 
     // SSH
-    yaml.push_str("  ssh:\n    install-server: true\n");
-    if !ssh_keys.is_empty() {
-        yaml.push_str("    authorized-keys:\n");
-        for key in &ssh_keys {
-            yaml.push_str(&format!("      - {key}\n"));
-        }
+    yaml.push_str("  ssh:\n    install-server: true\n    allow-pw: false\n");
+    yaml.push_str("    authorized-keys:\n");
+    for key in &ssh_keys {
+        yaml.push_str(&format!("      - {key}\n"));
     }
 
     // Storage
@@ -251,63 +305,12 @@ pub fn generate_user_data(
     // Firstboot systemd service
     yaml.push_str(&firstboot_service_command());
 
-    // Network config from machine addr (static IP if specified)
-    if machine.addr != "127.0.0.1" && machine.addr != "container" && machine.addr != "pepita" {
-        yaml.push_str(&format!(
-            "  # Static IP: {}\n  # Configure via netplan in late-commands if needed\n",
-            machine.addr
-        ));
-    }
+    // Network: DHCP on any wired interface matching en*
+    yaml.push_str(
+        "  network:\n    version: 2\n    ethernets:\n      en:\n        match:\n          name: \"en*\"\n        dhcp4: true\n",
+    );
 
     Ok(yaml)
-}
-
-/// Map the disk argument to an autoinstall storage layout YAML snippet.
-pub(crate) fn storage_layout_yaml(disk: &str) -> Result<String, ForjarError> {
-    match disk {
-        "auto-lvm" => Ok("    layout:\n      name: lvm".to_string()),
-        "auto-zfs" => Ok("    layout:\n      name: zfs".to_string()),
-        path if path.starts_with('/') => Ok(format!(
-            "    layout:\n      name: lvm\n    config:\n      - type: disk\n        id: disk0\n        path: {path}"
-        )),
-        other => Err(ForjarError::from_untyped(format!(
-            "unknown disk layout: {other} (use auto-lvm, auto-zfs, or /dev/path)"
-        ))),
-    }
-}
-
-/// Read SSH public key file (tries .pub extension).
-pub fn read_ssh_pub_key(ssh_key: Option<&str>) -> Result<Vec<String>, ForjarError> {
-    let Some(key_path) = ssh_key else {
-        return Ok(Vec::new());
-    };
-
-    // Try the .pub version first
-    let pub_path = if key_path.ends_with(".pub") {
-        key_path.to_string()
-    } else {
-        format!("{key_path}.pub")
-    };
-
-    let expanded = expand_tilde(&pub_path);
-    match std::fs::read_to_string(&expanded) {
-        Ok(content) => Ok(content
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(|l| l.to_string())
-            .collect()),
-        Err(_) => Ok(Vec::new()),
-    }
-}
-
-/// Expand ~ to $HOME in a path string.
-pub fn expand_tilde(path: &str) -> String {
-    if let Some(rest) = path.strip_prefix("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return format!("{home}/{rest}");
-        }
-    }
-    path.to_string()
 }
 
 /// Re-indent every line of an embedded multi-line block by `n` spaces.
@@ -373,20 +376,16 @@ WantedBy=multi-user.target"#;
 
 /// Extract a base ISO using xorriso.
 pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), ForjarError> {
-    let extract_dir = work_dir.join("iso");
+    let extract_dir = packed_iso_dir(work_dir);
     std::fs::create_dir_all(&extract_dir)
         .map_err(|e| ForjarError::from_untyped(format!("create iso dir: {e}")))?;
 
+    let (b, d) = (
+        base_iso.display().to_string(),
+        extract_dir.display().to_string(),
+    );
     let status = std::process::Command::new("xorriso")
-        .args([
-            "-osirrox",
-            "on",
-            "-indev",
-            &base_iso.display().to_string(),
-            "-extract",
-            "/",
-            &extract_dir.display().to_string(),
-        ])
+        .args(["-osirrox", "on", "-indev", &b, "-extract", "/", &d])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
@@ -400,7 +399,7 @@ pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), Forjar
 
 /// Copy the current forjar binary into the ISO working directory.
 pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
-    let bin_dir = work_dir.join("iso").join("forjar").join("bin");
+    let bin_dir = packed_iso_dir(work_dir).join("forjar").join("bin");
     std::fs::create_dir_all(&bin_dir)
         .map_err(|e| ForjarError::from_untyped(format!("create bin dir: {e}")))?;
     if let Ok(exe) = std::env::current_exe() {
@@ -410,46 +409,40 @@ pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
     Ok(())
 }
 
-/// Repack an extracted ISO directory into a bootable ISO using xorriso.
-fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
-    let iso_dir = work_dir.join("iso");
+/// Build xorriso argv for repacking `iso_dir` with boot metadata replayed from `base_iso`.
+pub(crate) fn repack_iso_args(base_iso: &Path, iso_dir: &Path, output: &Path) -> Vec<String> {
+    let (b, o, d) = (
+        base_iso.display().to_string(),
+        output.display().to_string(),
+        iso_dir.display().to_string(),
+    );
+    [
+        "-indev",
+        &b,
+        "-outdev",
+        &o,
+        "-boot_image",
+        "any",
+        "replay",
+        "-map",
+        &d,
+        "/",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
 
+/// Repack an extracted ISO directory into a bootable ISO using xorriso.
+fn repack_iso(work_dir: &Path, base_iso: &Path, output: &Path) -> Result<(), String> {
+    let iso_dir = packed_iso_dir(work_dir);
+    let args = repack_iso_args(base_iso, &iso_dir, output);
     let status = std::process::Command::new("xorriso")
-        .args([
-            "-as",
-            "mkisofs",
-            "-r",
-            "-V",
-            "FORJAR_AUTOINSTALL",
-            "-o",
-            &output.display().to_string(),
-            "-J",
-            "-joliet-long",
-            "-b",
-            "boot/grub/i386-pc/eltorito.img",
-            "-c",
-            "boot.catalog",
-            "-no-emul-boot",
-            "-boot-load-size",
-            "4",
-            "-boot-info-table",
-            "--grub2-boot-info",
-            "--grub2-mbr",
-            &iso_dir
-                .join("boot/grub/i386-pc/boot_hybrid.img")
-                .display()
-                .to_string(),
-            "-eltorito-alt-boot",
-            "-e",
-            "boot/grub/efi.img",
-            "-no-emul-boot",
-            &iso_dir.display().to_string(),
-        ])
+        .args(&args)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
         .map_err(|e| format!("run xorriso repack: {e}"))?;
-
     if !status.success() {
         return Err("xorriso ISO repack failed".to_string());
     }
