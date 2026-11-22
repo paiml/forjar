@@ -117,21 +117,29 @@ pub(crate) fn stage_iso_workdir(
     file: &Path,
 ) -> Result<(), String> {
     extract_iso(base_iso, work).map_err(ForjarError::into_message)?;
-    stage_iso_payload(work, user_data, file)
+    stage_iso_payload(work, user_data, file).map_err(ForjarError::into_message)
 }
 
 /// Stage `nocloud/`, `forjar/`, and patched `boot/grub/grub.cfg` inside `work/iso/`.
-pub(crate) fn stage_iso_payload(work: &Path, user_data: &str, file: &Path) -> Result<(), String> {
+pub(crate) fn stage_iso_payload(
+    work: &Path,
+    user_data: &str,
+    file: &Path,
+) -> Result<(), ForjarError> {
     let iso_dir = packed_iso_dir(work);
     let nocloud = iso_dir.join("nocloud");
-    std::fs::create_dir_all(&nocloud).map_err(|e| format!("create nocloud dir: {e}"))?;
+    std::fs::create_dir_all(&nocloud)
+        .map_err(|e| ForjarError::from_untyped(format!("create nocloud dir: {e}")))?;
     std::fs::write(nocloud.join("user-data"), user_data)
-        .map_err(|e| format!("write user-data: {e}"))?;
-    std::fs::write(nocloud.join("meta-data"), "").map_err(|e| format!("write meta-data: {e}"))?;
-    embed_forjar_binary(work).map_err(ForjarError::into_message)?;
+        .map_err(|e| ForjarError::from_untyped(format!("write user-data: {e}")))?;
+    std::fs::write(nocloud.join("meta-data"), "")
+        .map_err(|e| ForjarError::from_untyped(format!("write meta-data: {e}")))?;
+    embed_forjar_binary(work)?;
     let iso_cfg = iso_dir.join("forjar");
-    std::fs::create_dir_all(&iso_cfg).map_err(|e| format!("create forjar dir: {e}"))?;
-    std::fs::copy(file, iso_cfg.join("forjar.yaml")).map_err(|e| format!("copy config: {e}"))?;
+    std::fs::create_dir_all(&iso_cfg)
+        .map_err(|e| ForjarError::from_untyped(format!("create forjar dir: {e}")))?;
+    std::fs::copy(file, iso_cfg.join("forjar.yaml"))
+        .map_err(|e| ForjarError::from_untyped(format!("copy config: {e}")))?;
     patch_staged_grub_cfg(&iso_dir)?;
     Ok(())
 }
@@ -158,21 +166,24 @@ pub(crate) fn patch_grub_cfg(cfg: &str) -> String {
     out.join("\n")
 }
 
-fn patch_staged_grub_cfg(iso_dir: &Path) -> Result<(), String> {
+fn patch_staged_grub_cfg(iso_dir: &Path) -> Result<(), ForjarError> {
     let path = iso_dir.join("boot/grub/grub.cfg");
     if !path.is_file() {
         return Ok(());
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| format!("read grub.cfg: {e}"))?;
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| ForjarError::from_untyped(format!("read grub.cfg: {e}")))?;
     let mut perms = std::fs::metadata(&path)
-        .map_err(|e| format!("stat grub.cfg: {e}"))?
+        .map_err(|e| ForjarError::from_untyped(format!("stat grub.cfg: {e}")))?
         .permissions();
     if perms.readonly() {
         #[allow(clippy::permissions_set_readonly_false)]
         perms.set_readonly(false);
-        std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod grub.cfg: {e}"))?;
+        std::fs::set_permissions(&path, perms)
+            .map_err(|e| ForjarError::from_untyped(format!("chmod grub.cfg: {e}")))?;
     }
-    std::fs::write(&path, patch_grub_cfg(&raw)).map_err(|e| format!("write grub.cfg: {e}"))
+    std::fs::write(&path, patch_grub_cfg(&raw))
+        .map_err(|e| ForjarError::from_untyped(format!("write grub.cfg: {e}")))
 }
 
 /// Print the ISO generation summary (JSON or human-readable).
