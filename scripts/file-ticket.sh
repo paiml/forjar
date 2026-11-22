@@ -8,10 +8,15 @@ gh=${FORJAR_GH:-gh}
 repo=paiml/forjar parent="" title="" body=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --parent) parent=${2:-}; shift 2 ;;
-    --title) title=${2:-}; shift 2 ;;
-    --body-file) body=${2:-}; shift 2 ;;
-    --repo) repo=${2:-}; shift 2 ;;
+    --parent | --title | --body-file | --repo)
+      if [ $# -lt 2 ]; then echo "refused: $1 requires a value" >&2; exit 2; fi
+      case "$1" in
+        --parent) parent=$2 ;;
+        --title) title=$2 ;;
+        --body-file) body=$2 ;;
+        --repo) repo=$2 ;;
+      esac
+      shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done

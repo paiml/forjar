@@ -56,4 +56,14 @@ printf 'garbage' >"$T/bad.json"
 TRIAGE_COUNT_JSON="$T/bad.json" "$here/ticket-triage-count.sh" >/dev/null 2>&1
 ck test $? -eq 3
 
+# 5. a value-taking flag as the LAST argument is refused (rc 2), never a hang.
+FT=${FT_UNDER_TEST:-"$here"/file-ticket.sh}
+for flag in --parent --title --body-file --repo; do
+  : >"$T/log"
+  timeout 5 "$FT" --parent 879 --title t --body-file "$T/body.md" "$flag" >/dev/null 2>"$T/err"
+  ck test $? -eq 2
+  ck grep -q 'requires a value' "$T/err"
+  ck test ! -s "$T/log"
+done
+
 if [ "$fail" -eq 0 ]; then echo "ok: file-ticket tests passed"; else echo "$fail failed"; exit 1; fi
