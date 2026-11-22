@@ -75,7 +75,7 @@ pub fn cmd_image_iso(
     stage_iso_workdir(&work, base_iso, &user_data, file)?;
 
     // Repack ISO with xorriso
-    repack_iso(&work, output)?;
+    repack_iso(&work, base_iso, output)?;
 
     // Clean up temp directory
     let _ = std::fs::remove_dir_all(&work);
@@ -118,7 +118,7 @@ pub(crate) fn stage_iso_workdir(
     stage_iso_payload(work, user_data, file)
 }
 
-/// Stage `nocloud/` and `forjar/` inside the packed ISO directory (`work/iso/`).
+/// Stage `nocloud/`, `forjar/`, and patched `boot/grub/grub.cfg` inside `work/iso/`.
 pub(crate) fn stage_iso_payload(work: &Path, user_data: &str, file: &Path) -> Result<(), String> {
     let iso_dir = packed_iso_dir(work);
     let nocloud = iso_dir.join("nocloud");
@@ -130,7 +130,47 @@ pub(crate) fn stage_iso_payload(work: &Path, user_data: &str, file: &Path) -> Re
     let iso_cfg = iso_dir.join("forjar");
     std::fs::create_dir_all(&iso_cfg).map_err(|e| format!("create forjar dir: {e}"))?;
     std::fs::copy(file, iso_cfg.join("forjar.yaml")).map_err(|e| format!("copy config: {e}"))?;
+    patch_staged_grub_cfg(&iso_dir)?;
     Ok(())
+}
+
+fn patch_grub_line(line: &str) -> String {
+    let t = line.trim_start();
+    let is_linux = t.starts_with("linux ") || t.starts_with("linux\t");
+    if is_linux && !t.contains("autoinstall") && !t.contains("ds=nocloud") {
+        format!(
+            "{} autoinstall ds=nocloud\\;s=/cdrom/nocloud/",
+            line.trim_end()
+        )
+    } else {
+        line.to_string()
+    }
+}
+
+/// Append autoinstall nocloud parameters to every `linux` line in `grub.cfg` (idempotent).
+pub(crate) fn patch_grub_cfg(cfg: &str) -> String {
+    let mut out: Vec<String> = cfg.lines().map(patch_grub_line).collect();
+    if cfg.ends_with('\n') {
+        out.push(String::new());
+    }
+    out.join("\n")
+}
+
+fn patch_staged_grub_cfg(iso_dir: &Path) -> Result<(), String> {
+    let path = iso_dir.join("boot/grub/grub.cfg");
+    if !path.is_file() {
+        return Ok(());
+    }
+    let raw = std::fs::read_to_string(&path).map_err(|e| format!("read grub.cfg: {e}"))?;
+    let mut perms = std::fs::metadata(&path)
+        .map_err(|e| format!("stat grub.cfg: {e}"))?
+        .permissions();
+    if perms.readonly() {
+        #[allow(clippy::permissions_set_readonly_false)]
+        perms.set_readonly(false);
+        std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod grub.cfg: {e}"))?;
+    }
+    std::fs::write(&path, patch_grub_cfg(&raw)).map_err(|e| format!("write grub.cfg: {e}"))
 }
 
 /// Print the ISO generation summary (JSON or human-readable).
@@ -252,13 +292,10 @@ pub fn generate_user_data(
     // Firstboot systemd service
     yaml.push_str(&firstboot_service_command());
 
-    // Network config from machine addr (static IP if specified)
-    if machine.addr != "127.0.0.1" && machine.addr != "container" && machine.addr != "pepita" {
-        yaml.push_str(&format!(
-            "  # Static IP: {}\n  # Configure via netplan in late-commands if needed\n",
-            machine.addr
-        ));
-    }
+    // Network: DHCP on any wired interface matching en*
+    yaml.push_str(
+        "  network:\n    version: 2\n    ethernets:\n      en:\n        match:\n          name: \"en*\"\n        dhcp4: true\n",
+    );
 
     Ok(yaml)
 }
@@ -406,16 +443,12 @@ pub(crate) fn extract_iso(base_iso: &Path, work_dir: &Path) -> Result<(), Forjar
     std::fs::create_dir_all(&extract_dir)
         .map_err(|e| ForjarError::from_untyped(format!("create iso dir: {e}")))?;
 
+    let (b, d) = (
+        base_iso.display().to_string(),
+        extract_dir.display().to_string(),
+    );
     let status = std::process::Command::new("xorriso")
-        .args([
-            "-osirrox",
-            "on",
-            "-indev",
-            &base_iso.display().to_string(),
-            "-extract",
-            "/",
-            &extract_dir.display().to_string(),
-        ])
+        .args(["-osirrox", "on", "-indev", &b, "-extract", "/", &d])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
@@ -439,46 +472,40 @@ pub(crate) fn embed_forjar_binary(work_dir: &Path) -> Result<(), ForjarError> {
     Ok(())
 }
 
-/// Repack an extracted ISO directory into a bootable ISO using xorriso.
-fn repack_iso(work_dir: &Path, output: &Path) -> Result<(), String> {
-    let iso_dir = packed_iso_dir(work_dir);
+/// Build xorriso argv for repacking `iso_dir` with boot metadata replayed from `base_iso`.
+pub(crate) fn repack_iso_args(base_iso: &Path, iso_dir: &Path, output: &Path) -> Vec<String> {
+    let (b, o, d) = (
+        base_iso.display().to_string(),
+        output.display().to_string(),
+        iso_dir.display().to_string(),
+    );
+    [
+        "-indev",
+        &b,
+        "-outdev",
+        &o,
+        "-boot_image",
+        "any",
+        "replay",
+        "-map",
+        &d,
+        "/",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
 
+/// Repack an extracted ISO directory into a bootable ISO using xorriso.
+fn repack_iso(work_dir: &Path, base_iso: &Path, output: &Path) -> Result<(), String> {
+    let iso_dir = packed_iso_dir(work_dir);
+    let args = repack_iso_args(base_iso, &iso_dir, output);
     let status = std::process::Command::new("xorriso")
-        .args([
-            "-as",
-            "mkisofs",
-            "-r",
-            "-V",
-            "FORJAR_AUTOINSTALL",
-            "-o",
-            &output.display().to_string(),
-            "-J",
-            "-joliet-long",
-            "-b",
-            "boot/grub/i386-pc/eltorito.img",
-            "-c",
-            "boot.catalog",
-            "-no-emul-boot",
-            "-boot-load-size",
-            "4",
-            "-boot-info-table",
-            "--grub2-boot-info",
-            "--grub2-mbr",
-            &iso_dir
-                .join("boot/grub/i386-pc/boot_hybrid.img")
-                .display()
-                .to_string(),
-            "-eltorito-alt-boot",
-            "-e",
-            "boot/grub/efi.img",
-            "-no-emul-boot",
-            &iso_dir.display().to_string(),
-        ])
+        .args(&args)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
         .map_err(|e| format!("run xorriso repack: {e}"))?;
-
     if !status.success() {
         return Err("xorriso ISO repack failed".to_string());
     }

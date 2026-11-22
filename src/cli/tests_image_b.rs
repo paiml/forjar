@@ -156,13 +156,14 @@ mod tests {
     #[test]
     fn test_generate_user_data_ip_comments() {
         let dir = tempfile::tempdir().unwrap();
-        let m_static = make_machine(dir.path(), "host", "root", "192.168.1.100");
-        let yaml = generate_user_data("host", &m_static, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
-        assert!(yaml.contains("192.168.1.100"));
-
-        for addr in ["127.0.0.1", "container"] {
+        for addr in ["192.168.1.100", "127.0.0.1", "container"] {
             let m = make_machine(dir.path(), "host", "root", addr);
             let y = generate_user_data("host", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
+            let doc = parse_user_data(&y);
+            let net = &doc["autoinstall"]["network"];
+            assert_eq!(net["version"].as_u64(), Some(2));
+            assert_eq!(net["ethernets"]["en"]["match"]["name"], "en*");
+            assert_eq!(net["ethernets"]["en"]["dhcp4"].as_bool(), Some(true));
             assert!(!y.contains(&format!("Static IP: {addr}")));
         }
     }

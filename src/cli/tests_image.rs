@@ -396,10 +396,13 @@ resources:
         cmd_image_user_data(&p, Some("yoga"), "auto-lvm", "en_US.UTF-8", "UTC", Some(&out), false)
             .unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
-        assert!(
-            content.contains("192.168.50.38"),
-            "must include static IP comment"
-        );
+        let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+            .unwrap_or_else(|e| panic!("invalid autoinstall YAML: {e}\n---\n{content}"));
+        let net = &doc["autoinstall"]["network"];
+        assert_eq!(net["version"].as_u64(), Some(2));
+        assert_eq!(net["ethernets"]["en"]["match"]["name"], "en*");
+        assert_eq!(net["ethernets"]["en"]["dhcp4"].as_bool(), Some(true));
+        assert!(!content.contains("# Static IP:"));
     }
 
     #[test]
