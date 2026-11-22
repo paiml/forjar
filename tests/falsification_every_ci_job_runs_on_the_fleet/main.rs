@@ -243,8 +243,6 @@ impl PinScan {
         let finding = gate_light_finding(file, job_name, labels, &mut self.gate_light_seen);
         self.gate_light_findings.extend(finding);
         let exempt = listed.is_some() && labels.iter().any(|l| l == "gate-light");
-        let probe = is_seat_probe(file, job_name, labels);
-        let exempt = exempt || probe;
         let pinned = labels.iter().any(|l| arches.contains(&l.as_str()));
         if !pinned && neutral.is_none() && !exempt {
             self.unpinned
@@ -426,56 +424,73 @@ fn the_platforms_the_fleet_cannot_serve_are_exactly_these() {
     );
 }
 
+const FLEET_POOLS: [&str; 10] = [
+    "clean-room",
+    "build",
+    "intel",
+    "gx10",
+    "yoga",
+    // the light classify/gate pool (forjar#1005); which jobs may use it is
+    // pinned exactly by GATE_LIGHT_JOBS above
+    "gate-light",
+    "gpu",
+    "cuda",
+    // the self-hosted mac (mini-m4) that the nightly darwin legs build on
+    "mini",
+    "mini-builder",
+];
+
+fn has_label(labels: &[String], want: &str) -> bool {
+    labels.iter().any(|l| l.eq_ignore_ascii_case(want))
+}
+
+/// The finding for one non-probe job, if its runner labels are wrong.
+fn job_pool_finding(file: &str, job_name: &str, labels: &[String]) -> Option<String> {
+    if has_label(labels, "pool-canary") {
+        return Some(format!(
+            "  {file}  job `{job_name}` carries `pool-canary` but is not the seat probe: {labels:?}",
+        ));
+    }
+    let self_hosted = labels.iter().any(|l| l == "self-hosted");
+    let names_pool = labels.iter().any(|l| FLEET_POOLS.contains(&l.as_str()));
+    (self_hosted && !names_pool).then(|| format!("  {file}  job `{job_name}`  runs-on {labels:?}"))
+}
+
+/// Findings (and whether the probe was seen) for one workflow document.
+fn doc_pool_findings(file: &str, doc: &Value, bare: &mut Vec<String>) -> bool {
+    let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
+        return false;
+    };
+    let mut probe_seen = false;
+    for (name, job) in jobs {
+        let job_name = name.as_str().unwrap_or("?");
+        let labels = runner_labels(job);
+        if is_seat_probe(file, job_name, &labels) {
+            probe_seen = true;
+        } else if let Some(f) = job_pool_finding(file, job_name, &labels) {
+            bare.push(f);
+        }
+    }
+    probe_seen
+}
+
+/// Scan workflows for the seat probe and any non-probe `pool-canary` or bare `self-hosted` jobs.
+pub(crate) fn fleet_pool_findings(docs: &[(String, Value)]) -> (bool, Vec<String>) {
+    let mut bare = Vec::new();
+    let mut probe_seen = false;
+    for (file, doc) in docs {
+        probe_seen |= doc_pool_findings(file, doc, &mut bare);
+    }
+    (probe_seen, bare)
+}
+
 /// A fleet job names `self-hosted` AND a pool, never `self-hosted` alone.
 ///
 /// `runs-on: self-hosted` matches any of the 25 runners, including the GPU and
 /// yoga boxes, which is how a lint job ends up holding a blackwell.
 #[test]
 fn a_fleet_job_names_a_pool_and_not_just_self_hosted() {
-    let pools = [
-        "clean-room",
-        "build",
-        "intel",
-        "gx10",
-        "yoga",
-        // the light classify/gate pool (forjar#1005); which jobs may use it is
-        // pinned exactly by GATE_LIGHT_JOBS above
-        "gate-light",
-        "gpu",
-        "cuda",
-        // the self-hosted mac (mini-m4) that the nightly darwin legs build on
-        "mini",
-        "mini-builder",
-    ];
-    let mut bare = Vec::new();
-    let mut probe_seen = false;
-    for (file, doc) in workflows() {
-        let Some(Value::Mapping(jobs)) = doc.get("jobs") else {
-            continue;
-        };
-        for (name, job) in jobs {
-            let labels = runner_labels(job);
-            if is_seat_probe(&file, name.as_str().unwrap_or("?"), &labels) {
-                probe_seen = true;
-                continue;
-            }
-            if !labels.iter().any(|l| l == "self-hosted") {
-                continue;
-            }
-            if labels.iter().any(|l| l.eq_ignore_ascii_case("pool-canary")) {
-                bare.push(format!(
-                    "  {file}  job `{}` carries `pool-canary` but is not the seat probe: {labels:?}",
-                    name.as_str().unwrap_or("?")
-                ));
-            }
-            if !labels.iter().any(|l| pools.contains(&l.as_str())) {
-                bare.push(format!(
-                    "  {file}  job `{}`  runs-on {labels:?}",
-                    name.as_str().unwrap_or("?")
-                ));
-            }
-        }
-    }
+    let (probe_seen, bare) = fleet_pool_findings(&workflows());
     assert!(
         probe_seen,
         "SEAT_PROBE_JOBS names a job that is not a [pool-canary]-only job"

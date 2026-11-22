@@ -191,3 +191,34 @@ jobs:
         doc.get("jobs").and_then(|j| j.get("plain")).unwrap()
     ));
 }
+
+#[test]
+fn non_probe_pool_canary_job_is_rejected_even_without_self_hosted() {
+    let probe = fixture("jobs:\n  canary:\n    runs-on: [pool-canary]\n");
+    let rogue = fixture("jobs:\n  sneaky:\n    runs-on: [pool-canary]\n");
+    let (seen, bare) = crate::fleet_pool_findings(&[
+        ("pool-canary.yml".to_string(), probe.clone()),
+        ("other.yml".to_string(), rogue),
+    ]);
+    assert!(seen, "real seat probe should be seen");
+    assert_eq!(
+        bare.len(),
+        1,
+        "expected rogue [pool-canary]-only job to fail: {bare:?}"
+    );
+    assert!(bare[0].contains("other.yml") && bare[0].contains("pool-canary"));
+
+    let mixed = fixture("jobs:\n  sneaky:\n    runs-on: [self-hosted, Pool-Canary]\n");
+    let (_, bare_mixed) = crate::fleet_pool_findings(&[("other.yml".to_string(), mixed)]);
+    assert_eq!(
+        bare_mixed.len(),
+        1,
+        "expected [self-hosted, Pool-Canary] to fail: {bare_mixed:?}"
+    );
+
+    let (seen_ok, bare_ok) = crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), probe)]);
+    assert!(
+        seen_ok && bare_ok.is_empty(),
+        "valid seat probe must pass: {bare_ok:?}"
+    );
+}
