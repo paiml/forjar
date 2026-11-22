@@ -1,0 +1,24 @@
+# PMAT-1242: one private S3 bucket as declared state.
+# The generated scripts shell out to the `aws` CLI; validate is offline.
+version: "1.0"
+name: s3-bucket
+description: Private, encrypted, TLS-only, versioned S3 bucket
+
+machines:
+  deploy:
+    hostname: localhost
+    addr: 127.0.0.1
+    user: deploy
+    arch: x86_64
+
+resources:
+  metrics-preview:
+    type: s3_bucket
+    machine: deploy
+    s3_bucket: paiml-metrics-preview
+    s3_region: us-east-1
+    s3_private: true
+    s3_sse: AES256
+    s3_tls_only: true
+    s3_versioning: true
+    s3_noncurrent_expire_days: 30
