@@ -559,3 +559,7 @@ For bug reports, please include: forjar version (`forjar --version`), OS, and a 
 ## License
 
 MIT OR Apache-2.0
+
+<!-- FUNNEL-001 footer: replace forjar with the repo name -->
+---
+📚 **Learn this hands-on:** [Pragmatic AI Labs courses on Coursera](https://www.coursera.org/partners/pragmatic-ai-labs?utm_source=github&utm_medium=readme&utm_campaign=funnel_2026q4&utm_content=forjar) · ✉ [Free newsletter](https://ds500.paiml.com/mailing?utm_source=github&utm_medium=readme&utm_campaign=funnel_2026q4&utm_content=forjar)
