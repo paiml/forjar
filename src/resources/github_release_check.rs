@@ -65,8 +65,9 @@ pub(super) fn live_version(bin_path: &str, permissive: bool) -> String {
          \x20 if [ \"$FJ_SUMOK\" = 1 ] && {{ {run}; }}; then\n\
          \x20\x20\x20 FJ_VERLINE=$( head -n 1 \"$FJ_OUT\" | tr '\\0' ' ' || true )\n\
          \x20\x20\x20 FJ_FULL=$( head -n 20 \"$FJ_OUT\" | tr '\\0' ' ' | \
-         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+(-[A-Za-z][0-9A-Za-z.-]*)?([^.0-9]|[.]([^0-9]|$)|$)' | \
-         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+(-[A-Za-z][0-9A-Za-z.-]*)?' || true )\n\
+         LC_ALL=C grep -oE '(^|[^0-9A-Za-z._])[vV]?[0-9]+[.][0-9]+[.][0-9]+(-(alpha|beta|rc|pre|dev)[0-9A-Za-z.]*)?([^.0-9]|[.]([^0-9]|$)|$)' | \
+         head -n 1 | grep -oE '[0-9]+[.][0-9]+[.][0-9]+(-(alpha|beta|rc|pre|dev)[0-9A-Za-z.]*)?' || true )\n\
+         \x20\x20\x20 FJ_FULL=\"${{FJ_FULL%.}}\"\n\
          \x20\x20\x20 FJ_LIVE=\"${{FJ_FULL%%-*}}\"; FJ_LIVEPRE=\"${{FJ_FULL#\"$FJ_LIVE\"}}\"\n\
          \x20 fi\n\
          \x20 rm -f \"$FJ_OUT\"\n\

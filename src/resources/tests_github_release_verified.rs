@@ -104,3 +104,12 @@ fn dash_before_the_version_is_not_a_prerelease() {
     exe(d.path(), "#!/bin/sh\necho 'cli 1.2.3-rc1'\n");
     assert!(!converged(d.path(), Some("cli2-v1.2.3")));
 }
+
+#[test]
+fn target_suffix_or_trailing_dot_in_live_version_converges() {
+    let d = tempfile::tempdir().unwrap();
+    exe(d.path(), "#!/bin/sh\necho 'tool 1.2.3-linux-amd64'\n");
+    assert!(converged(d.path(), Some("v1.2.3")));
+    exe(d.path(), "#!/bin/sh\necho 'tool 1.2.3-rc1.'\n");
+    assert!(converged(d.path(), Some("v1.2.3-rc1")));
+}
