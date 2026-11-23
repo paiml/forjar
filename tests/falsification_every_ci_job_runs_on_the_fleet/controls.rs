@@ -209,16 +209,144 @@ fn non_probe_pool_canary_job_is_rejected_even_without_self_hosted() {
     assert!(bare[0].contains("other.yml") && bare[0].contains("pool-canary"));
 
     let mixed = fixture("jobs:\n  sneaky:\n    runs-on: [self-hosted, Pool-Canary]\n");
-    let (_, bare_mixed) = crate::fleet_pool_findings(&[("other.yml".to_string(), mixed)]);
+    let (seen_mixed, bare_mixed) = crate::fleet_pool_findings(&[("other.yml".to_string(), mixed)]);
+    assert!(!seen_mixed, "non-probe doc must not report probe_seen");
     assert_eq!(
         bare_mixed.len(),
         1,
         "expected [self-hosted, Pool-Canary] to fail: {bare_mixed:?}"
     );
+    assert!(
+        bare_mixed[0].contains("carries `pool-canary`"),
+        "Pool-Canary must trigger the pool-canary check, not fall through to bare self-hosted: {bare_mixed:?}"
+    );
+
+    for (label_desc, yaml) in [
+        (
+            "[Pool-Canary] without self-hosted",
+            "jobs:\n  sneaky:\n    runs-on: [Pool-Canary]\n",
+        ),
+        (
+            "[self-hosted, clean-room, Pool-Canary]",
+            "jobs:\n  sneaky:\n    runs-on: [self-hosted, clean-room, Pool-Canary]\n",
+        ),
+    ] {
+        let doc = fixture(yaml);
+        let (seen_case, bare_case) = crate::fleet_pool_findings(&[("other.yml".to_string(), doc)]);
+        assert!(!seen_case, "{label_desc} must not satisfy probe_seen");
+        assert_eq!(
+            bare_case.len(),
+            1,
+            "expected {label_desc} to be rejected case-insensitively: {bare_case:?}"
+        );
+        assert!(bare_case[0].contains("pool-canary"));
+    }
 
     let (seen_ok, bare_ok) = crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), probe)]);
     assert!(
         seen_ok && bare_ok.is_empty(),
         "valid seat probe must pass: {bare_ok:?}"
     );
+}
+
+#[test]
+fn seat_probe_requires_exact_file_job_and_single_pool_canary_label() {
+    let (seen_empty, bare_empty) = crate::fleet_pool_findings(&[]);
+    assert!(!seen_empty && bare_empty.is_empty());
+
+    let no_jobs = fixture("on: push\n");
+    let (seen_no_jobs, bare_no_jobs) =
+        crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), no_jobs)]);
+    assert!(!seen_no_jobs && bare_no_jobs.is_empty());
+
+    let same_job_other_file = fixture("jobs:\n  canary:\n    runs-on: [pool-canary]\n");
+    let (seen_file, bare_file) =
+        crate::fleet_pool_findings(&[("other.yml".to_string(), same_job_other_file)]);
+    assert!(!seen_file && bare_file.len() == 1);
+
+    let same_file_other_job = fixture("jobs:\n  other:\n    runs-on: [pool-canary]\n");
+    let (seen_job, bare_job) =
+        crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), same_file_other_job)]);
+    assert!(!seen_job && bare_job.len() == 1);
+
+    for extra_yaml in [
+        "jobs:\n  canary:\n    runs-on: [pool-canary, self-hosted]\n",
+        "jobs:\n  canary:\n    runs-on: [pool-canary, X64]\n",
+    ] {
+        let doc = fixture(extra_yaml);
+        let (seen_extra, bare_extra) =
+            crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), doc)]);
+        assert!(
+            !seen_extra && bare_extra.len() == 1,
+            "probe with extra labels must be rejected: {bare_extra:?}"
+        );
+    }
+
+    let fleet_on_probe_slot = fixture("jobs:\n  canary:\n    runs-on: [self-hosted, clean-room]\n");
+    let (seen_fleet, bare_fleet) =
+        crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), fleet_on_probe_slot)]);
+    assert!(
+        !seen_fleet && bare_fleet.is_empty(),
+        "probe slot without pool-canary label must not satisfy probe_seen: {bare_fleet:?}"
+    );
+
+    let mixed_case_probe = fixture("jobs:\n  canary:\n    runs-on: [Pool-Canary]\n");
+    let (seen_mixed, bare_mixed) =
+        crate::fleet_pool_findings(&[("pool-canary.yml".to_string(), mixed_case_probe)]);
+    assert!(
+        seen_mixed && bare_mixed.is_empty(),
+        "seat probe must match pool-canary case-insensitively: {bare_mixed:?}"
+    );
+}
+
+#[test]
+fn bare_self_hosted_jobs_are_rejected_and_fleet_pools_pass() {
+    for bare_yaml in [
+        "jobs:\n  bare:\n    runs-on: [self-hosted]\n",
+        "jobs:\n  arch_only:\n    runs-on: [self-hosted, X64]\n",
+    ] {
+        let doc = fixture(bare_yaml);
+        let (seen, bare) = crate::fleet_pool_findings(&[("other.yml".to_string(), doc)]);
+        assert!(!seen, "bare self-hosted job must not set probe_seen");
+        assert_eq!(
+            bare.len(),
+            1,
+            "bare self-hosted job must be flagged: {bare:?}"
+        );
+        assert!(bare[0].contains("other.yml"));
+    }
+
+    for non_self_hosted_yaml in [
+        "jobs:\n  hosted:\n    runs-on: [ubuntu-latest]\n",
+        "jobs:\n  pool_only:\n    runs-on: [clean-room]\n",
+    ] {
+        let doc = fixture(non_self_hosted_yaml);
+        let (seen, bare) = crate::fleet_pool_findings(&[("other.yml".to_string(), doc)]);
+        assert!(
+            !seen && bare.is_empty(),
+            "non-self-hosted job must not be flagged: {bare:?}"
+        );
+    }
+
+    for pool in [
+        "clean-room",
+        "build",
+        "intel",
+        "gx10",
+        "yoga",
+        "gate-light",
+        "gpu",
+        "cuda",
+        "mini",
+        "mini-builder",
+    ] {
+        let doc = fixture(&format!(
+            "jobs:\n  ok:\n    runs-on: [self-hosted, {pool}]\n"
+        ));
+        let (seen, bare) = crate::fleet_pool_findings(&[("other.yml".to_string(), doc)]);
+        assert!(
+            !seen && bare.is_empty(),
+            "fleet pool `{pool}` must pass without bare self-hosted finding: {bare:?}"
+        );
+    }
 }

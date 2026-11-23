@@ -154,13 +154,10 @@ const REUSABLE_WORKFLOW_SHA: &str = "fbee3788a0ed92d09974ac21ea9bc97d373af6f0";
 /// the light gate seat. Every other delegated call stays on the commit above.
 const CI_WORKFLOW_SHA: &str = "8adbee1d793df71a31867eb875829b55e04a7c02";
 
-/// Jobs on the `gate-light` pool (forjar#1005): the cheap classify/gate/authorize
-/// jobs. They run no cargo and build no artifact, so they name no architecture
-/// and are exempt from the `X64`/`ARM64` pin. Exempted by THIS exact list and not
-/// by `ARCH_NEUTRAL_JOBS`, whose entries the cache-key guard in
-/// `falsification_722_cache_key_arch.rs` treats as cargo jobs. The list is
-/// bounded in both directions: a listed job that stops being `gate-light` fails,
-/// and a `gate-light` job that is not listed fails.
+/// Jobs on the `gate-light` pool (forjar#1005): cheap classify/gate/authorize jobs. They run no
+/// cargo and build no artifact, so they name no architecture and are exempt from `X64`/`ARM64` via
+/// THIS exact list — not `ARCH_NEUTRAL_JOBS`, which `falsification_722_cache_key_arch.rs` treats
+/// as cargo jobs. Bounded both ways: stale entries and unlisted `gate-light` jobs both fail.
 const GATE_LIGHT_JOBS: [(&str, &str); 5] = [
     ("bench.yml", "classify"),
     ("ci.yml", "classify"),
@@ -251,10 +248,8 @@ impl PinScan {
     }
 }
 
-/// Scan every self-hosted job: the ones that name no architecture, which
-/// `ARCH_NEUTRAL_JOBS` entries still point at a self-hosted job, and the `gate-light` findings: jobs on
-/// `gate-light` that `GATE_LIGHT_JOBS` does not list, and listed jobs that are
-/// absent or no longer `gate-light`.
+/// Scan every self-hosted job: the ones that name no architecture, which `ARCH_NEUTRAL_JOBS` entries
+/// still point at a self-hosted job, and all `gate-light` mismatches in both directions.
 fn scan_architecture_pins_with_gate_light(
 ) -> (Vec<String>, [bool; ARCH_NEUTRAL_JOBS.len()], Vec<String>) {
     let mut scan = PinScan {
@@ -281,20 +276,12 @@ fn scan_architecture_pins_with_gate_light(
 
 /// A fleet job names the ARCHITECTURE it needs.
 ///
-/// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: the label
-/// `clean-room` spans BOTH architectures. Group 1 "Default" holds sixteen
-/// `intel-clean-room-*`, every one `X64`; group 3 "gpu-nodes" holds four gx10
-/// boxes that also carry `clean-room` and are every one **ARM64**.
-///
-/// Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
-/// `[self-hosted, clean-room]` reaches only X64 boxes and nothing is currently
-/// wrong. That is an access-control accident, not a property of the label: the
-/// day forjar is added to `gpu-nodes` — one checkbox — a job building
-/// `x86_64-unknown-linux-gnu` could be handed an ARM64 runner, and the artifact
-/// it uploads would be wrong rather than absent.
-///
-/// Naming the architecture (`X64` or `ARM64`, deliberately) states the
-/// assumption instead of relying on someone not clicking the box.
+/// MEASURED 2026-09-12, `gh api orgs/paiml/actions/runner-groups`: `clean-room` spans BOTH
+/// architectures — Group 1 "Default" (`intel-clean-room-*`, `X64`) and Group 3 "gpu-nodes" (gx10,
+/// `ARM64`). Groups 3 and 5 are `visibility=selected` and forjar is not in them today, so
+/// `[self-hosted, clean-room]` reaches only X64 boxes by access-control accident. One checkbox
+/// adding forjar to `gpu-nodes` would hand an ARM64 runner to a job building
+/// `x86_64-unknown-linux-gnu`. Naming `X64` or `ARM64` states the assumption explicitly.
 #[test]
 fn a_fleet_job_names_the_architecture_it_needs() {
     let (mut unpinned, neutral_seen, gate_light_findings) =
@@ -430,8 +417,7 @@ const FLEET_POOLS: [&str; 10] = [
     "intel",
     "gx10",
     "yoga",
-    // the light classify/gate pool (forjar#1005); which jobs may use it is
-    // pinned exactly by GATE_LIGHT_JOBS above
+    // light classify/gate pool (forjar#1005); pinned by GATE_LIGHT_JOBS above
     "gate-light",
     "gpu",
     "cuda",
