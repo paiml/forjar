@@ -3,6 +3,7 @@
 use super::backup_sync_types::BackupSpec;
 use super::cloud_instance_types::CloudSpec;
 use super::disk_budget_types::DiskBudgetSpec;
+use super::ec2_spot_seat_types::SpotSeatSpec;
 use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
@@ -493,4 +494,8 @@ pub struct Resource {
     /// PMAT-1242: `s3_bucket` declaration fields.
     #[serde(flatten)]
     pub s3: S3Spec,
+
+    /// forjar#1262: `ec2_spot_seat` declaration fields.
+    #[serde(flatten)]
+    pub spot: SpotSeatSpec,
 }

@@ -16,6 +16,7 @@ mod unknown_policy;
 pub use unknown_policy::rejects_unknown;
 mod cloud_instance_validate;
 mod cron_network_validate;
+mod ec2_spot_seat_validate;
 mod includes;
 mod known_fields;
 mod policy;

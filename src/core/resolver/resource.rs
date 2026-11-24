@@ -184,6 +184,10 @@ fn resolve_build_and_overlay_fields(
     let pg = &r.cloud.parity_gate;
     r.cloud.parity_gate = resolve_gate("parity_gate", pg, params, machines, secrets)?;
     r.pattern = resolve_opt(&r.pattern, params, machines, secrets)?;
+    // forjar#1262: ec2_spot_seat values reaching aws/gh command lines.
+    r.spot.owner = resolve_opt(&r.spot.owner, params, machines, secrets)?;
+    r.spot.runner_org = resolve_opt(&r.spot.runner_org, params, machines, secrets)?;
+    r.spot.region = resolve_opt(&r.spot.region, params, machines, secrets)?;
     // PMAT-1242: s3_bucket names reach the aws command line.
     r.s3.bucket = resolve_opt(&r.s3.bucket, params, machines, secrets)?;
     r.s3.region = resolve_opt(&r.s3.region, params, machines, secrets)?;

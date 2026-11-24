@@ -4,6 +4,7 @@ use super::backup_sync_validate::validate_backup_sync;
 use super::cloud_instance_validate::validate_cloud_instance;
 use super::cron_network_validate::{validate_cron, validate_network};
 use super::disk_budget_validate::validate_disk_budget;
+use super::ec2_spot_seat_validate::validate_ec2_spot_seat;
 use super::nas_archive_validate::validate_nas_archive;
 use super::overlay_interface_validate::validate_overlay_interface;
 use super::s3_bucket_validate::validate_s3_bucket;
@@ -54,6 +55,7 @@ pub(super) fn validate_resource_type(
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
         ResourceType::CloudInstance => validate_cloud_instance(id, resource, errors),
         ResourceType::S3Bucket => validate_s3_bucket(id, resource, errors),
+        ResourceType::Ec2SpotSeat => validate_ec2_spot_seat(id, resource, errors),
     }
 }
 

@@ -42,6 +42,7 @@ const MULTI_WORD: &[(ResourceType, &str)] = &[
     (ResourceType::TmpReaper, "tmp_reaper"),
     (ResourceType::CloudInstance, "cloud_instance"),
     (ResourceType::S3Bucket, "s3_bucket"),
+    (ResourceType::Ec2SpotSeat, "ec2_spot_seat"),
 ];
 
 fn rule(rule_type: PolicyRuleType, scope: Option<&str>) -> PolicyRule {
@@ -154,6 +155,7 @@ fn display_is_the_serde_spelling_for_every_variant() {
         ResourceType::TmpReaper,
         ResourceType::CloudInstance,
         ResourceType::S3Bucket,
+        ResourceType::Ec2SpotSeat,
     ];
     for rt in &all {
         let wire = serde_json::to_value(rt).expect("a unit variant serialises");
