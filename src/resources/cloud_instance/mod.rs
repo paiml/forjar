@@ -439,8 +439,10 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
     let mut tags = vec![
         format!("{{Key=forjar-key,Value={}}}", key_of(&s)),
         format!("{{Key=forjar-owner,Value={}}}", owner_of(&s)),
-        format!("{{Key=Owner,Value={}}}", owner_of(&s)),
     ];
+    if !s.tags.iter().any(|t| t.starts_with("Owner=")) {
+        tags.push(format!("{{Key=Owner,Value={}}}", owner_of(&s)));
+    }
     tags.extend(
         s.tags
             .iter()

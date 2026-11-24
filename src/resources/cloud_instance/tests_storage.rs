@@ -113,6 +113,16 @@ fn data_volume_mapping_800_6000_500() {
 }
 
 #[test]
+fn owner_tag_is_not_duplicated_when_user_declares_owner() {
+    let mut r = gated(std::path::Path::new("/t"));
+    r.tags.push("Owner=forjar-cop".into());
+    let script = apply_script_on(&r, DAY);
+    assert_eq!(script.matches("Key=Owner,").count(), 1, "{script}");
+    assert!(script.contains("Key=Owner,Value=forjar-cop"), "{script}");
+}
+
+#[test]
+#[test]
 fn tagspec_has_volume_resource_with_declared_tags() {
     let l = run_line(&with(|c| c.volume_tags = Some(true)));
     assert!(
