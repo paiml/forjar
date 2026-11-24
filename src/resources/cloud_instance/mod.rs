@@ -40,9 +40,10 @@ mod validate;
 use key::{key_of, owner_of};
 pub use launch_io::apply_script;
 use validate::{
-    field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
-    require,
+    check_fleet_caps, check_market_type, field, has_digest, image_name, is_ident, is_image_name,
+    is_positive_decimal, is_tag, is_word, require, resolve_instance_types,
 };
+pub use validate::{MAX_FLEET_COUNT, MAX_FLEET_USD_PER_HOUR};
 
 #[cfg(test)]
 mod tests;
@@ -52,6 +53,8 @@ mod tests_b1;
 mod tests_b4;
 #[cfg(test)]
 mod tests_chain;
+#[cfg(test)]
+mod tests_fleet;
 #[cfg(test)]
 mod tests_launch;
 #[cfg(test)]
@@ -63,13 +66,16 @@ mod tests_resolve;
 #[cfg(test)]
 mod tests_storage;
 
-/// A validated `cloud_instance` declaration.
+/// A validated `cloud_instance` declaration (single spot instance or spot fleet).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudInstance {
     /// The resource's own name (`name:`), unique per declared resource.
     pub name: String,
     pub region: String,
-    pub instance_type: String,
+    /// Candidate instance types in fallback preference order (`len >= 1`).
+    pub instance_types: Vec<String>,
+    /// Fleet instance count (`1..=MAX_FLEET_COUNT`).
+    pub count: u32,
     pub max_price: String,
     pub image: String,
     /// Pinned AMI id (`cloud_ami`); `None` = the default image.
@@ -84,14 +90,38 @@ pub struct CloudInstance {
     pub profile: Option<String>,
 }
 
+impl CloudInstance {
+    /// Worst-case hourly ceiling summed over the fleet (`max_price * count`).
+    #[must_use]
+    pub fn total_max_price_usd_hr(&self) -> f64 {
+        self.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(self.count)
+    }
+
+    /// Ordered `(instance_type, availability_zone)` launch candidates.
+    pub(super) fn candidates(&self) -> Vec<(&str, Option<&str>)> {
+        let zones = self.placement.zones();
+        let mut out = Vec::new();
+        for itype in &self.instance_types {
+            if zones.is_empty() {
+                out.push((itype.as_str(), None));
+            } else {
+                for z in zones {
+                    out.push((itype.as_str(), Some(z.as_str())));
+                }
+            }
+        }
+        out
+    }
+}
+
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
 ///
 /// # Errors
 ///
-/// Returns `Err` when the declaration is not aws, lacks a field, names an
-/// image without an `@sha256:<64 hex>` digest, has a non-positive price or
-/// lifetime, or carries a value outside the strict allow-list (every value
-/// reaches a boot script or an `aws` command line).
+/// Returns `Err` when the declaration is not aws, requests on-demand, exceeds
+/// fleet count or total $/h hard caps, lacks a field, names an image without
+/// an `@sha256:<64 hex>` digest, has a non-positive price or lifetime, or
+/// carries a value outside the strict allow-list.
 pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
     if resource.provider.as_deref() != Some("aws") {
         return Err("cloud_instance requires `provider: aws`".into());
@@ -100,28 +130,28 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         matches!(resource.state.as_deref(), None | Some("present" | "absent")),
         "state must be present or absent",
     )?;
+    check_market_type(&resource.cloud.market_type)?;
     let name = field(&resource.name, "name")?;
     require(
         is_ident(&name, 63),
         "name must be 1-63 characters of [A-Za-z0-9._-], starting alphanumeric",
     )?;
     let region = field(&resource.cloud.region, "cloud_region")?;
-    let instance_type = field(&resource.cloud.instance_type, "cloud_instance_type")?;
-    let max_price = field(&resource.cloud.max_price, "cloud_max_price")?;
-    let image = field(&resource.image, "image")?;
     require(
         is_word(&region, "-") && region.starts_with(|c: char| c.is_ascii_alphanumeric()),
         "cloud_region has characters outside [a-z0-9-]",
     )?;
-    require(
-        is_word(&instance_type, ".-")
-            && instance_type.starts_with(|c: char| c.is_ascii_alphanumeric()),
-        "cloud_instance_type has unexpected characters",
+    let instance_types = resolve_instance_types(
+        &resource.cloud.instance_type,
+        &resource.cloud.instance_types,
     )?;
+    let max_price = field(&resource.cloud.max_price, "cloud_max_price")?;
     require(
         is_positive_decimal(&max_price),
         "cloud_max_price must be a positive decimal",
     )?;
+    let count = check_fleet_caps(resource.cloud.count, &max_price)?;
+    let image = field(&resource.image, "image")?;
     require(
         has_digest(&image),
         "image must be pinned by @sha256:<64 hex digits>",
@@ -152,7 +182,8 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
     Ok(CloudInstance {
         name,
         region,
-        instance_type,
+        instance_types,
+        count,
         max_price,
         image,
         ami,
@@ -247,9 +278,18 @@ pub fn plan_diff(resource: &Resource) -> String {
         Err(e) => return format!("ERROR: {e}\n"),
     };
     let c = &resource.cloud;
+    let zones = if s.placement.zones().is_empty() {
+        String::new()
+    } else {
+        format!(
+            "+   availability_zones: {}\n",
+            s.placement.zones().join(",")
+        )
+    };
     format!(
-        "+ cloud_instance aws/{region} spot {itype}\n\
-         +   max_price: {price} USD/h\n\
+        "+ cloud_instance aws/{region} spot {itype} x{count}\n\
+         +   max_price: {price} USD/h (fleet total: {total:.2} USD/h)\n\
+         {zones}\
          +   image: {image}\n\
          +   max_lifetime_min: {life}\n\
          +   labels: {labels}\n\
@@ -260,8 +300,10 @@ pub fn plan_diff(resource: &Resource) -> String {
          \x20 budget_cap_usd_day: {budget}\n\
          \x20 kill_switch: {kill}\n",
         region = s.region,
-        itype = s.instance_type,
+        itype = s.instance_types.join(","),
+        count = s.count,
         price = s.max_price,
+        total = s.total_max_price_usd_hr(),
         image = s.image,
         life = s.max_lifetime_min,
         labels = s.tags.join(","),
@@ -368,14 +410,22 @@ pub fn check_script(resource: &Resource) -> String {
             ]),
         );
     }
+    let (cond, count_prep) = if s.count == 1 {
+        ("[ -n \"$ids\" ]".to_string(), String::new())
+    } else {
+        (
+            format!("[ \"$have\" -ge {} ]", s.count),
+            "have=0; for _i in $ids; do have=$((have+1)); done\n".to_string(),
+        )
+    };
     let mut checks = vec![crate::resources::verdict::assert_that(
-        "[ -n \"$ids\" ]",
+        &cond,
         &format!("instance-present:{key}"),
         &format!("instance-absent:{key}"),
     )];
     checks.extend(s.storage.tag_check(&s.region, &s.tags, &key));
     let verdict = crate::resources::verdict::check_script_from(&checks);
-    format!("{}{verdict}", lookup_ids("ids", &describe(&s)))
+    format!("{}{count_prep}{verdict}", lookup_ids("ids", &describe(&s)))
 }
 
 /// Script reporting observed state (read-only provider query), by OWNER: any
@@ -421,14 +471,13 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
     // The lifetime bound (a declared user-data file must carry it too: see userdata.rs)
     // comes first: nothing derived from user input can run
     // before it, and every value is validated (`spec_of`) and quoted.
-    let worst_case_usd =
-        s.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(s.max_lifetime_min) / 60.0;
+    let worst_case_usd = s.total_max_price_usd_hr() * f64::from(s.max_lifetime_min) / 60.0;
     if budget
         .parse::<f64>()
         .map_or(true, |cap| worst_case_usd > cap)
     {
         return reject(&format!(
-            "worst-case spend {worst_case_usd:.4} USD (max_price x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
+            "worst-case spend {worst_case_usd:.4} USD (max_price x count x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
         ));
     }
     let user_data = format!(
@@ -449,6 +498,42 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
             .filter_map(|t| t.split_once('='))
             .map(|(k, v)| format!("{{Key={k},Value={v}}}")),
     );
+    let cands = s.candidates();
+    let is_fleet = s.count > 1 || cands.len() > 1;
+    let (owned_block, itype_arg, net_args, run_tail) = if !is_fleet {
+        (
+            "if [ -z \"$owned\" ]; then :; else\n\
+             \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
+             \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
+             \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+             \x20 echo \"present $owned\"; exit 0\n\
+             fi\n".to_string(),
+            sh_squote(&s.instance_types[0]),
+            s.placement.args(),
+            launch_io::tail_on(&s, day),
+        )
+    } else {
+        let zone_flag = if s.placement.zones().is_empty() {
+            String::new()
+        } else {
+            "--placement \"AvailabilityZone=$az\" ".to_string()
+        };
+        (
+            format!(
+                "have=0\n\
+                 if [ -z \"$owned\" ]; then :; else\n\
+                 \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
+                 \x20 for i in $owned; do have=$((have+1)); case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
+                 \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+                 \x20 if [ \"$have\" -ge {count} ]; then echo \"present $owned\"; exit 0; fi\n\
+                 fi\n",
+                count = s.count
+            ),
+            "\"$itype\"".to_string(),
+            format!("{}{}", s.placement.net_args(), zone_flag),
+            launch_io::fleet_tail_on(&s, &cands, day),
+        )
+    };
     format!(
         "set -eu\n\
          if [ -e {kill} ] || [ -L {kill} ]; then echo 'REFUSED: kill switch is thrown' >&2; exit 1; fi\n\
@@ -459,12 +544,7 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
          {ud_guard}\
          {lookup_owned}\
          {lookup_keyed}\
-         if [ -z \"$owned\" ]; then :; else\n\
-         \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
-         \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
-         \x20 echo \"present $owned\"; exit 0\n\
-         fi\n\
+         {owned_block}\
          {rootdev}\
          {run_open}aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
@@ -480,16 +560,16 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
         lookup_owned = lookup_ids("owned", &describe_by(&s, "forjar-owner", &owner_of(&s), "Reservations[].Instances[].InstanceId")),
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
-        itype = sh_squote(&s.instance_type),
+        itype = itype_arg,
         rootdev = s.storage.root_lookup(&sh_squote(&s.region), &s.ami),
         ami = s.storage.image_arg(&s.ami),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
         )),
-        net = s.placement.args(),
+        net = net_args,
         run_open = launch_io::OPEN,
-        run_tail = launch_io::tail_on(&s, day),
+        run_tail = run_tail,
         store = s.storage.args(),
         ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),

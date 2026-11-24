@@ -88,6 +88,24 @@ fn table() -> Vec<(&'static str, Set, Seen)> {
             REJECTS,
         ),
         (
+            "cloud_availability_zones",
+            |r| r.cloud.availability_zones = Some(vec![t()]),
+            REJECTS,
+        ),
+        (
+            "cloud_instance_types",
+            |r| {
+                r.cloud.instance_type = None;
+                r.cloud.instance_types = Some(vec![t(), "c7a.xlarge".into()]);
+            },
+            CHECKED,
+        ),
+        (
+            "cloud_market_type",
+            |r| r.cloud.market_type = Some(t()),
+            REJECTS,
+        ),
+        (
             "cloud_kill_switch",
             |r| r.cloud.kill_switch = Some(t()),
             CHECKED,
@@ -161,4 +179,33 @@ fn a_non_ascii_or_empty_zone_with_a_templated_region_is_rejected_not_a_panic() {
         assert_eq!(e.len(), 1, "{zone:?}: {e:?}");
         assert!(e[0].contains("cloud_availability_zone"), "{zone:?}: {e:?}");
     }
+}
+
+#[test]
+fn fleet_plan_time_guards_refuse_cap_overflow_and_on_demand() {
+    // Hard cap on count (7 > 6)
+    let mut r = valid();
+    r.cloud.count = Some(7);
+    assert!(errs(&r).iter().any(|e| e.contains("cloud_count")));
+
+    // Hard cap on fleet $/h (10.0 * 6 = 60 > 50)
+    let mut r = valid();
+    r.cloud.max_price = Some("10.0".into());
+    r.cloud.count = Some(6);
+    assert!(errs(&r).iter().any(|e| e.contains("hard cap")));
+
+    // Daily budget cap multiplied by fleet count
+    let mut r = valid();
+    r.cloud.max_price = Some("1.0".into());
+    r.cloud.count = Some(4);
+    r.cloud.max_lifetime_min = Some(60);
+    r.cloud.budget_cap_usd_day = Some("3.5".into());
+    assert!(errs(&r)
+        .iter()
+        .any(|e| e.contains("cloud_budget_cap_usd_day")));
+
+    // On-demand refused
+    let mut r = valid();
+    r.cloud.market_type = Some("on-demand".into());
+    assert!(errs(&r).iter().any(|e| e.contains("spot-only")));
 }

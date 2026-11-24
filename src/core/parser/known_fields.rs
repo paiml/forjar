@@ -154,6 +154,9 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     // FJ-861 cloud_instance
     "cloud_region",
     "cloud_instance_type",
+    "cloud_instance_types",
+    "cloud_count",
+    "cloud_market_type",
     "cloud_max_price",
     "cloud_max_lifetime_min",
     "cloud_budget_cap_usd_day",
@@ -162,6 +165,7 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_subnet_id",
     "cloud_security_group_ids",
     "cloud_availability_zone",
+    "cloud_availability_zones",
     "cloud_instance_profile",
     "cloud_ami",
     "cloud_root_volume_gb",

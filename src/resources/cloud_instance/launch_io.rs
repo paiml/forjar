@@ -65,7 +65,7 @@ pub(super) fn token_input(s: &CloudInstance) -> String {
     format!(
         "{}|{}|{}|{}|{}|{}|{}|{}|{}",
         super::key_of(s),
-        s.instance_type,
+        s.instance_types.join(","),
         s.max_price,
         s.max_lifetime_min,
         s.image,
@@ -101,6 +101,10 @@ pub fn apply_script(resource: &Resource) -> String {
     super::apply_script_on(resource, day_of(now.map_or(0, |d| d.as_secs())))
 }
 
+/// Tail of `run_once() { aws ec2 run-instances ... }` up to the closing brace.
+pub(super) const RUN_ONCE_TAIL: &str =
+    r#" --client-token "$1" --query 'Instances[0].[InstanceId,LaunchTime]' --output text 2>&1; }"#;
+
 /// EC2 answers a reused token with the ORIGINAL reply (id and launch time),
 /// even after that box died. So after a reply comes back the id's state is
 /// read. A dead box spends the token and the next one is
@@ -112,7 +116,7 @@ pub fn apply_script(resource: &Resource) -> String {
 /// box not yet visible, so it is retried and then refused, never chained.
 /// Any other state-read failure is retried the same way, then refused.
 /// The launch time is checked by a strict pattern before `date -u -d`.
-const TAIL: &str = r#" --client-token "$1" --query 'Instances[0].[InstanceId,LaunchTime]' --output text 2>&1; }
+const CHAIN_LOOP: &str = r#"
 tok=@TOKEN@; gen=0
 while :; do
 gen=$((gen+1))
@@ -176,9 +180,7 @@ const CAPACITY_CODES: [&str; 4] = [
     "Unsupported",
 ];
 
-/// Shell that follows the `run-instances` arguments: adds the token and the
-/// id-only output, then decides the outcome (see the module doc).
-pub(super) fn tail_on(s: &CloudInstance, day: u64) -> String {
+fn chain_body(s: &CloudInstance, tok_expr: &str) -> String {
     let region = sh_squote(&s.region);
     // `$tok` is the current token of the chain: `fj-` + hex, or 64 hex digits.
     let find = format!(
@@ -195,7 +197,8 @@ pub(super) fn tail_on(s: &CloudInstance, day: u64) -> String {
     let codes = CAPACITY_CODES
         .map(|c| format!("*'An error occurred ({c})'*"))
         .join("|");
-    TAIL.replace("@TOKEN@", &sh_squote(&token_on(&token_input(s), day)))
+    CHAIN_LOOP
+        .replace("@TOKEN@", tok_expr)
         .replace("@STATE@", &state)
         .replace("@GENS@", &MAX_GENERATIONS.to_string())
         .replace("@AGE@", &FORGOTTEN_AFTER_SECS.to_string())
@@ -204,4 +207,75 @@ pub(super) fn tail_on(s: &CloudInstance, day: u64) -> String {
         .replace("@CAPACITY@", &codes)
         .replace("@EXIT@", &CAPACITY_EXIT.to_string())
         .replace("@LOOKUP@", &lookup_ids("adopted", &find))
+}
+
+/// Shell that follows the `run-instances` arguments: adds the token and the
+/// id-only output, then decides the outcome (see the module doc).
+pub(super) fn tail_on(s: &CloudInstance, day: u64) -> String {
+    let tok = sh_squote(&token_on(&token_input(s), day));
+    format!("{RUN_ONCE_TAIL}{}", chain_body(s, &tok))
+}
+
+/// Fleet launch loop across `(instance_type, availability_zone)` candidates and
+/// `count` slots, reusing `CHAIN_LOOP` and catching `CAPACITY_EXIT` (75) to
+/// fall back to the next candidate (#1265).
+pub(super) fn fleet_tail_on(s: &CloudInstance, cands: &[(&str, Option<&str>)], day: u64) -> String {
+    let base = token_input(s);
+    let mut arms = String::new();
+    for (idx, (itype, az)) in cands.iter().enumerate() {
+        let cand_tok = if cands.len() == 1 {
+            token_on(&base, day)
+        } else {
+            token_on(
+                &format!("{base}|cand={itype}|zone={}", az.unwrap_or("")),
+                day,
+            )
+        };
+        arms.push_str(&format!(
+            "  {idx}) itype={}; az={}; cand_tok={};;\n",
+            sh_squote(itype),
+            sh_squote(az.unwrap_or("")),
+            sh_squote(&cand_tok),
+        ));
+    }
+    let body = chain_body(s, "\"$1\"");
+    format!(
+        "{RUN_ONCE_TAIL}\n\
+         cand_spec() {{\n\
+         case \"$1\" in\n\
+         {arms}  *) return 1;;\n\
+         esac\n\
+         }}\n\
+         launch_cand() {{\n\
+         ({body})\n\
+         }}\n\
+         fleet_ids=''\n\
+         cand_idx=0\n\
+         slot=\"$have\"\n\
+         while [ \"$slot\" -lt {count} ]; do\n\
+         while :; do\n\
+         if ! cand_spec \"$cand_idx\"; then echo 'launch-capacity-unavailable' >&2; exit {CAPACITY_EXIT}; fi\n\
+         if [ \"$slot\" -eq 0 ]; then slot_tok=\"$cand_tok\"\n\
+         else\n\
+         slot_tok=\"$(printf '%s:%s' \"$cand_tok\" \"$slot\" | sha256sum | cut -c1-64)\"\n\
+         if [ \"${{#slot_tok}}\" -ne 64 ]; then echo 'launch-token-derive-failed' >&2; exit 1; fi\n\
+         fi\n\
+         out=\"$(launch_cand \"$slot_tok\")\" && lrc=0 || lrc=$?\n\
+         if [ \"$lrc\" -eq 0 ]; then\n\
+         res_id=\"${{out##* }}\"\n\
+         fleet_ids=\"${{fleet_ids:+$fleet_ids }}$res_id\"\n\
+         break\n\
+         elif [ \"$lrc\" -eq {CAPACITY_EXIT} ]; then\n\
+         cand_idx=$((cand_idx+1))\n\
+         continue\n\
+         else\n\
+         exit \"$lrc\"\n\
+         fi\n\
+         done\n\
+         slot=$((slot+1))\n\
+         done\n\
+         if [ {count} -eq 1 ]; then printf '%s\\n' \"$out\"; else echo \"launched $fleet_ids\"; fi\n\
+         exit 0\n",
+        count = s.count,
+    )
 }
