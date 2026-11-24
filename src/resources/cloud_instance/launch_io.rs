@@ -251,6 +251,7 @@ pub(super) fn fleet_tail_on(s: &CloudInstance, cands: &[(&str, Option<&str>)], d
          }}\n\
          fleet_ids=''\n\
          cand_idx=0\n\
+         dup=0\n\
          slot=\"$have\"\n\
          while [ \"$slot\" -lt {count} ]; do\n\
          while :; do\n\
@@ -263,6 +264,7 @@ pub(super) fn fleet_tail_on(s: &CloudInstance, cands: &[(&str, Option<&str>)], d
          out=\"$(launch_cand \"$slot_tok\")\" && lrc=0 || lrc=$?\n\
          if [ \"$lrc\" -eq 0 ]; then\n\
          res_id=\"${{out##* }}\"\n\
+         case \" $owned $fleet_ids \" in *\" $res_id \"*) dup=$((dup+1)); if [ \"$dup\" -gt {count} ]; then echo 'launch-fleet-short' >&2; exit 1; fi; slot=$((slot+1)); continue;; esac\n\
          fleet_ids=\"${{fleet_ids:+$fleet_ids }}$res_id\"\n\
          break\n\
          elif [ \"$lrc\" -eq {CAPACITY_EXIT} ]; then\n\

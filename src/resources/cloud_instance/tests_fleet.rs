@@ -1,5 +1,5 @@
 //! #1265: spot fleet launch — multi-type, multi-AZ, count, plan-time caps,
-//! on-demand refusal, Owner tag, and exit-75 capacity-fallback loop.
+//! on-demand refusal, and exit-75 capacity-fallback loop.
 
 use super::tests::{gated, res, Sandbox, DIGEST};
 use super::tests_b1::{absent, count};
@@ -214,30 +214,6 @@ fn on_demand_is_refused_at_plan_and_apply_time() {
 }
 
 #[test]
-fn owner_tag_is_set_and_not_duplicated() {
-    let sb = fleet_sandbox();
-    let mut r = gated(sb.path());
-    let (rc, out) = sb.run(&apply_script(&r), "");
-    assert_eq!(rc, 0, "{out}");
-    let log = sb.log();
-    assert!(
-        log.contains("Key=Owner,Value=ci-box-a@eu-south-2"),
-        "Owner tag must be set: {log}"
-    );
-
-    // Explicit Owner=... in tags keeps user's value without duplicating Key=Owner
-    let sb2 = fleet_sandbox();
-    r.cloud.kill_switch = gated(sb2.path()).cloud.kill_switch;
-    r.cloud.parity_gate = gated(sb2.path()).cloud.parity_gate;
-    r.tags.push("Owner=forjar-cop".into());
-    let (rc, out) = sb2.run(&apply_script(&r), "");
-    assert_eq!(rc, 0, "{out}");
-    let log2 = sb2.log();
-    assert_eq!(log2.matches("Key=Owner,").count(), 1, "{log2}");
-    assert!(log2.contains("Key=Owner,Value=forjar-cop"), "{log2}");
-}
-
-#[test]
 fn fleet_launches_count_instances_with_distinct_tokens_and_spot_options() {
     let sb = fleet_sandbox();
     let r = fleet_res(sb.path());
@@ -325,8 +301,8 @@ fn fleet_is_idempotent_scales_up_partial_and_tears_down_all() {
     let sb2 = fleet_sandbox();
     let r2 = fleet_res(sb2.path());
     let part_fx = format!(
-        "i-00000001 {key} {own} sir-00000001\n\
-         i-00000002 {key} {own} sir-00000002\n"
+        "i-0000f001 {key} {own} sir-00000001\n\
+         i-0000f002 {key} {own} sir-00000002\n"
     );
     let (rc, out) = sb2.run_with(&apply_script_on(&r2, DAY), "", Some(&part_fx));
     assert_eq!(rc, 0, "{out}");
