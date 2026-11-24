@@ -25,14 +25,38 @@ fn with_stand_ins(resource: &Resource) -> Resource {
     }
     if is_template(&r.cloud.region) {
         // A literal zone is region plus one letter: keep that check alive.
-        let from_zone = r.cloud.availability_zone.as_deref().and_then(|z| {
-            z.strip_suffix(|c: char| c.is_ascii_lowercase())
-                .filter(|head| !head.is_empty())
-        });
+        let from_zone = r
+            .cloud
+            .availability_zone
+            .as_deref()
+            .or_else(|| {
+                r.cloud
+                    .availability_zones
+                    .as_deref()
+                    .and_then(|zs| zs.first())
+                    .map(String::as_str)
+            })
+            .and_then(|z| {
+                z.strip_suffix(|c: char| c.is_ascii_lowercase())
+                    .filter(|head| !head.is_empty())
+            });
         r.cloud.region = Some(from_zone.unwrap_or("us-east-1").into());
     }
     if is_template(&r.cloud.instance_type) {
         r.cloud.instance_type = Some("m5.large".into());
+    }
+    if let Some(types) = &mut r.cloud.instance_types {
+        for (i, t) in types.iter_mut().enumerate() {
+            if t.split_once("{{")
+                .is_some_and(|(_, rest)| rest.contains("}}"))
+            {
+                *t = if i == 0 {
+                    "m5.large".into()
+                } else {
+                    format!("c{i}.large")
+                };
+            }
+        }
     }
     if is_template(&r.cloud.max_price) {
         r.cloud.max_price = Some("1".into());
@@ -47,9 +71,28 @@ pub(super) fn validate_cloud_instance(
     resource: &Resource,
     errors: &mut Vec<ValidationError>,
 ) {
-    if let Err(e) = crate::resources::cloud_instance::spec_of(&with_stand_ins(resource)) {
-        errors.push(ValidationError {
+    match crate::resources::cloud_instance::spec_of(&with_stand_ins(resource)) {
+        Err(e) => errors.push(ValidationError {
             message: format!("resource '{id}' (cloud_instance): {e}"),
-        });
+        }),
+        Ok(spec) => {
+            if !is_template(&resource.cloud.max_price)
+                && !is_template(&resource.cloud.budget_cap_usd_day)
+            {
+                if let Some(budget) = resource.cloud.budget_cap_usd_day.as_deref() {
+                    let worst =
+                        spec.total_max_price_usd_hr() * f64::from(spec.max_lifetime_min) / 60.0;
+                    if let Ok(cap) = budget.parse::<f64>() {
+                        if worst > cap {
+                            errors.push(ValidationError {
+                                message: format!(
+                                    "resource '{id}' (cloud_instance): worst-case spend {worst:.4} USD (max_price x count x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
     }
 }

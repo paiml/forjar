@@ -2,8 +2,17 @@
 
 use super::{ami, profile, CloudInstance};
 
+/// Suffix for multi-type fleets; empty for a single type (byte-identical to today).
+fn type_tail(types: &[String]) -> String {
+    if types.len() <= 1 {
+        return String::new();
+    }
+    let h = crate::tripwire::hasher::hash_string(&types.join(","));
+    format!("@t{}", &h["blake3:".len()..][..12])
+}
+
 /// Idempotency key (`name@region@digest12`): the resource's own name, its region and the first 12 hex
-/// digits of the image digest, then the `cloud_ami`, placement and storage tails when declared. Two declarations
+/// digits of the image digest, then the `cloud_ami`, placement, storage, profile and multi-type tails when declared. Two declarations
 /// get the same key only if they share a name (refused by [`validate_unique_names`]).
 pub(super) fn key_of(s: &CloudInstance) -> String {
     let digest = s.image.rsplit_once("@sha256:").map_or("", |(_, d)| d);
@@ -12,6 +21,7 @@ pub(super) fn key_of(s: &CloudInstance) -> String {
         + &s.placement.key_suffix()
         + &s.storage.key_suffix()
         + &profile::key_tail(&s.profile)
+        + &type_tail(&s.instance_types)
 }
 
 /// Ownership key for teardown: name plus region, stable across image changes.

@@ -81,6 +81,9 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         "cloud_region"
         | "cloud_max_lifetime_min"
         | "cloud_instance_type"
+        | "cloud_instance_types"
+        | "cloud_count"
+        | "cloud_market_type"
         | "cloud_max_price"
         | "cloud_budget_cap_usd_day"
         | "cloud_kill_switch"
@@ -96,6 +99,7 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_data_volume_throughput"
         | "cloud_volume_tags"
         | "cloud_availability_zone"
+        | "cloud_availability_zones"
         | "cloud_instance_profile" => Observability::Unmigrated(
             "#861 — the provider query keys on name and region (check: plus image digest); this field is \
              applied by the create call and the gates but never read back",
