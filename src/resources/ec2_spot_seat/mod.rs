@@ -52,12 +52,15 @@
 //!   fakes and never touch AWS or GitHub; [`script`] renders the same steps as shell.
 
 pub mod api;
+pub mod aws_cli;
 pub mod lifecycle;
 mod pin;
 mod script;
 mod script_ctl;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_aws_cli;
 #[cfg(test)]
 mod tests_lifecycle;
 #[cfg(test)]
@@ -134,6 +137,61 @@ fn phase_of(r: &Resource) -> Result<Phase, String> {
     }
 }
 
+fn check_market(market: Option<&str>) -> Result<(), String> {
+    match market {
+        None | Some("spot") => Ok(()),
+        Some(m) => Err(format!(
+            "ec2_spot_seat: `spot_market: {m}` is refused; only spot is allowed"
+        )),
+    }
+}
+
+fn check_placement(region: &str, az: &str, subnet: &str, types: &[String]) -> Result<(), String> {
+    if !crate::resources::s3_bucket::is_region(region) {
+        return Err(format!("ec2_spot_seat: `{region}` is not a valid region"));
+    }
+    if !az.starts_with(region) || az.len() != region.len() + 1 {
+        return Err(format!(
+            "ec2_spot_seat: `spot_az: {az}` is not a zone of {region}"
+        ));
+    }
+    if !subnet.starts_with("subnet-") || !word(subnet) {
+        return Err(format!(
+            "ec2_spot_seat: `spot_subnet: {subnet}` is not a subnet id"
+        ));
+    }
+    if types.is_empty() || !types.iter().all(|t| t.contains('.') && word(t)) {
+        return Err(
+            "ec2_spot_seat: `spot_instance_types` needs one or more types like c6a.4xlarge".into(),
+        );
+    }
+    Ok(())
+}
+
+fn check_runner(org: &str, group: &str, labels: &[String]) -> Result<(), String> {
+    if !word(org) || !word(group) {
+        return Err(
+            "ec2_spot_seat: `spot_runner_org` and `spot_runner_group` must be plain words".into(),
+        );
+    }
+    if labels.is_empty() || !labels.iter().all(|l| word(l)) {
+        return Err("ec2_spot_seat: `spot_runner_labels` needs one or more plain labels".into());
+    }
+    Ok(())
+}
+
+fn check_jit(jit: &str) -> Result<(), String> {
+    let ok = jit == "gh-api"
+        || jit
+            .strip_prefix("dir:")
+            .is_some_and(|d| d.starts_with('/') && !d.contains(['\'', '\n', '$', '`']));
+    if ok {
+        Ok(())
+    } else {
+        Err("ec2_spot_seat: `spot_jit_source` is `gh-api` or `dir:/absolute/path`".into())
+    }
+}
+
 /// Validate a declaration.
 ///
 /// # Errors
@@ -143,14 +201,7 @@ fn phase_of(r: &Resource) -> Result<Phase, String> {
 pub fn spec_of(r: &Resource) -> Result<SpotSeat, String> {
     let s = &r.spot;
     let phase = phase_of(r)?;
-    match s.market.as_deref() {
-        None | Some("spot") => {}
-        Some(m) => {
-            return Err(format!(
-                "ec2_spot_seat: `spot_market: {m}` is refused; only spot is allowed"
-            ))
-        }
-    }
+    check_market(s.market.as_deref())?;
     let pin_file = req(&s.pin_file, "spot_pin_file")?.to_string();
     let owner = req(&s.owner, "spot_owner")?;
     if !word(owner) {
@@ -159,26 +210,9 @@ pub fn spec_of(r: &Resource) -> Result<SpotSeat, String> {
         ));
     }
     let region = req(&s.region, "spot_region")?;
-    if !crate::resources::s3_bucket::is_region(region) {
-        return Err(format!("ec2_spot_seat: `{region}` is not a valid region"));
-    }
     let az = req(&s.az, "spot_az")?;
-    if !az.starts_with(region) || az.len() != region.len() + 1 {
-        return Err(format!(
-            "ec2_spot_seat: `spot_az: {az}` is not a zone of {region}"
-        ));
-    }
     let subnet = req(&s.subnet, "spot_subnet")?;
-    if !subnet.starts_with("subnet-") || !word(subnet) {
-        return Err(format!(
-            "ec2_spot_seat: `spot_subnet: {subnet}` is not a subnet id"
-        ));
-    }
-    if s.instance_types.is_empty() || !s.instance_types.iter().all(|t| t.contains('.') && word(t)) {
-        return Err(
-            "ec2_spot_seat: `spot_instance_types` needs one or more types like c6a.4xlarge".into(),
-        );
-    }
+    check_placement(region, az, subnet, &s.instance_types)?;
     let ttl = s.ttl_min.ok_or("ec2_spot_seat requires `spot_ttl_min`")?;
     let seats = s.seats.ok_or("ec2_spot_seat requires `spot_seats`")?;
     if !(1..=720).contains(&ttl) || !(1..=64).contains(&seats) {
@@ -203,22 +237,9 @@ pub fn spec_of(r: &Resource) -> Result<SpotSeat, String> {
     }
     let org = req(&s.runner_org, "spot_runner_org")?;
     let group = req(&s.runner_group, "spot_runner_group")?;
-    if !word(org) || !word(group) {
-        return Err(
-            "ec2_spot_seat: `spot_runner_org` and `spot_runner_group` must be plain words".into(),
-        );
-    }
-    if s.runner_labels.is_empty() || !s.runner_labels.iter().all(|l| word(l)) {
-        return Err("ec2_spot_seat: `spot_runner_labels` needs one or more plain labels".into());
-    }
+    check_runner(org, group, &s.runner_labels)?;
     let jit = req(&s.jit_source, "spot_jit_source")?;
-    let jit_ok = jit == "gh-api"
-        || jit
-            .strip_prefix("dir:")
-            .is_some_and(|d| d.starts_with('/') && !d.contains(['\'', '\n', '$', '`']));
-    if !jit_ok {
-        return Err("ec2_spot_seat: `spot_jit_source` is `gh-api` or `dir:/absolute/path`".into());
-    }
+    check_jit(jit)?;
     Ok(SpotSeat {
         phase,
         pin_file,
