@@ -3255,7 +3255,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-10T10:38:41Z
-  updated: 2026-09-10T11:09:51Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - 'docs/roadmaps/releases.yaml is the DECLARED side: cadence_days, a floor tag, one row per tag at or above the floor (cut, prs, tickets, dogfood, crux) and the open goal (next.tag, next.due = previous cut + cadence_days); scripts/release-goal.sh show prints one status line joining it to the measured window with basis= on every number'
@@ -3271,6 +3271,7 @@ roadmap:
   - kind:code
   - orch:fable
   - release:v1.28.0
+  - release:v1.34.2
   notes: 'orch-basis:release — the ticket declares and measures the release cadence itself. Measured before it was opened: newest tag v1.27.0 cut 2026-09-08T21:46:04Z; eight PRs (#493 #494 #496 #498 #500 #502 #504 #505) merged since and none names a release; 174 roadmap rows carry no release field or label; zero GitHub milestones; the squash subject is a lossy link (the 1.27.0 release commit names PMAT-212/213/214 and a PMAT-[0-9]+ scan sees one). Five owning modules: docs/roadmaps (the declared side), scripts/release-goal.sh (status line and textual repair), scripts/dogfood/tagged.sh with scripts/dogfood/lib/window.sh (the measured side), tests/ (fixture-driven falsification), .github/workflows (the daily instrument). Filed as forjar#506.'
 - id: PMAT-226
   github_issue: null
@@ -3702,7 +3703,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T18:55:00Z
-  updated: 2026-11-21T21:32:15.357499192+00:00
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - gate D refuses a README requirement whose minor has fallen behind the built version by more than the declared bound, naming the line and both versions
@@ -3715,7 +3716,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.2
+  - release:v1.35.0
   notes: 'Found by a review lane on the 1.29.0 cut: README.md:96 read `forjar = "1.28"` while the tree built 1.29.0, and gate D said "version claims reconcile with Cargo.toml". The gate is correct by its predicate — a caret admits 1.29.0 — but the predicate is not what its own comment describes. The comment names "a README pinning a version the crate has moved past" as the defect; the code only fails when the README claims something NEWER (`want > have`). The README was corrected by hand in the cut and nothing would have caught the next one.'
   release: 1.30.0
 - id: PMAT-528
@@ -3726,7 +3727,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-11-21T21:32:15.357499192+00:00
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - gate T refuses a ticket that carries release:<next.tag> and reads completed while no merged PR in that window names it, saying which ticket and which window
@@ -3739,7 +3740,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.2
+  - release:v1.35.0
   notes: 'Found by three review lanes on the v1.29.0 ledger booking. PMAT-240 read status: completed while thirteen pipelines of its own shape were still in scripts/ and neither acceptance criterion had been met. It was planned when minted at f98b388d and completed by c5e4aaa3, flipped during unrelated work with no commit saying so. T7 (PMAT-236) checks that every ticket a tagged row names reads completed|cancelled and has no arm in the other direction, so a row can claim work that never happened and stay green forever. Worse than a stale field: release-goal.sh cut moves such a ticket''s label into the next window at every cut, so a ticket nobody has done rides the ledger forward wearing a badge that says it is finished.'
   release: 1.30.0
 - id: PMAT-529
@@ -3750,7 +3751,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-09-11T20:15:00Z
-  updated: 2026-11-19T09:32:58Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - release-goal.sh cut and sync do not label a row that reads cancelled, and REMOVE such a label if one is there, saying so in their output
@@ -3762,7 +3763,7 @@ roadmap:
   labels:
   - kind:code
   - orch:fable
-  - release:v1.34.2
+  - release:v1.35.0
   notes: 'Found by three review lanes on the v1.29.0 booking, where `release-goal.sh cut v1.29.0 --next v1.30.0` printed "removed PMAT-233 release:v1.29.0 / labelled PMAT-233 release:v1.30.0" over a row reading status: cancelled. A cancelled ticket belongs to no release, so moving its label forward puts it on a treadmill: every future cut carries it one window further and gate T''s window arms keep counting it as open work. The label was removed by hand in the booking commit; nothing stops the next cut from re-adding it.'
   release: 1.30.0
 - id: PMAT-531
@@ -4394,7 +4395,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-20T12:05:00Z
-  updated: 2026-11-19T09:32:58Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - 'Every CB-21xx ratchet check is at or under its 2026-09-11 ceiling on a COMMITTED tree, repaired rather than raised: no ceiling in scripts/ratchets/cb21xx-baseline.json is edited. Measured before: origin/main CB-2115 55/43, CB-2114 37/34. Done when scripts/dogfood/comply.sh prints GATE B PASS.'
@@ -4403,7 +4404,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:triage
-  - release:v1.34.2
+  - release:v1.35.0
   notes: null
   release: 1.35.0
   epic: 697
@@ -4691,7 +4692,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-07T19:00:00Z
-  updated: 2026-11-21T21:32:15.357499192+00:00
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - 'scripts/release-goal.sh (label_row, unlabel_row, cut) and scripts/dogfood/lib/releases.sh (the ledger loader) run no python3: the loader is scripts/dogfood/lib/releases.awk, which reads the ledger''s subset of YAML and fails by line number on any other line shape, and the row and ledger edits are awk over the file text with the same messages and exit codes as before'
@@ -4704,7 +4705,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.2
+  - release:v1.35.0
   notes: null
 - id: PMAT-614
   github_issue: 614
@@ -4798,7 +4799,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-09-27T10:30:00Z
-  updated: 2026-11-19T09:32:58Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - check_script is RED when more than one filesystem (autofs excluded) is mounted at the target, even when the top one matches the declared source and options.
@@ -4809,7 +4810,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.2
+  - release:v1.35.0
   notes: null
   release: 1.33.0
   epic: 696
@@ -5014,7 +5015,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-10-04T14:41:22Z
-  updated: 2026-11-19T09:32:58Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - nightly.yml x86_64-apple-darwin and aarch64-apple-darwin legs run on [self-hosted, macOS, ARM64, mini]; every other leg keeps its runner, and nightly.yml still triggers only on schedule and workflow_dispatch.
@@ -5027,7 +5028,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.2
+  - release:v1.35.0
   notes: null
 - id: PMAT-727
   github_issue: 727
@@ -5298,7 +5299,7 @@ roadmap:
   priority: high
   assigned_to: null
   created: 2026-10-23T18:10:27Z
-  updated: 2026-11-19T09:32:58Z
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - forjar#777
@@ -5307,7 +5308,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
-  - release:v1.34.2
+  - release:v1.35.0
   notes: null
   epic: 764
 - id: PMAT-829
@@ -8834,7 +8835,7 @@ roadmap:
   priority: medium
   assigned_to: null
   created: 2026-11-21T18:11:48Z
-  updated: 2026-11-21T21:32:15.357499192+00:00
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria:
   - 'forjar gap: no S3 bucket resource. Declares bucket, region, private, sse, tls_only, versioning, noncurrent_expire_days; check/state ask AWS.'
@@ -8843,6 +8844,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.2
   notes: null
   epic: 697
 - id: PMAT-1245
@@ -8853,7 +8855,7 @@ roadmap:
   priority: critical
   assigned_to: null
   created: 2026-11-21T20:14:40Z
-  updated: 2026-11-21T21:32:15.357499192+00:00
+  updated: 2026-11-24T17:44:24Z
   spec: null
   acceptance_criteria: []
   phases: []
@@ -8861,6 +8863,7 @@ roadmap:
   estimated_effort: null
   labels:
   - kind:code
+  - release:v1.34.2
   notes: null
   epic: 913
 - id: GH-712
