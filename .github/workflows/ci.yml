@@ -6,7 +6,7 @@
 #   lint: cargo clippy --all-targets -- -D warnings + cargo fmt --check
 #   coverage: cargo llvm-cov + codecov upload
 #   security: cargo audit + advisory gate (blocking; no continue-on-error)
-#   provenance: SLSA attest-build-provenance (upstream job is continue-on-error: forjar#1160)
+#   provenance: SLSA attest-build-provenance
 #   gate: aggregates test+lint results
 #
 #   NOTE: sovereign-ci compiles NO doctests. Its test job is hard-scoped to
