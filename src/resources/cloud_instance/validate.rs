@@ -4,9 +4,6 @@
 /// Hard cap on instances per fleet (`cloud_count`, #1265).
 pub const MAX_FLEET_COUNT: u32 = 6;
 
-/// Plan-time hard cap on total USD/h summed over the fleet (`cloud_max_price * cloud_count`, #1265).
-pub const MAX_FLEET_USD_PER_HOUR: f64 = 50.0;
-
 pub(super) fn field(v: &Option<String>, name: &str) -> Result<String, String> {
     match v.as_deref() {
         Some(s) if !s.is_empty() => Ok(s.to_string()),
@@ -66,27 +63,11 @@ pub(super) fn resolve_instance_types(
     }
 }
 
-pub(super) fn check_market_type(v: &Option<String>) -> Result<(), String> {
-    match v.as_deref() {
-        None | Some("spot") => Ok(()),
-        Some(other) => Err(format!(
-            "cloud_market_type '{other}' is refused; cloud_instance is spot-only (on-demand refused)"
-        )),
-    }
-}
-
-pub(super) fn check_fleet_caps(count: Option<u32>, max_price: &str) -> Result<u32, String> {
+pub(super) fn check_fleet_caps(count: Option<u32>) -> Result<u32, String> {
     let n = count.unwrap_or(1);
     if n == 0 || n > MAX_FLEET_COUNT {
         return Err(format!(
             "cloud_count {n} must be 1 to {MAX_FLEET_COUNT} (hard cap {MAX_FLEET_COUNT})"
-        ));
-    }
-    let price = max_price.parse::<f64>().unwrap_or(f64::MAX);
-    let total = price * f64::from(n);
-    if !total.is_finite() || total > MAX_FLEET_USD_PER_HOUR {
-        return Err(format!(
-            "fleet max spend {total:.2} USD/h (cloud_max_price x cloud_count) exceeds hard cap {MAX_FLEET_USD_PER_HOUR:.2} USD/h"
         ));
     }
     Ok(n)

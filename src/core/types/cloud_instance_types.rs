@@ -41,14 +41,6 @@ pub struct CloudSpec {
     )]
     pub count: Option<u32>,
 
-    /// Market type; only `spot` (or unset) is accepted — on-demand is refused (#1265).
-    #[serde(
-        rename = "cloud_market_type",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub market_type: Option<String>,
-
     /// Spot price ceiling in USD per hour, a decimal string (`0.20`).
     #[serde(
         rename = "cloud_max_price",

@@ -156,7 +156,6 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "cloud_instance_type",
     "cloud_instance_types",
     "cloud_count",
-    "cloud_market_type",
     "cloud_max_price",
     "cloud_max_lifetime_min",
     "cloud_budget_cap_usd_day",

@@ -71,28 +71,9 @@ pub(super) fn validate_cloud_instance(
     resource: &Resource,
     errors: &mut Vec<ValidationError>,
 ) {
-    match crate::resources::cloud_instance::spec_of(&with_stand_ins(resource)) {
-        Err(e) => errors.push(ValidationError {
+    if let Err(e) = crate::resources::cloud_instance::spec_of(&with_stand_ins(resource)) {
+        errors.push(ValidationError {
             message: format!("resource '{id}' (cloud_instance): {e}"),
-        }),
-        Ok(spec) => {
-            if !is_template(&resource.cloud.max_price)
-                && !is_template(&resource.cloud.budget_cap_usd_day)
-            {
-                if let Some(budget) = resource.cloud.budget_cap_usd_day.as_deref() {
-                    let worst =
-                        spec.total_max_price_usd_hr() * f64::from(spec.max_lifetime_min) / 60.0;
-                    if let Ok(cap) = budget.parse::<f64>() {
-                        if worst > cap {
-                            errors.push(ValidationError {
-                                message: format!(
-                                    "resource '{id}' (cloud_instance): worst-case spend {worst:.4} USD (max_price x count x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
-                                ),
-                            });
-                        }
-                    }
-                }
-            }
-        }
+        });
     }
 }

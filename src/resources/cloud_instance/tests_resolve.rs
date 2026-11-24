@@ -8,14 +8,13 @@ use std::collections::HashMap;
 type Setter = fn(&mut Resource, &str);
 
 /// Fields the resolver fills in: a bad resolved value must be refused.
-const RESOLVED: [(&str, Setter); 7] = [
+const RESOLVED: [(&str, Setter); 6] = [
     ("region", |r, v| r.cloud.region = Some(v.into())),
     ("type", |r, v| r.cloud.instance_type = Some(v.into())),
     ("types", |r, v| {
         r.cloud.instance_type = None;
         r.cloud.instance_types = Some(vec![v.into()]);
     }),
-    ("market", |r, v| r.cloud.market_type = Some(v.into())),
     ("price", |r, v| r.cloud.max_price = Some(v.into())),
     ("name", |r, v| r.name = Some(v.into())),
     ("image", |r, v| r.image = Some(v.into())),

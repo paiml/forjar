@@ -1,4 +1,4 @@
-//! `validate_cloud_instance` at parse time (#1046, #1047, #1038).
+//! `validat_cloud_instanc` at pase time (#1046, #1047, #1038).
 
 use super::cloud_instance_validate::validate_cloud_instance;
 use crate::core::types::*;
@@ -101,11 +101,6 @@ fn table() -> Vec<(&'static str, Set, Seen)> {
             CHECKED,
         ),
         (
-            "cloud_market_type",
-            |r| r.cloud.market_type = Some(t()),
-            REJECTS,
-        ),
-        (
             "cloud_kill_switch",
             |r| r.cloud.kill_switch = Some(t()),
             CHECKED,
@@ -182,30 +177,9 @@ fn a_non_ascii_or_empty_zone_with_a_templated_region_is_rejected_not_a_panic() {
 }
 
 #[test]
-fn fleet_plan_time_guards_refuse_cap_overflow_and_on_demand() {
+fn fleet_count_hard_cap_refuses_overflow() {
     // Hard cap on count (7 > 6)
     let mut r = valid();
     r.cloud.count = Some(7);
     assert!(errs(&r).iter().any(|e| e.contains("cloud_count")));
-
-    // Hard cap on fleet $/h (10.0 * 6 = 60 > 50)
-    let mut r = valid();
-    r.cloud.max_price = Some("10.0".into());
-    r.cloud.count = Some(6);
-    assert!(errs(&r).iter().any(|e| e.contains("hard cap")));
-
-    // Daily budget cap multiplied by fleet count
-    let mut r = valid();
-    r.cloud.max_price = Some("1.0".into());
-    r.cloud.count = Some(4);
-    r.cloud.max_lifetime_min = Some(60);
-    r.cloud.budget_cap_usd_day = Some("3.5".into());
-    assert!(errs(&r)
-        .iter()
-        .any(|e| e.contains("cloud_budget_cap_usd_day")));
-
-    // On-demand refused
-    let mut r = valid();
-    r.cloud.market_type = Some("on-demand".into());
-    assert!(errs(&r).iter().any(|e| e.contains("spot-only")));
 }

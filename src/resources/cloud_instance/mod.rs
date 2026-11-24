@@ -39,11 +39,11 @@ pub use profile::misplaced as profile_misplaced;
 mod validate;
 use key::{key_of, owner_of};
 pub use launch_io::apply_script;
+pub use validate::MAX_FLEET_COUNT;
 use validate::{
-    check_fleet_caps, check_market_type, field, has_digest, image_name, is_ident, is_image_name,
-    is_positive_decimal, is_tag, is_word, require, resolve_instance_types,
+    check_fleet_caps, field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal,
+    is_tag, is_word, require, resolve_instance_types,
 };
-pub use validate::{MAX_FLEET_COUNT, MAX_FLEET_USD_PER_HOUR};
 
 #[cfg(test)]
 mod tests;
@@ -130,7 +130,6 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         matches!(resource.state.as_deref(), None | Some("present" | "absent")),
         "state must be present or absent",
     )?;
-    check_market_type(&resource.cloud.market_type)?;
     let name = field(&resource.name, "name")?;
     require(
         is_ident(&name, 63),
@@ -150,7 +149,7 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         is_positive_decimal(&max_price),
         "cloud_max_price must be a positive decimal",
     )?;
-    let count = check_fleet_caps(resource.cloud.count, &max_price)?;
+    let count = check_fleet_caps(resource.cloud.count)?;
     let image = field(&resource.image, "image")?;
     require(
         has_digest(&image),
@@ -288,7 +287,7 @@ pub fn plan_diff(resource: &Resource) -> String {
     };
     format!(
         "+ cloud_instance aws/{region} spot {itype} x{count}\n\
-         +   max_price: {price} USD/h (fleet total: {total:.2} USD/h)\n\
+         +   max_price: {price} USD/h\n\
          {zones}\
          +   image: {image}\n\
          +   max_lifetime_min: {life}\n\
@@ -303,7 +302,6 @@ pub fn plan_diff(resource: &Resource) -> String {
         itype = s.instance_types.join(","),
         count = s.count,
         price = s.max_price,
-        total = s.total_max_price_usd_hr(),
         image = s.image,
         life = s.max_lifetime_min,
         labels = s.tags.join(","),

@@ -178,7 +178,6 @@ fn resolve_build_and_overlay_fields(
     if let Some(ref types) = r.cloud.instance_types {
         r.cloud.instance_types = Some(resolve_list(types, params, machines, secrets)?);
     }
-    r.cloud.market_type = resolve_opt(&r.cloud.market_type, params, machines, secrets)?;
     r.cloud.max_price = resolve_opt(&r.cloud.max_price, params, machines, secrets)?;
     let cap = &r.cloud.budget_cap_usd_day;
     r.cloud.budget_cap_usd_day =

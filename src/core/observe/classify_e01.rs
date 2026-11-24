@@ -83,7 +83,6 @@ fn gpu_and_model(field: &str) -> Option<Observability> {
         | "cloud_instance_type"
         | "cloud_instance_types"
         | "cloud_count"
-        | "cloud_market_type"
         | "cloud_max_price"
         | "cloud_budget_cap_usd_day"
         | "cloud_kill_switch"
