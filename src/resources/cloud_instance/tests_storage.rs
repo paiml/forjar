@@ -122,7 +122,6 @@ fn owner_tag_is_not_duplicated_when_user_declares_owner() {
 }
 
 #[test]
-#[test]
 fn tagspec_has_volume_resource_with_declared_tags() {
     let l = run_line(&with(|c| c.volume_tags = Some(true)));
     assert!(
