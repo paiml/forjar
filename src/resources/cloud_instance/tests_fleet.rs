@@ -311,7 +311,7 @@ fn fleet_dead_box_token_chain_works_and_scripts_pass_i8_gate() {
 #[test]
 fn fleet_yaml_parses_validates_resolves_and_plans() {
     let yaml = format!(
-        "version: \"1.0\"\nname: fleet\nmachines:\n  m: {{hostname: m, addr: 127.0.0.1}}\nparams:\n  t1: c7a.xlarge\nresources:\n  w:\n    type: cloud_instance\n    machine: m\n    provider: aws\n    name: workers\n    image: img@{DIGEST}\n    cloud_region: eu-south-2\n    cloud_instance_types: [\"{{{{params.t1}}}}\", c7i.xlarge]\n    cloud_availability_zones: [eu-south-2a, eu-south-2b]\n    cloud_count: 4\n    cloud_max_price: \"0.25\"\n    cloud_max_lifetime_min: 60\n    cloud_market_type: spot\n"
+        "version: \"1.0\"\nname: fleet\nmachines:\n  m: {{hostname: m, addr: 127.0.0.1}}\nparams:\n  t1: c7a.xlarge\nresources:\n  w:\n    type: cloud_instance\n    machine: m\n    provider: aws\n    name: workers\n    image: img@{DIGEST}\n    cloud_region: eu-south-2\n    cloud_instance_types: [\"{{{{params.t1}}}}\", c7i.xlarge]\n    cloud_availability_zones: [eu-south-2a, eu-south-2b]\n    cloud_count: 4\n    cloud_max_price: \"0.25\"\n    cloud_max_lifetime_min: 60\n"
     );
     let cfg = crate::core::parser::parse_config(&yaml).expect("parses");
     let errs = crate::core::parser::validate_config(&cfg);
@@ -328,4 +328,24 @@ fn fleet_yaml_parses_validates_resolves_and_plans() {
         plan.contains("availability_zones: eu-south-2a,eu-south-2b"),
         "{plan}"
     );
+}
+
+/// Guard test: fails if a duplicate id from the fleet loop lets the launch exit 0 short of `cloud_count`
+/// (the slot nonce must not steal an iteration from the live-instance count).
+#[test]
+fn fleet_duplicate_id_does_not_exit_short_of_count() {
+    let sb = fleet_sandbox();
+    let r = fleet_res(sb.path());
+    let key = key_of(&spec_of(&r).unwrap());
+    let own = owner_of(&spec_of(&r).unwrap());
+    // 1 live; the first run-instances call returns i-00000001 again (a duplicate).
+    let fx = format!("i-00000001 {key} {own} sir-00000001\n");
+    let (rc, out) = sb.run_with(&apply_script_on(&r, DAY), "", Some(&fx));
+    assert_eq!(rc, 0, "{out}");
+    assert_eq!(
+        out.trim_end().lines().last(),
+        Some("launched i-00000002 i-00000003"),
+        "{out}"
+    );
+    assert_eq!(count(&sb.log(), "run-instances"), 3, "{}", sb.log());
 }

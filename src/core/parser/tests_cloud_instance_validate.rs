@@ -1,4 +1,4 @@
-//! `validat_cloud_instanc` at pase time (#1046, #1047, #1038).
+//! `validate_cloud_instance` at parse time (#1046, #1047, #1038).
 
 use super::cloud_instance_validate::validate_cloud_instance;
 use crate::core::types::*;
@@ -182,4 +182,12 @@ fn fleet_count_hard_cap_refuses_overflow() {
     let mut r = valid();
     r.cloud.count = Some(7);
     assert!(errs(&r).iter().any(|e| e.contains("cloud_count")));
+}
+
+#[test]
+fn template_stand_in_does_not_collide_with_a_literal_instance_type() {
+    let mut r = valid();
+    r.cloud.instance_type = None;
+    r.cloud.instance_types = Some(vec!["{{params.primary}}".into(), "m5.large".into()]);
+    assert!(errs(&r).is_empty(), "{:?}", errs(&r));
 }

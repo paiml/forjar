@@ -50,11 +50,7 @@ fn with_stand_ins(resource: &Resource) -> Resource {
             if t.split_once("{{")
                 .is_some_and(|(_, rest)| rest.contains("}}"))
             {
-                *t = if i == 0 {
-                    "m5.large".into()
-                } else {
-                    format!("c{i}.large")
-                };
+                *t = format!("standin{i}.large");
             }
         }
     }

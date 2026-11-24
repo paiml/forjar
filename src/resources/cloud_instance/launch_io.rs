@@ -252,8 +252,10 @@ pub(super) fn fleet_tail_on(s: &CloudInstance, cands: &[(&str, Option<&str>)], d
          fleet_ids=''\n\
          cand_idx=0\n\
          dup=0\n\
+         owned=\" $(printf '%s ' $owned)\"\n\
+         live=\"$have\"\n\
          slot=\"$have\"\n\
-         while [ \"$slot\" -lt {count} ]; do\n\
+         while [ \"$live\" -lt {count} ]; do\n\
          while :; do\n\
          if ! cand_spec \"$cand_idx\"; then echo 'launch-capacity-unavailable' >&2; exit {CAPACITY_EXIT}; fi\n\
          if [ \"$slot\" -eq 0 ]; then slot_tok=\"$cand_tok\"\n\
@@ -274,6 +276,7 @@ pub(super) fn fleet_tail_on(s: &CloudInstance, cands: &[(&str, Option<&str>)], d
          exit \"$lrc\"\n\
          fi\n\
          done\n\
+         live=$((live+1))\n\
          slot=$((slot+1))\n\
          done\n\
          if [ {count} -eq 1 ]; then printf '%s\\n' \"$out\"; else echo \"launched $fleet_ids\"; fi\n\
