@@ -4,6 +4,10 @@ use super::{key_of, owner_of, spec_of, CloudInstance};
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 
+/// Single-quote `s` for a shell word WITHOUT dropping newlines. `sh_squote`
+/// strips control characters, which welded user-data into one line
+/// (`#!/bin/shshutdown -h +60...`): no shebang and no lifetime bound. Only
+/// pass text built from validated values.
 pub(super) fn squote_keep_newlines(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\"'\"'"))
 }

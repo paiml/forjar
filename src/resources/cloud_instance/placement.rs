@@ -97,6 +97,9 @@ impl Placement {
             .map_or(Ok(()), check_groups)
             .map_err(ForjarError::into_message)?;
         let zones = resolve_zones(c, region).map_err(ForjarError::into_message)?;
+        if subnet.is_some() && zones.len() > 1 {
+            return Err("cloud_subnet_id is one AZ; it cannot combine with multiple cloud_availability_zones".into());
+        }
         Ok(Self {
             subnet,
             groups: groups.unwrap_or_default(),

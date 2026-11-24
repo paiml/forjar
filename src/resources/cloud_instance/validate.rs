@@ -1,9 +1,9 @@
 //! Allow-list checks for declared values (every value reaches a boot script
 //! or an `aws` command line).
 
-/// Hard cap on instances per fleet (`cloud_count`, #1265).
 use crate::core::types::Resource;
 
+/// Hard cap on instances per fleet (`cloud_count`, #1265).
 pub const MAX_FLEET_COUNT: u32 = 6;
 
 pub(super) fn field(v: &Option<String>, name: &str) -> Result<String, String> {

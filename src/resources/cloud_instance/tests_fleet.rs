@@ -1,5 +1,5 @@
 //! #1265: spot fleet launch — multi-type, multi-AZ, count, plan-time caps,
-//! on-demand refusal, and exit-75 capacity-fallback loop.
+//! and exit-75 capacity-fallback loop.
 
 use super::tests::{gated, res, Sandbox, DIGEST};
 use super::tests_b1::{absent, count};
@@ -348,4 +348,15 @@ fn fleet_duplicate_id_does_not_exit_short_of_count() {
         "{out}"
     );
     assert_eq!(count(&sb.log(), "run-instances"), 3, "{}", sb.log());
+}
+
+/// Regression (#1273 lane 1): one subnet is one AZ, so it cannot combine with a multi-AZ list.
+#[test]
+fn subnet_refuses_multi_az_fleet_at_plan_time() {
+    let sb = fleet_sandbox();
+    let mut r = fleet_res(sb.path());
+    r.cloud.subnet_id = Some("subnet-01234567".into());
+    r.cloud.availability_zones = Some(vec!["eu-south-2a".into(), "eu-south-2b".into()]);
+    let err = spec_of(&r).expect_err("subnet with two AZs must refuse");
+    assert!(err.contains("one AZ"), "{err}");
 }

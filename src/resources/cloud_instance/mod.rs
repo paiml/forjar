@@ -122,8 +122,8 @@ impl CloudInstance {
 ///
 /// # Errors
 ///
-/// Returns `Err` when the declaration is not aws, requests on-demand, exceeds
-/// fleet count or total $/h hard caps, lacks a field, names an image without
+/// Returns `Err` when the declaration is not aws, exceeds the fleet count hard
+/// cap, lacks a field, names an image without
 /// an `@sha256:<64 hex>` digest, has a non-positive price or lifetime, or
 /// carries a value outside the strict allow-list.
 pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
@@ -293,10 +293,6 @@ pub fn plan_diff(resource: &Resource) -> String {
     )
 }
 
-/// Single-quote `s` for a shell word WITHOUT dropping newlines. `sh_squote`
-/// strips control characters, which welded user-data into one line
-/// (`#!/bin/shshutdown -h +60...`): no shebang and no lifetime bound. Only
-/// pass text built from validated values.
 fn is_absent(resource: &Resource) -> bool {
     resource.state.as_deref() == Some("absent")
 }
