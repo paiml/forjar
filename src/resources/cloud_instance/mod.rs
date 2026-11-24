@@ -31,6 +31,10 @@ use destroy::destroy_script;
 mod ami;
 mod key;
 mod launch_io;
+mod query;
+pub use query::state_query_script;
+use query::{describe, describe_by, lookup_ids, reject, squote_keep_newlines};
+use validate::gates_of;
 mod placement;
 mod profile;
 mod storage;
@@ -149,7 +153,8 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         is_positive_decimal(&max_price),
         "cloud_max_price must be a positive decimal",
     )?;
-    let count = check_fleet_caps(resource.cloud.count)?;
+    let count = check_fleet_caps(resource.cloud.count)
+        .map_err(crate::core::error::ForjarError::into_message)?;
     let image = field(&resource.image, "image")?;
     require(
         has_digest(&image),
@@ -237,35 +242,6 @@ fn unique_names<'a>(resources: impl Iterator<Item = (&'a String, &'a Resource)>)
     errors
 }
 
-/// The three apply gates a declaration must carry: (parity gate, budget cap, kill switch).
-fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>> {
-    let abs = |v: &Option<String>| {
-        v.clone()
-            .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
-            // an unresolved template is not a path: a kill switch at
-            // `/run/{{x}}` could never be thrown, so refuse it (fail closed)
-            .filter(|p| !p.contains("{{") && !p.contains("}}"))
-    };
-    let budget = r
-        .cloud
-        .budget_cap_usd_day
-        .clone()
-        .filter(|b| is_positive_decimal(b));
-    let (gate, kill) = (abs(&r.cloud.parity_gate), abs(&r.cloud.kill_switch));
-    match (gate, budget, kill) {
-        (Some(g), Some(b), Some(k)) => Ok((g, b, k)),
-        (g, b, k) => Err([
-            ("parity_gate", g.is_none()),
-            ("budget", b.is_none()),
-            ("kill_switch", k.is_none()),
-        ]
-        .iter()
-        .filter(|(_, missing)| *missing)
-        .map(|(n, _)| *n)
-        .collect()),
-    }
-}
-
 fn status(v: &Option<String>) -> String {
     v.clone().unwrap_or_else(|| "MISSING".into())
 }
@@ -321,63 +297,6 @@ pub fn plan_diff(resource: &Resource) -> String {
 /// strips control characters, which welded user-data into one line
 /// (`#!/bin/shshutdown -h +60...`): no shebang and no lifetime bound. Only
 /// pass text built from validated values.
-fn squote_keep_newlines(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\"'\"'"))
-}
-
-fn reject(msg: &str) -> String {
-    format!("echo {} >&2; exit 1", sh_squote(&format!("REFUSED: {msg}")))
-}
-
-/// Read-only provider query printing `query` for live instances whose
-/// `tag_key` tag equals `tag_val`.
-fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> String {
-    format!(
-        "aws ec2 describe-instances --region {region} \
-         --filters {tag} 'Name=instance-state-name,Values=pending,running' \
-         --query {query} --output text",
-        region = sh_squote(&s.region),
-        tag = sh_squote(&format!("Name=tag:{tag_key},Values={tag_val}")),
-        query = sh_squote(query),
-    )
-}
-
-/// Shell that sets `var` from the provider query `cmd`, or EXITS NON-ZERO.
-///
-/// A failed lookup (expired credentials, throttling, no `aws`) or a reply that
-/// is not a list of instance ids is an ERROR, never "absent": reading a failure
-/// as an empty answer would report success while a box may still be billing.
-/// Pathname expansion is switched off and the C locale forced BEFORE any word
-/// splitting, the reply is normalised to single-space-separated tokens (a
-/// whitespace-only reply is empty = absent), and every token must be a whole
-/// instance id (`i-` + 8 to 17 hex digits; `*` and `?` are malformed). Works
-/// with or without `set -e`.
-fn lookup_ids(var: &str, cmd: &str) -> String {
-    format!(
-        "LC_ALL=C; export LC_ALL; set -f; unset IFS\n\
-         {var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
-         set -- ${var}; {var}=\"$*\"\n\
-         for i in ${var}; do\n\
-         h=\"${{i#i-}}\"\n\
-         case \"$i\" in i-*) ;; *) h='!';; esac\n\
-         case \"$h\" in *[!0-9a-f]*) h='!';; esac\n\
-         if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then\n\
-         echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1\n\
-         fi\n\
-         done\n"
-    )
-}
-
-/// Instances of this exact declaration (key = name + region + image digest).
-fn describe(s: &CloudInstance) -> String {
-    describe_by(
-        s,
-        "forjar-key",
-        &key_of(s),
-        "Reservations[].Instances[].InstanceId",
-    )
-}
-
 fn is_absent(resource: &Resource) -> bool {
     resource.state.as_deref() == Some("absent")
 }
@@ -424,26 +343,6 @@ pub fn check_script(resource: &Resource) -> String {
     checks.extend(s.storage.tag_check(&s.region, &s.tags, &key));
     let verdict = crate::resources::verdict::check_script_from(&checks);
     format!("{}{count_prep}{verdict}", lookup_ids("ids", &describe(&s)))
-}
-
-/// Script reporting observed state (read-only provider query), by OWNER: any
-/// live instance this resource owns counts, whatever image it was launched
-/// with. `state: absent` reads the same way as the absent check.
-pub fn state_query_script(resource: &Resource) -> String {
-    let s = match spec_of(resource) {
-        Ok(s) => s,
-        Err(e) => return reject(&e),
-    };
-    let owned = describe_by(
-        &s,
-        "forjar-owner",
-        &owner_of(&s),
-        "Reservations[].Instances[].InstanceId",
-    );
-    format!(
-        "{}if [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
-        lookup_ids("ids", &owned)
-    )
 }
 
 /// Script that creates the instance, or refuses. Refuses WITHOUT touching the

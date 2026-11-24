@@ -54,26 +54,30 @@ fn check_zone(z: &str, region: &str) -> Result<(), ForjarError> {
     ))
 }
 
-fn resolve_zones(c: &CloudSpec, region: &str) -> Result<Vec<String>, String> {
+fn resolve_zones(c: &CloudSpec, region: &str) -> Result<Vec<String>, ForjarError> {
     match (&c.availability_zone, &c.availability_zones) {
-        (Some(_), Some(_)) => {
-            Err("cannot set both cloud_availability_zone and cloud_availability_zones".into())
-        }
+        (Some(_), Some(_)) => Err(ForjarError::from_untyped(
+            "cannot set both cloud_availability_zone and cloud_availability_zones",
+        )),
         (None, None) => Ok(Vec::new()),
         (Some(z), None) => {
-            check_zone(z, region).map_err(ForjarError::into_message)?;
+            check_zone(z, region)?;
             Ok(vec![z.clone()])
         }
         (None, Some(zs)) => {
             if zs.is_empty() {
-                return Err("cloud_availability_zones must not be empty".into());
+                return Err(ForjarError::from_untyped(
+                    "cloud_availability_zones must not be empty",
+                ));
             }
             let uniq: std::collections::BTreeSet<&str> = zs.iter().map(String::as_str).collect();
             if uniq.len() != zs.len() {
-                return Err("cloud_availability_zones entries must be distinct".into());
+                return Err(ForjarError::from_untyped(
+                    "cloud_availability_zones entries must be distinct",
+                ));
             }
             for z in zs {
-                check_zone(z, region).map_err(ForjarError::into_message)?;
+                check_zone(z, region)?;
             }
             Ok(zs.clone())
         }
@@ -92,7 +96,7 @@ impl Placement {
             .as_deref()
             .map_or(Ok(()), check_groups)
             .map_err(ForjarError::into_message)?;
-        let zones = resolve_zones(c, region)?;
+        let zones = resolve_zones(c, region).map_err(ForjarError::into_message)?;
         Ok(Self {
             subnet,
             groups: groups.unwrap_or_default(),

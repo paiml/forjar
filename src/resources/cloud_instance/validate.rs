@@ -2,6 +2,8 @@
 //! or an `aws` command line).
 
 /// Hard cap on instances per fleet (`cloud_count`, #1265).
+use crate::core::types::Resource;
+
 pub const MAX_FLEET_COUNT: u32 = 6;
 
 pub(super) fn field(v: &Option<String>, name: &str) -> Result<String, String> {
@@ -63,12 +65,12 @@ pub(super) fn resolve_instance_types(
     }
 }
 
-pub(super) fn check_fleet_caps(count: Option<u32>) -> Result<u32, String> {
+pub(super) fn check_fleet_caps(count: Option<u32>) -> Result<u32, crate::core::error::ForjarError> {
     let n = count.unwrap_or(1);
     if n == 0 || n > MAX_FLEET_COUNT {
-        return Err(format!(
+        return Err(crate::core::error::ForjarError::from_untyped(format!(
             "cloud_count {n} must be 1 to {MAX_FLEET_COUNT} (hard cap {MAX_FLEET_COUNT})"
-        ));
+        )));
     }
     Ok(n)
 }
@@ -124,4 +126,33 @@ pub(super) fn is_tag(t: &str) -> bool {
                 .all(|c| c.is_ascii_alphanumeric() || "-_.:/".contains(c))
     };
     t.split_once('=').is_some_and(|(k, v)| plain(k) && plain(v))
+}
+
+/// The three apply gates a declaration must carry: (parity gate, budget cap, kill switch).
+pub(super) fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>> {
+    let abs = |v: &Option<String>| {
+        v.clone()
+            .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
+            // an unresolved template is not a path: a kill switch at
+            // `/run/{{x}}` could never be thrown, so refuse it (fail closed)
+            .filter(|p| !p.contains("{{") && !p.contains("}}"))
+    };
+    let budget = r
+        .cloud
+        .budget_cap_usd_day
+        .clone()
+        .filter(|b| is_positive_decimal(b));
+    let (gate, kill) = (abs(&r.cloud.parity_gate), abs(&r.cloud.kill_switch));
+    match (gate, budget, kill) {
+        (Some(g), Some(b), Some(k)) => Ok((g, b, k)),
+        (g, b, k) => Err([
+            ("parity_gate", g.is_none()),
+            ("budget", b.is_none()),
+            ("kill_switch", k.is_none()),
+        ]
+        .iter()
+        .filter(|(_, missing)| *missing)
+        .map(|(n, _)| *n)
+        .collect()),
+    }
 }
