@@ -88,6 +88,19 @@ fn table() -> Vec<(&'static str, Set, Seen)> {
             REJECTS,
         ),
         (
+            "cloud_availability_zones",
+            |r| r.cloud.availability_zones = Some(vec![t()]),
+            REJECTS,
+        ),
+        (
+            "cloud_instance_types",
+            |r| {
+                r.cloud.instance_type = None;
+                r.cloud.instance_types = Some(vec![t(), "c7a.xlarge".into()]);
+            },
+            CHECKED,
+        ),
+        (
             "cloud_kill_switch",
             |r| r.cloud.kill_switch = Some(t()),
             CHECKED,
@@ -161,4 +174,20 @@ fn a_non_ascii_or_empty_zone_with_a_templated_region_is_rejected_not_a_panic() {
         assert_eq!(e.len(), 1, "{zone:?}: {e:?}");
         assert!(e[0].contains("cloud_availability_zone"), "{zone:?}: {e:?}");
     }
+}
+
+#[test]
+fn fleet_count_hard_cap_refuses_overflow() {
+    // Hard cap on count (7 > 6)
+    let mut r = valid();
+    r.cloud.count = Some(7);
+    assert!(errs(&r).iter().any(|e| e.contains("cloud_count")));
+}
+
+#[test]
+fn template_stand_in_does_not_collide_with_a_literal_instance_type() {
+    let mut r = valid();
+    r.cloud.instance_type = None;
+    r.cloud.instance_types = Some(vec!["{{params.primary}}".into(), "m5.large".into()]);
+    assert!(errs(&r).is_empty(), "{:?}", errs(&r));
 }
