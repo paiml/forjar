@@ -266,20 +266,35 @@ pub const OLD_JQ: &str = r#"
 "#;
 
 pub fn jq(body: &str, prog: &str) -> String {
-    jq_untrimmed(body, prog).trim().to_string()
-}
-
-/// `jq -r` output with its trailing newline kept: a value that ends in a newline must not
-/// be trimmed into a valid one.
-pub fn jq_untrimmed(body: &str, prog: &str) -> String {
     let mut ch = Command::new("jq")
-        .args(["-j", prog])
+        .args(["-r", prog])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
         .expect("jq");
     std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
-    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout).to_string()
+    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout)
+        .trim()
+        .to_string()
+}
+
+/// The one `reviewed_head` of a canary receipt, untrimmed. The whole input is slurped so
+/// that two documents, or a trailing token, fail closed (empty) rather than join into a
+/// valid-looking head; a trailing newline in the value stays in the result.
+pub fn canary_head_single(body: &str) -> String {
+    let prog = r#"[.[] | .quorum.canary.reviewed_head | strings] | if length == 1 then .[0] else error("not one reviewed_head") end"#;
+    let mut ch = Command::new("jq")
+        .args(["-j", "-s", prog])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("jq");
+    std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
+    let out = ch.wait_with_output().expect("wait");
+    if !out.status.success() {
+        return String::new();
+    }
+    String::from_utf8_lossy(&out.stdout).to_string()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -358,7 +373,7 @@ fn census_plain(
 }
 
 fn census_canary_head(body: &str, rel: &str) -> Result<String, String> {
-    let head = jq_untrimmed(body, r#".quorum.canary.reviewed_head | strings"#);
+    let head = canary_head_single(body);
     let is_sha = head.len() == 40 && head.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
     if head.is_empty() || !is_sha {
         return Err(format!(
