@@ -40,6 +40,8 @@ fn reclaims_dot_prefixed_target_dirs() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -76,6 +78,8 @@ fn never_deletes_a_source_dir_named_target() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -108,6 +112,8 @@ fn does_nothing_when_under_the_watermark() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -137,6 +143,8 @@ fn respects_the_idle_floor() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -164,6 +172,8 @@ fn triggered_pass_that_cannot_reach_target_exits_nonzero() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -210,6 +220,8 @@ fn stops_as_soon_as_the_target_watermark_is_met() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -271,6 +283,8 @@ fn abandoned_worktree_with_unpushed_work_is_never_removed() {
             roots: vec![pool.to_string_lossy().into_owned()],
             kind: ReclaimKind::AbandonedWorktree,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -360,6 +374,8 @@ fn abandoned_worktree_is_removed_and_pruned_from_a_sibling_pool() {
             roots: vec![pool.to_string_lossy().into_owned()],
             kind: ReclaimKind::AbandonedWorktree,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -394,6 +410,8 @@ fn dry_run_reclaims_nothing() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let script = root.join("reaper.sh");
@@ -441,6 +459,8 @@ fn reclaims_a_per_arch_target_dir_that_has_only_cachedir_tag() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);
@@ -472,6 +492,8 @@ fn never_reclaims_a_cargo_registry() {
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     let r = run_reaper(&res, &bin, &root);

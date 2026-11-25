@@ -13,6 +13,8 @@ fn script_for(root: &str, kind: ReclaimKind) -> String {
         roots: vec![root.to_string()],
         kind,
         min_idle_minutes: 1,
+        max_age: (kind == ReclaimKind::TtlTree).then(|| "14d".to_string()),
+        idle_days: None,
     }];
     // Trigger at 2% used, demand 99% free: always triggered, never met, so
     // every provably-dead idle candidate is a deletion.
@@ -231,12 +233,14 @@ fn every_reclaim_kind_runs_the_in_use_check_in_the_loop() {
         ReclaimKind::CargoTarget,
         ReclaimKind::AbandonedWorktree,
         ReclaimKind::ClaudeScratchpad,
+        ReclaimKind::TtlTree,
     ] {
         match kind {
             ReclaimKind::Glob
             | ReclaimKind::CargoTarget
             | ReclaimKind::AbandonedWorktree
-            | ReclaimKind::ClaudeScratchpad => {}
+            | ReclaimKind::ClaudeScratchpad
+            | ReclaimKind::TtlTree => {}
         }
         let s = script_for("/tmp/x/*", kind);
         let loop_at = s.find("while IFS= read -r cand").expect("loop");

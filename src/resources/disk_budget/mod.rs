@@ -56,6 +56,7 @@ use crate::core::types::{
 
 mod detect;
 mod reaper;
+mod ttl;
 mod units;
 
 #[cfg(test)]
@@ -75,7 +76,7 @@ pub fn budget_of(resource: &Resource) -> Result<DiskBudget, String> {
         .path
         .as_deref()
         .ok_or_else(|| "disk_budget requires `path` (the filesystem to budget)".to_string())?;
-    DiskBudget::new(
+    let budget = DiskBudget::new(
         path,
         resource
             .budget
@@ -95,7 +96,11 @@ pub fn budget_of(resource: &Resource) -> Result<DiskBudget, String> {
             .as_deref()
             .unwrap_or(DEFAULT_SCHEDULE),
         resource.budget.reclaim.clone(),
-    )
+    )?;
+    for rule in &budget.reclaim {
+        ttl::validate_rule(rule)?;
+    }
+    Ok(budget)
 }
 
 /// Filesystem-safe slug for a mount path (`/` -> `root`, `/mnt/x` -> `mnt-x`).
