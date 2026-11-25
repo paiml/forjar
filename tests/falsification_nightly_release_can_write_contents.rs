@@ -41,6 +41,19 @@
 //!    `GH_TOKEN` or `GITHUB_TOKEN` from workflow, job, or step `env`
 //!    (`accepts_gh_cli_step_with_effective_github_token`:
 //!    `wf_pass`, `job_pass`, `step_pass`).
+//! 10. Invoke `gh` via subshell, full path, or semicolon-separated command
+//!     without a token (`rejects_gh_cli_variants_without_effective_token`),
+//!     or set/unset `GH_TOKEN` / `GITHUB_TOKEN` inside a `run` script
+//!     (`rejects_token_set_or_unset_in_run_script`).
+//! 11. Passing fixtures for trailing comments, full-line comments, and
+//!     substring non-matches (`accepts_non_gh_comments_trailing_comments_and_substrings`).
+//!
+//! # Not covered
+//!
+//! - A release action step disabled with `if:`.
+//! - Publishing through another action with its own token input (for example
+//!   `actions/github-script` `github-token`).
+//! - An `env` that is an expression string instead of a mapping.
 
 use serde_yaml_ng::Value;
 
@@ -161,18 +174,53 @@ fn step_label(step: &Value) -> String {
     format!("step {name:?}")
 }
 
-fn line_calls_gh(line: &str) -> bool {
+fn is_word_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '/')
+}
+
+fn strip_comment(line: &str) -> Option<&str> {
     let trimmed = line.trim();
     if trimmed.is_empty() || trimmed.starts_with('#') {
-        return false;
+        return None;
     }
-    trimmed.starts_with("gh ") || trimmed.contains(" gh ")
+    Some(match trimmed.find(" #") {
+        Some(idx) => &trimmed[..idx],
+        None => trimmed,
+    })
+}
+
+/// Returns whether `line` invokes `gh` based on word splitting.
+///
+/// This is deliberately over-strict: a line that only mentions the word `gh`
+/// inside a string or heredoc also counts, and the fix for such a step is to
+/// give it the default token.
+fn line_calls_gh(line: &str) -> bool {
+    let Some(code) = strip_comment(line) else {
+        return false;
+    };
+    code.split(|c: char| !is_word_char(c))
+        .any(|w| w == "gh" || w.ends_with("/gh"))
 }
 
 fn step_calls_gh(step: &Value) -> bool {
     step.get("run")
         .and_then(Value::as_str)
         .is_some_and(|script| script.lines().any(line_calls_gh))
+}
+
+fn line_sets_or_unsets_token(line: &str) -> bool {
+    let Some(code) = strip_comment(line) else {
+        return false;
+    };
+    let sets = code.contains("GH_TOKEN=") || code.contains("GITHUB_TOKEN=");
+    let unsets = code.contains("unset") && TOKEN_ENV_VARS.iter().any(|var| code.contains(var));
+    sets || unsets
+}
+
+fn step_sets_or_unsets_token(step: &Value) -> bool {
+    step.get("run")
+        .and_then(Value::as_str)
+        .is_some_and(|script| script.lines().any(line_sets_or_unsets_token))
 }
 
 fn env_has_allowed_token(env: Option<&Value>) -> bool {
@@ -193,6 +241,11 @@ fn has_effective_gh_token(step: &Value, job: &Value, wf: &Value) -> bool {
 fn check_step_gh_token_env(step: &Value, job: &Value, wf: &Value) -> Result<(), String> {
     let scope = step_label(step);
     check_env_token_vars(step.get("env"), &scope)?;
+    if step_sets_or_unsets_token(step) {
+        return Err(format!(
+            "forjar#1163: {scope} sets or unsets a GitHub token inside its run script"
+        ));
+    }
     if step_calls_gh(step) && !has_effective_gh_token(step, job, wf) {
         return Err(format!(
             "forjar#1163: {scope} runs `gh` without an effective GH_TOKEN or GITHUB_TOKEN"
@@ -224,11 +277,18 @@ fn nightly_release_steps_use_github_token() {
     check_gh_token_env(&wf).unwrap_or_else(|e| panic!("{e}"));
 }
 
-fn assert_rejected(res: Result<(), String>, case: &str) {
+fn assert_rejected_with(res: Result<(), String>, needle: &str, case: &str) {
     match res {
         Ok(()) => panic!("{case}: expected rejection"),
-        Err(err) => assert!(err.contains("#1163"), "{case}: missing #1163 in {err}"),
+        Err(err) => {
+            assert!(err.contains("#1163"), "{case}: missing #1163 in {err}");
+            assert!(err.contains(needle), "{case}: missing `{needle}` in {err}");
+        }
     }
+}
+
+fn assert_rejected(res: Result<(), String>, case: &str) {
+    assert_rejected_with(res, "#1163", case);
 }
 
 #[test]
@@ -337,4 +397,66 @@ fn accepts_gh_cli_step_with_effective_github_token() {
 
     let step_pass = "jobs:\n  release:\n    steps:\n      - name: Delete\n        env:\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: gh release delete nightly --yes\n      - name: Echo\n        run: echo done\n";
     assert!(check_gh_token_env(&parse_yaml(step_pass, "step_pass")).is_ok());
+}
+
+fn run_step_yaml(env_gh_token: Option<&str>, script: &str) -> Value {
+    let env_block = match env_gh_token {
+        Some(tok) => format!("        env:\n          GH_TOKEN: {tok}\n"),
+        None => String::new(),
+    };
+    let yaml = format!(
+        "jobs:\n  release:\n    steps:\n      - name: Release\n{env_block}        run: |\n          {script}\n"
+    );
+    parse_yaml(&yaml, script)
+}
+
+#[test]
+fn rejects_gh_cli_variants_without_effective_token() {
+    for (case, script) in [
+        ("subshell", "(gh release delete nightly) || true"),
+        ("abs_path", "/usr/bin/gh release create nightly"),
+        ("semicolon", "true;gh release list"),
+    ] {
+        assert_rejected(check_gh_token_env(&run_step_yaml(None, script)), case);
+    }
+}
+
+#[test]
+fn rejects_token_set_or_unset_in_run_script() {
+    let cases = [
+        (
+            "inline_override",
+            Some("${{ secrets.GITHUB_TOKEN }}"),
+            "GH_TOKEN=${{ secrets.PAT }} gh release delete nightly",
+        ),
+        (
+            "unset_tokens",
+            None,
+            "unset GH_TOKEN GITHUB_TOKEN; gh release list",
+        ),
+        (
+            "github_env_write",
+            None,
+            "echo \"GITHUB_TOKEN=${{ secrets.PAT }}\" >> \"$GITHUB_ENV\"",
+        ),
+    ];
+    for (case, env_tok, script) in cases {
+        assert_rejected_with(
+            check_gh_token_env(&run_step_yaml(env_tok, script)),
+            "sets or unsets a GitHub token inside its run script",
+            case,
+        );
+    }
+}
+
+#[test]
+fn accepts_non_gh_comments_trailing_comments_and_substrings() {
+    for (case, script) in [
+        ("trailing_comment", "ls -la artifacts # no gh call here"),
+        ("comment_only", "# gh release list"),
+        ("substring_high", "echo high"),
+    ] {
+        let res = check_gh_token_env(&run_step_yaml(None, script));
+        assert!(res.is_ok(), "{case}: unexpected error {res:?}");
+    }
 }
