@@ -6,6 +6,7 @@
 //! script is generated, so a bad declaration fails `forjar apply`, not the
 //! reaper at 3am.
 
+use crate::core::error::ForjarError;
 use crate::core::types::{ReclaimKind, ReclaimRule};
 use crate::resources::tmp_reaper::parse_age;
 
@@ -19,8 +20,9 @@ const MINUTES_PER_DAY: u64 = 1440;
 /// Returns `Err` naming the rule when `max_age` is missing for `ttl_tree` or
 /// malformed, when `max_age` is set on another kind, or when `idle_days` is set
 /// on a kind other than `abandoned_worktree` or is zero.
-pub(super) fn validate_rule(rule: &ReclaimRule) -> Result<(), String> {
-    let bad = |why: &str| format!("disk_budget rule '{}': {why}", rule.name);
+pub(super) fn validate_rule(rule: &ReclaimRule) -> Result<(), ForjarError> {
+    let bad =
+        |why: &str| ForjarError::from_untyped(format!("disk_budget rule '{}': {why}", rule.name));
     match rule.kind {
         ReclaimKind::TtlTree => {
             let age = rule
@@ -134,7 +136,7 @@ mod tests {
         let mut r = rule(ReclaimKind::CargoTarget);
         r.max_age = Some("14d".into());
         let err = validate_rule(&r).unwrap_err();
-        assert!(err.contains("only to kind ttl_tree"), "{err}");
+        assert!(err.to_string().contains("only to kind ttl_tree"), "{err}");
     }
 
     #[test]

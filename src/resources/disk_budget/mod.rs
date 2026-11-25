@@ -98,7 +98,7 @@ pub fn budget_of(resource: &Resource) -> Result<DiskBudget, String> {
         resource.budget.reclaim.clone(),
     )?;
     for rule in &budget.reclaim {
-        ttl::validate_rule(rule)?;
+        ttl::validate_rule(rule).map_err(|e| e.to_string())?;
     }
     Ok(budget)
 }
