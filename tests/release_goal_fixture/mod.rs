@@ -20,6 +20,10 @@ use std::process::{Command, Output};
 #[path = "stub.rs"]
 mod stub;
 pub(crate) use stub::*;
+#[path = "alias_map.rs"]
+mod alias_map;
+#[allow(unused_imports)]
+pub(crate) use alias_map::*;
 
 pub(crate) const FLOOR: &str = "v0.0.1";
 pub(crate) const NEXT: &str = "v0.0.2";
@@ -101,6 +105,8 @@ pub(crate) struct Case {
     pub(crate) cookbook_floor: &'static str,
     /// The `cookbook:` the floor's row declares; empty writes no such field.
     pub(crate) cookbook: &'static str,
+    /// The `crates_io:` line the floor's row declares; empty writes none (PMAT-1342).
+    pub(crate) crates_io: &'static str,
     /// The version Cargo.toml carries at HEAD.
     pub(crate) version: &'static str,
     /// The head branch the stubbed `gh` reports for the floor window's PR.
@@ -112,6 +118,8 @@ pub(crate) struct Case {
     /// The world BEFORE the cut is booked: v0.0.1 exists and the ledger still
     /// says next is v0.0.1 (due = v0.0.0's cut + cadence) with no rows.
     pub(crate) pre_cut: bool,
+    /// Top-level `pr_ticket_aliases:` text the ledger declares, or none.
+    pub(crate) aliases: &'static str,
 }
 
 impl Default for Case {
@@ -128,10 +136,12 @@ impl Default for Case {
             receipts: true,
             cookbook_floor: "",
             cookbook: "",
+            crates_io: "",
             version: "0.0.1",
             shipped_branch: "PMAT-901-the-shipped-work",
             changelog: "",
             pre_cut: false,
+            aliases: "",
         }
     }
 }
@@ -171,11 +181,15 @@ fn cookbook_floor_line(case: &Case) -> String {
 
 /// `    cookbook: <sha>\n` on the floor's row, or nothing.
 fn cookbook_row_line(case: &Case) -> String {
-    if case.cookbook.is_empty() {
+    let mut s = if case.cookbook.is_empty() {
         String::new()
     } else {
         format!("    cookbook: {}\n", case.cookbook)
+    };
+    if !case.crates_io.is_empty() {
+        s.push_str(&format!("    crates_io: {}\n", case.crates_io));
     }
+    s
 }
 
 pub(crate) fn fixture(case: Case) -> Fixture {
@@ -204,6 +218,7 @@ pub(crate) fn fixture(case: Case) -> Fixture {
         "scripts/dogfood/lib/releases.sh",
         "scripts/dogfood/lib/releases.awk",
         "scripts/dogfood/lib/tags.sh",
+        "scripts/dogfood/lib/cratesio.sh",
         "scripts/release-goal.sh",
     ] {
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
@@ -264,15 +279,16 @@ pub(crate) fn fixture(case: Case) -> Fixture {
     let due = iso(cut + 2 * 86400 + case.due_skew);
     let mut ledger = if case.pre_cut {
         format!(
-            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
+            "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}{}releases: []\nnext:\n  tag: {FLOOR}\n  due: {}\n",
             case.dogfood_floor,
             cookbook_floor_line(&case),
+            case.aliases,
             iso(base_cut + 2 * 86400)
         )
     } else {
         format!(
-        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
-        case.dogfood_floor, cookbook_floor_line(&case), case.declared_prs, cookbook_row_line(&case)
+        "cadence_days: 2\nfloor: {FLOOR}\nharness_floor: {FLOOR}\ndogfood_floor: {}\n{}{}releases:\n  - tag: {FLOOR}\n    cut: {cut_iso}\n    prs: {}\n    tickets: [{SHIPPED}]\n    dogfood: docs/audits/dogfood-0.0.1-receipt.md\n    crux: docs/audits/crux-0.0.1.md\n{}",
+        case.dogfood_floor, cookbook_floor_line(&case), case.aliases, case.declared_prs, cookbook_row_line(&case)
     )
     };
     if !case.pre_cut {

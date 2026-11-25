@@ -215,3 +215,97 @@ fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
         );
     }
 }
+
+// PMAT-1174: window membership. Only the first test is red without the fix;
+// the others pin one mutant each of `dogfood_pr_member_of`.
+fn row(n: u32, oid: &str, head_ref: &str) -> String {
+    let m = r#""mergedAt":"2026-09-05T00:00:00Z""#;
+    format!(r#"{{"number":{n},{m},"mergeCommit":{{"oid":"{oid}"}},"headRefName":"{head_ref}"}}"#)
+}
+
+fn run_rows(fx: &Fixture, rows: &[String]) -> Run {
+    let json = format!("[{}]", rows.join(","));
+    run(
+        fx,
+        &stub_gh(fx.root.parent().expect("dir"), "gh-rows", &json),
+    )
+}
+
+/// A commit one step ahead of HEAD: not an ancestor of it.
+fn later(fx: &Fixture) -> String {
+    let a = ["commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "later"];
+    stdout_of(&git(&fx.root, &a))
+}
+
+#[test]
+fn the_previous_releases_own_pr_is_outside_the_window_by_membership() {
+    let fx = fixture(false, Some(good_receipt()));
+    let prev = stdout_of(&git(&fx.root, &["rev-parse", PREV_TAG]));
+    let rows = [row(PR, &fx.head, HEAD_REF), row(76, &prev, "release/prev")];
+    let r = run_rows(&fx, &rows);
+    r.assert_green("the previous release's own PR is not a member");
+    r.assert_says("1 PR(s)");
+    r.assert_says(&format!("#{PR} {} receipt=ok", slug()));
+    r.assert_never_says("release-prev", "a previous PR has no receipt row");
+}
+
+#[test]
+fn both_bounds_are_ancestry_not_equality() {
+    // root < lower tag < mid < HEAD. Equality on the lower bound makes root a
+    // member; equality on the upper bound makes mid a non-member.
+    let fx = fixture(false, Some(good_receipt()));
+    let root = stdout_of(&git(&fx.root, &["rev-parse", PREV_TAG]));
+    git(&fx.root, &["tag", "-f", PREV_TAG, &fx.head]);
+    git(&fx.root, &["commit", "-q", "--allow-empty", "-m", "mid"]);
+    let mid = stdout_of(&git(&fx.root, &["rev-parse", "HEAD"]));
+    git(&fx.root, &["commit", "-q", "--allow-empty", "-m", "tip"]);
+    let rows = [row(PR, &mid, HEAD_REF), row(75, &root, "release/older")];
+    let r = run_rows(&fx, &rows);
+    r.assert_green("mid is a member, root is inside the previous tag");
+    r.assert_says("1 PR(s)");
+    r.assert_says(&format!(
+        "#75 {root} is inside {PREV_TAG} (the previous release)"
+    ));
+    r.assert_never_says(
+        "release-older",
+        "a PR strictly before the tag has no receipt row",
+    );
+}
+
+#[test]
+fn a_merge_commit_this_checkout_lacks_is_unmeasured_and_named() {
+    let fx = fixture(false, Some(good_receipt()));
+    let rows = [
+        row(PR, &fx.head, HEAD_REF),
+        row(99, &"d".repeat(40), "feat/ghost"),
+    ];
+    let r = run_rows(&fx, &rows);
+    r.assert_not_green("a commit the checkout lacks cannot be placed");
+    r.assert_says("PR #99");
+    r.assert_says("UNMEASURED");
+}
+
+#[test]
+fn previous_and_after_carry_their_own_labels() {
+    // Two after, one previous: swapping the labels moves both counts.
+    let fx = fixture(false, Some(good_receipt()));
+    let (prev, l) = (
+        stdout_of(&git(&fx.root, &["rev-parse", PREV_TAG])),
+        later(&fx),
+    );
+    let rows = [
+        row(PR, &fx.head, HEAD_REF),
+        row(76, &prev, "release/prev"),
+        row(78, &l, "feat/later"),
+        row(79, &l, "feat/later-2"),
+    ];
+    let r = run_rows(&fx, &rows);
+    r.assert_green("one member, one previous, two after");
+    r.assert_says("1 PR(s)");
+    r.assert_says(&format!(
+        "#76 {prev} is inside {PREV_TAG} (the previous release)"
+    ));
+    r.assert_never_says("#78 ", "an after PR is not labelled previous");
+    r.assert_says("2 of them after this HEAD");
+    r.assert_never_says("feat-later", "a PR merged after HEAD has no receipt row");
+}

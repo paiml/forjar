@@ -58,6 +58,8 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::TmpReaper => ProofObligation::Idempotent,
         // Apply refuses or finds the instance already present: idempotent.
         ResourceType::CloudInstance => ProofObligation::Idempotent,
+        // Apply re-asserts every declared property and is a no-op when AWS already agrees.
+        ResourceType::S3Bucket => ProofObligation::Idempotent,
         // Convergent: repeated passes drive coverage toward the declared
         // threshold; the invariant is verified coverage, not a byte-identical
         // transfer set.
@@ -94,6 +96,7 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Destructive,
         ResourceType::Build => ProofObligation::Convergent,
         ResourceType::GithubRelease => ProofObligation::Convergent,
+        ResourceType::S3Bucket => ProofObligation::Destructive,
         ResourceType::OverlayInterface
         | ResourceType::DiskBudget
         | ResourceType::BackupSync

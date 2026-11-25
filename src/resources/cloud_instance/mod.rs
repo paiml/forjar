@@ -31,6 +31,10 @@ use destroy::destroy_script;
 mod ami;
 mod key;
 mod launch_io;
+mod query;
+pub use query::state_query_script;
+use query::{describe, describe_by, lookup_ids, reject, squote_keep_newlines};
+use validate::gates_of;
 mod placement;
 mod profile;
 mod storage;
@@ -39,9 +43,10 @@ pub use profile::misplaced as profile_misplaced;
 mod validate;
 use key::{key_of, owner_of};
 pub use launch_io::apply_script;
+pub use validate::MAX_FLEET_COUNT;
 use validate::{
-    field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal, is_tag, is_word,
-    require,
+    check_fleet_caps, field, has_digest, image_name, is_ident, is_image_name, is_positive_decimal,
+    is_tag, is_word, require, resolve_instance_types,
 };
 
 #[cfg(test)]
@@ -53,6 +58,8 @@ mod tests_b4;
 #[cfg(test)]
 mod tests_chain;
 #[cfg(test)]
+mod tests_fleet;
+#[cfg(test)]
 mod tests_launch;
 #[cfg(test)]
 mod tests_lint;
@@ -63,13 +70,16 @@ mod tests_resolve;
 #[cfg(test)]
 mod tests_storage;
 
-/// A validated `cloud_instance` declaration.
+/// A validated `cloud_instance` declaration (single spot instance or spot fleet).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudInstance {
     /// The resource's own name (`name:`), unique per declared resource.
     pub name: String,
     pub region: String,
-    pub instance_type: String,
+    /// Candidate instance types in fallback preference order (`len >= 1`).
+    pub instance_types: Vec<String>,
+    /// Fleet instance count (`1..=MAX_FLEET_COUNT`).
+    pub count: u32,
     pub max_price: String,
     pub image: String,
     /// Pinned AMI id (`cloud_ami`); `None` = the default image.
@@ -84,14 +94,38 @@ pub struct CloudInstance {
     pub profile: Option<String>,
 }
 
+impl CloudInstance {
+    /// Worst-case hourly ceiling summed over the fleet (`max_price * count`).
+    #[must_use]
+    pub fn total_max_price_usd_hr(&self) -> f64 {
+        self.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(self.count)
+    }
+
+    /// Ordered `(instance_type, availability_zone)` launch candidates.
+    pub(super) fn candidates(&self) -> Vec<(&str, Option<&str>)> {
+        let zones = self.placement.zones();
+        let mut out = Vec::new();
+        for itype in &self.instance_types {
+            if zones.is_empty() {
+                out.push((itype.as_str(), None));
+            } else {
+                for z in zones {
+                    out.push((itype.as_str(), Some(z.as_str())));
+                }
+            }
+        }
+        out
+    }
+}
+
 /// Resolve a validated [`CloudInstance`] from a resource declaration.
 ///
 /// # Errors
 ///
-/// Returns `Err` when the declaration is not aws, lacks a field, names an
-/// image without an `@sha256:<64 hex>` digest, has a non-positive price or
-/// lifetime, or carries a value outside the strict allow-list (every value
-/// reaches a boot script or an `aws` command line).
+/// Returns `Err` when the declaration is not aws, exceeds the fleet count hard
+/// cap, lacks a field, names an image without
+/// an `@sha256:<64 hex>` digest, has a non-positive price or lifetime, or
+/// carries a value outside the strict allow-list.
 pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
     if resource.provider.as_deref() != Some("aws") {
         return Err("cloud_instance requires `provider: aws`".into());
@@ -106,22 +140,22 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
         "name must be 1-63 characters of [A-Za-z0-9._-], starting alphanumeric",
     )?;
     let region = field(&resource.cloud.region, "cloud_region")?;
-    let instance_type = field(&resource.cloud.instance_type, "cloud_instance_type")?;
-    let max_price = field(&resource.cloud.max_price, "cloud_max_price")?;
-    let image = field(&resource.image, "image")?;
     require(
         is_word(&region, "-") && region.starts_with(|c: char| c.is_ascii_alphanumeric()),
         "cloud_region has characters outside [a-z0-9-]",
     )?;
-    require(
-        is_word(&instance_type, ".-")
-            && instance_type.starts_with(|c: char| c.is_ascii_alphanumeric()),
-        "cloud_instance_type has unexpected characters",
+    let instance_types = resolve_instance_types(
+        &resource.cloud.instance_type,
+        &resource.cloud.instance_types,
     )?;
+    let max_price = field(&resource.cloud.max_price, "cloud_max_price")?;
     require(
         is_positive_decimal(&max_price),
         "cloud_max_price must be a positive decimal",
     )?;
+    let count = check_fleet_caps(resource.cloud.count)
+        .map_err(crate::core::error::ForjarError::into_message)?;
+    let image = field(&resource.image, "image")?;
     require(
         has_digest(&image),
         "image must be pinned by @sha256:<64 hex digits>",
@@ -152,7 +186,8 @@ pub fn spec_of(resource: &Resource) -> Result<CloudInstance, String> {
     Ok(CloudInstance {
         name,
         region,
-        instance_type,
+        instance_types,
+        count,
         max_price,
         image,
         ami,
@@ -207,35 +242,6 @@ fn unique_names<'a>(resources: impl Iterator<Item = (&'a String, &'a Resource)>)
     errors
 }
 
-/// The three apply gates a declaration must carry: (parity gate, budget cap, kill switch).
-fn gates_of(r: &Resource) -> Result<(String, String, String), Vec<&'static str>> {
-    let abs = |v: &Option<String>| {
-        v.clone()
-            .filter(|p| p.starts_with('/') && !p.chars().any(char::is_control))
-            // an unresolved template is not a path: a kill switch at
-            // `/run/{{x}}` could never be thrown, so refuse it (fail closed)
-            .filter(|p| !p.contains("{{") && !p.contains("}}"))
-    };
-    let budget = r
-        .cloud
-        .budget_cap_usd_day
-        .clone()
-        .filter(|b| is_positive_decimal(b));
-    let (gate, kill) = (abs(&r.cloud.parity_gate), abs(&r.cloud.kill_switch));
-    match (gate, budget, kill) {
-        (Some(g), Some(b), Some(k)) => Ok((g, b, k)),
-        (g, b, k) => Err([
-            ("parity_gate", g.is_none()),
-            ("budget", b.is_none()),
-            ("kill_switch", k.is_none()),
-        ]
-        .iter()
-        .filter(|(_, missing)| *missing)
-        .map(|(n, _)| *n)
-        .collect()),
-    }
-}
-
 fn status(v: &Option<String>) -> String {
     v.clone().unwrap_or_else(|| "MISSING".into())
 }
@@ -247,9 +253,18 @@ pub fn plan_diff(resource: &Resource) -> String {
         Err(e) => return format!("ERROR: {e}\n"),
     };
     let c = &resource.cloud;
+    let zones = if s.placement.zones().is_empty() {
+        String::new()
+    } else {
+        format!(
+            "+   availability_zones: {}\n",
+            s.placement.zones().join(",")
+        )
+    };
     format!(
-        "+ cloud_instance aws/{region} spot {itype}\n\
+        "+ cloud_instance aws/{region} spot {itype} x{count}\n\
          +   max_price: {price} USD/h\n\
+         {zones}\
          +   image: {image}\n\
          +   max_lifetime_min: {life}\n\
          +   labels: {labels}\n\
@@ -260,7 +275,8 @@ pub fn plan_diff(resource: &Resource) -> String {
          \x20 budget_cap_usd_day: {budget}\n\
          \x20 kill_switch: {kill}\n",
         region = s.region,
-        itype = s.instance_type,
+        itype = s.instance_types.join(","),
+        count = s.count,
         price = s.max_price,
         image = s.image,
         life = s.max_lifetime_min,
@@ -274,67 +290,6 @@ pub fn plan_diff(resource: &Resource) -> String {
         gate = status(&c.parity_gate),
         budget = status(&c.budget_cap_usd_day),
         kill = status(&c.kill_switch),
-    )
-}
-
-/// Single-quote `s` for a shell word WITHOUT dropping newlines. `sh_squote`
-/// strips control characters, which welded user-data into one line
-/// (`#!/bin/shshutdown -h +60...`): no shebang and no lifetime bound. Only
-/// pass text built from validated values.
-fn squote_keep_newlines(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\"'\"'"))
-}
-
-fn reject(msg: &str) -> String {
-    format!("echo {} >&2; exit 1", sh_squote(&format!("REFUSED: {msg}")))
-}
-
-/// Read-only provider query printing `query` for live instances whose
-/// `tag_key` tag equals `tag_val`.
-fn describe_by(s: &CloudInstance, tag_key: &str, tag_val: &str, query: &str) -> String {
-    format!(
-        "aws ec2 describe-instances --region {region} \
-         --filters {tag} 'Name=instance-state-name,Values=pending,running' \
-         --query {query} --output text",
-        region = sh_squote(&s.region),
-        tag = sh_squote(&format!("Name=tag:{tag_key},Values={tag_val}")),
-        query = sh_squote(query),
-    )
-}
-
-/// Shell that sets `var` from the provider query `cmd`, or EXITS NON-ZERO.
-///
-/// A failed lookup (expired credentials, throttling, no `aws`) or a reply that
-/// is not a list of instance ids is an ERROR, never "absent": reading a failure
-/// as an empty answer would report success while a box may still be billing.
-/// Pathname expansion is switched off and the C locale forced BEFORE any word
-/// splitting, the reply is normalised to single-space-separated tokens (a
-/// whitespace-only reply is empty = absent), and every token must be a whole
-/// instance id (`i-` + 8 to 17 hex digits; `*` and `?` are malformed). Works
-/// with or without `set -e`.
-fn lookup_ids(var: &str, cmd: &str) -> String {
-    format!(
-        "LC_ALL=C; export LC_ALL; set -f; unset IFS\n\
-         {var}=\"$({cmd})\" || {{ echo 'instance-lookup-failed' >&2; echo 'ERROR: instance lookup failed (provider query exited non-zero)' >&2; exit 1; }}\n\
-         set -- ${var}; {var}=\"$*\"\n\
-         for i in ${var}; do\n\
-         h=\"${{i#i-}}\"\n\
-         case \"$i\" in i-*) ;; *) h='!';; esac\n\
-         case \"$h\" in *[!0-9a-f]*) h='!';; esac\n\
-         if [ \"${{#h}}\" -lt 8 ] || [ \"${{#h}}\" -gt 17 ] || [ \"$h\" = '!' ]; then\n\
-         echo 'instance-lookup-malformed' >&2; echo 'ERROR: instance lookup returned something that is not an instance id' >&2; exit 1\n\
-         fi\n\
-         done\n"
-    )
-}
-
-/// Instances of this exact declaration (key = name + region + image digest).
-fn describe(s: &CloudInstance) -> String {
-    describe_by(
-        s,
-        "forjar-key",
-        &key_of(s),
-        "Reservations[].Instances[].InstanceId",
     )
 }
 
@@ -368,34 +323,22 @@ pub fn check_script(resource: &Resource) -> String {
             ]),
         );
     }
+    let (cond, count_prep) = if s.count == 1 {
+        ("[ -n \"$ids\" ]".to_string(), String::new())
+    } else {
+        (
+            format!("[ \"$have\" -ge {} ]", s.count),
+            "have=0; for _i in $ids; do have=$((have+1)); done\n".to_string(),
+        )
+    };
     let mut checks = vec![crate::resources::verdict::assert_that(
-        "[ -n \"$ids\" ]",
+        &cond,
         &format!("instance-present:{key}"),
         &format!("instance-absent:{key}"),
     )];
     checks.extend(s.storage.tag_check(&s.region, &s.tags, &key));
     let verdict = crate::resources::verdict::check_script_from(&checks);
-    format!("{}{verdict}", lookup_ids("ids", &describe(&s)))
-}
-
-/// Script reporting observed state (read-only provider query), by OWNER: any
-/// live instance this resource owns counts, whatever image it was launched
-/// with. `state: absent` reads the same way as the absent check.
-pub fn state_query_script(resource: &Resource) -> String {
-    let s = match spec_of(resource) {
-        Ok(s) => s,
-        Err(e) => return reject(&e),
-    };
-    let owned = describe_by(
-        &s,
-        "forjar-owner",
-        &owner_of(&s),
-        "Reservations[].Instances[].InstanceId",
-    );
-    format!(
-        "{}if [ -n \"$ids\" ]; then echo \"present $ids\"; else echo absent; fi\n",
-        lookup_ids("ids", &owned)
-    )
+    format!("{}{count_prep}{verdict}", lookup_ids("ids", &describe(&s)))
 }
 
 /// Script that creates the instance, or refuses. Refuses WITHOUT touching the
@@ -421,14 +364,13 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
     // The lifetime bound (a declared user-data file must carry it too: see userdata.rs)
     // comes first: nothing derived from user input can run
     // before it, and every value is validated (`spec_of`) and quoted.
-    let worst_case_usd =
-        s.max_price.parse::<f64>().unwrap_or(f64::MAX) * f64::from(s.max_lifetime_min) / 60.0;
+    let worst_case_usd = s.total_max_price_usd_hr() * f64::from(s.max_lifetime_min) / 60.0;
     if budget
         .parse::<f64>()
         .map_or(true, |cap| worst_case_usd > cap)
     {
         return reject(&format!(
-            "worst-case spend {worst_case_usd:.4} USD (max_price x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
+            "worst-case spend {worst_case_usd:.4} USD (max_price x count x lifetime) exceeds cloud_budget_cap_usd_day {budget}"
         ));
     }
     let user_data = format!(
@@ -440,12 +382,51 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
         format!("{{Key=forjar-key,Value={}}}", key_of(&s)),
         format!("{{Key=forjar-owner,Value={}}}", owner_of(&s)),
     ];
+    if !s.tags.iter().any(|t| t.starts_with("Owner=")) {
+        tags.push(format!("{{Key=Owner,Value={}}}", owner_of(&s)));
+    }
     tags.extend(
         s.tags
             .iter()
             .filter_map(|t| t.split_once('='))
             .map(|(k, v)| format!("{{Key={k},Value={v}}}")),
     );
+    let cands = s.candidates();
+    let is_fleet = s.count > 1 || cands.len() > 1;
+    let (owned_block, itype_arg, net_args, run_tail) = if !is_fleet {
+        (
+            "if [ -z \"$owned\" ]; then :; else\n\
+             \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
+             \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
+             \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+             \x20 echo \"present $owned\"; exit 0\n\
+             fi\n".to_string(),
+            sh_squote(&s.instance_types[0]),
+            s.placement.args(),
+            launch_io::tail_on(&s, day),
+        )
+    } else {
+        let zone_flag = if s.placement.zones().is_empty() {
+            String::new()
+        } else {
+            "--placement \"AvailabilityZone=$az\" ".to_string()
+        };
+        (
+            format!(
+                "have=0\n\
+                 if [ -z \"$owned\" ]; then :; else\n\
+                 \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
+                 \x20 for i in $owned; do have=$((have+1)); case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
+                 \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
+                 \x20 if [ \"$have\" -ge {count} ]; then echo \"present $owned\"; exit 0; fi\n\
+                 fi\n",
+                count = s.count
+            ),
+            "\"$itype\"".to_string(),
+            format!("{}{}", s.placement.net_args(), zone_flag),
+            launch_io::fleet_tail_on(&s, &cands, day),
+        )
+    };
     format!(
         "set -eu\n\
          if [ -e {kill} ] || [ -L {kill} ]; then echo 'REFUSED: kill switch is thrown' >&2; exit 1; fi\n\
@@ -456,12 +437,7 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
          {ud_guard}\
          {lookup_owned}\
          {lookup_keyed}\
-         if [ -z \"$owned\" ]; then :; else\n\
-         \x20 set -- $keyed; keyed=\" $* \"; other=''\n\
-         \x20 for i in $owned; do case \"$keyed\" in *\" $i \"*) ;; *) other=\"$other $i\";; esac; done\n\
-         \x20 if [ -n \"$other\" ]; then echo \"REFUSED: image, placement or storage changed while instance$other is alive; set state: absent first or wait for its lifetime shutdown\" >&2; exit 1; fi\n\
-         \x20 echo \"present $owned\"; exit 0\n\
-         fi\n\
+         {owned_block}\
          {rootdev}\
          {run_open}aws ec2 run-instances --region {region} --count 1 --instance-type {itype} \
          --image-id {ami} \
@@ -477,16 +453,16 @@ pub(crate) fn apply_script_on(resource: &Resource, day: u64) -> String {
         lookup_owned = lookup_ids("owned", &describe_by(&s, "forjar-owner", &owner_of(&s), "Reservations[].Instances[].InstanceId")),
         lookup_keyed = lookup_ids("keyed", &describe(&s)),
         region = sh_squote(&s.region),
-        itype = sh_squote(&s.instance_type),
+        itype = itype_arg,
         rootdev = s.storage.root_lookup(&sh_squote(&s.region), &s.ami),
         ami = s.storage.image_arg(&s.ami),
         market = sh_squote(&format!(
             "MarketType=spot,SpotOptions={{MaxPrice={},SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}}",
             s.max_price
         )),
-        net = s.placement.args(),
+        net = net_args,
         run_open = launch_io::OPEN,
-        run_tail = launch_io::tail_on(&s, day),
+        run_tail = run_tail,
         store = s.storage.args(),
         ud_guard = userdata::guard(s.user_data_file.as_deref(), s.max_lifetime_min),
         ud = s.user_data_file.as_deref().map_or_else(|| squote_keep_newlines(&user_data), userdata::file_arg),

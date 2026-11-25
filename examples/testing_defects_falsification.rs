@@ -17,11 +17,21 @@ use forjar::core::types::{
     ResourceType,
 };
 
-fn main() {
-    println!("Forjar Testing Strategy & Defect Analysis Falsification");
-    println!("{}", "=".repeat(58));
+fn mark_pair(ok: bool) -> (&'static str, &'static str) {
+    if ok {
+        ("✓", "")
+    } else {
+        ("✗", "FALSIFIED")
+    }
+}
 
-    // ── FJ-2200: Design by Contract ──
+fn report_yes_no(label: &str, ok: bool) {
+    let status = if ok { "yes" } else { "no" };
+    let mark = if ok { "✓" } else { "✗ FALSIFIED" };
+    println!("  {label}: {status} {mark}");
+}
+
+fn check_design_by_contract() {
     println!("\n[FJ-2200] Design by Contract:");
 
     let report = HandlerAuditReport {
@@ -50,8 +60,9 @@ fn main() {
         assert_eq!(kind.to_string(), label);
     }
     println!("  Contract kinds (requires/ensures/invariant): ✓");
+}
 
-    // ── FJ-2602: Behavior Specs ──
+fn check_behavior_specs() {
     println!("\n[FJ-2602] Behavior-Driven Infrastructure Specs:");
 
     let results = vec![
@@ -74,12 +85,10 @@ fn main() {
     ];
     let full_pass = BehaviorReport::from_results("nginx".into(), results);
     let pass_ok = full_pass.all_passed() && full_pass.total == 2;
+    let (mark, tail) = mark_pair(pass_ok);
     println!(
         "  All pass: {}/{}  {} {}",
-        full_pass.passed,
-        full_pass.total,
-        if pass_ok { "✓" } else { "✗" },
-        if pass_ok { "" } else { "FALSIFIED" }
+        full_pass.passed, full_pass.total, mark, tail
     );
     assert!(pass_ok);
 
@@ -103,16 +112,15 @@ fn main() {
     ];
     let partial_fail = BehaviorReport::from_results("nginx".into(), results_fail);
     let fail_ok = !partial_fail.all_passed() && partial_fail.failed == 1;
+    let (mark, tail) = mark_pair(fail_ok);
     println!(
         "  Partial fail: {}/{} passed  {} {}",
-        partial_fail.passed,
-        partial_fail.total,
-        if fail_ok { "✓" } else { "✗" },
-        if fail_ok { "" } else { "FALSIFIED" }
+        partial_fail.passed, partial_fail.total, mark, tail
     );
     assert!(fail_ok);
+}
 
-    // ── FJ-2604: Mutation Score ──
+fn check_mutation_scores() {
     println!("\n[FJ-2604] Mutation Testing Scores:");
 
     let cases = [
@@ -130,16 +138,13 @@ fn main() {
             errored: 0,
         };
         let ok = score.grade() == *expected_grade;
-        println!(
-            "  {label}: grade={} {} {}",
-            score.grade(),
-            if ok { "✓" } else { "✗" },
-            if ok { "" } else { "FALSIFIED" }
-        );
+        let (mark, tail) = mark_pair(ok);
+        println!("  {label}: grade={} {} {}", score.grade(), mark, tail);
         assert!(ok);
     }
+}
 
-    // ── FJ-2605: Coverage Levels ──
+fn check_coverage_levels() {
     println!("\n[FJ-2605] Resource Coverage Model:");
 
     let entries = vec![
@@ -163,49 +168,35 @@ fn main() {
     let cov_ok = cov_report.min_level == CoverageLevel::L1
         && cov_report.meets_threshold(CoverageLevel::L1)
         && !cov_report.meets_threshold(CoverageLevel::L2);
+    let (mark, tail) = mark_pair(cov_ok);
     println!(
         "  Min={}, Avg={:.1}, Threshold L1={}, L2={}  {} {}",
         cov_report.min_level,
         cov_report.avg_level,
         cov_report.meets_threshold(CoverageLevel::L1),
         cov_report.meets_threshold(CoverageLevel::L2),
-        if cov_ok { "✓" } else { "✗" },
-        if cov_ok { "" } else { "FALSIFIED" }
+        mark,
+        tail
     );
     assert!(cov_ok);
 
-    // Ordering must be strict
     let order_ok = CoverageLevel::L0 < CoverageLevel::L1
         && CoverageLevel::L1 < CoverageLevel::L2
         && CoverageLevel::L4 < CoverageLevel::L5;
-    println!(
-        "  Level ordering L0 < L1 < ... < L5: {} {}",
-        if order_ok { "✓" } else { "✗" },
-        if order_ok { "" } else { "FALSIFIED" }
-    );
+    let (mark, tail) = mark_pair(order_ok);
+    println!("  Level ordering L0 < L1 < ... < L5: {} {}", mark, tail);
     assert!(order_ok);
+}
 
-    // ── FJ-3000: Semicolon Chain Detection ──
+fn check_semicolon_chains() {
     println!("\n[FJ-3000] Exit Code Safety (Semicolon Chains):");
 
     let bare_ok = has_bare_semicolon("cmd1 ; cmd2");
     let quoted_ok = !has_bare_semicolon("echo 'a;b'");
     let double_ok = !has_bare_semicolon("echo \"a;b\"");
-    println!(
-        "  Bare ';' detected: {} {}",
-        if bare_ok { "yes" } else { "no" },
-        if bare_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    println!(
-        "  Single-quoted ';' ignored: {} {}",
-        if quoted_ok { "yes" } else { "no" },
-        if quoted_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    println!(
-        "  Double-quoted ';' ignored: {} {}",
-        if double_ok { "yes" } else { "no" },
-        if double_ok { "✓" } else { "✗ FALSIFIED" }
-    );
+    report_yes_no("Bare ';' detected", bare_ok);
+    report_yes_no("Single-quoted ';' ignored", quoted_ok);
+    report_yes_no("Double-quoted ';' ignored", double_ok);
     assert!(bare_ok && quoted_ok && double_ok);
 
     let mut config = ForjarConfig::default();
@@ -215,14 +206,11 @@ fn main() {
     config.resources.insert("build".into(), task);
     let chain_warnings = lint_semicolon_chains(&config);
     let chain_ok = !chain_warnings.is_empty();
-    println!(
-        "  Task with ';' flagged: {} {}",
-        if chain_ok { "yes" } else { "no" },
-        if chain_ok { "✓" } else { "✗ FALSIFIED" }
-    );
+    report_yes_no("Task with ';' flagged", chain_ok);
     assert!(chain_ok);
+}
 
-    // ── FJ-3030: Nohup LD_LIBRARY_PATH ──
+fn check_nohup_hazard() {
     println!("\n[FJ-3030] Nohup LD_LIBRARY_PATH Hazard:");
 
     let mut config2 = ForjarConfig::default();
@@ -232,12 +220,20 @@ fn main() {
     config2.resources.insert("train".into(), task2);
     let ld_warnings = lint_nohup_ld_path(&config2);
     let ld_ok = !ld_warnings.is_empty();
-    println!(
-        "  nohup /abs/path without LD flagged: {} {}",
-        if ld_ok { "yes" } else { "no" },
-        if ld_ok { "✓" } else { "✗ FALSIFIED" }
-    );
+    report_yes_no("nohup /abs/path without LD flagged", ld_ok);
     assert!(ld_ok);
+}
+
+fn main() {
+    println!("Forjar Testing Strategy & Defect Analysis Falsification");
+    println!("{}", "=".repeat(58));
+
+    check_design_by_contract();
+    check_behavior_specs();
+    check_mutation_scores();
+    check_coverage_levels();
+    check_semicolon_chains();
+    check_nohup_hazard();
 
     println!("\n{}", "=".repeat(58));
     println!("All testing strategy & defect analysis criteria survived.");

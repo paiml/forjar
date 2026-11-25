@@ -43,6 +43,7 @@ pub(super) fn make_base_resource(rt: ResourceType) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

@@ -44,6 +44,7 @@ mod tests {
             environment: vec![],
             volumes: vec![],
             restart: None,
+            network: None,
             protocol: Some("tcp".to_string()),
             port: Some(port.to_string()),
             action: Some(action.to_string()),

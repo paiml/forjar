@@ -5,9 +5,16 @@ mod tests {
     use crate::cli::image_cmd::*;
     use std::path::Path;
 
+    fn write_pub_key(dir: &Path) -> String {
+        let key_path = dir.join("id_ed25519.pub");
+        std::fs::write(&key_path, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 test\n").unwrap();
+        key_path.display().to_string()
+    }
+
     fn write_config(dir: &Path, yaml: &str) -> std::path::PathBuf {
+        let key = write_pub_key(dir);
         let p = dir.join("forjar.yaml");
-        std::fs::write(&p, yaml).unwrap();
+        std::fs::write(&p, yaml.replace("SSH_KEY_PATH", &key)).unwrap();
         p
     }
 
@@ -19,6 +26,7 @@ machines:
     hostname: yoga
     addr: 192.168.50.38
     user: noah
+    ssh_key: SSH_KEY_PATH
 resources:
   pkg-curl:
     type: package
@@ -35,10 +43,12 @@ machines:
     hostname: web-01
     addr: 10.0.0.1
     user: deploy
+    ssh_key: SSH_KEY_PATH
   db:
     hostname: db-01
     addr: 10.0.0.2
     user: deploy
+    ssh_key: SSH_KEY_PATH
 resources:
   pkg-curl:
     type: package
@@ -386,10 +396,13 @@ resources:
         cmd_image_user_data(&p, Some("yoga"), "auto-lvm", "en_US.UTF-8", "UTC", Some(&out), false)
             .unwrap();
         let content = std::fs::read_to_string(&out).unwrap();
-        assert!(
-            content.contains("192.168.50.38"),
-            "must include static IP comment"
-        );
+        let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+            .unwrap_or_else(|e| panic!("invalid autoinstall YAML: {e}\n---\n{content}"));
+        let net = &doc["autoinstall"]["network"];
+        assert_eq!(net["version"].as_u64(), Some(2));
+        assert_eq!(net["ethernets"]["en"]["match"]["name"], "en*");
+        assert_eq!(net["ethernets"]["en"]["dhcp4"].as_bool(), Some(true));
+        assert!(!content.contains("# Static IP:"));
     }
 
     #[test]
@@ -403,6 +416,7 @@ machines:
     hostname: server
     addr: 10.0.0.5
     user: root
+    ssh_key: SSH_KEY_PATH
 resources:
   pkg:
     type: package

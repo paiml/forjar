@@ -73,6 +73,7 @@ set -euo pipefail
 code=false
 gate_c=false
 gate_d=false
+roadmaps=false
 seen=false
 # `|| [ -n "$f" ]` — a final line with no trailing newline is still a file.
 # `git diff --name-only` always ends with one, so this never bites in CI; a
@@ -150,6 +151,10 @@ while IFS= read -r f || [ -n "$f" ]; do
     # selects both.
     *) gate_c=true; gate_d=true ;;
   esac
+
+  case "$f" in
+    docs/roadmaps/releases.yaml|docs/roadmaps/roadmap.yaml) roadmaps=true ;;
+  esac
 done
 
 # No readable file list is not a licence to skip anything.
@@ -182,6 +187,7 @@ echo "code=${code}"
 echo "gate_c=${gate_c}"
 echo "gate_d=${gate_d}"
 echo "gates=${gates}"
+echo "roadmaps=${roadmaps}"
 
 # mutation: change the `*) code=true ;;` arm to `*) ;;` — an unclassified path
 # then reads as harmless, a PR touching src/ skips every heavy job, and

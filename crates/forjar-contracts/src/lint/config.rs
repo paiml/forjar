@@ -224,46 +224,75 @@ fn parse_kv(line: &str) -> Option<(String, String)> {
     Some((key, val))
 }
 
+type SectionHandler = fn(&mut PvConfig, &str, &str);
+
+const SECTION_HANDLERS: &[(&str, SectionHandler)] = &[
+    ("lint", apply_lint_kv),
+    ("lint.rules", apply_rules_kv),
+    ("lint.suppress", apply_suppress_kv),
+    ("lint.diff", apply_diff_kv),
+    ("lint.trend", apply_trend_kv),
+    ("lint.cache", apply_cache_kv),
+    ("output", apply_output_kv),
+];
+
 fn apply_kv(config: &mut PvConfig, section: &str, key: &str, val: &str) {
-    match section {
-        "lint" => match key {
-            "min_score" => config.lint.min_score = val.parse().ok(),
-            "severity" => config.lint.severity = Some(val.to_string()),
-            "strict" => config.lint.strict = val == "true",
-            "contracts_dir" => config.lint.contracts_dir = Some(val.to_string()),
-            "binding" => config.lint.binding = Some(val.to_string()),
-            _ => {}
-        },
-        "lint.rules" => {
-            config.lint.rules.insert(key.to_string(), val.to_string());
-        }
-        "lint.suppress" => match key {
-            "findings" => config.lint.suppress.findings = parse_toml_array(val),
-            "rules" => config.lint.suppress.rules = parse_toml_array(val),
-            "files" => config.lint.suppress.files = parse_toml_array(val),
-            _ => {}
-        },
-        "lint.diff" => {
-            if key == "base_ref" {
-                config.lint.diff.base_ref = Some(val.to_string());
-            }
-        }
-        "lint.trend" => match key {
-            "enabled" => config.lint.trend.enabled = val == "true",
-            "retention_days" => config.lint.trend.retention_days = val.parse().unwrap_or(90),
-            "drift_threshold" => config.lint.trend.drift_threshold = val.parse().unwrap_or(0.05),
-            _ => {}
-        },
-        "lint.cache" => match key {
-            "enabled" => config.lint.cache.enabled = val == "true",
-            "dir" => config.lint.cache.dir = Some(val.to_string()),
-            _ => {}
-        },
-        "output" => match key {
-            "format" => config.output.format = Some(val.to_string()),
-            "color" => config.output.color = Some(val.to_string()),
-            _ => {}
-        },
+    if let Some((_, handler)) = SECTION_HANDLERS.iter().find(|(s, _)| *s == section) {
+        handler(config, key, val);
+    }
+}
+
+fn apply_lint_kv(config: &mut PvConfig, key: &str, val: &str) {
+    match key {
+        "min_score" => config.lint.min_score = val.parse().ok(),
+        "severity" => config.lint.severity = Some(val.to_string()),
+        "strict" => config.lint.strict = val == "true",
+        "contracts_dir" => config.lint.contracts_dir = Some(val.to_string()),
+        "binding" => config.lint.binding = Some(val.to_string()),
+        _ => {}
+    }
+}
+
+fn apply_rules_kv(config: &mut PvConfig, key: &str, val: &str) {
+    config.lint.rules.insert(key.to_string(), val.to_string());
+}
+
+fn apply_suppress_kv(config: &mut PvConfig, key: &str, val: &str) {
+    match key {
+        "findings" => config.lint.suppress.findings = parse_toml_array(val),
+        "rules" => config.lint.suppress.rules = parse_toml_array(val),
+        "files" => config.lint.suppress.files = parse_toml_array(val),
+        _ => {}
+    }
+}
+
+fn apply_diff_kv(config: &mut PvConfig, key: &str, val: &str) {
+    if key == "base_ref" {
+        config.lint.diff.base_ref = Some(val.to_string());
+    }
+}
+
+fn apply_trend_kv(config: &mut PvConfig, key: &str, val: &str) {
+    match key {
+        "enabled" => config.lint.trend.enabled = val == "true",
+        "retention_days" => config.lint.trend.retention_days = val.parse().unwrap_or(90),
+        "drift_threshold" => config.lint.trend.drift_threshold = val.parse().unwrap_or(0.05),
+        _ => {}
+    }
+}
+
+fn apply_cache_kv(config: &mut PvConfig, key: &str, val: &str) {
+    match key {
+        "enabled" => config.lint.cache.enabled = val == "true",
+        "dir" => config.lint.cache.dir = Some(val.to_string()),
+        _ => {}
+    }
+}
+
+fn apply_output_kv(config: &mut PvConfig, key: &str, val: &str) {
+    match key {
+        "format" => config.output.format = Some(val.to_string()),
+        "color" => config.output.color = Some(val.to_string()),
         _ => {}
     }
 }

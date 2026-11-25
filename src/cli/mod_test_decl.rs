@@ -313,6 +313,8 @@ mod tests_image_android;
 #[cfg(test)]
 mod tests_image_b;
 #[cfg(test)]
+mod tests_image_c;
+#[cfg(test)]
 mod tests_query_format;
 #[cfg(test)]
 mod tests_drift_empty_state;

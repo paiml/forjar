@@ -15,11 +15,18 @@ use forjar::core::store::sandbox::{
     blocks_network, enforces_fs_isolation, preset_profile, SandboxLevel,
 };
 
-fn main() {
-    println!("Forjar Validation, Convergence & Sandbox Falsification");
-    println!("{}", "=".repeat(58));
+fn report_check(label: &str, ok: bool, pass_text: &str, fail_text: &str) {
+    let status = if ok { pass_text } else { fail_text };
+    let mark = if ok { "✓" } else { "✗ FALSIFIED" };
+    println!("  {label}: {status} {mark}");
+    assert!(ok);
+}
 
-    // ── FJ-2501: Format Validation ──
+fn report_yes_no(label: &str, ok: bool) {
+    report_check(label, ok, "yes", "no");
+}
+
+fn check_format_validation() {
     println!("\n[FJ-2501] Format Validation:");
 
     let good_yaml = r#"
@@ -38,7 +45,7 @@ resources:
     owner: www-data
     content: "key: value"
 "#;
-    let config = parse_config(good_yaml).unwrap();
+    let config = parse_config(good_yaml).unwrap_or_else(|e| panic!("{e:?}"));
     let errors = validate_config(&config);
     let format_ok = !errors.iter().any(|e| {
         e.message.contains("mode")
@@ -46,12 +53,7 @@ resources:
             || e.message.contains("path")
             || e.message.contains("owner")
     });
-    println!(
-        "  Valid mode/path/owner accepted: {} {}",
-        if format_ok { "yes" } else { "no" },
-        if format_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(format_ok);
+    report_yes_no("Valid mode/path/owner accepted", format_ok);
 
     let bad_yaml = r#"
 version: "1.0"
@@ -63,17 +65,13 @@ resources:
     mode: "0999"
     content: "x"
 "#;
-    let bad_config = parse_config(bad_yaml).unwrap();
+    let bad_config = parse_config(bad_yaml).unwrap_or_else(|e| panic!("{e:?}"));
     let bad_errors = validate_config(&bad_config);
     let reject_ok = bad_errors.iter().any(|e| e.message.contains("mode"));
-    println!(
-        "  Invalid mode '0999' rejected: {} {}",
-        if reject_ok { "yes" } else { "no" },
-        if reject_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(reject_ok);
+    report_yes_no("Invalid mode '0999' rejected", reject_ok);
+}
 
-    // ── FJ-2500: Unknown Fields ──
+fn check_unknown_fields_section() {
     println!("\n[FJ-2500] Unknown Field Detection:");
 
     let unknown_yaml = r#"
@@ -87,24 +85,15 @@ resources:
 "#;
     let warnings = check_unknown_fields(unknown_yaml);
     let unk_ok = !warnings.is_empty();
-    println!(
-        "  Unknown field 'bogus_field' flagged: {} {}",
-        if unk_ok { "yes" } else { "no" },
-        if unk_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(unk_ok);
+    report_yes_no("Unknown field 'bogus_field' flagged", unk_ok);
+}
 
-    // ── FJ-2504: LSP Diagnostics ──
+fn check_lsp_diagnostics() {
     println!("\n[FJ-2504] LSP Diagnostics:");
 
     let diags = validate_yaml("{ invalid: [yaml");
     let parse_err_ok = !diags.is_empty() && diags[0].severity == DiagnosticSeverity::Error;
-    println!(
-        "  Invalid YAML → Error diagnostic: {} {}",
-        if parse_err_ok { "yes" } else { "no" },
-        if parse_err_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(parse_err_ok);
+    report_yes_no("Invalid YAML → Error diagnostic", parse_err_ok);
 
     let mut server = LspServer::new();
     let init = serde_json::json!({
@@ -113,14 +102,10 @@ resources:
     });
     let resp = server.handle_message(&init);
     let init_ok = resp.is_some() && server.initialized;
-    println!(
-        "  LSP initialize handshake: {} {}",
-        if init_ok { "ok" } else { "failed" },
-        if init_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(init_ok);
+    report_check("LSP initialize handshake", init_ok, "ok", "failed");
+}
 
-    // ── FJ-2600: Convergence Model ──
+fn check_convergence_model() {
     println!("\n[FJ-2600] Convergence Testing Model:");
 
     let pass_result = ConvergenceResult {
@@ -142,58 +127,51 @@ resources:
         error: None,
     };
     let pass_ok = pass_result.passed() && !fail_result.passed();
-    println!(
-        "  Pass/fail detection: {} {}",
-        if pass_ok { "correct" } else { "wrong" },
-        if pass_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(pass_ok);
+    report_check("Pass/fail detection", pass_ok, "correct", "wrong");
 
     let summary = ConvergenceSummary::from_results(&[pass_result, fail_result]);
     let sum_ok = summary.total == 2 && summary.passed == 1 && summary.idempotency_failures == 1;
+    let mark = if sum_ok { "✓" } else { "✗" };
+    let tail = if sum_ok { "" } else { "FALSIFIED" };
     println!(
         "  Summary: {}/{} passed, {} idem failures  {} {}",
-        summary.passed,
-        summary.total,
-        summary.idempotency_failures,
-        if sum_ok { "✓" } else { "✗" },
-        if sum_ok { "" } else { "FALSIFIED" }
+        summary.passed, summary.total, summary.idempotency_failures, mark, tail
     );
     assert!(sum_ok);
+}
 
-    // ── FJ-2603: Sandbox Properties ──
+fn check_sandbox_isolation() {
     println!("\n[FJ-2603] Sandbox Isolation:");
 
     let net_ok = blocks_network(SandboxLevel::Full)
         && !blocks_network(SandboxLevel::NetworkOnly)
         && !blocks_network(SandboxLevel::Minimal);
-    println!(
-        "  Full blocks network, others don't: {} {}",
-        if net_ok { "yes" } else { "no" },
-        if net_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(net_ok);
+    report_yes_no("Full blocks network, others don't", net_ok);
 
     let fs_ok = enforces_fs_isolation(SandboxLevel::Full)
         && enforces_fs_isolation(SandboxLevel::NetworkOnly)
         && enforces_fs_isolation(SandboxLevel::Minimal)
         && !enforces_fs_isolation(SandboxLevel::None);
-    println!(
-        "  FS isolation (Full/Network/Minimal yes, None no): {} {}",
-        if fs_ok { "yes" } else { "no" },
-        if fs_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(fs_ok);
+    report_yes_no("FS isolation (Full/Network/Minimal yes, None no)", fs_ok);
+}
 
+fn check_sandbox_presets() {
     let presets = ["full", "network-only", "minimal", "gpu"];
     let preset_ok = presets.iter().all(|p| preset_profile(p).is_some())
         && preset_profile("nonexistent").is_none();
-    println!(
-        "  All 4 presets exist, unknown returns None: {} {}",
-        if preset_ok { "yes" } else { "no" },
-        if preset_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(preset_ok);
+    report_yes_no("All 4 presets exist, unknown returns None", preset_ok);
+}
+
+fn main() {
+    println!("Forjar Validation, Convergence & Sandbox Falsification");
+    println!("{}", "=".repeat(58));
+
+    check_format_validation();
+    check_unknown_fields_section();
+    check_lsp_diagnostics();
+    check_convergence_model();
+    check_sandbox_isolation();
+    check_sandbox_presets();
 
     println!("\n{}", "=".repeat(58));
     println!("All validation, convergence & sandbox criteria survived.");

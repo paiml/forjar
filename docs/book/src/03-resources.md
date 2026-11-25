@@ -1164,6 +1164,44 @@ resources:
 | `inputs` | map | `{}` | Key-value inputs forwarded to the child recipe |
 | `machine` | string | — | Target machine (propagated to all child resources) |
 
+## S3 Bucket
+
+Declare one private Amazon S3 bucket as state (PMAT-1242). The generated scripts shell out to the `aws` CLI, as `cloud_instance` does; no new binary is added. The bucket is private, encrypted with SSE-S3, TLS-only and versioned unless the declaration says otherwise.
+
+```yaml
+resources:
+  metrics-preview:
+    type: s3_bucket
+    machine: lambda-labs
+    s3_bucket: paiml-metrics-preview
+    s3_region: us-east-1
+    s3_private: true
+    s3_sse: AES256
+    s3_tls_only: true
+    s3_versioning: true
+    s3_noncurrent_expire_days: 30
+```
+
+### S3 Bucket Semantics
+
+- **Check and state query ask AWS.** `head-bucket`, `get-bucket-encryption`, `get-public-access-block`, `get-bucket-versioning`, `get-bucket-lifecycle-configuration` and `get-bucket-policy` are compared with the declaration. The lock is never read, and a failed read is divergence, never a pass.
+- **Apply creates, asserts, then reads back.** The bucket is created when `head-bucket` returns 404 (any other lookup failure is an error, not "absent"). Every declared property is then re-asserted and read back; apply fails unless AWS agrees. A second apply leaves AWS unchanged.
+- **Never deletes.** `state: absent` is refused: forjar never deletes a bucket or its data.
+- **Lifecycle and policy are owned.** `put-bucket-lifecycle-configuration` and `put-bucket-policy` replace the whole document, so a declared bucket owns its lifecycle rules and its policy.
+- **Validation refuses** a missing or malformed `s3_bucket` or `s3_region`, `s3_private: false`, an `s3_sse` other than `AES256`, and an `s3_noncurrent_expire_days` outside 1..=36500.
+
+### S3 Bucket Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `s3_bucket` | string | required | Bucket name: 3-63 chars of lowercase letters, digits, `-` and `.`, alphanumeric at both ends, no `..` |
+| `s3_region` | string | required | AWS region, e.g. `us-east-1` (no LocationConstraint is sent at create) |
+| `s3_private` | bool | `true` | Block all four public-access flags; `false` is refused |
+| `s3_sse` | string | `AES256` | Default encryption; only `AES256` (SSE-S3) is supported |
+| `s3_tls_only` | bool | `true` | Bucket policy denying every request with `aws:SecureTransport=false`; `false` leaves the policy unmanaged |
+| `s3_versioning` | bool | `true` | Versioning `Enabled`; `false` leaves it unmanaged (S3 can only suspend versioning, never remove it) |
+| `s3_noncurrent_expire_days` | u32 | -- | Expire non-current object versions after this many days (1..=36500); unset leaves lifecycle unmanaged |
+
 ## Common Patterns
 
 ### Template Resolution in Resources

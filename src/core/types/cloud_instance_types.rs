@@ -1,4 +1,4 @@
-//! FJ-861: `cloud_instance` declaration fields — ONE spot instance as declared state.
+//! FJ-861: `cloud_instance` declaration fields — spot instance or fleet as declared state.
 //!
 //! Inert by construction: nothing here talks to a cloud. `provider`, `image`
 //! (by `@sha256` digest) and `tags` reuse the existing `Resource` fields; the
@@ -16,13 +16,30 @@ pub struct CloudSpec {
     )]
     pub region: Option<String>,
 
-    /// Instance type, e.g. `c7a.xlarge`.
+    /// Instance type, e.g. `c7a.xlarge`. Mutually exclusive with `cloud_instance_types`.
     #[serde(
         rename = "cloud_instance_type",
         default,
         skip_serializing_if = "Option::is_none"
     )]
     pub instance_type: Option<String>,
+
+    /// Candidate instance types tried in order across spot capacity fallback (#1265).
+    /// Mutually exclusive with `cloud_instance_type`.
+    #[serde(
+        rename = "cloud_instance_types",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub instance_types: Option<Vec<String>>,
+
+    /// Fleet size (1 to 6, default 1; #1265).
+    #[serde(
+        rename = "cloud_count",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub count: Option<u32>,
 
     /// Spot price ceiling in USD per hour, a decimal string (`0.20`).
     #[serde(
@@ -88,12 +105,22 @@ pub struct CloudSpec {
     pub security_group_ids: Option<Vec<String>>,
 
     /// Availability zone; must be `cloud_region` plus one letter (#1035).
+    /// Mutually exclusive with `cloud_availability_zones`.
     #[serde(
         rename = "cloud_availability_zone",
         default,
         skip_serializing_if = "Option::is_none"
     )]
     pub availability_zone: Option<String>,
+
+    /// Candidate availability zones tried in order; each must be `cloud_region` plus one letter (#1265).
+    /// Mutually exclusive with `cloud_availability_zone`.
+    #[serde(
+        rename = "cloud_availability_zones",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub availability_zones: Option<Vec<String>>,
 
     /// Root volume size in GiB, 1 to 16384; absent keeps the image default.
     #[serde(

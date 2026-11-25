@@ -35,13 +35,52 @@ fn git_path(dir: &Path, name: &str) -> Option<String> {
 }
 
 /// Paths to hand to `cargo::rerun-if-changed=`; empty outside a git tree.
+///
+/// EVERY PATH RETURNED EXISTS. Cargo reads a `rerun-if-changed` path that is
+/// missing as "changed", on every invocation, for ever: the build script
+/// re-runs and the whole root crate recompiles each time `cargo` is called.
+/// A fresh clone (and every CI checkout) has a loose `refs/heads/<branch>`
+/// and NO `packed-refs`; after `git pack-refs` it is the other way round. So
+/// naming both unconditionally made one of them missing in every repo state.
+/// Measured in CI run 45183144895: `cargo build --release` twice in one job,
+/// 10m55s and then 9m08s, with nothing changed between them.
+///
+/// What is watched instead, and why no commit is missed:
+///   - `HEAD` always (checkout, detached commits).
+///   - loose ref present: watch it. A commit rewrites it; `git pack-refs`
+///     deletes it, and a watched path that disappears also re-runs.
+///   - loose ref absent (packed): watch `packed-refs` if present AND the
+///     nearest existing directory above the loose ref, because the next
+///     commit CREATES the loose file and leaves `packed-refs` untouched.
 #[allow(dead_code)]
 pub fn rerun_paths(dir: &Path) -> Vec<String> {
     let mut paths: Vec<String> = Vec::new();
     paths.extend(git_path(dir, "HEAD"));
     if let Some(sym) = git_out(dir, &["symbolic-ref", "-q", "HEAD"]) {
-        paths.extend(git_path(dir, &sym));
-        paths.extend(git_path(dir, "packed-refs"));
+        if let Some(loose) = git_path(dir, &sym) {
+            if Path::new(&loose).exists() {
+                paths.push(loose);
+            } else {
+                paths.extend(git_path(dir, "packed-refs"));
+                paths.extend(nearest_existing_dir(&loose, sym.matches('/').count()));
+            }
+        }
     }
+    paths.retain(|p| Path::new(p).exists());
     paths
+}
+
+/// The nearest existing directory above `path`, climbing at most `max_up`
+/// levels — the number of `/` in the ref name, so the climb stops at `refs/`
+/// and can never reach the git dir itself (cargo scans a watched directory
+/// recursively, and the git dir changes on every `git status`).
+fn nearest_existing_dir(path: &str, max_up: usize) -> Option<String> {
+    let mut cur = Path::new(path);
+    for _ in 0..max_up {
+        cur = cur.parent()?;
+        if cur.is_dir() {
+            return Some(cur.to_string_lossy().into_owned());
+        }
+    }
+    None
 }

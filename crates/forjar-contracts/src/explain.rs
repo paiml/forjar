@@ -10,8 +10,14 @@ use crate::binding::BindingRegistry;
 use crate::proof_status::compute_proof_level;
 use crate::schema::{Contract, ObligationType};
 
+#[path = "explain_md.rs"]
+mod explain_md;
 #[path = "explain_render.rs"]
 mod explain_render;
+use explain_md::{
+    write_md_bindings, write_md_equations, write_md_header, write_md_obligations,
+    write_md_references, write_md_verification,
+};
 use explain_render::{
     write_binding_status, write_enforcement, write_falsification_tests, write_kani_harnesses,
     write_kernel_phases, write_obligations, write_qa_gate, write_simd_dispatch,
@@ -23,39 +29,128 @@ use explain_render::{
 #[path = "explain_tests.rs"]
 mod tests;
 
+const OBLIGATION_PATTERNS: &[(ObligationType, &str)] = &[
+    (
+        ObligationType::Invariant,
+        "∀x ∈ Domain: P(f(x)) — property holds for all inputs",
+    ),
+    (
+        ObligationType::Equivalence,
+        "∀x: |f(x) - g(x)| < ε — two implementations agree",
+    ),
+    (
+        ObligationType::Bound,
+        "∀x: a ≤ f(x)_i ≤ b — output range bounded",
+    ),
+    (
+        ObligationType::Monotonicity,
+        "x_i > x_j → f(x)_i > f(x)_j — order preserved",
+    ),
+    (
+        ObligationType::Idempotency,
+        "f(f(x)) = f(x) — applying twice gives same result",
+    ),
+    (
+        ObligationType::Linearity,
+        "f(αx) = α·f(x) — homogeneous scaling",
+    ),
+    (
+        ObligationType::Symmetry,
+        "f(permute(x)) related to f(x) — permutation property",
+    ),
+    (
+        ObligationType::Associativity,
+        "(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c) — grouping invariant",
+    ),
+    (
+        ObligationType::Conservation,
+        "Q(before) = Q(after) — conserved quantity",
+    ),
+    (
+        ObligationType::Ordering,
+        "a ≤ b → f(a) ≤ f(b) — order relation maintained",
+    ),
+    (
+        ObligationType::Completeness,
+        "∀ required elements present — completeness verified",
+    ),
+    (
+        ObligationType::Soundness,
+        "∀x: P(x) → Q(f(x)) — soundness of transformation",
+    ),
+    (
+        ObligationType::Involution,
+        "f(f(x)) = x — involution (self-inverse)",
+    ),
+    (
+        ObligationType::Determinism,
+        "f(x) = f(x) — deterministic output for same input",
+    ),
+    (
+        ObligationType::Roundtrip,
+        "decode(encode(x)) = x — roundtrip fidelity",
+    ),
+    (
+        ObligationType::StateMachine,
+        "S × A → S — valid state transitions",
+    ),
+    (
+        ObligationType::Classification,
+        "f(x) ∈ C — output belongs to valid class set",
+    ),
+    (
+        ObligationType::Independence,
+        "P(A∩B) = P(A)·P(B) — statistical independence",
+    ),
+    (
+        ObligationType::Termination,
+        "algorithm terminates in finite steps",
+    ),
+    // Eiffel DbC types
+    (
+        ObligationType::Precondition,
+        "P(input) — caller must guarantee before call",
+    ),
+    (
+        ObligationType::Postcondition,
+        "P(in) → Q(out) — kernel guarantees if pre holds",
+    ),
+    (
+        ObligationType::Frame,
+        "modifies(S) ∧ preserves(T\\S) — only S may change",
+    ),
+    (
+        ObligationType::LoopInvariant,
+        "∀ iter i: P(state_i) — maintained across iterations",
+    ),
+    (
+        ObligationType::LoopVariant,
+        "V(state) ∈ ℕ, strictly decreasing — termination witness",
+    ),
+    (
+        ObligationType::OldState,
+        "Q(old(state), new(state)) — relates pre to post state",
+    ),
+    (
+        ObligationType::Subcontract,
+        "weaken(pre) ∧ strengthen(post) — behavioral subtyping",
+    ),
+    (
+        ObligationType::Safety,
+        "∀x: safe(f(x)) — memory/IO safety obligation",
+    ),
+    (
+        ObligationType::Liveness,
+        "◇ P — eventually P holds (progress obligation)",
+    ),
+];
+
 /// Return a mathematical pattern description for the given obligation type.
 pub fn obligation_pattern(ot: ObligationType) -> &'static str {
-    match ot {
-        ObligationType::Invariant => "∀x ∈ Domain: P(f(x)) — property holds for all inputs",
-        ObligationType::Equivalence => "∀x: |f(x) - g(x)| < ε — two implementations agree",
-        ObligationType::Bound => "∀x: a ≤ f(x)_i ≤ b — output range bounded",
-        ObligationType::Monotonicity => "x_i > x_j → f(x)_i > f(x)_j — order preserved",
-        ObligationType::Idempotency => "f(f(x)) = f(x) — applying twice gives same result",
-        ObligationType::Linearity => "f(αx) = α·f(x) — homogeneous scaling",
-        ObligationType::Symmetry => "f(permute(x)) related to f(x) — permutation property",
-        ObligationType::Associativity => "(a ⊕ b) ⊕ c = a ⊕ (b ⊕ c) — grouping invariant",
-        ObligationType::Conservation => "Q(before) = Q(after) — conserved quantity",
-        ObligationType::Ordering => "a ≤ b → f(a) ≤ f(b) — order relation maintained",
-        ObligationType::Completeness => "∀ required elements present — completeness verified",
-        ObligationType::Soundness => "∀x: P(x) → Q(f(x)) — soundness of transformation",
-        ObligationType::Involution => "f(f(x)) = x — involution (self-inverse)",
-        ObligationType::Determinism => "f(x) = f(x) — deterministic output for same input",
-        ObligationType::Roundtrip => "decode(encode(x)) = x — roundtrip fidelity",
-        ObligationType::StateMachine => "S × A → S — valid state transitions",
-        ObligationType::Classification => "f(x) ∈ C — output belongs to valid class set",
-        ObligationType::Independence => "P(A∩B) = P(A)·P(B) — statistical independence",
-        ObligationType::Termination => "algorithm terminates in finite steps",
-        // Eiffel DbC types
-        ObligationType::Precondition => "P(input) — caller must guarantee before call",
-        ObligationType::Postcondition => "P(in) → Q(out) — kernel guarantees if pre holds",
-        ObligationType::Frame => "modifies(S) ∧ preserves(T\\S) — only S may change",
-        ObligationType::LoopInvariant => "∀ iter i: P(state_i) — maintained across iterations",
-        ObligationType::LoopVariant => "V(state) ∈ ℕ, strictly decreasing — termination witness",
-        ObligationType::OldState => "Q(old(state), new(state)) — relates pre to post state",
-        ObligationType::Subcontract => "weaken(pre) ∧ strengthen(post) — behavioral subtyping",
-        ObligationType::Safety => "∀x: safe(f(x)) — memory/IO safety obligation",
-        ObligationType::Liveness => "◇ P — eventually P holds (progress obligation)",
-    }
+    OBLIGATION_PATTERNS
+        .iter()
+        .find(|(kind, _)| *kind == ot)
+        .map_or("", |(_, pattern)| *pattern)
 }
 
 /// Kani strategy explanation for the explain output.
@@ -138,134 +233,18 @@ fn write_coq_status(out: &mut String, contract: &Contract) {
 }
 
 /// Generate a markdown explanation with headers and LaTeX math.
-#[allow(clippy::too_many_lines)]
 pub fn explain_contract_markdown(
     contract: &Contract,
     stem: &str,
     binding: Option<&BindingRegistry>,
 ) -> String {
     let mut out = String::with_capacity(4096);
-    let _ = writeln!(out, "# {stem}\n");
-    let _ = writeln!(
-        out,
-        "**Version:** {} | **Description:** {}\n",
-        contract.metadata.version, contract.metadata.description
-    );
-
-    if !contract.metadata.references.is_empty() {
-        let _ = writeln!(out, "## References\n");
-        for r in &contract.metadata.references {
-            let _ = writeln!(out, "- {r}");
-        }
-        let _ = writeln!(out);
-    }
-
-    if !contract.equations.is_empty() {
-        let _ = writeln!(out, "## Equations\n");
-        for (name, eq) in &contract.equations {
-            let _ = writeln!(out, "### {name}\n");
-            let latex = crate::latex::math_to_latex(&eq.formula);
-            let _ = writeln!(out, "$$\n{latex}\n$$\n");
-            if let Some(ref dom) = eq.domain {
-                let _ = writeln!(out, "**Domain:** ${}$\n", crate::latex::math_to_latex(dom));
-            }
-            if let Some(ref cod) = eq.codomain {
-                let _ = writeln!(
-                    out,
-                    "**Codomain:** ${}$\n",
-                    crate::latex::math_to_latex(cod)
-                );
-            }
-            if !eq.invariants.is_empty() {
-                let _ = writeln!(out, "**Invariants:**\n");
-                for inv in &eq.invariants {
-                    let _ = writeln!(out, "- ${}$", crate::latex::math_to_latex(inv));
-                }
-                let _ = writeln!(out);
-            }
-            if !eq.preconditions.is_empty() {
-                let _ = writeln!(out, "**Preconditions:**\n");
-                for pre in &eq.preconditions {
-                    let _ = writeln!(out, "- `{pre}`");
-                }
-                let _ = writeln!(out);
-            }
-            if !eq.postconditions.is_empty() {
-                let _ = writeln!(out, "**Postconditions:**\n");
-                for post in &eq.postconditions {
-                    let _ = writeln!(out, "- `{post}`");
-                }
-                let _ = writeln!(out);
-            }
-        }
-    }
-
-    if !contract.proof_obligations.is_empty() {
-        let _ = writeln!(out, "## Proof Obligations\n");
-        let _ = writeln!(out, "| # | Type | Property | Formal |");
-        let _ = writeln!(out, "|---|------|----------|--------|");
-        for (i, ob) in contract.proof_obligations.iter().enumerate() {
-            let formal = ob.formal.as_deref().unwrap_or("");
-            let _ = writeln!(
-                out,
-                "| {} | `{}` | {} | {} |",
-                i + 1,
-                ob.obligation_type,
-                ob.property,
-                formal
-            );
-        }
-        let _ = writeln!(out);
-    }
-
-    // Verification summary
-    let level = compute_proof_level(contract, None);
-    let _ = writeln!(out, "## Verification\n");
-    let _ = writeln!(out, "**Proof level:** {level}\n");
-    if let Some(ref vs) = contract.verification_summary {
-        let _ = writeln!(
-            out,
-            "- Lean: {}/{} proved",
-            vs.l4_lean_proved, vs.total_obligations
-        );
-    }
-    let _ = writeln!(out, "- Kani: {} harnesses", contract.kani_harnesses.len());
-    let _ = writeln!(
-        out,
-        "- Tests: {} falsification\n",
-        contract.falsification_tests.len()
-    );
-
-    // Binding status
-    if let Some(registry) = binding {
-        let contract_file = format!("{stem}.yaml");
-        let has_bindings = contract.equations.keys().any(|eq| {
-            registry
-                .bindings
-                .iter()
-                .any(|b| b.contract == contract_file && b.equation == *eq)
-        });
-        if has_bindings {
-            let _ = writeln!(out, "## Bindings ({})\n", registry.target_crate);
-            let _ = writeln!(out, "| Equation | Status |");
-            let _ = writeln!(out, "|----------|--------|");
-            for eq_name in contract.equations.keys() {
-                let status = registry
-                    .bindings
-                    .iter()
-                    .find(|b| b.contract == contract_file && b.equation == *eq_name)
-                    .map_or("missing", |b| match b.status {
-                        crate::binding::ImplStatus::Implemented => "implemented",
-                        crate::binding::ImplStatus::Partial => "partial",
-                        crate::binding::ImplStatus::NotImplemented => "not_implemented",
-                        crate::binding::ImplStatus::Pending => "pending",
-                    });
-                let _ = writeln!(out, "| {eq_name} | {status} |");
-            }
-            let _ = writeln!(out);
-        }
-    }
-
+    write_md_header(&mut out, contract, stem);
+    write_md_references(&mut out, contract);
+    write_md_equations(&mut out, contract);
+    write_md_obligations(&mut out, contract);
+    write_md_verification(&mut out, contract);
+    write_md_bindings(&mut out, contract, stem, binding);
     out
 }
 
