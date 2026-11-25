@@ -1,5 +1,6 @@
 //! Mutation table for the quorum-gate canary branch falsifiers (split from the root file to stay under the file-health limit).
 #![allow(dead_code)]
+use super::probes::{jq_fails, python_shim};
 use super::*;
 
 /// (name, text in the gate, its mutation, the probe it must flip). A probe runs

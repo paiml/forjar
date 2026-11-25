@@ -8607,7 +8607,7 @@ roadmap:
   notes: null
   epic: 764
 - id: PMAT-1170
-  github_issue: 1170
+  github_issue: 1279
   item_type: task
   title: 'release gate: a second receipt shape for clean quorum rounds, proved by a blind planted-defect canary'
   status: inprogress

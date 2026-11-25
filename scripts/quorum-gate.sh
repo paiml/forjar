@@ -607,7 +607,7 @@ if "canary" in q:
                          capture_output=True, text=True)
     if not rh or anc.returncode != 0:
         die("quorum.canary.reviewed_head is not an ancestor of the pushed commit")
-    later = subprocess.run(["git", "diff", "--name-only", rh, pushed],
+    later = subprocess.run(["git", "diff", "--name-only", "--no-renames", rh, pushed],
                            capture_output=True, text=True)
     if later.returncode != 0 or any(not p.startswith((".quorum/", ".pmat/")) for p in later.stdout.split("\n") if p):
         die("commits after quorum.canary.reviewed_head change files outside .quorum/ and .pmat/")
