@@ -241,7 +241,7 @@ fn nothing(_: &Path) {}
 
 const WAIVER_SENTENCE: &str = "quorum.canary is present next to a waiver or override key";
 
-const CASES: [Case; 17] = [
+const CASES: [Case; 18] = [
     (
         "refuted_ge_1_with_a_malformed_canary_block_is_refused",
         1,
@@ -383,6 +383,13 @@ const CASES: [Case; 17] = [
         },
         None,
     ),
+    (
+        "a_rename_of_a_source_file_into_quorum_after_reviewed_head_is_refused",
+        0,
+        |_, _| {},
+        rename_src_into_quorum,
+        Some("change files outside .quorum/ and .pmat/"),
+    ),
 ];
 
 /// Run one case and return the gate's answer and what it was designed to say
@@ -434,3 +441,4 @@ fn the_gate_drives_each_canary_branch_end_to_end() {
 mod mutants;
 #[path = "canary_branches/probes.rs"]
 mod probes;
+use probes::rename_src_into_quorum;

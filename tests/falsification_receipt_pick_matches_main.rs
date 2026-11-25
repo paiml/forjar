@@ -160,7 +160,7 @@ const MUTANTS: [(&str, &str, &str); 6] = [
     ),
     (
         "an invalid-JSON HEAD copy is refused over a valid merge-commit copy",
-        "      1 | 2 | 5)",
+        "      1 | 2 | 4 | 5)",
         "      1)",
     ),
     (

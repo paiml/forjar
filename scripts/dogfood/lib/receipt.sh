@@ -760,8 +760,8 @@ dogfood_receipt_pick() {
         printf '%s' "$later"
         return 0
         ;;
-      1 | 2 | 5)
-        # Not a canary receipt, but only if jq demonstrably answers 0 on one.
+      1 | 2 | 4 | 5)
+        # Not a canary receipt (4: no value, a whitespace-only copy), but only if jq demonstrably answers 0 on one.
         if ! printf '%s' '{"quorum":{"canary":{}}}' | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
           printf '%s' "receipt unreadable: jq cannot tell a canary receipt, UNMEASURED"
           return 0

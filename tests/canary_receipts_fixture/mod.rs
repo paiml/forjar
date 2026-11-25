@@ -259,6 +259,7 @@ pub use census::*;
 pub mod cases;
 pub mod cases_review;
 pub mod cases_round3;
+pub mod cases_round3b;
 pub mod cases_round6;
 pub mod cases_round7;
 mod census;

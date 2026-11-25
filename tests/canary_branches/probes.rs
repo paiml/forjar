@@ -300,3 +300,12 @@ fn every_mutant_of_the_gate_flips_its_kill_case() {
     let (r, _) = non_canary_waiver_without_jq(&gate);
     assert!(r.code != 0, "mutant '{name}' survived:\n{}", r.text);
 }
+
+/// A rename of a tracked source file into `.quorum/` after `reviewed_head` is a
+/// deletion of that source; with rename detection the name-only diff shows only
+/// the destination, so the gate must read the deletion (`--no-renames`).
+pub(super) fn rename_src_into_quorum(root: &Path) {
+    if root.join("src/a.rs").exists() && !root.join(".quorum/moved.rs").exists() {
+        fx::git(root, &["mv", "src/a.rs", ".quorum/moved.rs"]);
+    }
+}
