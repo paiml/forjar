@@ -21,6 +21,16 @@ fn drop_reviewed_head(s: String) -> String {
     v.to_string()
 }
 
+fn append_trailing_garbage(s: String) -> String {
+    format!("{s} trailing")
+}
+
+fn two_reviewed_heads(s: String) -> String {
+    let mut second: serde_json::Value = serde_json::from_str(&s).expect("receipt json");
+    second["quorum"]["canary"]["reviewed_head"] = json!("0123456789012345678901234567890123456789");
+    format!("{s}\n{second}")
+}
+
 pub fn table() -> Vec<Case> {
     vec![
         (
@@ -211,6 +221,24 @@ pub fn table() -> Vec<Case> {
             "not a 40-hex commit id",
         ),
         (
+            "census: a canary receipt followed by trailing garbage is refused",
+            |_| {},
+            |o| {
+                o.census = true;
+                o.rec_edit = Some(append_trailing_garbage);
+            },
+            "not a 40-hex commit id",
+        ),
+        (
+            "census: two concatenated canary receipts each with a valid reviewed_head are refused",
+            |_| {},
+            |o| {
+                o.census = true;
+                o.rec_edit = Some(two_reviewed_heads);
+            },
+            "!ok",
+        ),
+        (
             "census: a canary receipt whose reviewed_base does not resolve is refused",
             |f| canary(f)["reviewed_base"] = json!("0123456789012345678901234567890123456789"),
             |o| {
@@ -242,4 +270,25 @@ pub fn table() -> Vec<Case> {
             "not refuted by a majority",
         ),
     ]
+}
+
+#[test]
+fn canary_head_single_refuses_trailing_garbage_and_concatenated_docs() {
+    let head = "0123456789abcdef0123456789abcdef01234567";
+    let mut fx = base_fx();
+    canary(&mut fx)["reviewed_head"] = json!(head);
+    let receipt = fx.receipt.to_string();
+    assert_eq!(
+        canary_head_single(&receipt),
+        head,
+        "a single valid canary receipt must yield its reviewed_head"
+    );
+    assert!(
+        canary_head_single(&append_trailing_garbage(receipt.clone())).is_empty(),
+        "a receipt followed by trailing garbage must yield an empty head"
+    );
+    assert!(
+        canary_head_single(&two_reviewed_heads(receipt)).is_empty(),
+        "two concatenated top-level documents each with a valid reviewed_head must yield an empty head"
+    );
 }

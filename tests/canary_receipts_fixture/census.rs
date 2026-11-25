@@ -289,7 +289,9 @@ pub fn canary_head_single(body: &str) -> String {
         .stdout(std::process::Stdio::piped())
         .spawn()
         .expect("jq");
-    std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
+    // jq exits early on malformed input and closes its stdin; a broken pipe here is the
+    // fail-closed path, so the write result is not an error to panic on.
+    let _ = std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes());
     let out = ch.wait_with_output().expect("wait");
     if !out.status.success() {
         return String::new();
