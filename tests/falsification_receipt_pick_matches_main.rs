@@ -53,7 +53,7 @@ const OID_COPIES: [(&str, Option<&str>); 7] = [
     ("old zero-refuted", Some(OLD_ZERO)),
     ("plain with a changed body", Some(CHANGED)),
 ];
-const HEAD_COPIES: [(&str, Option<&str>); 7] = [
+const HEAD_COPIES: [(&str, Option<&str>); 8] = [
     ("canary receipt", Some(CANARY_STUB)),
     ("NUL byte", Some(NUL_COPY)),
     ("invalid JSON", Some(BAD_JSON)),
@@ -61,6 +61,7 @@ const HEAD_COPIES: [(&str, Option<&str>); 7] = [
     ("empty", Some("")),
     ("unbound stub", Some(STUB)),
     ("changed receipt", Some(CHANGED)),
+    ("whitespace only", Some("   \n")),
 ];
 
 fn pick(lib: &Path, oid_copy: Option<&str>, head_copy: Option<&str>, which: &str) -> String {

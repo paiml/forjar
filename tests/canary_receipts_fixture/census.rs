@@ -355,9 +355,10 @@ fn census_plain(
 
 fn census_canary_head(body: &str, rel: &str) -> Result<String, String> {
     let head = jq(body, r#".quorum.canary.reviewed_head | strings"#);
-    if head.is_empty() {
+    let is_sha = head.len() == 40 && head.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+    if head.is_empty() || !is_sha {
         return Err(format!(
-            "{rel}: canary receipt is missing or has a non-string reviewed_head"
+            "{rel}: canary receipt is missing or its reviewed_head is not a 40-hex commit id"
         ));
     }
     Ok(head)
