@@ -10,7 +10,7 @@ use crate::core::types::CloudSpec;
 const TODAY_TAIL: &str = r##"aws ec2 run-instances --region 'eu-south-2' --count 1 --instance-type 'c7a.xlarge' --image-id 'resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64' --instance-market-options 'MarketType=spot,SpotOptions={MaxPrice=0.20,SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}' --instance-initiated-shutdown-behavior terminate --metadata-options 'HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled' --user-data '#!/bin/sh
 shutdown -h +60
 export FORJAR_IMAGE='"'"'123456789012.dkr.ecr.eu-south-2.amazonaws.com/img001@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'"'"'
-' --tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]'
+' --tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=Owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]'
 "##;
 
 /// A script that ends with `body` (the run-instances arguments, minus their final newline)
@@ -113,6 +113,15 @@ fn data_volume_mapping_800_6000_500() {
 }
 
 #[test]
+fn owner_tag_is_not_duplicated_when_user_declares_owner() {
+    let mut r = gated(std::path::Path::new("/t"));
+    r.tags.push("Owner=forjar-cop".into());
+    let script = apply_script_on(&r, DAY);
+    assert_eq!(script.matches("Key=Owner,").count(), 1, "{script}");
+    assert!(script.contains("Key=Owner,Value=forjar-cop"), "{script}");
+}
+
+#[test]
 fn tagspec_has_volume_resource_with_declared_tags() {
     let l = run_line(&with(|c| c.volume_tags = Some(true)));
     assert!(
@@ -133,7 +142,7 @@ fn tagspec_has_volume_resource_with_declared_tags() {
     r.cloud.volume_tags = Some(true);
     assert!(ends_with_launch(
         &apply_script_on(&r, DAY),
-        "--tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]' 'ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]'",
+        "--tag-specifications 'ResourceType=instance,Tags=[{Key=forjar-key,Value=ci-box-a@eu-south-2@0123456789ab},{Key=forjar-owner,Value=ci-box-a@eu-south-2},{Key=Owner,Value=ci-box-a@eu-south-2},{Key=pool,Value=spot-rmedia-pr}]' 'ResourceType=volume,Tags=[{Key=pool,Value=spot-rmedia-pr}]'",
         &r
     ));
 }

@@ -42,7 +42,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Install cargo-deny
-        run: cargo install --locked cargo-deny
+        # Pinned: cargo-deny 0.22.0 needs rustc 1.95; the fleet runs 1.93.
+        # 0.21.0 declares rust-version 1.89. Bump only with the runner rustc.
+        run: cargo install --locked cargo-deny --version 0.21.0
 
       - name: Run cargo-deny
         run: cargo deny check

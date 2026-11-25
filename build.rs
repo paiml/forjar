@@ -3,6 +3,9 @@ use std::collections::BTreeMap;
 #[path = "build_git.rs"]
 mod build_git;
 
+#[path = "build_binding.rs"]
+mod build_binding;
+
 #[derive(serde::Deserialize, Default)]
 struct ContractYaml {
     #[serde(default)]
@@ -181,8 +184,30 @@ fn main() {
 
     let binding_path = "contracts/binding.yaml";
     if std::path::Path::new(binding_path).exists() {
+        // The helper watches the GRANDPARENT of the path it is given. For
+        // `contracts/binding.yaml` that is the package root, so it reads a
+        // staged copy instead (see build_binding.rs). The real file is
+        // watched here.
+        println!("cargo::rerun-if-changed={binding_path}");
+        let root = std::path::PathBuf::from(
+            std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"),
+        );
+        let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));
+        let staged = build_binding::stage(&out_dir, std::path::Path::new(binding_path))
+            .expect("stage contracts/binding.yaml into OUT_DIR");
+        let watched = staged
+            .parent()
+            .and_then(std::path::Path::parent)
+            .expect("staged binding has a grandparent");
+        assert!(
+            !build_binding::watches_package_root(&watched.to_string_lossy(), &root),
+            "{} is the package root or above it: cargo would rescan the whole \
+             checkout on every build; \
+             stage the copy deeper",
+            watched.display()
+        );
         provable_contracts::build_helper::verify_bindings(
-            binding_path,
+            staged.to_str().expect("OUT_DIR is UTF-8"),
             provable_contracts::build_helper::BindingPolicy::AllImplemented,
         );
         verify_binding_equations(std::path::Path::new(binding_path));

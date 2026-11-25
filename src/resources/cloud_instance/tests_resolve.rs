@@ -8,22 +8,29 @@ use std::collections::HashMap;
 type Setter = fn(&mut Resource, &str);
 
 /// Fields the resolver fills in: a bad resolved value must be refused.
-const RESOLVED: [(&str, Setter); 5] = [
+const RESOLVED: [(&str, Setter); 6] = [
     ("region", |r, v| r.cloud.region = Some(v.into())),
     ("type", |r, v| r.cloud.instance_type = Some(v.into())),
+    ("types", |r, v| {
+        r.cloud.instance_type = None;
+        r.cloud.instance_types = Some(vec![v.into()]);
+    }),
     ("price", |r, v| r.cloud.max_price = Some(v.into())),
     ("name", |r, v| r.name = Some(v.into())),
     ("image", |r, v| r.image = Some(v.into())),
 ];
 
 /// Fields the resolver does not touch: a template stays literally unresolved.
-const UNTOUCHED: [(&str, Setter); 5] = [
+const UNTOUCHED: [(&str, Setter); 6] = [
     ("ami", |r, v| r.cloud.ami = Some(v.into())),
     ("subnet", |r, v| r.cloud.subnet_id = Some(v.into())),
     ("groups", |r, v| {
         r.cloud.security_group_ids = Some(vec![v.into()])
     }),
     ("zone", |r, v| r.cloud.availability_zone = Some(v.into())),
+    ("zones", |r, v| {
+        r.cloud.availability_zones = Some(vec![v.into()])
+    }),
     ("tag", |r, v| r.tags.push(format!("k={v}"))),
 ];
 
