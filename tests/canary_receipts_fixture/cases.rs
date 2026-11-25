@@ -310,6 +310,7 @@ pub fn all() -> Vec<Case> {
     v.extend(super::cases_review::table());
     v.extend(super::cases_round3::table());
     v.extend(super::cases_round6::table());
+    v.extend(super::cases_round7::table());
     v
 }
 

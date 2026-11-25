@@ -54,7 +54,8 @@ pub const MUTANTS: &[Mutant] = &[
     m("plan is not compared", &[("== ($c.planted | proj)", "!= ($c.planted | proj)")], "a plan that differs from the receipt is refused"),
     m("planter may be a refuter or judge by name", &[("test(\"refuter|judge\"; \"i\")", "test(\"refuterx|judgex\"; \"i\")"), (r#"any(["lane", "review", "author", "panel", "judge", "refut"][]; . as $w | $pl | contains($w))"#, "false")], "a planter named refuter is refused"),
     m("judge count is not checked", &[("chk(($v | length) != $q.judges;", "chk(false;")], "two judge entries for three judges is refused"),
-    m("waiver key is case sensitive", &[("if ([paths | .[-1]? | tostring] | any(test(\"waiv|override\"; \"i\")))", "if ([paths | .[-1]? | tostring] | any(test(\"waiv|override\")))")], "an upper-case top-level waiver key is refused"),
+    m("waiver key is case sensitive for a canary receipt", &[("any(test(\"waiv|override\"; (if $hc then \"i\" else null end))))", "any(test(\"waiv|override\")))")], "an upper-case top-level waiver key is refused"),
+    m("the case-insensitive waiver match reaches receipts with no canary block", &[("(if $hc then \"i\" else null end)", "\"i\"")], "a receipt with no canary block and a Waived_note key keeps main's verdict"),
     m("resolver drops the canary verdict", &[("if [ \"$why\" = canary ]; then\n    dogfood_canary_status \"$blob\" \"$@\"\n    return 0", "if [ \"$why\" = canary ]; then\n    printf '%s\\n' ok\n    return 0")], "planted = 1 is refused"),
     m("claims_refuted is not recomputed", &[("chk($q.claims_refuted != $realref;", "chk(false;")], "claims_refuted that disagrees with the judges is refused"),
     m("claims_confirmed is not recomputed", &[("($q | has(\"claims_confirmed\")) and", "false and")], "claims_confirmed that counts a canary is refused"),
@@ -74,6 +75,8 @@ pub const MUTANTS: &[Mutant] = &[
     m("judge names may be blank", &[("(.judge | type == \"string\") and ((.judge | gsub(\"\\\\s\"; \"\") | length) > 0)", "(.judge | type == \"string\")")], "an empty judge name is refused"),
     m("judge names may repeat", &[("chk(([$v[].judge | norm] | unique | length) != ($v | length);", "chk(false;")], "two judges with one name are refused"),
     m("planted text length floor is dropped", &[(">= 20)", ">= 0)"), (r#" and (([.text | scan("[^\\s]+")] | length) >= 4)"#, "")], "a short planted text is refused"),
+    m("the planted text length counts blanks inside the text", &[(r#"((.text | gsub("\\s"; "") | length) >= 20)"#, r#"((.text | gsub("^\\s+|\\s+$"; "") | length) >= 20)"#)], "a planted text padded with internal blanks to 20 characters is refused"),
+    m("the committed-receipt census takes the stage 1 canary token as ok", &[("if [ \"$why\" = canary ]; then\n    dogfood_canary_status \"$blob\" \"$@\"\n    return 0", "if [ \"$why\" = canary ]; then\n    printf '%s\\n' ok\n    return 0")], "census: a forged canary receipt (no judge refutes a planted claim) is refused"),
     m("blank planted text is accepted", &[(">= 20)", ">= 0)"), (r#" and (([.text | scan("[^\\s]+")] | length) >= 4)"#, ""), ("def nes: isstr and (gsub(\"\\\\s\"; \"\") | length > 0);", "def nes: isstr;"), ("(.text | gsub(\"\\\\s\"; \"\") | length) > 0)", "(.text | gsub(\"\\\\s\"; \"\") | length) > -1)")], "a whitespace-only planted text is refused"),
     m("ids may have a leading zero", &[(r#"def sid: isstr and test("\\A[1-9][0-9]{0,5}\\z");"#, r#"def sid: isstr and test("^[0-9 ]+$");"#), (r#"def sid: type == "string" and test("\\A[1-9][0-9]{0,5}\\z");"#, r#"def sid: type == "string" and test("^[0-9 ]+$");"#)], "a planted id with a leading zero is refused"),
     m("hashes accept a trailing newline", &[(r#"def hexn($n): isstr and test("\\A[0-9a-f]{\($n)}\\z");"#, r#"def hexn($n): isstr and test("^[0-9a-f]{\($n)}$");"#), (r#"chk(([$lanes, .quorum.refuters, .quorum.refuter_names, .quorum.judge_names, $c][] | [.. | strings] | any(test("[^ -~]")));"#, "chk(false;")], "a reviewed_head with a trailing newline is refused"),
@@ -87,8 +90,8 @@ pub const MUTANTS: &[Mutant] = &[
     m("the plan's planted type is not checked", &[(r#"(((.planted | type) == "array") and ((.planted | proj) == ($c.planted | proj)))"#, r#"(((.planted | proj) == ($c.planted | proj)))"#)], "a plan whose planted is an object is refused"),
     m("a block with no verdict token is ok", &[("elif hascanary\n    then \"canary\"", "elif false\n    then \"canary\"")], "planted = 1 is refused"),
     m("a squash-merged canary keeps the merge-commit copy", &[(r#"      0)
-        printf '%s' "$later""#, r#"      9)
-        printf '%s' "$later""#)], "a squash-merged canary PR is judged on its post-merge receipt"),
+        # The canary shape may only lift"#, r#"      9)
+        # The canary shape may only lift"#)], "a squash-merged canary PR is judged on its post-merge receipt"),
     m("the spaced-out search has no word boundary", &[(r#"def spaced($w): "(?<![a-z])" + ($w | split("") | join("[ ._*|/-]{1,3}")) + "(?![a-z])";"#, r#"def spaced($w): $w | split("") | join("[ ._*|/-]{1,3}");"#)], "a spaced word inside a longer word is honest prose"),
     m("the spaced-out separator is any non-letter", &[(r#"join("[ ._*|/-]{1,3}")) + "(?![a-z])""#, r#"join("[^a-z]+")) + "(?![a-z])""#)], "b = a[i] + t is honest prose"),
     m("spaced inflections are not searched", &[(r#""canary", "canaries", "plant", "plants","#, r#""canary", "plant","#)], "a spaced plural inflection is refused"),

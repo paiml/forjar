@@ -132,6 +132,12 @@ pub struct Opt {
     /// nothing ("absent"), a script that prints nothing and exits 0 ("silent0")
     /// or one that prints nothing and exits 1 ("silent1").
     pub shim: Option<(&'static str, &'static str)>,
+    /// With squash = 2: answer what the census (`census_one`) says of the
+    /// committed post-merge receipt, "ok" or its sentence.
+    pub census: bool,
+    /// The census MUTANT: canary receipts are left out of the comparison and
+    /// given no assertion of their own.
+    pub census_skip_canary: bool,
 }
 
 /// The external tools the receipt predicate and this harness can reach.
@@ -164,18 +170,22 @@ fn shim_path(dir: &Path, shim: (&str, &str)) -> String {
         let dst = bin.join(t);
         if t == shim.0 {
             match shim.1 {
-                m if m.starts_with("when:") => {
+                m if m.starts_with("when:") || m.starts_with("rej:") => {
                     // when:<case pattern on "$*">: silent for that call, the real tool otherwise.
                     let real = ["/usr/bin", "/bin"]
                         .iter()
                         .map(|d| Path::new(d).join(t))
                         .find(|p| p.exists())
                         .expect("real tool");
-                    let pat = &m["when:".len()..];
+                    // rej:<pattern>: exit 2 (an option this tool does not know) instead.
+                    let (pat, code) = match m.strip_prefix("rej:") {
+                        Some(p) => (p, 2),
+                        None => (&m["when:".len()..], 0),
+                    };
                     std::fs::write(
                         &dst,
                         format!(
-                            "#!/bin/sh\ncase \"$*\" in {pat}) exit 0;; esac\nexec {} \"$@\"\n",
+                            "#!/bin/sh\ncase \"$*\" in {pat}) exit {code};; esac\nexec {} \"$@\"\n",
                             real.display()
                         ),
                     )
@@ -234,6 +244,61 @@ fn evidence_body(name: &str, v: &Value, raw: &Option<String>, o: &Opt) -> String
         }
     }
     body
+}
+
+/// A squash-merge shaped history from the committed `rec.json`: the answer the
+/// pick and the predicate give (or, with `o.census`, the census of rec.json).
+fn squash_answer(
+    script: &Path,
+    root: &Path,
+    o: &Opt,
+    text: &str,
+    base: &str,
+    head: &str,
+) -> String {
+    // A squash merge: one ordinary commit S on the base, holding the PR's tree
+    // (receipt included), so the receipt's reviewed_head (the PR head) is no
+    // ancestor of anything on main.
+    let ev = git(root, &["rev-parse", "HEAD"]);
+    git(root, &["checkout", "-q", "--detach", base]);
+    git(root, &["read-tree", "-u", "--reset", &ev]);
+    git(root, &["commit", "-qm", "squash"]);
+    let sq = git(root, &["rev-parse", "HEAD"]);
+    if o.squash > 1 {
+        let post = text.replace(head, &sq);
+        put(root, "rec.json", &post);
+        git(root, &["add", "-A"]);
+        git(
+            root,
+            &["commit", "--allow-empty", "-qm", "post-merge receipt"],
+        );
+    }
+    if o.census {
+        // The whole committed-receipt test, over this fixture repo.
+        put(
+            root,
+            ".quorum/x.json",
+            &std::fs::read_to_string(root.join("rec.json")).expect("rec"),
+        );
+        git(root, &["add", "-A"]);
+        git(
+            root,
+            &["commit", "--allow-empty", "-qm", "committed receipt"],
+        );
+        return match census_all(script, root, o.census_skip_canary) {
+            Ok(_) => "ok".into(),
+            Err(e) => e,
+        };
+    }
+    let call = r#". "$1"; s="$(git rev-parse HEAD~1)"; [ "$2" = 1 ] && s="$(git rev-parse HEAD)"; r="$(dogfood_receipt_pick "$s" rec.json)"; dogfood_receipt_status "$r" "$s" "${s}^1" "$s" HEAD"#;
+    let out = Command::new("bash")
+        .args(["-c", call, "x"])
+        .arg(script)
+        .arg(o.squash.to_string())
+        .current_dir(root)
+        .output()
+        .expect("bash");
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
 /// What the predicate says for `fx` under `o`. Evidence is committed in a
@@ -308,29 +373,7 @@ pub fn run(script: &Path, fx: &Fx, o: &Opt) -> String {
     git(root, &["add", "-A"]);
     git(root, &["commit", "-qm", "evidence"]);
     if o.squash > 0 {
-        // A squash merge: one ordinary commit S on the base, holding the PR's tree
-        // (receipt included), so the receipt's reviewed_head (the PR head) is no
-        // ancestor of anything on main.
-        let ev = git(root, &["rev-parse", "HEAD"]);
-        git(root, &["checkout", "-q", "--detach", &base]);
-        git(root, &["read-tree", "-u", "--reset", &ev]);
-        git(root, &["commit", "-qm", "squash"]);
-        let sq = git(root, &["rev-parse", "HEAD"]);
-        if o.squash > 1 {
-            let post = sub(&r.to_string()).replace(&head, &sq);
-            put(root, "rec.json", &post);
-            git(root, &["add", "-A"]);
-            git(root, &["commit", "-qm", "post-merge receipt"]);
-        }
-        let call = r#". "$1"; s="$(git rev-parse HEAD~1)"; [ "$2" = 1 ] && s="$(git rev-parse HEAD)"; r="$(dogfood_receipt_pick "$s" rec.json)"; dogfood_receipt_status "$r" "$s" "${s}^1" "$s" HEAD"#;
-        let out = Command::new("bash")
-            .args(["-c", call, "x"])
-            .arg(script)
-            .arg(o.squash.to_string())
-            .current_dir(root)
-            .output()
-            .expect("bash");
-        return String::from_utf8_lossy(&out.stdout).trim().to_string();
+        return squash_answer(script, root, o, &sub(&r.to_string()), &base, &head);
     }
     let mut args: Vec<String> = Vec::new();
     if !o.no_subject {
@@ -370,8 +413,136 @@ pub type Edit = fn(&mut Fx);
 /// (name, edit, run options, expected: "ok" exactly, or a substring of the refusal).
 pub type Case = (&'static str, Edit, OptEdit, &'static str);
 
+/// The jq program of main at 9f158fad, verbatim: what every receipt that
+/// carries no canary key must still be told.
+pub const OLD_JQ: &str = r#"
+  def num($v): if ($v | type) == "number" then $v else -1 end;
+  def len($v): if ($v | type) == "array" then ($v | length) else -1 end;
+  if ([paths | .[-1]? | tostring] | any(test("waiv|override")))
+    then "carries a waiver/override key: a waived quorum is an unrefuted claim, not a passed one"
+  elif len(.quorum.lanes) < 3
+    then "quorum.lanes = \(len(.quorum.lanes)), below the floor of 3 that scripts/quorum-gate.sh enforces at push time"
+  elif num(.quorum.judges) < 3
+    then "quorum.judges = \(num(.quorum.judges)), below the floor of 3: a majority needs three"
+  elif num(.quorum.refuters_per_claim) < 3
+    then "quorum.refuters_per_claim = \(num(.quorum.refuters_per_claim)), below the floor of 3: a claim one refuter failed to kill only met one refuter"
+  elif num(.quorum.claims_refuted) < 1
+    then "quorum.claims_refuted = \(num(.quorum.claims_refuted)): a round that killed no claim did not hunt, which is the vacuous receipt this floor exists to refuse"
+  elif len(.evidence.files) < 1
+    then "evidence.files is empty: a verdict that cites no file is an opinion"
+  else "ok"
+  end
+"#;
+
+pub fn jq(body: &str, prog: &str) -> String {
+    let mut ch = Command::new("jq")
+        .args(["-r", prog])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("jq");
+    std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
+    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout)
+        .trim()
+        .to_string()
+}
+
+/// What one committed receipt (`rel`, under `root`) is told, split in two. A
+/// receipt with no `quorum.canary` block must be told exactly what main's
+/// program tells it. A receipt WITH one is judged by the real bound path, with
+/// the commit it vouches for (its `reviewed_head`) and that commit's first
+/// parent resolved from the repo's history, as gate E resolves them; it must be
+/// ok there, and main's program must refuse it for zero refuted. A commit that
+/// does not resolve is an error, never a skip. Ok is (is_canary, main's answer).
+pub fn census_one(script: &Path, root: &Path, rel: &str) -> Result<(bool, String), String> {
+    let body = std::fs::read_to_string(root.join(rel)).map_err(|e| format!("{rel}: {e}"))?;
+    let old = jq(&body, OLD_JQ);
+    let has = jq(
+        &body,
+        r#"if (.quorum | type == "object") and (.quorum | has("canary")) then "yes" else "no" end"#,
+    );
+    let mut args: Vec<String> = Vec::new();
+    if has == "yes" {
+        let head = jq(&body, r#".quorum.canary.reviewed_head | strings"#);
+        let known = Command::new("git")
+            .args(["rev-parse", "--verify", "-q", &format!("{head}^{{commit}}")])
+            .current_dir(root)
+            .output()
+            .map_err(|e| format!("{rel}: git: {e}"))?;
+        if head.is_empty() || !known.status.success() {
+            return Err(format!(
+                "{rel}: canary receipt names commit {head:?}, which does not resolve in history"
+            ));
+        }
+        if old != OLD_ZERO {
+            return Err(format!(
+                "{rel}: a canary receipt is told {old:?} by main, not the zero-refuted refusal"
+            ));
+        }
+        args = vec![head.clone(), format!("{head}^1"), head, "HEAD".into()];
+    }
+    let out = Command::new("bash")
+        .args([
+            "-c",
+            r#". "$1"; f="$2"; shift 2; dogfood_receipt_status "$(cat "$f")" "$@""#,
+            "x",
+        ])
+        .arg(script)
+        .arg(root.join(rel))
+        .args(&args)
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("{rel}: bash: {e}"))?;
+    let new = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if has == "yes" {
+        return if new == "ok" {
+            Ok((true, old))
+        } else {
+            Err(format!("{rel}: {new}"))
+        };
+    }
+    if new != old {
+        return Err(format!("{rel}: the verdict changed: {new:?} for {old:?}"));
+    }
+    Ok((false, old))
+}
+
+/// The committed-receipt census over every `.quorum/*.json` of `root` (never
+/// `evidence/`): (total, ok, refused for zero refuted, canary). With
+/// `skip_canary` (the mutant) canary receipts are neither compared nor judged.
+pub fn census_all(
+    script: &Path,
+    root: &Path,
+    skip_canary: bool,
+) -> Result<(usize, usize, usize, usize), String> {
+    let dir = std::fs::read_dir(root.join(".quorum")).map_err(|e| format!(".quorum: {e}"))?;
+    let mut names: Vec<String> = dir
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".json"))
+        .collect();
+    names.sort();
+    let (mut total, mut ok, mut zero, mut canary) = (0, 0, 0, 0);
+    for n in names {
+        let rel = format!(".quorum/{n}");
+        let body = std::fs::read_to_string(root.join(&rel)).map_err(|e| format!("{rel}: {e}"))?;
+        if skip_canary && body.contains("\"canary\"") {
+            total += 1;
+            canary += 1;
+            continue;
+        }
+        let (is_canary, old) = census_one(script, root, &rel)?;
+        total += 1;
+        canary += usize::from(is_canary);
+        ok += usize::from(old == "ok");
+        zero += usize::from(old == OLD_ZERO);
+    }
+    Ok((total, ok, zero, canary))
+}
+
 pub mod cases;
 pub mod cases_review;
 pub mod cases_round3;
 pub mod cases_round6;
+pub mod cases_round7;
 pub mod mutants;

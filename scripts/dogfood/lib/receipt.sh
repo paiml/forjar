@@ -30,7 +30,8 @@ DOGFOOD_RECEIPT_JQ='
   def num($v): if ($v | type) == "number" then $v else -1 end;
   def len($v): if ($v | type) == "array" then ($v | length) else -1 end;
   def hascanary: (.quorum | type == "object" and has("canary"));
-  if ([paths | .[-1]? | tostring] | any(test("waiv|override"; "i")))
+  hascanary as $hc
+  | if ([paths | .[-1]? | tostring] | any(test("waiv|override"; (if $hc then "i" else null end))))
     then "carries a waiver/override key: a waived quorum is an unrefuted claim, not a passed one"
   elif len(.quorum.lanes) < 3
     then "quorum.lanes = \(len(.quorum.lanes)), below the floor of 3 that scripts/quorum-gate.sh enforces at push time"
@@ -350,18 +351,34 @@ dogfood_pgrep() {
   esac
 }
 
-# dogfood_blob_nul FILE : exit 0 FILE holds no NUL byte, 1 it does, 2 could not
-# be judged. A NUL cannot survive a bash variable, so a receipt read through
-# $(...) is judged WITHOUT it and invalid JSON reaches `ok`; every reader below
-# asks this on the bytes git (or the store) has, before they become a variable.
+# dogfood_nul_judge CMD...: exit 0 the bytes CMD prints hold no NUL, 1 they do,
+# 2 could not be judged. A NUL cannot survive a bash variable, so a receipt read
+# through $(...) is judged WITHOUT it and invalid JSON reaches `ok`; every reader
+# below asks this on the bytes git (or the store) has, before they become a
+# variable. It needs only tr and wc, which main already needs, never grep -P or
+# mktemp, so a receipt without a canary block is read with the tools it always
+# was: CMD is run twice, once counted and once through tr -d NUL, and a control
+# in the same call (a sample with a NUL, which must shrink by exactly one byte)
+# decides whether tr and wc are judging anything. CMD failing is "not judged".
+dogfood_nul_judge() {
+  local c1 c2 n m
+  c1="$(printf 'a\000b' | wc -c 2>/dev/null)" || return 2
+  c2="$(printf 'a\000b' | tr -d '\000' 2>/dev/null | wc -c 2>/dev/null)" || return 2
+  case "$c1" in "" | *[!0-9\ ]*) return 2 ;; esac
+  case "$c2" in "" | *[!0-9\ ]*) return 2 ;; esac
+  [ "$((c1 + 0))" -eq 3 ] && [ "$((c2 + 0))" -eq 2 ] || return 2
+  n="$(set -o pipefail; "$@" 2>/dev/null | wc -c 2>/dev/null)" || return 2
+  m="$(set -o pipefail; "$@" 2>/dev/null | tr -d '\000' 2>/dev/null | wc -c 2>/dev/null)" || return 2
+  case "$n" in "" | *[!0-9\ ]*) return 2 ;; esac
+  case "$m" in "" | *[!0-9\ ]*) return 2 ;; esac
+  [ "$((m + 0))" -le "$((n + 0))" ] || return 2
+  [ "$((m + 0))" -eq "$((n + 0))" ]
+  # 0 equal (no NUL), 1 the stripped copy is shorter (a NUL)
+}
+
+# dogfood_blob_nul FILE : dogfood_nul_judge on a file's bytes.
 dogfood_blob_nul() {
-  local out
-  out="$(dogfood_pgrep a '\x00' "$1" 'a\0000b' 'ab')"
-  case "$out" in
-    miss) return 0 ;;
-    hit) return 1 ;;
-    *) return 2 ;;
-  esac
+  dogfood_nul_judge cat -- "$1"
 }
 
 # dogfood_file_blob FILE : prints FILE when it holds no NUL; exit 0 ok, 3 a NUL
@@ -377,18 +394,14 @@ dogfood_file_blob() {
   esac
 }
 dogfood_git_blob() {
-  local f rc=0
-  f="$(mktemp)" || return 2
-  [ -n "$f" ] && [ -f "$f" ] || return 2
-  git cat-file -p "$1" >"$f" 2>/dev/null || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    rm -f "${f:?}"
-    return 1
-  fi
-  rc=0
-  dogfood_file_blob "$f" || rc=$?
-  rm -f "${f:?}"
-  return "$rc"
+  local rc=0
+  git cat-file -e "$1" 2>/dev/null || return 1
+  dogfood_nul_judge git cat-file -p "$1" || rc=$?
+  case "$rc" in
+    0) git cat-file -p "$1" || return 2 ;;
+    1) return 3 ;;
+    *) return 2 ;;
+  esac
 }
 
 # Lexical RFC 8259 for the canary files: whitespace, strings without \u escapes
@@ -707,7 +720,7 @@ dogfood_pick_read() {
 }
 
 dogfood_receipt_pick() {
-  local oid="$1" path="$2" blob="" later="" have_blob=0
+  local oid="$1" path="$2" blob="" later="" have_blob=0 jrc=0 old
   if git cat-file -e "${oid}:${path}" 2>/dev/null; then
     have_blob=1
     blob="$(dogfood_pick_read "${oid}:${path}")"
@@ -715,21 +728,45 @@ dogfood_receipt_pick() {
   if git cat-file -e "HEAD:${path}" 2>/dev/null; then
     later="$(dogfood_pick_read "HEAD:${path}")"
   fi
+  # A HEAD copy with a NUL byte or that cannot be read is no canary receipt:
+  # with a copy in OID's tree, behave exactly as main did and judge that one.
   case "$later" in
     "receipt holds a NUL byte" | "receipt unreadable "*)
-      printf '%s' "$later"
+      if [ "$have_blob" -eq 1 ]; then
+        printf '%s' "$blob"
+      else
+        printf '%s' "$later"
+      fi
       return 0
       ;;
   esac
   if [ -n "$later" ]; then
-    local jrc=0
     printf '%s' "$later" | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1 || jrc=$?
     case "$jrc" in
       0)
+        # The canary shape may only lift the zero-refuted refusal: a copy in
+        # OID's tree that main refuses for any other reason (a waiver, a thin
+        # lane count) or accepts is judged as it always was.
+        if [ "$have_blob" -eq 1 ]; then
+          old="$(printf '%s' "$blob" | jq -r "$DOGFOOD_RECEIPT_JQ" 2>/dev/null)" || old=""
+          case "$old" in
+            canary | "quorum.claims_refuted = "*) ;;
+            *)
+              printf '%s' "$blob"
+              return 0
+              ;;
+          esac
+        fi
         printf '%s' "$later"
         return 0
         ;;
-      1 | 5) ;;
+      1 | 2 | 5)
+        # Not a canary receipt, but only if jq demonstrably answers 0 on one.
+        if ! printf '%s' '{"quorum":{"canary":{}}}' | jq -e '(.quorum | type == "object") and (.quorum | has("canary"))' >/dev/null 2>&1; then
+          printf '%s' "receipt unreadable: jq cannot tell a canary receipt, UNMEASURED"
+          return 0
+        fi
+        ;;
       *)
         # jq itself failed (absent, killed): which copy is canary is not known.
         printf '%s' "receipt unreadable: jq exit ${jrc}, UNMEASURED"

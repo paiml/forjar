@@ -13,8 +13,7 @@ mod fx;
 
 use fx::cases::{answer, failures};
 use fx::mutants::MUTANTS;
-use fx::{manifest, OLD_ZERO, SCRIPT};
-use std::process::Command;
+use fx::{manifest, SCRIPT};
 
 #[test]
 fn the_canary_shape_accepts_and_refuses_as_designed() {
@@ -32,74 +31,87 @@ fn the_canary_shape_accepts_and_refuses_as_designed() {
     );
 }
 
-/// The jq program of main at 9f158fad, verbatim: what every receipt that
-/// carries no canary key must still be told.
-const OLD_JQ: &str = r#"
-  def num($v): if ($v | type) == "number" then $v else -1 end;
-  def len($v): if ($v | type) == "array" then ($v | length) else -1 end;
-  if ([paths | .[-1]? | tostring] | any(test("waiv|override")))
-    then "carries a waiver/override key: a waived quorum is an unrefuted claim, not a passed one"
-  elif len(.quorum.lanes) < 3
-    then "quorum.lanes = \(len(.quorum.lanes)), below the floor of 3 that scripts/quorum-gate.sh enforces at push time"
-  elif num(.quorum.judges) < 3
-    then "quorum.judges = \(num(.quorum.judges)), below the floor of 3: a majority needs three"
-  elif num(.quorum.refuters_per_claim) < 3
-    then "quorum.refuters_per_claim = \(num(.quorum.refuters_per_claim)), below the floor of 3: a claim one refuter failed to kill only met one refuter"
-  elif num(.quorum.claims_refuted) < 1
-    then "quorum.claims_refuted = \(num(.quorum.claims_refuted)): a round that killed no claim did not hunt, which is the vacuous receipt this floor exists to refuse"
-  elif len(.evidence.files) < 1
-    then "evidence.files is empty: a verdict that cites no file is an opinion"
-  else "ok"
-  end
-"#;
-
 #[test]
 fn every_receipt_on_main_keeps_its_verdict() {
     let root = manifest();
-    let mut list = String::new();
-    for e in std::fs::read_dir(root.join(".quorum")).expect("quorum dir") {
-        let p = e.expect("entry").path();
-        if p.extension().is_some_and(|x| x == "json") {
-            list.push_str(&format!(
-                ".quorum/{}\n",
-                p.file_name().unwrap().to_string_lossy()
-            ));
-        }
-    }
-    let (mut total, mut ok, mut zero) = (0, 0, 0);
-    for rel in list.lines().filter(|l| !l.contains("/evidence/")) {
-        let body = std::fs::read_to_string(root.join(rel)).expect("receipt");
-        let old = jq(&body, OLD_JQ);
-        let new = Command::new("bash")
-            .args(["-c", r#". "$1"; dogfood_receipt_status "$(cat "$2")""#, "x"])
-            .arg(root.join(SCRIPT))
-            .arg(root.join(rel))
-            .current_dir(&root)
-            .output()
-            .expect("bash");
-        let new = String::from_utf8_lossy(&new.stdout).trim().to_string();
-        assert_eq!(new, old, "{rel}: the verdict changed");
-        total += 1;
-        ok += usize::from(old == "ok");
-        zero += usize::from(old == OLD_ZERO);
-    }
+    let (total, ok, zero, canary) =
+        fx::census_all(&root.join(SCRIPT), &root, false).unwrap_or_else(|e| panic!("{e}"));
     // The census must be real: an empty list would pass every comparison.
     assert!(total >= 100, "only {total} receipts on main");
     assert!(ok >= 100, "only {ok} receipts read ok");
-    eprintln!("receipts {total}, ok {ok}, refused for zero refuted {zero}");
+    eprintln!("receipts {total}, ok {ok}, refused for zero refuted {zero}, canary {canary}");
 }
 
-fn jq(body: &str, prog: &str) -> String {
-    let mut ch = Command::new("jq")
-        .args(["-r", prog])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("jq");
-    std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
-    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout)
-        .trim()
-        .to_string()
+/// The mutant of the census: canary receipts left out of the comparison with no
+/// assertion of their own. It must pass the forged receipt that the real census
+/// refuses, so the separate (commit-bound) assertion is what the cases pin.
+#[test]
+fn a_census_that_skips_canary_receipts_is_caught() {
+    let script = manifest().join(SCRIPT);
+    let forged = "census: a forged canary receipt (no judge refutes a planted claim) is refused";
+    let (real, _) = answer(&script, forged);
+    assert!(
+        real != "ok" && !real.is_empty(),
+        "real census gave {real:?}"
+    );
+    let (mut fx_, mut o) = (fx::base_fx(), fx::Opt::default());
+    for c in fx::cases::all().into_iter().filter(|c| c.0 == forged) {
+        (c.1)(&mut fx_);
+        (c.2)(&mut o);
+    }
+    o.census_skip_canary = true;
+    assert_eq!(
+        fx::run(&script, &fx_, &o),
+        "ok",
+        "the skipping census must be blind to a forged canary receipt"
+    );
+}
+
+/// The other half of the skip: a receipt with NO canary block must never be
+/// skipped, whatever text it holds. A plain receipt that merely carries the word
+/// "canary" in a string, judged by a script whose plain-receipt verdict has
+/// drifted from main (the case-insensitive waiver match leaking to plain
+/// receipts), must fail the real census; a census that skips by the text
+/// `"canary"` instead of by the block would let the drift through.
+#[test]
+fn a_plain_receipt_is_never_skipped_by_the_census() {
+    let real = manifest().join(SCRIPT);
+    let name = "the case-insensitive waiver match reaches receipts with no canary block";
+    let mu = MUTANTS.iter().find(|m| m.name == name).expect("mutant");
+    let mut text = std::fs::read_to_string(&real).expect("script");
+    for (needle, repl) in mu.pairs {
+        assert_eq!(text.matches(needle).count(), 1, "needle {needle:?}");
+        text = text.replacen(needle, repl, 1);
+    }
+    let dir = tempfile::tempdir().expect("tempdir");
+    let drifted = dir.path().join("drifted.sh");
+    std::fs::write(&drifted, text).expect("write");
+    let mut fx_ = fx::base_fx();
+    fx_.receipt["quorum"]
+        .as_object_mut()
+        .expect("quorum")
+        .remove("canary");
+    fx_.receipt["quorum"]["claims_refuted"] = serde_json::json!(1);
+    fx_.receipt["Waived_note"] = serde_json::json!("canary");
+    let mut o = fx::Opt::default();
+    o.squash = 2;
+    o.census = true;
+    assert_eq!(
+        fx::run(&real, &fx_, &o),
+        "ok",
+        "the shipped script keeps main's verdict"
+    );
+    let got = fx::run(&drifted, &fx_, &o);
+    assert!(
+        got.contains("the verdict changed"),
+        "the real census must catch the drift on a plain receipt, got {got:?}"
+    );
+    o.census_skip_canary = true;
+    assert_eq!(
+        fx::run(&drifted, &fx_, &o),
+        "ok",
+        "a census that skips by text is blind to the drift (the mutant of the skip)"
+    );
 }
 
 #[test]
