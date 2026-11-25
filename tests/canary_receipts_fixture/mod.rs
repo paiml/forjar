@@ -263,4 +263,6 @@ pub mod cases_round3b;
 pub mod cases_round6;
 pub mod cases_round7;
 mod census;
+mod census_jq;
+pub use census_jq::*;
 pub mod mutants;
