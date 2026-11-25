@@ -193,6 +193,24 @@ pub fn table() -> Vec<Case> {
             "reviewed_head",
         ),
         (
+            "census: a canary receipt with a 41-char reviewed_head is refused",
+            |f| canary(f)["reviewed_head"] = json!("0123456789012345678901234567890123456789a"),
+            |o| {
+                o.squash = 2;
+                o.census = true;
+            },
+            "not a 40-hex commit id",
+        ),
+        (
+            "census: a canary receipt with a trailing-newline reviewed_head is refused",
+            |f| canary(f)["reviewed_head"] = json!("0123456789012345678901234567890123456789\n"),
+            |o| {
+                o.squash = 2;
+                o.census = true;
+            },
+            "not a 40-hex commit id",
+        ),
+        (
             "census: a canary receipt whose reviewed_base does not resolve is refused",
             |f| canary(f)["reviewed_base"] = json!("0123456789012345678901234567890123456789"),
             |o| {

@@ -266,16 +266,20 @@ pub const OLD_JQ: &str = r#"
 "#;
 
 pub fn jq(body: &str, prog: &str) -> String {
+    jq_untrimmed(body, prog).trim().to_string()
+}
+
+/// `jq -r` output with its trailing newline kept: a value that ends in a newline must not
+/// be trimmed into a valid one.
+pub fn jq_untrimmed(body: &str, prog: &str) -> String {
     let mut ch = Command::new("jq")
-        .args(["-r", prog])
+        .args(["-j", prog])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
         .expect("jq");
     std::io::Write::write_all(&mut ch.stdin.take().expect("stdin"), body.as_bytes()).expect("feed");
-    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout)
-        .trim()
-        .to_string()
+    String::from_utf8_lossy(&ch.wait_with_output().expect("wait").stdout).to_string()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -354,7 +358,7 @@ fn census_plain(
 }
 
 fn census_canary_head(body: &str, rel: &str) -> Result<String, String> {
-    let head = jq(body, r#".quorum.canary.reviewed_head | strings"#);
+    let head = jq_untrimmed(body, r#".quorum.canary.reviewed_head | strings"#);
     let is_sha = head.len() == 40 && head.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
     if head.is_empty() || !is_sha {
         return Err(format!(
