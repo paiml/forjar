@@ -189,6 +189,7 @@ jobs:
           --test falsification_quorum_gate_exact_identity \
           --test falsification_nightly_gate_is_tag_vs_head \
           --test falsification_nightly_windows_openssl_perl \
+          --test falsification_nightly_release_can_write_contents \
           --test falsification_683_cross_mounts_under_work_root \
           --test falsification_sudo_transport_closefrom_emulated \
           --test falsification_version_matches_manifest \

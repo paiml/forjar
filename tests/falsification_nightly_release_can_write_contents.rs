@@ -10,19 +10,41 @@
 //! and a custom `token:` / `GH_TOKEN:` secret bypasses `GITHUB_TOKEN`'s
 //! workflow permissions, any narrowing or token override breaks publishing.
 //!
-//! # mutations — each measured to redden its own assertion
+//! # Mutations and fixture coverage
 //!
+//! Applied to the real `.github/workflows/nightly.yml` (verified RED, then reverted):
 //! 1. Narrow top-level `permissions.contents` from `write` to `read` (or
-//!    `read-all`) → `nightly_release_has_effective_contents_write` goes RED.
+//!    `read-all`) → `nightly_release_has_effective_contents_write` goes RED
+//!    (also covered by inline-YAML fixture `top_read`).
+//!
+//! Covered only by inline-YAML fixtures in this file (not measured by mutating
+//! `.github/workflows/nightly.yml`):
 //! 2. Add a job-level `permissions:` block to `release` without `contents:
-//!    write` (e.g., `actions: read` or `{}`) →
-//!    `nightly_release_has_effective_contents_write` goes RED.
+//!    write` (`job_replaces`, `job_empty`, `job_read_all` in
+//!    `rejects_narrowed_permissions_and_custom_tokens`).
 //! 3. Set `with.token` on `softprops/action-gh-release` to another secret
-//!    → `nightly_release_steps_use_github_token` goes RED.
+//!    (`bad_action_tok` in `rejects_narrowed_permissions_and_custom_tokens`).
 //! 4. Set `env.GH_TOKEN` on a `release` step to another secret
-//!    → `nightly_release_steps_use_github_token` goes RED.
+//!    (`bad_env_tok` in `rejects_narrowed_permissions_and_custom_tokens`).
+//! 5. Set `GH_TOKEN` or `GITHUB_TOKEN` at workflow-level `env` to a
+//!    non-`GITHUB_TOKEN` value (`rejects_workflow_env_custom_token`:
+//!    `wf_gh`, `wf_github`).
+//! 6. Set `GH_TOKEN` or `GITHUB_TOKEN` at `jobs.release.env` to a
+//!    non-`GITHUB_TOKEN` value (`rejects_job_env_custom_token`:
+//!    `job_gh`, `job_github`).
+//! 7. Set `env.GITHUB_TOKEN` on a `release` step to a non-`GITHUB_TOKEN`
+//!    value (`rejects_step_env_custom_github_token`: `step_github`).
+//! 8. Run the `gh` CLI in a `release` step without an effective `GH_TOKEN` or
+//!    `GITHUB_TOKEN` at step, job, or workflow level
+//!    (`rejects_gh_cli_step_without_effective_token`: `gh_start`, `gh_inline`).
+//! 9. Passing fixture: `gh` CLI in a `release` step with an effective
+//!    `GH_TOKEN` or `GITHUB_TOKEN` from workflow, job, or step `env`
+//!    (`accepts_gh_cli_step_with_effective_github_token`:
+//!    `wf_pass`, `job_pass`, `step_pass`).
 
 use serde_yaml_ng::Value;
+
+const TOKEN_ENV_VARS: [&str; 2] = ["GH_TOKEN", "GITHUB_TOKEN"];
 
 fn parse_yaml(text: &str, label: &str) -> Value {
     serde_yaml_ng::from_str(text).unwrap_or_else(|e| panic!("forjar#1163: parse {label}: {e}"))
@@ -38,13 +60,21 @@ fn nightly() -> Value {
     parse_yaml(&text, &path)
 }
 
-fn release_steps(wf: &Value) -> Result<&[Value], String> {
+fn release_job(wf: &Value) -> Result<&Value, String> {
     wf.get("jobs")
         .and_then(|j| j.get("release"))
-        .and_then(|j| j.get("steps"))
+        .ok_or_else(|| "forjar#1163: workflow has no jobs.release".to_string())
+}
+
+fn job_steps(job: &Value) -> Result<&[Value], String> {
+    job.get("steps")
         .and_then(Value::as_sequence)
         .map(Vec::as_slice)
         .ok_or_else(|| "forjar#1163: workflow has no jobs.release.steps".to_string())
+}
+
+fn release_steps(wf: &Value) -> Result<&[Value], String> {
+    job_steps(release_job(wf)?)
 }
 
 fn perm_allows_contents_write(perm: &Value) -> bool {
@@ -56,10 +86,7 @@ fn perm_allows_contents_write(perm: &Value) -> bool {
 }
 
 fn check_contents_write(wf: &Value) -> Result<(), String> {
-    let job = wf
-        .get("jobs")
-        .and_then(|j| j.get("release"))
-        .ok_or_else(|| "forjar#1163: workflow has no jobs.release".to_string())?;
+    let job = release_job(wf)?;
     let (scope, perm) = match job.get("permissions") {
         Some(p) => ("jobs.release.permissions", Some(p)),
         None => ("top-level permissions", wf.get("permissions")),
@@ -109,19 +136,77 @@ fn check_gh_release_token(wf: &Value) -> Result<(), String> {
     Ok(())
 }
 
-fn check_gh_token_env(wf: &Value) -> Result<(), String> {
-    for step in release_steps(wf)? {
-        if let Some(tok) = step.get("env").and_then(|e| e.get("GH_TOKEN")) {
-            if !is_default_github_token(tok) {
-                let name = step
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .unwrap_or("<unnamed>");
-                return Err(format!(
-                    "forjar#1163: step {name:?} sets `env.GH_TOKEN` to non-GITHUB_TOKEN {tok:?}"
-                ));
-            }
+fn check_env_token_vars(env: Option<&Value>, scope: &str) -> Result<(), String> {
+    let Some(env) = env else {
+        return Ok(());
+    };
+    for var in TOKEN_ENV_VARS {
+        let Some(tok) = env.get(var) else {
+            continue;
+        };
+        if !is_default_github_token(tok) {
+            return Err(format!(
+                "forjar#1163: {scope} sets `{var}` to non-GITHUB_TOKEN value {tok:?}"
+            ));
         }
+    }
+    Ok(())
+}
+
+fn step_label(step: &Value) -> String {
+    let name = step
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("<unnamed>");
+    format!("step {name:?}")
+}
+
+fn line_calls_gh(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return false;
+    }
+    trimmed.starts_with("gh ") || trimmed.contains(" gh ")
+}
+
+fn step_calls_gh(step: &Value) -> bool {
+    step.get("run")
+        .and_then(Value::as_str)
+        .is_some_and(|script| script.lines().any(line_calls_gh))
+}
+
+fn env_has_allowed_token(env: Option<&Value>) -> bool {
+    let Some(env) = env else {
+        return false;
+    };
+    TOKEN_ENV_VARS
+        .iter()
+        .any(|var| env.get(*var).is_some_and(is_default_github_token))
+}
+
+fn has_effective_gh_token(step: &Value, job: &Value, wf: &Value) -> bool {
+    env_has_allowed_token(step.get("env"))
+        || env_has_allowed_token(job.get("env"))
+        || env_has_allowed_token(wf.get("env"))
+}
+
+fn check_step_gh_token_env(step: &Value, job: &Value, wf: &Value) -> Result<(), String> {
+    let scope = step_label(step);
+    check_env_token_vars(step.get("env"), &scope)?;
+    if step_calls_gh(step) && !has_effective_gh_token(step, job, wf) {
+        return Err(format!(
+            "forjar#1163: {scope} runs `gh` without an effective GH_TOKEN or GITHUB_TOKEN"
+        ));
+    }
+    Ok(())
+}
+
+fn check_gh_token_env(wf: &Value) -> Result<(), String> {
+    let job = release_job(wf)?;
+    check_env_token_vars(wf.get("env"), "top-level env")?;
+    check_env_token_vars(job.get("env"), "jobs.release.env")?;
+    for step in job_steps(job)? {
+        check_step_gh_token_env(step, job, wf)?;
     }
     Ok(())
 }
@@ -191,4 +276,65 @@ fn rejects_narrowed_permissions_and_custom_tokens() {
         check_gh_token_env(&parse_yaml(bad_env_tok, "bad_env_tok")),
         "bad_env_tok",
     );
+}
+
+#[test]
+fn rejects_workflow_env_custom_token() {
+    let wf_gh = "env:\n  GH_TOKEN: ${{ secrets.PAT }}\njobs:\n  release:\n    steps: []\n";
+    assert_rejected(check_gh_token_env(&parse_yaml(wf_gh, "wf_gh")), "wf_gh");
+
+    let wf_github = "env:\n  GITHUB_TOKEN: ${{ secrets.PAT }}\njobs:\n  release:\n    steps: []\n";
+    assert_rejected(
+        check_gh_token_env(&parse_yaml(wf_github, "wf_github")),
+        "wf_github",
+    );
+}
+
+#[test]
+fn rejects_job_env_custom_token() {
+    let job_gh = "jobs:\n  release:\n    env:\n      GH_TOKEN: ${{ secrets.PAT }}\n    steps: []\n";
+    assert_rejected(check_gh_token_env(&parse_yaml(job_gh, "job_gh")), "job_gh");
+
+    let job_github =
+        "jobs:\n  release:\n    env:\n      GITHUB_TOKEN: ${{ secrets.PAT }}\n    steps: []\n";
+    assert_rejected(
+        check_gh_token_env(&parse_yaml(job_github, "job_github")),
+        "job_github",
+    );
+}
+
+#[test]
+fn rejects_step_env_custom_github_token() {
+    let step_github = "jobs:\n  release:\n    steps:\n      - name: Delete\n        env:\n          GITHUB_TOKEN: ${{ secrets.PAT }}\n        run: echo\n";
+    assert_rejected(
+        check_gh_token_env(&parse_yaml(step_github, "step_github")),
+        "step_github",
+    );
+}
+
+#[test]
+fn rejects_gh_cli_step_without_effective_token() {
+    let gh_start = "jobs:\n  release:\n    steps:\n      - name: Delete\n        run: gh release delete nightly --yes\n";
+    assert_rejected(
+        check_gh_token_env(&parse_yaml(gh_start, "gh_start")),
+        "gh_start",
+    );
+
+    let gh_inline = "jobs:\n  release:\n    steps:\n      - name: Check\n        run: if ! gh release view nightly; then echo missing; fi\n";
+    assert_rejected(
+        check_gh_token_env(&parse_yaml(gh_inline, "gh_inline")),
+        "gh_inline",
+    );
+}
+
+#[test]
+fn accepts_gh_cli_step_with_effective_github_token() {
+    let wf_pass = "env:\n  GITHUB_TOKEN: ${{ github.token }}\njobs:\n  release:\n    steps:\n      - name: Delete\n        run: gh release delete nightly --yes\n";
+    assert!(check_gh_token_env(&parse_yaml(wf_pass, "wf_pass")).is_ok());
+
+    let job_pass = "jobs:\n  release:\n    env:\n      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n    steps:\n      - name: Delete\n        run: if ! gh release view nightly; then true; fi\n";
+    assert!(check_gh_token_env(&parse_yaml(job_pass, "job_pass")).is_ok());
+
+    let step_pass = "jobs:\n  release:\n    steps:\n      - name: Delete\n        env:\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n        run: gh release delete nightly --yes\n      - name: Echo\n        run: echo done\n";
+    assert!(check_gh_token_env(&parse_yaml(step_pass, "step_pass")).is_ok());
 }
