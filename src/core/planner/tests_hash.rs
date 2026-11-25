@@ -39,6 +39,7 @@ fn test_fj004_hash_deterministic() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
@@ -146,8 +147,10 @@ fn test_golden_hash_pinned_value() {
     // Repinned again for PMAT-560 (#560): `exec_start` / `exec_sha256`, the
     // service exec-parity fields, flattened in from `ExecParity`. Same
     // migration, same note in the changelog.
+    // Repinned again for PMAT-1143 (#1143): `network`, the docker `--network`
+    // mode. Same migration; the changelog upgrade note names it.
     assert_eq!(
-        hash, "blake3:d23f27010e87a5a3daa3d4549d58b821921742e94508e9bb6614e64b25aed042",
+        hash, "blake3:e8ace4e807dbc3cb1f672acd27568670b2ef8ea2a62d6724e92c868781dc6474",
         "Golden hash changed — the canonical desired-state form moved. Read the \
          comment above before repinning: this is a fleet-wide re-converge."
     );
@@ -190,6 +193,7 @@ fn test_fj004_hash_includes_all_fields() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
@@ -309,6 +313,7 @@ fn test_fj004_hash_content_change_changes_hash() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

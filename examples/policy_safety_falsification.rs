@@ -27,11 +27,18 @@ use forjar::core::secret_namespace::{
     execute_isolated, format_result, verify_no_leak, NamespaceConfig,
 };
 
-fn main() {
-    println!("Forjar Policy / Safety / Supply Chain Falsification");
-    println!("{}", "=".repeat(60));
+fn report_check(label: &str, ok: bool, pass_text: &str, fail_text: &str) {
+    let status = if ok { pass_text } else { fail_text };
+    let mark = if ok { "✓" } else { "✗ FALSIFIED" };
+    println!("  {label}: {status} {mark}");
+    assert!(ok);
+}
 
-    // ── FJ-3209: Policy Boundary Testing ──
+fn report_yes_no(label: &str, ok: bool) {
+    report_check(label, ok, "yes", "no");
+}
+
+fn check_policy_boundary() {
     println!("\n[FJ-3209] Policy Boundary Testing:");
 
     let pack = CompliancePack {
@@ -69,47 +76,45 @@ fn main() {
 
     let bt_result = test_boundaries(&pack);
     let bt_ok = bt_result.all_passed();
-    println!(
-        "  Assert + Deny boundary tests: {} {}",
-        if bt_ok { "all pass" } else { "failures" },
-        if bt_ok { "✓" } else { "✗ FALSIFIED" }
+    report_check(
+        "Assert + Deny boundary tests",
+        bt_ok,
+        "all pass",
+        "failures",
     );
-    assert!(bt_ok);
     println!("{}", format_boundary_results(&bt_result));
+}
 
-    // ── FJ-3308: Secret Audit Trail ──
+fn check_secret_audit() {
     println!("\n[FJ-3308] Secret Audit Trail:");
 
-    let dir = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e:?}"));
     append_audit(
         dir.path(),
         &make_resolve_event("db_pass", "file", "h1", Some("web-01")),
     )
-    .unwrap();
+    .unwrap_or_else(|e| panic!("{e:?}"));
     append_audit(
         dir.path(),
         &make_inject_event("db_pass", "file", "h1", "ns-apply"),
     )
-    .unwrap();
-    append_audit(dir.path(), &make_discard_event("db_pass", "h1")).unwrap();
+    .unwrap_or_else(|e| panic!("{e:?}"));
+    append_audit(dir.path(), &make_discard_event("db_pass", "h1"))
+        .unwrap_or_else(|e| panic!("{e:?}"));
     append_audit(
         dir.path(),
         &make_rotate_event("db_pass", "file", "h1", "h2"),
     )
-    .unwrap();
+    .unwrap_or_else(|e| panic!("{e:?}"));
 
-    let events = read_audit(dir.path()).unwrap();
+    let events = read_audit(dir.path()).unwrap_or_else(|e| panic!("{e:?}"));
     let summary = audit_summary(&events);
     let lifecycle_ok = events.len() == 4 && summary.unique_keys == 1;
-    println!(
-        "  Full lifecycle (4 events, 1 key): {} {}",
-        if lifecycle_ok { "yes" } else { "no" },
-        if lifecycle_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(lifecycle_ok);
+    report_yes_no("Full lifecycle (4 events, 1 key)", lifecycle_ok);
     println!("{}", format_audit_summary(&summary));
+}
 
-    // ── FJ-3306: Namespace Isolation ──
+fn check_namespace_isolation() {
     println!("\n[FJ-3306] Namespace Isolation:");
 
     let ns_config = NamespaceConfig {
@@ -124,20 +129,16 @@ fn main() {
         hash: blake3::hash(b"hidden-value").to_hex().to_string(),
     }];
 
-    let ns_result =
-        execute_isolated(&ns_config, &secrets, "sh", &["-c", "echo $SECRET_TOKEN"]).unwrap();
+    let ns_result = execute_isolated(&ns_config, &secrets, "sh", &["-c", "echo $SECRET_TOKEN"])
+        .unwrap_or_else(|e| panic!("{e:?}"));
     let ns_ok = ns_result.success
         && ns_result.stdout.trim() == "hidden-value"
         && verify_no_leak("SECRET_TOKEN");
-    println!(
-        "  Secret in child, not in parent: {} {}",
-        if ns_ok { "yes" } else { "no" },
-        if ns_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(ns_ok);
+    report_yes_no("Secret in child, not in parent", ns_ok);
     println!("  {}", format_result(&ns_result));
+}
 
-    // ── FJ-095: Reproducible Build ──
+fn check_repro_build() {
     println!("\n[FJ-095] Reproducible Build Checks:");
 
     let env_checks = check_environment();
@@ -146,48 +147,30 @@ fn main() {
     let good_toml = "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1\n";
     let profile_checks = check_cargo_profile(good_toml);
     let profile_ok = profile_checks.iter().all(|c| c.passed);
-    println!(
-        "  Good Cargo profile passes: {} {}",
-        if profile_ok { "yes" } else { "no" },
-        if profile_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(profile_ok);
+    report_yes_no("Good Cargo profile passes", profile_ok);
+}
 
-    // ── FJ-113: Ferrocene Certification ──
+fn check_ferrocene() {
     println!("\n[FJ-113] Ferrocene Certification Evidence:");
 
     let evidence = generate_evidence(SafetyStandard::Iso26262, "binary-hash", "source-hash");
     let ev_ok = evidence.standard == SafetyStandard::Iso26262
         && !evidence.build_flags.is_empty()
         && !evidence.forbidden_features.is_empty();
-    println!(
-        "  ISO 26262 evidence generated: {} {}",
-        if ev_ok { "yes" } else { "no" },
-        if ev_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(ev_ok);
+    report_yes_no("ISO 26262 evidence generated", ev_ok);
 
     let clean_source = "fn main() { println!(\"hello\"); }\n";
     let violations = check_source_compliance(clean_source);
     let clean_ok = violations.is_empty();
-    println!(
-        "  Clean source has no violations: {} {}",
-        if clean_ok { "yes" } else { "no" },
-        if clean_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(clean_ok);
+    report_yes_no("Clean source has no violations", clean_ok);
+}
 
-    // ── FJ-115: Flight-Grade Execution ──
+fn check_flight_grade() {
     println!("\n[FJ-115] Flight-Grade Execution:");
 
     let fg_report = check_compliance(100, 10);
     let fg_ok = fg_report.compliant && fg_report.no_dynamic_alloc && fg_report.bounded_loops;
-    println!(
-        "  100 resources, depth 10 compliant: {} {}",
-        if fg_ok { "yes" } else { "no" },
-        if fg_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(fg_ok);
+    report_yes_no("100 resources, depth 10 compliant", fg_ok);
 
     let mut plan = FgPlan::empty();
     plan.resources[0] = FgResource::empty();
@@ -198,49 +181,45 @@ fn main() {
     plan.resources[1].dep_count = 1;
     plan.count = 2;
     let sort_ok = fg_topo_sort(&mut plan).is_ok() && plan.order[0] == 0 && plan.order[1] == 1;
-    println!(
-        "  Topo sort A→B correct: {} {}",
-        if sort_ok { "yes" } else { "no" },
-        if sort_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(sort_ok);
+    report_yes_no("Topo sort A→B correct", sort_ok);
+}
 
-    // ── FJ-051: MC/DC ──
+fn check_mcdc() {
     println!("\n[FJ-051] MC/DC Coverage Analysis:");
 
     let and_d = build_decision("a && b && c", &["a", "b", "c"]);
     let and_report = generate_mcdc_and(&and_d);
     let and_ok = and_report.pairs.len() == 3 && and_report.coverage_achievable;
-    println!(
-        "  AND(a,b,c): 3 pairs, achievable: {} {}",
-        if and_ok { "yes" } else { "no" },
-        if and_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(and_ok);
+    report_yes_no("AND(a,b,c): 3 pairs, achievable", and_ok);
 
     let or_d = build_decision("x || y", &["x", "y"]);
     let or_report = generate_mcdc_or(&or_d);
     let or_ok = or_report.pairs.len() == 2 && or_report.coverage_achievable;
-    println!(
-        "  OR(x,y): 2 pairs, achievable: {} {}",
-        if or_ok { "yes" } else { "no" },
-        if or_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(or_ok);
+    report_yes_no("OR(x,y): 2 pairs, achievable", or_ok);
+}
 
-    // ── FJ-114: DO-330 ──
+fn check_do330() {
     println!("\n[FJ-114] DO-330 Tool Qualification:");
 
     let pkg = generate_qualification_package("1.1.1", ToolQualLevel::Tql5);
     let pkg_ok = pkg.qualification_complete
         && pkg.total_requirements == pkg.verified_requirements
         && pkg.coverage_evidence.iter().all(|c| c.satisfied);
-    println!(
-        "  TQL-5 package complete: {} {}",
-        if pkg_ok { "yes" } else { "no" },
-        if pkg_ok { "✓" } else { "✗ FALSIFIED" }
-    );
-    assert!(pkg_ok);
+    report_yes_no("TQL-5 package complete", pkg_ok);
+}
+
+fn main() {
+    println!("Forjar Policy / Safety / Supply Chain Falsification");
+    println!("{}", "=".repeat(60));
+
+    check_policy_boundary();
+    check_secret_audit();
+    check_namespace_isolation();
+    check_repro_build();
+    check_ferrocene();
+    check_flight_grade();
+    check_mcdc();
+    check_do330();
 
     println!("\n{}", "=".repeat(60));
     println!("All policy/safety/supply chain criteria survived.");

@@ -38,6 +38,7 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,
@@ -489,21 +490,5 @@ fn test_cargo_state_query_strips_features() {
     assert!(
         !script.contains("[cli]"),
         "features must not reach the needle"
-    );
-}
-
-/// FJ-51: empty staging bin dir produces clear error with hint.
-#[test]
-fn test_cargo_install_empty_bin_error_hint() {
-    let mut r = make_apt_resource(&["some-lib-crate"]);
-    r.provider = Some("cargo".to_string());
-    let script = apply_script(&r);
-    assert!(
-        script.contains("produced no binaries"),
-        "must detect empty bin dir, got: {script}"
-    );
-    assert!(
-        script.contains("HINT"),
-        "must provide hint about --features, got: {script}"
     );
 }

@@ -72,6 +72,16 @@ pub enum SweepError {
     MalformedId(String),
     /// A runner's host id has a character outside printable ASCII.
     MalformedRunnerHostId { runner: String, host: String },
+    /// A runner on a host no listing names is busy: the cleanup refuses, since
+    /// deregistering around live work is not safe. Nothing is deregistered.
+    BusyRunnerOnUnlistedHost { runner: String, host: String },
+}
+
+/// What one orphaned-runner cleanup pass removes. It terminates nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Cleanup {
+    /// Names of idle runners whose host id equals no listed host, to deregister.
+    pub deregister_runners: Vec<String>,
 }
 
 fn first_duplicate(items: impl Iterator<Item = String>) -> Option<String> {
@@ -156,6 +166,34 @@ pub fn sweep(listing: &RunnerListing, hosts: &[Host]) -> Result<Sweep, SweepErro
     Ok(Sweep {
         terminate_hosts,
         unknown_runners,
+    })
+}
+
+/// Orphaned-runner cleanup (#1139): the idle runners whose host is not listed,
+/// to deregister. It terminates nothing. Host ids match ignoring ASCII case,
+/// as in [`sweep`]. A busy runner on an unlisted host refuses the whole pass
+/// (nothing is deregistered), and so does an incomplete or invalid listing.
+/// After the caller deregisters the result, [`sweep`] has no unknown runners.
+pub fn cleanup_orphan_runners(
+    listing: &RunnerListing,
+    hosts: &[Host],
+) -> Result<Cleanup, SweepError> {
+    let RunnerListing::Complete(runners) = listing else {
+        return Err(SweepError::IncompleteListing);
+    };
+    validate(runners, hosts)?;
+    let orphans: Vec<&Runner> = runners
+        .iter()
+        .filter(|r| !hosts.iter().any(|h| h.id.eq_ignore_ascii_case(&r.host_id)))
+        .collect();
+    if let Some(r) = orphans.iter().find(|r| r.busy) {
+        return Err(SweepError::BusyRunnerOnUnlistedHost {
+            runner: r.name.clone(),
+            host: r.host_id.clone(),
+        });
+    }
+    Ok(Cleanup {
+        deregister_runners: orphans.iter().map(|r| r.name.clone()).collect(),
     })
 }
 

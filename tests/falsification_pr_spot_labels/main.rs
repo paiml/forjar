@@ -4,13 +4,13 @@
 //! dependency (serde_yaml_ng), so quoted keys, `\x73` escapes, flow style, explicit `? key`
 //! entries and anchors all resolve before anything is judged. Rules:
 //!  (a) a job's resolved `runs-on` (string, list, or labels map) may name 'burst' or
-//!      'pool-canary', or hold a `${{` expression, ONLY for an allowlisted ci.yml job id and ONLY
-//!      when it equals that job's one canonical value. A matrix reference is allowed only when
+//!      'pool-canary', or hold a `${{` expression, ONLY for an allowlisted (file, job) pair
+//!      (a ci.yml job id, or lint.yml file-health) and ONLY when it equals that job's one canonical value. A matrix reference is allowed only when
 //!      every matrix value is a plain literal without those names. A reusable-workflow call must
 //!      not pass such a value in `with`.
 //!  (b) an allowlisted job has resolved permissions exactly {contents: read}, no scalar naming
-//!      'secrets' or 'id-token', and ci.yml has no workflow-level scalar naming 'secrets' and no
-//!      workflow permissions wider than contents: read.
+//!      'secrets' or 'id-token', and ci.yml and lint.yml have no workflow-level scalar naming 'secrets' and
+//!      no workflow permissions wider than contents: read.
 //!  (c) pool-canary.yml parses equal to tests/pool-canary.expected.yml and is dispatch-only.
 //!  (e) EVERY job of EVERY workflow, whatever its trigger: its labels must include a pool this
 //!      repository already uses, or a GitHub-hosted runner label; runner groups are refused.
@@ -27,6 +27,7 @@ mod t_calls;
 mod t_class;
 mod t_core;
 mod t_labels;
+mod t_lint;
 mod t_yaml;
 mod wiring;
 

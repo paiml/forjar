@@ -74,6 +74,8 @@ fn resource_fields_has_no_stale_entries() {
         "entrypoint",
         "cloud_region",
         "cloud_instance_type",
+        "cloud_instance_types",
+        "cloud_count",
         "cloud_max_price",
         "cloud_max_lifetime_min",
         "cloud_budget_cap_usd_day",
@@ -82,6 +84,7 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_subnet_id",
         "cloud_security_group_ids",
         "cloud_availability_zone",
+        "cloud_availability_zones",
         "cloud_instance_profile",
         "cloud_ami",
         "cloud_root_volume_gb",
@@ -92,6 +95,13 @@ fn resource_fields_has_no_stale_entries() {
         "cloud_data_volume_throughput",
         "cloud_volume_tags",
         "cloud_user_data_file",
+        "s3_bucket",
+        "s3_region",
+        "s3_private",
+        "s3_sse",
+        "s3_tls_only",
+        "s3_versioning",
+        "s3_noncurrent_expire_days",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS

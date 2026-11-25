@@ -74,6 +74,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         // Destroying terminates a stateless, lifetime-bounded spot instance; it
         // is re-creatable from the declaration and holds no data of its own.
         ResourceType::CloudInstance => Reversibility::Reversible,
+        // A bucket holds data and versions; apply refuses to delete it, so destroy is not undoable.
+        ResourceType::S3Bucket => Reversibility::Irreversible,
     }
 }
 

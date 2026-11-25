@@ -79,6 +79,7 @@ fn resolve_core_fields(
     r.shell = resolve_opt(&r.shell, params, machines, secrets)?;
     r.home = resolve_opt(&r.home, params, machines, secrets)?;
     r.restart = resolve_opt(&r.restart, params, machines, secrets)?;
+    r.network = resolve_opt(&r.network, params, machines, secrets)?;
     r.version = resolve_opt(&r.version, params, machines, secrets)?;
     Ok(())
 }
@@ -174,6 +175,9 @@ fn resolve_build_and_overlay_fields(
     // FJ-861: cloud_instance fields feed the provider call and the gates.
     r.cloud.region = resolve_opt(&r.cloud.region, params, machines, secrets)?;
     r.cloud.instance_type = resolve_opt(&r.cloud.instance_type, params, machines, secrets)?;
+    if let Some(ref types) = r.cloud.instance_types {
+        r.cloud.instance_types = Some(resolve_list(types, params, machines, secrets)?);
+    }
     r.cloud.max_price = resolve_opt(&r.cloud.max_price, params, machines, secrets)?;
     let cap = &r.cloud.budget_cap_usd_day;
     r.cloud.budget_cap_usd_day =
@@ -183,6 +187,9 @@ fn resolve_build_and_overlay_fields(
     let pg = &r.cloud.parity_gate;
     r.cloud.parity_gate = resolve_gate("parity_gate", pg, params, machines, secrets)?;
     r.pattern = resolve_opt(&r.pattern, params, machines, secrets)?;
+    // PMAT-1242: s3_bucket names reach the aws command line.
+    r.s3.bucket = resolve_opt(&r.s3.bucket, params, machines, secrets)?;
+    r.s3.region = resolve_opt(&r.s3.region, params, machines, secrets)?;
     for rule in &mut r.budget.reclaim {
         rule.roots = resolve_list(&rule.roots, params, machines, secrets)?;
     }

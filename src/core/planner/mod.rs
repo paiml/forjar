@@ -209,7 +209,8 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::BackupSync
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
-        | ResourceType::CloudInstance => "present",
+        | ResourceType::CloudInstance
+        | ResourceType::S3Bucket => "present",
     }
 }
 
@@ -431,7 +432,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::BackupSync
             | ResourceType::NasArchive
             | ResourceType::TmpReaper
-            | ResourceType::CloudInstance => format!("{resource_id}: create"),
+            | ResourceType::CloudInstance
+            | ResourceType::S3Bucket => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),

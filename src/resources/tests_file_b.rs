@@ -37,6 +37,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

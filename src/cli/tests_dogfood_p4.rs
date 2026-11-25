@@ -12,13 +12,19 @@ mod user_data {
     use crate::cli::image_cmd::{firstboot_service_command, generate_user_data, indent_block};
     use crate::core::types::Machine;
 
-    fn machine() -> Machine {
-        Machine::ssh("sandbox-local", "127.0.0.1", "nobody")
+    fn machine(dir: &std::path::Path) -> Machine {
+        let key_path = dir.join("id_ed25519.pub");
+        std::fs::write(&key_path, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 test\n").unwrap();
+        let mut m = Machine::ssh("sandbox-local", "127.0.0.1", "nobody");
+        m.ssh_key = Some(key_path.display().to_string());
+        m
     }
 
     #[test]
     fn generated_user_data_parses_as_yaml() {
-        let ud = generate_user_data("local", &machine(), "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path());
+        let ud = generate_user_data("local", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
         // RED on 1.12.3: the systemd unit body sat at column 0 inside a `|`
         // block scalar, so the loader hit "could not find expected ':'".
         let parsed: serde_yaml_ng::Value = serde_yaml_ng::from_str(&ud)
@@ -28,8 +34,10 @@ mod user_data {
 
     #[test]
     fn every_disk_layout_still_parses() {
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path());
         for disk in ["auto-lvm", "auto-zfs", "/dev/nvme0n1"] {
-            let ud = generate_user_data("local", &machine(), disk, "en_US.UTF-8", "UTC").unwrap();
+            let ud = generate_user_data("local", &m, disk, "en_US.UTF-8", "UTC").unwrap();
             serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&ud)
                 .unwrap_or_else(|e| panic!("{disk}: {e}\n---\n{ud}"));
         }
@@ -37,7 +45,9 @@ mod user_data {
 
     #[test]
     fn heredoc_terminator_is_at_column_zero_after_yaml_strips_the_block() {
-        let ud = generate_user_data("local", &machine(), "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path());
+        let ud = generate_user_data("local", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
         let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&ud).unwrap();
         let cmds = doc["autoinstall"]["late-commands"]
             .as_sequence()
@@ -79,7 +89,9 @@ mod user_data {
     // Non-regression: the generator still generates the machine's real values.
     #[test]
     fn hostname_and_user_still_reach_the_output() {
-        let ud = generate_user_data("local", &machine(), "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let m = machine(dir.path());
+        let ud = generate_user_data("local", &m, "auto-lvm", "en_US.UTF-8", "UTC").unwrap();
         let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&ud).unwrap();
         assert_eq!(doc["autoinstall"]["identity"]["hostname"], "sandbox-local");
         assert_eq!(doc["autoinstall"]["identity"]["username"], "nobody");

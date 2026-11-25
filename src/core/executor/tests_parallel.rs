@@ -130,6 +130,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         environment: vec![],
         volumes: vec![],
         restart: None,
+        network: None,
         protocol: None,
         port: None,
         action: None,

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
 ## [1.34.2] - 2026-11-17
 
 Patch release cut from `main` after v1.34.1. v1.34.1 and v1.34.0 were tagged but are not published to crates.io;
@@ -14,6 +15,12 @@ this release carries everything in them and everything merged since. The section
 after the v1.34.1 tag (`git log v1.34.1..origin/main --first-parent`). Numbers are marked: `PR #n` is a merged pull
 request, `issue #n` is an issue, and `PMAT-n` is a roadmap ticket. Behaviour changes have a paragraph and a row in
 `docs/audits/crux-1.34.2.md`; the rest are one line each.
+
+**`s3_bucket` declares one private S3 bucket as state (PMAT-1242; PRs #1243, #1244).**
+New resource type `s3_bucket` with fields `s3_bucket`, `s3_region`, `s3_private`, `s3_sse`, `s3_tls_only`, `s3_versioning` and `s3_noncurrent_expire_days`. The generated scripts shell out to `aws`; check and state query ask AWS and never read the lock, apply creates the bucket on a 404 and reads every property back, and `state: absent` is refused. The canonical desired-state hash does not move: every new `Resource` field skips serialising when unset (`skip_serializing_if = "Option::is_none"` in `src/core/types/s3_bucket_types.rs`), so no existing resource replans. See `docs/book/src/03-resources.md` and `examples/s3-bucket.yaml`.
+
+**Upgrade note: the canonical desired-state hash moved again (PMAT-1143, PR #1227; repinned by PMAT-1230).**
+`Resource` gained `network` (the docker `--network` mode). `Resource` has no `skip_serializing_if`, so the field serialises as `~` on every resource and every recorded lock hash stops matching: each resource replans as `Update` once after upgrading, then converges. A one-time fleet re-converge, same class as the PMAT-560 and #406 moves.
 
 **PR Gate no longer runs on `pull_request_target` (PMAT-913, PR #935).**
 `pr-gate.yml` triggers on `pull_request` and runs only for a same-repository head. A new job,
@@ -85,6 +92,10 @@ Also merged since v1.34.1, one line each from the merge subjects:
 - Security only: `Cargo.lock` takes quinn-proto 0.11.19 and quinn-udp 0.5.16, which clears three RUSTSEC advisories that `cargo audit` reported on the previous locked versions; no source change (PMAT-1153, PR #1154).
 - Security only: `deny.toml` and `.cargo/audit.toml` each gain one dated ignore row for RUSTSEC-2026-0543 (chrono is unmaintained; forjar calls no chrono API, the crate is locked only through two dependencies), with a review-by date and a new test that fails if the row, its date or the set of chrono dependents changes; no source change (PMAT-1155, PR #1156).
 - Repository only: the dogfood quorum store receipt, step A1 (`scripts/dogfood/lib/store.sh`), is added and wired to no gate, so gates E and R do not read it yet (PR #1148).
+- Gate T and release tooling (no `forjar` behaviour change): T8b exempts a row whose `crates_io: unpublished` the live crates.io index confirms (PMAT-1150, PR #1237); `pr_ticket_aliases` maps a PR that names no ticket to its row (PMAT-1235, PR #1238; PR #944); the release window is read past one 200-PR page (PR #1212), is stated once (PMAT-1174, PR #1224) and gate R Arm 5 reads it through the paged reader (PR #1221); `release-goal.sh` books the v1.34.1 cut (PR #1218).
+- Fixes and features merged after the first pass: golden desired-state hash repinned for `Resource.network` (PMAT-1230, PR #1231); orphaned-runner cleanup deregisters idle runners on unlisted hosts (PMAT-1139, PR #1228); file-ticket helper and nightly triage count (issue #1141, PR #1229); seven `cloud_instance` validators typed (issue #858, PR #1226; PR #1220); post-merge review defect packs 1 to 7b (PMAT-1180 to PMAT-1199; PRs #1202, #1203, #1204, #1205, #1207, #1209, #1211).
+- CI only: PR #1233 (seven #858 integration falsifiers wired into `ci.yml`, PMAT-1232), #1225 and #1219 (burst and spot opt-ins), #1217 (read-only token on three jobs), #1222 (kani and lean on prover runners, issue #881).
+- Repository only: dogfood receipts batch 4 and nightly roadmap lint (PMAT-1169, PMAT-1179, PR #1223); post-merge quorum receipts (PRs #1175, #1201); `release: prepare v1.34.2` (PR #1152).
 
 ## [1.34.1] - 2026-11-13
 

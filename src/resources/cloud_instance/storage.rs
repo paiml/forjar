@@ -3,6 +3,7 @@
 //! declared value can carry shell text. A declared volume is part of the
 //! instance key: changing it on a live instance is refused, never a second launch.
 
+use crate::core::error::ForjarError;
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::CloudSpec;
 
@@ -26,26 +27,32 @@ pub struct Storage {
     tag_volumes: bool,
 }
 
-fn range(name: &str, v: u32, lo: u32, hi: u32) -> Result<(), String> {
+fn range(name: &str, v: u32, lo: u32, hi: u32) -> Result<(), ForjarError> {
     if (lo..=hi).contains(&v) {
         return Ok(());
     }
-    Err(format!("{name} must be {lo} to {hi}"))
+    Err(ForjarError::from_untyped(format!(
+        "{name} must be {lo} to {hi}"
+    )))
 }
 
-fn kind_of(name: &str, t: &Option<String>) -> Result<String, String> {
+fn kind_of(name: &str, t: &Option<String>) -> Result<String, ForjarError> {
     let t = t.as_deref().unwrap_or("gp3");
     if TYPES.contains(&t) {
         return Ok(t.to_string());
     }
-    Err(format!("{name} must be gp2 or gp3"))
+    Err(ForjarError::from_untyped(format!(
+        "{name} must be gp2 or gp3"
+    )))
 }
 
-fn root(c: &CloudSpec) -> Result<Option<Volume>, String> {
+fn root(c: &CloudSpec) -> Result<Option<Volume>, ForjarError> {
     let Some(gb) = c.root_volume_gb else {
         return match c.root_volume_type {
             None => Ok(None),
-            Some(_) => Err("cloud_root_volume_type needs cloud_root_volume_gb".into()),
+            Some(_) => Err(ForjarError::from_untyped(
+                "cloud_root_volume_type needs cloud_root_volume_gb",
+            )),
         };
     };
     range("cloud_root_volume_gb", gb, 1, 16384)?;
@@ -61,13 +68,15 @@ fn root(c: &CloudSpec) -> Result<Option<Volume>, String> {
 
 /// The gp3 limits here are the older, lower AWS figures (checked 2026-11-16): deliberately
 /// conservative refusals; a larger valid request is refused, never passed through.
-fn data(c: &CloudSpec) -> Result<Option<Volume>, String> {
+fn data(c: &CloudSpec) -> Result<Option<Volume>, ForjarError> {
     let Some(gb) = c.data_volume_gb else {
         let stray = c.data_volume_type.is_some()
             || c.data_volume_iops.is_some()
             || c.data_volume_throughput.is_some();
         return if stray {
-            Err("cloud_data_volume_* needs cloud_data_volume_gb".into())
+            Err(ForjarError::from_untyped(
+                "cloud_data_volume_* needs cloud_data_volume_gb",
+            ))
         } else {
             Ok(None)
         };
@@ -76,20 +85,24 @@ fn data(c: &CloudSpec) -> Result<Option<Volume>, String> {
     let kind = kind_of("cloud_data_volume_type", &c.data_volume_type)?;
     let (iops, throughput) = (c.data_volume_iops, c.data_volume_throughput);
     if kind != "gp3" && (iops.is_some() || throughput.is_some()) {
-        return Err("cloud_data_volume_iops and _throughput need type gp3".into());
+        return Err(ForjarError::from_untyped(
+            "cloud_data_volume_iops and _throughput need type gp3",
+        ));
     }
     if let Some(i) = iops {
         range("cloud_data_volume_iops", i, 3000, 16000)?;
         if i > gb.saturating_mul(500) {
-            return Err("cloud_data_volume_iops is at most 500 per GiB".into());
+            return Err(ForjarError::from_untyped(
+                "cloud_data_volume_iops is at most 500 per GiB",
+            ));
         }
     }
     if let Some(t) = throughput {
         range("cloud_data_volume_throughput", t, 125, 1000)?;
         if t > iops.unwrap_or(3000) / 4 {
-            return Err(
-                "cloud_data_volume_throughput is at most iops / 4 (3000 iops if unset)".into(),
-            );
+            return Err(ForjarError::from_untyped(
+                "cloud_data_volume_throughput is at most iops / 4 (3000 iops if unset)",
+            ));
         }
     }
     Ok(Some(Volume {
@@ -103,7 +116,13 @@ fn data(c: &CloudSpec) -> Result<Option<Volume>, String> {
 
 impl Storage {
     pub(super) fn of(c: &CloudSpec, tags: &[String]) -> Result<Self, String> {
-        let volumes: Vec<Volume> = [root(c)?, data(c)?].into_iter().flatten().collect();
+        let volumes: Vec<Volume> = [
+            root(c).map_err(ForjarError::into_message)?,
+            data(c).map_err(ForjarError::into_message)?,
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         let tag_volumes = c.volume_tags == Some(true);
         if tag_volumes && tags.is_empty() {
             return Err("cloud_volume_tags needs at least one entry in tags".into());

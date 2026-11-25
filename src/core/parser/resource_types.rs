@@ -6,6 +6,7 @@ use super::cron_network_validate::{validate_cron, validate_network};
 use super::disk_budget_validate::validate_disk_budget;
 use super::nas_archive_validate::validate_nas_archive;
 use super::overlay_interface_validate::validate_overlay_interface;
+use super::s3_bucket_validate::validate_s3_bucket;
 use super::service_exec_validate::validate_service_exec;
 use super::*;
 
@@ -52,6 +53,7 @@ pub(super) fn validate_resource_type(
         ResourceType::BackupSync => validate_backup_sync(id, resource, errors),
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
         ResourceType::CloudInstance => validate_cloud_instance(id, resource, errors),
+        ResourceType::S3Bucket => validate_s3_bucket(id, resource, errors),
     }
 }
 

@@ -17,7 +17,7 @@
 //! G validates.
 
 mod changed_class_fixture;
-use changed_class_fixture::{assert_code, assert_harmless, class_of, workflow};
+use changed_class_fixture::{assert_code, assert_harmless, assert_roadmaps, class_of, workflow};
 
 use std::path::Path;
 
@@ -368,4 +368,132 @@ fn coverage_is_never_gated() {
         cov.contains("95"),
         "PMAT-237: the coverage workflow no longer names the floor it enforces:\n{cov}"
     );
+}
+
+#[test]
+fn roadmap_only_change_sets_roadmaps_true_and_code_false() {
+    for files in [
+        &["docs/roadmaps/roadmap.yaml"][..],
+        &["docs/roadmaps/releases.yaml"][..],
+        &["docs/roadmaps/roadmap.yaml", "docs/roadmaps/releases.yaml"][..],
+        &[
+            "docs/roadmaps/releases.yaml",
+            "docs/audits/impl-PMAT-237-receipt.md",
+        ][..],
+    ] {
+        assert_harmless(files, "roadmap-only change must stay code=false");
+        assert_roadmaps(files, "true", "roadmap files must trigger alias-map-guard");
+    }
+}
+
+#[test]
+fn non_roadmap_docs_change_sets_roadmaps_false() {
+    for files in [
+        &["docs/audits/impl-PMAT-237-receipt.md"][..],
+        &["docs/roadmaps/notes.md"][..],
+        &["docs/specifications/forjar-state-generation-ownership.md"][..],
+        &["README.md"][..],
+        &["src/lib.rs"][..],
+        &[][..],
+    ] {
+        assert_roadmaps(
+            files,
+            "false",
+            "non-roadmap change must not select roadmaps",
+        );
+    }
+}
+
+#[test]
+fn ci_wires_alias_map_guard_for_roadmap_changes() {
+    assert!(workflow(".github/actions/changed-class/action.yml")
+        .contains("steps.classify.outputs.roadmaps"));
+    let doc: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&workflow(".github/workflows/ci.yml")).expect("ci.yml parses");
+    assert_eq!(
+        doc["jobs"]["classify"]["outputs"]["roadmaps"].as_str(),
+        Some("${{ steps.class.outputs.roadmaps }}")
+    );
+    let job = &doc["jobs"]["alias-map-guard"];
+    assert_eq!(job["needs"].as_str(), Some("classify"));
+    assert_eq!(
+        job["if"].as_str(),
+        Some("needs.classify.outputs.roadmaps == 'true'")
+    );
+    assert_eq!(
+        job["runs-on"],
+        serde_yaml_ng::from_str::<serde_yaml_ng::Value>("[self-hosted, clean-room, X64]").unwrap()
+    );
+    assert_eq!(job["permissions"]["contents"].as_str(), Some("read"));
+    assert!(job["env"]["CARGO_HOME"].as_str().is_some());
+    let steps = job["steps"].as_sequence().expect("alias-map-guard steps");
+    assert_eq!(steps[0]["with"]["fetch-depth"].as_u64(), Some(0));
+    assert_eq!(
+        steps[0]["with"]["persist-credentials"].as_bool(),
+        Some(false)
+    );
+    let cmd = "cargo test --locked --test falsification_gate_t_pr_ticket_aliases";
+    assert!(steps.iter().any(|s| s["run"].as_str() == Some(cmd)));
+    let dg = doc["jobs"]["dogfood-guards"]["steps"]
+        .as_sequence()
+        .unwrap();
+    let flag = "--test falsification_gate_t_pr_ticket_aliases";
+    assert!(dg
+        .iter()
+        .any(|s| s["run"].as_str().is_some_and(|r| r.contains(flag))));
+    let gate_needs = doc["jobs"]["gate"]["needs"].as_sequence().unwrap();
+    assert!(gate_needs
+        .iter()
+        .any(|n| n.as_str() == Some("alias-map-guard")));
+}
+
+fn run_ci_gate(alias_result: &str, roadmaps: &str) -> (bool, String) {
+    let doc: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&workflow(".github/workflows/ci.yml")).expect("ci.yml parses");
+    let mut script = doc["jobs"]["gate"]["steps"][0]["run"]
+        .as_str()
+        .expect("gate run script")
+        .to_string();
+    for j in [
+        "classify",
+        "ci",
+        "lockfile",
+        "examples-validate",
+        "no-default-features",
+        "doctests",
+        "dogfood-guards",
+        "spot-labels-guard",
+        "dogfood-surface",
+    ] {
+        script = script.replace(&format!("${{{{ needs.{j}.result }}}}"), "success");
+    }
+    script = script.replace("${{ needs.alias-map-guard.result }}", alias_result);
+    assert!(!script.contains("${{"), "unsubstituted expr:\n{script}");
+    let out = std::process::Command::new("bash")
+        .args(["-e", "-c", &script])
+        .env("CODE", "false")
+        .env("GATES", "none")
+        .env("ROADMAPS", roadmaps)
+        .output()
+        .expect("bash runs gate script");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    (out.status.success(), text)
+}
+
+#[test]
+fn gate_treats_skipped_with_roadmaps_true_as_failure() {
+    let (ok, text) = run_ci_gate("skipped", "true");
+    assert!(!ok, "gate accepted skipped with roadmaps=true:\n{text}");
+    let (ok, text) = run_ci_gate("skipped", "");
+    assert!(!ok, "gate accepted skipped with empty roadmaps:\n{text}");
+    let (ok, text) = run_ci_gate("skipped", "false");
+    assert!(ok, "gate refused skipped with roadmaps=false:\n{text}");
+    let (ok, text) = run_ci_gate("success", "true");
+    assert!(ok, "gate refused success with roadmaps=true:\n{text}");
+    let (ok, text) = run_ci_gate("failure", "false");
+    assert!(!ok, "gate accepted failed alias-map-guard:\n{text}");
 }
