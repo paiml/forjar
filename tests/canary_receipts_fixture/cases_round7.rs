@@ -227,7 +227,7 @@ pub fn table() -> Vec<Case> {
                 o.census = true;
                 o.rec_edit = Some(append_trailing_garbage);
             },
-            "not a 40-hex commit id",
+            "not one JSON document",
         ),
         (
             "census: two concatenated canary receipts each with a valid reviewed_head are refused",
@@ -236,7 +236,7 @@ pub fn table() -> Vec<Case> {
                 o.census = true;
                 o.rec_edit = Some(two_reviewed_heads);
             },
-            "!ok",
+            "not one JSON document",
         ),
         (
             "census: a canary receipt whose reviewed_base does not resolve is refused",
