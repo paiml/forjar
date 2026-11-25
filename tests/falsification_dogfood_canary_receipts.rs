@@ -34,12 +34,25 @@ fn the_canary_shape_accepts_and_refuses_as_designed() {
 #[test]
 fn every_receipt_on_main_keeps_its_verdict() {
     let root = manifest();
-    let (total, ok, zero, canary) =
-        fx::census_all(&root.join(SCRIPT), &root, false).unwrap_or_else(|e| panic!("{e}"));
+    let s = fx::census_all(&root.join(SCRIPT), &root, false).unwrap_or_else(|e| panic!("{e}"));
     // The census must be real: an empty list would pass every comparison.
-    assert!(total >= 100, "only {total} receipts on main");
-    assert!(ok >= 100, "only {ok} receipts read ok");
-    eprintln!("receipts {total}, ok {ok}, refused for zero refuted {zero}, canary {canary}");
+    assert!(s.total >= 100, "only {} receipts on main", s.total);
+    assert!(s.ok >= 100, "only {} receipts read ok", s.ok);
+    assert_eq!(
+        s.plain + s.canary_judged + s.canary_pending,
+        s.total,
+        "census partition must sum to total"
+    );
+    eprintln!(
+        "receipts {}, ok {}, refused for zero refuted {}, plain {}, canary-judged {}, canary-pending {} (pending files: [{}])",
+        s.total,
+        s.ok,
+        s.zero,
+        s.plain,
+        s.canary_judged,
+        s.canary_pending,
+        s.pending_files.join(", ")
+    );
 }
 
 /// The mutant of the census: canary receipts left out of the comparison with no
@@ -65,6 +78,95 @@ fn a_census_that_skips_canary_receipts_is_caught() {
         "ok",
         "the skipping census must be blind to a forged canary receipt"
     );
+}
+
+/// Flow 2 census counts: a pre-backfill squash-merged canary receipt (`squash = 1`)
+/// is counted as `canary_pending = 1` (never `ok`, never failing), while after
+/// the post-merge receipt lands (`squash = 2`) it is `canary_judged = 1` and
+/// `canary_pending = 0`. A plain receipt is counted as `plain = 1`.
+#[test]
+fn squash_merged_canary_receipt_counts_pending_before_backfill_and_judged_after() {
+    let script = manifest().join(SCRIPT);
+    let fx_ = fx::base_fx();
+    let pre = fx::Opt {
+        squash: 1,
+        census: true,
+        ..Default::default()
+    };
+    let s1 = fx::run_census(&script, &fx_, &pre).expect("pre-backfill squash census must succeed");
+    assert_eq!(s1.total, 1);
+    assert_eq!(s1.plain, 0);
+    assert_eq!(s1.canary_judged, 0);
+    assert_eq!(s1.canary_pending, 1);
+    assert_eq!(s1.pending_files, vec![".quorum/x.json".to_string()]);
+    assert_ne!(fx::run(&script, &fx_, &pre), "ok");
+
+    let post = fx::Opt {
+        squash: 2,
+        census: true,
+        ..Default::default()
+    };
+    let s2 = fx::run_census(&script, &fx_, &post).expect("post-merge squash census must succeed");
+    assert_eq!(s2.total, 1);
+    assert_eq!(s2.plain, 0);
+    assert_eq!(s2.canary_judged, 1);
+    assert_eq!(s2.canary_pending, 0);
+    assert!(s2.pending_files.is_empty());
+    assert_eq!(fx::run(&script, &fx_, &post), "ok");
+
+    let mut plain_fx = fx::base_fx();
+    plain_fx.receipt["quorum"]
+        .as_object_mut()
+        .expect("quorum")
+        .remove("canary");
+    plain_fx.receipt["quorum"]["claims_refuted"] = serde_json::json!(1);
+    let plain_o = fx::Opt {
+        census: true,
+        ..Default::default()
+    };
+    let sp = fx::run_census(&script, &plain_fx, &plain_o).expect("plain census must succeed");
+    assert_eq!(sp.total, 1);
+    assert_eq!(sp.plain, 1);
+    assert_eq!(sp.canary_judged, 0);
+    assert_eq!(sp.canary_pending, 0);
+}
+
+/// The second census mutant: passing off a canary receipt whose `reviewed_head`
+/// IS an ancestor of `HEAD` as pending. Both on a post-merge squash receipt
+/// (`squash = 2`) and on an earlier branch/main ancestor (`squash = 0`), a
+/// forged canary with a reachable head must be refused by the real census, and
+/// an honest one must read `"ok"` — never `"pending"`.
+#[test]
+fn a_census_that_passes_off_a_reachable_head_as_pending_is_caught() {
+    let script = manifest().join(SCRIPT);
+    let honest = fx::base_fx();
+    let mut forged = fx::base_fx();
+    forged.verdicts[0]["verdicts"]["2"] = serde_json::json!("SURVIVED");
+    forged.verdicts[1]["verdicts"]["2"] = serde_json::json!("SURVIVED");
+
+    for squash in [0u8, 2u8] {
+        let mut o = fx::Opt {
+            squash,
+            census: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            fx::run(&script, &honest, &o),
+            "ok",
+            "honest reachable receipt (squash={squash}) must be judged ok, not pending"
+        );
+        let real_forged = fx::run(&script, &forged, &o);
+        assert!(
+            real_forged.contains("not refuted by a majority"),
+            "real census must refuse forged reachable receipt (squash={squash}), got {real_forged:?}"
+        );
+        o.census_pending_reachable = true;
+        assert_eq!(
+            fx::run(&script, &forged, &o),
+            "pending",
+            "mutant passing off reachable head as pending hides a forged receipt (squash={squash})"
+        );
+    }
 }
 
 /// The other half of the skip: a receipt with NO canary block must never be

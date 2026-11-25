@@ -112,6 +112,15 @@ fn fixture_with(
     edit: &dyn Fn(&mut Value, &str),
     extra: &dyn Fn(&Path),
 ) -> (Fix, String) {
+    fixture_build(refuted, false, edit, extra)
+}
+
+fn fixture_build(
+    refuted: usize,
+    nul_in_claims: bool,
+    edit: &dyn Fn(&mut Value, &str),
+    extra: &dyn Fn(&Path),
+) -> (Fix, String) {
     let dir = tempfile::tempdir().expect("tempdir");
     let repo = dir.path().to_path_buf();
     let root = repo.as_path();
@@ -165,7 +174,10 @@ fn fixture_with(
         ("plan.json", &f.plan, "canary-plan"),
         ("verdicts.json", &f.verdicts, "judge-verdicts"),
     ] {
-        let body = serde_json::to_string_pretty(v).expect("json");
+        let mut body = serde_json::to_string_pretty(v).expect("json");
+        if nul_in_claims && name == "claims.json" {
+            body = body.replacen('[', "[\u{0}", 1);
+        }
         files.push((format!(".quorum/evidence/{name}"), body, vec![role]));
     }
     for (p, body, _) in &files {
@@ -598,7 +610,7 @@ fn python_shim(code: i32) -> (tempfile::TempDir, String) {
     let bin = tempfile::tempdir().expect("tempdir");
     let shim = bin.path().join("python3");
     let body = format!(
-        "#!/bin/bash\ns=\"$(cat)\"\ncase \"$s\" in *'\"canary\" in q'*) exit {code};; esac\nprintf '%s\\n' \"$s\" | exec {real} \"$@\"\n"
+        "#!/bin/bash\ns=\"$(cat)\"\ncase \"$s\" in *'isinstance(q, dict) and \"canary\" in q'*) exit {code};; esac\nprintf '%s\\n' \"$s\" | exec {real} \"$@\"\n"
     );
     std::fs::write(&shim, body).expect("write the shim");
     std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
@@ -633,27 +645,37 @@ fn nul_receipt(root: &Path) {
     }
 }
 
-fn nul_claims(root: &Path) {
-    let p = root.join(".quorum/evidence/claims.json");
-    if let Ok(t) = std::fs::read_to_string(&p) {
-        std::fs::write(&p, t.replacen('[', "[\u{0}", 1)).expect("write");
-    }
-}
-
 /// A NUL byte in the receipt, or in an evidence file the receipt hashes, is
 /// refused by the push gate (the receipt is judged on the bytes git holds).
 #[test]
 fn a_nul_byte_in_the_receipt_or_a_canary_evidence_file_is_refused_by_the_push_gate() {
     let gate = fx::manifest().join("scripts/quorum-gate.sh");
-    for (name, extra) in [
-        ("receipt", nul_receipt as fn(&Path)),
-        ("claims.json", nul_claims),
+    let (f0, tip0) = fixture_with(0, &|_, _| {}, &nothing);
+    let r0 = run_gate(&f0.repo, &gate, false, &tip0, None);
+    assert!(
+        r0.code == 0 && r0.text.contains("quorum gate passed"),
+        "control fixture without NUL must pass:\n{}",
+        r0.text
+    );
+    for (name, nul_in_claims, extra, want) in [
+        (
+            "receipt",
+            false,
+            nul_receipt as fn(&Path),
+            "is not valid JSON",
+        ),
+        (
+            "claims.json",
+            true,
+            nothing as fn(&Path),
+            "holds a NUL byte",
+        ),
     ] {
-        let (f, tip) = fixture_with(1, &|_, _| {}, &extra);
+        let (f, tip) = fixture_build(0, nul_in_claims, &|_, _| {}, &extra);
         let r = run_gate(&f.repo, &gate, false, &tip, None);
         assert!(
-            r.code != 0 && !r.text.contains("quorum gate passed"),
-            "a NUL in the {name} must be refused:\n{}",
+            r.code != 0 && !r.text.contains("quorum gate passed") && r.text.contains(want),
+            "a NUL in the {name} must be refused with {want:?}:\n{}",
             r.text
         );
     }
@@ -669,7 +691,7 @@ const MUTANTS: [(&str, &str, &str, Probe); 9] = [
         "if false; then",
         |g| {
             let (_bin, path) = python_shim(0);
-            let (r, _) = case_run(&CASES[0], g, Some(&path));
+            let (r, _) = case_run(&CASES[4], g, Some(&path));
             (r, Some("the canary detection could not run"))
         },
     ),
