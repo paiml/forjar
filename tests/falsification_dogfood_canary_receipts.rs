@@ -195,9 +195,11 @@ fn a_plain_receipt_is_never_skipped_by_the_census() {
         .remove("canary");
     fx_.receipt["quorum"]["claims_refuted"] = serde_json::json!(1);
     fx_.receipt["Waived_note"] = serde_json::json!("canary");
-    let mut o = fx::Opt::default();
-    o.squash = 2;
-    o.census = true;
+    let mut o = fx::Opt {
+        squash: 2,
+        census: true,
+        ..Default::default()
+    };
     assert_eq!(
         fx::run(&real, &fx_, &o),
         "ok",
