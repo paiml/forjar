@@ -14,6 +14,8 @@ fn res() -> Resource {
                 roots: vec!["/home/noah/src".into()],
                 kind: ReclaimKind::CargoTarget,
                 min_idle_minutes: 60,
+                max_age: None,
+                idle_days: None,
             }],
             ..Default::default()
         },
@@ -184,12 +186,16 @@ fn every_declared_rule_reaches_the_reaper() {
                     roots: vec!["/tmp/claude-1000".into()],
                     kind: ReclaimKind::ClaudeScratchpad,
                     min_idle_minutes: 30,
+                    max_age: None,
+                    idle_days: None,
                 },
                 ReclaimRule {
                     name: "worktrees".into(),
                     roots: vec!["/home/noah/src/aprender/.claude/worktrees".into()],
                     kind: ReclaimKind::AbandonedWorktree,
                     min_idle_minutes: 120,
+                    max_age: None,
+                    idle_days: None,
                 },
             ],
             ..Default::default()
@@ -214,6 +220,8 @@ fn reaper_hands_the_guard_each_rules_declared_prefixes() {
                 roots: vec!["/tmp/*-target".into(), "/tmp/target-*".into()],
                 kind: ReclaimKind::Glob,
                 min_idle_minutes: 240,
+                max_age: None,
+                idle_days: None,
             }],
             ..Default::default()
         },
@@ -238,6 +246,8 @@ fn with_root(root: &str) -> Resource {
                 roots: vec![root.into()],
                 kind: ReclaimKind::Glob,
                 min_idle_minutes: 60,
+                max_age: None,
+                idle_days: None,
             }],
             ..Default::default()
         },
@@ -297,24 +307,32 @@ fn every_emitted_script_passes_the_purifier() {
             roots: vec!["/tmp/claude-1000".into()],
             kind: ReclaimKind::ClaudeScratchpad,
             min_idle_minutes: 180,
+            max_age: None,
+            idle_days: None,
         },
         ReclaimRule {
             name: "fixtures".into(),
             roots: vec!["/tmp/.tmp*".into()],
             kind: ReclaimKind::Glob,
             min_idle_minutes: 1440,
+            max_age: None,
+            idle_days: None,
         },
         ReclaimRule {
             name: "worktrees".into(),
             roots: vec!["/home/x/src/repo/.claude/worktrees".into()],
             kind: ReclaimKind::AbandonedWorktree,
             min_idle_minutes: 720,
+            max_age: None,
+            idle_days: None,
         },
         ReclaimRule {
             name: "targets".into(),
             roots: vec!["/home/x/src".into()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 240,
+            max_age: None,
+            idle_days: None,
         },
     ];
 

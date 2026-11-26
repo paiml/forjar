@@ -13,7 +13,7 @@
 //!      like a machine that had nothing to reclaim — for a month, across two
 //!      100%-full events. Absence of reclaim under pressure is now a failure.
 
-use super::detect;
+use super::{detect, ttl};
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::{DiskBudget, ReclaimRule};
 
@@ -93,8 +93,9 @@ fi
 fn reach_block(rule: &ReclaimRule) -> String {
     let (roots, prefixes) = quoted_roots_and_prefixes(rule);
     let finder = detect::fn_name(rule.kind);
-    let idle = rule.min_idle_minutes;
-    format!("{REACH_OPEN}{finder} {roots}{REACH_SCAN}{idle}{REACH_SWEEPABLE}{prefixes}{REACH_SUM}")
+    let args = ttl::finder_args(rule);
+    let idle = ttl::idle_minutes(rule);
+    format!("{REACH_OPEN}{finder} {args}{roots}{REACH_SCAN}{idle}{REACH_SWEEPABLE}{prefixes}{REACH_SUM}")
 }
 
 /// The per-rule reclaim block.
@@ -102,7 +103,8 @@ fn rule_block(rule: &ReclaimRule) -> String {
     let name = label(&rule.name);
     let log_msg = sh_squote(&format!("rule {}: scanning", label(&rule.name)));
     let finder = detect::fn_name(rule.kind);
-    let idle = rule.min_idle_minutes;
+    let args = ttl::finder_args(rule);
+    let idle = ttl::idle_minutes(rule);
     let (roots, prefixes) = quoted_roots_and_prefixes(rule);
     let pre = detect::pre_delete(rule.kind);
     let post = detect::post_delete(rule.kind);
@@ -124,7 +126,7 @@ if [ "$FB_MET" != "1" ] && [ "$FB_OPEN_OK" != "1" ]; then
 fi
 if [ "$FB_MET" != "1" ] && [ "$FB_UNREACH" != "1" ] && [ "$FB_OPEN_OK" = "1" ]; then
   fb_log {log_msg}
-  {finder} {roots} >"$FB_CANDS" 2>/dev/null || true
+  {finder} {args}{roots} >"$FB_CANDS" 2>/dev/null || true
   if [ -s "$FB_UNMLOG" ]; then
     FB_UNMEASURED=1
     fb_log "  NOT MEASURED, no candidates from the unfinished walk: $(tr '\n' ';' <"$FB_UNMLOG")"

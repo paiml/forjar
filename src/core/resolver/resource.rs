@@ -175,6 +175,9 @@ fn resolve_build_and_overlay_fields(
     // FJ-861: cloud_instance fields feed the provider call and the gates.
     r.cloud.region = resolve_opt(&r.cloud.region, params, machines, secrets)?;
     r.cloud.instance_type = resolve_opt(&r.cloud.instance_type, params, machines, secrets)?;
+    if let Some(ref types) = r.cloud.instance_types {
+        r.cloud.instance_types = Some(resolve_list(types, params, machines, secrets)?);
+    }
     r.cloud.max_price = resolve_opt(&r.cloud.max_price, params, machines, secrets)?;
     let cap = &r.cloud.budget_cap_usd_day;
     r.cloud.budget_cap_usd_day =

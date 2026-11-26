@@ -24,6 +24,42 @@ fn action_desc(action: &types::PlanAction, description: &str) -> String {
     }
 }
 
+/// The content a plan change diffs against, with templates resolved (#1282).
+///
+/// Reads the RESOLVED resource, as `plan.rs` does (GH-212): the raw config
+/// still holds `{{params.*}}`, which would otherwise leak into the diff.
+/// Returns `(new_content, old_content)`; `old_content` is read from the
+/// resolved `path` on Update only. `None` when there is nothing to diff.
+pub(crate) fn change_content_diff(
+    change: &types::PlannedChange,
+    config: &types::ForjarConfig,
+) -> Option<(String, Option<String>)> {
+    if !matches!(
+        change.action,
+        types::PlanAction::Create | types::PlanAction::Update
+    ) {
+        return None;
+    }
+    let resource = config.resources.get(&change.resource_id)?;
+    let resolved = resolver::resolve_or_fallback(
+        &change.resource_id,
+        resource,
+        &config.params,
+        &config.machines,
+        &config.secrets,
+    );
+    let content = resolved.content?;
+    let old_content = if matches!(change.action, types::PlanAction::Update) {
+        resolved
+            .path
+            .as_ref()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+    } else {
+        None
+    };
+    Some((content, old_content))
+}
+
 /// Print a single plan change entry, including optional content diff.
 fn print_plan_change(change: &types::PlannedChange, config: Option<&types::ForjarConfig>) {
     println!(
@@ -33,25 +69,8 @@ fn print_plan_change(change: &types::PlannedChange, config: Option<&types::Forja
     );
 
     // FJ-255/274: Show content diff for file resources on create/update
-    if let Some(cfg) = config {
-        if matches!(
-            change.action,
-            types::PlanAction::Create | types::PlanAction::Update
-        ) {
-            if let Some(resource) = cfg.resources.get(&change.resource_id) {
-                if let Some(ref content) = resource.content {
-                    let old_content = if matches!(change.action, types::PlanAction::Update) {
-                        resource
-                            .path
-                            .as_ref()
-                            .and_then(|p| std::fs::read_to_string(p).ok())
-                    } else {
-                        None
-                    };
-                    print_content_diff(content, &change.action, old_content.as_deref());
-                }
-            }
-        }
+    if let Some((content, old_content)) = config.and_then(|cfg| change_content_diff(change, cfg)) {
+        print_content_diff(&content, &change.action, old_content.as_deref());
     }
 }
 
@@ -389,4 +408,27 @@ pub(crate) fn export_scripts(
 
     println!("Exported {} scripts to {}", count, dir.display());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #1282: the content diff must show resolved `{{params.*}}`, not the raw template.
+    #[test]
+    fn change_content_diff_resolves_params() {
+        let yaml = "version: \"1.0\"\nname: t\nparams:\n  sandbox: /tmp/x\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: \"{{params.sandbox}}/a.txt\"\n    content: \"hi {{params.sandbox}}\"\n";
+        let cfg = crate::core::parser::parse_config(yaml).expect("parse");
+        let change = types::PlannedChange {
+            resource_id: "a".to_string(),
+            resource_type: types::ResourceType::File,
+            machine: "m".to_string(),
+            action: types::PlanAction::Create,
+            description: "create a".to_string(),
+        };
+        let (content, old) = change_content_diff(&change, &cfg).expect("diff");
+        assert_eq!(content, "hi /tmp/x");
+        assert!(!content.contains("{{params."));
+        assert!(old.is_none());
+    }
 }

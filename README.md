@@ -125,7 +125,6 @@ resources:
 
 ```bash
 forjar make link        # build `link` and its prerequisites, nothing else
-forjar make clean       # run a `phony: true` action target
 forjar import-makefile Makefile -o forjar.yaml
 ```
 

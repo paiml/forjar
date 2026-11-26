@@ -71,6 +71,7 @@ const GUARDS_RUN: &str = r####"cargo test --locked \
 --test falsification_io_hash_answers_for_its_machine \
 --test falsification_budget_dry_run \
 --test falsification_ci_wires_the_858_falsifiers \
+--test falsification_nightly_linux_legs_need_docker_and_sudo \
 --test falsification_ci_light_jobs_are_hardened
 "####;
 
@@ -375,7 +376,7 @@ fn mutants() -> Vec<Mutant> {
     let verify = "      - name: Verify Cargo.lock is committed and current\n";
     let ex = format!("      - uses: Actions/checkout@{SHA}\n");
     let guards = format!("      - name: {GUARD_NAME}\n");
-    let host = "          --test falsification_ci_wires_the_858_falsifiers";
+    let host = "          --test falsification_nightly_linux_legs_need_docker_and_sudo";
     let last = format!("{host} \\\n          --test {TARGET}");
     let first = "          cargo test --locked \\\n";
     let gate_step = "      - name: Check required jobs\n";

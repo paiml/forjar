@@ -19,12 +19,16 @@ fn reaper_with_all_kinds() -> String {
             roots: vec!["/home/x/src".into()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         },
         ReclaimRule {
             name: "scratch".into(),
             roots: vec!["/tmp/claude-1000".into()],
             kind: ReclaimKind::ClaudeScratchpad,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         },
     ];
     reaper_script(&r).expect("reaper script")

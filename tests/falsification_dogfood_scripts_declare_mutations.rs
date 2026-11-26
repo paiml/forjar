@@ -92,6 +92,32 @@ fn every_gate_script_is_strict() {
     }
 }
 
+/// RAID-REAP (paiml/infra#5264) reaper gate, registered beside the dogfood gates.
+/// Lives outside `scripts/dogfood/` because it is a LAB lane (nightly), not a
+/// PR gate, but the same admissibility rules apply: a named mutation and strict
+/// shell. Its fixture tests carry their own `|| true` cleanup, so the
+/// swallowed-measurement rule is not asserted for it.
+const RAID_REAP_GATE: &str = "scripts/raid-reap/test-reap.sh";
+
+#[test]
+fn raid_reap_gate_names_its_mutation_and_is_strict() {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(RAID_REAP_GATE);
+    let body = read(&p);
+    let line = body
+        .lines()
+        .find(|l| l.trim_start().starts_with("# mutation:"))
+        .unwrap_or_else(|| panic!("{RAID_REAP_GATE} has no `# mutation:` line"));
+    let detail = line.trim_start().trim_start_matches("# mutation:").trim();
+    assert!(
+        detail.len() >= 20,
+        "{RAID_REAP_GATE}: the `# mutation:` line must name the change that turns it red"
+    );
+    assert!(
+        body.lines().any(|l| l.trim() == "set -euo pipefail"),
+        "{RAID_REAP_GATE} does not `set -euo pipefail`"
+    );
+}
+
 #[test]
 fn no_gate_script_swallows_a_measurement() {
     for p in scripts() {

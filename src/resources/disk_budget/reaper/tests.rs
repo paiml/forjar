@@ -11,6 +11,8 @@ fn rule() -> ReclaimRule {
         roots: vec!["/home/noah/src/*".into()],
         kind: ReclaimKind::CargoTarget,
         min_idle_minutes: 60,
+        max_age: None,
+        idle_days: None,
     }
 }
 
