@@ -5,6 +5,7 @@
 //! [`ProcessRunner`] spawns a process.
 
 use super::api::{Ec2Api, LaunchError, LaunchRequest, LiveBox};
+use crate::core::error::ForjarError;
 use serde_json::{json, Value};
 use std::process::Command;
 
@@ -13,22 +14,24 @@ pub const PRICE_TAG: &str = "PriceUsdPerHour";
 
 /// Runs one CLI invocation and returns stdout; `Err` carries stderr or the spawn error.
 pub trait CliRunner {
-    fn run(&self, args: &[&str]) -> Result<String, String>;
+    fn run(&self, args: &[&str]) -> Result<String, ForjarError>;
 }
 
 /// Real runner: spawns the `aws` binary.
 pub struct ProcessRunner;
 
 impl CliRunner for ProcessRunner {
-    fn run(&self, args: &[&str]) -> Result<String, String> {
+    fn run(&self, args: &[&str]) -> Result<String, ForjarError> {
         let out = Command::new("aws")
             .args(args)
             .output()
-            .map_err(|e| format!("cannot run aws: {e}"))?;
+            .map_err(|e| ForjarError::connection(format!("cannot run aws: {e}")))?;
         if out.status.success() {
             Ok(String::from_utf8_lossy(&out.stdout).into_owned())
         } else {
-            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+            Err(ForjarError::connection(
+                String::from_utf8_lossy(&out.stderr).trim(),
+            ))
         }
     }
 }
@@ -57,14 +60,15 @@ impl<R: CliRunner> AwsCli<R> {
         }
     }
 
-    fn call(&self, args: &[String]) -> Result<Value, String> {
+    fn call(&self, args: &[String]) -> Result<Value, ForjarError> {
         let mut full: Vec<&str> = args.iter().map(String::as_str).collect();
         full.extend(["--region", &self.region, "--output", "json"]);
         let out = self.runner.run(&full)?;
         if out.trim().is_empty() {
             return Ok(Value::Null);
         }
-        serde_json::from_str(&out).map_err(|e| format!("unparseable aws output: {e}"))
+        serde_json::from_str(&out)
+            .map_err(|e| ForjarError::other(format!("unparseable aws output: {e}")))
     }
 }
 
@@ -77,14 +81,16 @@ fn strs(v: &[&str]) -> Vec<String> {
 /// # Errors
 ///
 /// `Err` for a non-spot market or a request without an image id.
-pub fn run_instances_args(req: &LaunchRequest, market: &str) -> Result<Vec<String>, String> {
+pub fn run_instances_args(req: &LaunchRequest, market: &str) -> Result<Vec<String>, ForjarError> {
     if market != "spot" {
-        return Err(format!("refused: market `{market}`; only spot is allowed"));
+        return Err(ForjarError::validation(format!(
+            "refused: market `{market}`; only spot is allowed"
+        )));
     }
     let ami = req
         .ami
         .as_deref()
-        .ok_or("run-instances needs an image id (`spot_ami`)")?;
+        .ok_or_else(|| ForjarError::validation("run-instances needs an image id (`spot_ami`)"))?;
     let tags = json!([
         {"Key": "Owner", "Value": req.owner},
         {"Key": "TtlMin", "Value": req.ttl_min.to_string()},
@@ -146,7 +152,7 @@ fn owner_filter(owner: &str) -> String {
 }
 
 impl<R: CliRunner> Ec2Api for AwsCli<R> {
-    fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, String> {
+    fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, ForjarError> {
         let v = self.call(&[
             "ec2".into(),
             "describe-instances".into(),
@@ -156,21 +162,23 @@ impl<R: CliRunner> Ec2Api for AwsCli<R> {
         ])?;
         let res = v["Reservations"]
             .as_array()
-            .ok_or("describe-instances: no Reservations array")?;
+            .ok_or_else(|| ForjarError::other("describe-instances: no Reservations array"))?;
         let mut out = Vec::new();
         for inst in res
             .iter()
             .filter_map(|r| r["Instances"].as_array())
             .flatten()
         {
-            let id = inst["InstanceId"]
-                .as_str()
-                .ok_or("describe-instances: instance without InstanceId")?;
+            let id = inst["InstanceId"].as_str().ok_or_else(|| {
+                ForjarError::other("describe-instances: instance without InstanceId")
+            })?;
             // An unknown price must not read as zero cost: fail the read instead.
             let price = tag(inst, PRICE_TAG)
                 .and_then(|p| p.parse::<f64>().ok())
                 .filter(|p| p.is_finite() && *p >= 0.0)
-                .ok_or_else(|| format!("box {id} has no readable {PRICE_TAG} tag"))?;
+                .ok_or_else(|| {
+                    ForjarError::other(format!("box {id} has no readable {PRICE_TAG} tag"))
+                })?;
             out.push(LiveBox {
                 id: id.to_string(),
                 price_usd_per_hour: price,
@@ -180,8 +188,10 @@ impl<R: CliRunner> Ec2Api for AwsCli<R> {
     }
 
     fn run_spot(&self, req: &LaunchRequest) -> Result<String, LaunchError> {
-        let args = run_instances_args(req, "spot").map_err(LaunchError::Other)?;
+        let args =
+            run_instances_args(req, "spot").map_err(|e| LaunchError::Other(e.into_message()))?;
         let v = self.call(&args).map_err(|e| {
+            let e = e.into_message();
             if is_capacity(&e) {
                 LaunchError::Capacity(e)
             } else {
@@ -194,7 +204,7 @@ impl<R: CliRunner> Ec2Api for AwsCli<R> {
             .ok_or_else(|| LaunchError::Other("run-instances returned no instance id".into()))
     }
 
-    fn open_spot_requests(&self, owner: &str) -> Result<Vec<String>, String> {
+    fn open_spot_requests(&self, owner: &str) -> Result<Vec<String>, ForjarError> {
         let v = self.call(&[
             "ec2".into(),
             "describe-spot-instance-requests".into(),
@@ -202,20 +212,20 @@ impl<R: CliRunner> Ec2Api for AwsCli<R> {
             owner_filter(owner),
             "Name=state,Values=open".into(),
         ])?;
-        let reqs = v["SpotInstanceRequests"]
-            .as_array()
-            .ok_or("describe-spot-instance-requests: no SpotInstanceRequests array")?;
+        let reqs = v["SpotInstanceRequests"].as_array().ok_or_else(|| {
+            ForjarError::other("describe-spot-instance-requests: no SpotInstanceRequests array")
+        })?;
         reqs.iter()
             .map(|r| {
                 r["SpotInstanceRequestId"]
                     .as_str()
                     .map(str::to_string)
-                    .ok_or_else(|| "spot request without an id".to_string())
+                    .ok_or_else(|| ForjarError::other("spot request without an id"))
             })
             .collect()
     }
 
-    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), String> {
+    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), ForjarError> {
         if ids.is_empty() {
             return Ok(());
         }
@@ -228,7 +238,7 @@ impl<R: CliRunner> Ec2Api for AwsCli<R> {
         self.call(&a).map(|_| ())
     }
 
-    fn terminate(&self, ids: &[String]) -> Result<(), String> {
+    fn terminate(&self, ids: &[String]) -> Result<(), ForjarError> {
         if ids.is_empty() {
             return Ok(());
         }

@@ -66,6 +66,7 @@ mod tests_lifecycle;
 #[cfg(test)]
 mod tests_script;
 
+use crate::core::error::ForjarError;
 use crate::core::types::Resource;
 pub use pin::{parse_pin, Pin};
 pub use script::{apply_script, check_script, state_query_script};
@@ -114,13 +115,13 @@ fn word(s: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
-fn req<'a>(v: &'a Option<String>, name: &str) -> Result<&'a str, String> {
+fn req<'a>(v: &'a Option<String>, name: &str) -> Result<&'a str, ForjarError> {
     v.as_deref()
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| format!("ec2_spot_seat requires `{name}`"))
+        .ok_or_else(|| ForjarError::validation(format!("ec2_spot_seat requires `{name}`")))
 }
 
-fn phase_of(r: &Resource) -> Result<Phase, String> {
+fn phase_of(r: &Resource) -> Result<Phase, ForjarError> {
     let absent = r.state.as_deref() == Some("absent");
     match (r.spot.phase.as_deref(), absent) {
         (None, true) | (Some("teardown"), _) => Ok(Phase::Teardown),
@@ -128,59 +129,68 @@ fn phase_of(r: &Resource) -> Result<Phase, String> {
         (Some("image-load"), false) => Ok(Phase::ImageLoad),
         (Some("seat-start"), false) => Ok(Phase::SeatStart),
         (Some("register"), false) => Ok(Phase::Register),
-        (Some(p), true) => Err(format!(
+        (Some(p), true) => Err(ForjarError::validation(format!(
             "ec2_spot_seat: `state: absent` means teardown, not `spot_phase: {p}`"
-        )),
-        (Some(p), false) => Err(format!(
+        ))),
+        (Some(p), false) => Err(ForjarError::validation(format!(
             "ec2_spot_seat: `spot_phase: {p}` is not launch, image-load, seat-start, register or teardown"
-        )),
+        ))),
     }
 }
 
-fn check_market(market: Option<&str>) -> Result<(), String> {
+fn check_market(market: Option<&str>) -> Result<(), ForjarError> {
     match market {
         None | Some("spot") => Ok(()),
-        Some(m) => Err(format!(
+        Some(m) => Err(ForjarError::validation(format!(
             "ec2_spot_seat: `spot_market: {m}` is refused; only spot is allowed"
-        )),
+        ))),
     }
 }
 
-fn check_placement(region: &str, az: &str, subnet: &str, types: &[String]) -> Result<(), String> {
+fn check_placement(
+    region: &str,
+    az: &str,
+    subnet: &str,
+    types: &[String],
+) -> Result<(), ForjarError> {
     if !crate::resources::s3_bucket::is_region(region) {
-        return Err(format!("ec2_spot_seat: `{region}` is not a valid region"));
+        return Err(ForjarError::validation(format!(
+            "ec2_spot_seat: `{region}` is not a valid region"
+        )));
     }
     if !az.starts_with(region) || az.len() != region.len() + 1 {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "ec2_spot_seat: `spot_az: {az}` is not a zone of {region}"
-        ));
+        )));
     }
     if !subnet.starts_with("subnet-") || !word(subnet) {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "ec2_spot_seat: `spot_subnet: {subnet}` is not a subnet id"
-        ));
+        )));
     }
     if types.is_empty() || !types.iter().all(|t| t.contains('.') && word(t)) {
-        return Err(
-            "ec2_spot_seat: `spot_instance_types` needs one or more types like c6a.4xlarge".into(),
-        );
+        return Err(ForjarError::validation(
+            "ec2_spot_seat: `spot_instance_types` needs one or more types like c6a.4xlarge",
+        ));
     }
     Ok(())
 }
 
-fn check_runner(org: &str, group: &str, labels: &[String]) -> Result<(), String> {
+fn check_runner(org: &str, group: &str, labels: &[String]) -> Result<(), ForjarError> {
     if !word(org) || !word(group) {
-        return Err(
-            "ec2_spot_seat: `spot_runner_org` and `spot_runner_group` must be plain words".into(),
-        );
+        return Err(ForjarError::validation(
+            "ec2_spot_seat: `spot_runner_org` and `spot_runner_group` must be plain words",
+        ));
     }
     if labels.is_empty() || !labels.iter().all(|l| word(l)) {
-        return Err("ec2_spot_seat: `spot_runner_labels` needs one or more plain labels".into());
+        return Err(ForjarError::validation(
+            "ec2_spot_seat: `spot_runner_labels` needs one or more plain labels",
+        ));
     }
     Ok(())
 }
 
-fn check_jit(jit: &str) -> Result<(), String> {
+fn check_jit(jit: &str) -> Result<(), ForjarError> {
     let ok = jit == "gh-api"
         || jit
             .strip_prefix("dir:")
@@ -188,7 +198,9 @@ fn check_jit(jit: &str) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err("ec2_spot_seat: `spot_jit_source` is `gh-api` or `dir:/absolute/path`".into())
+        Err(ForjarError::validation(
+            "ec2_spot_seat: `spot_jit_source` is `gh-api` or `dir:/absolute/path`",
+        ))
     }
 }
 
@@ -198,42 +210,50 @@ fn check_jit(jit: &str) -> Result<(), String> {
 ///
 /// Returns `Err` for a missing or malformed field, a market other than `spot`, a box
 /// or price that alone breaks its own cap, or an unknown phase.
-pub fn spec_of(r: &Resource) -> Result<SpotSeat, String> {
+pub fn spec_of(r: &Resource) -> Result<SpotSeat, ForjarError> {
     let s = &r.spot;
     let phase = phase_of(r)?;
     check_market(s.market.as_deref())?;
     let pin_file = req(&s.pin_file, "spot_pin_file")?.to_string();
     let owner = req(&s.owner, "spot_owner")?;
     if !word(owner) {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "ec2_spot_seat: `spot_owner: {owner}` is not a plain word"
-        ));
+        )));
     }
     let region = req(&s.region, "spot_region")?;
     let az = req(&s.az, "spot_az")?;
     let subnet = req(&s.subnet, "spot_subnet")?;
     check_placement(region, az, subnet, &s.instance_types)?;
-    let ttl = s.ttl_min.ok_or("ec2_spot_seat requires `spot_ttl_min`")?;
-    let seats = s.seats.ok_or("ec2_spot_seat requires `spot_seats`")?;
+    let ttl = s
+        .ttl_min
+        .ok_or_else(|| ForjarError::validation("ec2_spot_seat requires `spot_ttl_min`"))?;
+    let seats = s
+        .seats
+        .ok_or_else(|| ForjarError::validation("ec2_spot_seat requires `spot_seats`"))?;
     if !(1..=720).contains(&ttl) || !(1..=64).contains(&seats) {
-        return Err("ec2_spot_seat: `spot_ttl_min` must be 1..=720 and `spot_seats` 1..=64".into());
+        return Err(ForjarError::validation(
+            "ec2_spot_seat: `spot_ttl_min` must be 1..=720 and `spot_seats` 1..=64",
+        ));
     }
     let max_boxes = s
         .max_boxes
-        .ok_or("ec2_spot_seat requires `spot_max_boxes`")?;
+        .ok_or_else(|| ForjarError::validation("ec2_spot_seat requires `spot_max_boxes`"))?;
     let cap = s
         .max_usd_per_hour
-        .ok_or("ec2_spot_seat requires `spot_max_usd_per_hour`")?;
-    let price = s
-        .price_usd_per_hour
-        .ok_or("ec2_spot_seat requires `spot_price_usd_per_hour`")?;
+        .ok_or_else(|| ForjarError::validation("ec2_spot_seat requires `spot_max_usd_per_hour`"))?;
+    let price = s.price_usd_per_hour.ok_or_else(|| {
+        ForjarError::validation("ec2_spot_seat requires `spot_price_usd_per_hour`")
+    })?;
     if max_boxes == 0 || !(cap.is_finite() && cap > 0.0) || !(price.is_finite() && price > 0.0) {
-        return Err("ec2_spot_seat: caps and price must be positive".into());
+        return Err(ForjarError::validation(
+            "ec2_spot_seat: caps and price must be positive",
+        ));
     }
     if price > cap {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "ec2_spot_seat: one box at {price} USD/h exceeds `spot_max_usd_per_hour` {cap}"
-        ));
+        )));
     }
     let org = req(&s.runner_org, "spot_runner_org")?;
     let group = req(&s.runner_group, "spot_runner_group")?;

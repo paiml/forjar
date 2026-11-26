@@ -3,6 +3,7 @@
 //! sha256 are read from the pin file at generation time and nowhere else.
 
 use super::{parse_pin, spec_of, Phase, Pin, SpotSeat};
+use crate::core::error::ForjarError;
 use crate::core::shell_escape::sh_squote;
 use crate::core::types::Resource;
 use crate::resources::verdict;
@@ -15,9 +16,9 @@ pub(super) fn reject(msg: &str) -> String {
 pub(super) const SAY: &str = "LOG=\"${FORJAR_SPOT_LOG:-/var/log/forjar-spot-seat.log}\"\n\
 say() { printf '%s %s\\n' \"$(date -u +%FT%TZ)\" \"$*\" | tee -a \"$LOG\" >&2; }\n";
 
-pub(super) fn pin_of(s: &SpotSeat) -> Result<Pin, String> {
+pub(super) fn pin_of(s: &SpotSeat) -> Result<Pin, ForjarError> {
     let text = std::fs::read_to_string(&s.pin_file)
-        .map_err(|e| format!("pin file {} unreadable: {e}", s.pin_file))?;
+        .map_err(|e| ForjarError::validation(format!("pin file {} unreadable: {e}", s.pin_file)))?;
     parse_pin(&text, &s.pin_id_key, &s.pin_s3_key_key, &s.pin_sha256_key)
 }
 
@@ -26,11 +27,11 @@ fn image_present(p: &Pin) -> String {
 }
 
 /// On-box: fetch, sha256-check, load and inspect the pinned image.
-fn image_load(s: &SpotSeat, p: &Pin) -> Result<String, String> {
+fn image_load(s: &SpotSeat, p: &Pin) -> Result<String, ForjarError> {
     let bucket = s
         .image_bucket
         .as_deref()
-        .ok_or("image-load needs `spot_image_bucket`")?;
+        .ok_or_else(|| ForjarError::validation("image-load needs `spot_image_bucket`"))?;
     let src = sh_squote(&format!("s3://{bucket}/{}", p.s3_key));
     Ok(format!(
         "set -u\n{SAY}IMG={img}\nWORK=\"${{FORJAR_SPOT_WORK:-/work}}\"; TAR=\"$WORK/seat-image.tar.zst\"\n\
@@ -96,7 +97,7 @@ fn running_count() -> &'static str {
     "docker ps -q --filter 'label=forjar.seat' --filter status=running 2>/dev/null | wc -l | tr -d ' '"
 }
 
-fn parts(resource: &Resource) -> Result<(SpotSeat, Option<Pin>), String> {
+fn parts(resource: &Resource) -> Result<(SpotSeat, Option<Pin>), ForjarError> {
     let s = spec_of(resource)?;
     let pin = if matches!(s.phase, Phase::ImageLoad | Phase::SeatStart) {
         Some(pin_of(&s)?)
@@ -110,7 +111,7 @@ fn parts(resource: &Resource) -> Result<(SpotSeat, Option<Pin>), String> {
 pub fn check_script(resource: &Resource) -> String {
     let (s, pin) = match parts(resource) {
         Ok(v) => v,
-        Err(e) => return reject(&e),
+        Err(e) => return reject(e.message()),
     };
     let a = match (s.phase, &pin) {
         (Phase::ImageLoad, Some(p)) => verdict::assert_that(
@@ -132,7 +133,7 @@ pub fn check_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let (s, pin) = match parts(resource) {
         Ok(v) => v,
-        Err(e) => return reject(&e),
+        Err(e) => return reject(e.message()),
     };
     match (s.phase, &pin) {
         (Phase::ImageLoad, Some(p)) => format!(
@@ -148,12 +149,12 @@ pub fn state_query_script(resource: &Resource) -> String {
 pub fn apply_script(resource: &Resource) -> String {
     let (s, pin) = match parts(resource) {
         Ok(v) => v,
-        Err(e) => return reject(&e),
+        Err(e) => return reject(e.message()),
     };
     let out = match (s.phase, &pin) {
         (Phase::ImageLoad, Some(p)) => image_load(&s, p),
         (Phase::SeatStart, Some(p)) => Ok(seat_start(&s, p)),
         _ => super::script_ctl::apply(&s),
     };
-    out.unwrap_or_else(|e| reject(&e))
+    out.unwrap_or_else(|e| reject(e.message()))
 }

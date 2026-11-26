@@ -3,6 +3,7 @@
 
 use super::script::jit_dir;
 use super::{Phase, SpotSeat};
+use crate::core::error::ForjarError;
 use crate::core::shell_escape::sh_squote;
 use crate::resources::verdict;
 
@@ -34,8 +35,11 @@ fn token(s: &SpotSeat) -> String {
     format!("fj-{}", &h["blake3:".len()..][..32])
 }
 
-fn launch(s: &SpotSeat) -> Result<String, String> {
-    let ami = s.ami.as_deref().ok_or("launch needs `spot_ami`")?;
+fn launch(s: &SpotSeat) -> Result<String, ForjarError> {
+    let ami = s
+        .ami
+        .as_deref()
+        .ok_or_else(|| ForjarError::validation("launch needs `spot_ami`"))?;
     let tags = format!(
         "ResourceType=instance,Tags=[{{Key=Owner,Value={o}}},{{Key=Name,Value=seat-{o}}},{{Key=TtlMin,Value={t}}},{{Key=Price,Value={p}}}]",
         o = s.owner,
@@ -122,7 +126,7 @@ fn register(s: &SpotSeat) -> String {
     )
 }
 
-fn teardown(s: &SpotSeat) -> Result<String, String> {
+fn teardown(s: &SpotSeat) -> Result<String, ForjarError> {
     let dest = s
         .evidence_dest
         .as_deref()
@@ -133,7 +137,9 @@ fn teardown(s: &SpotSeat) -> Result<String, String> {
                         .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '/'))
             })
         })
-        .ok_or("teardown needs `spot_evidence_dest: s3://bucket/prefix`")?;
+        .ok_or_else(|| {
+            ForjarError::validation("teardown needs `spot_evidence_dest: s3://bucket/prefix`")
+        })?;
     let params =
         format!("commands=[\"{{ {EVIDENCE_CMD} ; }} | aws s3 cp - {dest}/ID/evidence.txt\"]");
     Ok(format!(
@@ -158,12 +164,14 @@ fn teardown(s: &SpotSeat) -> Result<String, String> {
     ))
 }
 
-pub(super) fn apply(s: &SpotSeat) -> Result<String, String> {
+pub(super) fn apply(s: &SpotSeat) -> Result<String, ForjarError> {
     match s.phase {
         Phase::Launch => launch(s),
         Phase::Register => Ok(register(s)),
         Phase::Teardown => teardown(s),
-        Phase::ImageLoad | Phase::SeatStart => Err("on-box phase routed to controller".into()),
+        Phase::ImageLoad | Phase::SeatStart => {
+            Err(ForjarError::other("on-box phase routed to controller"))
+        }
     }
 }
 

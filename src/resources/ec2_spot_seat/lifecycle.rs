@@ -2,6 +2,12 @@
 
 use super::api::{Ec2Api, EvidenceSink, LaunchError, LaunchRequest, RunnerApi};
 use super::SpotSeat;
+use crate::core::error::ForjarError;
+
+/// Prefix an error with what was being done, keeping its declared class.
+fn while_doing(what: &str) -> impl Fn(ForjarError) -> ForjarError + '_ {
+    move |e| ForjarError::new(e.class(), format!("{what}: {e}"))
+}
 
 /// Result of the plan-time cap check.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,23 +22,23 @@ pub struct LaunchPlan {
 /// # Errors
 ///
 /// `Err` when the read fails (not measured, never "zero boxes") or a cap would be exceeded.
-pub fn plan_launch(spec: &SpotSeat, api: &dyn Ec2Api) -> Result<LaunchPlan, String> {
+pub fn plan_launch(spec: &SpotSeat, api: &dyn Ec2Api) -> Result<LaunchPlan, ForjarError> {
     let live = api
         .live_boxes(&spec.owner)
-        .map_err(|e| format!("live-box read failed (not measured): {e}"))?;
+        .map_err(while_doing("live-box read failed (not measured)"))?;
     let boxes = u32::try_from(live.len()).unwrap_or(u32::MAX) + 1;
     let usd = live.iter().map(|b| b.price_usd_per_hour).sum::<f64>() + spec.price_usd_per_hour;
     if boxes > spec.max_boxes {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "cap: {boxes} boxes for owner {} exceeds spot_max_boxes {}",
             spec.owner, spec.max_boxes
-        ));
+        )));
     }
     if usd > spec.max_usd_per_hour + 1e-9 {
-        return Err(format!(
+        return Err(ForjarError::validation(format!(
             "cap: {usd:.4} USD/h for owner {} exceeds spot_max_usd_per_hour {}",
             spec.owner, spec.max_usd_per_hour
-        ));
+        )));
     }
     Ok(LaunchPlan {
         live_boxes: boxes - 1,
@@ -46,7 +52,7 @@ pub fn plan_launch(spec: &SpotSeat, api: &dyn Ec2Api) -> Result<LaunchPlan, Stri
 /// # Errors
 ///
 /// `Err` for a cap breach, a non-capacity AWS error, or every type out of capacity.
-pub fn launch(spec: &SpotSeat, api: &dyn Ec2Api, token: &str) -> Result<String, String> {
+pub fn launch(spec: &SpotSeat, api: &dyn Ec2Api, token: &str) -> Result<String, ForjarError> {
     plan_launch(spec, api)?;
     let mut last = String::from("no instance types");
     for t in &spec.instance_types {
@@ -63,10 +69,14 @@ pub fn launch(spec: &SpotSeat, api: &dyn Ec2Api, token: &str) -> Result<String, 
         match api.run_spot(&req) {
             Ok(id) => return Ok(id),
             Err(LaunchError::Capacity(m)) => last = format!("{t}: {m}"),
-            Err(LaunchError::Other(m)) => return Err(format!("launch {t} failed: {m}")),
+            Err(LaunchError::Other(m)) => {
+                return Err(ForjarError::other(format!("launch {t} failed: {m}")))
+            }
         }
     }
-    Err(format!("no capacity for any type ({last})"))
+    Err(ForjarError::other(format!(
+        "no capacity for any type ({last})"
+    )))
 }
 
 /// What a teardown did.
@@ -87,46 +97,51 @@ pub fn teardown(
     spec: &SpotSeat,
     api: &dyn Ec2Api,
     sink: &dyn EvidenceSink,
-) -> Result<Teardown, String> {
+) -> Result<Teardown, ForjarError> {
     let live = api
         .live_boxes(&spec.owner)
-        .map_err(|e| format!("live-box read failed (not measured): {e}"))?;
+        .map_err(while_doing("live-box read failed (not measured)"))?;
     let dest = spec
         .evidence_dest
         .as_deref()
-        .ok_or("teardown needs `spot_evidence_dest`")?;
+        .ok_or_else(|| ForjarError::validation("teardown needs `spot_evidence_dest`"))?;
     let mut out = Teardown {
         shipped: vec![],
         cancelled: vec![],
         terminated: vec![],
     };
     for b in &live {
-        sink.ship(&b.id, dest)
-            .map_err(|e| format!("evidence ship failed for {}: {e}; nothing terminated", b.id))?;
+        sink.ship(&b.id, dest).map_err(|e| {
+            let id = &b.id;
+            ForjarError::new(
+                e.class(),
+                format!("evidence ship failed for {id}: {e}; nothing terminated"),
+            )
+        })?;
         out.shipped.push(b.id.clone());
     }
     let reqs = api
         .open_spot_requests(&spec.owner)
-        .map_err(|e| format!("spot-request read failed: {e}"))?;
+        .map_err(while_doing("spot-request read failed"))?;
     if !reqs.is_empty() {
         api.cancel_spot_requests(&reqs)
-            .map_err(|e| format!("cancel failed: {e}"))?;
+            .map_err(while_doing("cancel failed"))?;
     }
     out.cancelled = reqs;
     let ids: Vec<String> = live.iter().map(|b| b.id.clone()).collect();
     if !ids.is_empty() {
         api.terminate(&ids)
-            .map_err(|e| format!("terminate failed: {e}"))?;
+            .map_err(while_doing("terminate failed"))?;
     }
     out.terminated = ids;
     let left = api
         .live_boxes(&spec.owner)
-        .map_err(|e| format!("read-back failed: {e}"))?;
+        .map_err(while_doing("read-back failed"))?;
     if !left.is_empty() {
-        return Err(format!(
+        return Err(ForjarError::other(format!(
             "state shows {} boxes after teardown, want 0",
             left.len()
-        ));
+        )));
     }
     Ok(out)
 }
@@ -142,7 +157,7 @@ pub fn seat_name(spec: &SpotSeat, i: u32) -> String {
 /// # Errors
 ///
 /// `Err` when the list or a delete fails.
-pub fn deregister_stale(spec: &SpotSeat, gh: &dyn RunnerApi) -> Result<Vec<String>, String> {
+pub fn deregister_stale(spec: &SpotSeat, gh: &dyn RunnerApi) -> Result<Vec<String>, ForjarError> {
     let prefix = format!("seat-{}-", spec.owner);
     let mut gone = vec![];
     for r in gh.list_runners(&spec.runner_org)? {
@@ -161,7 +176,7 @@ pub fn deregister_stale(spec: &SpotSeat, gh: &dyn RunnerApi) -> Result<Vec<Strin
 /// # Errors
 ///
 /// `Err` when any GitHub call fails.
-pub fn register(spec: &SpotSeat, gh: &dyn RunnerApi) -> Result<Vec<(String, String)>, String> {
+pub fn register(spec: &SpotSeat, gh: &dyn RunnerApi) -> Result<Vec<(String, String)>, ForjarError> {
     deregister_stale(spec, gh)?;
     let online: Vec<String> = gh
         .list_runners(&spec.runner_org)?

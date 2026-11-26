@@ -2,24 +2,25 @@
 
 use super::api::{Ec2Api, LaunchError, LaunchRequest};
 use super::aws_cli::{run_instances_args, AwsCli, CliRunner};
+use crate::core::error::ForjarError;
 use std::cell::RefCell;
 
 struct Fake {
     calls: RefCell<Vec<Vec<String>>>,
-    reply: Result<String, String>,
+    reply: Result<String, ForjarError>,
 }
 
 impl Fake {
     fn new(reply: Result<&str, &str>) -> Self {
         Self {
             calls: RefCell::new(Vec::new()),
-            reply: reply.map(str::to_string).map_err(str::to_string),
+            reply: reply.map(str::to_string).map_err(ForjarError::connection),
         }
     }
 }
 
 impl CliRunner for &Fake {
-    fn run(&self, args: &[&str]) -> Result<String, String> {
+    fn run(&self, args: &[&str]) -> Result<String, ForjarError> {
         self.calls
             .borrow_mut()
             .push(args.iter().map(|s| (*s).to_string()).collect());
@@ -66,7 +67,7 @@ fn live_boxes_parses_boxes_and_filters_by_owner() {
 fn live_boxes_failed_command_is_err_not_empty() {
     let f = Fake::new(Err("AuthFailure"));
     let r = AwsCli::with_runner(&f, "us-east-1").live_boxes("o");
-    assert_eq!(r, Err("AuthFailure".to_string()));
+    assert_eq!(r, Err(ForjarError::connection("AuthFailure")));
 }
 
 #[test]

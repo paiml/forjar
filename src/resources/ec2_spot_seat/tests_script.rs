@@ -5,8 +5,6 @@ use super::tests::{res, ID};
 use super::*;
 use std::os::unix::fs::PermissionsExt;
 
-const TAR: &str = "tarcontent\n";
-
 const DOCKER: &str = r#"#!/bin/sh
 d="$FAKE_DIR"; echo "docker $*" >> "$d/log"
 case "$1 $2" in

@@ -1,6 +1,8 @@
 //! The outside world of an `ec2_spot_seat`, behind traits so tests use fakes and
 //! nothing in `cargo test` can reach AWS or GitHub.
 
+use crate::core::error::ForjarError;
+
 /// One live (pending or running) box carrying the owner tag.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LiveBox {
@@ -34,21 +36,21 @@ pub enum LaunchError {
 /// EC2 calls the resource needs.
 pub trait Ec2Api {
     /// Live boxes tagged `Owner=<owner>`. A failed read is `Err`, never "none".
-    fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, String>;
+    fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, ForjarError>;
     /// Launch one spot box; returns its instance id.
     fn run_spot(&self, req: &LaunchRequest) -> Result<String, LaunchError>;
     /// Open spot requests of the owner (any state that can still fulfil).
-    fn open_spot_requests(&self, owner: &str) -> Result<Vec<String>, String>;
+    fn open_spot_requests(&self, owner: &str) -> Result<Vec<String>, ForjarError>;
     /// Cancel spot requests.
-    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), String>;
+    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), ForjarError>;
     /// Terminate instances.
-    fn terminate(&self, ids: &[String]) -> Result<(), String>;
+    fn terminate(&self, ids: &[String]) -> Result<(), ForjarError>;
 }
 
 /// Ships a box's evidence (unit status, `docker image ls -a`, entrypoint log) off-box.
 pub trait EvidenceSink {
     /// Ship the evidence of box `id` to `dest`; `Err` stops the teardown.
-    fn ship(&self, id: &str, dest: &str) -> Result<(), String>;
+    fn ship(&self, id: &str, dest: &str) -> Result<(), ForjarError>;
 }
 
 /// One registered org runner.
@@ -63,9 +65,9 @@ pub struct Runner {
 /// GitHub org-runner calls the resource needs.
 pub trait RunnerApi {
     /// Every runner of the org. A failed read is `Err` (not measured).
-    fn list_runners(&self, org: &str) -> Result<Vec<Runner>, String>;
+    fn list_runners(&self, org: &str) -> Result<Vec<Runner>, ForjarError>;
     /// Remove one registration.
-    fn delete_runner(&self, org: &str, id: u64) -> Result<(), String>;
+    fn delete_runner(&self, org: &str, id: u64) -> Result<(), ForjarError>;
     /// Mint one JIT config for a seat in `group` with `labels`.
     fn mint_jit(
         &self,
@@ -73,5 +75,5 @@ pub trait RunnerApi {
         group: &str,
         name: &str,
         labels: &[String],
-    ) -> Result<String, String>;
+    ) -> Result<String, ForjarError>;
 }

@@ -1,6 +1,7 @@
 //! `ec2_spot_seat` validation, pin and plan-level tests.
 
 use super::*;
+use crate::core::error::ErrorClass;
 use crate::core::types::{Resource, ResourceType, SpotSeatSpec};
 
 pub(super) const ID: &str =
@@ -46,7 +47,16 @@ pub(super) fn res() -> Resource {
 fn err_of(f: impl FnOnce(&mut Resource)) -> String {
     let mut r = res();
     f(&mut r);
-    spec_of(&r).expect_err("must be refused")
+    spec_of(&r).expect_err("must be refused").into_message()
+}
+
+#[test]
+fn a_refused_declaration_or_pin_is_the_validation_class() {
+    let mut r = res();
+    r.spot.market = Some("on-demand".into());
+    assert_eq!(spec_of(&r).unwrap_err().class(), ErrorClass::Validation);
+    let e = parse_pin(&pin_text(), "nope", "s3_key", "tar_sha256").unwrap_err();
+    assert_eq!(e.class(), ErrorClass::Validation);
 }
 
 #[test]
@@ -106,22 +116,27 @@ fn pin_is_parsed_from_the_declared_keys() {
 fn bad_pins_are_refused() {
     assert!(parse_pin(&pin_text(), "nope", "s3_key", "tar_sha256")
         .unwrap_err()
+        .message()
         .contains("missing"));
     let dup = format!("{}image\tid\t{ID}\n", pin_text());
     assert!(parse_pin(&dup, "id", "s3_key", "tar_sha256")
         .unwrap_err()
+        .message()
         .contains("twice"));
     let bad = pin_text().replace(ID, "sha256:zz");
     assert!(parse_pin(&bad, "id", "s3_key", "tar_sha256")
         .unwrap_err()
+        .message()
         .contains("image id"));
     let bad = pin_text().replace(SHA, "abc");
     assert!(parse_pin(&bad, "id", "s3_key", "tar_sha256")
         .unwrap_err()
+        .message()
         .contains("64 hex"));
     let bad = pin_text().replace("image/burst", "image/$(x)");
     assert!(parse_pin(&bad, "id", "s3_key", "tar_sha256")
         .unwrap_err()
+        .message()
         .contains("unsafe"));
 }
 

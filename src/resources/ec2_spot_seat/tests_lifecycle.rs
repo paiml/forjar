@@ -4,6 +4,7 @@ use super::api::*;
 use super::lifecycle::*;
 use super::tests::res;
 use super::*;
+use crate::core::error::{ErrorClass, ForjarError};
 use std::cell::RefCell;
 
 #[derive(Default)]
@@ -19,9 +20,9 @@ pub(super) struct FakeEc2 {
 }
 
 impl Ec2Api for FakeEc2 {
-    fn live_boxes(&self, _o: &str) -> Result<Vec<LiveBox>, String> {
+    fn live_boxes(&self, _o: &str) -> Result<Vec<LiveBox>, ForjarError> {
         if self.read_fail {
-            return Err("throttled".into());
+            return Err(ForjarError::connection("throttled"));
         }
         Ok(self.live.borrow().clone())
     }
@@ -39,17 +40,17 @@ impl Ec2Api for FakeEc2 {
         });
         Ok("i-new".into())
     }
-    fn open_spot_requests(&self, _o: &str) -> Result<Vec<String>, String> {
+    fn open_spot_requests(&self, _o: &str) -> Result<Vec<String>, ForjarError> {
         Ok(self.reqs.borrow().clone())
     }
-    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), String> {
+    fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), ForjarError> {
         self.calls
             .borrow_mut()
             .push(format!("cancel {}", ids.join(",")));
         self.reqs.borrow_mut().clear();
         Ok(())
     }
-    fn terminate(&self, ids: &[String]) -> Result<(), String> {
+    fn terminate(&self, ids: &[String]) -> Result<(), ForjarError> {
         self.calls
             .borrow_mut()
             .push(format!("terminate {}", ids.join(",")));
@@ -62,10 +63,10 @@ impl Ec2Api for FakeEc2 {
 
 struct Sink<'a>(&'a FakeEc2, bool);
 impl EvidenceSink for Sink<'_> {
-    fn ship(&self, id: &str, dest: &str) -> Result<(), String> {
+    fn ship(&self, id: &str, dest: &str) -> Result<(), ForjarError> {
         self.0.calls.borrow_mut().push(format!("ship {id} {dest}"));
         if self.1 {
-            Err("s3 down".into())
+            Err(ForjarError::connection("s3 down"))
         } else {
             Ok(())
         }
@@ -98,6 +99,7 @@ fn plan_fails_over_box_cap() {
     f.live.borrow_mut().extend([b("i-1", 0.1), b("i-2", 0.1)]);
     assert!(plan_launch(&spec(), &f)
         .unwrap_err()
+        .message()
         .contains("spot_max_boxes"));
 }
 
@@ -107,6 +109,7 @@ fn plan_fails_over_usd_cap() {
     f.live.borrow_mut().push(b("i-1", 0.6));
     assert!(plan_launch(&spec(), &f)
         .unwrap_err()
+        .message()
         .contains("spot_max_usd_per_hour"));
 }
 
@@ -116,9 +119,13 @@ fn unreadable_fleet_is_not_zero_boxes() {
         read_fail: true,
         ..Default::default()
     };
-    assert!(plan_launch(&spec(), &f)
-        .unwrap_err()
-        .contains("not measured"));
+    let e = plan_launch(&spec(), &f).unwrap_err();
+    assert_eq!(
+        e.class(),
+        ErrorClass::Connection,
+        "the cause keeps its class"
+    );
+    assert!(e.message().contains("not measured"));
 }
 
 #[test]
@@ -142,6 +149,7 @@ fn launch_stops_on_other_errors_and_when_all_types_are_out() {
     };
     assert!(launch(&spec(), &f, "t")
         .unwrap_err()
+        .message()
         .contains("UnauthorizedOperation"));
     assert_eq!(f.launched.borrow().len(), 1);
     let f = FakeEc2 {
@@ -150,6 +158,7 @@ fn launch_stops_on_other_errors_and_when_all_types_are_out() {
     };
     assert!(launch(&spec(), &f, "t")
         .unwrap_err()
+        .message()
         .contains("no capacity"));
 }
 
@@ -183,7 +192,12 @@ fn teardown_with_failed_ship_terminates_nothing() {
     let f = FakeEc2::default();
     f.live.borrow_mut().push(b("i-1", 0.4));
     let e = teardown(&spec(), &f, &Sink(&f, true)).unwrap_err();
-    assert!(e.contains("nothing terminated"));
+    assert_eq!(
+        e.class(),
+        ErrorClass::Connection,
+        "the cause keeps its class"
+    );
+    assert!(e.message().contains("nothing terminated"));
     assert!(!f.calls.borrow().iter().any(|c| c.starts_with("terminate")));
 }
 
@@ -196,6 +210,7 @@ fn teardown_fails_when_state_does_not_show_zero() {
     f.live.borrow_mut().push(b("i-1", 0.4));
     assert!(teardown(&spec(), &f, &Sink(&f, false))
         .unwrap_err()
+        .message()
         .contains("want 0"));
 }
 
@@ -212,15 +227,15 @@ struct FakeGh {
     deleted: RefCell<Vec<u64>>,
 }
 impl RunnerApi for FakeGh {
-    fn list_runners(&self, _o: &str) -> Result<Vec<Runner>, String> {
+    fn list_runners(&self, _o: &str) -> Result<Vec<Runner>, ForjarError> {
         Ok(self.runners.borrow().clone())
     }
-    fn delete_runner(&self, _o: &str, id: u64) -> Result<(), String> {
+    fn delete_runner(&self, _o: &str, id: u64) -> Result<(), ForjarError> {
         self.deleted.borrow_mut().push(id);
         self.runners.borrow_mut().retain(|r| r.id != id);
         Ok(())
     }
-    fn mint_jit(&self, _o: &str, g: &str, n: &str, l: &[String]) -> Result<String, String> {
+    fn mint_jit(&self, _o: &str, g: &str, n: &str, l: &[String]) -> Result<String, ForjarError> {
         Ok(format!("jit:{g}:{n}:{}", l.join("+")))
     }
 }
