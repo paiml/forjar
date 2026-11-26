@@ -84,7 +84,8 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::NasArchive
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
-        | ResourceType::S3Bucket => handlers_fleet(resource_type),
+        | ResourceType::S3Bucket
+        | ResourceType::AmiBake => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
         ResourceType::Recipe => None,
@@ -117,6 +118,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::Task
         | ResourceType::WasmBundle
         | ResourceType::Image
+        | ResourceType::AmiBake
         | ResourceType::Build
         | ResourceType::GithubRelease
         | ResourceType::OverlayInterface
@@ -161,6 +163,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
+        | ResourceType::AmiBake
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -195,6 +198,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::Task
         | ResourceType::WasmBundle
         | ResourceType::Image
+        | ResourceType::AmiBake
         | ResourceType::Recipe => return None,
     };
     Some(row)

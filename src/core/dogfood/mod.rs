@@ -107,6 +107,9 @@ pub const fn coverage(t: &ResourceType) -> Coverage {
         ResourceType::S3Bucket => {
             Coverage::NotApplicable("talks to AWS; tested against a stub aws")
         }
+        ResourceType::AmiBake => {
+            Coverage::NotApplicable("slice 1: declaration only; no builder yet")
+        }
     }
 }
 
@@ -136,6 +139,7 @@ pub const ALL_TYPES: &[ResourceType] = &[
     ResourceType::TmpReaper,
     ResourceType::CloudInstance,
     ResourceType::S3Bucket,
+    ResourceType::AmiBake,
 ];
 
 /// Run every exercised resource type against reality.

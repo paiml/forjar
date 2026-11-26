@@ -102,6 +102,11 @@ fn resource_fields_has_no_stale_entries() {
         "s3_tls_only",
         "s3_versioning",
         "s3_noncurrent_expire_days",
+        "ami_base",
+        "ami_image_file",
+        "ami_region",
+        "ami_fleet_digest",
+        "ami_keep_last",
     ];
 
     let stale: Vec<&&str> = RESOURCE_FIELDS

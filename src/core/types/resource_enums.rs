@@ -64,6 +64,8 @@ pub enum ResourceType {
     CloudInstance,
     /// PMAT-1242: one declared private S3 bucket (check asks AWS, never the lock).
     S3Bucket,
+    /// #1266: one fleet AMI baked from a stock base (declaration only in slice 1).
+    AmiBake,
 }
 
 impl fmt::Display for ResourceType {
@@ -93,6 +95,7 @@ impl fmt::Display for ResourceType {
             Self::TmpReaper => write!(f, "tmp_reaper"),
             Self::CloudInstance => write!(f, "cloud_instance"),
             Self::S3Bucket => write!(f, "s3_bucket"),
+            Self::AmiBake => write!(f, "ami_bake"),
         }
     }
 }
@@ -225,6 +228,7 @@ mod tests {
             (ResourceType::TmpReaper, "tmp_reaper"),
             (ResourceType::CloudInstance, "cloud_instance"),
             (ResourceType::S3Bucket, "s3_bucket"),
+            (ResourceType::AmiBake, "ami_bake"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

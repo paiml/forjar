@@ -1,5 +1,6 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::ami_bake_types::AmiBakeSpec;
 use super::backup_sync_types::BackupSpec;
 use super::cloud_instance_types::CloudSpec;
 use super::disk_budget_types::DiskBudgetSpec;
@@ -493,4 +494,8 @@ pub struct Resource {
     /// PMAT-1242: `s3_bucket` declaration fields.
     #[serde(flatten)]
     pub s3: S3Spec,
+
+    /// #1266: `ami_bake` declaration fields.
+    #[serde(flatten)]
+    pub ami: AmiBakeSpec,
 }
