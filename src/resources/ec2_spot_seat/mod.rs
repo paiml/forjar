@@ -65,6 +65,8 @@ mod tests_aws_cli;
 mod tests_lifecycle;
 #[cfg(test)]
 mod tests_script;
+#[cfg(test)]
+mod tests_script_ctl;
 
 use crate::core::error::ForjarError;
 use crate::core::types::Resource;

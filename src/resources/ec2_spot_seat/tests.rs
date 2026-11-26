@@ -140,12 +140,51 @@ fn bad_pins_are_refused() {
         .contains("unsafe"));
 }
 
+/// One valid `ec2_spot_seat` declaration: one seat, max 1 box, 1.0 USD/h cap, 0.5 USD/h box.
+fn spot_yaml() -> String {
+    "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  seat:\n    type: ec2_spot_seat\n    machine: m\n    spot_pin_file: p.tsv\n    spot_instance_types: [c6a.4xlarge]\n    spot_region: us-east-1\n    spot_az: us-east-1a\n    spot_subnet: subnet-0abc\n    spot_ami: ami-1\n    spot_ttl_min: 60\n    spot_seats: 1\n    spot_owner: o\n    spot_max_boxes: 1\n    spot_max_usd_per_hour: 1.0\n    spot_price_usd_per_hour: 0.5\n    spot_market: spot\n    spot_runner_org: paiml\n    spot_runner_group: g\n    spot_runner_labels: [x]\n    spot_jit_source: gh-api\n".to_string()
+}
+
+#[test]
+fn cap_exceeding_spec_is_refused_at_plan_time_by_the_parser() {
+    // one box alone above its USD cap: refused by validation, before any launch
+    let y = spot_yaml().replace(
+        "spot_price_usd_per_hour: 0.5",
+        "spot_price_usd_per_hour: 2.0",
+    );
+    let cfg = crate::core::parser::parse_config(&y).expect("parses");
+    let errs = crate::core::parser::validate_config(&cfg);
+    assert!(
+        errs.iter().any(|e| e.message.contains("exceeds")),
+        "{errs:?}"
+    );
+}
+
+#[test]
+fn box_cap_exceeding_spec_is_refused_by_plan_launch_before_run() {
+    use super::api::LiveBox;
+    use super::lifecycle::plan_launch;
+    use super::tests_lifecycle::FakeEc2;
+    let cfg = crate::core::parser::parse_config(&spot_yaml()).expect("parses");
+    let r = cfg.resources.get("seat").expect("seat resource");
+    let s = spec_of(r).expect("valid spec");
+    assert_eq!(s.max_boxes, 1);
+    // one live box already holds the only slot: the plan must refuse, never run
+    let f = FakeEc2 {
+        live: std::cell::RefCell::new(vec![LiveBox {
+            id: "i-1".into(),
+            price_usd_per_hour: 0.1,
+        }]),
+        ..Default::default()
+    };
+    let e = plan_launch(&s, &f).expect_err("over box cap must be refused at plan time");
+    assert!(e.message().contains("spot_max_boxes"), "{}", e.message());
+    assert!(f.launched.borrow().is_empty());
+}
+
 #[test]
 fn yaml_validates_through_the_parser() {
-    let y = format!(
-        "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  seat:\n    type: ec2_spot_seat\n    machine: m\n    spot_pin_file: p.tsv\n    spot_instance_types: [c6a.4xlarge]\n    spot_region: us-east-1\n    spot_az: us-east-1a\n    spot_subnet: subnet-0abc\n    spot_ami: ami-1\n    spot_ttl_min: 60\n    spot_seats: 1\n    spot_owner: o\n    spot_max_boxes: 1\n    spot_max_usd_per_hour: 1.0\n    spot_price_usd_per_hour: 0.5\n    spot_market: {}\n    spot_runner_org: paiml\n    spot_runner_group: g\n    spot_runner_labels: [x]\n    spot_jit_source: gh-api\n",
-        "spot"
-    );
+    let y = spot_yaml();
     let cfg = crate::core::parser::parse_config(&y).expect("parses");
     assert!(
         crate::core::parser::validate_config(&cfg).is_empty(),

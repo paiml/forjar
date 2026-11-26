@@ -191,6 +191,7 @@ fn teardown_ships_then_cancels_then_terminates() {
 fn teardown_with_failed_ship_terminates_nothing() {
     let f = FakeEc2::default();
     f.live.borrow_mut().push(b("i-1", 0.4));
+    f.reqs.borrow_mut().push("sir-1".into());
     let e = teardown(&spec(), &f, &Sink(&f, true)).unwrap_err();
     assert_eq!(
         e.class(),
@@ -199,6 +200,16 @@ fn teardown_with_failed_ship_terminates_nothing() {
     );
     assert!(e.message().contains("nothing terminated"));
     assert!(!f.calls.borrow().iter().any(|c| c.starts_with("terminate")));
+    // a failed ship must not cancel spot requests either (open requests exist here)
+    assert!(
+        !f.calls.borrow().iter().any(|c| c.starts_with("cancel")),
+        "cancel must not run after a failed ship: {:?}",
+        f.calls.borrow()
+    );
+    assert_eq!(
+        *f.calls.borrow(),
+        vec!["ship i-1 s3://evidence-bucket/spot"]
+    );
 }
 
 #[test]
@@ -265,6 +276,24 @@ fn stale_offline_registrations_are_removed_but_not_busy_or_foreign_ones() {
         vec!["seat-forjar-spot-01"]
     );
     assert_eq!(*gh.deleted.borrow(), vec![1]);
+}
+
+#[test]
+fn register_purges_a_stale_offline_seat_before_minting_its_replacement() {
+    let gh = FakeGh {
+        runners: RefCell::new(vec![runner(8, "seat-forjar-spot-01", false, false)]),
+        deleted: RefCell::default(),
+    };
+    let out = register(&spec(), &gh).unwrap();
+    assert!(
+        !gh.deleted.borrow().is_empty(),
+        "a stale offline seat must be deregistered"
+    );
+    assert_eq!(*gh.deleted.borrow(), vec![8]);
+    assert_eq!(
+        out.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
+        vec!["seat-forjar-spot-01", "seat-forjar-spot-02"]
+    );
 }
 
 #[test]

@@ -102,6 +102,23 @@ fn run_spot_passes_token_spot_market_and_owner_tag() {
     assert!(call.contains(r#""Key":"Owner","Value":"forjar-spot""#));
     assert!(call.contains("AvailabilityZone=us-east-1a"));
     assert!(call.contains("--subnet-id subnet-0abc1234"));
+    // the bid, the shutdown behaviour, the image and the price tag all reach the CLI
+    assert!(call.contains(r#""MaxPrice":"0.5""#), "{call}");
+    assert!(
+        call.contains("--instance-initiated-shutdown-behavior terminate"),
+        "{call}"
+    );
+    assert!(call.contains("--image-id ami-0123"), "{call}");
+    assert!(
+        call.contains(r#"{"Key":"PriceUsdPerHour","Value":"0.5"}"#),
+        "{call}"
+    );
+    // the spot request itself is tagged with the owner, not only the instance
+    assert!(
+        call.contains(r#""ResourceType":"spot-instances-request""#),
+        "{call}"
+    );
+    assert!(call.contains("--tag-specifications"), "{call}");
 }
 
 #[test]
@@ -151,12 +168,14 @@ fn open_spot_requests_parses_ids() {
         r#"{"SpotInstanceRequests":[{"SpotInstanceRequestId":"sir-1"},{"SpotInstanceRequestId":"sir-2"}]}"#,
     ));
     let ids = AwsCli::with_runner(&f, "r")
-        .open_spot_requests("o")
+        .open_spot_requests("forjar-spot")
         .unwrap();
     assert_eq!(ids, vec!["sir-1", "sir-2"]);
-    assert!(f.calls.borrow()[0]
-        .join(" ")
-        .contains("Name=state,Values=open"));
+    let call = f.calls.borrow()[0].join(" ");
+    assert!(call.contains("describe-spot-instance-requests"), "{call}");
+    assert!(call.contains("Name=state,Values=open"), "{call}");
+    // only this owner's requests: the Owner tag filter must be present
+    assert!(call.contains("Name=tag:Owner,Values=forjar-spot"), "{call}");
     let f = Fake::new(Err("boom"));
     assert!(AwsCli::with_runner(&f, "r")
         .open_spot_requests("o")

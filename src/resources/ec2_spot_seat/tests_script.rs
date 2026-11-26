@@ -1,5 +1,6 @@
 //! Generated-script tests: the box phases run for real under `sh` against a stateful
-//! fake `docker`/`aws`/`zstd`; the controller phases run against a fake `aws`/`gh`.
+//! fake `docker`/`aws`/`zstd`; the controller phases run against a fake `aws`/`gh`
+//! (the controller runtime tests live in [`tests_script_ctl`](super::tests_script_ctl)).
 
 use super::tests::{res, ID};
 use super::*;
@@ -15,10 +16,13 @@ case "$1" in
   load) cat >/dev/null; [ -e "$d/loadfail" ] && { echo "load boom" >&2; exit 1; }
         [ -e "$d/quirk" ] || touch "$d/loaded"; echo "Loaded image ID: x"; exit 0;;
   rm) rm -f "$d/run-$3"; exit 0;;
+  ps) for f in "$d"/run-*; do [ -e "$f" ] && echo "$f"; done; exit 0;;
   logs) echo "runner log line"; exit 0;;
   inspect) n=""; for a in "$@"; do n="$a"; done
         [ -e "$d/run-$n" ] && [ ! -e "$d/never" ] && { echo true; exit 0; }; exit 1;;
   run) [ -e "$d/runfail" ] && { echo "docker: Error response from daemon" >&2; exit 125; }
+       img=""; prev=""; for a in "$@"; do [ "$a" = sh ] && img="$prev"; prev="$a"; done
+       echo "$img" >> "$d/images"
        n=""; p=""; for a in "$@"; do [ "$p" = --name ] && n="$a"; p="$a"; done
        touch "$d/run-$n"; echo cid; exit 0;;
 esac
@@ -31,6 +35,22 @@ d="$FAKE_DIR"; echo "aws $*" >> "$d/log"
 case "$1 $2" in
   "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) cat "$d/prices" 2>/dev/null;; *) cat "$d/live" 2>/dev/null;; esac; exit 0;;
   "ec2 run-instances") [ -e "$d/nocap" ] && { echo "An error occurred (InsufficientInstanceCapacity)" >&2; exit 254; }; echo i-launched; exit 0;;
+  "ec2 describe-spot-instance-requests") cat "$d/spotreqs" 2>/dev/null; exit 0;;
+  "ec2 terminate-instances") rm -f "$d/live"; exit 0;;
+  "ssm send-command") [ -e "$d/shipfail" ] && exit 1; echo cmd-1; exit 0;;
+esac
+exit 0
+"#;
+
+/// Fake `gh`: runner list (TSV in `runners.tsv`), DELETE records the id in `deleted`,
+/// JIT mint echoes `jit:<name>`, runner-group lookup answers `7`.
+const GH: &str = r#"#!/bin/sh
+d="$FAKE_DIR"; echo "gh $*" >> "$d/log"
+case "$*" in
+  *"-X DELETE"*) echo "${*##*/runners/}" >> "$d/deleted"; exit 0;;
+  *generate-jitconfig*) for a in "$@"; do case "$a" in name=*) n="${a#name=}";; esac; done; echo "jit:$n"; exit 0;;
+  *runner-groups*) echo 7; exit 0;;
+  *runners*) cat "$d/runners.tsv" 2>/dev/null; exit 0;;
 esac
 exit 0
 "#;
@@ -45,23 +65,24 @@ fn exe(p: &std::path::Path, body: &str) {
 }
 
 impl Box_ {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("bin");
         std::fs::create_dir(&bin).unwrap();
         exe(&bin.join("docker"), DOCKER);
         exe(&bin.join("aws"), AWS);
+        exe(&bin.join("gh"), GH);
         exe(&bin.join("zstd"), "#!/bin/sh\ncat \"$2\"\n");
         Self { dir }
     }
-    fn p(&self, n: &str) -> std::path::PathBuf {
+    pub(super) fn p(&self, n: &str) -> std::path::PathBuf {
         self.dir.path().join(n)
     }
-    fn touch(&self, n: &str) {
+    pub(super) fn touch(&self, n: &str) {
         std::fs::write(self.p(n), "").unwrap();
     }
     /// A resource whose pin file lives in the fake dir and matches the fake tar.
-    fn res(&self, phase: &str) -> Resource {
+    pub(super) fn res(&self, phase: &str) -> Resource {
         let real = String::from_utf8(
             std::process::Command::new("sh")
                 .arg("-c")
@@ -82,7 +103,7 @@ impl Box_ {
         r.spot.jit_source = Some(format!("dir:{}", self.p("jit").display()));
         r
     }
-    fn run(&self, script: &str) -> (i32, String) {
+    pub(super) fn run(&self, script: &str) -> (i32, String) {
         let path = format!(
             "{}:{}",
             self.p("bin").display(),
@@ -107,7 +128,7 @@ impl Box_ {
         );
         (o.status.code().unwrap_or(-1), text)
     }
-    fn log(&self) -> String {
+    pub(super) fn log(&self) -> String {
         std::fs::read_to_string(self.p("log")).unwrap_or_default()
     }
     fn spot_log(&self) -> String {
@@ -186,7 +207,7 @@ fn no_script_spells_a_digest_but_the_pin_one() {
     assert!(!apply_script(&b.res("launch")).contains("sha256:"));
 }
 
-fn jits(b: &Box_) {
+pub(super) fn jits(b: &Box_) {
     std::fs::create_dir_all(b.p("jit")).unwrap();
     for n in ["seat-forjar-spot-01", "seat-forjar-spot-02"] {
         std::fs::write(b.p("jit").join(format!("{n}.jit")), "jitconfig").unwrap();
@@ -198,13 +219,31 @@ fn seat_start_runs_one_container_per_jit_and_logs_each() {
     let b = Box_::new();
     b.touch("loaded");
     jits(&b);
+    // no seat running yet: the check must say so
+    let (pre, _) = b.run(&check_script(&b.res("seat-start")));
+    assert_ne!(pre, 0);
     let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
     assert_eq!(rc, 0, "{out}");
     assert_eq!(b.log().matches("docker run -d").count(), 2);
     assert!(b.p("seatlogs/seat-forjar-spot-01.log").exists());
     assert!(b.p("seatlogs/seat-forjar-spot-02.log").exists());
-    let (rc, _) = b.run(&check_script(&b.res("seat-start")));
-    let _ = rc;
+    // both seats now show as running containers: the check passes
+    let (rc, out) = b.run(&check_script(&b.res("seat-start")));
+    assert_eq!(rc, 0, "{out}");
+}
+
+#[test]
+fn seat_start_runs_the_pinned_image_id_not_a_digest() {
+    let b = Box_::new();
+    b.touch("loaded");
+    jits(&b);
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_eq!(rc, 0, "{out}");
+    // the fake docker records the image argument of every `docker run`
+    assert_eq!(
+        std::fs::read_to_string(b.p("images")).unwrap(),
+        format!("{ID}\n{ID}\n")
+    );
 }
 
 #[test]
