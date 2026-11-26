@@ -331,9 +331,11 @@ if [ -d "$COOKBOOK" ]; then
 fi
 
 n_broken="$(printf '%s\n' "$report" | sed -n 's/^BROKEN //p')"
-# Zero NOTE lines is the normal state once KNOWN_BROKEN is empty: grep exits 1,
-# and under pipefail a bare pipe would kill the gate before its verdict line.
-grep '^NOTE ' <<<"$report" | sed 's/^NOTE /  /' || true
+# Zero NOTE lines is the normal state once KNOWN_BROKEN is empty. Test before
+# the pipe: a bare grep with no match exits 1, and pipefail would kill the gate.
+if grep -q '^NOTE ' <<<"$report"; then
+  grep '^NOTE ' <<<"$report" | sed 's/^NOTE /  /'
+fi
 
 echo "GATE D PASS ${n_inv} documented invocation(s) from README.md run or parse against the fixtures (${n_broken:-0} pinned as known-broken above); version claims reconcile with Cargo.toml; ${cookbook_note}"
 
