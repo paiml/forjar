@@ -39,6 +39,7 @@ mod tests_service_exec;
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+mod tests_task_phony;
 pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;
