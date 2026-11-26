@@ -17,6 +17,8 @@ pub(super) struct FakeEc2 {
     pub capacity_fail: Vec<String>,
     pub other_fail: bool,
     pub read_fail: bool,
+    /// Reads fail only after a terminate has been issued (the teardown read-back).
+    pub readback_fail: bool,
     pub launched: RefCell<Vec<LaunchRequest>>,
     pub calls: RefCell<Vec<String>>,
     pub terminate_noop: bool,
@@ -26,6 +28,14 @@ impl Ec2Api for FakeEc2 {
     fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, ForjarError> {
         if self.read_fail {
             return Err(ForjarError::connection("throttled"));
+        }
+        let terminated = self
+            .calls
+            .borrow()
+            .iter()
+            .any(|c| c.starts_with("terminate"));
+        if self.readback_fail && terminated {
+            return Err(ForjarError::connection("read-back throttled"));
         }
         if owner != FAKE_OWNER {
             return Ok(vec![]);
@@ -125,6 +135,19 @@ fn plan_fails_over_usd_cap() {
         .unwrap_err()
         .message()
         .contains("spot_max_usd_per_hour"));
+}
+
+#[test]
+fn teardown_read_back_failure_is_an_error_not_zero_boxes() {
+    let f = FakeEc2 {
+        readback_fail: true,
+        ..Default::default()
+    };
+    f.live.borrow_mut().push(b("i-1", 0.5));
+    let r = teardown(&spec(), &f, &Sink(&f, false));
+    let e = r.expect_err("a failed read-back must not read as zero boxes");
+    assert!(e.message().contains("read-back failed"), "{}", e.message());
+    assert!(f.calls.borrow().iter().any(|c| c == "terminate i-1"));
 }
 
 #[test]

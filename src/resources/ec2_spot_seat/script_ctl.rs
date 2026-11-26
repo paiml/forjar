@@ -54,12 +54,12 @@ fn launch(s: &SpotSeat) -> Result<String, ForjarError> {
     Ok(format!(
         "set -u\nR={region}\nCT={ct}\nMAXB={maxb}\nCAP={cap}\nPRICE={price}\n\
          ids=\"$({live})\" || {{ echo 'live-box-read-failed (not measured)' >&2; exit 1; }}\n\
-         adopt=\"$(aws ec2 describe-instances --region \"$R\" --filters \"Name=client-token,Values=$CT-*\" Name=instance-state-name,Values=pending,running --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null)\" || adopt=None\n\
+         adopt=\"$(aws ec2 describe-instances --region \"$R\" --filters \"Name=client-token,Values=$CT-*\" Name=tag:Owner,Values={owner} Name=instance-state-name,Values=pending,running --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null)\" || adopt=None\n\
          case \"$adopt\" in i-*) echo \"adopted $adopt\"; exit 0;; esac\n\
          n=0; for _ in $ids; do n=$((n+1)); done\n\
          [ $((n+1)) -le \"$MAXB\" ] || {{ echo \"REFUSED: cap: $((n+1)) boxes exceeds spot_max_boxes $MAXB\" >&2; exit 3; }}\n\
          raw=\"$(aws ec2 describe-instances --region \"$R\" --filters Name=tag:Owner,Values={owner} Name=instance-state-name,Values=pending,running --query 'Reservations[].Instances[].Tags[?Key==`Price`].Value' --output text)\" || {{ echo 'price-read-failed (not measured)' >&2; exit 1; }}\n\
-         spent=\"$(printf '%s\\n' \"$raw\" | tr '\\t' '\\n' | awk 'BEGIN{{s=0}} {{s+=$1}} END{{print s}}')\" || {{ echo 'price-sum-failed (not measured)' >&2; exit 1; }}\n\
+         spent=\"$(printf '%s\\n' \"$raw\" | tr '\\t' '\\n' | awk -v n=\"$n\" 'BEGIN{{s=0;c=0;bad=0}} NF{{c++; if ($1 ~ /^[0-9]+([.][0-9]+)?$/) s+=$1; else bad=1}} END{{if (bad || c != n) exit 1; print s}}')\" || {{ echo 'price-unmeasured (not measured)' >&2; exit 1; }}\n\
          awk -v a=\"$spent\" -v p=\"$PRICE\" -v c=\"$CAP\" 'BEGIN{{exit !(a+p<=c)}}' || {{ echo \"REFUSED: cap: $spent + $PRICE USD/h exceeds spot_max_usd_per_hour $CAP\" >&2; exit 3; }}\n\
          err=\"$(mktemp)\"\n\
          for t in {types}; do\n  \

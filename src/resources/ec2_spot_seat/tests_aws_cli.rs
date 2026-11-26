@@ -265,3 +265,22 @@ fn terminate_and_cancel_pass_ids_and_surface_errors() {
         .terminate(&["i-1".into()])
         .is_err());
 }
+
+#[test]
+fn run_spot_market_options_and_placement_args() {
+    let f = Fake::new(Ok(r#"{"Instances":[{"InstanceId":"i-77"}]}"#));
+    AwsCli::with_runner(&f, "us-east-1")
+        .run_spot(&req())
+        .unwrap();
+    let args = f.calls.borrow()[0].clone();
+    let m: serde_json::Value =
+        serde_json::from_str(arg_of(&args, "--instance-market-options")).unwrap();
+    assert_eq!(m["MarketType"], "spot");
+    assert_eq!(m["SpotOptions"]["MaxPrice"], "0.5");
+    assert_eq!(m["SpotOptions"]["SpotInstanceType"], "one-time");
+    assert_eq!(
+        m["SpotOptions"]["InstanceInterruptionBehavior"],
+        "terminate"
+    );
+    assert_eq!(arg_of(&args, "--placement"), "AvailabilityZone=us-east-1a");
+}

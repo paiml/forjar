@@ -34,10 +34,10 @@ d="$FAKE_DIR"; echo "aws $*" >> "$d/log"
 a="$*"; owner_ok() { case "$a" in *"Name=tag:Owner,Values=forjar-spot"*) return 0;; esac; return 1; }
 [ "$1 $2" = "s3 cp" ] && { [ -e "$d/fetchfail" ] && exit 1; printf 'tarcontent\n' > "$4"; exit 0; }
 case "$1 $2" in
-  "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) [ -e "$d/pricefail" ] && exit 254; owner_ok && cat "$d/prices" 2>/dev/null;; *) owner_ok && cat "$d/live" 2>/dev/null;; esac; exit 0;;
+  "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) [ -e "$d/pricefail" ] && exit 254; owner_ok && cat "$d/prices" 2>/dev/null;; *) [ -e "$d/livefail" ] && exit 254; [ -e "$d/readbackfail" ] && [ -e "$d/terminated" ] && exit 254; owner_ok && cat "$d/live" 2>/dev/null;; esac; exit 0;;
   "ec2 run-instances") [ -e "$d/nocap" ] && { echo "An error occurred (InsufficientInstanceCapacity)" >&2; exit 254; }; echo i-launched; exit 0;;
   "ec2 describe-spot-instance-requests") owner_ok && cat "$d/spotreqs" 2>/dev/null; exit 0;;
-  "ec2 terminate-instances") [ -e "$d/terminatenoop" ] || rm -f "$d/live"; exit 0;;
+  "ec2 terminate-instances") touch "$d/terminated"; [ -e "$d/terminatenoop" ] || rm -f "$d/live"; exit 0;;
   "ssm send-command") [ -e "$d/shipfail" ] && exit 1; echo cmd-1; exit 0;;
   "ssm wait") [ -e "$d/ssmwaitfail" ] && exit 1; exit 0;;
 esac
@@ -334,6 +334,17 @@ fn launch_refuses_over_usd_cap_and_launches_spot_otherwise() {
             && l.contains("Key=Owner,Value=forjar-spot")
     );
     assert!(!l.contains("on-demand"));
+}
+
+#[test]
+fn launch_usd_cap_refusal_names_the_cap_and_never_runs_instances() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    std::fs::write(b.p("prices"), "0.6\n").unwrap();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 3, "{out}");
+    assert!(out.contains("spot_max_usd_per_hour"), "{out}");
+    assert!(!b.log().contains("run-instances"), "{}", b.log());
 }
 
 #[test]

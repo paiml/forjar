@@ -219,3 +219,77 @@ fn register_script_keeps_an_online_seat_and_mints_nothing_for_it() {
     assert!(!out.contains("jit-minted:seat-forjar-spot-01"), "{out}");
     assert!(!b.p("deleted").exists(), "an online seat is never deleted");
 }
+
+#[test]
+fn teardown_read_back_failure_exits_non_zero_and_never_reports_zero() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    b.touch("readbackfail");
+    let (rc, out) = b.run(&apply_script(&b.res("teardown")));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("read-back-failed"), "{out}");
+    assert!(!out.contains("state shows 0"), "{out}");
+    assert!(
+        b.log().contains("aws ec2 terminate-instances"),
+        "{}",
+        b.log()
+    );
+}
+
+#[test]
+fn launch_adopt_describe_is_owner_filtered() {
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 0, "{out}");
+    let log = b.log();
+    let adopt = log
+        .lines()
+        .find(|l| l.starts_with("aws ec2 describe-instances") && l.contains("Name=client-token,"))
+        .unwrap_or_else(|| panic!("no adopt describe in:\n{log}"));
+    assert!(
+        adopt.contains("Name=tag:Owner,Values=forjar-spot"),
+        "{adopt}"
+    );
+}
+
+#[test]
+fn launch_instance_tag_spec_carries_owner_name_ttl_and_price() {
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 0, "{out}");
+    let a = run_args(&b.log());
+    let at = a.iter().position(|x| x == "--tag-specifications").unwrap();
+    let inst = &a[at + 1];
+    assert!(inst.starts_with("ResourceType=instance,"), "{inst}");
+    for tag in [
+        "Key=Owner,Value=forjar-spot",
+        "Key=Name,Value=seat-forjar-spot",
+        "Key=TtlMin,Value=120",
+        "Key=Price,Value=0.5",
+    ] {
+        assert!(inst.contains(tag), "instance tags lack {tag}: {inst}");
+    }
+}
+
+#[test]
+fn launch_refuses_when_a_live_box_has_no_readable_price() {
+    for prices in ["", "None\n", "abc\n", "0.1\t0.1\n"] {
+        let b = Box_::new();
+        std::fs::write(b.p("live"), "i-1\n").unwrap();
+        std::fs::write(b.p("prices"), prices).unwrap();
+        let (rc, out) = b.run(&apply_script(&b.res("launch")));
+        assert_eq!(rc, 1, "prices {prices:?}: {out}");
+        assert!(out.contains("price-unmeasured (not measured)"), "{out}");
+        assert!(!b.log().contains("run-instances"), "{}", b.log());
+    }
+}
+
+#[test]
+fn launch_refuses_when_the_live_box_read_fails() {
+    let b = Box_::new();
+    b.touch("livefail");
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_ne!(rc, 0, "{out}");
+    assert!(out.contains("live-box-read-failed (not measured)"), "{out}");
+    assert!(!b.log().contains("run-instances"), "{}", b.log());
+}
