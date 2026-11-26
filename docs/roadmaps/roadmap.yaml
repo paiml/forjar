@@ -6232,7 +6232,8 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.34.2
   notes: null
   release: 1.35.0
 - id: GH-749
@@ -9135,7 +9136,8 @@ roadmap:
   phases: []
   subtasks: []
   estimated_effort: null
-  labels: []
+  labels:
+  - release:v1.34.2
   notes: null
   release: 1.35.0
 - id: GH-1026
@@ -9245,4 +9247,58 @@ roadmap:
   labels:
   - release:v1.34.2
   notes: 'RULING CADENCE-48H 2026-11-26: one retro row per pre-freeze PR so gate T can link it; data only, no waiver.'
+  release: 1.34.2
+- id: GH-1289
+  github_issue: 1289
+  item_type: task
+  title: 'retro row for PR #1248 crux-1.34.2 row, shipped in v1.34.2 (RULING gate T 2026-11-26)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-11-26T02:30:00Z
+  updated: 2026-11-26T02:30:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - release:v1.34.2
+  notes: 'data only: the PR merged without a ticket; this row cites issue #1289'
+  release: 1.34.2
+- id: GH-1290
+  github_issue: 1290
+  item_type: task
+  title: 'retro row for PR #1250 s3_bucket section, shipped in v1.34.2 (RULING gate T 2026-11-26)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-11-26T02:30:00Z
+  updated: 2026-11-26T02:30:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - release:v1.34.2
+  notes: 'data only: the PR merged without a ticket; this row cites issue #1290'
+  release: 1.34.2
+- id: GH-1254
+  github_issue: 1254
+  item_type: task
+  title: 'retro row for PR #1255 changelog move (closes #1254), shipped in v1.34.2 (RULING gate T 2026-11-26)'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-11-26T02:30:00Z
+  updated: 2026-11-26T02:30:00Z
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - release:v1.34.2
+  notes: 'data only: the PR merged without a ticket; this row cites issue #1254'
   release: 1.34.2
