@@ -299,7 +299,11 @@ jobs:
                 sudo apt-get -o DPkg::Lock::Timeout=600 update -qq
                 sudo apt-get -o DPkg::Lock::Timeout=600 install -y -qq musl-tools >/dev/null
               fi
-              rustup target add "${{ matrix.target }}" || true
+              rustup target add "${{ matrix.target }}"
+              rustup target list --installed | grep -qx "${{ matrix.target }}" || {
+                echo "::error::rustup reported success but ${{ matrix.target }} is not installed"
+                exit 1
+              }
               ;;
           esac
           case "${{ matrix.target }}" in
