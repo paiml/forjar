@@ -74,6 +74,8 @@ fn a_secret_file_is_never_baked() {
         "keys/id_rsa",
         "aws_credentials.json",
         "tls/server.pem",
+        "keys/deploy.key",
+        "{{ params.dir }}/.env",
     ] {
         let mut r = valid();
         r.ami.image_file = Some(path.into());
@@ -101,13 +103,40 @@ fn region_must_be_a_real_region_shape() {
 #[test]
 fn fleet_digest_must_be_sha256_with_64_hex() {
     let md5 = DIGEST.replace("sha256:", "md5:");
-    for bad in ["0123", "sha256:abc", md5.as_str()] {
+    let non_hex = format!("sha256:{}", "z".repeat(64));
+    for bad in ["0123", "sha256:abc", md5.as_str(), non_hex.as_str()] {
         let mut r = valid();
         r.ami.fleet_digest = Some(bad.into());
         let e = errs(&r);
         assert_eq!(e.len(), 1, "{bad}: {e:?}");
         assert!(e[0].contains("ami_fleet_digest"), "{bad}: {e:?}");
     }
+}
+
+#[test]
+fn an_empty_image_file_is_refused() {
+    for empty in ["", "   "] {
+        let mut r = valid();
+        r.ami.image_file = Some(empty.into());
+        let e = errs(&r);
+        assert_eq!(e.len(), 1, "{empty:?}: {e:?}");
+        assert!(e[0].contains("ami_image_file"), "{empty:?}: {e:?}");
+    }
+}
+
+#[test]
+fn the_declaration_is_checked_through_the_type_dispatch() {
+    // The real entry point is validate_resource_type, which the match arm feeds.
+    use super::resource_types::validate_resource_type;
+    let mut r = valid();
+    r.ami.base = None;
+    let mut e = Vec::new();
+    validate_resource_type("bake", &r, &mut e);
+    assert!(
+        e.iter().any(|x| x.message.contains("ami_base")),
+        "dispatch did not reach validate_ami_bake: {:?}",
+        e.iter().map(|x| &x.message).collect::<Vec<_>>()
+    );
 }
 
 #[test]

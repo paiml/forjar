@@ -56,7 +56,10 @@ pub(super) fn validate_ami_bake(id: &str, resource: &Resource, errors: &mut Vec<
     }
     match spec.image_file.as_deref() {
         None => err("has no ami_image_file (the fleet image to load)".into()),
-        Some(f) if !templated(f) && is_secret_file(f) => {
+        Some(f) if f.trim().is_empty() => err("ami_image_file is empty".into()),
+        // The secret check runs on the basename even when a parent directory is
+        // templated: `{{ dir }}/.env` is still `.env`.
+        Some(f) if is_secret_file(f) => {
             err(format!(
                 "ami_image_file '{f}' looks like a secret; no secrets are baked"
             ));
