@@ -121,6 +121,62 @@ fn run_spot_passes_token_spot_market_and_owner_tag() {
     assert!(call.contains("--tag-specifications"), "{call}");
 }
 
+/// The value that follows `flag` in an argument list.
+fn arg_of<'a>(args: &'a [String], flag: &str) -> &'a str {
+    let i = args
+        .iter()
+        .position(|a| a == flag)
+        .unwrap_or_else(|| panic!("no {flag} in {args:?}"));
+    &args[i + 1]
+}
+
+#[test]
+fn run_spot_args_are_one_box_with_structured_tags_on_both_resources() {
+    let f = Fake::new(Ok(r#"{"Instances":[{"InstanceId":"i-77"}]}"#));
+    AwsCli::with_runner(&f, "us-east-1")
+        .run_spot(&req())
+        .unwrap();
+    let args = f.calls.borrow()[0].clone();
+    assert_eq!(arg_of(&args, "--count"), "1");
+    assert_eq!(arg_of(&args, "--instance-type"), "c6a.4xlarge");
+    assert_eq!(arg_of(&args, "--region"), "us-east-1");
+    // each TagSpecifications entry carries its own tags: the owner tag must be inside
+    // the spot-instances-request entry, not only on the instance entry
+    let specs: serde_json::Value =
+        serde_json::from_str(arg_of(&args, "--tag-specifications")).unwrap();
+    let tags_of = |rt: &str| -> Vec<(String, String)> {
+        let entry = specs
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["ResourceType"] == rt)
+            .unwrap_or_else(|| panic!("no {rt} entry in {specs}"));
+        entry["Tags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| {
+                (
+                    t["Key"].as_str().unwrap().to_string(),
+                    t["Value"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    let owner = ("Owner".to_string(), "forjar-spot".to_string());
+    let ttl = ("TtlMin".to_string(), "120".to_string());
+    for rt in ["instance", "spot-instances-request"] {
+        let tags = tags_of(rt);
+        assert!(tags.contains(&owner), "{rt} lacks Owner: {tags:?}");
+        assert!(tags.contains(&ttl), "{rt} lacks TtlMin: {tags:?}");
+    }
+    let inst = tags_of("instance");
+    assert!(
+        inst.contains(&("PriceUsdPerHour".to_string(), "0.5".to_string())),
+        "{inst:?}"
+    );
+}
+
 #[test]
 fn run_spot_capacity_errors_map_to_capacity() {
     for msg in [

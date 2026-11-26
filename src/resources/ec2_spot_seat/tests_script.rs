@@ -9,7 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 const DOCKER: &str = r#"#!/bin/sh
 d="$FAKE_DIR"; echo "docker $*" >> "$d/log"
 case "$1 $2" in
-  "image inspect") [ -e "$d/loaded" ]; exit $?;;
+  "image inspect") echo "$3" >> "$d/inspects"; [ -e "$d/loaded" ]; exit $?;;
   "image ls") echo "sha256:deadbeef"; exit 0;;
 esac
 case "$1" in
@@ -31,13 +31,15 @@ exit 64
 
 const AWS: &str = r#"#!/bin/sh
 d="$FAKE_DIR"; echo "aws $*" >> "$d/log"
+a="$*"; owner_ok() { case "$a" in *"Name=tag:Owner,Values=forjar-spot"*) return 0;; esac; return 1; }
 [ "$1 $2" = "s3 cp" ] && { [ -e "$d/fetchfail" ] && exit 1; printf 'tarcontent\n' > "$4"; exit 0; }
 case "$1 $2" in
-  "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) cat "$d/prices" 2>/dev/null;; *) cat "$d/live" 2>/dev/null;; esac; exit 0;;
+  "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) [ -e "$d/pricefail" ] && exit 254; owner_ok && cat "$d/prices" 2>/dev/null;; *) owner_ok && cat "$d/live" 2>/dev/null;; esac; exit 0;;
   "ec2 run-instances") [ -e "$d/nocap" ] && { echo "An error occurred (InsufficientInstanceCapacity)" >&2; exit 254; }; echo i-launched; exit 0;;
-  "ec2 describe-spot-instance-requests") cat "$d/spotreqs" 2>/dev/null; exit 0;;
-  "ec2 terminate-instances") rm -f "$d/live"; exit 0;;
+  "ec2 describe-spot-instance-requests") owner_ok && cat "$d/spotreqs" 2>/dev/null; exit 0;;
+  "ec2 terminate-instances") [ -e "$d/terminatenoop" ] || rm -f "$d/live"; exit 0;;
   "ssm send-command") [ -e "$d/shipfail" ] && exit 1; echo cmd-1; exit 0;;
+  "ssm wait") [ -e "$d/ssmwaitfail" ] && exit 1; exit 0;;
 esac
 exit 0
 "#;
@@ -143,6 +145,12 @@ fn image_load_loads_the_pinned_image_from_the_pin() {
     assert_eq!(rc, 0, "{out}");
     assert!(b.spot_log().contains(&format!("image-loaded:{ID}")));
     assert!(b.log().contains("s3 cp s3://img-bucket/image/x.tar.zst"));
+    // every `docker image inspect` names the pinned id, never a tag
+    let inspected = std::fs::read_to_string(b.p("inspects")).unwrap_or_default();
+    assert!(
+        !inspected.is_empty() && inspected.lines().all(|l| l == ID),
+        "{inspected}"
+    );
     // second apply: already present, no fetch
     let before = b.log().matches("s3 cp").count();
     let (rc, _) = b.run(&apply_script(&b.res("image-load")));
@@ -239,6 +247,12 @@ fn seat_start_runs_the_pinned_image_id_not_a_digest() {
     jits(&b);
     let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
     assert_eq!(rc, 0, "{out}");
+    // the image is inspected by its pinned id before any run
+    let inspected = std::fs::read_to_string(b.p("inspects")).unwrap_or_default();
+    assert!(
+        !inspected.is_empty() && inspected.lines().all(|l| l == ID),
+        "{inspected}"
+    );
     // the fake docker records the image argument of every `docker run`
     assert_eq!(
         std::fs::read_to_string(b.p("images")).unwrap(),

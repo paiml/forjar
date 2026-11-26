@@ -7,6 +7,9 @@ use super::*;
 use crate::core::error::{ErrorClass, ForjarError};
 use std::cell::RefCell;
 
+/// The only owner tag the fake EC2 holds: boxes and requests carry `Owner=forjar-spot`.
+const FAKE_OWNER: &str = "forjar-spot";
+
 #[derive(Default)]
 pub(super) struct FakeEc2 {
     pub live: RefCell<Vec<LiveBox>>,
@@ -20,9 +23,12 @@ pub(super) struct FakeEc2 {
 }
 
 impl Ec2Api for FakeEc2 {
-    fn live_boxes(&self, _o: &str) -> Result<Vec<LiveBox>, ForjarError> {
+    fn live_boxes(&self, owner: &str) -> Result<Vec<LiveBox>, ForjarError> {
         if self.read_fail {
             return Err(ForjarError::connection("throttled"));
+        }
+        if owner != FAKE_OWNER {
+            return Ok(vec![]);
         }
         Ok(self.live.borrow().clone())
     }
@@ -40,7 +46,10 @@ impl Ec2Api for FakeEc2 {
         });
         Ok("i-new".into())
     }
-    fn open_spot_requests(&self, _o: &str) -> Result<Vec<String>, ForjarError> {
+    fn open_spot_requests(&self, owner: &str) -> Result<Vec<String>, ForjarError> {
+        if owner != FAKE_OWNER {
+            return Ok(vec![]);
+        }
         Ok(self.reqs.borrow().clone())
     }
     fn cancel_spot_requests(&self, ids: &[String]) -> Result<(), ForjarError> {
@@ -82,6 +91,11 @@ fn b(id: &str, p: f64) -> LiveBox {
 
 fn spec() -> SpotSeat {
     spec_of(&res()).unwrap()
+}
+
+#[test]
+fn fake_owner_matches_the_declared_owner() {
+    assert_eq!(spec().owner, FAKE_OWNER);
 }
 
 #[test]
@@ -233,20 +247,25 @@ fn teardown_needs_an_evidence_destination() {
     assert!(teardown(&spec_of(&r).unwrap(), &f, &Sink(&f, false)).is_err());
 }
 
+/// Fake GitHub: `calls` records every delete and mint in the order they happen.
+#[derive(Default)]
 struct FakeGh {
     runners: RefCell<Vec<Runner>>,
     deleted: RefCell<Vec<u64>>,
+    calls: RefCell<Vec<String>>,
 }
 impl RunnerApi for FakeGh {
     fn list_runners(&self, _o: &str) -> Result<Vec<Runner>, ForjarError> {
         Ok(self.runners.borrow().clone())
     }
     fn delete_runner(&self, _o: &str, id: u64) -> Result<(), ForjarError> {
+        self.calls.borrow_mut().push(format!("delete {id}"));
         self.deleted.borrow_mut().push(id);
         self.runners.borrow_mut().retain(|r| r.id != id);
         Ok(())
     }
     fn mint_jit(&self, _o: &str, g: &str, n: &str, l: &[String]) -> Result<String, ForjarError> {
+        self.calls.borrow_mut().push(format!("mint {n}"));
         Ok(format!("jit:{g}:{n}:{}", l.join("+")))
     }
 }
@@ -269,7 +288,7 @@ fn stale_offline_registrations_are_removed_but_not_busy_or_foreign_ones() {
             runner(3, "other-box", false, false),
             runner(4, "seat-forjar-spot-03", true, false),
         ]),
-        deleted: RefCell::default(),
+        ..Default::default()
     };
     assert_eq!(
         deregister_stale(&spec(), &gh).unwrap(),
@@ -282,7 +301,7 @@ fn stale_offline_registrations_are_removed_but_not_busy_or_foreign_ones() {
 fn register_purges_a_stale_offline_seat_before_minting_its_replacement() {
     let gh = FakeGh {
         runners: RefCell::new(vec![runner(8, "seat-forjar-spot-01", false, false)]),
-        deleted: RefCell::default(),
+        ..Default::default()
     };
     let out = register(&spec(), &gh).unwrap();
     assert!(
@@ -290,6 +309,15 @@ fn register_purges_a_stale_offline_seat_before_minting_its_replacement() {
         "a stale offline seat must be deregistered"
     );
     assert_eq!(*gh.deleted.borrow(), vec![8]);
+    // the purge of the stale registration happens before every replacement mint
+    assert_eq!(
+        *gh.calls.borrow(),
+        vec![
+            "delete 8",
+            "mint seat-forjar-spot-01",
+            "mint seat-forjar-spot-02"
+        ]
+    );
     assert_eq!(
         out.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
         vec!["seat-forjar-spot-01", "seat-forjar-spot-02"]
@@ -297,10 +325,27 @@ fn register_purges_a_stale_offline_seat_before_minting_its_replacement() {
 }
 
 #[test]
+fn a_wrong_owner_sees_no_boxes_and_no_requests_in_plan_or_teardown() {
+    let f = FakeEc2::default();
+    f.live.borrow_mut().push(b("i-1", 0.4));
+    f.reqs.borrow_mut().push("sir-1".into());
+    let mut other = spec();
+    other.owner = "someone-else".into();
+    // the plan counts zero boxes for this owner, so it would not refuse on the box cap
+    let p = plan_launch(&other, &f).unwrap();
+    assert_eq!((p.live_boxes, p.projected_boxes), (0, 1));
+    // teardown touches nothing of this owner: no ship, cancel or terminate
+    let t = teardown(&other, &f, &Sink(&f, false)).unwrap();
+    assert!(t.shipped.is_empty() && t.cancelled.is_empty() && t.terminated.is_empty());
+    assert!(f.calls.borrow().is_empty(), "{:?}", f.calls.borrow());
+    assert_eq!(f.live.borrow().len(), 1, "the foreign box is untouched");
+}
+
+#[test]
 fn register_mints_only_missing_seats_with_the_declared_labels() {
     let gh = FakeGh {
         runners: RefCell::new(vec![runner(9, "seat-forjar-spot-01", true, false)]),
-        deleted: RefCell::default(),
+        ..Default::default()
     };
     let out = register(&spec(), &gh).unwrap();
     assert_eq!(

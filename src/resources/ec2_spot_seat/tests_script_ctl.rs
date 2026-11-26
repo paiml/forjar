@@ -34,6 +34,123 @@ fn teardown_runs_ship_cancel_terminate_and_read_back_in_order() {
         log.rfind("aws ec2 describe-instances").unwrap() > term,
         "{log}"
     );
+    // every box and request read is filtered to this owner's tag
+    let owner = "Name=tag:Owner,Values=forjar-spot";
+    let describes: Vec<&str> = log
+        .lines()
+        .filter(|l| l.starts_with("aws ec2 describe-instances"))
+        .collect();
+    assert!(!describes.is_empty(), "{log}");
+    assert!(describes.iter().all(|l| l.contains(owner)), "{log}");
+    let reqs = log
+        .lines()
+        .find(|l| l.starts_with("aws ec2 describe-spot-instance-requests"))
+        .unwrap_or_else(|| panic!("no spot request read in:\n{log}"));
+    assert!(reqs.contains(owner), "{reqs}");
+}
+
+/// The `aws ec2 run-instances` line of the log, split into arguments.
+fn run_args(log: &str) -> Vec<String> {
+    let line = log
+        .lines()
+        .find(|l| l.starts_with("aws ec2 run-instances"))
+        .unwrap_or_else(|| panic!("no run-instances in:\n{log}"));
+    line.split(' ').map(str::to_string).collect()
+}
+
+fn value_after(args: &[String], flag: &str) -> String {
+    let i = args
+        .iter()
+        .position(|a| a == flag)
+        .unwrap_or_else(|| panic!("no {flag} in {args:?}"));
+    args[i + 1].clone()
+}
+
+#[test]
+fn launch_run_instances_args_pin_count_market_shutdown_and_tags() {
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 0, "{out}");
+    let log = b.log();
+    let a = run_args(&log);
+    assert_eq!(value_after(&a, "--count"), "1");
+    assert_eq!(value_after(&a, "--image-id"), "ami-0123456789abcdef0");
+    assert_eq!(value_after(&a, "--instance-type"), "c6a.4xlarge");
+    assert_eq!(value_after(&a, "--subnet-id"), "subnet-0abc1234");
+    assert_eq!(
+        value_after(&a, "--instance-initiated-shutdown-behavior"),
+        "terminate"
+    );
+    assert!(
+        value_after(&a, "--client-token").starts_with("fj-"),
+        "{a:?}"
+    );
+    let market = value_after(&a, "--instance-market-options");
+    assert!(market.contains("MarketType=spot"), "{market}");
+    assert!(market.contains("MaxPrice=0.5,"), "{market}");
+    assert!(market.contains("SpotInstanceType=one-time"), "{market}");
+    assert!(
+        market.contains("InstanceInterruptionBehavior=terminate}"),
+        "{market}"
+    );
+    // the spot request is tagged in the same tag-specifications list as the instance
+    let at = a.iter().position(|x| x == "--tag-specifications").unwrap();
+    assert!(a[at + 1].starts_with("ResourceType=instance,"), "{a:?}");
+    assert_eq!(
+        a[at + 2],
+        "ResourceType=spot-instances-request,Tags=[{Key=Owner,Value=forjar-spot}]"
+    );
+    // the instance read and the price read are owner-filtered too
+    assert!(log
+        .lines()
+        .all(|l| !l.starts_with("aws ec2 describe-instances")
+            || l.contains("Name=tag:Owner,Values=forjar-spot")
+            || l.contains("client-token")));
+}
+
+#[test]
+fn teardown_fails_when_terminate_leaves_the_box_alive() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    b.touch("terminatenoop");
+    let (rc, out) = b.run(&apply_script(&b.res("teardown")));
+    assert_ne!(rc, 0, "{out}");
+    assert!(
+        out.contains("state shows 1 boxes after teardown, want 0"),
+        "{out}"
+    );
+    assert!(!out.contains("state shows 0"), "{out}");
+}
+
+#[test]
+fn teardown_failed_ssm_wait_terminates_nothing() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    std::fs::write(b.p("spotreqs"), "sir-1\n").unwrap();
+    b.touch("ssmwaitfail");
+    let (rc, out) = b.run(&apply_script(&b.res("teardown")));
+    assert_ne!(rc, 0, "{out}");
+    assert!(
+        out.contains("evidence-ship-failed:i-1; nothing terminated"),
+        "{out}"
+    );
+    let log = b.log();
+    assert!(log.contains("aws ssm wait command-executed"), "{log}");
+    assert!(!log.contains("cancel-spot-instance-requests"), "{log}");
+    assert!(!log.contains("terminate-instances"), "{log}");
+    assert!(b.p("live").exists(), "the box must still be there");
+}
+
+#[test]
+fn launch_aborts_when_the_price_read_fails_and_never_launches() {
+    let b = Box_::new();
+    // one live box: the spend is needed, so an unreadable price must not read as zero
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    std::fs::write(b.p("prices"), "0.1\n").unwrap();
+    b.touch("pricefail");
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_ne!(rc, 0, "{out}");
+    assert!(!b.log().contains("run-instances"), "{}", b.log());
 }
 
 #[test]
@@ -72,6 +189,13 @@ fn register_script_purges_only_offline_idle_seats_of_this_owner() {
     assert_eq!(std::fs::read_to_string(b.p("deleted")).unwrap(), "1\n");
     assert!(out.contains("deregistered:seat-forjar-spot-01"), "{out}");
     assert!(!out.contains("deregistered:seat-forjar-spot-02"), "{out}");
+    // the purge DELETE is logged before the first JIT mint
+    let log = b.log();
+    let del = log.find("-X DELETE").unwrap_or_else(|| panic!("{log}"));
+    let mint = log
+        .find("generate-jitconfig")
+        .unwrap_or_else(|| panic!("{log}"));
+    assert!(del < mint, "purge must precede mint:\n{log}");
     // seat 01 was purged, so it is minted again; seat 02 has no online runner either
     assert!(out.contains("jit-minted:seat-forjar-spot-01"), "{out}");
     assert!(out.contains("jit-minted:seat-forjar-spot-02"), "{out}");

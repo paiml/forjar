@@ -142,7 +142,7 @@ fn bad_pins_are_refused() {
 
 /// One valid `ec2_spot_seat` declaration: one seat, max 1 box, 1.0 USD/h cap, 0.5 USD/h box.
 fn spot_yaml() -> String {
-    "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  seat:\n    type: ec2_spot_seat\n    machine: m\n    spot_pin_file: p.tsv\n    spot_instance_types: [c6a.4xlarge]\n    spot_region: us-east-1\n    spot_az: us-east-1a\n    spot_subnet: subnet-0abc\n    spot_ami: ami-1\n    spot_ttl_min: 60\n    spot_seats: 1\n    spot_owner: o\n    spot_max_boxes: 1\n    spot_max_usd_per_hour: 1.0\n    spot_price_usd_per_hour: 0.5\n    spot_market: spot\n    spot_runner_org: paiml\n    spot_runner_group: g\n    spot_runner_labels: [x]\n    spot_jit_source: gh-api\n".to_string()
+    "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  seat:\n    type: ec2_spot_seat\n    machine: m\n    spot_pin_file: p.tsv\n    spot_instance_types: [c6a.4xlarge]\n    spot_region: us-east-1\n    spot_az: us-east-1a\n    spot_subnet: subnet-0abc\n    spot_ami: ami-1\n    spot_ttl_min: 60\n    spot_seats: 1\n    spot_owner: forjar-spot\n    spot_max_boxes: 1\n    spot_max_usd_per_hour: 1.0\n    spot_price_usd_per_hour: 0.5\n    spot_market: spot\n    spot_runner_org: paiml\n    spot_runner_group: g\n    spot_runner_labels: [x]\n    spot_jit_source: gh-api\n".to_string()
 }
 
 #[test]
@@ -161,15 +161,33 @@ fn cap_exceeding_spec_is_refused_at_plan_time_by_the_parser() {
 }
 
 #[test]
-fn box_cap_exceeding_spec_is_refused_by_plan_launch_before_run() {
+fn cap_exceeding_spec_is_refused_before_planning_by_parse_and_validate() {
+    // `parse_and_validate` is the gate every plan and apply command runs before
+    // `planner::plan`; the core planner itself never calls this resource.
+    let y = spot_yaml().replace(
+        "spot_price_usd_per_hour: 0.5",
+        "spot_price_usd_per_hour: 2.0",
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("forjar.yaml");
+    std::fs::write(&path, y).unwrap();
+    let e = match crate::core::parser::parse_and_validate(&path) {
+        Ok(_) => panic!("an over-cap declaration must not reach the planner"),
+        Err(e) => e,
+    };
+    assert!(e.contains("ec2_spot_seat") && e.contains("exceeds"), "{e}");
+}
+
+#[test]
+fn box_cap_exceeding_spec_is_refused_by_launch_before_run() {
     use super::api::LiveBox;
-    use super::lifecycle::plan_launch;
+    use super::lifecycle::launch;
     use super::tests_lifecycle::FakeEc2;
     let cfg = crate::core::parser::parse_config(&spot_yaml()).expect("parses");
     let r = cfg.resources.get("seat").expect("seat resource");
     let s = spec_of(r).expect("valid spec");
     assert_eq!(s.max_boxes, 1);
-    // one live box already holds the only slot: the plan must refuse, never run
+    // one live box already holds the only slot: launch must refuse before run_spot
     let f = FakeEc2 {
         live: std::cell::RefCell::new(vec![LiveBox {
             id: "i-1".into(),
@@ -177,9 +195,16 @@ fn box_cap_exceeding_spec_is_refused_by_plan_launch_before_run() {
         }]),
         ..Default::default()
     };
-    let e = plan_launch(&s, &f).expect_err("over box cap must be refused at plan time");
-    assert!(e.message().contains("spot_max_boxes"), "{}", e.message());
-    assert!(f.launched.borrow().is_empty());
+    let e = launch(&s, &f, "tok").expect_err("over box cap must be refused before run");
+    assert_eq!(
+        e.message(),
+        "cap: 2 boxes for owner forjar-spot exceeds spot_max_boxes 1"
+    );
+    assert_eq!(
+        f.launched.borrow().len(),
+        0,
+        "run_spot was reached: a launch would have counted here"
+    );
 }
 
 #[test]
