@@ -1,6 +1,5 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
-use super::ami_bake_types::AmiBakeSpec;
 use super::backup_sync_types::BackupSpec;
 use super::cloud_instance_types::CloudSpec;
 use super::disk_budget_types::DiskBudgetSpec;
@@ -497,5 +496,5 @@ pub struct Resource {
 
     /// #1266: `ami_bake` declaration fields.
     #[serde(flatten)]
-    pub ami: AmiBakeSpec,
+    pub ami: super::ami_bake_types::AmiBakeSpec,
 }
