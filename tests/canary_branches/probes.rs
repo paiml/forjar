@@ -1,4 +1,4 @@
-//! The gate's jq, python3 and NUL-byte branches, and the mutant sweep (the
+//! The gate's jq and NUL-byte branches, and the mutant sweep (the
 //! helpers live in the parent, `falsification_quorum_gate_canary_branches.rs`).
 use super::mutants::{MUTANTS, NO_JQ_MUTANT};
 use super::*;
@@ -120,10 +120,11 @@ pub(super) fn jq_fails(code: i32, gate: &Path) -> (Run, Option<&'static str>) {
 }
 
 fn non_canary_waiver_without_jq(gate: &Path) -> (Run, Option<&'static str>) {
-    let (_bin, path) = jq_shim("", 2);
+    // Only the canary waiver filter fails: the detection jq still runs for every push.
+    let (_bin, path) = jq_shim("waiv|override", 2);
     let (r, _) = case_run(
         &probe_case(
-            "waived non-canary round, no jq at all",
+            "waived non-canary round, canary waiver jq broken",
             NO_CANARY_WAIVED,
             None,
         ),
@@ -165,47 +166,26 @@ fn a_push_with_no_canary_block_never_runs_jq_for_the_waiver_check() {
     let (r, _) = non_canary_waiver_without_jq(&gate);
     assert!(
         r.code == 0,
-        "a non-canary waived receipt must decide as it did on main, with no jq:\n{}",
+        "a non-canary waived receipt must decide as it did on main, with no canary waiver jq:\n{}",
         r.text
     );
 }
 
-/// A python3 that says nothing (or exits `code`) for the canary detection pass
-/// and is the real one for every other pass: the detection must die UNMEASURED,
-/// never read the silence as "no canary".
-pub(super) fn python_shim(code: i32) -> (tempfile::TempDir, String) {
-    let real = Command::new("sh")
-        .args(["-c", "command -v python3"])
-        .output()
-        .expect("sh");
-    let real = String::from_utf8_lossy(&real.stdout).trim().to_string();
-    assert!(!real.is_empty(), "python3 must be installed");
-    let bin = tempfile::tempdir().expect("tempdir");
-    let shim = bin.path().join("python3");
-    let body = format!(
-        "#!/bin/bash\ns=\"$(cat)\"\ncase \"$s\" in *'isinstance(q, dict) and \"canary\" in q'*) exit {code};; esac\nprintf '%s\\n' \"$s\" | exec {real} \"$@\"\n"
-    );
-    std::fs::write(&shim, body).expect("write the shim");
-    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-    let path = format!(
-        "{}:{}",
-        bin.path().display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
-    (bin, path)
-}
-
+/// A jq that fails with `code` on the canary detection call (the `has("canary")`
+/// filter) and is the real one for every other call: the detection must die
+/// UNMEASURED, never read the failure as "no canary". Exit 0 and 1 are the
+/// detection's own answers (yes and no), so only the failing codes are probed.
 #[test]
-fn a_python3_that_says_nothing_for_the_canary_detection_is_unmeasured_never_no_canary() {
+fn a_jq_that_fails_for_the_canary_detection_is_unmeasured_never_no_canary() {
     let gate = fx::manifest().join("scripts/quorum-gate.sh");
-    for code in [0, 1, 2, 127] {
-        let (_bin, path) = python_shim(code);
+    for code in [2, 4, 5, 127] {
+        let (_bin, path) = jq_shim("has(\"canary\")", code);
         let (r, _) = case_run(&CASES[0], &gate, Some(&path));
         assert!(
             r.code != 0
                 && r.text.contains("the canary detection could not run")
                 && r.text.contains("UNMEASURED"),
-            "python3 exit {code} must refuse as UNMEASURED:\n{}",
+            "jq exit {code} on the detection must refuse as UNMEASURED:\n{}",
             r.text
         );
     }

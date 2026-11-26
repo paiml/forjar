@@ -1,6 +1,6 @@
 //! Mutation table for the quorum-gate canary branch falsifiers (split from the root file to stay under the file-health limit).
 #![allow(dead_code)]
-use super::probes::{jq_fails, python_shim};
+use super::probes::{jq_fails, jq_shim};
 use super::*;
 
 /// (name, text in the gate, its mutation, the probe it must flip). A probe runs
@@ -8,20 +8,20 @@ use super::*;
 type Probe = fn(&Path) -> (Run, Option<&'static str>);
 pub const MUTANTS: [(&str, &str, &str, Probe); 9] = [
     (
-        "read a silent python3 as no canary",
-        "if [ \"$has_canary_rc\" -ne 0 ] || { [ \"$has_canary\" != \"yes\" ] && [ \"$has_canary\" != \"no\" ]; }; then",
-        "if false; then",
+        "read a failing canary detection as no canary",
+        "*) die \"the canary detection could not run (jq exit $has_canary_rc): UNMEASURED\" ;;",
+        "*) has_canary=no ;;",
         |g| {
-            let (_bin, path) = python_shim(0);
+            let (_bin, path) = jq_shim("has(\"canary\")", 2);
             let (r, _) = case_run(&CASES[4], g, Some(&path));
             (r, Some("the canary detection could not run"))
         },
     ),
     (
-        "skip the canary check when refuted >= 1",
-        "if \"canary\" in q:",
-        "if refuted == 0 and \"canary\" in q:",
-        |g| case_run(&CASES[0], g, None),
+        "skip the zero-refuted check for every receipt",
+        "if refuted == 0 and not q.get(\"refutation_waived\") and os.environ.get(\"QUORUM_CANARY_SHAPE\") != \"yes\":",
+        "if False:",
+        |g| case_run(&CASES[1], g, None),
     ),
     (
         "let a canary block pass the waiver check",
@@ -31,20 +31,20 @@ pub const MUTANTS: [(&str, &str, &str, Probe); 9] = [
     ),
     (
         "do not compare reviewed_base with the merge base",
-        "if rb != merge_base:",
-        "if False:",
+        "[ \"$canary_rb\" = \"$merge_base\" ]",
+        "true",
         |g| case_run(&CASES[10], g, None),
     ),
     (
         "refuse a regenerated .pmat/ after reviewed_head",
-        "startswith((\".quorum/\", \".pmat/\"))",
-        "startswith((\".quorum/\",))",
+        "''|.quorum/*|.pmat/*) ;;",
+        "''|.quorum/*) ;;",
         |g| case_run(&CASES[11], g, None),
     ),
     (
         "ignore a code file added after reviewed_head",
-        "if later.returncode != 0 or any(not p.startswith(",
-        "if later.returncode != 0 or any(False and not p.startswith(",
+        "*) die \"commits after quorum.canary.reviewed_head change files outside .quorum/ and .pmat/\" ;;",
+        "*) : ;;",
         |g| case_run(&CASES[14], g, None),
     ),
     (
@@ -61,8 +61,8 @@ pub const MUTANTS: [(&str, &str, &str, Probe); 9] = [
     ),
     (
         "do not detect the canary block before the jq check",
-        "print(\"yes\" if isinstance(q, dict) and \"canary\" in q else \"no\")",
-        "print(\"no\")",
+        "(.quorum | has(\"canary\"))' \"$receipt_blob\" >/dev/null",
+        "(.quorum | has(\"nope\"))' \"$receipt_blob\" >/dev/null",
         |g| case_run(&CASES[4], g, None),
     ),
 ];
