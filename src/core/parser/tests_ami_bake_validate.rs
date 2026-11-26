@@ -75,6 +75,7 @@ fn a_secret_file_is_never_baked() {
         "aws_credentials.json",
         "tls/server.pem",
         "keys/deploy.key",
+        "keys/id_ed25519",
         "{{ params.dir }}/.env",
     ] {
         let mut r = valid();
@@ -104,7 +105,14 @@ fn region_must_be_a_real_region_shape() {
 fn fleet_digest_must_be_sha256_with_64_hex() {
     let md5 = DIGEST.replace("sha256:", "md5:");
     let non_hex = format!("sha256:{}", "z".repeat(64));
-    for bad in ["0123", "sha256:abc", md5.as_str(), non_hex.as_str()] {
+    let upper_hex = format!("sha256:{}", "A".repeat(64));
+    for bad in [
+        "0123",
+        "sha256:abc",
+        md5.as_str(),
+        non_hex.as_str(),
+        upper_hex.as_str(),
+    ] {
         let mut r = valid();
         r.ami.fleet_digest = Some(bad.into());
         let e = errs(&r);
