@@ -82,6 +82,18 @@ pub fn check_script(resource: &Resource) -> String {
         return verdict::check_script_from(&assertions);
     }
 
+    // #1294: a phony task names an ACTION with no artifact to observe (the
+    // planner runs it on every explicit request, FJ-2725). Its only evidence is
+    // the exit status of the run that apply already checked, so post-apply
+    // verification must not report `task=pending` for a run that succeeded.
+    if resource.phony {
+        return verdict::check_script_from(&[verdict::assert_that(
+            "true",
+            "task=completed",
+            "task=pending",
+        )]);
+    }
+
     // No completion_check and no output_artifacts: there is no evidence this
     // task ever ran. It previously echoed `task=pending` and exited 0, which
     // `forjar check` read as a pass. Absence of evidence is not convergence.
