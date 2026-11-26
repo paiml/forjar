@@ -157,24 +157,6 @@ pr_ticket_aliases:
   - pr: 1247
     ticket: PMAT-1245
     evidence: "squash trailer Pmat-Ticket: PMAT-1245 (1 of 1)"
-  - pr: 1026
-    ticket: GH-1026
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
-  - pr: 1087
-    ticket: GH-1087
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
-  - pr: 1091
-    ticket: GH-1091
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
-  - pr: 1094
-    ticket: GH-1094
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
-  - pr: 1218
-    ticket: GH-1218
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
-  - pr: 1219
-    ticket: GH-1219
-    evidence: "retro row by RULING CADENCE-48H 2026-11-26: PR names no ticket in branch, title or body; merged before freeze 67b02b19"
 releases:
   - tag: v1.25.0
     cut: 2026-09-04T00:13:32Z
