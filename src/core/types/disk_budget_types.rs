@@ -54,6 +54,10 @@ pub enum ReclaimKind {
     AbandonedWorktree,
     /// Literal paths matched by glob — leaked test fixtures and similar.
     Glob,
+    /// Top-level entries under a root whose newest content is older than the
+    /// rule's `max_age` (RAID-REAP R1 tmp TTL). An entry holding a deliverable
+    /// (`*.mp4`, `receipts/`, ...) is kept, never offered as a candidate.
+    TtlTree,
 }
 
 impl std::fmt::Display for ReclaimKind {
@@ -63,6 +67,7 @@ impl std::fmt::Display for ReclaimKind {
             Self::ClaudeScratchpad => write!(f, "claude_scratchpad"),
             Self::AbandonedWorktree => write!(f, "abandoned_worktree"),
             Self::Glob => write!(f, "glob"),
+            Self::TtlTree => write!(f, "ttl_tree"),
         }
     }
 }
@@ -115,6 +120,16 @@ pub struct ReclaimRule {
     /// only job is to avoid deleting a build that is running right now.
     #[serde(default = "default_min_idle_minutes")]
     pub min_idle_minutes: u64,
+    /// TTL for `ttl_tree` (`7d`, `12h`, `30m`, `2w`): an entry none of whose
+    /// content changed within this window is a candidate. Required for
+    /// `ttl_tree`, rejected for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<String>,
+    /// Whole days an `abandoned_worktree` must sit idle before it is eligible.
+    /// Replaces `min_idle_minutes` for that kind (7 = RAID-REAP R3). Rejected
+    /// for every other kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_days: Option<u64>,
 }
 
 const fn default_min_idle_minutes() -> u64 {
@@ -360,6 +375,7 @@ mod tests {
             "abandoned_worktree"
         );
         assert_eq!(ReclaimKind::Glob.to_string(), "glob");
+        assert_eq!(ReclaimKind::TtlTree.to_string(), "ttl_tree");
     }
 
     #[test]
@@ -382,6 +398,8 @@ mod tests {
             roots: vec!["/tmp/claude-1000".into()],
             kind: ReclaimKind::ClaudeScratchpad,
             min_idle_minutes: 120,
+            max_age: None,
+            idle_days: None,
         };
         let s = serde_yaml_ng::to_string(&r).unwrap();
         let back: ReclaimRule = serde_yaml_ng::from_str(&s).unwrap();

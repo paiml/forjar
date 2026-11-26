@@ -81,6 +81,19 @@ jobs:
           bash scripts/lint/roadmap-lint-test.sh
           bash scripts/lint/roadmap-lint.sh
 
+  # ── RAID-REAP reaper gate (paiml/infra#5264 Phase C) ─────────────────
+  # LAB lane: nightly only, nothing `needs` it, so it blocks no merge and no release.
+  # The fixture suite builds throwaway trees and git repos under mktemp and never
+  # touches a real /mnt/nvme-raid0 path. A red here is the reaper's own defect.
+  raid-reap-test:
+    timeout-minutes: 15
+    runs-on: [self-hosted, clean-room, X64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Reaper fixture suite (red on every bad fixture, red on mutants)
+        run: bash scripts/raid-reap/test-reap.sh
+
   # ── Build release binaries (7 targets, native runners) ───
   build:
     timeout-minutes: 120

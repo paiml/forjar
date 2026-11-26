@@ -215,6 +215,7 @@ pub(super) const fn fn_name(kind: ReclaimKind) -> &'static str {
         ReclaimKind::ClaudeScratchpad => "fb_find_claude_scratchpad",
         ReclaimKind::AbandonedWorktree => "fb_find_abandoned_worktree",
         ReclaimKind::Glob => "fb_find_glob",
+        ReclaimKind::TtlTree => "fb_find_ttl_tree",
     }
 }
 
@@ -354,11 +355,12 @@ fb_find_glob() {
 /// All detector function definitions, emitted once into the reaper.
 pub(super) fn all_detectors() -> String {
     format!(
-        "{}{}{}{}",
+        "{}{}{}{}{}",
         cargo_target(),
         claude_scratchpad(),
         abandoned_worktree(),
-        glob()
+        glob(),
+        super::ttl::detector()
     )
 }
 
