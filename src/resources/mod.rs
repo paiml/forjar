@@ -11,6 +11,7 @@ pub mod cloud_instance;
 pub mod cron;
 pub mod disk_budget;
 pub mod docker;
+pub mod ec2_spot_seat;
 pub mod file;
 mod file_assert;
 pub mod github_release;

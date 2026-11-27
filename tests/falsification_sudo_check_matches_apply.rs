@@ -228,6 +228,7 @@ fn every_dispatchable_type_elevates_all_three_or_none() {
         ResourceType::TmpReaper,
         ResourceType::CloudInstance,
         ResourceType::S3Bucket,
+        ResourceType::Ec2SpotSeat,
     ];
 
     for rt in all {
