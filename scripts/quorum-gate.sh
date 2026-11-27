@@ -449,6 +449,9 @@ except Exception:
 CANARY_PY
 )" || has_canary_rc=$?
 if [ "$has_canary_rc" -ne 0 ] || { [ "$has_canary" != "yes" ] && [ "$has_canary" != "no" ]; }; then
+    if [ "$has_canary_rc" -eq 3 ]; then
+        die "$receipt is not valid JSON (the canary detection could not run on it, exit 3): UNMEASURED"
+    fi
     die "the canary detection could not run (python3 exit $has_canary_rc, answer '${has_canary}'): UNMEASURED"
 fi
 if [ "$has_canary" = "yes" ]; then
