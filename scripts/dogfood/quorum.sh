@@ -28,6 +28,8 @@
 #   quorum.refuters_per_claim >= 3 — a claim one refuter failed to kill is a
 #                                  claim that met one refuter.
 #   quorum.claims_refuted >= 1   — a round that killed nothing did not hunt.
+#                                  OR a verified `quorum.canary` block (PMAT-1170): a clean
+#                                  round that caught >= 2 blind planted false claims.
 #                                  This is the anti-vacuity floor: a receipt
 #                                  recording 60 confirmations and 0 refutations
 #                                  is the shape of a quorum that never ran.
@@ -80,6 +82,8 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   num="$DOGFOOD_FIELD"
   dogfood_pr_field "$i" ".headRefName"
   href="$DOGFOOD_FIELD"
+  dogfood_pr_field "$i" ".mergeCommit.oid"
+  mc="$DOGFOOD_FIELD"
   if [ -z "$href" ]; then
     fail "GitHub reports PR #${num} merged since ${DOGFOOD_PREV_TAG} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
@@ -91,9 +95,11 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   fi
 
   grc=0
-  text="$(git show "HEAD:${receipt}")" || grc=$?
-  if [ "$grc" -ne 0 ]; then
-    fail "git show HEAD:${receipt} exited ${grc} for PR #${num}, so the receipt cannot be read — UNMEASURED"
+  text="$(dogfood_git_blob "HEAD:${receipt}")" || grc=$?
+  if [ "$grc" -eq 3 ]; then
+    fail "PR #${num}: ${receipt} holds a NUL byte, which a shell variable drops, so the receipt cannot be judged as git has it: refused"
+  elif [ "$grc" -ne 0 ]; then
+    fail "reading HEAD:${receipt} exited ${grc} for PR #${num}, so the receipt cannot be read — UNMEASURED"
   fi
 
   jrc=0
@@ -101,6 +107,7 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   if [ "$jrc" -ne 0 ]; then
     fail "PR #${num}: ${receipt} is not readable as the JSON this gate checks (jq exit ${jrc}) — UNMEASURED, and an unreadable receipt is not a passed quorum"
   fi
+  why="$(dogfood_receipt_resolve "$why" "$text" "$mc" "${mc}^1" "$mc" HEAD)"
   if [ "$why" != "ok" ]; then
     fail "PR #${num}: ${receipt} ${why}"
   fi

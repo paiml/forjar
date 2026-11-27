@@ -358,3 +358,40 @@ fn a_receipt_under_the_refuters_per_claim_floor_is_refused() {
     );
     tok(&r.check(&r.head, &[]), "thin");
 }
+
+/// A NUL byte in the store receipt is refused: the store gate (jq) refuses the
+/// document first, and the reader `dogfood_file_blob` that store.sh calls next
+/// refuses it again (exit 3) on its own, so a gate that learned to read NULs
+/// would still not hand a NUL-stripped receipt to the predicate.
+#[test]
+fn a_store_receipt_holding_a_nul_byte_is_refused() {
+    let r = repo(AUTHOR);
+    let nul = good(&r.head).replacen('{', "{\u{0}", 1);
+    r.put(&r.head, &nul);
+    let out = r.check(&r.head, &[]);
+    assert!(
+        !out.starts_with("token=ok"),
+        "a NUL receipt must not be ok: {out}"
+    );
+    r.put(&r.head, &good(&r.head));
+    tok(&r.check(&r.head, &[]), "ok");
+    let f = r
+        .store
+        .join(format!("quorum/paiml/forjar/77/{}.json", r.head));
+    std::fs::write(&f, nul).expect("write");
+    let o = Command::new("bash")
+        .args([
+            "-c",
+            r#". scripts/dogfood/lib/receipt.sh; rc=0; b="$(dogfood_file_blob "$1")" || rc=$?; echo "rc=$rc len=${#b}""#,
+            "x",
+            f.to_str().expect("utf8"),
+        ])
+        .current_dir(&r.root)
+        .output()
+        .expect("bash");
+    let t = String::from_utf8_lossy(&o.stdout);
+    assert!(
+        t.contains("rc=3 len=0"),
+        "the reader must refuse a NUL: {t}"
+    );
+}

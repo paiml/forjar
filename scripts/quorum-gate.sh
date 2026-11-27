@@ -376,6 +376,13 @@ if [ -n "$branch_id" ]; then
     fi
 fi
 
+# This gate judges the receipt of the branch being PUSHED, and only that one. A
+# post-merge "pack" branch also commits receipts for PRs that merged earlier
+# (`.quorum/<merged-pr-branch>.json`, plus evidence): those are not read here,
+# the pack's own receipt is. They are judged at the release by gate E
+# (scripts/dogfood/quorum.sh) and Arm 5 (scripts/dogfood/release-check.sh), read
+# at HEAD and bound to that PR's merge commit and its first parent, including
+# the canary shape (tests/falsification_canary_postmerge_path.rs).
 receipt="$RECEIPT_DIR/${branch//\//-}.json"
 
 # THE RECEIPT IS READ FROM THE COMMIT, NOT FROM THE WORKING TREE.
@@ -418,6 +425,45 @@ git cat-file -p "$pushed:$receipt" > "$receipt_blob" 2>/dev/null \
 # becomes a hostage the first time it is wrong. It is a reason STRING in the
 # COMMITTED receipt: it lands in the PR diff where a reviewer sees it, and it
 # cannot be set from the environment. Bypass exists; silent bypass does not.
+# PMAT-1170: a canary block next to ANY waiver or override key (any depth, any
+# case, any value, even an empty reason or false) is refused HERE, before the
+# early exit below, which reads only waived.reason and would exit 0 on it.
+# shellcheck source=scripts/dogfood/lib/receipt.sh
+. "$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh"
+# jq is needed ONLY when the receipt carries a canary block, so a push whose
+# receipt has none decides exactly as before this change (main had no jq here).
+# The block is detected by python on the decoded JSON, the same key jq reads; a
+# receipt python cannot parse is not a canary receipt here, and the python pass
+# below refuses it as it always did.
+# The answer is exactly yes or no from a python that exited 0; a python that is
+# missing, shimmed or killed says nothing, and nothing is not "no canary".
+has_canary_rc=0
+has_canary="$(python3 - "$receipt_blob" <<'CANARY_PY' 2>/dev/null
+import json, sys
+try:
+    q = json.load(open(sys.argv[1])).get("quorum")
+    print("yes" if isinstance(q, dict) and "canary" in q else "no")
+except Exception:
+    # Unparsable or non-object input is UNMEASURED, never "no canary": exit non-zero.
+    sys.exit(3)
+CANARY_PY
+)" || has_canary_rc=$?
+if [ "$has_canary_rc" -ne 0 ] || { [ "$has_canary" != "yes" ] && [ "$has_canary" != "no" ]; }; then
+    if [ "$has_canary_rc" -eq 3 ]; then
+        die "$receipt is not valid JSON (the canary detection could not run on it, exit 3): UNMEASURED"
+    fi
+    die "the canary detection could not run (python3 exit $has_canary_rc, answer '${has_canary}'): UNMEASURED"
+fi
+if [ "$has_canary" = "yes" ]; then
+    canary_waiver_rc=0
+    jq -e "$DOGFOOD_CANARY_WAIVER_JQ" "$receipt_blob" >/dev/null 2>&1 || canary_waiver_rc=$?
+    case "$canary_waiver_rc" in
+        0) die "quorum.canary is present next to a waiver or override key: a waived round is not a canary round" ;;
+        1) : ;;
+        *) die "the canary/waiver check could not run (jq exit $canary_waiver_rc): UNMEASURED" ;;
+    esac
+fi
+
 waiver="$(python3 - "$receipt_blob" <<'WAIVE_PY' 2>/dev/null || true
 import json, sys
 try:
@@ -442,10 +488,11 @@ fi
 # required to be one of them (see the free-rider defence below).
 touched="$(git diff --name-only "$merge_base" "$pushed")"
 
-python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" <<'PY' || exit 1
+QUORUM_RECEIPT_LIB="$(cd "$(dirname "$0")" && pwd)/dogfood/lib/receipt.sh" \
+python3 - "$receipt_blob" "$diff_hash" "$MIN_LANES" "$MIN_REFUTERS" "$MIN_JUDGES" "$touched" "$pushed" "$merge_base" <<'PY' || exit 1
 import json, os, subprocess, sys
 
-path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed = sys.argv[1:8]
+path, want_hash, min_lanes, min_refuters, min_judges, touched_raw, pushed, merge_base = sys.argv[1:9]
 min_lanes, min_refuters, min_judges = int(min_lanes), int(min_refuters), int(min_judges)
 touched = set(filter(None, touched_raw.splitlines()))
 
@@ -550,7 +597,32 @@ if refuted_texts and len(refuted_texts) != refuted:
     die(f"claims_refuted={refuted} but {len(refuted_texts)} refuted_claims listed -- "
         "the tally and the text disagree")
 
-if refuted == 0 and not q.get("refutation_waived"):
+if "canary" in q:
+    # PMAT-1170: the second shape. The one predicate in lib/receipt.sh decides,
+    # so this gate and gates E and R cannot drift apart on what a canary is.
+    # A block that is present is ALWAYS checked, whatever refuted says. A canary
+    # block next to a waiver or override key never gets here: the shell refuses
+    # it before the waiver early exit, and lib stage 1 refuses it again below.
+    c = q["canary"] if isinstance(q["canary"], dict) else {}
+    rh, rb = str(c.get("reviewed_head", "")), str(c.get("reviewed_base", ""))
+    if rb != merge_base:
+        die("quorum.canary.reviewed_base is not the merge base of this push")
+    anc = subprocess.run(["git", "merge-base", "--is-ancestor", rh, pushed],
+                         capture_output=True, text=True)
+    if not rh or anc.returncode != 0:
+        die("quorum.canary.reviewed_head is not an ancestor of the pushed commit")
+    later = subprocess.run(["git", "diff", "--name-only", "--no-renames", rh, pushed],
+                           capture_output=True, text=True)
+    if later.returncode != 0 or any(not p.startswith((".quorum/", ".pmat/")) for p in later.stdout.split("\n") if p):
+        die("commits after quorum.canary.reviewed_head change files outside .quorum/ and .pmat/")
+    cp = subprocess.run(
+        ["bash", "-c", '. "$1"; b="$(dogfood_file_blob "$2")" || { echo "the receipt holds a NUL byte or cannot be read: UNMEASURED"; exit 0; }; dogfood_receipt_status "$b" "$3" "$4" "$5"',
+         "canary", os.environ["QUORUM_RECEIPT_LIB"], path, rh, rb, pushed],
+        capture_output=True, text=True)
+    if cp.returncode != 0 or cp.stdout.strip() != "ok":
+        die("quorum.canary block is refused: "
+            + (cp.stdout.strip() or cp.stderr.strip() or "no answer"))
+elif refuted == 0 and not q.get("refutation_waived"):
     die("""the quorum refuted NOTHING.
   Every claim survived, which usually means the refuters were not adversarial.
   If that is genuinely the result, set quorum.refutation_waived to a reason

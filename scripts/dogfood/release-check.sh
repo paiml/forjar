@@ -357,12 +357,14 @@ fi
 . "$(dirname "${BASH_SOURCE[0]}")/lib/receipt.sh"
 
 receipt_status() {
-  # $1 = raw JSON blob, passed as an argv. Prints one of ok|waived|thin, the
+  # $1 = raw JSON blob, passed as an argv; $2... = the revs a canary block
+  # reads its evidence files from (the merge commit, then HEAD, as the blob
+  # itself was found). Prints one of ok|waived|thin, the
   # tokens the report below and its falsification tests read; the reason
   # itself comes from the shared predicate in lib/receipt.sh, the same one
   # gate E applies before the tag.
   local why
-  why="$(dogfood_receipt_status "$1")"
+  why="$(dogfood_receipt_status "$@")"
   case "$why" in
     ok) printf 'ok\n' ;;
     *waiver*) printf 'waived\n' ;;
@@ -376,16 +378,11 @@ while read -r pr oid headref; do
   [ -n "$pr" ] || continue
   slug="${headref//\//-}"
   path=".quorum/${slug}.json"
-  blob=""
-  if git cat-file -e "${oid}:${path}" 2>/dev/null; then
-    blob="$(git cat-file -p "${oid}:${path}")"
-  elif git cat-file -e "HEAD:${path}" 2>/dev/null; then
-    blob="$(git cat-file -p "HEAD:${path}")"
-  fi
+  blob="$(dogfood_receipt_pick "$oid" "$path")"
   if [ -z "$blob" ]; then
     status="missing"
   else
-    status="$(receipt_status "$blob")"
+    status="$(receipt_status "$blob" "$oid" "${oid}^1" "$oid" HEAD)"
   fi
   report="${report}#${pr} ${slug} receipt=${status}"$'\n'
   if [ "$status" != "ok" ]; then
