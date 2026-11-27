@@ -11,6 +11,7 @@ pub mod cloud_instance;
 pub mod cron;
 pub mod disk_budget;
 pub mod docker;
+pub mod ec2_spot_seat;
 pub mod file;
 mod file_assert;
 pub mod github_release;
@@ -39,6 +40,8 @@ mod tests_service_exec;
 mod tests_task;
 #[cfg(test)]
 mod tests_task_fj154;
+#[cfg(test)]
+mod tests_task_phony;
 pub mod tmp_reaper;
 pub mod user;
 pub mod verdict;

@@ -3,6 +3,7 @@
 use super::backup_sync_types::BackupSpec;
 use super::cloud_instance_types::CloudSpec;
 use super::disk_budget_types::DiskBudgetSpec;
+use super::ec2_spot_seat_types::SpotSeatSpec;
 use super::lifecycle_rules::LifecycleRules;
 use super::nas_archive_types::ArchiveSpec;
 use super::output_equivalence::OutputEquivalence;
@@ -343,10 +344,9 @@ pub struct Resource {
     pub output_artifacts: Vec<String>,
     /// GH-246: per-artifact equivalence predicate, keyed by artifact path.
     ///
-    /// Absent entries mean `bytes` — the previous behaviour, unchanged. Declare
-    /// an escape only for a producer that cannot reach byte-identity: keying an
-    /// artifact by a hash it can never reproduce is not "uncached", it is
-    /// content-addressed with the wrong key.
+    /// Absent entries mean `bytes`, unchanged. Declare an escape only for a
+    /// producer that cannot reach byte-identity: keying an artifact by a hash it
+    /// can never reproduce is not "uncached", it is the wrong content key.
     #[serde(default)]
     pub output_equivalence: IndexMap<String, OutputEquivalence>,
     /// GH-244(c): fingerprint commands for inputs no glob can name — the system
@@ -493,4 +493,8 @@ pub struct Resource {
     /// PMAT-1242: `s3_bucket` declaration fields.
     #[serde(flatten)]
     pub s3: S3Spec,
+
+    /// forjar#1262: `ec2_spot_seat` declaration fields.
+    #[serde(flatten)]
+    pub spot: SpotSeatSpec,
 }

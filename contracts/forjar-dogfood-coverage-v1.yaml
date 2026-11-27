@@ -286,6 +286,24 @@ falsification_tests:
     test: "tests/falsification_dogfood_harness_and_quorum.rs::gate_a_a_first_id_that_is_not_a_roadmap_row_is_named_and_red"
     if_fails: "A branch whose roadmap row was forgotten falls through to an older ticket the body mentions, whose receipt already exists, and gate A passes over the missing work"
 
+  - id: FALSIFY-RR-001
+    rule: "The RAID reaper's 14 d tmp TTL is a declared constant: a 140 d mutant of the declaration fails the constant check"
+    prediction: "Changing `max_age: 14d` to `max_age: 140d` in examples/raid-reap.yaml makes the constant check name the 14 d TTL as missing"
+    test: "tests/falsification_raid_reap.rs::mutated_declaration_goes_red_on_the_constant_check"
+    if_fails: "The generated reaper keeps a 140 d TTL under a declaration that says 14 d, and nothing reports it"
+
+  - id: FALSIFY-RR-002
+    rule: "A tmp entry older than its TTL is reaped, a younger one and a deliverable-bearing one are kept"
+    prediction: "Under a 140 d TTL the 15-day fixture entry survives and the reaper exits 1 (unreachable), so the 14 d execution assertion is red"
+    test: "tests/falsification_raid_reap.rs::ttl_rule_reaps_15_day_entry_keeps_13_day_and_deliverable"
+    if_fails: "The TTL rule either reclaims nothing or deletes a deliverable, and the watermark pass hides it"
+
+  - id: FALSIFY-RR-003
+    rule: "The RAID-REAP reaper gate names its one-line mutation and is strict shell"
+    prediction: "Deleting the `# mutation:` line from scripts/raid-reap/test-reap.sh makes raid_reap_gate_names_its_mutation_and_is_strict fail"
+    test: "tests/falsification_dogfood_scripts_declare_mutations.rs::raid_reap_gate_names_its_mutation_and_is_strict"
+    if_fails: "The reaper gate could be a printer and nothing would say so"
+
 qa_gate:
   id: F-DF-001
   name: "forjar-dogfood v1 — the standing gates"

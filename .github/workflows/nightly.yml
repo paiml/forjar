@@ -81,6 +81,19 @@ jobs:
           bash scripts/lint/roadmap-lint-test.sh
           bash scripts/lint/roadmap-lint.sh
 
+  # ── RAID-REAP reaper gate (paiml/infra#5264 Phase C) ─────────────────
+  # LAB lane: nightly only, nothing `needs` it, so it blocks no merge and no release.
+  # The fixture suite builds throwaway trees and git repos under mktemp and never
+  # touches a real /mnt/nvme-raid0 path. A red here is the reaper's own defect.
+  raid-reap-test:
+    timeout-minutes: 15
+    runs-on: [self-hosted, clean-room, X64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Reaper fixture suite (red on every bad fixture, red on mutants)
+        run: bash scripts/raid-reap/test-reap.sh
+
   # ── Build release binaries (7 targets, native runners) ───
   build:
     timeout-minutes: 120
@@ -90,20 +103,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # forjar#1236: the Linux legs are pinned to the bare-metal `intel` runners
+          # (the pin coverage.yml carries, forjar#598). `[self-hosted, clean-room, X64]`
+          # also matches tier2/container runners with no docker socket (cross) and no
+          # sudo (musl-tools); one red leg skips `release` and the `nightly` tag goes stale.
           - target: x86_64-unknown-linux-gnu
-            runner: [self-hosted, clean-room, X64]
+            runner: [self-hosted, clean-room, X64, intel]
           # forjar#624: the gnu legs build on the fleet host (glibc 2.39) and do not
           # run on lambda (glibc 2.35). release.yml already ships static musl for
           # both arches, and fleet-bins installs those; the nightly ships them too.
           - target: x86_64-unknown-linux-musl
-            runner: [self-hosted, clean-room, X64]
+            runner: [self-hosted, clean-room, X64, intel]
           - target: aarch64-unknown-linux-musl
-            runner: [self-hosted, clean-room, X64]
+            runner: [self-hosted, clean-room, X64, intel]
           - target: aarch64-unknown-linux-gnu
             # PMAT-547: was ubuntu-24.04-arm. release.yml already builds this
             # same target on the fleet, so the native-ARM hosted runner buys
             # nothing this repository is allowed to spend.
-            runner: [self-hosted, clean-room, X64]
+            runner: [self-hosted, clean-room, X64, intel]
           # The darwin legs build on the fleet's self-hosted mac (mini). This
           # workflow runs only on schedule and workflow_dispatch, never on a pull
           # request, so no fork code reaches that host.
@@ -186,7 +203,17 @@ jobs:
           fi
           case "${{ matrix.target }}" in
             aarch64-unknown-linux-*)
-              cross build --release --features vendored-openssl --target "${{ matrix.target }}"
+              # forjar#1236: docker exits 125 when its daemon fails before the build
+              # starts (`lease does not exist`); retry that once, never a build failure.
+              rc=0
+              cross build --release --features vendored-openssl --target "${{ matrix.target }}" || rc=$?
+              if [ "$rc" = 125 ]; then
+                echo "::warning::docker daemon error (exit 125); retrying cross build once"
+                sleep 20
+                cross build --release --features vendored-openssl --target "${{ matrix.target }}"
+              elif [ "$rc" != 0 ]; then
+                exit "$rc"
+              fi
               ;;
             *)
               cargo build --release --features vendored-openssl --target "${{ matrix.target }}"

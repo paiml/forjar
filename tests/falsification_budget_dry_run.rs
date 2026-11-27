@@ -71,6 +71,8 @@ fn under_pressure(tag: &str) -> (PathBuf, PathBuf, PathBuf, forjar::core::types:
             roots: vec![root.join("src").to_string_lossy().into_owned()],
             kind: ReclaimKind::CargoTarget,
             min_idle_minutes: 60,
+            max_age: None,
+            idle_days: None,
         }],
     );
     (root, bin, target, res)

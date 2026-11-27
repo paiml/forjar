@@ -1,0 +1,51 @@
+# RAID-REAP Phase C: the reaper declaration for the RAID array (paiml/infra#5264).
+#
+# Rules run in declaration order, most disposable first:
+#   1. build output idle >= 3 d            (cargo_target, R2)
+#   2. tmp entries untouched >= 14 d       (ttl_tree, R1; deliverables are kept)
+#   3. clean, pushed worktrees idle >= 7 d (abandoned_worktree, R3)
+#
+# Dry-run by default: the reaper only deletes under FORJAR_BUDGET_EXECUTE=1,
+# which the systemd unit grants. Preview the generated reaper without touching
+# the host:
+#   cargo run --example emit_budget_reaper -- examples/raid-reap.yaml raid-reap
+#
+# Pinned by tests/falsification_raid_reap.rs.
+version: "1.0"
+name: raid-reap
+description: "RAID-REAP: watermark reaper for /mnt/nvme-raid0 (70% alarm, 35% target)"
+
+machines:
+  raid-host:
+    hostname: raid-host
+    addr: 127.0.0.1
+    user: noah
+
+resources:
+  raid-reap:
+    type: disk_budget
+    machine: raid-host
+    path: /mnt/nvme-raid0
+    budget_high_watermark_pct: 70
+    budget_target_free_pct: 35
+    budget_schedule: hourly
+    budget_reclaim:
+      - name: build-out
+        kind: cargo_target
+        roots:
+          - /mnt/nvme-raid0/tmp
+          - /mnt/nvme-raid0/build
+        min_idle_minutes: 4320
+      - name: tmp-ttl
+        kind: ttl_tree
+        roots:
+          - /mnt/nvme-raid0/tmp
+        max_age: 14d
+        min_idle_minutes: 60
+      - name: worktrees
+        kind: abandoned_worktree
+        roots:
+          - /mnt/nvme-raid0/wt
+          - /mnt/nvme-raid0/agent-wt
+          - /mnt/nvme-raid0/worktrees
+        idle_days: 7

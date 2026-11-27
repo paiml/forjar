@@ -1,0 +1,425 @@
+//! Generated-script tests: the box phases run for real under `sh` against a stateful
+//! fake `docker`/`aws`/`zstd`; the controller phases run against a fake `aws`/`gh`
+//! (the controller runtime tests live in [`tests_script_ctl`](super::tests_script_ctl)).
+
+use super::tests::{res, ID};
+use super::*;
+use std::os::unix::fs::PermissionsExt;
+
+const DOCKER: &str = r#"#!/bin/sh
+d="$FAKE_DIR"; echo "docker $*" >> "$d/log"
+case "$1 $2" in
+  "image inspect") echo "$3" >> "$d/inspects"; [ -e "$d/loaded" ]; exit $?;;
+  "image ls") echo "sha256:deadbeef"; exit 0;;
+esac
+case "$1" in
+  load) cat >/dev/null; [ -e "$d/loadfail" ] && { echo "load boom" >&2; exit 1; }
+        [ -e "$d/quirk" ] || touch "$d/loaded"; echo "Loaded image ID: x"; exit 0;;
+  rm) rm -f "$d/run-$3"; exit 0;;
+  ps) for f in "$d"/run-*; do [ -e "$f" ] && echo "$f"; done; exit 0;;
+  logs) echo "runner log line"; exit 0;;
+  inspect) n=""; for a in "$@"; do n="$a"; done
+        [ -e "$d/run-$n" ] && [ ! -e "$d/never" ] && { echo true; exit 0; }; exit 1;;
+  run) [ -e "$d/runfail" ] && { echo "docker: Error response from daemon" >&2; exit 125; }
+       img=""; prev=""; for a in "$@"; do [ "$a" = sh ] && img="$prev"; prev="$a"; done
+       echo "$img" >> "$d/images"
+       n=""; p=""; for a in "$@"; do [ "$p" = --name ] && n="$a"; p="$a"; done
+       touch "$d/run-$n"; echo cid; exit 0;;
+esac
+exit 64
+"#;
+
+const AWS: &str = r#"#!/bin/sh
+d="$FAKE_DIR"; echo "aws $*" >> "$d/log"
+a="$*"; owner_ok() { case "$a" in *"Name=tag:Owner,Values=forjar-spot"*) return 0;; esac; return 1; }
+[ "$1 $2" = "s3 cp" ] && { [ -e "$d/fetchfail" ] && exit 1; printf 'tarcontent\n' > "$4"; exit 0; }
+case "$1 $2" in
+  "ec2 describe-instances") case "$*" in *client-token*) echo None;; *Price*) [ -e "$d/pricefail" ] && exit 254; owner_ok && cat "$d/prices" 2>/dev/null;; *) [ -e "$d/livefail" ] && exit 254; [ -e "$d/readbackfail" ] && [ -e "$d/terminated" ] && exit 254; owner_ok && cat "$d/live" 2>/dev/null;; esac; exit 0;;
+  "ec2 run-instances") [ -e "$d/nocap" ] && { echo "An error occurred (InsufficientInstanceCapacity)" >&2; exit 254; }; echo i-launched; exit 0;;
+  "ec2 describe-spot-instance-requests") owner_ok && cat "$d/spotreqs" 2>/dev/null; exit 0;;
+  "ec2 terminate-instances") touch "$d/terminated"; [ -e "$d/terminatenoop" ] || rm -f "$d/live"; exit 0;;
+  "ssm send-command") [ -e "$d/shipfail" ] && exit 1; echo cmd-1; exit 0;;
+  "ssm wait") [ -e "$d/ssmwaitfail" ] && exit 1; exit 0;;
+esac
+exit 0
+"#;
+
+/// Fake `gh`: runner list (TSV in `runners.tsv`), DELETE records the id in `deleted`,
+/// JIT mint echoes `jit:<name>`, runner-group lookup answers `7`.
+const GH: &str = r#"#!/bin/sh
+d="$FAKE_DIR"; echo "gh $*" >> "$d/log"
+case "$*" in
+  *"-X DELETE"*) echo "${*##*/runners/}" >> "$d/deleted"; exit 0;;
+  *generate-jitconfig*) for a in "$@"; do case "$a" in name=*) n="${a#name=}";; esac; done; echo "jit:$n"; exit 0;;
+  *runner-groups*) echo 7; exit 0;;
+  *runners*) cat "$d/runners.tsv" 2>/dev/null; exit 0;;
+esac
+exit 0
+"#;
+
+pub(super) struct Box_ {
+    dir: tempfile::TempDir,
+}
+
+fn exe(p: &std::path::Path, body: &str) {
+    std::fs::write(p, body).unwrap();
+    std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+impl Box_ {
+    pub(super) fn new() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        exe(&bin.join("docker"), DOCKER);
+        exe(&bin.join("aws"), AWS);
+        exe(&bin.join("gh"), GH);
+        exe(&bin.join("zstd"), "#!/bin/sh\ncat \"$2\"\n");
+        Self { dir }
+    }
+    pub(super) fn p(&self, n: &str) -> std::path::PathBuf {
+        self.dir.path().join(n)
+    }
+    pub(super) fn touch(&self, n: &str) {
+        std::fs::write(self.p(n), "").unwrap();
+    }
+    /// A resource whose pin file lives in the fake dir and matches the fake tar.
+    pub(super) fn res(&self, phase: &str) -> Resource {
+        let real = String::from_utf8(
+            std::process::Command::new("sh")
+                .arg("-c")
+                .arg("printf 'tarcontent\\n' | sha256sum | cut -d' ' -f1")
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+        let pin = format!(
+            "image\tid\t{ID}\nimage\ttar_sha256\t{}\nimage\ts3_key\timage/x.tar.zst\n",
+            real.trim()
+        );
+        std::fs::write(self.p("pin.tsv"), pin).unwrap();
+        let mut r = res();
+        r.spot.phase = Some(phase.into());
+        r.spot.pin_file = Some(self.p("pin.tsv").display().to_string());
+        r.spot.jit_source = Some(format!("dir:{}", self.p("jit").display()));
+        r
+    }
+    pub(super) fn run(&self, script: &str) -> (i32, String) {
+        let path = format!(
+            "{}:{}",
+            self.p("bin").display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        let o = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .env("PATH", path)
+            .env("FAKE_DIR", self.dir.path())
+            .env("FORJAR_SPOT_LOG", self.p("spot.log"))
+            .env("FORJAR_SPOT_WORK", self.p("work"))
+            .env("FORJAR_SPOT_SEATLOGS", self.p("seatlogs"))
+            .env("FORJAR_SPOT_WAIT", "2")
+            .env("FORJAR_SPOT_POLL", "1")
+            .output()
+            .unwrap();
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&o.stdout),
+            String::from_utf8_lossy(&o.stderr)
+        );
+        (o.status.code().unwrap_or(-1), text)
+    }
+    pub(super) fn log(&self) -> String {
+        std::fs::read_to_string(self.p("log")).unwrap_or_default()
+    }
+    fn spot_log(&self) -> String {
+        std::fs::read_to_string(self.p("spot.log")).unwrap_or_default()
+    }
+}
+
+#[test]
+fn image_load_loads_the_pinned_image_from_the_pin() {
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("image-load")));
+    assert_eq!(rc, 0, "{out}");
+    assert!(b.spot_log().contains(&format!("image-loaded:{ID}")));
+    assert!(b.log().contains("s3 cp s3://img-bucket/image/x.tar.zst"));
+    // every `docker image inspect` names the pinned id, never a tag
+    let inspected = std::fs::read_to_string(b.p("inspects")).unwrap_or_default();
+    assert!(
+        !inspected.is_empty() && inspected.lines().all(|l| l == ID),
+        "{inspected}"
+    );
+    // second apply: already present, no fetch
+    let before = b.log().matches("s3 cp").count();
+    let (rc, _) = b.run(&apply_script(&b.res("image-load")));
+    assert_eq!(rc, 0);
+    assert_eq!(b.log().matches("s3 cp").count(), before);
+}
+
+#[test]
+fn image_missing_after_load_is_non_zero_with_a_log_line() {
+    let b = Box_::new();
+    b.touch("quirk");
+    let (rc, out) = b.run(&apply_script(&b.res("image-load")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("image-missing:"), "{out}");
+    assert!(b.spot_log().contains("image-missing:"));
+    assert!(b.log().contains("docker image ls -a"), "uses image ls -a");
+}
+
+#[test]
+fn bad_sha_fetch_and_load_failures_are_non_zero() {
+    let b = Box_::new();
+    let mut r = b.res("image-load");
+    r.spot.pin_file = Some(b.p("pin.tsv").display().to_string());
+    // rewrite the sha to a wrong-but-valid value
+    let bad = format!(
+        "image\tid\t{ID}\nimage\ttar_sha256\t{}\nimage\ts3_key\timage/x.tar.zst\n",
+        "a".repeat(64)
+    );
+    std::fs::write(b.p("pin.tsv"), bad).unwrap();
+    let (rc, out) = b.run(&apply_script(&r));
+    assert_ne!(rc, 0);
+    assert!(out.contains("image-sha256-mismatch"), "{out}");
+
+    let b = Box_::new();
+    b.touch("fetchfail");
+    let (rc, out) = b.run(&apply_script(&b.res("image-load")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("image-fetch-failed"), "{out}");
+
+    let b = Box_::new();
+    b.touch("loadfail");
+    let (rc, out) = b.run(&apply_script(&b.res("image-load")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("image-load-failed"), "{out}");
+}
+
+#[test]
+fn unreadable_pin_is_refused_non_zero() {
+    let b = Box_::new();
+    let mut r = b.res("image-load");
+    r.spot.pin_file = Some("/nonexistent/pin.tsv".into());
+    let (rc, out) = b.run(&apply_script(&r));
+    assert_ne!(rc, 0);
+    assert!(out.contains("REFUSED"), "{out}");
+}
+
+#[test]
+fn no_script_spells_a_digest_but_the_pin_one() {
+    let b = Box_::new();
+    let s = apply_script(&b.res("image-load"));
+    assert_eq!(s.matches("sha256:").count(), s.matches(ID).count());
+    assert!(!apply_script(&b.res("launch")).contains("sha256:"));
+}
+
+pub(super) fn jits(b: &Box_) {
+    std::fs::create_dir_all(b.p("jit")).unwrap();
+    for n in ["seat-forjar-spot-01", "seat-forjar-spot-02"] {
+        std::fs::write(b.p("jit").join(format!("{n}.jit")), "jitconfig").unwrap();
+    }
+}
+
+#[test]
+fn seat_start_runs_one_container_per_jit_and_logs_each() {
+    let b = Box_::new();
+    b.touch("loaded");
+    jits(&b);
+    // no seat running yet: the check must say so
+    let (pre, _) = b.run(&check_script(&b.res("seat-start")));
+    assert_ne!(pre, 0);
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_eq!(rc, 0, "{out}");
+    assert_eq!(b.log().matches("docker run -d").count(), 2);
+    assert!(b.p("seatlogs/seat-forjar-spot-01.log").exists());
+    assert!(b.p("seatlogs/seat-forjar-spot-02.log").exists());
+    // both seats now show as running containers: the check passes
+    let (rc, out) = b.run(&check_script(&b.res("seat-start")));
+    assert_eq!(rc, 0, "{out}");
+}
+
+#[test]
+fn seat_start_runs_the_pinned_image_id_not_a_digest() {
+    let b = Box_::new();
+    b.touch("loaded");
+    jits(&b);
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_eq!(rc, 0, "{out}");
+    // the image is inspected by its pinned id before any run
+    let inspected = std::fs::read_to_string(b.p("inspects")).unwrap_or_default();
+    assert!(
+        !inspected.is_empty() && inspected.lines().all(|l| l == ID),
+        "{inspected}"
+    );
+    // the fake docker records the image argument of every `docker run`
+    assert_eq!(
+        std::fs::read_to_string(b.p("images")).unwrap(),
+        format!("{ID}\n{ID}\n")
+    );
+}
+
+#[test]
+fn seat_that_never_reaches_running_is_non_zero_with_log() {
+    let b = Box_::new();
+    b.touch("loaded");
+    b.touch("never");
+    jits(&b);
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_ne!(rc, 0);
+    assert!(
+        out.contains("seat-never-running:seat-forjar-spot-01"),
+        "{out}"
+    );
+    assert!(
+        std::fs::read_to_string(b.p("seatlogs/seat-forjar-spot-01.log"))
+            .unwrap()
+            .contains("runner log line")
+    );
+}
+
+#[test]
+fn docker_run_failure_is_kept_in_the_seat_log() {
+    let b = Box_::new();
+    b.touch("loaded");
+    b.touch("runfail");
+    jits(&b);
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("seat-docker-run-failed"), "{out}");
+    assert!(
+        std::fs::read_to_string(b.p("seatlogs/seat-forjar-spot-01.log"))
+            .unwrap()
+            .contains("Error response")
+    );
+}
+
+#[test]
+fn seat_start_without_image_or_jit_fails() {
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("seat-image-missing"), "{out}");
+    b.touch("loaded");
+    let (rc, out) = b.run(&apply_script(&b.res("seat-start")));
+    assert_ne!(rc, 0);
+    assert!(out.contains("seat-jit-missing"), "{out}");
+}
+
+#[test]
+fn launch_refuses_over_box_cap_with_exit_3_and_never_runs() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\ti-2\n").unwrap();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 3, "{out}");
+    assert!(!b.log().contains("run-instances"));
+}
+
+#[test]
+fn launch_refuses_over_usd_cap_and_launches_spot_otherwise() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    std::fs::write(b.p("prices"), "0.6\n").unwrap();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 3, "{out}");
+    let b = Box_::new();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains("launched i-launched"));
+    let l = b.log();
+    assert!(
+        l.contains("MarketType=spot")
+            && l.contains("one-time")
+            && l.contains("Key=Owner,Value=forjar-spot")
+    );
+    assert!(!l.contains("on-demand"));
+}
+
+#[test]
+fn launch_usd_cap_refusal_names_the_cap_and_never_runs_instances() {
+    let b = Box_::new();
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    std::fs::write(b.p("prices"), "0.6\n").unwrap();
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 3, "{out}");
+    assert!(out.contains("spot_max_usd_per_hour"), "{out}");
+    assert!(!b.log().contains("run-instances"), "{}", b.log());
+}
+
+#[test]
+fn launch_with_no_capacity_exits_75() {
+    let b = Box_::new();
+    b.touch("nocap");
+    let (rc, out) = b.run(&apply_script(&b.res("launch")));
+    assert_eq!(rc, 75, "{out}");
+    assert_eq!(b.log().matches("run-instances").count(), 2);
+}
+
+#[test]
+fn teardown_script_orders_evidence_before_terminate_and_reads_back() {
+    let b = Box_::new();
+    let s = apply_script(&b.res("teardown"));
+    let ship = s.find("send-command").unwrap();
+    let cancel = s.find("cancel-spot-instance-requests").unwrap();
+    let term = s.find("terminate-instances").unwrap();
+    assert!(ship < cancel && cancel < term);
+    assert!(s.contains("state shows") && s.contains("s3://evidence-bucket/spot/"));
+    let (rc, out) = b.run(&s);
+    assert_eq!(rc, 0, "{out}");
+    assert!(out.contains("state shows 0"));
+}
+
+#[test]
+fn teardown_without_evidence_dest_is_refused() {
+    let b = Box_::new();
+    let mut r = b.res("teardown");
+    r.spot.evidence_dest = Some("https://x".into());
+    assert!(apply_script(&r).contains("REFUSED"));
+}
+
+#[test]
+fn register_script_deregisters_stale_and_mints_jit() {
+    let b = Box_::new();
+    let s = apply_script(&b.res("register"));
+    for needle in [
+        "-X DELETE",
+        "generate-jitconfig",
+        "labels[]=self-hosted",
+        "labels[]=tier2",
+        "runner-groups",
+        "umask 077",
+    ] {
+        assert!(s.contains(needle), "missing {needle}");
+    }
+}
+
+#[test]
+fn check_and_state_scripts_cover_every_phase() {
+    let b = Box_::new();
+    for p in ["launch", "image-load", "seat-start", "register", "teardown"] {
+        let r = b.res(p);
+        assert!(!check_script(&r).contains("REFUSED"), "{p}");
+        assert!(!state_query_script(&r).contains("REFUSED"), "{p}");
+    }
+    b.touch("loaded");
+    let (rc, _) = b.run(&check_script(&b.res("image-load")));
+    assert_eq!(rc, 0);
+    let (rc, _) = b.run(&check_script(&b.res("teardown")));
+    assert_eq!(rc, 0);
+    std::fs::write(b.p("live"), "i-1\n").unwrap();
+    let (rc, _) = b.run(&check_script(&b.res("teardown")));
+    assert_ne!(rc, 0);
+    let (rc, out) = b.run(&state_query_script(&b.res("launch")));
+    assert_eq!(rc, 0);
+    assert!(out.contains("boxes=1"), "{out}");
+}
+
+#[test]
+fn invalid_declaration_script_is_a_refusal() {
+    let mut r = res();
+    r.spot.market = Some("on-demand".into());
+    for s in [apply_script(&r), check_script(&r), state_query_script(&r)] {
+        assert!(s.contains("REFUSED") && s.contains("exit 1"));
+    }
+}

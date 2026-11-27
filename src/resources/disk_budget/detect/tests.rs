@@ -129,6 +129,7 @@ fn every_kind_has_a_detector_definition() {
         ReclaimKind::ClaudeScratchpad,
         ReclaimKind::AbandonedWorktree,
         ReclaimKind::Glob,
+        ReclaimKind::TtlTree,
     ] {
         assert!(
             all.contains(&format!("{}()", fn_name(k))),

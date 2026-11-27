@@ -201,6 +201,7 @@ jobs:
           --test falsification_io_hash_answers_for_its_machine \
           --test falsification_budget_dry_run \
           --test falsification_ci_wires_the_858_falsifiers \
+          --test falsification_nightly_linux_legs_need_docker_and_sudo \
           --test falsification_ci_light_jobs_are_hardened
       # The LIVE half of that falsifier (real sudo, required, not skippable) runs
       # nightly in nightly.yml `arm64-smoke`: the X64 spot seats this job runs on
