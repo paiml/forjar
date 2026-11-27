@@ -3,7 +3,7 @@
 //! client-token lookups are scripted by files in the sandbox.
 
 use super::launch_io::{day_of, token_input, token_on, CAPACITY_EXIT};
-use super::tests::{gated, install_tool, res, Sandbox};
+use super::tests::{gated, install_tool, res, Sandbox, SPAWN_GATE};
 use super::*;
 
 pub(super) const ID: &str = "i-0123456789abcdef0";
@@ -122,6 +122,7 @@ pub(super) fn iso(ago: u64) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
+    let _gate = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
     let o = std::process::Command::new("date")
         .args([
             "-u",
@@ -141,6 +142,7 @@ pub(super) fn rep(id: &str) -> String {
 
 /// `first 64 hex of sha256(a + b)` through the same tools the script uses.
 pub(super) fn next_token(a: &str, b: &str) -> String {
+    let _gate = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
     let o = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(

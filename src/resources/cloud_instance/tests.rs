@@ -83,13 +83,23 @@ case "$*" in
 esac
 "#;
 
+/// Serialises a fake tool's write-then-exec window against the spawns in the
+/// cloud_instance tests (`Sandbox::run_with`, `iso`, `next_token`).
+pub(super) static SPAWN_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
 /// Write an executable fake tool and prove it execs before any test uses it.
 /// A fork in another test thread can inherit the write fd of the file just
 /// written; exec then fails with ETXTBSY until that child execs. The window
 /// closes once the write fd is gone, so retry the probe briefly and fail
 /// loudly if the tool stays busy. Assertions are unchanged; nothing is skipped.
+///
+/// The write-then-exec window runs under `SPAWN_GATE` (write side), and every
+/// spawn in these tests takes the read side, so none can fork while a fake
+/// tool's write fd is open (#1309: `Text file busy` under parallel
+/// test threads).
 pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
+    let _gate = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
     std::fs::write(path, body).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
     const ETXTBSY: i32 = 26;
@@ -107,6 +117,70 @@ pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
         }
     }
     panic!("{} stayed busy (ETXTBSY) through 50 probes", path.display());
+}
+
+/// Runs `job` on a worker thread while `guard` holds the gate. True if the job
+/// finished inside the window, which means the gate did not hold it.
+fn finishes_while_gated<G, F>(guard: G, job: F) -> bool
+where
+    F: FnOnce() + Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        job();
+        tx.send(()).unwrap();
+    });
+    let early = rx
+        .recv_timeout(std::time::Duration::from_millis(300))
+        .is_ok();
+    drop(guard);
+    worker.join().unwrap();
+    early
+}
+
+/// Falsifier for the gate (#1309). Each gated site must wait for the other side:
+/// `install_tool` (write) waits for a held read, and `Sandbox::run_with`, `iso`
+/// and `next_token` (read) wait for a held write. Removing any one of those lock
+/// lines makes this test fail. The userdata launch test's inline write is gated
+/// too, but this test does not cover it.
+#[test]
+fn spawns_and_installs_wait_for_the_gate() {
+    let install_sb = Sandbox::new();
+    let run_sb = Sandbox::new();
+    let path = install_sb.path().join("fake-tool");
+    let probe_dir = install_sb.path().to_path_buf();
+    let read = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(read, move || {
+            install_tool(&path, "#!/bin/sh\nexit 0\n", &probe_dir)
+        }),
+        "install_tool wrote while a spawn held the read side"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, move || {
+            run_sb.run("exit 0", "");
+        }),
+        "Sandbox::run_with spawned while a fake-tool write held the gate"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, || {
+            super::tests_launch::iso(0);
+        }),
+        "iso spawned while a fake-tool write held the gate"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, || {
+            super::tests_launch::next_token("a", "b");
+        }),
+        "next_token spawned while a fake-tool write held the gate"
+    );
+    assert!(
+        install_sb.path().join("fake-tool").exists(),
+        "the tool was installed once the spawn drained"
+    );
 }
 
 const TOOLS: [&str; 19] = [
@@ -205,6 +279,7 @@ impl Sandbox {
             std::fs::write(&fx, f).unwrap();
             cmd.env("STUB_FIXTURE", fx);
         }
+        let _gate = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
         let o = cmd.output().unwrap();
         let mut s = String::from_utf8_lossy(&o.stdout).into_owned();
         s.push_str(&String::from_utf8_lossy(&o.stderr));

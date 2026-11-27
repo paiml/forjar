@@ -325,11 +325,17 @@ mod tests {
         let wrap = format!(
             "#!/bin/sh\na=\"$*\"\ncase \"$a\" in\n*describe-instances*) echo '#!/bin/sh' > '{path}';;\n*run-instances*) f=\"${{a#*--user-data file://}}\"; cat \"${{f%% *}}\" > \"$STUB_LOG.ud\";;\nesac\nexec \"$(dirname \"$0\")/aws.real\" \"$@\"\n"
         );
-        std::fs::write(bin.join("aws"), wrap).unwrap();
-        std::process::Command::new("chmod")
-            .args(["755", bin.join("aws").to_str().unwrap()])
-            .status()
-            .unwrap();
+        {
+            // write-then-chmod is the fake tool's write window: hold the write side (#1309)
+            let _gate = crate::resources::cloud_instance::tests::SPAWN_GATE
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
+            std::fs::write(bin.join("aws"), wrap).unwrap();
+            std::process::Command::new("chmod")
+                .args(["755", bin.join("aws").to_str().unwrap()])
+                .status()
+                .unwrap();
+        }
         let (rc, out) = sb.run(&apply_script(&r), "");
         assert_eq!(rc, 0, "{out}");
         let sent = std::fs::read_to_string(sb.path().join("calls.log.ud")).unwrap();
