@@ -305,8 +305,6 @@ pub(crate) fn run(fx: &Fixture, script: &str, gh: &str) -> Run {
     run_env(fx, script, gh, &[])
 }
 
-/// The same run with extra environment — PMAT-540's `TRAILER_FLOOR` is set this
-/// way, so a case can move the floor without editing the script under test.
 /// The same run with `QUORUM_STORE` removed from the environment, not set
 /// empty: gate E must refuse as UNMEASURED for an unset variable.
 pub(crate) fn run_store_unset(fx: &Fixture, script: &str, gh: &str) -> Run {
@@ -325,6 +323,8 @@ pub(crate) fn run_store_unset(fx: &Fixture, script: &str, gh: &str) -> Run {
     }
 }
 
+/// The same run with extra environment — PMAT-540's `TRAILER_FLOOR` is set this
+/// way, so a case can move the floor without editing the script under test.
 pub(crate) fn run_env(fx: &Fixture, script: &str, gh: &str, env: &[(&str, &str)]) -> Run {
     let mut cmd = Command::new("bash");
     cmd.arg(fx.root.join(format!("scripts/dogfood/{script}")))
