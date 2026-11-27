@@ -118,6 +118,38 @@ pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
     panic!("{} stayed busy (ETXTBSY) through 50 probes", path.display());
 }
 
+/// Falsifier for the gate itself: `install_tool` must not write while a spawn
+/// holds the read side. Removing its `SPAWN_GATE.write()` line makes the
+/// install finish inside the window, and this test fails.
+#[test]
+fn install_tool_waits_for_spawns_to_drain() {
+    let sb = Sandbox::new();
+    let path = sb.path().join("fake-tool");
+    let probe_dir = sb.path().to_path_buf();
+    let held = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
+    let (tx, rx) = std::sync::mpsc::channel();
+    let worker = {
+        let path = path.clone();
+        std::thread::spawn(move || {
+            install_tool(&path, "#!/bin/sh\nexit 0\n", &probe_dir);
+            tx.send(()).unwrap();
+        })
+    };
+    let finished_during_spawn = rx
+        .recv_timeout(std::time::Duration::from_millis(300))
+        .is_ok();
+    drop(held);
+    worker.join().unwrap();
+    assert!(
+        !finished_during_spawn,
+        "install_tool wrote and probed while a spawn held the read side"
+    );
+    assert!(
+        path.exists(),
+        "the tool was installed once the spawn drained"
+    );
+}
+
 const TOOLS: [&str; 19] = [
     "mktemp",
     "sh",
