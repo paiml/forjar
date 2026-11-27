@@ -9,7 +9,7 @@
 #
 # Not covered here: a PASS, which needs a real store receipt and the store
 # gate committed at MERGE^1. That half is for CI and the clean-room run.
-# mutation: delete the dogfood_store_check call in quorum.sh, or AND it with `true`, and case 2 prints GATE E PASS with no store receipt.
+# mutation: delete the dogfood_store_check call in quorum.sh; case 2 then exits non-zero without the store=missing refusal, so this falsifier fails.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
