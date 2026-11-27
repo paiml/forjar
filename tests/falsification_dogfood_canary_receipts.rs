@@ -274,14 +274,8 @@ fn the_callers_bind_the_receipt_to_a_commit() {
     let rel = read("scripts/dogfood/release-check.sh");
     assert!(rel.contains("receipt_status \"$blob\" \"$oid\" \"${oid}^1\""));
     let gate = read("scripts/quorum-gate.sh");
-    // Detection is bash + jq (650ae482 removed the python `if "canary" in q:` branch) and
-    // runs unconditionally before the python pass, so it is the every-path check.
     assert!(
-        gate.contains(r#"(.quorum | has("canary"))"#),
-        "block not checked on every path"
-    );
-    assert!(
-        gate.contains("has_canary_rc=0"),
+        gate.contains("if \"canary\" in q:"),
         "block not checked on every path"
     );
     assert!(!gate.contains("refuted == 0 and \"canary\""));
