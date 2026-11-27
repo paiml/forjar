@@ -66,6 +66,8 @@ pub enum ResourceType {
     S3Bucket,
     /// #1266: one fleet AMI baked from a stock base (declaration only in slice 1).
     AmiBake,
+    /// forjar#1262: one EC2 spot box running GitHub runner seats from a pinned image.
+    Ec2SpotSeat,
 }
 
 impl fmt::Display for ResourceType {
@@ -96,6 +98,7 @@ impl fmt::Display for ResourceType {
             Self::CloudInstance => write!(f, "cloud_instance"),
             Self::S3Bucket => write!(f, "s3_bucket"),
             Self::AmiBake => write!(f, "ami_bake"),
+            Self::Ec2SpotSeat => write!(f, "ec2_spot_seat"),
         }
     }
 }
@@ -229,6 +232,7 @@ mod tests {
             (ResourceType::CloudInstance, "cloud_instance"),
             (ResourceType::S3Bucket, "s3_bucket"),
             (ResourceType::AmiBake, "ami_bake"),
+            (ResourceType::Ec2SpotSeat, "ec2_spot_seat"),
         ];
         for (variant, expected) in &cases {
             assert_eq!(variant.to_string(), *expected);

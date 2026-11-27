@@ -1,0 +1,109 @@
+# forjar#1262: one spot GitHub-runner seat box, managed only by forjar.
+# The image id, tar key and tar sha256 come ONLY from the pin file (paiml/infra
+# machines/fleet-image/fleet-image.tsv); no digest is written here.
+#
+# Order: launch (controller) -> image-load, register, seat-start (on the box)
+# -> teardown (controller; `state: absent`). A failed step exits non-zero and logs why.
+version: "1.0"
+name: spot-seat-sample
+
+machines:
+  controller:
+    hostname: controller
+    addr: 127.0.0.1
+  spot-box:
+    # filled in with the launched box's address (launch prints `launched <id>`)
+    hostname: spot-box
+    addr: 10.0.0.10
+    user: ubuntu
+
+resources:
+  spot-launch:
+    type: ec2_spot_seat
+    machine: controller
+    spot_phase: launch
+    spot_pin_file: machines/fleet-image/fleet-image.tsv
+    spot_pin_id_key: id
+    spot_pin_s3_key_key: s3_key
+    spot_image_bucket: paiml-fleet-image
+    spot_instance_types: [c6a.4xlarge, m6a.4xlarge]
+    spot_region: us-east-1
+    spot_az: us-east-1a
+    spot_subnet: subnet-0abc1234
+    spot_ami: ami-0123456789abcdef0
+    spot_ttl_min: 120
+    spot_seats: 2
+    spot_owner: forjar-spot
+    spot_max_boxes: 2
+    spot_max_usd_per_hour: 1.0
+    spot_price_usd_per_hour: 0.5
+    spot_market: spot
+    spot_runner_org: paiml
+    spot_runner_group: tier2
+    spot_runner_labels: [self-hosted, Linux, X64, tier2]
+    spot_jit_source: "dir:/run/forjar/spot-jit"
+    spot_evidence_dest: s3://paiml-fleet-evidence/spot
+
+  spot-register:
+    type: ec2_spot_seat
+    machine: controller
+    depends_on: [spot-launch]
+    spot_phase: register
+    spot_pin_file: machines/fleet-image/fleet-image.tsv
+    spot_instance_types: [c6a.4xlarge]
+    spot_region: us-east-1
+    spot_az: us-east-1a
+    spot_subnet: subnet-0abc1234
+    spot_ttl_min: 120
+    spot_seats: 2
+    spot_owner: forjar-spot
+    spot_max_boxes: 2
+    spot_max_usd_per_hour: 1.0
+    spot_price_usd_per_hour: 0.5
+    spot_runner_org: paiml
+    spot_runner_group: tier2
+    spot_runner_labels: [self-hosted, Linux, X64, tier2]
+    spot_jit_source: "dir:/run/forjar/spot-jit"
+
+  spot-image:
+    type: ec2_spot_seat
+    machine: spot-box
+    depends_on: [spot-launch]
+    spot_phase: image-load
+    spot_pin_file: machines/fleet-image/fleet-image.tsv
+    spot_image_bucket: paiml-fleet-image
+    spot_instance_types: [c6a.4xlarge]
+    spot_region: us-east-1
+    spot_az: us-east-1a
+    spot_subnet: subnet-0abc1234
+    spot_ttl_min: 120
+    spot_seats: 2
+    spot_owner: forjar-spot
+    spot_max_boxes: 2
+    spot_max_usd_per_hour: 1.0
+    spot_price_usd_per_hour: 0.5
+    spot_runner_org: paiml
+    spot_runner_group: tier2
+    spot_runner_labels: [self-hosted, Linux, X64, tier2]
+    spot_jit_source: "dir:/run/forjar/spot-jit"
+
+  spot-seats:
+    type: ec2_spot_seat
+    machine: spot-box
+    depends_on: [spot-image, spot-register]
+    spot_phase: seat-start
+    spot_pin_file: machines/fleet-image/fleet-image.tsv
+    spot_instance_types: [c6a.4xlarge]
+    spot_region: us-east-1
+    spot_az: us-east-1a
+    spot_subnet: subnet-0abc1234
+    spot_ttl_min: 120
+    spot_seats: 2
+    spot_owner: forjar-spot
+    spot_max_boxes: 2
+    spot_max_usd_per_hour: 1.0
+    spot_price_usd_per_hour: 0.5
+    spot_runner_org: paiml
+    spot_runner_group: tier2
+    spot_runner_labels: [self-hosted, Linux, X64, tier2]
+    spot_jit_source: "dir:/run/forjar/spot-jit"

@@ -42,6 +42,7 @@ impl ResourceType {
         Self::CloudInstance,
         Self::S3Bucket,
         Self::AmiBake,
+        Self::Ec2SpotSeat,
     ];
 }
 

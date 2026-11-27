@@ -85,7 +85,8 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
-        | ResourceType::AmiBake => handlers_fleet(resource_type),
+        | ResourceType::AmiBake
+        | ResourceType::Ec2SpotSeat => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
         ResourceType::Recipe => None,
@@ -128,6 +129,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
+        | ResourceType::Ec2SpotSeat
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -164,6 +166,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
         | ResourceType::AmiBake
+        | ResourceType::Ec2SpotSeat
         | ResourceType::Recipe => return None,
     };
     Some(row)
@@ -182,6 +185,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         ResourceType::TmpReaper => from_module!(resources::tmp_reaper),
         ResourceType::CloudInstance => from_module!(resources::cloud_instance),
         ResourceType::S3Bucket => from_module!(resources::s3_bucket),
+        ResourceType::Ec2SpotSeat => from_module!(resources::ec2_spot_seat),
 
         // Routed to a sibling group by `handlers`.
         ResourceType::Package

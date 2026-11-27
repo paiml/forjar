@@ -264,10 +264,9 @@ jobs:
           # release shipped without an x86_64 macOS binary while `create-release`
           # reported success and `checksums`/`dist-artifacts` silently skipped.
           #
-          # NOT `|| true`. The Linux branch swallows failure that way, so a
-          # missing target there would surface later as this same inscrutable
-          # `core` error rather than at the point of cause. A target that cannot
-          # be installed must fail here, loudly.
+          # NOT `|| true`: a swallowed failure would surface later as this same
+          # inscrutable `core` error rather than at the point of cause. A target
+          # that cannot be installed must fail here, loudly (as on Linux below).
           export PATH="$HOME/.cargo/bin:$PATH"
           rustup target add "${{ matrix.target }}"
           rustup target list --installed | grep -qx "${{ matrix.target }}" || {
@@ -288,7 +287,12 @@ jobs:
 
       - name: Install target on workspace-pinned toolchain (Linux)
         if: contains(matrix.target, 'linux')
-        run: rustup target add "${{ matrix.target }}"
+        run: |
+          rustup target add "${{ matrix.target }}"
+          rustup target list --installed | grep -qx "${{ matrix.target }}" || {
+            echo "::error::rustup reported success but ${{ matrix.target }} is not installed"
+            exit 1
+          }
 
       - name: Install target prerequisites (Linux)
         if: contains(matrix.target, 'linux')
@@ -299,7 +303,6 @@ jobs:
                 sudo apt-get -o DPkg::Lock::Timeout=600 update -qq
                 sudo apt-get -o DPkg::Lock::Timeout=600 install -y -qq musl-tools >/dev/null
               fi
-              rustup target add "${{ matrix.target }}" || true
               ;;
           esac
           case "${{ matrix.target }}" in
