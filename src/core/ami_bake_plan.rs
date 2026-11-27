@@ -146,8 +146,8 @@ fn is_bad_image_path(path: &str) -> bool {
 }
 
 fn is_secret_file(path: &str) -> bool {
-    // Windows separators and trailing slashes must not hide the basename.
-    let norm = path.replace('\\', "/");
+    // Windows separators, trailing slashes and trailing whitespace must not hide the basename.
+    let norm = path.trim().replace('\\', "/");
     let norm = norm.trim_end_matches('/');
     let name = norm.rsplit('/').next().unwrap_or(norm).to_ascii_lowercase();
     name == ".env"
@@ -157,6 +157,8 @@ fn is_secret_file(path: &str) -> bool {
         || name.ends_with(".key")
         || name.starts_with("id_rsa")
         || name.starts_with("id_ed25519")
+        || name.starts_with("id_ecdsa")
+        || name.starts_with("id_dsa")
 }
 
 /// Plan one bake. Refuses a declaration missing a required field or carrying
@@ -237,16 +239,32 @@ pub const SECRET_SCAN_ROOTS: &[&str] = &["/root", "/home", "/opt", "/tmp", "/var
 /// What one run has established so far.
 #[derive(Default)]
 struct BakeRun {
+    /// True only while nothing has written to the builder since the last screen.
     screened: bool,
+    /// The stock base the builder was launched from: never a cleanup victim.
+    base: Option<String>,
+    /// The region the image was registered in: the only region cleanup may touch.
+    region: Option<String>,
     registered: Option<String>,
 }
 
 impl BakeRun {
     fn step(&mut self, step: &BakeStep, backend: &mut dyn BakeBackend) -> Result<(), BakeFailure> {
         match step {
-            BakeStep::LaunchSpot { base, region } => backend.launch_spot(base, region),
-            BakeStep::Bootstrap => backend.bootstrap(),
-            BakeStep::LoadImage { file } => backend.load_image(file),
+            BakeStep::LaunchSpot { base, region } => {
+                self.screened = false;
+                backend.launch_spot(base, region)?;
+                self.base = Some(base.clone());
+                Ok(())
+            }
+            BakeStep::Bootstrap => {
+                self.screened = false;
+                backend.bootstrap()
+            }
+            BakeStep::LoadImage { file } => {
+                self.screened = false;
+                backend.load_image(file)
+            }
             BakeStep::VerifyNoSecrets => self.verify_no_secrets(backend),
             BakeStep::StopBuilder => backend.stop_builder(),
             BakeStep::RegisterImage {
@@ -260,10 +278,11 @@ impl BakeRun {
 
     fn verify_no_secrets(&mut self, backend: &mut dyn BakeBackend) -> Result<(), BakeFailure> {
         let files = backend.builder_files(SECRET_SCAN_ROOTS)?;
-        let found: Vec<&str> = files
+        let found: Vec<String> = files
             .iter()
             .map(String::as_str)
             .filter(|p| is_secret_file(p))
+            .map(|p| p.escape_debug().to_string())
             .collect();
         if !found.is_empty() {
             return Err(BakeFailure(format!(
@@ -286,6 +305,12 @@ impl BakeRun {
                 "ami_bake: the builder was not screened for secrets".into(),
             ));
         }
+        if !is_region(region) {
+            return Err(BakeFailure(format!(
+                "ami_bake: region '{}' has no region shape",
+                region.escape_debug()
+            )));
+        }
         let tags = register_tags(fleet_digest).map_err(|e| BakeFailure(e.to_string()))?;
         let ami_id = backend.register_image(region, &tags)?;
         if !is_ami_id(&ami_id) {
@@ -294,23 +319,36 @@ impl BakeRun {
                 ami_id.escape_debug()
             )));
         }
+        self.region = Some(region.to_string());
         self.registered = Some(ami_id);
         Ok(())
     }
 
-    /// Deregister the victims, never the image this run just registered.
+    /// Deregister the victims in the registered region, never the image this
+    /// run just registered, and never the stock base it was launched from.
     fn cleanup(
         &self,
         backend: &mut dyn BakeBackend,
         region: &str,
         keep_last: u32,
     ) -> Result<(), BakeFailure> {
+        let Some(registered_in) = self.region.as_deref() else {
+            return Err(BakeFailure(
+                "ami_bake: cleanup before any image was registered".into(),
+            ));
+        };
+        if !is_region(region) || region != registered_in {
+            return Err(BakeFailure(format!(
+                "ami_bake: cleanup region '{}' is not the registered region",
+                region.escape_debug()
+            )));
+        }
         let images = backend.list_images(region)?;
         let victims =
             cleanup_victims(&images, keep_last).map_err(|e| BakeFailure(e.to_string()))?;
         for ami_id in victims
             .iter()
-            .filter(|id| self.registered.as_ref() != Some(*id))
+            .filter(|id| self.registered.as_ref() != Some(*id) && self.base.as_ref() != Some(*id))
         {
             backend.deregister_image(region, ami_id)?;
         }
@@ -395,12 +433,17 @@ pub fn cleanup_victims(
         .iter()
         .filter(|i| i.kind.as_deref() == Some(KIND_VALUE))
         .filter(|i| i.fleet_digest.as_deref().is_some_and(is_fleet_digest))
+        .filter(|i| is_ami_id(&i.ami_id))
         .collect();
     bakes.sort_by(|a, b| {
         b.created
             .cmp(&a.created)
             .then_with(|| a.ami_id.cmp(&b.ami_id))
     });
+    // A listing may repeat an image (paginated results): count each id once,
+    // so a duplicate of the kept image is never a victim.
+    let mut seen = std::collections::BTreeSet::new();
+    bakes.retain(|i| seen.insert(i.ami_id.as_str()));
     Ok(bakes
         .into_iter()
         .skip(keep_last as usize)

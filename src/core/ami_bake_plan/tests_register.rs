@@ -14,6 +14,7 @@ fn spec() -> AmiBakeSpec {
 }
 
 const NEW_AMI: &str = "ami-0000000000000000f";
+const OLD_AMI: &str = "ami-00000000000000100";
 
 fn old(id: &str, created: u64) -> BakedImage {
     BakedImage {
@@ -111,13 +112,17 @@ fn a_secret_on_the_builder_blocks_registration() {
         "/opt/runner/.credentials",
         "/home/ubuntu/app/.env",
         "/tmp/deploy.pem",
+        "/root/.ssh/id_ecdsa",
+        "/root/.ssh/id_dsa",
+        "/tmp/.env\n",
     ] {
         let mut c = Cloud {
             files: vec!["/opt/runner/run.sh".into(), path.into()],
             ..Default::default()
         };
         let err = bake(&mut c).unwrap_err();
-        assert!(err.1.contains(path), "{}", err.1);
+        let shown = path.escape_debug().to_string();
+        assert!(err.1.contains(&shown), "{}", err.1);
         assert!(!c.registered, "{path} was baked");
         assert!(c.terminated, "{path} leaked the builder");
     }
@@ -145,18 +150,21 @@ fn a_plan_without_the_secret_screen_is_never_registered() {
 #[test]
 fn cleanup_deregisters_only_the_victims_in_the_declared_region() {
     let mut c = Cloud {
-        images: vec![old(NEW_AMI, 300), old("ami-old", 100)],
+        images: vec![old(NEW_AMI, 300), old("ami-00000000000000101", 100)],
         ..Default::default()
     };
     bake(&mut c).unwrap();
-    assert_eq!(c.deregistered, [("us-east-1".into(), "ami-old".into())]);
+    assert_eq!(
+        c.deregistered,
+        [("us-east-1".into(), "ami-00000000000000101".into())]
+    );
 }
 
 #[test]
 fn cleanup_never_deregisters_the_image_just_registered() {
     // A listing with a skewed creation time must not cost the new image.
     let mut c = Cloud {
-        images: vec![old(NEW_AMI, 1), old("ami-old", 100)],
+        images: vec![old(NEW_AMI, 1), old("ami-00000000000000101", 100)],
         ..Default::default()
     };
     bake(&mut c).unwrap();
@@ -172,7 +180,7 @@ fn keep_last_zero_in_a_hand_built_plan_deregisters_nothing() {
         }
     }
     let mut c = Cloud {
-        images: vec![old("ami-old", 100)],
+        images: vec![old("ami-00000000000000101", 100)],
         ..Default::default()
     };
     assert!(run_bake(&steps, &mut c).is_err());
@@ -183,10 +191,97 @@ fn keep_last_zero_in_a_hand_built_plan_deregisters_nothing() {
 fn a_register_that_returns_no_ami_id_fails_before_cleanup() {
     let mut c = Cloud {
         returned_id: Some(String::new()),
-        images: vec![old("ami-old", 100), old("ami-older", 50)],
+        images: vec![
+            old("ami-00000000000000101", 100),
+            old("ami-00000000000000102", 50),
+        ],
         ..Default::default()
     };
     assert!(bake(&mut c).is_err());
     assert!(c.deregistered.is_empty());
     assert!(c.terminated);
+}
+
+#[test]
+fn a_step_that_writes_to_the_builder_after_the_screen_blocks_registration() {
+    // Bootstrap runs after the screen, so the screen no longer covers the disk.
+    let mut steps = plan_bake(&spec()).unwrap();
+    steps.retain(|s| *s != BakeStep::VerifyNoSecrets);
+    steps.insert(1, BakeStep::VerifyNoSecrets);
+    let mut c = Cloud::default();
+    assert!(run_bake(&steps, &mut c).is_err());
+    assert!(!c.registered);
+}
+
+#[test]
+fn a_secret_path_is_escaped_in_the_failure_message() {
+    // A trailing newline must not hide the secret, and must not forge a log line.
+    let mut c = Cloud {
+        files: vec!["/tmp/.env\n".into()],
+        ..Default::default()
+    };
+    let err = bake(&mut c).unwrap_err();
+    assert!(err.1.contains("/tmp/.env\\n"), "{}", err.1);
+    assert!(!err.1.contains('\n'), "{:?}", err.1);
+    assert!(!c.registered);
+}
+
+#[test]
+fn cleanup_refuses_a_region_other_than_the_registered_one() {
+    let mut steps = plan_bake(&spec()).unwrap();
+    for s in &mut steps {
+        if let BakeStep::CleanupOld { region, .. } = s {
+            *region = "eu-west-1".into();
+        }
+    }
+    let mut c = Cloud {
+        images: vec![old(NEW_AMI, 300), old(OLD_AMI, 100)],
+        ..Default::default()
+    };
+    assert!(run_bake(&steps, &mut c).is_err());
+    assert!(c.deregistered.is_empty());
+}
+
+#[test]
+fn a_bad_region_in_a_hand_built_plan_is_never_registered_or_cleaned() {
+    let mut steps = plan_bake(&spec()).unwrap();
+    for s in &mut steps {
+        match s {
+            BakeStep::RegisterImage { region, .. } | BakeStep::CleanupOld { region, .. } => {
+                *region = String::new();
+            }
+            _ => {}
+        }
+    }
+    let mut c = Cloud {
+        images: vec![old(OLD_AMI, 100)],
+        ..Default::default()
+    };
+    assert!(run_bake(&steps, &mut c).is_err());
+    assert!(!c.registered);
+    assert!(c.deregistered.is_empty());
+}
+
+#[test]
+fn cleanup_refuses_to_run_before_any_registration() {
+    let mut steps = plan_bake(&spec()).unwrap();
+    steps.retain(|s| !matches!(s, BakeStep::RegisterImage { .. }));
+    let mut c = Cloud {
+        images: vec![old(OLD_AMI, 100)],
+        ..Default::default()
+    };
+    assert!(run_bake(&steps, &mut c).is_err());
+    assert!(c.deregistered.is_empty());
+}
+
+#[test]
+fn cleanup_never_deregisters_the_stock_base_image() {
+    // A layered bake whose base is itself a prior bake must keep its base.
+    let base = spec().base.unwrap();
+    let mut c = Cloud {
+        images: vec![old(NEW_AMI, 300), old(&base, 100)],
+        ..Default::default()
+    };
+    bake(&mut c).unwrap();
+    assert!(c.deregistered.is_empty());
 }
