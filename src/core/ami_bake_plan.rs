@@ -2,14 +2,16 @@
 //!
 //! `plan_bake` turns one declared `AmiBakeSpec` into the ordered steps that
 //! bake a fleet AMI on a spot builder: launch from the stock base, bootstrap
-//! Ubuntu + Docker + runner + warm caches, load the fleet image file, stop,
-//! and register the image tagged with the fleet digest. Old-AMI cleanup is
+//! Ubuntu + Docker + runner + warm caches, load the fleet image file, screen
+//! for secrets, stop, and register the image tagged with the fleet digest.
+//! Old-AMI cleanup is
 //! planned from `keep_last`.
 //!
-//! This slice builds the plan and runs it through a `BakeBackend` trait. No
-//! backend talks to AWS here: the only implementation is the test fake. The
-//! image load, the register-image call and the cleanup execution stay under
-//! #1266 for a later slice.
+//! The plan runs through the `BakeBackend` trait, the only seam to AWS. The
+//! guards live here, not in a backend: the builder is screened for secrets
+//! before it is registered, the image is registered with `register_tags`, and
+//! `cleanup_victims` alone picks what is deregistered (#1310). No backend in
+//! this module talks to AWS: the only implementations are the test fakes.
 
 use crate::core::types::AmiBakeSpec;
 
@@ -22,6 +24,8 @@ pub enum BakeStep {
     Bootstrap,
     /// Load the fleet image file onto the builder (a path, never inline content).
     LoadImage { file: String },
+    /// Refuse the bake if a secret-looking file is on the builder's disk.
+    VerifyNoSecrets,
     /// Stop the builder so its disk is consistent before the image is taken.
     StopBuilder,
     /// Register the image, tagged with the fleet digest.
@@ -32,7 +36,7 @@ pub enum BakeStep {
     /// Terminate the spot builder once its image is registered.
     TerminateBuilder,
     /// Deregister all but the newest `keep_last` bakes.
-    CleanupOld { keep_last: u32 },
+    CleanupOld { region: String, keep_last: u32 },
 }
 
 /// Why a declaration cannot be planned.
@@ -83,9 +87,18 @@ pub trait BakeBackend {
     fn launch_spot(&mut self, base: &str, region: &str) -> Result<(), BakeFailure>;
     fn bootstrap(&mut self) -> Result<(), BakeFailure>;
     fn load_image(&mut self, file: &str) -> Result<(), BakeFailure>;
+    /// Paths of every file under `roots` on the builder's disk.
+    fn builder_files(&mut self, roots: &[&str]) -> Result<Vec<String>, BakeFailure>;
     fn stop_builder(&mut self) -> Result<(), BakeFailure>;
-    fn register_image(&mut self, region: &str, fleet_digest: &str) -> Result<(), BakeFailure>;
-    fn cleanup_old(&mut self, keep_last: u32) -> Result<(), BakeFailure>;
+    /// Register the image carrying `tags`; returns the new AMI id.
+    fn register_image(
+        &mut self,
+        region: &str,
+        tags: &[(&'static str, String)],
+    ) -> Result<String, BakeFailure>;
+    /// The account's own images in `region`, with their forjar tags.
+    fn list_images(&mut self, region: &str) -> Result<Vec<BakedImage>, BakeFailure>;
+    fn deregister_image(&mut self, region: &str, ami_id: &str) -> Result<(), BakeFailure>;
     /// Tear down the builder when a bake fails after launch, so no spot instance is leaked.
     fn terminate_builder(&mut self) -> Result<(), BakeFailure>;
 }
@@ -202,14 +215,107 @@ pub fn plan_bake(spec: &AmiBakeSpec) -> Result<Vec<BakeStep>, BakePlanError> {
         BakeStep::LoadImage {
             file: image_file.to_string(),
         },
+        BakeStep::VerifyNoSecrets,
         BakeStep::StopBuilder,
         BakeStep::RegisterImage {
             region: region.to_string(),
             fleet_digest: fleet_digest.to_string(),
         },
         BakeStep::TerminateBuilder,
-        BakeStep::CleanupOld { keep_last },
+        BakeStep::CleanupOld {
+            region: region.to_string(),
+            keep_last,
+        },
     ])
+}
+
+/// Directories on the builder screened for secrets before it is registered:
+/// the places a bake's user, runner and scratch files land. The system trust
+/// store under `/etc` and `/usr` is left out: its `.pem` files are public.
+pub const SECRET_SCAN_ROOTS: &[&str] = &["/root", "/home", "/opt", "/tmp", "/var/tmp"];
+
+/// What one run has established so far.
+#[derive(Default)]
+struct BakeRun {
+    screened: bool,
+    registered: Option<String>,
+}
+
+impl BakeRun {
+    fn step(&mut self, step: &BakeStep, backend: &mut dyn BakeBackend) -> Result<(), BakeFailure> {
+        match step {
+            BakeStep::LaunchSpot { base, region } => backend.launch_spot(base, region),
+            BakeStep::Bootstrap => backend.bootstrap(),
+            BakeStep::LoadImage { file } => backend.load_image(file),
+            BakeStep::VerifyNoSecrets => self.verify_no_secrets(backend),
+            BakeStep::StopBuilder => backend.stop_builder(),
+            BakeStep::RegisterImage {
+                region,
+                fleet_digest,
+            } => self.register(backend, region, fleet_digest),
+            BakeStep::TerminateBuilder => backend.terminate_builder(),
+            BakeStep::CleanupOld { region, keep_last } => self.cleanup(backend, region, *keep_last),
+        }
+    }
+
+    fn verify_no_secrets(&mut self, backend: &mut dyn BakeBackend) -> Result<(), BakeFailure> {
+        let files = backend.builder_files(SECRET_SCAN_ROOTS)?;
+        let found: Vec<&str> = files
+            .iter()
+            .map(String::as_str)
+            .filter(|p| is_secret_file(p))
+            .collect();
+        if !found.is_empty() {
+            return Err(BakeFailure(format!(
+                "ami_bake: secrets on the builder, not registering: {}",
+                found.join(", ")
+            )));
+        }
+        self.screened = true;
+        Ok(())
+    }
+
+    fn register(
+        &mut self,
+        backend: &mut dyn BakeBackend,
+        region: &str,
+        fleet_digest: &str,
+    ) -> Result<(), BakeFailure> {
+        if !self.screened {
+            return Err(BakeFailure(
+                "ami_bake: the builder was not screened for secrets".into(),
+            ));
+        }
+        let tags = register_tags(fleet_digest).map_err(|e| BakeFailure(e.to_string()))?;
+        let ami_id = backend.register_image(region, &tags)?;
+        if !is_ami_id(&ami_id) {
+            return Err(BakeFailure(format!(
+                "ami_bake: register returned '{}', not an AMI id",
+                ami_id.escape_debug()
+            )));
+        }
+        self.registered = Some(ami_id);
+        Ok(())
+    }
+
+    /// Deregister the victims, never the image this run just registered.
+    fn cleanup(
+        &self,
+        backend: &mut dyn BakeBackend,
+        region: &str,
+        keep_last: u32,
+    ) -> Result<(), BakeFailure> {
+        let images = backend.list_images(region)?;
+        let victims =
+            cleanup_victims(&images, keep_last).map_err(|e| BakeFailure(e.to_string()))?;
+        for ami_id in victims
+            .iter()
+            .filter(|id| self.registered.as_ref() != Some(*id))
+        {
+            backend.deregister_image(region, ami_id)?;
+        }
+        Ok(())
+    }
 }
 
 /// Run a plan in order. Stops at the first failing step. If the builder was
@@ -218,19 +324,9 @@ pub fn plan_bake(spec: &AmiBakeSpec) -> Result<Vec<BakeStep>, BakePlanError> {
 pub fn run_bake(steps: &[BakeStep], backend: &mut dyn BakeBackend) -> Result<(), (usize, String)> {
     let mut launched = false;
     let mut terminated = false;
+    let mut run = BakeRun::default();
     for (i, step) in steps.iter().enumerate() {
-        let r = match step {
-            BakeStep::LaunchSpot { base, region } => backend.launch_spot(base, region),
-            BakeStep::Bootstrap => backend.bootstrap(),
-            BakeStep::LoadImage { file } => backend.load_image(file),
-            BakeStep::StopBuilder => backend.stop_builder(),
-            BakeStep::RegisterImage {
-                region,
-                fleet_digest,
-            } => backend.register_image(region, fleet_digest),
-            BakeStep::TerminateBuilder => backend.terminate_builder(),
-            BakeStep::CleanupOld { keep_last } => backend.cleanup_old(*keep_last),
-        };
+        let r = run.step(step, backend);
         match r {
             Ok(()) => match step {
                 BakeStep::LaunchSpot { .. } => launched = true,
@@ -316,3 +412,5 @@ pub fn cleanup_victims(
 mod tests;
 #[cfg(test)]
 mod tests_images;
+#[cfg(test)]
+mod tests_register;

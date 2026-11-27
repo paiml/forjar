@@ -39,14 +39,25 @@ impl BakeBackend for Fake {
     fn load_image(&mut self, _: &str) -> Result<(), BakeFailure> {
         self.step("load")
     }
+    fn builder_files(&mut self, _: &[&str]) -> Result<Vec<String>, BakeFailure> {
+        self.step("screen").map(|()| Vec::new())
+    }
     fn stop_builder(&mut self) -> Result<(), BakeFailure> {
         self.step("stop")
     }
-    fn register_image(&mut self, _: &str, _: &str) -> Result<(), BakeFailure> {
+    fn register_image(
+        &mut self,
+        _: &str,
+        _: &[(&'static str, String)],
+    ) -> Result<String, BakeFailure> {
         self.step("register")
+            .map(|()| "ami-0123456789abcdef1".into())
     }
-    fn cleanup_old(&mut self, _: u32) -> Result<(), BakeFailure> {
-        self.step("cleanup")
+    fn list_images(&mut self, _: &str) -> Result<Vec<BakedImage>, BakeFailure> {
+        self.step("cleanup").map(|()| Vec::new())
+    }
+    fn deregister_image(&mut self, _: &str, _: &str) -> Result<(), BakeFailure> {
+        self.step("deregister")
     }
     fn terminate_builder(&mut self) -> Result<(), BakeFailure> {
         self.step("terminate")
@@ -120,11 +131,18 @@ fn secret_detection_ignores_backslashes_and_trailing_slashes() {
 #[test]
 fn plans_steps_in_order() {
     let steps = plan_bake(&good()).expect("valid spec plans");
-    assert_eq!(steps.len(), 7);
+    assert_eq!(steps.len(), 8);
     assert!(matches!(steps[0], BakeStep::LaunchSpot { .. }));
-    assert!(matches!(steps[4], BakeStep::RegisterImage { .. }));
-    assert_eq!(steps[5], BakeStep::TerminateBuilder);
-    assert_eq!(steps[6], BakeStep::CleanupOld { keep_last: 2 });
+    assert_eq!(steps[3], BakeStep::VerifyNoSecrets);
+    assert!(matches!(steps[5], BakeStep::RegisterImage { .. }));
+    assert_eq!(steps[6], BakeStep::TerminateBuilder);
+    assert_eq!(
+        steps[7],
+        BakeStep::CleanupOld {
+            region: "us-east-1".into(),
+            keep_last: 2
+        }
+    );
 }
 
 #[test]
@@ -138,6 +156,7 @@ fn run_executes_every_step_in_order() {
             "launch",
             "bootstrap",
             "load",
+            "screen",
             "stop",
             "register",
             "terminate",
@@ -160,6 +179,7 @@ fn failure_after_builder_terminated_does_not_terminate_twice() {
             "launch",
             "bootstrap",
             "load",
+            "screen",
             "stop",
             "register",
             "terminate",
@@ -176,13 +196,14 @@ fn failed_terminate_step_is_not_retried() {
         ..Default::default()
     };
     let err = run_bake(&steps, &mut f).unwrap_err();
-    assert_eq!(err.0, 5);
+    assert_eq!(err.0, 6);
     assert_eq!(
         f.calls,
         [
             "launch",
             "bootstrap",
             "load",
+            "screen",
             "stop",
             "register",
             "terminate"
@@ -219,10 +240,10 @@ fn run_stops_at_first_failure_and_reports_index() {
         ..Default::default()
     };
     let err = run_bake(&steps, &mut f).unwrap_err();
-    assert_eq!(err.0, 3);
+    assert_eq!(err.0, 4);
     assert_eq!(
         f.calls,
-        ["launch", "bootstrap", "load", "stop", "terminate"]
+        ["launch", "bootstrap", "load", "screen", "stop", "terminate"]
     );
 }
 
