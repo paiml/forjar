@@ -39,6 +39,8 @@ fn every_resource_type_appears_in_all_types() {
         "cloud_instance",
         "s3_bucket",
         "ec2_spot_seat",
+        "ami_bake",
+        "nas_archive",
     ] {
         assert!(
             listed.iter().any(|l| l == name),
@@ -47,7 +49,7 @@ fn every_resource_type_appears_in_all_types() {
     }
     assert_eq!(
         listed.len(),
-        25,
+        26,
         "ALL_TYPES has {} entries; update this test when a type is added",
         listed.len()
     );
