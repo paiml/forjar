@@ -67,16 +67,27 @@ impl std::fmt::Display for BakePlanError {
     }
 }
 
+/// A failure from one backend step, typed so it crosses the trait boundary
+/// without a bare `String` in the signature. The text is for the operator.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BakeFailure(pub String);
+
+impl std::fmt::Display for BakeFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// The side effects a bake needs. Implemented for real in a later slice.
 pub trait BakeBackend {
-    fn launch_spot(&mut self, base: &str, region: &str) -> Result<(), String>;
-    fn bootstrap(&mut self) -> Result<(), String>;
-    fn load_image(&mut self, file: &str) -> Result<(), String>;
-    fn stop_builder(&mut self) -> Result<(), String>;
-    fn register_image(&mut self, region: &str, fleet_digest: &str) -> Result<(), String>;
-    fn cleanup_old(&mut self, keep_last: u32) -> Result<(), String>;
+    fn launch_spot(&mut self, base: &str, region: &str) -> Result<(), BakeFailure>;
+    fn bootstrap(&mut self) -> Result<(), BakeFailure>;
+    fn load_image(&mut self, file: &str) -> Result<(), BakeFailure>;
+    fn stop_builder(&mut self) -> Result<(), BakeFailure>;
+    fn register_image(&mut self, region: &str, fleet_digest: &str) -> Result<(), BakeFailure>;
+    fn cleanup_old(&mut self, keep_last: u32) -> Result<(), BakeFailure>;
     /// Tear down the builder when a bake fails after launch, so no spot instance is leaked.
-    fn terminate_builder(&mut self) -> Result<(), String>;
+    fn terminate_builder(&mut self) -> Result<(), BakeFailure>;
 }
 
 fn is_ami_id(v: &str) -> bool {
@@ -234,7 +245,7 @@ pub fn run_bake(steps: &[BakeStep], backend: &mut dyn BakeBackend) -> Result<(),
                         .terminate_builder()
                         .map_err(|t| (i, format!("{e}; terminate failed: {t}")))?;
                 }
-                return Err((i, e));
+                return Err((i, e.0));
             }
         }
     }

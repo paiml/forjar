@@ -19,10 +19,10 @@ struct Fake {
 }
 
 impl Fake {
-    fn step(&mut self, name: &str) -> Result<(), String> {
+    fn step(&mut self, name: &str) -> Result<(), BakeFailure> {
         self.calls.push(name.to_string());
         if self.fail_at == Some(name) {
-            Err(format!("{name} failed"))
+            Err(BakeFailure(format!("{name} failed")))
         } else {
             Ok(())
         }
@@ -30,25 +30,25 @@ impl Fake {
 }
 
 impl BakeBackend for Fake {
-    fn launch_spot(&mut self, _: &str, _: &str) -> Result<(), String> {
+    fn launch_spot(&mut self, _: &str, _: &str) -> Result<(), BakeFailure> {
         self.step("launch")
     }
-    fn bootstrap(&mut self) -> Result<(), String> {
+    fn bootstrap(&mut self) -> Result<(), BakeFailure> {
         self.step("bootstrap")
     }
-    fn load_image(&mut self, _: &str) -> Result<(), String> {
+    fn load_image(&mut self, _: &str) -> Result<(), BakeFailure> {
         self.step("load")
     }
-    fn stop_builder(&mut self) -> Result<(), String> {
+    fn stop_builder(&mut self) -> Result<(), BakeFailure> {
         self.step("stop")
     }
-    fn register_image(&mut self, _: &str, _: &str) -> Result<(), String> {
+    fn register_image(&mut self, _: &str, _: &str) -> Result<(), BakeFailure> {
         self.step("register")
     }
-    fn cleanup_old(&mut self, _: u32) -> Result<(), String> {
+    fn cleanup_old(&mut self, _: u32) -> Result<(), BakeFailure> {
         self.step("cleanup")
     }
-    fn terminate_builder(&mut self) -> Result<(), String> {
+    fn terminate_builder(&mut self) -> Result<(), BakeFailure> {
         self.step("terminate")
     }
 }
