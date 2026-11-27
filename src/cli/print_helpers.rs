@@ -40,6 +40,9 @@ pub(crate) fn change_content_diff(
     ) {
         return None;
     }
+    if content_withheld(change, config) {
+        return None;
+    }
     let resource = config.resources.get(&change.resource_id)?;
     let resolved = resolver::resolve_or_fallback(
         &change.resource_id,
@@ -60,6 +63,22 @@ pub(crate) fn change_content_diff(
     Some((content, old_content))
 }
 
+/// True when a change's content must never reach the terminal: the resource is
+/// `sensitive: true`, or its raw content names a `{{secrets.*}}` value. Resolving
+/// the diff content (#1282) resolves secrets too, so without this `forjar plan`
+/// printed a decrypted credential.
+pub(crate) fn content_withheld(
+    change: &types::PlannedChange,
+    config: &types::ForjarConfig,
+) -> bool {
+    config.resources.get(&change.resource_id).is_some_and(|r| {
+        r.sensitive
+            || r.content
+                .as_deref()
+                .is_some_and(|c| c.contains("{{secrets."))
+    })
+}
+
 /// Print a single plan change entry, including optional content diff.
 fn print_plan_change(change: &types::PlannedChange, config: Option<&types::ForjarConfig>) {
     println!(
@@ -71,6 +90,8 @@ fn print_plan_change(change: &types::PlannedChange, config: Option<&types::Forja
     // FJ-255/274: Show content diff for file resources on create/update
     if let Some((content, old_content)) = config.and_then(|cfg| change_content_diff(change, cfg)) {
         print_content_diff(&content, &change.action, old_content.as_deref());
+    } else if config.is_some_and(|cfg| content_withheld(change, cfg)) {
+        println!("    (content withheld: sensitive or carries a secret)");
     }
 }
 
@@ -430,5 +451,39 @@ mod tests {
         assert_eq!(content, "hi /tmp/x");
         assert!(!content.contains("{{params."));
         assert!(old.is_none());
+    }
+
+    /// #1282 regression: resolving the diff content resolved `{{secrets.*}}` too, so
+    /// `forjar plan` printed a sops-decrypted credential to the terminal (measured on
+    /// paiml/infra machines/unas/forjar.yaml, 2026-11-27). A content that names a
+    /// secret, or a `sensitive: true` resource, is never diffed.
+    #[allow(clippy::disallowed_methods)]
+    #[test]
+    fn change_content_diff_withholds_secrets() {
+        std::env::set_var("FORJAR_SECRET_PLAN_DIFF_PROBE_1327", "s3cr3t-plan-diff");
+        let base = "version: \"1.0\"\nname: t\nsecrets:\n  provider: env\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/forjar-plan-diff-probe-1327\n";
+        let change = types::PlannedChange {
+            resource_id: "a".to_string(),
+            resource_type: types::ResourceType::File,
+            machine: "m".to_string(),
+            action: types::PlanAction::Create,
+            description: "create a".to_string(),
+        };
+        let secret =
+            format!("{base}    content: \"password={{{{secrets.plan-diff-probe-1327}}}}\"\n");
+        let cfg = crate::core::parser::parse_config(&secret).expect("parse");
+        assert!(change_content_diff(&change, &cfg).is_none());
+        assert!(content_withheld(&change, &cfg));
+
+        let sensitive = format!("{base}    sensitive: true\n    content: \"plain\"\n");
+        let cfg = crate::core::parser::parse_config(&sensitive).expect("parse");
+        assert!(change_content_diff(&change, &cfg).is_none());
+        assert!(content_withheld(&change, &cfg));
+
+        let plain = format!("{base}    content: \"plain\"\n");
+        let cfg = crate::core::parser::parse_config(&plain).expect("parse");
+        assert_eq!(change_content_diff(&change, &cfg).expect("diff").0, "plain");
+        assert!(!content_withheld(&change, &cfg));
+        std::env::remove_var("FORJAR_SECRET_PLAN_DIFF_PROBE_1327");
     }
 }
