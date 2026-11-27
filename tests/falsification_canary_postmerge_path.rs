@@ -68,7 +68,7 @@ fn land_nul(
         }
         assert!(c.status().expect("git").success());
     };
-    commit("squash-merged work (#77)");
+    commit(ge::SQUASH_MESSAGE);
     let s = cf::git(root, &["rev-parse", "HEAD"]);
     let base = cf::git(root, &["rev-parse", "HEAD~1"]);
     let mut f = cf::base_fx();
@@ -105,13 +105,19 @@ fn land_nul(
     }
     cf::put(root, &format!(".quorum/{slug}.json"), &rec);
     cf::git(root, &["add", "-A"]);
-    commit("post-merge receipts pack");
+    commit(PACK_MESSAGE);
     s
 }
 
-fn gh_json(s: &str, head_ref: &str) -> String {
+/// The pack commit's message: the same author trailer, so the store gate's
+/// range (merge^1..head) carries only mapped authors.
+const PACK_MESSAGE: &str =
+    "post-merge receipts pack\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
+
+/// `gh` answering with PR #77 merged at `s`, with its head at `head`.
+fn gh_json(s: &str, head_ref: &str, head: &str) -> String {
     format!(
-        r#"[{{"number":77,"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{s}"}},"headRefName":"{head_ref}","title":"t","body":"b"}}]"#
+        r#"[{{"number":77,"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{s}"}},"headRefName":"{head_ref}","headRefOid":"{head}","title":"t","body":"b"}}]"#
     )
 }
 
@@ -138,6 +144,10 @@ fn both_nul(
     );
     let g = ge::fixture(None, None);
     let s2 = land_nul(&g.root, &ge::slug(), missed, old, None, nul);
+    // Gate E judges the head the PR was reviewed at: the pack commit on top of
+    // the squash. Its store receipt is written after the pack exists.
+    let g_head = cf::git(&g.root, &["rev-parse", "HEAD"]);
+    g.put_store_receipt(&g_head);
     for (file, from, to) in mutate {
         for root in [&r.root, &g.root] {
             let p = root.join(file);
@@ -152,7 +162,7 @@ fn both_nul(
         &rc::stub_gh(
             r.root.parent().expect("dir"),
             "gh-s",
-            &gh_json(&s, rc::HEAD_REF),
+            &gh_json(&s, rc::HEAD_REF, &cf::git(&r.root, &["rev-parse", "HEAD"])),
         ),
     );
     let gr = ge::run(
@@ -161,7 +171,7 @@ fn both_nul(
         &ge::stub_gh(
             g.root.parent().expect("dir"),
             "gh-s",
-            &gh_json(&s2, ge::HEAD_REF),
+            &gh_json(&s2, ge::HEAD_REF, &g_head),
         ),
     );
     (

@@ -124,7 +124,7 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   # token `ok` passes; `missing`, `waived` and `thin` are refusals.
   dogfood_store_check "$num" "$head" "$mc"
   if [ "$DOGFOOD_STORE_TOKEN" != "ok" ]; then
-    fail "PR #${num}: ${receipt} passes, but its head-bound store receipt is ${DOGFOOD_STORE_TOKEN}: ${DOGFOOD_STORE_WHY}"
+    fail "PR #${num}: ${receipt} passes, but its head-bound store receipt is ${DOGFOOD_STORE_TOKEN} (store=${DOGFOOD_STORE_TOKEN}): ${DOGFOOD_STORE_WHY}"
   fi
 
   echo "GATE E #${num} ${receipt} ok store=ok"

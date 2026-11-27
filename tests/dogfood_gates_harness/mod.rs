@@ -150,9 +150,23 @@ pub(crate) struct Fixture {
     /// merge, which GitHub also returns for `merged:>=<tag date>` because it
     /// landed at the very second the tag was cut.
     pub(crate) tagged: String,
+    /// The `QUORUM_STORE` every gate E run in this fixture reads. It holds the
+    /// head-bound store receipt for [`Fixture::head`].
+    pub(crate) store: PathBuf,
 }
 
 impl Fixture {
+    /// Write the valid head-bound store receipt for `head` into this fixture's
+    /// store: the one the store gate accepts for PR #77 when `head`'s author
+    /// trailer maps to `claude-sonnet-5-5` and three other models PASS.
+    pub(crate) fn put_store_receipt(&self, head: &str) {
+        write(
+            &self.store,
+            &format!("quorum/paiml/forjar/{PR}/{head}.json"),
+            &good_store_receipt(head),
+        );
+    }
+
     /// Declare, on a new row `owner` committed at HEAD with its own good
     /// harness receipt, that the id `stray` (which is no row) means `owner` —
     /// the `alias:<id>` label a misnamed branch resolves through.
@@ -193,8 +207,8 @@ impl Fixture {
             self.root.parent().expect("tempdir"),
             "gh-two-prs",
             &format!(
-                r#"[{{"number":76,"mergedAt":"2026-09-04T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"release/v0.0.1","title":"release: v0.0.1","body":""}},{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}","title":"a title with no id","body":"a body with no id"}}]"#,
-                self.tagged, self.head
+                r#"[{{"number":76,"mergedAt":"2026-09-04T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"release/v0.0.1","title":"release: v0.0.1","body":""}},{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}","headRefOid":"{}","title":"a title with no id","body":"a body with no id"}}]"#,
+                self.tagged, self.head, self.head
             ),
         )
     }
@@ -211,8 +225,8 @@ impl Fixture {
             self.root.parent().expect("tempdir"),
             "gh-one-pr",
             &format!(
-                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{head_ref}","title":"{title}","body":"{body}"}}]"#,
-                self.head
+                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{head_ref}","headRefOid":"{}","title":"{title}","body":"{body}"}}]"#,
+                self.head, self.head
             ),
         )
     }
@@ -298,6 +312,9 @@ pub(crate) fn run_env(fx: &Fixture, script: &str, gh: &str, env: &[(&str, &str)]
     cmd.arg(fx.root.join(format!("scripts/dogfood/{script}")))
         .current_dir(&fx.root)
         .env("GH", gh);
+    if !env.iter().any(|(k, _)| *k == "QUORUM_STORE") {
+        cmd.env("QUORUM_STORE", &fx.store);
+    }
     for (k, v) in env {
         cmd.env(k, v);
     }
@@ -315,7 +332,27 @@ pub(crate) fn run_env(fx: &Fixture, script: &str, gh: &str, env: &[(&str, &str)]
 /// the case wants. Both gates read the receipts AT HEAD, so they are committed
 /// here rather than merely written.
 pub(crate) fn fixture(impl_receipt: Option<&str>, quorum_receipt: Option<&str>) -> Fixture {
-    fixture_msg(impl_receipt, quorum_receipt, "squash-merged work (#77)")
+    fixture_msg(impl_receipt, quorum_receipt, SQUASH_MESSAGE)
+}
+
+/// The squash commit's message: the author trailer the store gate maps through
+/// the allowlist to `claude-sonnet-5-5`, which the store receipt names.
+pub(crate) const SQUASH_MESSAGE: &str =
+    "squash-merged work (#77)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>";
+
+/// A store receipt for PR #77 at `head` that the store gate and the
+/// `DOGFOOD_RECEIPT_JQ` floors both accept: three PASS lanes over three
+/// allowlisted models, none of them the commit author.
+pub(crate) fn good_store_receipt(head: &str) -> String {
+    let v = |l: &str, m: &str| {
+        format!(r#"{{"lane":"{l}","model":"{m}","verdict":"PASS","blockers":[]}}"#)
+    };
+    format!(
+        r#"{{"repo":"paiml/forjar","pr":{PR},"sha":"{head}","author_model":"claude-sonnet-5-5","verdicts":[{},{},{}],"quorum":{{"lanes":["a","b","c"],"judges":3,"refuters_per_claim":3,"claims_refuted":2}},"evidence":{{"files":["docs/audits/claims.md"]}}}}"#,
+        v("a", "claude-opus-5-5"),
+        v("b", "claude-haiku-5-5"),
+        v("c", "gemini-3")
+    )
 }
 
 /// The same repository with the squash merge's MESSAGE under the caller's
@@ -352,6 +389,11 @@ pub(crate) fn fixture_msg(
         "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/lib/receipt.sh",
         "scripts/dogfood/lib/tags.sh",
+        "scripts/dogfood/lib/store.sh",
+        // Gate E reads the store gate and its allowlist from MERGE^1, the base
+        // commit, so they are committed there (never only in the working tree).
+        "scripts/quorum-store-gate.sh",
+        "scripts/quorum-models.json",
     ] {
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel);
         let body = std::fs::read_to_string(&src)
@@ -385,12 +427,16 @@ pub(crate) fn fixture_msg(
         &["rev-parse", &format!("{PREV_TAG}^{{commit}}")],
     ));
 
-    Fixture {
+    let store = dir.path().join("store");
+    let fx = Fixture {
         _dir: dir,
         root,
         head,
         tagged,
-    }
+        store,
+    };
+    fx.put_store_receipt(&fx.head);
+    fx
 }
 pub(crate) fn stub_gh_paged(dir: &Path, rows: &str, mode: &str) -> String {
     let (r, c, p) = (dir.join("rows"), dir.join("calls"), dir.join("gh_paged"));
