@@ -457,6 +457,7 @@ mod tests {
     /// `forjar plan` printed a sops-decrypted credential to the terminal (measured on
     /// paiml/infra machines/unas/forjar.yaml, 2026-11-27). A content that names a
     /// secret, or a `sensitive: true` resource, is never diffed.
+    #[allow(clippy::disallowed_methods)]
     #[test]
     fn change_content_diff_withholds_secrets() {
         std::env::set_var("FORJAR_SECRET_PLAN_DIFF_PROBE_1327", "s3cr3t-plan-diff");
