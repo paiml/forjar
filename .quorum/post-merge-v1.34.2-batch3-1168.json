@@ -1,0 +1,61 @@
+{
+  "issue": "paiml/forjar#1168 post-merge non-author review receipts, v1.34.2 window, batch 3 of 6 (rows 17-24)",
+  "entries": [
+    {
+      "pr": 1100,
+      "merge_sha": "2a91cf503f7d3cd4e2f0424f15f35ae3e6b4216a",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS \u2014 Removes two private test-only imports (`image_id`, `key_tail`) in `src/resources/cloud_instance/ami.rs:39` (`mod tests`), leaving `use super::checked;`; no production code is affected "
+    },
+    {
+      "pr": 1099,
+      "merge_sha": "c2bfa1f72a688f2455de8b3f16d36becff875d8d",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "EMPTY-DIFF",
+      "note": "merge commit has no change relative to its first parent (identical to #1100, which made the same import removal); nothing to review"
+    },
+    {
+      "pr": 1097,
+      "merge_sha": "ecd60232465bc3f9d6289a051e0296e424915ee0",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS"
+    },
+    {
+      "pr": 1094,
+      "merge_sha": "d39ffb6c55d397954363aee4ded74f1a293ed407",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS"
+    },
+    {
+      "pr": 1089,
+      "merge_sha": "7264081af2b815340593a48bb30ffc498cc8a71c",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS"
+    },
+    {
+      "pr": 1073,
+      "merge_sha": "0eb20f4790df58ac4150c536104a3a8b9815ee5a",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS"
+    },
+    {
+      "pr": 1072,
+      "merge_sha": "406e336252ea77158ff9ff3b6b4eda76f862f399",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS \u2014 Test-only fixture and roadmap update cleanly extracts the SSH shim into `tests/falsification_e02_ssh_shim.sh`, answers the `df -i` inode pre-check with valid POSIX `sh` output, and rep"
+    },
+    {
+      "pr": 1071,
+      "merge_sha": "5f8c0caaec058c30445bdba2f74170b30c69d2e5",
+      "lane": "agy gemini-4-neon-high (non-author)",
+      "verdict": "PASS",
+      "note": "VERDICT: PASS \u2014 The merged change adds a self-contained, pure slice-1 reconcile decision module (`src/core/pool_reconcile.rs`), its `src/core/mod.rs` export, unit tests covering all branches and bound"
+    }
+  ]
+}
