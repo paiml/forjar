@@ -83,13 +83,22 @@ case "$*" in
 esac
 "#;
 
+/// Serialises a fake tool's write-then-exec window against every `Sandbox` spawn.
+pub(super) static SPAWN_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
 /// Write an executable fake tool and prove it execs before any test uses it.
 /// A fork in another test thread can inherit the write fd of the file just
 /// written; exec then fails with ETXTBSY until that child execs. The window
 /// closes once the write fd is gone, so retry the probe briefly and fail
 /// loudly if the tool stays busy. Assertions are unchanged; nothing is skipped.
+///
+/// The write-then-exec window runs under `SPAWN_GATE` (write side), and every
+/// `Sandbox` spawn takes the read side, so no spawn in these tests can fork
+/// while a fake tool's write fd is open (#1309: `Text file busy` under parallel
+/// test threads).
 pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
+    let _gate = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
     std::fs::write(path, body).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
     const ETXTBSY: i32 = 26;
@@ -205,6 +214,7 @@ impl Sandbox {
             std::fs::write(&fx, f).unwrap();
             cmd.env("STUB_FIXTURE", fx);
         }
+        let _gate = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
         let o = cmd.output().unwrap();
         let mut s = String::from_utf8_lossy(&o.stdout).into_owned();
         s.push_str(&String::from_utf8_lossy(&o.stderr));
