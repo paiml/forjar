@@ -252,5 +252,67 @@ pub fn run_bake(steps: &[BakeStep], backend: &mut dyn BakeBackend) -> Result<(),
     Ok(())
 }
 
+/// Tag key carrying the fleet digest a bake was registered with.
+pub const DIGEST_TAG: &str = "forjar:fleet-digest";
+/// Tag key marking an image as a forjar bake. Cleanup only ever deregisters tagged bakes.
+pub const KIND_TAG: &str = "forjar:kind";
+/// Value of `KIND_TAG` on every bake.
+pub const KIND_VALUE: &str = "ami_bake";
+
+/// Tags a registered image must carry: the fleet digest and the bake kind.
+/// Refuses a digest that is not `sha256:<64 hex>`, so an image is never
+/// registered without a digest it can later be recognised by.
+pub fn register_tags(fleet_digest: &str) -> Result<Vec<(&'static str, String)>, BakePlanError> {
+    if !is_fleet_digest(fleet_digest) {
+        return Err(BakePlanError::BadDigest(fleet_digest.to_string()));
+    }
+    Ok(vec![
+        (DIGEST_TAG, fleet_digest.to_string()),
+        (KIND_TAG, KIND_VALUE.to_string()),
+    ])
+}
+
+/// One registered image as read back from the cloud, before any cleanup decision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BakedImage {
+    pub ami_id: String,
+    /// Creation time, epoch seconds. Newer is larger.
+    pub created: u64,
+    /// The `forjar:kind` tag, if present.
+    pub kind: Option<String>,
+    /// The `forjar:fleet-digest` tag, if present.
+    pub fleet_digest: Option<String>,
+}
+
+/// The AMI ids a cleanup may deregister: every bake except the newest `keep_last`.
+/// Only images tagged as a bake with a valid fleet digest are candidates, so an
+/// untagged or hand-made AMI is never touched. Newest first by `created`, ties
+/// broken by `ami_id`, so the same listing always yields the same victims.
+pub fn cleanup_victims(
+    images: &[BakedImage],
+    keep_last: u32,
+) -> Result<Vec<String>, BakePlanError> {
+    if keep_last == 0 {
+        return Err(BakePlanError::KeepLastZero);
+    }
+    let mut bakes: Vec<&BakedImage> = images
+        .iter()
+        .filter(|i| i.kind.as_deref() == Some(KIND_VALUE))
+        .filter(|i| i.fleet_digest.as_deref().is_some_and(is_fleet_digest))
+        .collect();
+    bakes.sort_by(|a, b| {
+        b.created
+            .cmp(&a.created)
+            .then_with(|| a.ami_id.cmp(&b.ami_id))
+    });
+    Ok(bakes
+        .into_iter()
+        .skip(keep_last as usize)
+        .map(|i| i.ami_id.clone())
+        .collect())
+}
+
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_images;
