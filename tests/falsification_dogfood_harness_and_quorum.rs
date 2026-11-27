@@ -297,6 +297,38 @@ fn gate_e_a_pr_with_its_quorum_receipt_passes() {
 }
 
 #[test]
+fn gate_e_a_pr_with_a_passing_quorum_receipt_and_no_store_env_is_unmeasured_and_red() {
+    // The committed receipt passes, so only the store requirement can refuse:
+    // with QUORUM_STORE unset the head-bound store cannot be read at all.
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    let r = run_store_unset(&fx, "quorum.sh", &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "E",
+        "QUORUM_STORE is unset, so the head-bound store receipt cannot be read \
+         and gate E is UNMEASURED, even when the committed receipt passes",
+    );
+    r.assert_says("UNMEASURED");
+    r.assert_says("QUORUM_STORE");
+}
+
+#[test]
+fn gate_e_a_pr_with_a_passing_quorum_receipt_and_an_empty_store_is_store_missing() {
+    // The falsifier for the store check: the committed receipt passes, and
+    // the store holds no receipt for this head. Without the AND, this passes.
+    let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
+    std::fs::remove_dir_all(&fx.store).expect("the fixture store must be removable");
+    std::fs::create_dir_all(&fx.store).expect("the emptied store must be recreatable");
+    let r = run(&fx, "quorum.sh", &fx.gh_reporting_the_pr());
+    r.assert_not_green(
+        "E",
+        "a committed quorum receipt is not a passed quorum on its own: with no \
+         head-bound store receipt for this head, the PR is refused",
+    );
+    r.assert_says("store=missing");
+    r.assert_says(&format!("PR #{PR}"));
+}
+
+#[test]
 fn gate_e_the_previous_releases_own_pr_is_outside_the_window() {
     let fx = fixture(Some(&good_impl_receipt()), Some(good_quorum_receipt()));
     let r = run(

@@ -164,7 +164,7 @@ dogfood_prs_between() {
   # open. An argument cannot be inherited.
   local lower="$1" upper="$2" soft="${3:-}"
   local raw n i=0 num oid keep='[]'
-  dogfood_pr_fetch "$lower" "$upper" number,mergedAt,mergeCommit,headRefName,title,body
+  dogfood_pr_fetch "$lower" "$upper" number,mergedAt,mergeCommit,headRefName,headRefOid,title,body
   raw="$DOGFOOD_PR_RAW"
   n="$(printf '%s' "$raw" | jq -r 'length')"
 
