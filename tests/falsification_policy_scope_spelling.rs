@@ -42,6 +42,7 @@ const MULTI_WORD: &[(ResourceType, &str)] = &[
     (ResourceType::TmpReaper, "tmp_reaper"),
     (ResourceType::CloudInstance, "cloud_instance"),
     (ResourceType::S3Bucket, "s3_bucket"),
+    (ResourceType::AmiBake, "ami_bake"),
     (ResourceType::Ec2SpotSeat, "ec2_spot_seat"),
 ];
 
@@ -155,6 +156,7 @@ fn display_is_the_serde_spelling_for_every_variant() {
         ResourceType::TmpReaper,
         ResourceType::CloudInstance,
         ResourceType::S3Bucket,
+        ResourceType::AmiBake,
         ResourceType::Ec2SpotSeat,
     ];
     for rt in &all {

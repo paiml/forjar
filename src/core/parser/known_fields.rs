@@ -207,6 +207,12 @@ pub(crate) const RESOURCE_FIELDS: &[&str] = &[
     "s3_tls_only",
     "s3_versioning",
     "s3_noncurrent_expire_days",
+    // #1266 ami_bake
+    "ami_base",
+    "ami_image_file",
+    "ami_region",
+    "ami_fleet_digest",
+    "ami_keep_last",
     "backup_schedule",
     "backup_verify_pct",
     "backup_daily_cap_gb",

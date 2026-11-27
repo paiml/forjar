@@ -211,6 +211,7 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
+        | ResourceType::AmiBake
         | ResourceType::Ec2SpotSeat => "present",
     }
 }
@@ -435,6 +436,7 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::TmpReaper
             | ResourceType::CloudInstance
             | ResourceType::S3Bucket
+            | ResourceType::AmiBake
             | ResourceType::Ec2SpotSeat => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),

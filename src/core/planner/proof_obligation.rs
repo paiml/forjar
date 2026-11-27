@@ -60,6 +60,7 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::CloudInstance => ProofObligation::Idempotent,
         // Apply re-asserts every declared property and is a no-op when AWS already agrees.
         ResourceType::S3Bucket => ProofObligation::Idempotent,
+        ResourceType::AmiBake => ProofObligation::Idempotent,
         // Launch adopts by client token, caps refuse, teardown reads back 0: idempotent.
         ResourceType::Ec2SpotSeat => ProofObligation::Idempotent,
         // Convergent: repeated passes drive coverage toward the declared
@@ -99,6 +100,7 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Build => ProofObligation::Convergent,
         ResourceType::GithubRelease => ProofObligation::Convergent,
         ResourceType::S3Bucket => ProofObligation::Destructive,
+        ResourceType::AmiBake => ProofObligation::Destructive,
         ResourceType::Ec2SpotSeat => ProofObligation::Destructive,
         ResourceType::OverlayInterface
         | ResourceType::DiskBudget

@@ -3,6 +3,7 @@
 //! Defines the YAML schema types for machines, resources, policy, state locks,
 //! and provenance events. All types derive Serialize/Deserialize for YAML roundtripping.
 
+mod ami_bake_types;
 mod backup_sync_types;
 mod behavior_types;
 mod build_metrics;
@@ -62,6 +63,7 @@ mod undo_types;
 mod validation_types;
 mod wasm_types;
 
+pub use ami_bake_types::*;
 pub use backup_sync_types::*;
 pub use behavior_types::*;
 pub use build_metrics::*;

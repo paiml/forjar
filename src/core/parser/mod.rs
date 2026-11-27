@@ -14,6 +14,7 @@ mod nas_archive_validate;
 mod overlay_interface_validate;
 mod unknown_policy;
 pub use unknown_policy::rejects_unknown;
+mod ami_bake_validate;
 mod cloud_instance_validate;
 mod cron_network_validate;
 mod ec2_spot_seat_validate;
@@ -27,6 +28,8 @@ mod service_exec_validate;
 pub(crate) mod unknown_fields;
 mod validation;
 
+#[cfg(test)]
+mod tests_ami_bake_validate;
 #[cfg(test)]
 mod tests_arch;
 #[cfg(test)]

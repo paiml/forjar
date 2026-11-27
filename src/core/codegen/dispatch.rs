@@ -85,6 +85,7 @@ fn handlers(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
+        | ResourceType::AmiBake
         | ResourceType::Ec2SpotSeat => handlers_fleet(resource_type),
 
         // A recipe is expanded into concrete resources before codegen runs.
@@ -118,6 +119,7 @@ fn handlers_host(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::Task
         | ResourceType::WasmBundle
         | ResourceType::Image
+        | ResourceType::AmiBake
         | ResourceType::Build
         | ResourceType::GithubRelease
         | ResourceType::OverlayInterface
@@ -163,6 +165,7 @@ fn handlers_workload(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::TmpReaper
         | ResourceType::CloudInstance
         | ResourceType::S3Bucket
+        | ResourceType::AmiBake
         | ResourceType::Ec2SpotSeat
         | ResourceType::Recipe => return None,
     };
@@ -199,6 +202,7 @@ fn handlers_fleet(resource_type: &ResourceType) -> Option<ScriptHandlers> {
         | ResourceType::Task
         | ResourceType::WasmBundle
         | ResourceType::Image
+        | ResourceType::AmiBake
         | ResourceType::Recipe => return None,
     };
     Some(row)

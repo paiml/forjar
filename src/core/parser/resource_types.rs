@@ -1,5 +1,6 @@
 //! Type-specific required-field validation for each resource type.
 
+use super::ami_bake_validate::validate_ami_bake;
 use super::backup_sync_validate::validate_backup_sync;
 use super::cloud_instance_validate::validate_cloud_instance;
 use super::cron_network_validate::{validate_cron, validate_network};
@@ -55,6 +56,7 @@ pub(super) fn validate_resource_type(
         ResourceType::NasArchive => validate_nas_archive(id, resource, errors),
         ResourceType::CloudInstance => validate_cloud_instance(id, resource, errors),
         ResourceType::S3Bucket => validate_s3_bucket(id, resource, errors),
+        ResourceType::AmiBake => validate_ami_bake(id, resource, errors),
         ResourceType::Ec2SpotSeat => validate_ec2_spot_seat(id, resource, errors),
     }
 }
