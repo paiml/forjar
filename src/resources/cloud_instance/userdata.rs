@@ -327,7 +327,7 @@ mod tests {
         );
         {
             // write-then-chmod is the fake tool's write window: hold the write side (#1309)
-            let _gate = super::tests::SPAWN_GATE
+            let _gate = crate::resources::cloud_instance::tests::SPAWN_GATE
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
             std::fs::write(bin.join("aws"), wrap).unwrap();
