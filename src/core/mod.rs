@@ -1,5 +1,6 @@
 //! Core infrastructure logic — types, parsing, resolution, planning, execution.
 
+pub mod ami_bake_plan;
 pub mod cis_ubuntu_pack;
 pub mod codegen;
 pub mod compliance;

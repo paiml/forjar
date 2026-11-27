@@ -1,7 +1,7 @@
 //! #1265: spot fleet launch — multi-type, multi-AZ, count, plan-time caps,
 //! and exit-75 capacity-fallback loop.
 
-use super::tests::{gated, res, Sandbox, DIGEST};
+use super::tests::{gated, install_tool, res, Sandbox, DIGEST};
 use super::tests_b1::{absent, count};
 use super::tests_launch::{err, next_token, run_tokens, DAY};
 use super::*;
@@ -52,12 +52,9 @@ exit 0
 "#;
 
 fn fleet_sandbox() -> Sandbox {
-    use std::os::unix::fs::PermissionsExt;
     let sb = Sandbox::new();
     sb.open_gate();
-    let aws = sb.path().join("bin/aws");
-    std::fs::write(&aws, FLEET_STUB).unwrap();
-    std::fs::set_permissions(&aws, std::fs::Permissions::from_mode(0o755)).unwrap();
+    install_tool(&sb.path().join("bin/aws"), FLEET_STUB, sb.path());
     sb
 }
 
