@@ -444,7 +444,8 @@ try:
     q = json.load(open(sys.argv[1])).get("quorum")
     print("yes" if isinstance(q, dict) and "canary" in q else "no")
 except Exception:
-    print("no")
+    # Unparsable or non-object input is UNMEASURED, never "no canary": exit non-zero.
+    sys.exit(3)
 CANARY_PY
 )" || has_canary_rc=$?
 if [ "$has_canary_rc" -ne 0 ] || { [ "$has_canary" != "yes" ] && [ "$has_canary" != "no" ]; }; then
