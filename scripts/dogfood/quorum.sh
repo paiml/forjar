@@ -75,6 +75,12 @@ dogfood_load_window
 . "$(dirname "${BASH_SOURCE[0]}")/lib/receipt.sh"
 QUORUM_JQ="$DOGFOOD_RECEIPT_JQ"
 
+# The head-bound store receipt (forjar#876) is ANDed with the committed check
+# below, never substituted for it. Unset QUORUM_STORE is UNMEASURED, once.
+# shellcheck source=scripts/dogfood/lib/store.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/store.sh"
+dogfood_store_require
+
 i=0
 checked=0
 while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
@@ -84,6 +90,8 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
   href="$DOGFOOD_FIELD"
   dogfood_pr_field "$i" ".mergeCommit.oid"
   mc="$DOGFOOD_FIELD"
+  dogfood_pr_field "$i" ".headRefOid"
+  head="$DOGFOOD_FIELD"
   if [ -z "$href" ]; then
     fail "GitHub reports PR #${num} merged since ${DOGFOOD_PREV_TAG} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
@@ -112,7 +120,14 @@ while [ "$i" -lt "$DOGFOOD_PR_COUNT" ]; do
     fail "PR #${num}: ${receipt} ${why}"
   fi
 
-  echo "GATE E #${num} ${receipt} ok"
+  # AND, not instead: the committed check above already passed. Only the
+  # token `ok` passes; `missing`, `waived` and `thin` are refusals.
+  dogfood_store_check "$num" "$head" "$mc"
+  if [ "$DOGFOOD_STORE_TOKEN" != "ok" ]; then
+    fail "PR #${num}: ${receipt} passes, but its head-bound store receipt is ${DOGFOOD_STORE_TOKEN}: ${DOGFOOD_STORE_WHY}"
+  fi
+
+  echo "GATE E #${num} ${receipt} ok store=ok"
   checked=$((checked + 1))
   i=$((i + 1))
 done
