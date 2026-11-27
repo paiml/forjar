@@ -83,6 +83,32 @@ case "$*" in
 esac
 "#;
 
+/// Write an executable fake tool and prove it execs before any test uses it.
+/// A fork in another test thread can inherit the write fd of the file just
+/// written; exec then fails with ETXTBSY until that child execs. The window
+/// closes once the write fd is gone, so retry the probe briefly and fail
+/// loudly if the tool stays busy. Assertions are unchanged; nothing is skipped.
+pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::write(path, body).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    const ETXTBSY: i32 = 26;
+    for _ in 0..50 {
+        match Command::new(path)
+            .env("STUB_LOG", probe_dir.join("probe.log"))
+            .arg("--probe")
+            .status()
+        {
+            Ok(s) if s.success() => return,
+            Err(e) if e.raw_os_error() == Some(ETXTBSY) => {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            other => panic!("probe of {} failed: {other:?}", path.display()),
+        }
+    }
+    panic!("{} stayed busy (ETXTBSY) through 50 probes", path.display());
+}
+
 const TOOLS: [&str; 19] = [
     "mktemp",
     "sh",
@@ -120,17 +146,12 @@ impl Sandbox {
             }
         }
         // no real pauses: the script's state-read retry sleeps are only logged
-        let nap = bin.join("sleep");
-        std::fs::write(&nap, "#!/bin/sh\necho \"$@\" >> \"$STUB_LOG.sleep\"\n").unwrap();
-        Command::new("chmod").arg("755").arg(&nap).status().unwrap();
-        let stub = bin.join("aws");
-        std::fs::write(&stub, STUB).unwrap();
-        Command::new("chmod")
-            .arg("755")
-            .arg(&stub)
-            .status()
-            .unwrap();
-        assert!(stub.exists(), "the fake aws must exist");
+        install_tool(
+            &bin.join("sleep"),
+            "#!/bin/sh\necho \"$@\" >> \"$STUB_LOG.sleep\"\n",
+            dir.path(),
+        );
+        install_tool(&bin.join("aws"), STUB, dir.path());
         Sandbox { dir }
     }
     /// Make every later `describe-instances` exit 255 (expired credentials).

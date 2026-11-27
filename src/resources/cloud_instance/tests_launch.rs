@@ -3,7 +3,7 @@
 //! client-token lookups are scripted by files in the sandbox.
 
 use super::launch_io::{day_of, token_input, token_on, CAPACITY_EXIT};
-use super::tests::{gated, res, Sandbox};
+use super::tests::{gated, install_tool, res, Sandbox};
 use super::*;
 
 pub(super) const ID: &str = "i-0123456789abcdef0";
@@ -70,12 +70,9 @@ pub(super) fn fixture(
     states: &[(&str, &str)],
     state_fail: bool,
 ) -> (Sandbox, String) {
-    use std::os::unix::fs::PermissionsExt;
     let sb = Sandbox::new();
     sb.open_gate();
-    let aws = sb.path().join("bin/aws");
-    std::fs::write(&aws, STUB).unwrap();
-    std::fs::set_permissions(&aws, std::fs::Permissions::from_mode(0o755)).unwrap();
+    install_tool(&sb.path().join("bin/aws"), STUB, sb.path());
     let w = |n: &str, c: &str| std::fs::write(sb.path().join(n), c).unwrap();
     for (i, run) in runs.iter().enumerate() {
         let n = i + 1;
