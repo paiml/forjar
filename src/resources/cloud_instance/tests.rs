@@ -83,7 +83,8 @@ case "$*" in
 esac
 "#;
 
-/// Serialises a fake tool's write-then-exec window against every `Sandbox` spawn.
+/// Serialises a fake tool's write-then-exec window against the spawns in the
+/// cloud_instance tests (`Sandbox::run_with`, `iso`, `next_token`).
 pub(super) static SPAWN_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(());
 
 /// Write an executable fake tool and prove it execs before any test uses it.
@@ -93,8 +94,8 @@ pub(super) static SPAWN_GATE: std::sync::RwLock<()> = std::sync::RwLock::new(())
 /// loudly if the tool stays busy. Assertions are unchanged; nothing is skipped.
 ///
 /// The write-then-exec window runs under `SPAWN_GATE` (write side), and every
-/// `Sandbox` spawn takes the read side, so no spawn in these tests can fork
-/// while a fake tool's write fd is open (#1309: `Text file busy` under parallel
+/// spawn in these tests takes the read side, so none can fork while a fake
+/// tool's write fd is open (#1309: `Text file busy` under parallel
 /// test threads).
 pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
@@ -118,34 +119,66 @@ pub(super) fn install_tool(path: &Path, body: &str, probe_dir: &Path) {
     panic!("{} stayed busy (ETXTBSY) through 50 probes", path.display());
 }
 
-/// Falsifier for the gate itself: `install_tool` must not write while a spawn
-/// holds the read side. Removing its `SPAWN_GATE.write()` line makes the
-/// install finish inside the window, and this test fails.
-#[test]
-fn install_tool_waits_for_spawns_to_drain() {
-    let sb = Sandbox::new();
-    let path = sb.path().join("fake-tool");
-    let probe_dir = sb.path().to_path_buf();
-    let held = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
+/// Runs `job` on a worker thread while `guard` holds the gate. True if the job
+/// finished inside the window, which means the gate did not hold it.
+fn finishes_while_gated<G, F>(guard: G, job: F) -> bool
+where
+    F: FnOnce() + Send + 'static,
+{
     let (tx, rx) = std::sync::mpsc::channel();
-    let worker = {
-        let path = path.clone();
-        std::thread::spawn(move || {
-            install_tool(&path, "#!/bin/sh\nexit 0\n", &probe_dir);
-            tx.send(()).unwrap();
-        })
-    };
-    let finished_during_spawn = rx
+    let worker = std::thread::spawn(move || {
+        job();
+        tx.send(()).unwrap();
+    });
+    let early = rx
         .recv_timeout(std::time::Duration::from_millis(300))
         .is_ok();
-    drop(held);
+    drop(guard);
     worker.join().unwrap();
+    early
+}
+
+/// Falsifier for the gate (#1309). Each gated site must wait for the other side:
+/// `install_tool` (write) waits for a held read, and `Sandbox::run_with`, `iso`
+/// and `next_token` (read) wait for a held write. Removing any one of those lock
+/// lines makes this test fail. The userdata launch test's inline write is gated
+/// too, but this test does not cover it.
+#[test]
+fn spawns_and_installs_wait_for_the_gate() {
+    let install_sb = Sandbox::new();
+    let run_sb = Sandbox::new();
+    let path = install_sb.path().join("fake-tool");
+    let probe_dir = install_sb.path().to_path_buf();
+    let read = SPAWN_GATE.read().unwrap_or_else(|e| e.into_inner());
     assert!(
-        !finished_during_spawn,
-        "install_tool wrote and probed while a spawn held the read side"
+        !finishes_while_gated(read, move || {
+            install_tool(&path, "#!/bin/sh\nexit 0\n", &probe_dir)
+        }),
+        "install_tool wrote while a spawn held the read side"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, move || {
+            run_sb.run("exit 0", "");
+        }),
+        "Sandbox::run_with spawned while a fake-tool write held the gate"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, || {
+            super::tests_launch::iso(0);
+        }),
+        "iso spawned while a fake-tool write held the gate"
+    );
+    let write = SPAWN_GATE.write().unwrap_or_else(|e| e.into_inner());
+    assert!(
+        !finishes_while_gated(write, || {
+            super::tests_launch::next_token("a", "b");
+        }),
+        "next_token spawned while a fake-tool write held the gate"
     );
     assert!(
-        path.exists(),
+        install_sb.path().join("fake-tool").exists(),
         "the tool was installed once the spawn drained"
     );
 }
