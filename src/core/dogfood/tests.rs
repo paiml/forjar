@@ -40,6 +40,7 @@ fn every_resource_type_appears_in_all_types() {
         "s3_bucket",
         "ec2_spot_seat",
         "ami_bake",
+        "nas_archive",
     ] {
         assert!(
             listed.iter().any(|l| l == name),
