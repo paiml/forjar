@@ -22,11 +22,17 @@ use std::path::Path;
 /// A read-only probe, not an early acquire — see `locked_by_other_live_pid` for
 /// why. It does not replace the acquire; it only ensures the loser of the race
 /// has not written anything first.
-fn concurrent_writer_gate(state_dir: &Path) -> Result<(), String> {
-    match crate::core::state::locked_by_other_live_pid(state_dir) {
-        Some(msg) => Err(msg),
-        None => Ok(()),
+///
+/// FJ-LOCK-001 C4 (#1307): probes the MACHINE locks this run will take, not the
+/// single state-dir key. A live holder of `<sd>/<machine>/.forjar.lock` refuses
+/// only an apply to that machine.
+fn concurrent_writer_gate(state_dir: &Path, machines: &[String]) -> Result<(), String> {
+    for machine_name in machines {
+        if let Some(msg) = crate::core::state::machine_lock_refusal(state_dir, machine_name)? {
+            return Err(msg);
+        }
     }
+    Ok(())
 }
 
 /// REFUSE BEFORE MUTATING IF WE CANNOT RECORD WHAT WE DID.
@@ -163,7 +169,7 @@ pub(super) fn apply_state_gates(
     dry_run: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    concurrent_writer_gate(state_dir)?;
+    concurrent_writer_gate(state_dir, machines)?;
     // `--dry-run` is exempt from the two write-side gates: it mutates nothing,
     // so an unwritable log costs nothing, and failing it would make the
     // read-only inspection path depend on write access. The budget gate is
@@ -198,8 +204,12 @@ pub(super) fn apply_state_gates(
 /// machine in the config — including machines a refresh will not touch, because
 /// they have no lock — which is a new empty-machine-dir side effect that
 /// `list_state_machines` would then report as state.
-pub(super) fn lock_write_gates(state_dir: &Path, verbose: bool) -> Result<(), String> {
-    concurrent_writer_gate(state_dir)?;
+pub(super) fn lock_write_gates(
+    state_dir: &Path,
+    machines: &[String],
+    verbose: bool,
+) -> Result<(), String> {
+    concurrent_writer_gate(state_dir, machines)?;
     super::apply_gates::check_state_integrity(state_dir, verbose)
 }
 

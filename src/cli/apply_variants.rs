@@ -392,7 +392,8 @@ pub(crate) fn cmd_refresh_only_with(
 
     // Refuse BEFORE the first `save_lock`, not after: a refresh that re-seals a
     // tampered lock has destroyed the only evidence the tamper happened.
-    super::apply_preflight::lock_write_gates(state_dir, verbose)?;
+    let machines = super::apply_preflight::machines_in_scope(&config, machine_filter);
+    super::apply_preflight::lock_write_gates(state_dir, &machines, verbose)?;
 
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let mut refreshed = 0usize;

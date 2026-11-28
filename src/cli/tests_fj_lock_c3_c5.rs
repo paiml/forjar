@@ -141,3 +141,30 @@ fn c5_invalid_lock_timeout_is_an_error() {
         .unwrap_err();
     assert!(err.contains("invalid --lock-timeout"), "{err}");
 }
+
+/// FJ-LOCK-001 C4 (#1307): a live holder of the SINGLE state-dir key does not
+/// refuse an apply to any machine. The preflight probes each machine's lock.
+#[test]
+fn falsify_c4_single_state_dir_key_does_not_block_machine_applies() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = two_machine_config(dir.path());
+    let sd = dir.path().join("state");
+    std::fs::create_dir_all(&sd).unwrap();
+    let root = sd.join(".forjar.lock");
+    let info = crate::core::state::LockInfo {
+        id: "root-key-id".into(),
+        pid: 1,
+        starttime: String::new(),
+        command: "forjar apply".into(),
+        ..crate::core::state::LockInfo::current()
+    };
+    std::fs::write(&root, info.render()).unwrap();
+
+    let lambda = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "lambda", "--yes"]);
+    assert!(lambda.is_ok(), "single state-dir key refused lambda: {lambda:?}");
+    assert!(dir.path().join("lambda.txt").exists(), "lambda not converged");
+
+    let all = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--yes"]);
+    assert!(all.is_ok(), "single state-dir key refused the full apply: {all:?}");
+    assert!(root.exists(), "the root key was removed by an apply");
+}

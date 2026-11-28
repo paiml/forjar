@@ -10,7 +10,7 @@
 //! Files genuinely shared across machines (`forjar.lock.yaml`, generations,
 //! outputs) are written under a short [`hold_global_lock`] instead.
 
-use super::lock_info::read_lock_info;
+use super::lock_info::{is_pid_running, read_lock_info, Holder};
 use super::process_lock::{force_unlock_path, hold_paths, ProcessLockGuard};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -93,6 +93,28 @@ pub fn hold_machine_locks(
     hold_paths(&paths, force_unlock, lock_timeout())
 }
 
+/// FJ-LOCK-001 C4 (#1307): the refusal for a live holder of ONE machine's lock,
+/// or `None` when that machine is free, stale, unreadable or held by this
+/// process. READ-ONLY, like `process_lock::locked_by_other_live_pid`: it lets
+/// the loser of a race stop before it writes, and never acquires.
+pub fn machine_lock_refusal(state_dir: &Path, machine: &str) -> Result<Option<String>, String> {
+    let lock_path = machine_lock_path(state_dir, machine)?;
+    let Some(info) = read_lock_info(&lock_path) else {
+        return Ok(None);
+    };
+    let dead = matches!(info.holder_with(is_pid_running), Holder::Dead);
+    if dead || info.owned_by_this_process() {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "state directory is locked by PID {} ({}): {}. Wait, or pass --lock-timeout <dur>; \
+         if the holder is gone: forjar apply --force-unlock <ID> (refused while it is alive)",
+        info.pid,
+        lock_path.display(),
+        info.describe()
+    )))
+}
+
 /// Take the short global lock for a write to a file shared by machines.
 /// Re-entrant on the same thread, so nested writers join the hold.
 pub fn hold_global_lock(state_dir: &Path) -> Result<ProcessLockGuard, String> {
@@ -130,4 +152,50 @@ pub fn force_unlock_by_id(state_dir: &Path, id: &str) -> Result<PathBuf, String>
     };
     force_unlock_path(&path, Some(id))?;
     Ok(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// FJ-LOCK-001 C4 (#1307): applies to two machines in one state dir hold
+    /// their locks at the same time. Each take runs on its own thread, because
+    /// the re-entrancy record is per thread: a same-thread take would join.
+    #[test]
+    fn different_machines_hold_their_locks_concurrently() {
+        let dir = tempfile::tempdir().unwrap();
+        let sd = dir.path().to_path_buf();
+        let intel = hold_machine_locks(&sd, &["intel".to_string()], false);
+        assert!(
+            intel.is_ok(),
+            "intel refused on an empty state dir: {intel:?}"
+        );
+        let sd2 = sd.clone();
+        let lambda =
+            std::thread::spawn(move || hold_machine_locks(&sd2, &["lambda".to_string()], false))
+                .join()
+                .unwrap();
+        assert!(
+            lambda.is_ok(),
+            "lambda refused while intel is held: {lambda:?}"
+        );
+        assert!(machine_lock_path(&sd, "intel").unwrap().exists());
+        assert!(machine_lock_path(&sd, "lambda").unwrap().exists());
+    }
+
+    /// FJ-LOCK-001 C4 (#1307): a second apply to the SAME machine is still
+    /// refused while the first holds that machine's lock.
+    #[test]
+    fn same_machine_second_hold_is_refused_while_held() {
+        let dir = tempfile::tempdir().unwrap();
+        let sd = dir.path().to_path_buf();
+        let _first = hold_machine_locks(&sd, &["intel".to_string()], false).unwrap();
+        let sd2 = sd.clone();
+        let second = std::thread::spawn(move || {
+            hold_machine_locks(&sd2, &["intel".to_string()], false).is_ok()
+        })
+        .join()
+        .unwrap();
+        assert!(!second, "a second apply to intel took intel's held lock");
+    }
 }

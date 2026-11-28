@@ -345,7 +345,8 @@ pub fn load_apply_report(state_dir: &Path, machine: &str) -> Result<Option<Strin
 
 pub use lock_info::LockInfo;
 pub use lock_scope::{
-    force_unlock_by_id, hold_global_lock, hold_machine_locks, parse_lock_timeout, set_lock_timeout,
+    force_unlock_by_id, hold_global_lock, hold_machine_locks, machine_lock_refusal,
+    parse_lock_timeout, set_lock_timeout,
 };
 pub use process_lock::{
     acquire_process_lock, force_unlock, hold_process_lock, locked_by_other_live_pid,
