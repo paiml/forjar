@@ -169,7 +169,13 @@ pub(super) fn apply_state_gates(
     dry_run: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    concurrent_writer_gate(state_dir, machines)?;
+    // Probe exactly the machine locks `hold_apply_locks` takes (the selected
+    // resources' machines, implicit `localhost` included), not every machine
+    // the config declares: an unrelated locked machine must not refuse this run.
+    concurrent_writer_gate(
+        state_dir,
+        &crate::core::executor::lock_targets(config, machine_filter),
+    )?;
     // `--dry-run` is exempt from the two write-side gates: it mutates nothing,
     // so an unwritable log costs nothing, and failing it would make the
     // read-only inspection path depend on write access. The budget gate is

@@ -168,3 +168,68 @@ fn falsify_c4_single_state_dir_key_does_not_block_machine_applies() {
     assert!(all.is_ok(), "single state-dir key refused the full apply: {all:?}");
     assert!(root.exists(), "the root key was removed by an apply");
 }
+
+/// FJ-LOCK-001 C4 (#1307): a selector-scoped apply takes only the locks of the
+/// machines it converges, so a live foreign holder on an UNRELATED machine must
+/// not refuse it. Reverting the `lock_targets` probe in `apply_state_gates`
+/// (back to every declared machine) fails this test.
+#[test]
+fn falsify_c4_selector_scoped_apply_ignores_unrelated_locked_machine() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = two_machine_config(dir.path());
+    let sd = dir.path().join("state");
+    let lock = hang_machine(&sd, "intel", "hung-intel-id");
+
+    let only = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--only-machine", "lambda", "--yes"]);
+    assert!(only.is_ok(), "--only-machine lambda refused by intel's lock: {only:?}");
+    assert!(dir.path().join("lambda.txt").exists(), "lambda not converged");
+
+    let excl = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--exclude-machine", "intel", "--yes"]);
+    assert!(excl.is_ok(), "--exclude-machine intel refused by intel's lock: {excl:?}");
+    assert!(lock.exists(), "the live lock was removed");
+}
+
+/// FJ-LOCK-001 C4 (#1307): `--dry-run` and `--refresh-only` take no lock, so
+/// their refusal of a live holder comes only from the preflight probe
+/// (`machine_lock_refusal`). Replacing it with `Ok(None)` fails this test.
+#[test]
+fn falsify_c4_dry_run_and_refresh_refuse_a_held_machine() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = two_machine_config(dir.path());
+    let sd = dir.path().join("state");
+    let lock = hang_machine(&sd, "intel", "hung-intel-id");
+
+    let dry = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "intel", "--dry-run", "--yes"])
+        .unwrap_err();
+    assert!(dry.contains("locked by PID 1"), "dry-run not refused: {dry}");
+
+    let refresh = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "intel", "--refresh-only", "--yes"])
+        .unwrap_err();
+    assert!(refresh.contains("locked by PID 1"), "refresh-only not refused: {refresh}");
+
+    let dry_lambda = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "lambda", "--dry-run", "--yes"]);
+    assert!(dry_lambda.is_ok(), "dry-run of a free machine refused: {dry_lambda:?}");
+    assert!(lock.exists());
+    assert!(!dir.path().join("intel.txt").exists(), "intel was touched");
+}
+
+/// FJ-LOCK-001 C4 (#1307): an implicit `localhost` (no `machines:` block) takes
+/// `<sd>/localhost/.forjar.lock`, so a dry run must refuse a live holder of it.
+#[test]
+fn falsify_c4_implicit_localhost_dry_run_refuses_a_held_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = dir.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        format!(
+            "version: \"1.0\"\nname: local\nresources:\n  f:\n    type: file\n    path: {p}\n    content: x\n",
+            p = dir.path().join("f.txt").display()
+        ),
+    )
+    .unwrap();
+    let sd = dir.path().join("state");
+    let lock = hang_machine(&sd, "localhost", "hung-local-id");
+    let dry = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "--dry-run", "--yes"]).unwrap_err();
+    assert!(dry.contains("locked by PID 1"), "implicit localhost not refused: {dry}");
+    assert!(lock.exists());
+}

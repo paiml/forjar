@@ -198,4 +198,32 @@ mod tests {
         .unwrap();
         assert!(!second, "a second apply to intel took intel's held lock");
     }
+
+    /// FJ-LOCK-001 C4 (#1307): the preflight refusal for a live foreign holder
+    /// of ONE machine's lock. Replacing `machine_lock_refusal` with `Ok(None)`
+    /// fails this test.
+    #[test]
+    fn machine_lock_refusal_names_a_live_foreign_holder_of_that_machine_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let sd = dir.path();
+        let lock = machine_lock_path(sd, "intel").unwrap();
+        std::fs::create_dir_all(lock.parent().unwrap()).unwrap();
+        let info = crate::core::state::LockInfo {
+            id: "held-intel".into(),
+            pid: 1,
+            starttime: String::new(),
+            command: "forjar apply -m intel".into(),
+            ..crate::core::state::LockInfo::current()
+        };
+        std::fs::write(&lock, info.render()).unwrap();
+
+        let refused = machine_lock_refusal(sd, "intel").unwrap();
+        let msg = refused.expect("a live holder of intel's lock must refuse intel");
+        assert!(msg.contains("locked by PID 1"), "{msg}");
+        assert!(msg.contains("held-intel"), "LockInfo missing: {msg}");
+        assert!(
+            machine_lock_refusal(sd, "lambda").unwrap().is_none(),
+            "a free machine was refused"
+        );
+    }
 }
