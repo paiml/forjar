@@ -131,3 +131,6 @@ pub fn force_unlock_by_id(state_dir: &Path, id: &str) -> Result<PathBuf, String>
     force_unlock_path(&path, Some(id))?;
     Ok(path)
 }
+
+#[cfg(test)]
+mod tests;
