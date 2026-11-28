@@ -283,9 +283,9 @@ fi
 # window UNMEASURED, and UNMEASURED is a FAIL naming the tool — never a PASS
 # over "no PRs found".
 # PMAT-1173: read through the paged reader (lib/prpage.sh); a read that cannot finish is UNMEASURED.
-dogfood_pr_fetch "$prev_tag" HEAD number,mergedAt,mergeCommit,headRefName
+dogfood_pr_fetch "$prev_tag" HEAD number,mergedAt,mergeCommit,headRefName,headRefOid
 jrc=0
-pr_rows="$(printf '%s' "$DOGFOOD_PR_RAW" | jq -r '.[] | "\(.number) \(.mergeCommit.oid // "-") \(.headRefName // "-")"')" || jrc=$?
+pr_rows="$(printf '%s' "$DOGFOOD_PR_RAW" | jq -r '.[] | "\(.number) \(.mergeCommit.oid // "-") \(.headRefName // "-") \(.headRefOid // "-")"')" || jrc=$?
 if [ "$jrc" -ne 0 ]; then
   fail "cannot parse what ${GH} pr list returned as JSON (jq exit ${jrc}): ${DOGFOOD_PR_RAW} — UNMEASURED"
 fi
@@ -297,7 +297,7 @@ n_returned="$(count_lines "$pr_rows")"
 prs=""
 pr_meta=""
 n_after=0
-while read -r pr oid headref; do
+while read -r pr oid headref prhead; do
   if [ -z "$pr" ]; then
     continue
   fi
@@ -307,10 +307,13 @@ while read -r pr oid headref; do
   if [ -z "$headref" ] || [ "$headref" = "-" ]; then
     fail "GitHub reports PR #${pr} merged since ${prev_tag} with no headRefName, so its receipt slug (.quorum/<branch>.json) cannot be derived — UNMEASURED"
   fi
+  if [ -z "$prhead" ] || [ "$prhead" = "-" ]; then
+    fail "GitHub reports PR #${pr} merged since ${prev_tag} with no headRefOid, so its head-bound store receipt (forjar#876) cannot be named — UNMEASURED"
+  fi
   # PMAT-1174: membership is the one rule in lib/window.sh, never a PR number.
   dogfood_pr_member_of "$pr" "$oid" "$prev_tag" HEAD
   case "$DOGFOOD_PR_MEMBER" in
-    member) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref}"$'\n' ;;
+    member) prs="${prs}${pr}"$'\n'; pr_meta="${pr_meta}${pr} ${oid} ${headref} ${prhead}"$'\n' ;;
     previous) echo "  #${pr} ${oid} is inside ${prev_tag} (the previous release) — not counted" >&2 ;;
     after) n_after=$((n_after + 1)) ;;
     *) fail "dogfood_pr_member_of left DOGFOOD_PR_MEMBER='${DOGFOOD_PR_MEMBER:-}' for PR #${pr}: its place in this release is UNMEASURED" ;;
@@ -372,9 +375,20 @@ receipt_status() {
   esac
 }
 
+#
+# AND, not instead (forjar#1327, forjar#876): a PR also needs its HEAD-bound
+# STORE receipt, the one gate E already demands. The committed check above
+# never substitutes for it. An unset QUORUM_STORE is UNMEASURED, once, and only
+# when there is a PR to check, so an empty window stays an honest pass.
+# shellcheck source=scripts/dogfood/lib/store.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/store.sh"
+if [ -n "$pr_meta" ]; then
+  dogfood_store_require
+fi
+
 report=""
 any_bad=0
-while read -r pr oid headref; do
+while read -r pr oid headref prhead; do
   [ -n "$pr" ] || continue
   slug="${headref//\//-}"
   path=".quorum/${slug}.json"
@@ -384,7 +398,17 @@ while read -r pr oid headref; do
   else
     status="$(receipt_status "$blob" "$oid" "${oid}^1" "$oid" HEAD)"
   fi
-  report="${report}#${pr} ${slug} receipt=${status}"$'\n'
+  store_note=""
+  if [ "$status" = "ok" ]; then
+    # The store receipt is keyed by the PR's HEAD, read from the base. Only a
+    # committed receipt that already passed is asked for its store half.
+    dogfood_store_check "$pr" "$prhead" "$oid"
+    status="$DOGFOOD_STORE_TOKEN"
+    if [ "$status" != "ok" ]; then
+      store_note="  store: ${DOGFOOD_STORE_WHY}"$'\n'
+    fi
+  fi
+  report="${report}#${pr} ${slug} receipt=${status}"$'\n'"${store_note}"
   if [ "$status" != "ok" ]; then
     any_bad=1
   fi
@@ -470,3 +494,4 @@ fi
 # goes RED), swap previous and after (previous_and_after_carry_their_own_labels
 # goes RED), or compare a bound by equality (both_bounds_are_ancestry_not_equality).
 # A value no `case` arm lists fails UNMEASURED; `*) ;;` there would drop the PR.
+# mutation (forjar#1327): delete the dogfood_store_check call in the receipt loop above; a_pr_with_no_store_receipt_at_its_head_is_red goes RED, and a_thin_store_receipt_at_its_head_is_red and a_waived_store_receipt_at_its_head_is_red go RED with it.

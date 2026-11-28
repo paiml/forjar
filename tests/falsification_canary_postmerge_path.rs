@@ -142,6 +142,18 @@ fn both_nul(
         Some("2026-09-10T00:00:00Z"),
         nul,
     );
+    // Gate R judges the merged PR at its head (forjar#1327): its store receipt is
+    // written at that head, the way the gate-E fixture does below.
+    let r_head = cf::git(&r.root, &["rev-parse", "HEAD"]);
+    let rp = r
+        .store
+        .join(format!("quorum/paiml/forjar/77/{r_head}.json"));
+    std::fs::create_dir_all(rp.parent().expect("dir")).expect("store dir");
+    std::fs::write(
+        &rp,
+        rc::store_receipt(&r_head, r#"["a","b","c"]"#, 3, "claude-sonnet-5-5"),
+    )
+    .expect("store receipt");
     let g = ge::fixture(None, None);
     let s2 = land_nul(&g.root, &ge::slug(), missed, old, None, nul);
     // Gate E judges the head the PR was reviewed at: the pack commit on top of

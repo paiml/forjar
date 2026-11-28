@@ -46,6 +46,7 @@
 #[path = "release_check_fixture/mod.rs"]
 mod fx;
 use fx::*;
+use std::process::Command;
 
 #[test]
 fn a_gh_that_cannot_answer_is_a_fail_and_never_a_pass() {
@@ -170,6 +171,21 @@ fn a_tag_that_exists_on_the_remote_is_never_pending() {
 fn a_window_over_one_page_is_read_whole() {
     for n in [200, 450] {
         let fx = fixture(false, Some(good_receipt()));
+        // Every one of the n members is a PR of its own, so each needs its own
+        // head-bound store receipt (forjar#1327).
+        for i in 1..=n {
+            write(
+                &fx.store,
+                &format!("quorum/paiml/forjar/{i}/{}.json", fx.head),
+                &store_receipt_for(
+                    i as u32,
+                    &fx.head,
+                    r#"["a","b","c"]"#,
+                    3,
+                    "claude-sonnet-5-5",
+                ),
+            );
+        }
         let r = run(&fx, &stub_gh_release_paged(&fx, n, "honest"));
         r.assert_green(&format!("a window of {n} PRs is read in full"));
         r.assert_says(&format!("{n} PR(s)"));
@@ -220,7 +236,10 @@ fn a_page_that_is_not_an_array_of_prs_is_unmeasured_at_once() {
 // the others pin one mutant each of `dogfood_pr_member_of`.
 fn row(n: u32, oid: &str, head_ref: &str) -> String {
     let m = r#""mergedAt":"2026-09-05T00:00:00Z""#;
-    format!(r#"{{"number":{n},{m},"mergeCommit":{{"oid":"{oid}"}},"headRefName":"{head_ref}"}}"#)
+    // The fixture lands each PR in one commit, so its head is its merge commit.
+    format!(
+        r#"{{"number":{n},{m},"mergeCommit":{{"oid":"{oid}"}},"headRefName":"{head_ref}","headRefOid":"{oid}"}}"#
+    )
 }
 
 fn run_rows(fx: &Fixture, rows: &[String]) -> Run {
@@ -256,8 +275,24 @@ fn both_bounds_are_ancestry_not_equality() {
     let fx = fixture(false, Some(good_receipt()));
     let root = stdout_of(&git(&fx.root, &["rev-parse", PREV_TAG]));
     git(&fx.root, &["tag", "-f", PREV_TAG, &fx.head]);
-    git(&fx.root, &["commit", "-q", "--allow-empty", "-m", "mid"]);
+    // mid is a PR head too, so it carries the author trailer the store gate
+    // maps and its own head-bound store receipt (forjar#1327).
+    git(
+        &fx.root,
+        &[
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "mid\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>",
+        ],
+    );
     let mid = stdout_of(&git(&fx.root, &["rev-parse", "HEAD"]));
+    write(
+        &fx.store,
+        &format!("quorum/paiml/forjar/{PR}/{mid}.json"),
+        &store_receipt(&mid, r#"["a","b","c"]"#, 3, "claude-sonnet-5-5"),
+    );
     git(&fx.root, &["commit", "-q", "--allow-empty", "-m", "tip"]);
     let rows = [row(PR, &mid, HEAD_REF), row(75, &root, "release/older")];
     let r = run_rows(&fx, &rows);
@@ -308,4 +343,71 @@ fn previous_and_after_carry_their_own_labels() {
     r.assert_never_says("#78 ", "an after PR is not labelled previous");
     r.assert_says("2 of them after this HEAD");
     r.assert_never_says("feat-later", "a PR merged after HEAD has no receipt row");
+}
+
+// forjar#1327: gate R ANDs the head-bound store receipt (forjar#876) with the
+// committed `.quorum/<branch>.json` check, exactly as gate E does. The store
+// receipt is keyed by the PR's HEAD (headRefOid), never by the merge commit.
+
+#[test]
+fn a_pr_with_no_store_receipt_at_its_head_is_red() {
+    let fx = fixture(false, Some(good_receipt()));
+    std::fs::remove_file(store_receipt_path(&fx)).expect("the fixture's store receipt");
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green(&format!(
+        "PR #{PR} has its committed receipt but no store receipt at its head, \
+         and the store receipt is the head-bound half of the quorum"
+    ));
+    r.assert_says(&format!("#{PR} {} receipt=missing", slug()));
+}
+
+#[test]
+fn a_thin_store_receipt_at_its_head_is_red() {
+    let fx = fixture(false, Some(good_receipt()));
+    let thin = store_receipt(&fx.head, r#"["a","b"]"#, 3, "claude-sonnet-5-5");
+    std::fs::write(store_receipt_path(&fx), thin).expect("write");
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    r.assert_not_green("a store receipt below the lane floor is not a quorum");
+    r.assert_says(&format!("#{PR} {} receipt=thin", slug()));
+}
+
+#[test]
+fn a_waived_store_receipt_at_its_head_is_red() {
+    let fx = fixture(false, Some(good_receipt()));
+    let waived = store_receipt(&fx.head, r#"["a","b","c"]"#, 3, "claude-sonnet-5-5").replacen(
+        '{',
+        r#"{"waived":{"reason":"no credits"},"#,
+        1,
+    );
+    std::fs::write(store_receipt_path(&fx), waived).expect("write");
+    let r = run(&fx, &fx.gh_reporting_the_pr());
+    // The store gate refuses a waiver key itself, before the floors run, so the
+    // refusal reads store=missing with the waiver named as the reason.
+    r.assert_not_green("a waiver in the store receipt is never a pass");
+    r.assert_says(&format!("#{PR} {} receipt=missing", slug()));
+    r.assert_says("waiver/override text");
+}
+
+#[test]
+fn an_unset_store_is_unmeasured_and_never_a_pass() {
+    let fx = fixture(false, Some(good_receipt()));
+    let gh = fx.gh_reporting_the_pr();
+    let out = Command::new("bash")
+        .arg(fx.root.join("scripts/dogfood/release-check.sh"))
+        .current_dir(&fx.root)
+        .env_remove("QUORUM_STORE")
+        .env("GH", &gh)
+        .output()
+        .expect("bash must run");
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let r = Run {
+        code: out.status.code().unwrap_or(-1),
+        text,
+    };
+    r.assert_not_green("QUORUM_STORE unset leaves the store receipts unreadable");
+    r.assert_says("QUORUM_STORE");
 }

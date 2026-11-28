@@ -12,7 +12,7 @@ use std::path::Path;
 /// release object `gh release view` answers with. Only `$1` tells them apart.
 fn stub_body(head: &str) -> String {
     format!(
-        r#"{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{head}"}},"headRefName":"{HEAD_REF}"}}"#
+        r#"{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{head}"}},"headRefName":"{HEAD_REF}","headRefOid":"{head}"}}"#
     )
 }
 
@@ -136,7 +136,7 @@ pub(crate) fn stub_gh_release_paged(fx: &super::Fixture, n: usize, mode: &str) -
     let row = |num: usize, t: i64| {
         let h = &fx.head;
         format!(
-            r#"{{"number":{num},"t":{t},"mergeCommit":{{"oid":"{h}"}},"headRefName":"{}","title":"t","body":"b"}}"#,
+            r#"{{"number":{num},"t":{t},"mergeCommit":{{"oid":"{h}"}},"headRefName":"{}","headRefOid":"{h}","title":"t","body":"b"}}"#,
             super::HEAD_REF
         )
     };

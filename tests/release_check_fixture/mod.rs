@@ -20,6 +20,12 @@ use std::process::{Command, Output};
 mod gh;
 pub(crate) use gh::*;
 
+mod store;
+pub(crate) use store::*;
+
+mod published;
+pub(crate) use published::*;
+
 /// The fixture's own version, and therefore the tag the script looks for.
 pub(crate) const VERSION: &str = "0.0.2";
 pub(crate) const TAG: &str = "v0.0.2";
@@ -115,6 +121,9 @@ pub(crate) struct Fixture {
     /// The commit that landed after `PREV_TAG` — the merge commit the stubbed
     /// `gh` claims for PR #77, and an ancestor of HEAD.
     pub(crate) head: String,
+    /// The receipt store (`$QUORUM_STORE`), holding a good head-bound store
+    /// receipt for [`Fixture::head`] unless a test removes or replaces it.
+    pub(crate) store: PathBuf,
 }
 
 impl Fixture {
@@ -125,8 +134,8 @@ impl Fixture {
             self.root.parent().expect("tempdir"),
             "gh-one-pr",
             &format!(
-                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}"}}]"#,
-                self.head
+                r#"[{{"number":{PR},"mergedAt":"2026-09-05T00:00:00Z","mergeCommit":{{"oid":"{}"}},"headRefName":"{HEAD_REF}","headRefOid":"{}"}}]"#,
+                self.head, self.head
             ),
         )
     }
@@ -167,6 +176,7 @@ pub(crate) fn run(fx: &Fixture, gh: &str) -> Run {
     let out = Command::new("bash")
         .arg(fx.root.join("scripts/dogfood/release-check.sh"))
         .current_dir(&fx.root)
+        .env("QUORUM_STORE", &fx.store)
         .env("GH", gh)
         .output()
         .expect("bash must run");
@@ -238,6 +248,11 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
     for rel in [
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/lib/prpage.sh",
+        "scripts/dogfood/lib/store.sh",
+        // The store gate is read from MERGE^1 (the base), so it is committed
+        // in the base commit below, exactly as it is in the real repository.
+        "scripts/quorum-store-gate.sh",
+        "scripts/quorum-models.json",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
             .unwrap_or_else(|e| panic!("release-check.sh sources {rel}: {e}"));
@@ -270,6 +285,8 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
             "Cargo.toml",
             "CHANGELOG.md",
             &format!("docs/audits/crux-{VERSION}.md"),
+            "scripts/quorum-store-gate.sh",
+            "scripts/quorum-models.json",
         ],
     );
     commit_at(&root, "the previous release", "2026-09-01T00:00:00Z");
@@ -281,8 +298,22 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         write(&root, &format!(".quorum/{}.json", slug()), body);
         git(&root, &["add", &format!(".quorum/{}.json", slug())]);
     }
-    commit_at(&root, "squash-merged work (#77)", "2026-09-10T00:00:00Z");
+    // The fixture lands the PR in one squash commit, so that commit is both
+    // the merge and the head. The author trailer is what the store gate maps
+    // to a model; without it the store gate refuses the commit.
+    commit_at(
+        &root,
+        "squash-merged work (#77)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>",
+        "2026-09-10T00:00:00Z",
+    );
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
+    // The head-bound store receipt (forjar#876) for that head, good by default.
+    let store = dir.path().join("store");
+    write(
+        &store,
+        &format!("quorum/paiml/forjar/{PR}/{head}.json"),
+        &store_receipt(&head, r#"["a","b","c"]"#, 3, "claude-sonnet-5-5"),
+    );
 
     if tag_on_origin {
         git(&root, &["tag", TAG]);
@@ -312,6 +343,7 @@ pub(crate) fn fixture(tag_on_origin: bool, receipt: Option<&str>) -> Fixture {
         _dir: dir,
         root,
         head,
+        store,
     }
 }
 
@@ -352,6 +384,9 @@ pub(crate) fn published_fixture() -> Fixture {
         "scripts/dogfood/lib/window.sh",
         "scripts/dogfood/lib/prpage.sh",
         "scripts/dogfood/crux-reconcile.sh",
+        "scripts/dogfood/lib/store.sh",
+        "scripts/quorum-store-gate.sh",
+        "scripts/quorum-models.json",
     ] {
         let body = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel))
             .unwrap_or_else(|e| panic!("the gate under test must exist at {rel}: {e}"));
@@ -373,8 +408,21 @@ pub(crate) fn published_fixture() -> Fixture {
     write(&root, "shipped.txt", "work that reached this release\n");
     write(&root, &format!(".quorum/{}.json", slug()), good_receipt());
     git(&root, &["add", "-A"]);
-    git(&root, &["commit", "-qm", "squash-merged work (#77)"]);
+    git(
+        &root,
+        &[
+            "commit",
+            "-qm",
+            "squash-merged work (#77)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>",
+        ],
+    );
     let head = stdout_of(&git(&root, &["rev-parse", "HEAD"]));
+    let store = dir.path().join("store");
+    write(
+        &store,
+        &format!("quorum/paiml/forjar/{PR}/{head}.json"),
+        &store_receipt(&head, r#"["a","b","c"]"#, 3, "claude-sonnet-5-5"),
+    );
     git(&root, &["tag", PREV_TAG]);
 
     let origin = dir.path().join("origin.git");
@@ -398,52 +446,7 @@ pub(crate) fn published_fixture() -> Fixture {
         _dir: dir,
         root,
         head,
-    }
-}
-
-/// `cargo` and `curl` answering the way a published release makes them answer.
-/// Returned as a directory to put FIRST on `PATH`.
-pub(crate) fn stub_release_tools(dir: &Path, crate_version: &str, doc_status: &str) -> PathBuf {
-    let bin = dir.join("bin");
-    std::fs::create_dir_all(&bin).expect("mkdir bin");
-    // `cargo search` prints `name = "x.y.z"    # description`; the script takes
-    // field 3 and strips the quotes.
-    std::fs::write(
-        bin.join("cargo"),
-        format!("#!/usr/bin/env bash\nprintf 'forjar = \"{crate_version}\"    # fixture\\n'\n"),
-    )
-    .expect("write cargo stub");
-    std::fs::write(
-        bin.join("curl"),
-        format!("#!/usr/bin/env bash\nprintf '{{\"doc_status\": {doc_status}}}'\n"),
-    )
-    .expect("write curl stub");
-    for f in ["cargo", "curl"] {
-        std::fs::set_permissions(bin.join(f), std::fs::Permissions::from_mode(0o755))
-            .expect("chmod");
-    }
-    bin
-}
-
-/// Run the gate with `gh`, `cargo` and `curl` all answering.
-pub(crate) fn run_published(fx: &Fixture, gh: &str, bin: &Path) -> Run {
-    let path = format!(
-        "{}:{}",
-        bin.display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
-    let out = Command::new("bash")
-        .arg(fx.root.join("scripts/dogfood/release-check.sh"))
-        .current_dir(&fx.root)
-        .env("GH", gh)
-        .env("PATH", path)
-        .output()
-        .expect("bash must run");
-    let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
-    text.push_str(&String::from_utf8_lossy(&out.stderr));
-    Run {
-        code: out.status.code().unwrap_or(-1),
-        text,
+        store,
     }
 }
 
