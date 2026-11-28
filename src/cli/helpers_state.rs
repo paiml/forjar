@@ -26,6 +26,27 @@ pub(crate) fn load_machine_locks(
     Ok(locks)
 }
 
+/// Load the lock files of exactly `machines`, the set a write will touch.
+///
+/// `load_machine_locks` filters `config.machines` by `-m` only, so a
+/// `--exclude-machine` or `-r` selection left the unselected machines' locks in
+/// the set `--refresh-only` re-sealed. Callers pass `executor::lock_targets`.
+pub(crate) fn load_machine_locks_for(
+    state_dir: &Path,
+    machines: &[String],
+) -> Result<std::collections::HashMap<String, types::StateLock>, String> {
+    let mut locks = std::collections::HashMap::new();
+    if !state_dir.exists() {
+        return Ok(locks);
+    }
+    for machine_name in machines {
+        if let Some(lock) = state::load_lock(state_dir, machine_name)? {
+            locks.insert(machine_name.clone(), lock);
+        }
+    }
+    Ok(locks)
+}
+
 /// List machine names from state directory subdirectories.
 pub(crate) fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, String> {
     let mut machines = Vec::new();

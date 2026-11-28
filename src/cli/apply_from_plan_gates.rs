@@ -121,6 +121,7 @@ pub(super) fn run_plan_apply_gates(
         config,
         req.state_dir,
         &machines,
+        &machines,
         req.selectors.machine.as_deref(),
         req.selectors.resource.as_deref(),
         req.selectors.tag.as_deref(),

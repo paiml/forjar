@@ -163,19 +163,19 @@ pub(super) fn apply_state_gates(
     config: &types::ForjarConfig,
     state_dir: &Path,
     machines: &[String],
+    lock_set: &[String],
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
     tag_filter: Option<&str>,
     dry_run: bool,
     verbose: bool,
 ) -> Result<(), String> {
-    // Probe exactly the machine locks `hold_apply_locks` takes (the selected
-    // resources' machines, implicit `localhost` included), not every machine
-    // the config declares: an unrelated locked machine must not refuse this run.
-    concurrent_writer_gate(
-        state_dir,
-        &crate::core::executor::lock_targets(config, machine_filter),
-    )?;
+    // Probe exactly the machine locks this run takes: `lock_set` is the
+    // selected resources' machines (implicit `localhost` included) for an
+    // ordinary apply, and the reviewed plan's machines for `--plan-file`. Not
+    // every machine the config declares: an unrelated locked machine must not
+    // refuse this run.
+    concurrent_writer_gate(state_dir, lock_set)?;
     // `--dry-run` is exempt from the two write-side gates: it mutates nothing,
     // so an unwritable log costs nothing, and failing it would make the
     // read-only inspection path depend on write access. The budget gate is
@@ -286,6 +286,7 @@ pub(super) fn apply_pre_validate(
         config,
         state_dir,
         &machines_in_scope(config, machine_filter),
+        &crate::core::executor::lock_targets(config, machine_filter),
         machine_filter,
         resource_filter,
         tag_filter,

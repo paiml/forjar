@@ -233,3 +233,93 @@ fn falsify_c4_implicit_localhost_dry_run_refuses_a_held_lock() {
     assert!(dry.contains("locked by PID 1"), "implicit localhost not refused: {dry}");
     assert!(lock.exists());
 }
+
+/// FJ-LOCK-001 C4 (#1307): `--refresh-only` with a selector re-seals only the
+/// machines the selection names. `intel` is excluded and held by a live foreign
+/// PID, so its lock files must not be rewritten. A selector-excluded resource
+/// is pruned from the config, so a refresh of intel writes back identical bytes;
+/// the observable is the file's mtime. Reverting the load in
+/// `cmd_refresh_only_with` to every `-m`-matching machine re-saves intel's lock,
+/// which this test catches.
+#[test]
+fn falsify_c4_refresh_only_with_selector_leaves_excluded_held_lock_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = two_machine_config(dir.path());
+    let sd = dir.path().join("state");
+    let seeded = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "intel", "--yes"]);
+    assert!(seeded.is_ok(), "seed apply for intel failed: {seeded:?}");
+    let yaml = sd.join("intel").join("state.lock.yaml");
+    let b3 = sd.join("intel").join("state.lock.yaml.b3");
+    let mtime = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
+    let (yaml_before, b3_before) = (mtime(&yaml), mtime(&b3));
+    let lock = hang_machine(&sd, "intel", "hung-intel-id");
+    // Let a rewrite land on a later timestamp tick than the seed apply.
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    let r = run_apply(&[
+        "-f",
+        &s(&cfg),
+        "--state-dir",
+        &s(&sd),
+        "--refresh-only",
+        "--exclude-machine",
+        "intel",
+        "--yes",
+    ]);
+    assert!(r.is_ok(), "refresh-only --exclude-machine intel refused: {r:?}");
+    assert_eq!(mtime(&yaml), yaml_before, "excluded intel state.lock.yaml was rewritten");
+    assert_eq!(mtime(&b3), b3_before, "excluded intel state.lock.yaml.b3 was rewritten");
+    assert!(lock.exists(), "the live lock was removed");
+}
+
+/// FJ-LOCK-001 C4 (#1307): `apply --plan-file --dry-run` of a lambda-only plan
+/// probes the plan's machines, not every machine the config declares. `intel`
+/// is outside the plan and held by a live foreign PID, so the dry run must pass.
+/// Reverting `apply_state_gates` to probe `lock_targets(config, None)` refuses
+/// it on intel's lock, which this test catches.
+#[test]
+fn falsify_c4_plan_file_dry_run_ignores_a_machine_outside_the_plan() {
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = two_machine_config(dir.path());
+    let sd = dir.path().join("state");
+    // A plan needs a state dir to be authoritative; seed intel so the plan is
+    // not "no state", leaving lambda as the only pending create.
+    let seeded = run_apply(&["-f", &s(&cfg), "--state-dir", &s(&sd), "-m", "intel", "--yes"]);
+    assert!(seeded.is_ok(), "seed apply for intel failed: {seeded:?}");
+    let plan = dir.path().join("lambda-plan.json");
+    super::plan::cmd_plan(
+        &cfg,
+        &sd,
+        Some("lambda"),
+        None,
+        None,
+        false,
+        false,
+        None,
+        None,
+        None,
+        false,
+        None,
+        false,
+        &[],
+        Some(&plan),
+        false,
+        None,
+    )
+    .expect("plan for lambda");
+    let lock = hang_machine(&sd, "intel", "hung-intel-id");
+
+    let dry = run_apply(&[
+        "-f",
+        &s(&cfg),
+        "--state-dir",
+        &s(&sd),
+        "--plan-file",
+        &s(&plan),
+        "--dry-run",
+        "--yes",
+    ]);
+    assert!(dry.is_ok(), "lambda-only plan dry-run refused by intel's lock: {dry:?}");
+    assert!(lock.exists(), "the live lock was removed");
+    assert!(!dir.path().join("lambda.txt").exists(), "--dry-run wrote lambda");
+}

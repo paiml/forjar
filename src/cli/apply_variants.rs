@@ -395,7 +395,9 @@ pub(crate) fn cmd_refresh_only_with(
     let machines = crate::core::executor::lock_targets(&config, machine_filter);
     super::apply_preflight::lock_write_gates(state_dir, &machines, verbose)?;
 
-    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    // Load and save only the machines the write set names: a machine locked by a
+    // live foreign holder and excluded by a selector must keep its lock files.
+    let locks = load_machine_locks_for(state_dir, &machines)?;
     let mut refreshed = 0usize;
     let mut drift_count = 0usize;
 
